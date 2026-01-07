@@ -3478,18 +3478,8 @@ const Trips = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-1 font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalFreightAmount)}
-                                  {(() => {
-                                    const freightAmount = Number(order.freightAmount) || 0;
-                                    const totalFreight = Number(order.totalFreightAmount) || 0;
-                                    if (totalFreight > freightAmount) {
-                                      return <TrendingUp className="h-4 w-4 text-green-500" />;
-                                    } else if (totalFreight < freightAmount) {
-                                      return <TrendingDown className="h-4 w-4 text-red-500" />;
-                                    }
-                                    return null;
-                                  })()}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -3556,6 +3546,43 @@ const Trips = () => {
                                         <PopoverContent className="w-auto p-3 max-w-xs" align="start">
                                           <div className="text-sm font-semibold mb-2">Reschedule Notes</div>
                                           <div className="text-sm">{dateChangeNotes}</div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const freightAmount = Number(order.freightAmount) || 0;
+                                    const totalFreight = Number(order.totalFreightAmount) || 0;
+                                    const difference = totalFreight - freightAmount;
+                                    
+                                    if (difference === 0) return null;
+                                    
+                                    const isPositive = difference > 0;
+                                    
+                                    return (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="sm">
+                                            {isPositive ? (
+                                              <TrendingUp className="h-4 w-4 text-green-500" />
+                                            ) : (
+                                              <TrendingDown className="h-4 w-4 text-red-500" />
+                                            )}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                          <div className="text-sm font-semibold mb-2">
+                                            {isPositive ? "Additional Pay" : "Reduced Pay"}
+                                          </div>
+                                          <div className="text-sm">
+                                            Base Freight: {formatCurrency(freightAmount)}
+                                          </div>
+                                          <div className="text-sm">
+                                            Total Freight: {formatCurrency(totalFreight)}
+                                          </div>
+                                          <div className={`text-sm font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                                            Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
+                                          </div>
                                         </PopoverContent>
                                       </Popover>
                                     );
