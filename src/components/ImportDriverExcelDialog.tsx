@@ -38,6 +38,7 @@ interface DriverDealInfo {
   weekly_payment: number | null;
   weeks_count: number | null;
   agreement_start_date: string | null;
+  hire_date: string | null;
 }
 
 function parseDate(value: any): string | null {
@@ -123,12 +124,13 @@ function generateSqlCode(
   lines.push('');
   
   // Update driver deal info
-  if (dealInfo.weekly_payment || dealInfo.weeks_count || dealInfo.agreement_start_date) {
+  if (dealInfo.weekly_payment || dealInfo.weeks_count || dealInfo.agreement_start_date || dealInfo.hire_date) {
     lines.push('-- Update Driver Deal Information');
     const updates: string[] = [];
     if (dealInfo.weekly_payment) updates.push(`weekly_payment = ${dealInfo.weekly_payment}`);
     if (dealInfo.weeks_count) updates.push(`weeks_count = ${dealInfo.weeks_count}`);
     if (dealInfo.agreement_start_date) updates.push(`agreement_start_date = '${dealInfo.agreement_start_date}'`);
+    if (dealInfo.hire_date) updates.push(`hire_date = '${dealInfo.hire_date}'`);
     
     lines.push(`UPDATE drivers SET ${updates.join(', ')} WHERE id = '${driverId}';`);
     lines.push('');
@@ -198,21 +200,23 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
       const dealInfo: DriverDealInfo = {
         weekly_payment: null,
         weeks_count: null,
-        agreement_start_date: null
+        agreement_start_date: null,
+        hire_date: null
       };
       
-      // Look for truck payment and start date in first rows
+      // Extract date from cell D2 (row index 1, column index 3) for both agreement_start_date and hire_date
+      if (data[1] && data[1][3]) {
+        const d2Date = parseDate(data[1][3]);
+        if (d2Date) {
+          dealInfo.agreement_start_date = d2Date;
+          dealInfo.hire_date = d2Date;
+        }
+      }
+      
+      // Look for truck payment pattern in first rows
       for (let i = 0; i < Math.min(20, data.length); i++) {
         const row = data[i];
         if (!row) continue;
-        
-        // Look for START column/date
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || '').toUpperCase();
-          if (cell === 'START' && row[j + 1]) {
-            dealInfo.agreement_start_date = parseDate(row[j + 1]);
-          }
-        }
         
         // Look for truck payment pattern like "$900/208" (must be > $600 to exclude escrow)
         for (const cell of row) {
