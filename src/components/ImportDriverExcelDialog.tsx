@@ -245,8 +245,9 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
             if (header === 'NAME') columnMap['name'] = idx;
             if (header === 'EXPLANATION') columnMap['explanation'] = idx;
             if (header === 'DATE' && !header.includes('PAID')) columnMap['date'] = idx;
-            if (header === 'AMOUNT') columnMap['amount'] = idx;
+            if (header === 'AMOUNT' && !header.includes('PAID')) columnMap['amount'] = idx;
             if (header === 'STATUS') columnMap['status'] = idx;
+            if (header.includes('PAID') && header.includes('AMOUNT')) columnMap['paid_amount'] = idx;
             if (header.includes('PAID') && header.includes('DATE')) columnMap['paid_date'] = idx;
             if (header === 'NOTICE 1') columnMap['notice_1'] = idx;
             if (header === 'NOTICE 2') columnMap['notice_2'] = idx;
@@ -276,15 +277,28 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
           const notice1 = row[columnMap['notice_1']] ? String(row[columnMap['notice_1']]).trim() : null;
           const notice2 = row[columnMap['notice_2']] ? String(row[columnMap['notice_2']]).trim() : null;
           
-          // Check if status is a number (meaning it's actually paid_amount)
-          let status: string;
+          // Get paid amount from dedicated column if it exists
           let paidAmount: number | null = null;
-          const statusNum = parseAmount(rawStatus);
-          if (statusNum > 0 && !isNaN(statusNum)) {
-            status = 'partial';
-            paidAmount = statusNum;
+          if (columnMap['paid_amount'] !== undefined) {
+            const rawPaidAmount = parseAmount(row[columnMap['paid_amount']]);
+            // Only use if it's a reasonable value (not greater than amount and not too large)
+            if (rawPaidAmount > 0 && rawPaidAmount <= amount) {
+              paidAmount = rawPaidAmount;
+            }
+          }
+          
+          // Determine status based on paid amount
+          let status: string;
+          if (paidAmount !== null && paidAmount > 0) {
+            status = paidAmount >= amount ? 'paid' : 'partial';
           } else {
-            status = String(rawStatus || 'pending').toLowerCase().trim();
+            // Check raw status column for text status
+            const rawStatusStr = String(rawStatus || '').toLowerCase().trim();
+            if (rawStatusStr === 'paid' || rawStatusStr === 'partial' || rawStatusStr === 'pending') {
+              status = rawStatusStr;
+            } else {
+              status = 'pending';
+            }
           }
           
           const explanationLower = explanation.toLowerCase();
