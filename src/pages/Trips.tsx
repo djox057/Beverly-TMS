@@ -3497,32 +3497,52 @@ const Trips = () => {
                                     
                                     const isPositive = difference > 0;
                                     
-                                    // Build itemized breakdown
+                                    // Build itemized breakdown - check both naming conventions
                                     const items: { label: string; value: number }[] = [];
-                                    if ((order as any).detentionDriver > 0) items.push({ label: 'Detention', value: (order as any).detentionDriver });
-                                    if ((order as any).layoverDriver > 0) items.push({ label: 'Layover', value: (order as any).layoverDriver });
-                                    if ((order as any).lateFeeDriver > 0) items.push({ label: 'Late Fee', value: (order as any).lateFeeDriver });
-                                    if ((order as any).noTrackingFeeDriver > 0) items.push({ label: 'No Tracking', value: (order as any).noTrackingFeeDriver });
-                                    if ((order as any).wrongAddressFeeDriver > 0) items.push({ label: 'Wrong Address', value: (order as any).wrongAddressFeeDriver });
-                                    if ((order as any).escortFee > 0) items.push({ label: 'Escort', value: (order as any).escortFee });
-                                    if ((order as any).lumper > 0) items.push({ label: 'Lumper', value: (order as any).lumper });
-                                    if ((order as any).lumperDriver > 0) items.push({ label: 'Lumper Driver', value: (order as any).lumperDriver });
-                                    if ((order as any).extraStopDriver > 0) items.push({ label: 'Extra Stop', value: (order as any).extraStopDriver });
-                                    if ((order as any).tonuDriver > 0) items.push({ label: 'TONU', value: (order as any).tonuDriver });
-                                    if ((order as any).otherChargesDriver > 0) items.push({ label: 'Other Charges', value: (order as any).otherChargesDriver });
-                                    if ((order as any).otherAdditionalsDriver > 0) {
+                                    const detentionDriver = Number((order as any).detentionDriver) || 0;
+                                    const layoverDriver = Number((order as any).layoverDriver) || 0;
+                                    const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
+                                    const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
+                                    const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
+                                    const escortFee = Number((order as any).escortFee) || 0;
+                                    const lumper = Number((order as any).lumper) || 0;
+                                    const lumperDriver = Number((order as any).lumperDriver) || 0;
+                                    const extraStopDriver = Number((order as any).extraStopDriver) || 0;
+                                    const tonuDriver = Number((order as any).tonuDriver) || 0;
+                                    const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
+                                    const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
+                                    
+                                    if (detentionDriver > 0) items.push({ label: 'Detention', value: detentionDriver });
+                                    if (layoverDriver > 0) items.push({ label: 'Layover', value: layoverDriver });
+                                    if (lateFeeDriver > 0) items.push({ label: 'Late Fee', value: lateFeeDriver });
+                                    if (noTrackingFeeDriver > 0) items.push({ label: 'No Tracking', value: noTrackingFeeDriver });
+                                    if (wrongAddressFeeDriver > 0) items.push({ label: 'Wrong Address', value: wrongAddressFeeDriver });
+                                    if (escortFee > 0) items.push({ label: 'Escort', value: escortFee });
+                                    if (lumper > 0) items.push({ label: 'Lumper', value: lumper });
+                                    if (lumperDriver > 0) items.push({ label: 'Lumper Driver', value: lumperDriver });
+                                    if (extraStopDriver > 0) items.push({ label: 'Extra Stop', value: extraStopDriver });
+                                    if (tonuDriver > 0) items.push({ label: 'TONU', value: tonuDriver });
+                                    if (otherChargesDriver > 0) items.push({ label: 'Other Charges', value: otherChargesDriver });
+                                    if (otherAdditionalsDriver > 0) {
                                       const reason = (order as any).otherAdditionalsReason || 'Other Additionals';
-                                      items.push({ label: reason, value: (order as any).otherAdditionalsDriver });
+                                      items.push({ label: reason, value: otherAdditionalsDriver });
                                     }
+                                    
+                                    // Debug log
+                                    console.log('Order additionals check:', order.loadNumber, {
+                                      freightAmount, totalFreight, difference, items,
+                                      rawLayover: (order as any).layoverDriver,
+                                      rawOtherAdditionals: (order as any).otherAdditionalsDriver
+                                    });
                                     
                                     return (
                                       <Popover>
                                         <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="p-1">
+                                          <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
                                             <img 
                                               src={moneyStackIcon} 
                                               alt={isPositive ? "Additional pay" : "Reduced pay"} 
-                                              className={`h-5 w-5 ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+                                              className={`h-5 w-5 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
                                             />
                                           </Button>
                                         </PopoverTrigger>
