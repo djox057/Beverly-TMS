@@ -2794,7 +2794,7 @@ const Reports = () => {
 
           {/* Only render the active tab content */}
           <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
-            {isLoading && !groupedReports ? (
+            {(isLoading && !groupedReports) || (activeOfficeReports.length === 0 && isFetchingBackground) ? (
               <LoadingSkeleton />
             ) : activeOfficeReports.length === 0 ? (
               <div className="p-4">
