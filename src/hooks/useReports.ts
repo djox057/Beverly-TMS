@@ -2027,13 +2027,17 @@ export const useReports = (options?: UseReportsOptions) => {
   });
 
   // Merge: use background data if available, otherwise priority data
+  // Keep priority data as-is while background loads - don't swap mid-interaction
+  const mergedData = backgroundQuery.data ?? priorityQuery.data;
+  
   const reportsQuery = {
-    data: backgroundQuery.data ?? priorityQuery.data,
+    data: mergedData,
     isLoading: priorityQuery.isLoading, // Only show loading for priority
     isPending: priorityQuery.isPending,
     isError: priorityQuery.isError && backgroundQuery.isError,
     error: priorityQuery.error ?? backgroundQuery.error,
     isSuccess: priorityQuery.isSuccess || backgroundQuery.isSuccess,
+    isFetchingBackground: backgroundQuery.isFetching && !backgroundQuery.isLoading, // Indicates background is loading
     refetch: async () => {
       await Promise.all([priorityQuery.refetch(), backgroundQuery.refetch()]);
     },

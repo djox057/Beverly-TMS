@@ -53,7 +53,7 @@ import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
-import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback, useDeferredValue } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -321,7 +321,7 @@ const Reports = () => {
     return "Čačak";
   };
   const {
-    data: groupedReports,
+    data: rawGroupedReports,
     isLoading,
     error,
     updateTruckStatus,
@@ -334,6 +334,10 @@ const Reports = () => {
     markGoingToPickup,
     markGoingToDelivery,
   } = useReports({ priorityOffice: profile?.office || "Čačak" });
+  
+  // Use deferred value to prevent background data updates from blocking interactions
+  const groupedReports = useDeferredValue(rawGroupedReports);
+  
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
