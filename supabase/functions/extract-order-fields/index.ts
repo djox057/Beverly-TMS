@@ -297,6 +297,29 @@ Return ONLY valid JSON. No markdown, no explanations.`;
     if (!extractedData.pickups) extractedData.pickups = [];
     if (!extractedData.deliveries) extractedData.deliveries = [];
 
+    // Fix time ranges: ensure endTime is always after startTime
+    // If endTime appears earlier (e.g., 08:00-03:00), convert endTime to PM (e.g., 15:00)
+    const fixTimeRange = (stop: PickupDeliveryStop) => {
+      if (stop.startTime && stop.endTime) {
+        const [startHour, startMin] = stop.startTime.split(':').map(Number);
+        const [endHour, endMin] = stop.endTime.split(':').map(Number);
+        
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        
+        // If end time is earlier than start time and end hour is < 12, add 12 hours (convert to PM)
+        if (endMinutes < startMinutes && endHour < 12) {
+          const newEndHour = endHour + 12;
+          stop.endTime = `${newEndHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+          console.log(`Fixed time range: ${stop.startTime}-${endHour}:${endMin.toString().padStart(2, '0')} → ${stop.startTime}-${stop.endTime}`);
+        }
+      }
+      return stop;
+    };
+
+    extractedData.pickups = extractedData.pickups.map(fixTimeRange);
+    extractedData.deliveries = extractedData.deliveries.map(fixTimeRange);
+
     // Validation: at least 1 pickup and 1 delivery
     if (extractedData.pickups.length === 0 || extractedData.deliveries.length === 0) {
       console.warn("Missing pickups or deliveries, attempting auto-correction...");
