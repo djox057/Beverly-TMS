@@ -55,6 +55,7 @@ interface TruckMapDialogProps {
   deliveryAddress?: string;
   pickupAddresses?: string[]; // All pickup addresses for multi-stop loads
   deliveryAddresses?: string[]; // All delivery addresses for multi-stop loads
+  completedDeliveryCount?: number; // Number of PODs uploaded (completed deliveries)
   pickupDate?: string;
   pickupTime?: string;
   deliveryDate?: string;
@@ -290,6 +291,7 @@ export function TruckMapView({
   deliveryAddress,
   pickupAddresses,
   deliveryAddresses,
+  completedDeliveryCount = 0,
   pickupDate,
   pickupTime,
   deliveryDate,
@@ -392,7 +394,7 @@ export function TruckMapView({
           }
         }
 
-        // Add ALL delivery markers with numbered labels
+        // Add ALL delivery markers with numbered labels (show completed ones differently)
         const deliveryCoordsList: { lon: number; lat: number }[] = [];
         for (let i = 0; i < allDeliveryAddresses.length; i++) {
           const address = allDeliveryAddresses[i];
@@ -407,10 +409,16 @@ export function TruckMapView({
             deliveryEl.style.display = 'flex';
             deliveryEl.style.alignItems = 'center';
             deliveryEl.style.gap = '2px';
-            // Show number only if multiple deliveries
-            deliveryEl.innerHTML = allDeliveryAddresses.length > 1 
-              ? `<span style="background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">D${i + 1}</span>`
-              : '🎯';
+            
+            const isCompleted = i < completedDeliveryCount;
+            // Show number only if multiple deliveries, with different color for completed
+            if (allDeliveryAddresses.length > 1) {
+              deliveryEl.innerHTML = isCompleted
+                ? `<span style="background:#22c55e;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">✓</span>`
+                : `<span style="background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">D${i + 1}</span>`;
+            } else {
+              deliveryEl.innerHTML = '🎯';
+            }
             
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([coords.lon, coords.lat])
@@ -429,11 +437,12 @@ export function TruckMapView({
             token
           );
         } else if (shouldRouteToDelivery && deliveryCoordsList.length > 0) {
-          // Route to first incomplete delivery
+          // Route to first INCOMPLETE delivery (skip completed ones)
+          const nextDeliveryIndex = Math.min(completedDeliveryCount, deliveryCoordsList.length - 1);
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [deliveryCoordsList[0].lon, deliveryCoordsList[0].lat],
+            [deliveryCoordsList[nextDeliveryIndex].lon, deliveryCoordsList[nextDeliveryIndex].lat],
             token
           );
         }
@@ -454,7 +463,7 @@ export function TruckMapView({
       map.current?.remove();
       map.current = null;
     };
-  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), hasBOL, hasPOD, pickupArrived]);
+  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), completedDeliveryCount, hasBOL, hasPOD, pickupArrived]);
 
   const drawRouteToDestination = async (
     mapInstance: mapboxgl.Map,

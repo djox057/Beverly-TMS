@@ -3945,6 +3945,9 @@ const Reports = () => {
                                                 `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim()
                                               ).filter((addr: string) => addr && addr !== ", ,")
                                             }
+                                            completedDeliveryCount={
+                                              currentOrder?.order_files?.filter((file: any) => file.file_category === "POD").length || 0
+                                            }
                                             pickupDate={truck.pickup?.date}
                                             pickupTime={truck.pickup?.time}
                                             deliveryDate={truck.delivery?.date}
