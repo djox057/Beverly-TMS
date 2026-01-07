@@ -142,6 +142,11 @@ const EditOrder = () => {
   const [loadedMiles, setLoadedMiles] = useState("");
   const [otherCharges, setOtherCharges] = useState("");
   const [otherChargesDriver, setOtherChargesDriver] = useState("");
+  const [otherChargesReason, setOtherChargesReason] = useState("");
+  const [otherAdditionals, setOtherAdditionals] = useState("");
+  const [otherAdditionalsDriver, setOtherAdditionalsDriver] = useState("");
+  const [otherAdditionalsReason, setOtherAdditionalsReason] = useState("");
+  const [additionalMiles, setAdditionalMiles] = useState("");
   const [escortFee, setEscortFee] = useState("");
   const [escortFeeBrokerPaid, setEscortFeeBrokerPaid] = useState(false);
 
@@ -155,10 +160,11 @@ const EditOrder = () => {
     const late = parseFloat(lateFee) || 0;
     const ton = parseFloat(tonu) || 0;
     const other = parseFloat(otherCharges) || 0;
+    const otherAdd = parseFloat(otherAdditionals) || 0;
     const escort = escortFeeBrokerPaid ? parseFloat(escortFee) || 0 : 0;
     const noTracking = parseFloat(noTrackingFee) || 0;
     const wrongAddr = parseFloat(wrongAddressFee) || 0;
-    return base + det + lay + extra + lump - late + ton + other + escort - noTracking - wrongAddr;
+    return base + det + lay + extra + lump - late + ton + other + otherAdd + escort - noTracking - wrongAddr;
   }, [
     freightAmount,
     detention,
@@ -168,6 +174,7 @@ const EditOrder = () => {
     lateFee,
     tonu,
     otherCharges,
+    otherAdditionals,
     escortFee,
     escortFeeBrokerPaid,
     noTrackingFee,
@@ -180,9 +187,10 @@ const EditOrder = () => {
     const late = parseFloat(lateFeeDriver) || 0;
     const ton = parseFloat(tonuDriver) || 0;
     const other = parseFloat(otherChargesDriver) || 0;
+    const otherAdd = parseFloat(otherAdditionalsDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton + other - noTracking - wrongAddr;
+    return base + det + lay - late + ton + other + otherAdd - noTracking - wrongAddr;
   }, [
     driverPrice,
     detentionDriver,
@@ -190,6 +198,7 @@ const EditOrder = () => {
     lateFeeDriver,
     tonuDriver,
     otherChargesDriver,
+    otherAdditionalsDriver,
     noTrackingFeeDriver,
     wrongAddressFeeDriver,
   ]);
@@ -471,6 +480,13 @@ const EditOrder = () => {
         setOtherChargesDriver(
           (orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "",
         );
+        setOtherChargesReason((orderData as any).other_charges_reason || "");
+        setOtherAdditionals((orderData as any).other_additionals?.toString() || "");
+        setOtherAdditionalsDriver(
+          (orderData as any).other_additionals_driver > 0 ? (orderData as any).other_additionals_driver.toString() : "",
+        );
+        setOtherAdditionalsReason((orderData as any).other_additionals_reason || "");
+        setAdditionalMiles((orderData as any).additional_miles?.toString() || "");
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
@@ -526,6 +542,9 @@ const EditOrder = () => {
           ((orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0) ||
           ((orderData as any).other_charges && parseFloat((orderData as any).other_charges) > 0) ||
           ((orderData as any).other_charges_driver && parseFloat((orderData as any).other_charges_driver) > 0) ||
+          ((orderData as any).other_additionals && parseFloat((orderData as any).other_additionals) > 0) ||
+          ((orderData as any).other_additionals_driver && parseFloat((orderData as any).other_additionals_driver) > 0) ||
+          ((orderData as any).additional_miles && parseInt((orderData as any).additional_miles) > 0) ||
           ((orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0);
         setShowAdditionalFields(hasAdditionalValues);
 
@@ -2174,9 +2193,14 @@ const EditOrder = () => {
         wrong_address_fee_driver: wrongAddressFeeDriver !== "" ? parseFloat(wrongAddressFeeDriver) : null,
         other_charges: otherCharges !== "" ? parseFloat(otherCharges) : null,
         other_charges_driver: otherChargesDriver !== "" ? parseFloat(otherChargesDriver) : null,
+        other_charges_reason: otherChargesReason || null,
+        other_additionals: otherAdditionals !== "" ? parseFloat(otherAdditionals) : null,
+        other_additionals_driver: otherAdditionalsDriver !== "" ? parseFloat(otherAdditionalsDriver) : null,
+        other_additionals_reason: otherAdditionalsReason || null,
+        additional_miles: additionalMiles ? parseInt(additionalMiles) : 0,
         loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
         dh_miles: dhMiles ? parseInt(dhMiles) : null,
-        mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
+        mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0) || null,
         commodity: commodity || null,
         weight: weight ? parseFloat(weight) : null,
         reference_number: referenceNumber || null,
@@ -3377,7 +3401,7 @@ const EditOrder = () => {
                 </div>
 
                 {/* Other Charges Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="other-charges" className="text-sm">
                       Other Charges - Company
@@ -3412,10 +3436,76 @@ const EditOrder = () => {
                       disabled={isLocked}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="other-charges-reason" className="text-sm">
+                      Other Charges - Reason
+                    </Label>
+                    <Input
+                      id="other-charges-reason"
+                      type="text"
+                      placeholder="Reason for other charges"
+                      value={otherChargesReason}
+                      onChange={(e) => setOtherChargesReason(e.target.value)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
+                    />
+                  </div>
                 </div>
 
-                {/* Escort Fee Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Other Additionals Section */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="other-additionals" className="text-sm">
+                      Other Additionals - Company
+                    </Label>
+                    <Input
+                      id="other-additionals"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={otherAdditionals}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setOtherAdditionals)}
+                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="other-additionals-driver" className="text-sm">
+                      Other Additionals - Driver
+                    </Label>
+                    <Input
+                      id="other-additionals-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={otherAdditionalsDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setOtherAdditionalsDriver)}
+                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="other-additionals-reason" className="text-sm">
+                      Other Additionals - Reason
+                    </Label>
+                    <Input
+                      id="other-additionals-reason"
+                      type="text"
+                      placeholder="Reason for other additionals"
+                      value={otherAdditionalsReason}
+                      onChange={(e) => setOtherAdditionalsReason(e.target.value)}
+                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+
+                {/* Escort Fee and Additional Miles Section */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="escort-fee">Escort Fee</Label>
                     <Input
@@ -3442,9 +3532,25 @@ const EditOrder = () => {
                         disabled={isLocked}
                       />
                       <span className="text-sm text-muted-foreground">
-                        {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
+                        {escortFeeBrokerPaid ? "✓ Included" : "Not included"}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="additional-miles">Additional Miles</Label>
+                    <Input
+                      id="additional-miles"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={additionalMiles}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setAdditionalMiles)}
+                      className="bg-blue-50/50 dark:bg-blue-950/20"
+                      disabled={isLocked}
+                    />
+                    <p className="text-xs text-muted-foreground">Added to loaded miles</p>
                   </div>
                 </div>
               </div>
@@ -3468,6 +3574,12 @@ const EditOrder = () => {
                       : ""
                   }
                 />
+                {parseInt(additionalMiles) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Total Mileage: {(parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0)} mi
+                    (+ {additionalMiles} additional)
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dh-miles">DH Miles</Label>
