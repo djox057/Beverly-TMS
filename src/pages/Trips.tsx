@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2, TrendingUp, TrendingDown } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -3478,8 +3478,18 @@ const Trips = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                <div className="flex items-center gap-1 font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalFreightAmount)}
+                                  {(() => {
+                                    const freightAmount = Number(order.freightAmount) || 0;
+                                    const totalFreight = Number(order.totalFreightAmount) || 0;
+                                    if (totalFreight > freightAmount) {
+                                      return <TrendingUp className="h-4 w-4 text-green-500" />;
+                                    } else if (totalFreight < freightAmount) {
+                                      return <TrendingDown className="h-4 w-4 text-red-500" />;
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </TableCell>
                               <TableCell>
