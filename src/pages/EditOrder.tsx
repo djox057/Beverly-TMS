@@ -164,7 +164,7 @@ const EditOrder = () => {
     const escort = escortFeeBrokerPaid ? parseFloat(escortFee) || 0 : 0;
     const noTracking = parseFloat(noTrackingFee) || 0;
     const wrongAddr = parseFloat(wrongAddressFee) || 0;
-    return base + det + lay + extra + lump - late + ton + other + otherAdd + escort - noTracking - wrongAddr;
+    return base + det + lay + extra + lump - late + ton - other + otherAdd + escort - noTracking - wrongAddr;
   }, [
     freightAmount,
     detention,
@@ -190,7 +190,7 @@ const EditOrder = () => {
     const otherAdd = parseFloat(otherAdditionalsDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton + other + otherAdd - noTracking - wrongAddr;
+    return base + det + lay - late + ton - other + otherAdd - noTracking - wrongAddr;
   }, [
     driverPrice,
     detentionDriver,
