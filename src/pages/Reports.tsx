@@ -53,7 +53,7 @@ import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
-import React, { useState, useEffect, useMemo, memo, useRef, useCallback, useDeferredValue } from "react";
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback, useDeferredValue, startTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -324,6 +324,7 @@ const Reports = () => {
     data: rawGroupedReports,
     isLoading,
     error,
+    isFetchingBackground,
     updateTruckStatus,
     updateTruckMilesAway,
     updateTruckNote,
@@ -1071,21 +1072,22 @@ const Reports = () => {
 
   // Initialize visible trucks count when data loads (only for new dispatchers)
   useEffect(() => {
-    if (groupedReports) {
-      setVisibleTrucks((prev) => {
-        const updated = { ...prev };
-        let hasChanges = false;
-        groupedReports.forEach((group) => {
-          // Only set initial count for dispatchers we haven't seen yet
-          if (updated[group.dispatcherId] === undefined) {
-            updated[group.dispatcherId] = INITIAL_TRUCK_COUNT;
-            hasChanges = true;
-          }
-        });
-        return hasChanges ? updated : prev;
+    // Skip expensive state updates during background fetch
+    if (!groupedReports || isFetchingBackground) return;
+    
+    setVisibleTrucks((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+      groupedReports.forEach((group) => {
+        // Only set initial count for dispatchers we haven't seen yet
+        if (updated[group.dispatcherId] === undefined) {
+          updated[group.dispatcherId] = INITIAL_TRUCK_COUNT;
+          hasChanges = true;
+        }
       });
-    }
-  }, [groupedReports]);
+      return hasChanges ? updated : prev;
+    });
+  }, [groupedReports, isFetchingBackground]);
 
   // Setup intersection observer for lazy loading
   const handleLoadMore = useCallback((dispatcherId: string) => {
@@ -2211,12 +2213,16 @@ const Reports = () => {
 
   // Check for late pickups/deliveries using eta_minutes from trucks table
   // This runs client-side using already-loaded truck data (no additional API calls)
+  // IMPORTANT: Skip while background is fetching to prevent UI freeze
   useEffect(() => {
     if (!groupedReports) return;
+    // Skip expensive late check while background data is loading to prevent freeze
+    if (isFetchingBackground) return;
 
-    const checkLateStops = async () => {
+    const checkLateStops = () => {
       const newLatePickups = new Set<string>();
       const newLateDeliveries = new Set<string>();
+      const newLateTrucks = new Set<string>();
       const lateStopsToNotify: Array<{
         orderId: string;
         stopType: "pickup" | "delivery";
@@ -2231,6 +2237,9 @@ const Reports = () => {
         estimatedArrival: string;
         loadNumber: string;
       }> = [];
+      
+      // Collect new notified keys to batch update
+      const newNotifiedKeys: string[] = [];
 
       // Get current time
       const now = new Date();
@@ -2257,9 +2266,6 @@ const Reports = () => {
         // and returns the equivalent UTC Date
         return fromZonedTime(isoString, 'America/Chicago');
       };
-
-      // Track late trucks by ID
-      const newLateTrucks = new Set<string>();
 
       // Iterate through all trucks
       Object.values(groupedReports).forEach((group: any) => {
@@ -2350,7 +2356,7 @@ const Reports = () => {
                     estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                     loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
                   });
-                  setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
+                  newNotifiedKeys.push(notifyKey);
                 }
               }
             });
@@ -2394,7 +2400,7 @@ const Reports = () => {
                     estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                     loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
                   });
-                  setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
+                  newNotifiedKeys.push(notifyKey);
                 }
               }
             });
@@ -2402,10 +2408,21 @@ const Reports = () => {
         });
       });
 
-      // Update state
-      setLatePickups(newLatePickups);
-      setLateDeliveries(newLateDeliveries);
-      setLateTrucks(newLateTrucks);
+      // Batch update all state in a low-priority transition to avoid blocking UI
+      startTransition(() => {
+        setLatePickups(newLatePickups);
+        setLateDeliveries(newLateDeliveries);
+        setLateTrucks(newLateTrucks);
+        
+        // Batch update notified keys
+        if (newNotifiedKeys.length > 0) {
+          setNotifiedLateStops((prev) => {
+            const updated = new Set(prev);
+            newNotifiedKeys.forEach(key => updated.add(key));
+            return updated;
+          });
+        }
+      });
 
       // Send notifications sequentially with rate limiting (max 1 per second to stay under Resend's 2/sec limit)
       const sendNotificationsSequentially = async () => {
@@ -2414,7 +2431,7 @@ const Reports = () => {
             await supabase.functions.invoke("send-late-notification", {
               body: lateStop,
             });
-            console.log("📧 Late notification sent for:", lateStop.truckNumber, lateStop.stopType);
+            console.log("📧 Late notification sent for:", lateStop.loadNumber, lateStop.stopType);
             // Wait 1 second between notifications to avoid rate limits
             await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (error) {
@@ -2435,12 +2452,14 @@ const Reports = () => {
     // Re-run every 60 seconds
     const interval = setInterval(checkLateStops, 60 * 1000);
     return () => clearInterval(interval);
-  }, [groupedReports, notifiedLateStops]);
+  }, [groupedReports, notifiedLateStops, isFetchingBackground]);
 
 
   // Auto-switch to correct dispatcher page when filters find matches
+  // Skip during background fetch to avoid expensive operations
   useEffect(() => {
     if (!groupedReports) return;
+    if (isFetchingBackground) return; // Skip during background data load
 
     // Check if any filter is active
     const hasActiveFilter = debouncedTruckDriverFilter || debouncedDispatchNameFilter || debouncedLoadNumberFilter;
@@ -2468,6 +2487,7 @@ const Reports = () => {
     groupedReports,
     activeTab,
     filterReportsByOffice,
+    isFetchingBackground,
   ]);
 
   // Only get filtered reports for the active tab
