@@ -1445,7 +1445,6 @@ export const useReports = (options?: UseReportsOptions) => {
             const truckNote = truckNotes?.find((note) => note.driver_id === truck.driver1_id);
 
             // Get lost day notes for this truck's driver
-            const driverId = truck.driver1_id;
             const truckLostDayNotes = driverId ? lostDayNotes?.filter((note) => note.driver_id === driverId) || [] : [];
 
             // Find dispatcher info from driver1
