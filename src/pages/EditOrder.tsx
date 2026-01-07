@@ -3300,7 +3300,7 @@ const EditOrder = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder=""
+                      placeholder="0.00"
                       value={noTrackingFee}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setNoTrackingFee)}
@@ -3337,7 +3337,7 @@ const EditOrder = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder=""
+                      placeholder="0.00"
                       value={wrongAddressFee}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setWrongAddressFee)}
@@ -3473,7 +3473,7 @@ const EditOrder = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder=""
+                      placeholder="0.00"
                       value={otherAdditionals}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setOtherAdditionals)}
@@ -3553,7 +3553,7 @@ const EditOrder = () => {
                       id="additional-miles"
                       type="number"
                       min="0"
-                      placeholder=""
+                      placeholder="0"
                       value={additionalMiles}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setAdditionalMiles)}
