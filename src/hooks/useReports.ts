@@ -406,33 +406,47 @@ export const useReports = (options?: UseReportsOptions) => {
         if (error) throw error;
       }
     },
-    onMutate: async ({ truckId, note }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["reports"] });
+    onMutate: async ({ truckId, note, driverId }) => {
+      // Cancel any outgoing refetches for both query keys
+      await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
+      await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
 
-      // Snapshot the previous value
-      const previousData = queryClient.getQueryData(["reports"]);
+      // Snapshot previous values for both queries
+      const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
+      const previousFull = queryClient.getQueryData(["reports", "full"]);
 
-      // Optimistically update to the new value
-      queryClient.setQueryData(["reports"], (old: any) => {
+      // Helper to update note in data structure
+      const updateNoteInData = (old: any) => {
         if (!old) return old;
-
         return old.map((group: any) => ({
           ...group,
-          trucks: group.trucks.map((truck: any) => (truck.id === truckId ? { ...truck, note } : truck)),
+          trucks: group.trucks.map((truck: any) => {
+            // Match by truckId directly, or for unassigned drivers match the fake truckId
+            if (truck.id === truckId) {
+              return { ...truck, note };
+            }
+            return truck;
+          }),
         }));
-      });
+      };
 
-      // Return a context object with the snapshotted value
-      return { previousData };
+      // Optimistically update both query caches immediately
+      queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
+      queryClient.setQueryData(["reports", "full"], updateNoteInData);
+
+      return { previousPriority, previousFull };
     },
     onError: (err, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousData) {
-        queryClient.setQueryData(["reports"], context.previousData);
+      // Rollback both caches on error
+      if (context?.previousPriority) {
+        context.previousPriority.forEach(([queryKey, data]: [any, any]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousFull) {
+        queryClient.setQueryData(["reports", "full"], context.previousFull);
       }
     },
-    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updatePickupDrop = useMutation({
