@@ -208,13 +208,15 @@ export const useReports = (options?: UseReportsOptions) => {
   const priorityOffice = options?.priorityOffice;
 
   // Set up real-time subscriptions with debouncing
+  // Only invalidate priority query for real-time updates to avoid triggering expensive full reloads
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     const debouncedInvalidate = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        // Only invalidate priority query - full query will sync on its slower interval
+        queryClient.invalidateQueries({ queryKey: ["reports", "priority"] });
       }, 500); // Debounce 500ms to batch updates
     };
 
@@ -974,7 +976,36 @@ export const useReports = (options?: UseReportsOptions) => {
           const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
           const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
 
-          // Match pickup_drops, order_files, and order_transfers to orders, and normalize CSV string values
+          // PERF FIX: Pre-index pickup_drops, order_files, order_transfers by order_id
+          // This converts O(orders * relations) to O(orders + relations) - massive speedup
+          const pickupDropsByOrderId = new Map<string, any[]>();
+          for (const pd of cachedPickupDrops || []) {
+            if (pd.order_id) {
+              const existing = pickupDropsByOrderId.get(pd.order_id);
+              if (existing) existing.push(pd);
+              else pickupDropsByOrderId.set(pd.order_id, [pd]);
+            }
+          }
+
+          const orderFilesByOrderId = new Map<string, any[]>();
+          for (const of_ of cachedOrderFiles || []) {
+            if (of_.order_id) {
+              const existing = orderFilesByOrderId.get(of_.order_id);
+              if (existing) existing.push(of_);
+              else orderFilesByOrderId.set(of_.order_id, [of_]);
+            }
+          }
+
+          const orderTransfersByOrderId = new Map<string, any[]>();
+          for (const ot of cachedOrderTransfers || []) {
+            if (ot.order_id) {
+              const existing = orderTransfersByOrderId.get(ot.order_id);
+              if (existing) existing.push(ot);
+              else orderTransfersByOrderId.set(ot.order_id, [ot]);
+            }
+          }
+
+          // Match pickup_drops, order_files, and order_transfers to orders using O(1) lookups
           const ordersWithRelations = cachedOrders.map((order: any) => ({
             ...order,
             // Normalize CSV string values to proper types
@@ -985,9 +1016,9 @@ export const useReports = (options?: UseReportsOptions) => {
             notes: normalizeNull(order.notes),
             date_change_notes: normalizeNull(order.date_change_notes),
             commodity: normalizeNull(order.commodity),
-            pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
-            order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
-            order_transfers: cachedOrderTransfers?.filter((ot: any) => ot.order_id === order.id) || [],
+            pickup_drops: pickupDropsByOrderId.get(order.id) || [],
+            order_files: orderFilesByOrderId.get(order.id) || [],
+            order_transfers: orderTransfersByOrderId.get(order.id) || [],
           }));
 
           const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
@@ -1087,6 +1118,15 @@ export const useReports = (options?: UseReportsOptions) => {
 
         if (notesError) throw notesError;
 
+        // PERF: Pre-index truck notes by driver_id for O(1) lookups
+        const truckNotesByDriverId = new Map<string, any>();
+        for (const note of truckNotes || []) {
+          if (note.driver_id && !truckNotesByDriverId.has(note.driver_id)) {
+            // Keep only the first (most recent due to ORDER BY) note per driver
+            truckNotesByDriverId.set(note.driver_id, note);
+          }
+        }
+
         // Fetch lost day notes - filter by driver IDs when loading for specific office
         let lostDayQuery = supabase
           .from("lost_day_notes")
@@ -1100,6 +1140,22 @@ export const useReports = (options?: UseReportsOptions) => {
         const { data: lostDayNotes, error: lostDayError } = await lostDayQuery;
 
         if (lostDayError) throw lostDayError;
+
+        // PERF: Pre-index lost day notes by driver_id for O(1) lookups
+        const lostDayNotesByDriverId = new Map<string, any[]>();
+        for (const note of lostDayNotes || []) {
+          if (note.driver_id) {
+            const existing = lostDayNotesByDriverId.get(note.driver_id);
+            if (existing) existing.push(note);
+            else lostDayNotesByDriverId.set(note.driver_id, [note]);
+          }
+        }
+
+        // PERF: Pre-index dispatchers by user_id for O(1) lookups
+        const dispatchersByUserId = new Map<string, any>();
+        for (const d of dispatchers || []) {
+          if (d.user_id) dispatchersByUserId.set(d.user_id, d);
+        }
 
         // Process trucks and match orders to drivers (not trucks)
         const reportData =
@@ -1441,14 +1497,14 @@ export const useReports = (options?: UseReportsOptions) => {
               ? getTransferAwareStops(driverIdForTransfer, currentOrder, currentOrder?.pickupStop, currentOrder?.deliveryStop)
               : { effectivePickupStop: currentOrder?.pickupStop, effectiveDeliveryStop: currentOrder?.deliveryStop, isTransferDriver: false, driverSequenceNumber: 0, segmentLabel: "" };
 
-            // Get the most recent note for this driver
-            const truckNote = truckNotes?.find((note) => note.driver_id === truck.driver1_id);
+            // PERF: Use pre-indexed maps for O(1) lookups instead of O(n) finds/filters
+            const truckNote = truck.driver1_id ? truckNotesByDriverId.get(truck.driver1_id) : undefined;
 
             // Get lost day notes for this truck's driver
-            const truckLostDayNotes = driverId ? lostDayNotes?.filter((note) => note.driver_id === driverId) || [] : [];
+            const truckLostDayNotes = driverId ? (lostDayNotesByDriverId.get(driverId) || []) : [];
 
             // Find dispatcher info from driver1
-            const dispatcherInfo = dispatchers?.find((d) => d.user_id === truck.driver1?.dispatcher_id);
+            const dispatcherInfo = truck.driver1?.dispatcher_id ? dispatchersByUserId.get(truck.driver1.dispatcher_id) : undefined;
 
             // Format location
             const formatLocation = (city: string | null, state: string | null) => {
@@ -1730,11 +1786,11 @@ export const useReports = (options?: UseReportsOptions) => {
           // Get driver's company name
           const driverCompanyName = driver.company_id ? driverCompanyMap.get(driver.company_id) || null : null;
 
-          // Find dispatcher info for this driver
-          const driverDispatcherInfo = dispatchers?.find((d) => d.user_id === driver.dispatcher_id);
+          // PERF: Use pre-indexed maps for O(1) lookups
+          const driverDispatcherInfo = driver.dispatcher_id ? dispatchersByUserId.get(driver.dispatcher_id) : undefined;
 
           // Get driver note
-          const driverNote = truckNotes?.find((note) => note.driver_id === driver.id);
+          const driverNote = truckNotesByDriverId.get(driver.id);
 
           // Build allOrdersWithStops for unassigned drivers
           const allOrdersWithStops = driverOrders.map((order) => {
@@ -1980,7 +2036,8 @@ export const useReports = (options?: UseReportsOptions) => {
 
         for (const report of allReports) {
           if (!dispatcherMap.has(report.dispatcherId)) {
-            const dispatcherInfo = dispatchers?.find((d) => d.user_id === report.dispatcherId);
+            // PERF: Use pre-indexed map for O(1) lookup
+            const dispatcherInfo = dispatchersByUserId.get(report.dispatcherId);
             dispatcherMap.set(report.dispatcherId, {
               dispatcher: report.dispatcher,
               dispatcherId: report.dispatcherId,
