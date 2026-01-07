@@ -987,18 +987,20 @@ function transformOrders(allOrders: any[]) {
 
     // Calculate total freight amount - check freight_amount, freightAmount, AND freight
     // Use toNum() to handle "null" strings from CSV cached data
+    // Other Charges SUBTRACTS, Other Additionals ADDS
     const totalFreightAmount =
       toNum(order.freight_amount || order.freightAmount || order.freight) +
       toNum(order.detention) +
       toNum(order.layover) +
       toNum(order.tonu) +
       toNum(order.extra_stop || order.extraStop) +
-      toNum(order.lumper) +
-      toNum(order.late_fee || order.lateFee) +
-      toNum(order.no_tracking_fee || order.noTrackingFee) +
+      toNum(order.lumper) -
+      toNum(order.late_fee || order.lateFee) -
+      toNum(order.no_tracking_fee || order.noTrackingFee) -
       toNum(order.wrong_address_fee || order.wrongAddressFee) +
-      toNum(order.escort_fee || order.escortFee) +
-      toNum(order.other_charges || order.otherCharges);
+      toNum(order.escort_fee || order.escortFee) -
+      toNum(order.other_charges || order.otherCharges) +
+      toNum(order.other_additionals || order.otherAdditionals);
 
     // Filter files by category
     const rcFiles = orderFiles.filter((f: any) => f.file_category === "RC");

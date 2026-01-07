@@ -358,7 +358,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(138, yPosition, 40, 8);
       doc.rect(178, yPosition, 25, 8);
       const otherChargesLabel = otherChargesReasons.length > 0 
-        ? `Other: ${otherChargesReasons.join(', ').substring(0, 20)}` 
+        ? `${otherChargesReasons.join(', ').substring(0, 25)}` 
         : 'Other Charges';
       doc.text(otherChargesLabel, 140, yPosition + 5);
       doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
