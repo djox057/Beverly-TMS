@@ -53,6 +53,8 @@ interface TruckMapDialogProps {
   truckId: string;
   pickupAddress?: string;
   deliveryAddress?: string;
+  pickupAddresses?: string[]; // All pickup addresses for multi-stop loads
+  deliveryAddresses?: string[]; // All delivery addresses for multi-stop loads
   pickupDate?: string;
   pickupTime?: string;
   deliveryDate?: string;
@@ -286,6 +288,8 @@ export function TruckMapView({
   truckId,
   pickupAddress,
   deliveryAddress,
+  pickupAddresses,
+  deliveryAddresses,
   pickupDate,
   pickupTime,
   deliveryDate,
@@ -300,6 +304,10 @@ export function TruckMapView({
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { data: locations } = useSamsaraLocations();
+
+  // Use array of addresses if provided, otherwise fallback to single address
+  const allPickupAddresses = pickupAddresses?.length ? pickupAddresses : (pickupAddress ? [pickupAddress] : []);
+  const allDeliveryAddresses = deliveryAddresses?.length ? deliveryAddresses : (deliveryAddress ? [deliveryAddress] : []);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -356,67 +364,76 @@ export function TruckMapView({
         const shouldRouteToPickup = !hasBOL && !pickupArrived;
         const shouldRouteToDelivery = hasBOL && !hasPOD;
 
-        let pickupCoords = null;
-        let deliveryCoords = null;
-
-        // Create comprehensive load information popup
-        const loadInfoPopup = `
-          <div style="min-width: 450px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
-            <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
-            ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
-            ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
-            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
-            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
-          </div>
-        `;
-
-        // Always show pickup marker if address exists
-        if (pickupAddress) {
-          pickupCoords = await geocodeWithMapbox(pickupAddress, token);
-          if (pickupCoords) {
+        // Add ALL pickup markers with numbered labels
+        const pickupCoordsList: { lon: number; lat: number }[] = [];
+        for (let i = 0; i < allPickupAddresses.length; i++) {
+          const address = allPickupAddresses[i];
+          if (!address) continue;
+          
+          const coords = await geocodeWithMapbox(address, token);
+          if (coords) {
+            pickupCoordsList.push(coords);
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
-            pickupEl.innerHTML = '📍';
-            pickupEl.style.fontSize = '32px';
+            pickupEl.style.fontSize = '24px';
+            pickupEl.style.display = 'flex';
+            pickupEl.style.alignItems = 'center';
+            pickupEl.style.gap = '2px';
+            // Show number only if multiple pickups
+            pickupEl.innerHTML = allPickupAddresses.length > 1 
+              ? `<span style="background:#22c55e;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">P${i + 1}</span>`
+              : '📍';
             
             new mapboxgl.Marker(pickupEl)
-              .setLngLat([pickupCoords.lon, pickupCoords.lat])
-              .addTo(map.current);
+              .setLngLat([coords.lon, coords.lat])
+              .addTo(map.current!);
 
-            bounds.extend([pickupCoords.lon, pickupCoords.lat]);
+            bounds.extend([coords.lon, coords.lat]);
           }
         }
 
-        // Always show delivery marker if address exists
-        if (deliveryAddress) {
-          deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
-          if (deliveryCoords) {
+        // Add ALL delivery markers with numbered labels
+        const deliveryCoordsList: { lon: number; lat: number }[] = [];
+        for (let i = 0; i < allDeliveryAddresses.length; i++) {
+          const address = allDeliveryAddresses[i];
+          if (!address) continue;
+          
+          const coords = await geocodeWithMapbox(address, token);
+          if (coords) {
+            deliveryCoordsList.push(coords);
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
-            deliveryEl.innerHTML = '🎯';
-            deliveryEl.style.fontSize = '32px';
+            deliveryEl.style.fontSize = '24px';
+            deliveryEl.style.display = 'flex';
+            deliveryEl.style.alignItems = 'center';
+            deliveryEl.style.gap = '2px';
+            // Show number only if multiple deliveries
+            deliveryEl.innerHTML = allDeliveryAddresses.length > 1 
+              ? `<span style="background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">D${i + 1}</span>`
+              : '🎯';
             
             new mapboxgl.Marker(deliveryEl)
-              .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
-              .addTo(map.current);
+              .setLngLat([coords.lon, coords.lat])
+              .addTo(map.current!);
 
-            bounds.extend([deliveryCoords.lon, deliveryCoords.lat]);
+            bounds.extend([coords.lon, coords.lat]);
           }
         }
 
-        // Draw route based on status
-        if (shouldRouteToPickup && pickupCoords) {
+        // Draw route to first pickup if going to pickup
+        if (shouldRouteToPickup && pickupCoordsList.length > 0) {
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [pickupCoords.lon, pickupCoords.lat],
+            [pickupCoordsList[0].lon, pickupCoordsList[0].lat],
             token
           );
-        } else if (shouldRouteToDelivery && deliveryCoords) {
+        } else if (shouldRouteToDelivery && deliveryCoordsList.length > 0) {
+          // Route to first incomplete delivery
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [deliveryCoords.lon, deliveryCoords.lat],
+            [deliveryCoordsList[0].lon, deliveryCoordsList[0].lat],
             token
           );
         }
@@ -437,7 +454,7 @@ export function TruckMapView({
       map.current?.remove();
       map.current = null;
     };
-  }, [locations, truckId, truckNumber, pickupAddress, deliveryAddress, hasBOL, hasPOD, pickupArrived]);
+  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), hasBOL, hasPOD, pickupArrived]);
 
   const drawRouteToDestination = async (
     mapInstance: mapboxgl.Map,
