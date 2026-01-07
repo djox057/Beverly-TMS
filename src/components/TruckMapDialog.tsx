@@ -364,7 +364,9 @@ export function TruckMapView({
 
         // Determine routing logic based on order status
         const shouldRouteToPickup = !hasBOL && !pickupArrived;
-        const shouldRouteToDelivery = hasBOL && !hasPOD;
+        // Route to delivery if BOL exists and there are still incomplete deliveries
+        const hasIncompleteDeliveries = completedDeliveryCount < allDeliveryAddresses.length;
+        const shouldRouteToDelivery = hasBOL && hasIncompleteDeliveries;
 
         // Add ALL pickup markers with numbered labels
         const pickupCoordsList: { lon: number; lat: number }[] = [];
