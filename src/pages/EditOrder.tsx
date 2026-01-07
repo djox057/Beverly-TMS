@@ -3463,11 +3463,11 @@ const EditOrder = () => {
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="0.00"
+                      placeholder=""
                       value={otherAdditionals}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setOtherAdditionals)}
-                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      className="bg-green-50/50 dark:bg-green-950/20"
                       disabled={isLocked}
                     />
                   </div>
@@ -3484,7 +3484,7 @@ const EditOrder = () => {
                       value={otherAdditionalsDriver}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setOtherAdditionalsDriver)}
-                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      className="bg-green-50/50 dark:bg-green-950/20"
                       disabled={isLocked}
                     />
                   </div>
@@ -3498,7 +3498,7 @@ const EditOrder = () => {
                       placeholder="Reason for other additionals"
                       value={otherAdditionalsReason}
                       onChange={(e) => setOtherAdditionalsReason(e.target.value)}
-                      className="bg-purple-50/50 dark:bg-purple-950/20"
+                      className="bg-green-50/50 dark:bg-green-950/20"
                       disabled={isLocked}
                     />
                   </div>
@@ -3517,7 +3517,7 @@ const EditOrder = () => {
                       value={escortFee}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setEscortFee)}
-                      className="bg-blue-50/50 dark:bg-blue-950/20"
+                      className="bg-green-50/50 dark:bg-green-950/20"
                       disabled={isLocked}
                     />
                   </div>
@@ -3543,11 +3543,11 @@ const EditOrder = () => {
                       id="additional-miles"
                       type="number"
                       min="0"
-                      placeholder="0"
+                      placeholder=""
                       value={additionalMiles}
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setAdditionalMiles)}
-                      className="bg-blue-50/50 dark:bg-blue-950/20"
+                      className="bg-green-50/50 dark:bg-green-950/20"
                       disabled={isLocked}
                     />
                     <p className="text-xs text-muted-foreground">Added to loaded miles</p>
