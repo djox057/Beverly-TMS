@@ -21,6 +21,14 @@ export interface DriverExpense {
   updated_at: string;
 }
 
+// Calculate status based on paid_amount vs amount
+export function calculateExpenseStatus(amount: number, paidAmount: number | null | undefined): string {
+  const paid = paidAmount ?? 0;
+  if (paid >= amount && amount > 0) return "paid";
+  if (paid > 0) return "partial";
+  return "pending";
+}
+
 export interface NewDriverExpense {
   driver_id: string;
   truck_number?: string | null;
@@ -96,9 +104,12 @@ export function useDriverExpenses(driverId: string | null) {
 
   const addExpenseMutation = useMutation({
     mutationFn: async (expense: NewDriverExpense) => {
+      // Auto-calculate status based on paid_amount vs amount
+      const status = calculateExpenseStatus(expense.amount, expense.paid_amount);
+      
       const { data, error } = await supabase
         .from("driver_expenses")
-        .insert(expense)
+        .insert({ ...expense, status })
         .select()
         .single();
 
@@ -117,9 +128,24 @@ export function useDriverExpenses(driverId: string | null) {
 
   const updateExpenseMutation = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<DriverExpense> & { id: string }) => {
+      // If amount or paid_amount is being updated, recalculate status
+      let finalUpdates = { ...updates };
+      if (updates.amount !== undefined || updates.paid_amount !== undefined) {
+        // Need to fetch current values if not provided
+        const { data: current } = await supabase
+          .from("driver_expenses")
+          .select("amount, paid_amount")
+          .eq("id", id)
+          .single();
+        
+        const amount = updates.amount ?? current?.amount ?? 0;
+        const paidAmount = updates.paid_amount !== undefined ? updates.paid_amount : current?.paid_amount;
+        finalUpdates.status = calculateExpenseStatus(amount, paidAmount);
+      }
+      
       const { data, error } = await supabase
         .from("driver_expenses")
-        .update(updates)
+        .update(finalUpdates)
         .eq("id", id)
         .select()
         .single();

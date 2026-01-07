@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { NewDriverExpense, DriverExpense } from "@/hooks/useDriverExpenses";
+import { Badge } from "@/components/ui/badge";
+import { NewDriverExpense, DriverExpense, calculateExpenseStatus } from "@/hooks/useDriverExpenses";
 
 interface AddDriverExpenseDialogProps {
   open: boolean;
@@ -34,7 +34,6 @@ export function AddDriverExpenseDialog({
     explanation: initialData?.explanation || "",
     expense_date: initialData?.expense_date || "",
     amount: initialData?.amount?.toString() || "",
-    status: initialData?.status || "pending",
     paid_date: initialData?.paid_date || "",
     paid_amount: initialData?.paid_amount?.toString() || "",
     notice_1: initialData?.notice_1 || "",
@@ -53,6 +52,12 @@ export function AddDriverExpenseDialog({
   }, [open, initialData]);
 
   const isEditing = !!initialData;
+  
+  // Calculate auto-status for display
+  const calculatedStatus = calculateExpenseStatus(
+    parseFloat(formData.amount) || 0,
+    formData.paid_amount ? parseFloat(formData.paid_amount) : null
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +68,6 @@ export function AddDriverExpenseDialog({
       explanation: formData.explanation,
       expense_date: formData.expense_date || null,
       amount: parseFloat(formData.amount) || 0,
-      status: formData.status,
       paid_date: formData.paid_date || null,
       paid_amount: formData.paid_amount ? parseFloat(formData.paid_amount) : null,
       notice_1: formData.notice_1 || null,
@@ -150,20 +154,23 @@ export function AddDriverExpenseDialog({
               />
             </div>
             <div>
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Status (Auto)</Label>
+              <div className="h-10 flex items-center">
+                <Badge 
+                  variant={
+                    calculatedStatus === "paid" ? "default" : 
+                    calculatedStatus === "partial" ? "secondary" : 
+                    "outline"
+                  }
+                  className={
+                    calculatedStatus === "paid" ? "bg-green-500" : 
+                    calculatedStatus === "partial" ? "bg-yellow-500 text-black" : 
+                    ""
+                  }
+                >
+                  {calculatedStatus.charAt(0).toUpperCase() + calculatedStatus.slice(1)}
+                </Badge>
+              </div>
             </div>
           </div>
 
