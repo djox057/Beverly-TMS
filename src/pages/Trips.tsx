@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
@@ -3489,62 +3489,6 @@ const Trips = () => {
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                   {(() => {
-                                    const additionals: string[] = [];
-                                    if ((order as any).detentionDriver > 0) additionals.push(`Detention: ${formatCurrency((order as any).detentionDriver)}`);
-                                    if ((order as any).layoverDriver > 0) additionals.push(`Layover: ${formatCurrency((order as any).layoverDriver)}`);
-                                    if ((order as any).lateFeeDriver > 0) additionals.push(`Late Fee: ${formatCurrency((order as any).lateFeeDriver)}`);
-                                    if ((order as any).noTrackingFeeDriver > 0) additionals.push(`No Tracking: ${formatCurrency((order as any).noTrackingFeeDriver)}`);
-                                    if ((order as any).wrongAddressFeeDriver > 0) additionals.push(`Wrong Address: ${formatCurrency((order as any).wrongAddressFeeDriver)}`);
-                                    if ((order as any).escortFee > 0) additionals.push(`Escort: ${formatCurrency((order as any).escortFee)}`);
-                                    if ((order as any).lumper > 0) additionals.push(`Lumper: ${formatCurrency((order as any).lumper)}`);
-                                    if ((order as any).lumperDriver > 0) additionals.push(`Lumper Driver: ${formatCurrency((order as any).lumperDriver)}`);
-                                    if ((order as any).extraStopDriver > 0) additionals.push(`Extra Stop: ${formatCurrency((order as any).extraStopDriver)}`);
-                                    if ((order as any).tonuDriver > 0) additionals.push(`TONU: ${formatCurrency((order as any).tonuDriver)}`);
-                                    if ((order as any).otherChargesDriver > 0) additionals.push(`Other: ${formatCurrency((order as any).otherChargesDriver)}`);
-                                    if ((order as any).otherAdditionalsDriver > 0) {
-                                      const reason = (order as any).otherAdditionalsReason || 'Other Additionals';
-                                      additionals.push(`${reason}: ${formatCurrency((order as any).otherAdditionalsDriver)}`);
-                                    }
-                                    
-                                    if (additionals.length === 0) return null;
-                                    
-                                    return (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="sm">
-                                            <Info className="h-4 w-4 text-blue-500" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-3" align="start">
-                                          <div className="text-sm font-semibold mb-2">Additional Charges</div>
-                                          <div className="space-y-1">
-                                            {additionals.map((item, idx) => (
-                                              <div key={idx} className="text-sm">{item}</div>
-                                            ))}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const dateChangeNotes = (order as any).dateChangeNotes;
-                                    if (!dateChangeNotes || dateChangeNotes.trim() === '') return null;
-                                    
-                                    return (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="sm">
-                                            <CalendarClock className="h-4 w-4 text-orange-500" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-3 max-w-xs" align="start">
-                                          <div className="text-sm font-semibold mb-2">Reschedule Notes</div>
-                                          <div className="text-sm">{dateChangeNotes}</div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    );
-                                  })()}
-                                  {(() => {
                                     const freightAmount = Number(order.freightAmount) || 0;
                                     const totalFreight = Number(order.totalFreightAmount) || 0;
                                     const difference = totalFreight - freightAmount;
@@ -3552,6 +3496,24 @@ const Trips = () => {
                                     if (difference === 0) return null;
                                     
                                     const isPositive = difference > 0;
+                                    
+                                    // Build itemized breakdown
+                                    const items: { label: string; value: number }[] = [];
+                                    if ((order as any).detentionDriver > 0) items.push({ label: 'Detention', value: (order as any).detentionDriver });
+                                    if ((order as any).layoverDriver > 0) items.push({ label: 'Layover', value: (order as any).layoverDriver });
+                                    if ((order as any).lateFeeDriver > 0) items.push({ label: 'Late Fee', value: (order as any).lateFeeDriver });
+                                    if ((order as any).noTrackingFeeDriver > 0) items.push({ label: 'No Tracking', value: (order as any).noTrackingFeeDriver });
+                                    if ((order as any).wrongAddressFeeDriver > 0) items.push({ label: 'Wrong Address', value: (order as any).wrongAddressFeeDriver });
+                                    if ((order as any).escortFee > 0) items.push({ label: 'Escort', value: (order as any).escortFee });
+                                    if ((order as any).lumper > 0) items.push({ label: 'Lumper', value: (order as any).lumper });
+                                    if ((order as any).lumperDriver > 0) items.push({ label: 'Lumper Driver', value: (order as any).lumperDriver });
+                                    if ((order as any).extraStopDriver > 0) items.push({ label: 'Extra Stop', value: (order as any).extraStopDriver });
+                                    if ((order as any).tonuDriver > 0) items.push({ label: 'TONU', value: (order as any).tonuDriver });
+                                    if ((order as any).otherChargesDriver > 0) items.push({ label: 'Other Charges', value: (order as any).otherChargesDriver });
+                                    if ((order as any).otherAdditionalsDriver > 0) {
+                                      const reason = (order as any).otherAdditionalsReason || 'Other Additionals';
+                                      items.push({ label: reason, value: (order as any).otherAdditionalsDriver });
+                                    }
                                     
                                     return (
                                       <Popover>
@@ -3568,14 +3530,17 @@ const Trips = () => {
                                           <div className="text-sm font-semibold mb-2">
                                             {isPositive ? "Additional Pay" : "Reduced Pay"}
                                           </div>
-                                          <div className="text-sm">
-                                            Base Freight: {formatCurrency(freightAmount)}
-                                          </div>
-                                          <div className="text-sm">
-                                            Total Freight: {formatCurrency(totalFreight)}
-                                          </div>
-                                          <div className={`text-sm font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                                            Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
+                                          <div className="space-y-1 text-sm">
+                                            <div>Base Freight: {formatCurrency(freightAmount)}</div>
+                                            {items.map((item, idx) => (
+                                              <div key={idx} className="text-muted-foreground">
+                                                {item.label}: +{formatCurrency(item.value)}
+                                              </div>
+                                            ))}
+                                            <div className="pt-1 border-t">Total Freight: {formatCurrency(totalFreight)}</div>
+                                            <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                                              Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
+                                            </div>
                                           </div>
                                         </PopoverContent>
                                       </Popover>
