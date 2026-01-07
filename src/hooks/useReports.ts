@@ -1038,6 +1038,38 @@ export const useReports = (options?: UseReportsOptions) => {
     const allOrders = [...(unlockedOrdersRaw || []), ...deduplicatedLockedOrders];
     console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)${filterOffice ? ` for ${filterOffice}` : ""}`);
 
+    // PERF: Index orders by driver once (instead of filtering allOrders for every truck/driver)
+    // - ordersByDriver: includes current + original + transfer drivers (used for truck rows)
+    // - ordersByDriverCurrent: current assignment only (used for unassigned driver rows, to preserve existing behavior)
+    const ordersByDriver = new Map<string, any[]>();
+    const ordersByDriverCurrent = new Map<string, any[]>();
+
+    const addOrderToMap = (map: Map<string, any[]>, driverId: string | null | undefined, order: any) => {
+      if (!driverId) return;
+      const existing = map.get(driverId);
+      if (existing) existing.push(order);
+      else map.set(driverId, [order]);
+    };
+
+    for (const order of allOrders || []) {
+      const currentDriverIds = new Set<string>();
+      if (order.driver1_id) currentDriverIds.add(order.driver1_id);
+      if (order.driver2_id) currentDriverIds.add(order.driver2_id);
+      currentDriverIds.forEach((id) => addOrderToMap(ordersByDriverCurrent, id, order));
+
+      const relatedDriverIds = new Set<string>(currentDriverIds);
+      if (order.original_driver1_id) relatedDriverIds.add(order.original_driver1_id);
+      if (order.original_driver2_id) relatedDriverIds.add(order.original_driver2_id);
+
+      const transfers = order.order_transfers || [];
+      for (const t of transfers) {
+        if (t?.driver1_id) relatedDriverIds.add(t.driver1_id);
+        if (t?.driver2_id) relatedDriverIds.add(t.driver2_id);
+      }
+
+      relatedDriverIds.forEach((id) => addOrderToMap(ordersByDriver, id, order));
+    }
+
         // STEP 3: Fetch supporting data and build reports
         // (dispatchers already fetched above for priority filtering)
 
@@ -1078,26 +1110,10 @@ export const useReports = (options?: UseReportsOptions) => {
             // 1. Current driver assignment (driver1_id or driver2_id)
             // 2. Original driver assignment (for transfer loads)
             // 3. Transfer drivers from order_transfers
-            const driverOrders =
-              allOrders?.filter((order) => {
-                const driverId = truck.driver1_id;
-                if (!driverId) return false;
-                
-                // Current assignment
-                if (order.driver1_id === driverId || order.driver2_id === driverId) return true;
-                
-                // Original driver (for transfer loads)
-                if (order.original_driver1_id === driverId || order.original_driver2_id === driverId) return true;
-                
-                // Check if driver is in order_transfers
-                const transfers = order.order_transfers || [];
-                const isTransferDriver = transfers.some((t: any) => 
-                  t.driver1_id === driverId || t.driver2_id === driverId
-                );
-                if (isTransferDriver) return true;
-                
-                return false;
-              }) || [];
+            const driverId = truck.driver1_id;
+
+            // PERF: Avoid O(trucks * orders) scans
+            const driverOrders = driverId ? (ordersByDriver.get(driverId) || []) : [];
 
             // activeOrders: Orders without POD that could be "current order"
             // Per REPORTS_SPECIFICATION.md Section 3: Current order is first order without POD
@@ -1678,8 +1694,7 @@ export const useReports = (options?: UseReportsOptions) => {
           const now = new Date().getTime();
 
           // Get orders for this driver
-          const driverOrders =
-            allOrders?.filter((order) => order.driver1_id === driver.id || order.driver2_id === driver.id) || [];
+          const driverOrders = ordersByDriverCurrent.get(driver.id) || [];
 
           // activeOrders: Orders without POD that could be "current order"
           // Per REPORTS_SPECIFICATION.md Section 3: Current order is first order without POD
