@@ -1773,6 +1773,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          additional_miles: number | null
           booked_by: string
           booked_by_company_id: string
           broker_id: string | null
@@ -1847,8 +1848,12 @@ export type Database = {
           original_truck_id: string | null
           original_wrong_address_fee: number | null
           original_wrong_address_fee_driver: number | null
+          other_additionals: number | null
+          other_additionals_driver: number | null
+          other_additionals_reason: string | null
           other_charges: number | null
           other_charges_driver: number | null
+          other_charges_reason: string | null
           partial_booked_by_companies: Json | null
           partial_broker_loads: Json | null
           partial_brokers: Json | null
@@ -1872,6 +1877,7 @@ export type Database = {
           wrong_address_fee_driver: number | null
         }
         Insert: {
+          additional_miles?: number | null
           booked_by: string
           booked_by_company_id: string
           broker_id?: string | null
@@ -1946,8 +1952,12 @@ export type Database = {
           original_truck_id?: string | null
           original_wrong_address_fee?: number | null
           original_wrong_address_fee_driver?: number | null
+          other_additionals?: number | null
+          other_additionals_driver?: number | null
+          other_additionals_reason?: string | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          other_charges_reason?: string | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
           partial_brokers?: Json | null
@@ -1971,6 +1981,7 @@ export type Database = {
           wrong_address_fee_driver?: number | null
         }
         Update: {
+          additional_miles?: number | null
           booked_by?: string
           booked_by_company_id?: string
           broker_id?: string | null
@@ -2045,8 +2056,12 @@ export type Database = {
           original_truck_id?: string | null
           original_wrong_address_fee?: number | null
           original_wrong_address_fee_driver?: number | null
+          other_additionals?: number | null
+          other_additionals_driver?: number | null
+          other_additionals_reason?: string | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          other_charges_reason?: string | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
           partial_brokers?: Json | null
