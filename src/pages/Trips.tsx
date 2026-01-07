@@ -3318,17 +3318,12 @@ const Trips = () => {
                                 <td colSpan={canMoveLoads ? 15 : 14} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
                               </tr>
                               {week.orders.map((order, orderIndex) => {
-                          // Background color rules - Recovery orders get purple background that overrides all other colors
+                          // Background color rules - Based on total freight vs freight amount
                           const isRecovery = order.isRecovery;
-
-                          const hasRedFees =
-                            (order as any).lateFeeDriver > 0 ||
-                            (order as any).noTrackingFeeDriver > 0 ||
-                            (order as any).wrongAddressFeeDriver > 0;
-
-                          const hasGreenFees = (order as any).detentionDriver > 0 || (order as any).layoverDriver > 0;
-
-                          const hasYellowFees = (order as any).escortFee > 0 || (order as any).lumper > 0;
+                          const freightAmount = Number(order.freightAmount) || 0;
+                          const totalFreight = Number(order.totalFreightAmount) || 0;
+                          const hasAdditionalPay = totalFreight > freightAmount;
+                          const hasReducedPay = totalFreight < freightAmount;
 
                           const hasOrangeCondition =
                             order.canceled ||
@@ -3343,15 +3338,13 @@ const Trips = () => {
 
                           const rowClassName = isRecovery
                             ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
-                            : hasRedFees
+                            : hasReducedPay
                               ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
-                              : hasGreenFees
+                              : hasAdditionalPay
                                 ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
-                                : hasYellowFees
-                                  ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_90%)] dark:hover:bg-[hsl(45_93%_30%)]"
-                                  : hasOrangeCondition
-                                    ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
-                                    : alternatingBg;
+                                : hasOrangeCondition
+                                  ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
+                                  : alternatingBg;
                           
                           const draggableId = `${order.id}_drag_${order.transferSequence ?? "base"}`;
 
