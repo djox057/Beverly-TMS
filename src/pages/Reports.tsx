@@ -3935,15 +3935,15 @@ const Reports = () => {
                                           <TruckMapView
                                             truckNumber={truck.truckNumber}
                                             truckId={truck.id}
-                                            pickupAddress={
-                                              currentOrder?.pickupStop
-                                                ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
-                                                : undefined
+                                            pickupAddresses={
+                                              currentOrder?.pickupStops?.map((stop: any) =>
+                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim()
+                                              ).filter((addr: string) => addr && addr !== ", ,")
                                             }
-                                            deliveryAddress={
-                                              currentOrder?.deliveryStop
-                                                ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
-                                                : undefined
+                                            deliveryAddresses={
+                                              currentOrder?.deliveryStops?.map((stop: any) =>
+                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim()
+                                              ).filter((addr: string) => addr && addr !== ", ,")
                                             }
                                             pickupDate={truck.pickup?.date}
                                             pickupTime={truck.pickup?.time}
