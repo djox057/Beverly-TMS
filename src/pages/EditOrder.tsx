@@ -468,25 +468,35 @@ const EditOrder = () => {
         setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
         setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
         setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
-        setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
+        setNoTrackingFee(
+          (orderData as any).no_tracking_fee > 0 ? (orderData as any).no_tracking_fee.toString() : "",
+        );
         setNoTrackingFeeDriver(
           (orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "",
         );
-        setWrongAddressFee((orderData as any).wrong_address_fee?.toString() || "");
+        setWrongAddressFee(
+          (orderData as any).wrong_address_fee > 0 ? (orderData as any).wrong_address_fee.toString() : "",
+        );
         setWrongAddressFeeDriver(
           (orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "",
         );
-        setOtherCharges((orderData as any).other_charges?.toString() || "");
+        setOtherCharges(
+          (orderData as any).other_charges > 0 ? (orderData as any).other_charges.toString() : "",
+        );
         setOtherChargesDriver(
           (orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "",
         );
         setOtherChargesReason((orderData as any).other_charges_reason || "");
-        setOtherAdditionals((orderData as any).other_additionals?.toString() || "");
+        setOtherAdditionals(
+          (orderData as any).other_additionals > 0 ? (orderData as any).other_additionals.toString() : "",
+        );
         setOtherAdditionalsDriver(
           (orderData as any).other_additionals_driver > 0 ? (orderData as any).other_additionals_driver.toString() : "",
         );
         setOtherAdditionalsReason((orderData as any).other_additionals_reason || "");
-        setAdditionalMiles((orderData as any).additional_miles?.toString() || "");
+        setAdditionalMiles(
+          (orderData as any).additional_miles > 0 ? (orderData as any).additional_miles.toString() : "",
+        );
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
