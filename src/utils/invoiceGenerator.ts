@@ -70,6 +70,9 @@ interface Order {
   lumper?: number;
   tonu?: number;
   otherCharges?: number;
+  otherChargesReason?: string;
+  otherAdditionals?: number;
+  otherAdditionalsReason?: string;
   lateFee?: number;
   companyName: string;
   bookedByCompanyName?: string;
@@ -225,7 +228,12 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     let lumperTotal = 0;
     let tonuTotal = 0;
     let otherChargesTotal = 0;
+    let otherAdditionalsTotal = 0;
     let lateFeeTotal = 0;
+    
+    // Collect reasons for display
+    const otherChargesReasons: string[] = [];
+    const otherAdditionalsReasons: string[] = [];
     
     group.orders.forEach((order) => {
       const pickupDate = formatDateNoTimezone(order.pickupDate.split(' - ')[0]);
@@ -283,7 +291,17 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       lumperTotal += order.lumper || 0;
       tonuTotal += order.tonu || 0;
       otherChargesTotal += order.otherCharges || 0;
+      otherAdditionalsTotal += order.otherAdditionals || 0;
       lateFeeTotal += order.lateFee || 0;
+      
+      // Collect reasons
+      if (order.otherCharges && order.otherCharges > 0 && order.otherChargesReason) {
+        otherChargesReasons.push(order.otherChargesReason);
+      }
+      if (order.otherAdditionals && order.otherAdditionals > 0 && order.otherAdditionalsReason) {
+        otherAdditionalsReasons.push(order.otherAdditionalsReason);
+      }
+      
       yPosition += calculatedHeight;
     });
     
@@ -339,8 +357,22 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     if (otherChargesTotal > 0) {
       doc.rect(138, yPosition, 40, 8);
       doc.rect(178, yPosition, 25, 8);
-      doc.text('Other Charges', 140, yPosition + 5);
+      const otherChargesLabel = otherChargesReasons.length > 0 
+        ? `Other: ${otherChargesReasons.join(', ').substring(0, 20)}` 
+        : 'Other Charges';
+      doc.text(otherChargesLabel, 140, yPosition + 5);
       doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (otherAdditionalsTotal > 0) {
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      const otherAddLabel = otherAdditionalsReasons.length > 0 
+        ? `${otherAdditionalsReasons.join(', ').substring(0, 25)}` 
+        : 'Other Additionals';
+      doc.text(otherAddLabel, 140, yPosition + 5);
+      doc.text(formatCurrency(otherAdditionalsTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     

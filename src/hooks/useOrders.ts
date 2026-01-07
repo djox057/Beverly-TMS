@@ -1091,6 +1091,9 @@ function transformOrders(allOrders: any[]) {
       escortFee: order.escort_fee,
       escortFeeBrokerPaid: order.escort_fee_broker_paid,
       otherCharges: order.other_charges,
+      otherChargesReason: (order as any).other_charges_reason,
+      otherAdditionals: (order as any).other_additionals,
+      otherAdditionalsReason: (order as any).other_additionals_reason,
       totalFreightAmount,
 
       // Financial fields - driver amounts
@@ -1104,12 +1107,14 @@ function transformOrders(allOrders: any[]) {
       noTrackingFeeDriver: order.no_tracking_fee_driver,
       wrongAddressFeeDriver: order.wrong_address_fee_driver,
       otherChargesDriver: order.other_charges_driver,
+      otherAdditionalsDriver: (order as any).other_additionals_driver,
       totalDriverPay,
 
-      // Mileage fields - always compute mileage from loaded + dh miles
+      // Mileage fields - always compute mileage from loaded + dh + additional miles
       loadedMiles: order.loaded_miles,
       dhMiles: order.dh_miles,
-      mileage: toNum(order.loaded_miles) + toNum(order.dh_miles),
+      additionalMiles: (order as any).additional_miles,
+      mileage: toNum(order.loaded_miles) + toNum(order.dh_miles) + toNum((order as any).additional_miles),
 
       // Recovery fields
       recoveryDate: order.recovery_date,
