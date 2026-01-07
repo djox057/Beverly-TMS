@@ -1265,6 +1265,15 @@ const Trips = () => {
             amount: otherCharges
           });
         }
+        const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
+        if (otherAdditionals > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals
+          });
+        }
       });
 
       // Write credits section (rows 25-27 for BF Prime Drivers)
@@ -1649,6 +1658,15 @@ const Trips = () => {
             amount: otherCharges
           });
         }
+        const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
+        if (otherAdditionals > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals
+          });
+        }
       });
 
       // Write credits section (rows 25-27 for Beverly Freight)
@@ -2002,6 +2020,15 @@ const Trips = () => {
             amount: otherCharges
           });
         }
+        const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
+        if (otherAdditionals > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals
+          });
+        }
       });
 
       // Write credits section (rows 48-50 for BG Inc)
@@ -2349,6 +2376,15 @@ const Trips = () => {
             type: "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: otherCharges
+          });
+        }
+        const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
+        if (otherAdditionals > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals
           });
         }
       });
@@ -3471,6 +3507,10 @@ const Trips = () => {
                                     if ((order as any).extraStopDriver > 0) additionals.push(`Extra Stop: ${formatCurrency((order as any).extraStopDriver)}`);
                                     if ((order as any).tonuDriver > 0) additionals.push(`TONU: ${formatCurrency((order as any).tonuDriver)}`);
                                     if ((order as any).otherChargesDriver > 0) additionals.push(`Other: ${formatCurrency((order as any).otherChargesDriver)}`);
+                                    if ((order as any).otherAdditionalsDriver > 0) {
+                                      const reason = (order as any).otherAdditionalsReason || 'Other Additionals';
+                                      additionals.push(`${reason}: ${formatCurrency((order as any).otherAdditionalsDriver)}`);
+                                    }
                                     
                                     if (additionals.length === 0) return null;
                                     
