@@ -25,7 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2, TrendingUp, TrendingDown } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
+import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -3555,12 +3556,12 @@ const Trips = () => {
                                     return (
                                       <Popover>
                                         <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="sm">
-                                            {isPositive ? (
-                                              <TrendingUp className="h-4 w-4 text-green-500" />
-                                            ) : (
-                                              <TrendingDown className="h-4 w-4 text-red-500" />
-                                            )}
+                                          <Button variant="ghost" size="sm" className="p-1">
+                                            <img 
+                                              src={moneyStackIcon} 
+                                              alt={isPositive ? "Additional pay" : "Reduced pay"} 
+                                              className={`h-5 w-5 ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+                                            />
                                           </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-3 max-w-xs" align="start">
