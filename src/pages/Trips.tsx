@@ -3497,43 +3497,40 @@ const Trips = () => {
                                     
                                     const isPositive = difference > 0;
                                     
-                                    // Build itemized breakdown - check both naming conventions
+                                    // Build itemized breakdown (freight-side additionals)
                                     const items: { label: string; value: number }[] = [];
-                                    const detentionDriver = Number((order as any).detentionDriver) || 0;
-                                    const layoverDriver = Number((order as any).layoverDriver) || 0;
-                                    const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
-                                    const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
-                                    const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
+
+                                    const detention = Number((order as any).detention) || 0;
+                                    const layover = Number((order as any).layover) || 0;
+                                    const tonu = Number((order as any).tonu) || 0;
+                                    const extraStop = Number((order as any).extraStop) || 0;
+                                    const lateFee = Number((order as any).lateFee) || 0;
+                                    const noTrackingFee = Number((order as any).noTrackingFee) || 0;
+                                    const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
                                     const escortFee = Number((order as any).escortFee) || 0;
                                     const lumper = Number((order as any).lumper) || 0;
-                                    const lumperDriver = Number((order as any).lumperDriver) || 0;
-                                    const extraStopDriver = Number((order as any).extraStopDriver) || 0;
-                                    const tonuDriver = Number((order as any).tonuDriver) || 0;
-                                    const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
-                                    const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
-                                    
-                                    if (detentionDriver > 0) items.push({ label: 'Detention', value: detentionDriver });
-                                    if (layoverDriver > 0) items.push({ label: 'Layover', value: layoverDriver });
-                                    if (lateFeeDriver > 0) items.push({ label: 'Late Fee', value: lateFeeDriver });
-                                    if (noTrackingFeeDriver > 0) items.push({ label: 'No Tracking', value: noTrackingFeeDriver });
-                                    if (wrongAddressFeeDriver > 0) items.push({ label: 'Wrong Address', value: wrongAddressFeeDriver });
-                                    if (escortFee > 0) items.push({ label: 'Escort', value: escortFee });
-                                    if (lumper > 0) items.push({ label: 'Lumper', value: lumper });
-                                    if (lumperDriver > 0) items.push({ label: 'Lumper Driver', value: lumperDriver });
-                                    if (extraStopDriver > 0) items.push({ label: 'Extra Stop', value: extraStopDriver });
-                                    if (tonuDriver > 0) items.push({ label: 'TONU', value: tonuDriver });
-                                    if (otherChargesDriver > 0) items.push({ label: 'Other Charges', value: otherChargesDriver });
-                                    if (otherAdditionalsDriver > 0) {
-                                      const reason = (order as any).otherAdditionalsReason || 'Other Additionals';
-                                      items.push({ label: reason, value: otherAdditionalsDriver });
+                                    const otherCharges = Number((order as any).otherCharges) || 0;
+                                    const otherAdditionals = Number((order as any).otherAdditionals) || 0;
+
+                                    if (detention !== 0) items.push({ label: "Detention", value: detention });
+                                    if (layover !== 0) items.push({ label: "Layover", value: layover });
+                                    if (tonu !== 0) items.push({ label: "TONU", value: tonu });
+                                    if (extraStop !== 0) items.push({ label: "Extra Stop", value: extraStop });
+                                    if (lateFee !== 0) items.push({ label: "Late Fee", value: lateFee });
+                                    if (noTrackingFee !== 0) items.push({ label: "No Tracking", value: noTrackingFee });
+                                    if (wrongAddressFee !== 0) items.push({ label: "Wrong Address", value: wrongAddressFee });
+                                    if (escortFee !== 0) items.push({ label: "Escort", value: escortFee });
+                                    if (lumper !== 0) items.push({ label: "Lumper", value: lumper });
+
+                                    if (otherCharges !== 0) {
+                                      const reason = String((order as any).otherChargesReason || "").trim();
+                                      items.push({ label: reason || "Other Charges", value: otherCharges });
                                     }
-                                    
-                                    // Debug log
-                                    console.log('Order additionals check:', order.loadNumber, {
-                                      freightAmount, totalFreight, difference, items,
-                                      rawLayover: (order as any).layoverDriver,
-                                      rawOtherAdditionals: (order as any).otherAdditionalsDriver
-                                    });
+
+                                    if (otherAdditionals !== 0) {
+                                      const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                      items.push({ label: reason || "Other Additionals", value: otherAdditionals });
+                                    }
                                     
                                     return (
                                       <Popover>
@@ -3552,11 +3549,14 @@ const Trips = () => {
                                           </div>
                                           <div className="space-y-1 text-sm">
                                             <div>Base Freight: {formatCurrency(freightAmount)}</div>
-                                            {items.map((item, idx) => (
-                                              <div key={idx} className="text-muted-foreground">
-                                                {item.label}: +{formatCurrency(item.value)}
-                                              </div>
-                                            ))}
+                                            {items.map((item, idx) => {
+                                              const sign = item.value >= 0 ? "+" : "-";
+                                              return (
+                                                <div key={idx} className="text-muted-foreground">
+                                                  {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                                </div>
+                                              );
+                                            })}
                                             <div className="pt-1 border-t">Total Freight: {formatCurrency(totalFreight)}</div>
                                             <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
                                               Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
