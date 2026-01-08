@@ -43,8 +43,8 @@ const handler = async (req: Request): Promise<Response> => {
       currentMiles: requestData.currentMiles,
     });
 
-    // Skip notification if truck is within 10 miles of destination
-    if (requestData.currentMiles !== undefined && requestData.currentMiles <= 10) {
+    // Skip notification if truck is less than 10 miles from destination
+    if (requestData.currentMiles !== undefined && requestData.currentMiles < 10) {
       console.log(`⏭️ Truck is only ${requestData.currentMiles} miles away, skipping late notification`);
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: "within_10_miles" }),
