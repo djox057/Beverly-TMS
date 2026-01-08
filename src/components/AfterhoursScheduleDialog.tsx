@@ -802,8 +802,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 
                                 const isFilled = totalCount >= config.slots;
                                 
-                                // Collapse office section if slots are filled (unless expanded)
-                                if (isFilled && !expandedFilledOffices[office]) {
+                                // Collapse office section if slots are filled (unless expanded or forceShowOffice)
+                                if (isFilled && !expandedFilledOffices[office] && forceShowOffice !== office) {
                                   return (
                                     <div key={office} className="mb-2">
                                       <button
@@ -822,8 +822,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                   );
                                 }
                                 
-                                // Show expanded filled office with collapse option
-                                if (isFilled && expandedFilledOffices[office]) {
+                                // Show expanded filled office with collapse option (skip if forceShowOffice)
+                                if (isFilled && expandedFilledOffices[office] && forceShowOffice !== office) {
                                   const selectedOfficeUsers = availableUsers.filter(u => selectedUsers[office].includes(u.id));
                                   return (
                                     <div key={office} className="mb-4">
