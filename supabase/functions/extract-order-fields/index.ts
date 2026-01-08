@@ -95,7 +95,7 @@ serve(async (req) => {
 ### 1. BROKER INFO (TOP PRIORITY - check document header/letterhead):
 - brokerName: Company issuing the rate confirmation (NOT shipper/receiver)
 - brokerAddress: Broker's office address
-- brokerLoadNumber: Load/order reference number
+- DO NOT extract brokerLoadNumber - skip this field entirely
 
 ### 2. PICKUP/DELIVERY LOCATIONS:
 Identify stops labeled "PU", "Pickup", "Origin" as PICKUPS.
@@ -159,8 +159,7 @@ ${currentMonth >= 10 ? `- "01/15/25" or "01/15" in a document → output "${next
 For single pickup/delivery:
 {
   "brokerName": "string",
-  "brokerAddress": "string", 
-  "brokerLoadNumber": "string",
+  "brokerAddress": "string",
   "pickups": [{
     "address": "string",
     "city": "string",
