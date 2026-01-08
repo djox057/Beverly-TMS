@@ -893,6 +893,21 @@ const EditOrder = () => {
       }
     }
   }, [id, loadOrderData, navigate, toast]);
+
+  // Auto-calculate original driver rate in yard dialog based on cents_per_mile
+  useEffect(() => {
+    if (!yardDialogOpen || !driver1 || !yardOriginalMiles) return;
+    
+    const originalDriver = drivers?.find(d => d.id === driver1);
+    if (!originalDriver?.is_company_driver || !originalDriver?.cents_per_mile) return;
+    
+    const miles = parseFloat(yardOriginalMiles) || 0;
+    if (miles <= 0) return;
+    
+    const calculatedPrice = miles * (originalDriver.cents_per_mile / 100);
+    setOriginalDriverPrice(calculatedPrice.toFixed(2));
+  }, [yardDialogOpen, driver1, yardOriginalMiles, drivers]);
+
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
       id: Date.now().toString(),
