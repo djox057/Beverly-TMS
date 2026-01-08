@@ -4569,6 +4569,7 @@ const EditOrder = () => {
         onOpenChange={setRecoveryDialogOpen}
         onSave={handleRecoverySave}
         currentDriver={originalDriverName || drivers?.find((d) => d.id === driver1)?.name || "N/A"}
+        currentDriverId={driver1}
         currentTruck={originalTruckNumber || trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}
         currentTrailer={originalTrailerNumber || trailer || "N/A"}
         currentTrailerId={trailerId}
