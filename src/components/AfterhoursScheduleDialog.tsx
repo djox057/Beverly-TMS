@@ -70,6 +70,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     beograd: false,
     maintenance: false,
   });
+  // Force show office in selection area (for adding more users via + button)
+  const [forceShowOffice, setForceShowOffice] = useState<SelectionKey | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -257,6 +259,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, 'EEEE, MMM d, yyyy')}`);
       setSelectedUsers({ kragujevac: [], cacak: [], beograd: [], maintenance: [] });
       setSelectedDate(undefined);
+      setForceShowOffice(null);
       fetchExistingSchedules();
     } catch (error: any) {
       console.error('Error saving schedule:', error);
@@ -448,7 +451,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={setSelectedDate}
+              onSelect={(date) => {
+                setSelectedDate(date);
+                setForceShowOffice(null); // Reset force show when date changes
+              }}
               disabled={isDateDisabled}
               className="rounded-md border"
             />
@@ -625,30 +631,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     {officeSchedules.length}/{config.slots}
                                   </span>
                                   {canManageSchedules && !isPastDate && availableUsersToAdd.length > 0 && (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-5 w-5">
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-56 p-2" align="start">
-                                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                                          <p className="text-xs text-muted-foreground mb-2">Add more users:</p>
-                                          {availableUsersToAdd.map(user => (
-                                            <Button
-                                              key={user.id}
-                                              variant="ghost"
-                                              size="sm"
-                                              className="w-full justify-start text-sm h-8"
-                                              disabled={saving}
-                                              onClick={() => handleDirectAddUser(user.id, office)}
-                                            >
-                                              {user.full_name || user.email}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5"
+                                      onClick={() => setForceShowOffice(office)}
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
                                   )}
                                 </div>
                                 <div className="space-y-1 pl-2">
@@ -708,30 +698,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     {maintenanceSchedules.length}
                                   </span>
                                   {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-5 w-5">
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-56 p-2" align="start">
-                                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                                          <p className="text-xs text-muted-foreground mb-2">Add more users:</p>
-                                          {availableMaintenanceToAdd.map(user => (
-                                            <Button
-                                              key={user.id}
-                                              variant="ghost"
-                                              size="sm"
-                                              className="w-full justify-start text-sm h-8"
-                                              disabled={saving}
-                                              onClick={() => handleDirectAddUser(user.id, 'maintenance')}
-                                            >
-                                              {user.full_name || user.email}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5"
+                                      onClick={() => setForceShowOffice('maintenance')}
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
                                   )}
                                 </div>
                                 <div className="space-y-1 pl-2">
@@ -788,7 +762,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       )}
                       
                       {/* Show add section for offices/maintenance below minimum threshold - Admin only, future dates only */}
-                      {canManageSchedules && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers) && (
+                      {canManageSchedules && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers || forceShowOffice) && (
                         <>
                           {loading ? (
                             <div className="flex items-center justify-center py-4">
@@ -804,8 +778,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 const selectedCount = selectedUsers[office].length;
                                 const totalCount = existingCount + selectedCount;
                                 
-                                // Skip if already at or above threshold
-                                if (existingCount >= MIN_THRESHOLDS[office]) return null;
+                                // Skip if already at or above threshold (unless forceShowOffice matches)
+                                if (existingCount >= MIN_THRESHOLDS[office] && forceShowOffice !== office) return null;
                                 
                                 // Filter out already scheduled users
                                 const alreadyScheduledIds = new Set((scheduledByOffice[office] || []).map(s => s.user_id));
@@ -942,8 +916,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 );
                               })}
                               
-                              {/* Maintenance section at bottom - only if below threshold */}
-                              {maintenanceBelowThreshold && maintenanceUsers.length > 0 && (
+                              {/* Maintenance section at bottom - only if below threshold or forceShowOffice is maintenance */}
+                              {(maintenanceBelowThreshold || forceShowOffice === 'maintenance') && maintenanceUsers.length > 0 && (
                                 <div className="mb-4 border-t pt-4 mt-4">
                                   {(() => {
                                     const existingMaintenanceCount = maintenanceSchedules.length;
