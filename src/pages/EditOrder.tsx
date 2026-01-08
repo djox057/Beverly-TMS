@@ -3107,12 +3107,7 @@ const EditOrder = () => {
                   value={freightAmount}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setFreightAmount)}
-                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
-                  className={
-                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
-                      ? "bg-muted cursor-not-allowed"
-                      : ""
-                  }
+                  disabled={isLocked}
                 />
                 <p className="text-sm text-muted-foreground">
                   Total Company Revenue:{" "}
@@ -3592,12 +3587,7 @@ const EditOrder = () => {
                   value={loadedMiles}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setLoadedMiles)}
-                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
-                  className={
-                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
-                      ? "bg-muted cursor-not-allowed"
-                      : ""
-                  }
+                  disabled={isLocked}
                 />
                 {parseInt(additionalMiles) > 0 && (
                   <p className="text-xs text-muted-foreground">
@@ -3616,12 +3606,7 @@ const EditOrder = () => {
                   value={dhMiles}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setDhMiles)}
-                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
-                  className={
-                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
-                      ? "bg-muted cursor-not-allowed"
-                      : ""
-                  }
+                  disabled={isLocked}
                 />
               </div>
             </div>
