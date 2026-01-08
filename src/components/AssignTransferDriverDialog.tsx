@@ -91,6 +91,18 @@ export function AssignTransferDriverDialog({
     }
   }, [open, initialRecoveryMiles, yardLoadTrailerId]);
 
+  // Auto-calculate driver rate when driver or miles change
+  useEffect(() => {
+    const selectedDriver = drivers?.find(d => d.id === transferDriverId);
+    if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
+    
+    const miles = parseFloat(recoveryMiles) || 0;
+    if (miles <= 0) return;
+    
+    const calculatedPrice = miles * (selectedDriver.cents_per_mile / 100);
+    setRecoveryDriverPrice(calculatedPrice.toFixed(2));
+  }, [transferDriverId, recoveryMiles, drivers]);
+
   const handleTruckChange = (truckId: string) => {
     setTransferTruckId(truckId);
     setSelectedTruckId(truckId);
