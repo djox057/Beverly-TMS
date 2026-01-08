@@ -635,9 +635,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       variant="ghost" 
                                       size="icon" 
                                       className="h-5 w-5"
-                                      onClick={() => setForceShowOffice(office)}
+                                      onClick={() => setForceShowOffice(prev => prev === office ? null : office)}
                                     >
-                                      <Plus className="h-3 w-3" />
+                                      <Plus className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === office ? 'rotate-45' : ''}`} />
                                     </Button>
                                   )}
                                 </div>
@@ -702,9 +702,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       variant="ghost" 
                                       size="icon" 
                                       className="h-5 w-5"
-                                      onClick={() => setForceShowOffice('maintenance')}
+                                      onClick={() => setForceShowOffice(prev => prev === 'maintenance' ? null : 'maintenance')}
                                     >
-                                      <Plus className="h-3 w-3" />
+                                      <Plus className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === 'maintenance' ? 'rotate-45' : ''}`} />
                                     </Button>
                                   )}
                                 </div>
@@ -893,7 +893,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                             >
                                               <Checkbox
                                                 checked={selectedUsers[office].includes(user.id)}
-                                                onCheckedChange={() => handleUserToggle(user.id, office)}
+                                                onCheckedChange={() => handleUserToggle(user.id, office, forceShowOffice === office)}
                                               />
                                               <span className="text-sm flex-1">
                                                 {user.full_name || user.email}
@@ -968,7 +968,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                               >
                                                 <Checkbox
                                                   checked={true}
-                                                  onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                                  onCheckedChange={() => handleUserToggle(user.id, 'maintenance', forceShowOffice === 'maintenance')}
                                                 />
                                                 <span className="text-sm">
                                                   {user.full_name || user.email}
@@ -998,7 +998,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                             >
                                               <Checkbox
                                                 checked={selectedUsers.maintenance.includes(user.id)}
-                                                onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                                onCheckedChange={() => handleUserToggle(user.id, 'maintenance', forceShowOffice === 'maintenance')}
                                               />
                                               <span className="text-sm">
                                                 {user.full_name || user.email}
