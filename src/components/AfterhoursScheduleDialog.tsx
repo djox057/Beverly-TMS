@@ -40,9 +40,9 @@ interface AfterhoursScheduleDialogProps {
 
 // Office configuration: slots per office
 const OFFICE_CONFIG = {
-  kragujevac: { label: 'Kragujevac (KG)', slots: 4 },
-  cacak: { label: 'Čačak (CA)', slots: 3 },
-  beograd: { label: 'Beograd (BG)', slots: 3 },
+  kragujevac: { label: 'Kragujevac (KG)', slots: 3 },
+  cacak: { label: 'Čačak (CA)', slots: 2 },
+  beograd: { label: 'Beograd (BG)', slots: 2 },
 } as const;
 
 const MAINTENANCE_CONFIG = { label: 'Maintenance', slots: 10 };
@@ -439,7 +439,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             Weekend Schedule
           </DialogTitle>
           <DialogDescription>
-            Schedule users by office: 4x KG, 3x CA, 3x BG + Maintenance for weekends and holidays.
+            Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays.
             Role changes: 6am → afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
