@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -169,7 +169,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  const handleUserToggle = (userId: string, category: SelectionKey) => {
+  const handleUserToggle = (userId: string, category: SelectionKey, bypassLimit = false) => {
     setSelectedUsers(prev => {
       const currentUsers = prev[category];
       const isSelected = currentUsers.includes(userId);
@@ -181,7 +181,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           [category]: currentUsers.filter(id => id !== userId)
         };
       } else {
-        if (currentUsers.length >= maxSlots) {
+        if (!bypassLimit && currentUsers.length >= maxSlots) {
           const label = category === 'maintenance' ? MAINTENANCE_CONFIG.label : OFFICE_CONFIG[category as OfficeKey].label;
           toast.error(`Maximum ${maxSlots} users for ${label}`);
           return prev;
@@ -192,6 +192,30 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         };
       }
     });
+  };
+  
+  // Direct add user to schedule (bypasses selection, saves immediately)
+  const handleDirectAddUser = async (userId: string, category: SelectionKey) => {
+    if (!selectedDate) return;
+    
+    setSaving(true);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      
+      const { error } = await supabase
+        .from('afterhours_schedule')
+        .upsert({ user_id: userId, scheduled_date: dateStr }, { onConflict: 'user_id,scheduled_date' });
+
+      if (error) throw error;
+
+      toast.success('User added to schedule');
+      fetchExistingSchedules();
+    } catch (error: any) {
+      console.error('Error adding user:', error);
+      toast.error(error.message || 'Failed to add user');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getTotalSelectedCount = () => {
@@ -584,11 +608,15 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
                         <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
-                          {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                        {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
                             
                             const config = OFFICE_CONFIG[office];
+                            const alreadyScheduledIds = new Set(officeSchedules.map(s => s.user_id));
+                            const officeUsersForOffice = usersByOffice[office] || [];
+                            const availableUsersToAdd = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
+                            
                             return (
                               <div key={office} className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -596,6 +624,32 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                   <span className="text-xs text-muted-foreground">
                                     {officeSchedules.length}/{config.slots}
                                   </span>
+                                  {canManageSchedules && !isPastDate && availableUsersToAdd.length > 0 && (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5">
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-56 p-2" align="start">
+                                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                                          <p className="text-xs text-muted-foreground mb-2">Add more users:</p>
+                                          {availableUsersToAdd.map(user => (
+                                            <Button
+                                              key={user.id}
+                                              variant="ghost"
+                                              size="sm"
+                                              className="w-full justify-start text-sm h-8"
+                                              disabled={saving}
+                                              onClick={() => handleDirectAddUser(user.id, office)}
+                                            >
+                                              {user.full_name || user.email}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
                                 </div>
                                 <div className="space-y-1 pl-2">
                                   {officeSchedules.map(schedule => {
@@ -642,56 +696,87 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           })}
                           
                           {/* Maintenance section at bottom */}
-                          {maintenanceSchedules.length > 0 && (
-                            <div className="mb-4 border-t pt-4 mt-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {maintenanceSchedules.length}
-                                </span>
-                              </div>
-                              <div className="space-y-1 pl-2">
-                                {maintenanceSchedules.map(schedule => {
-                                  // Check if this user worked any day BEFORE this date in the same month
-                                  // Use string comparison to avoid timezone issues
-                                  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-                                  const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-                                  const daysWorkedBefore = existingSchedules.filter(s => 
-                                    s.user_id === schedule.user_id &&
-                                    s.scheduled_date >= monthStartStr &&
-                                    s.scheduled_date < selectedDateStr
-                                  ).length;
-                                  const isExtra = daysWorkedBefore >= 1;
-                                  
-                                  return (
-                                    <div 
-                                      key={schedule.id} 
-                                      className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
-                                    >
-                                      <span className="flex items-center gap-2">
-                                        {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
-                                        {isExtra && (
-                                          <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
-                                            extra
-                                          </Badge>
-                                        )}
-                                      </span>
-                                      {canManageSchedules && !isPastDate && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 text-destructive hover:text-destructive"
-                                          onClick={() => handleDeleteSchedule(schedule.id)}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
+                          {maintenanceSchedules.length > 0 && (() => {
+                            const alreadyScheduledMaintenanceIds = new Set(maintenanceSchedules.map(s => s.user_id));
+                            const availableMaintenanceToAdd = maintenanceUsers.filter(u => !alreadyScheduledMaintenanceIds.has(u.id));
+                            
+                            return (
+                              <div className="mb-4 border-t pt-4 mt-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {maintenanceSchedules.length}
+                                  </span>
+                                  {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5">
+                                          <Plus className="h-3 w-3" />
                                         </Button>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-56 p-2" align="start">
+                                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                                          <p className="text-xs text-muted-foreground mb-2">Add more users:</p>
+                                          {availableMaintenanceToAdd.map(user => (
+                                            <Button
+                                              key={user.id}
+                                              variant="ghost"
+                                              size="sm"
+                                              className="w-full justify-start text-sm h-8"
+                                              disabled={saving}
+                                              onClick={() => handleDirectAddUser(user.id, 'maintenance')}
+                                            >
+                                              {user.full_name || user.email}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
+                                </div>
+                                <div className="space-y-1 pl-2">
+                                  {maintenanceSchedules.map(schedule => {
+                                    // Check if this user worked any day BEFORE this date in the same month
+                                    // Use string comparison to avoid timezone issues
+                                    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+                                    const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+                                    const daysWorkedBefore = existingSchedules.filter(s => 
+                                      s.user_id === schedule.user_id &&
+                                      s.scheduled_date >= monthStartStr &&
+                                      s.scheduled_date < selectedDateStr
+                                    ).length;
+                                    const isExtra = daysWorkedBefore >= 1;
+                                    
+                                    return (
+                                      <div 
+                                        key={schedule.id} 
+                                        className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
+                                          {isExtra && (
+                                            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
+                                              extra
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        {canManageSchedules && !isPastDate && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-destructive hover:text-destructive"
+                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </ScrollArea>
                       )}
 
