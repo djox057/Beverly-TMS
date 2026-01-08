@@ -16,6 +16,7 @@ interface RecoveryLoadDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: RecoveryData) => void;
   currentDriver: string;
+  currentDriverId?: string | null;
   currentTruck: string;
   currentTrailer: string;
   currentTrailerId?: string;
@@ -48,6 +49,7 @@ export function RecoveryLoadDialog({
   onOpenChange,
   onSave,
   currentDriver,
+  currentDriverId,
   currentTruck,
   currentTrailer,
   currentTrailerId,
@@ -91,7 +93,20 @@ export function RecoveryLoadDialog({
   const isTrailerNA = currentTrailer === "N/A";
   const hasAnyNA = isDriverNA || isTruckNA;
 
-  // Auto-calculate driver rate when driver or miles change
+  // Auto-calculate original driver rate when miles change
+  useEffect(() => {
+    if (!currentDriverId) return;
+    const originalDriver = drivers?.find(d => d.id === currentDriverId);
+    if (!originalDriver?.is_company_driver || !originalDriver?.cents_per_mile) return;
+    
+    const miles = parseFloat(originalMiles) || 0;
+    if (miles <= 0) return;
+    
+    const calculatedPrice = miles * (originalDriver.cents_per_mile / 100);
+    setOriginalDriverRate(calculatedPrice.toFixed(2));
+  }, [currentDriverId, originalMiles, drivers]);
+
+  // Auto-calculate recovery driver rate when driver or miles change
   useEffect(() => {
     const selectedDriver = drivers?.find(d => d.id === recoveryDriverId);
     if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
