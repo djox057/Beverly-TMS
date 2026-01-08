@@ -613,9 +613,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             if (officeSchedules.length === 0) return null;
                             
                             const config = OFFICE_CONFIG[office];
-                            const allScheduledIdsForDate = new Set(existingForDate.map(s => s.user_id));
-                            // Show ALL office users who aren't scheduled for this date (not just from this office)
-                            const availableUsersToAdd = officeUsers.filter(u => !allScheduledIdsForDate.has(u.id));
+                            const alreadyScheduledIds = new Set(officeSchedules.map(s => s.user_id));
+                            const officeUsersForOffice = usersByOffice[office] || [];
+                            const availableUsersToAdd = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
                             
                             return (
                               <div key={office} className="mb-4">
@@ -644,9 +644,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                               onClick={() => handleDirectAddUser(user.id, office)}
                                             >
                                               {user.full_name || user.email}
-                                              <span className="text-xs text-muted-foreground ml-1">
-                                                ({getOfficeLabel(user.office)})
-                                              </span>
                                             </Button>
                                           ))}
                                         </div>
@@ -700,8 +697,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           
                           {/* Maintenance section at bottom */}
                           {maintenanceSchedules.length > 0 && (() => {
-                            const allScheduledIdsForDate = new Set(existingForDate.map(s => s.user_id));
-                            const availableMaintenanceToAdd = maintenanceUsers.filter(u => !allScheduledIdsForDate.has(u.id));
+                            const alreadyScheduledMaintenanceIds = new Set(maintenanceSchedules.map(s => s.user_id));
+                            const availableMaintenanceToAdd = maintenanceUsers.filter(u => !alreadyScheduledMaintenanceIds.has(u.id));
                             
                             return (
                               <div className="mb-4 border-t pt-4 mt-4">
