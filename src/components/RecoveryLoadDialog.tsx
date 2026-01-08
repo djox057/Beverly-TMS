@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +90,18 @@ export function RecoveryLoadDialog({
   const isTruckNA = currentTruck === "N/A";
   const isTrailerNA = currentTrailer === "N/A";
   const hasAnyNA = isDriverNA || isTruckNA;
+
+  // Auto-calculate driver rate when driver or miles change
+  useEffect(() => {
+    const selectedDriver = drivers?.find(d => d.id === recoveryDriverId);
+    if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
+    
+    const miles = parseFloat(recoveryMiles) || 0;
+    if (miles <= 0) return;
+    
+    const calculatedPrice = miles * (selectedDriver.cents_per_mile / 100);
+    setRecoveryDriverRate(calculatedPrice.toFixed(2));
+  }, [recoveryDriverId, recoveryMiles, drivers]);
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
