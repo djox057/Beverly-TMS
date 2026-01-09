@@ -90,23 +90,9 @@ serve(async (req: Request) => {
 
     let access_token: string;
 
-    // Prefer JWT auth (doesn't require storing/rotating refresh tokens)
-    if (JWT_TOKEN) {
-      console.log(`Authenticating with RingCentral at ${SERVER_URL} using JWT grant...`);
-
-      const authBody = new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: JWT_TOKEN,
-      });
-
-      const authData = await requestAccessToken(authBody);
-      access_token = authData.access_token;
-    } else {
-      // Fallback to refresh_token grant
-      if (!REFRESH_TOKEN) {
-        throw new Error("Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN");
-      }
-
+    // Default to 3‑legged OAuth (refresh_token) for this project.
+    // JWT is only used as a fallback when no refresh token is configured.
+    if (REFRESH_TOKEN) {
       console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
       console.log("RingCentral token debug:", { refreshTokenLength: REFRESH_TOKEN.length });
 
@@ -124,6 +110,22 @@ serve(async (req: Request) => {
           "New refresh token received - consider updating RINGCENTRAL_REFRESH_TOKEN secret",
         );
       }
+    } else if (JWT_TOKEN) {
+      console.log(
+        `Authenticating with RingCentral at ${SERVER_URL} using JWT grant...`,
+      );
+
+      const authBody = new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: JWT_TOKEN,
+      });
+
+      const authData = await requestAccessToken(authBody);
+      access_token = authData.access_token;
+    } else {
+      throw new Error(
+        "Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN",
+      );
     }
 
     console.log("Successfully authenticated with RingCentral");
