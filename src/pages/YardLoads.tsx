@@ -454,6 +454,22 @@ export default function YardLoads() {
         });
       }
 
+      // Build the transfer note to append
+      const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const transferNote = `[Transfer ${currentDate}] ${data.transferDescription}`;
+      
+      // Get current notes to append
+      const { data: currentOrder } = await supabase
+        .from('orders')
+        .select('notes')
+        .eq('id', selectedOrderForTransfer.id)
+        .single();
+      
+      const existingNotes = currentOrder?.notes || '';
+      const updatedNotes = existingNotes 
+        ? `${existingNotes}\n\n${transferNote}`
+        : transferNote;
+
       // Update the order with transfer driver info - use yard load's trailer
       const { error } = await supabase
         .from('orders')
@@ -463,6 +479,7 @@ export default function YardLoads() {
           trailer_id: yardLoadTrailerId || null, // Use yard load's trailer
           recovery_miles: data.recoveryMiles,
           recovery_driver_price: data.recoveryDriverPrice,
+          notes: updatedNotes,
         })
         .eq('id', selectedOrderForTransfer.id);
 
