@@ -170,7 +170,7 @@ export function LumperMissingDataDialog({
       <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Lumper - Missing Revised RC for {driverName}
+            Lumper - Missing Receipt for {driverName}
           </DialogTitle>
         </DialogHeader>
 
