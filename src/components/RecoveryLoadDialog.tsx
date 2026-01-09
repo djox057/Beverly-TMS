@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -42,6 +43,8 @@ export interface RecoveryData {
   transferState: string;
   transferAddress?: string;
   transferDatetime: string;
+  // Transfer description (mandatory note)
+  description: string;
 }
 
 export function RecoveryLoadDialog({
@@ -86,6 +89,9 @@ export function RecoveryLoadDialog({
     const now = new Date();
     return now.toISOString().slice(0, 16);
   });
+  
+  // Transfer description (mandatory note)
+  const [description, setDescription] = useState<string>("");
   
   // Check each field independently for N/A status
   const isDriverNA = currentDriver === "N/A";
@@ -149,6 +155,11 @@ export function RecoveryLoadDialog({
       return;
     }
 
+    if (!description || description.trim().length < 10) {
+      setError("Please enter a detailed description (at least 10 characters)");
+      return;
+    }
+
     if (swapTrailers && (!currentTrailerId || !recoveryTrailerId)) {
       setError("Both trucks must have trailers to perform a swap");
       return;
@@ -171,6 +182,7 @@ export function RecoveryLoadDialog({
       transferState,
       transferAddress: transferAddress || undefined,
       transferDatetime: new Date(transferDatetime).toISOString(),
+      description: description.trim(),
     });
 
     onOpenChange(false);
@@ -365,6 +377,21 @@ export function RecoveryLoadDialog({
                   placeholder="0.00"
                 />
               </div>
+            </div>
+            <div>
+              <Label>Detailed Description of What Happened *</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter a detailed description of why this transfer is happening (at least 10 characters)"
+                rows={3}
+                className={description.trim().length > 0 && description.trim().length < 10 ? "border-destructive" : ""}
+              />
+              {description.trim().length > 0 && description.trim().length < 10 && (
+                <p className="text-xs text-destructive mt-1">
+                  {10 - description.trim().length} more characters required
+                </p>
+              )}
             </div>
           </div>
 
