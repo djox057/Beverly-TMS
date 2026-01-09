@@ -31,6 +31,7 @@ interface EfsFuelRequest {
   state?: string | null;
   quantity?: number | null;
   receipt_path?: string | null;
+  requested_by?: string | null;
 }
 
 export function EfsMissingDataDialog({
@@ -52,7 +53,7 @@ export function EfsMissingDataDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path")
+        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
         .eq("purpose", "Fuel")
         .eq("driver_id", driverId)
         .or("receipt_path.is.null,quantity.is.null")
@@ -231,6 +232,7 @@ export function EfsMissingDataDialog({
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Requested By</TableHead>
                 <TableHead className="text-center">Gallons</TableHead>
                 <TableHead className="text-center">Receipt</TableHead>
               </TableRow>
@@ -251,6 +253,9 @@ export function EfsMissingDataDialog({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(new Date(req.requested_at), "MMM d, h:mm a")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {req.requested_by || "—"}
                     </TableCell>
                     <TableCell>
                       {hasGallons ? (

@@ -11,6 +11,7 @@ export interface EfsFuelMissingData {
   state?: string | null;
   quantity?: number | null;
   receipt_path?: string | null;
+  requested_by?: string | null;
 }
 
 export function useEfsMissingReceipts() {
@@ -22,7 +23,7 @@ export function useEfsMissingReceipts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path")
+        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
         .eq("purpose", "Fuel")
         .or("receipt_path.is.null,quantity.is.null")
         .order("requested_at", { ascending: false });

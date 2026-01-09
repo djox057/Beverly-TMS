@@ -107,6 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Resolve requester from JWT (role-independent)
+    let requesterId: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
@@ -121,6 +122,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (userError) {
         console.warn("Could not resolve requester from JWT:", userError);
       } else if (userData?.user) {
+        requesterId = userData.user.id;
         requesterEmail = userData.user.email ?? requesterEmail;
         requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
 
@@ -233,6 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
         driver_id: driverId,
         amount,
         truck_number: truckNumber,
+        requested_by: requesterId,
       })
       .select("id")
       .single();
