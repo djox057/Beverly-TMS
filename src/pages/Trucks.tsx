@@ -784,18 +784,18 @@ const Trucks = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">Truck #</TableHead>
-                  <TableHead className="text-center">VIN</TableHead>
-                  <TableHead className="text-center">Company</TableHead>
-                  <TableHead className="text-center">Trailer #</TableHead>
-                  <TableHead className="text-center">Driver 1</TableHead>
-                  <TableHead className="text-center">Driver 2</TableHead>
-                  <TableHead className="text-center">Dispatcher</TableHead>
-                  <TableHead className="text-center">IPASS</TableHead>
-                  <TableHead className="text-center">DOT Inspection</TableHead>
-                  <TableHead className="text-center">Plate Exp.</TableHead>
-                  <TableHead className="text-center">Insurance Exp.</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-center w-[80px]">Truck #</TableHead>
+                  <TableHead className="text-center w-[180px]">VIN</TableHead>
+                  <TableHead className="text-center w-[100px]">Company</TableHead>
+                  <TableHead className="text-center w-[80px]">Trailer #</TableHead>
+                  <TableHead className="text-center w-[120px]">Driver 1</TableHead>
+                  <TableHead className="text-center w-[120px]">Driver 2</TableHead>
+                  <TableHead className="text-center w-[120px]">Dispatcher</TableHead>
+                  <TableHead className="text-center w-[80px]">IPASS</TableHead>
+                  <TableHead className="text-center w-[110px]">DOT Inspection</TableHead>
+                  <TableHead className="text-center w-[100px]">Plate Exp.</TableHead>
+                  <TableHead className="text-center w-[110px]">Insurance Exp.</TableHead>
+                  <TableHead className="text-center w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -806,18 +806,18 @@ const Trucks = () => {
                   </TableRow> : (
                     <>
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
-                        <TableCell className="font-medium text-center">{truck.truck_number}</TableCell>
-                        <TableCell className="font-mono text-sm text-center">{truck.vin || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.driver1?.company?.name || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.trailer?.trailer_number || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.ipass || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.dot_inspection_date || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.plate_expiration_date || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.insurance_expiration_date || "—"}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="font-medium text-center whitespace-nowrap">{truck.truck_number}</TableCell>
+                        <TableCell className="font-mono text-sm text-center whitespace-nowrap">{truck.vin || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.driver1?.company?.name || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.trailer?.trailer_number || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.driver1?.name || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.driver2?.name || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.ipass || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.dot_inspection_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.plate_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.insurance_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
                               <Edit className="h-4 w-4" />

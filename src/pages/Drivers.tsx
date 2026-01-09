@@ -1918,13 +1918,13 @@ const Drivers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Truck #</TableHead>
-                  <TableHead>Trailer #</TableHead>
-                  <TableHead>Dispatcher</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Home Location</TableHead>
+                  <TableHead className="w-[150px]">Name</TableHead>
+                  <TableHead className="w-[100px]">Company</TableHead>
+                  <TableHead className="w-[80px]">Truck #</TableHead>
+                  <TableHead className="w-[80px]">Trailer #</TableHead>
+                  <TableHead className="w-[120px]">Dispatcher</TableHead>
+                  <TableHead className="w-[220px]">Contact</TableHead>
+                  <TableHead className="w-[140px]">Home Location</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1937,7 +1937,7 @@ const Drivers = () => {
                 ) : (
                   paginatedDrivers.map((driver: any) => (
                     <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           {driver.name}
                           {!driver.is_active && (
@@ -1947,34 +1947,34 @@ const Drivers = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{driver.company?.name || "—"}</TableCell>
-                      <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
-                      <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
-                      <TableCell>{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{driver.company?.name || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{driver.truck_info?.truck_number || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{driver.truck_info?.trailer_number || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {driver.phone && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-3 w-3 text-muted-foreground" />
+                            <div className="flex items-center gap-2 text-sm whitespace-nowrap">
+                              <Phone className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                               {driver.phone}
                             </div>
                           )}
                           {driver.email && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-3 w-3 text-muted-foreground" />
+                            <div className="flex items-center gap-2 text-sm whitespace-nowrap">
+                              <Mail className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                               {driver.email}
                             </div>
                           )}
                           {!driver.phone && !driver.email && "—"}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {driver.home_city && driver.home_state
                           ? `${driver.home_city}, ${driver.home_state}`
                           : driver.home_city || driver.home_state || "—"}
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
                             <Edit className="h-4 w-4" />

@@ -651,14 +651,14 @@ const Trailers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center">Trailer #</TableHead>
-                  <TableHead className="text-center">Trailer Type</TableHead>
-                  <TableHead className="text-center">VIN</TableHead>
-                  <TableHead className="text-center">Connected Truck #</TableHead>
-                  <TableHead className="text-center">DOT Inspection</TableHead>
-                  <TableHead className="text-center">Plate Exp.</TableHead>
-                  <TableHead className="text-center">Insurance Exp.</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-center w-[100px]">Trailer #</TableHead>
+                  <TableHead className="text-center w-[120px]">Trailer Type</TableHead>
+                  <TableHead className="text-center w-[180px]">VIN</TableHead>
+                  <TableHead className="text-center w-[130px]">Connected Truck #</TableHead>
+                  <TableHead className="text-center w-[120px]">DOT Inspection</TableHead>
+                  <TableHead className="text-center w-[110px]">Plate Exp.</TableHead>
+                  <TableHead className="text-center w-[120px]">Insurance Exp.</TableHead>
+                  <TableHead className="text-center w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -668,16 +668,16 @@ const Trailers = () => {
                     </TableCell>
                   </TableRow> : <>
                     {currentTrailers.map(trailer => <TableRow key={trailer.id}>
-                        <TableCell className="font-medium text-center">{trailer.trailer_number}</TableCell>
-                        <TableCell className="text-center">{trailer.trailer_type || "—"}</TableCell>
-                        <TableCell className="text-center">{trailer.vin || "—"}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="font-medium text-center whitespace-nowrap">{trailer.trailer_number}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.trailer_type || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.vin || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
                           {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
                         </TableCell>
-                        <TableCell className="text-center">{trailer.dot_inspection_date || "—"}</TableCell>
-                        <TableCell className="text-center">{trailer.plate_expiration_date || "—"}</TableCell>
-                        <TableCell className="text-center">{trailer.insurance_expiration_date || "—"}</TableCell>
-                      <TableCell className="text-center">
+                        <TableCell className="text-center whitespace-nowrap">{trailer.dot_inspection_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.plate_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.insurance_expiration_date || "—"}</TableCell>
+                      <TableCell className="text-center whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
                             <Edit className="h-4 w-4" />
