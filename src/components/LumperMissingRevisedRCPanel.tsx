@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2, CheckCircle2, FileText, Check } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, FileText } from "lucide-react";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
 
 export function LumperMissingRevisedRCPanel() {
   const { toast } = useToast();
@@ -19,12 +20,12 @@ export function LumperMissingRevisedRCPanel() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  const handleFileChange = async (requestId: string, file: File | undefined) => {
+  const handleFileChange = async (orderId: string, file: File | undefined) => {
     if (!file) return;
 
-    setUploadingId(requestId);
+    setUploadingId(orderId);
     try {
-      await uploadRevisedRC({ requestId, file });
+      await uploadRevisedRC({ orderId, file });
       toast({
         title: "Revised RC uploaded",
         description: "The revised rate confirmation has been uploaded successfully.",
@@ -68,7 +69,7 @@ export function LumperMissingRevisedRCPanel() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-4">
-            All lumper requests have revised rate confirmations uploaded.
+            All orders with lumper have revised rate confirmations uploaded.
           </p>
         </CardContent>
       </Card>
@@ -88,43 +89,49 @@ export function LumperMissingRevisedRCPanel() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Load #</TableHead>
               <TableHead>Truck</TableHead>
               <TableHead>Driver</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Requested By</TableHead>
+              <TableHead className="text-right">Lumper</TableHead>
+              <TableHead>Pickup Date</TableHead>
               <TableHead className="text-center">Revised RC</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lumperRequests.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell className="font-medium">{req.truck_number || "—"}</TableCell>
-                <TableCell>{req.driver_name}</TableCell>
+            {lumperRequests.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell className="font-medium">
+                  #{order.internal_load_number || "—"}
+                </TableCell>
+                <TableCell>{order.truck_number || "—"}</TableCell>
+                <TableCell>
+                  {order.driver1_name}
+                  {order.driver2_name && ` / ${order.driver2_name}`}
+                </TableCell>
                 <TableCell className="text-right font-medium">
-                  ${req.amount.toFixed(2)}
+                  ${order.lumper.toFixed(2)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {format(new Date(req.requested_at), "MMM d, h:mm a")}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {req.requested_by || "—"}
+                  {order.pickup_datetime 
+                    ? format(new Date(order.pickup_datetime), "MMM d, h:mm a")
+                    : "—"
+                  }
                 </TableCell>
                 <TableCell className="text-center">
                   <input
                     type="file"
                     accept=".pdf,image/*"
                     className="hidden"
-                    ref={(el) => (fileInputRefs.current[req.id] = el)}
-                    onChange={(e) => handleFileChange(req.id, e.target.files?.[0])}
+                    ref={(el) => (fileInputRefs.current[order.id] = el)}
+                    onChange={(e) => handleFileChange(order.id, e.target.files?.[0])}
                   />
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={isUploading && uploadingId === req.id}
-                    onClick={() => fileInputRefs.current[req.id]?.click()}
+                    disabled={isUploading && uploadingId === order.id}
+                    onClick={() => fileInputRefs.current[order.id]?.click()}
                   >
-                    {isUploading && uploadingId === req.id ? (
+                    {isUploading && uploadingId === order.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
