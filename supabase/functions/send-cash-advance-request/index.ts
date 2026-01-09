@@ -253,6 +253,8 @@ const handler = async (req: Request): Promise<Response> => {
       fromEmail = "efs@bfprimeunited.net";
     } else if (companyName?.toLowerCase().includes("bg prime")) {
       fromEmail = "efs@bgprime.net";
+    } else if (companyName?.toLowerCase().includes("ap silver")) {
+      fromEmail = "efs@apsilvertrans.net";
     }
 
     // Send email

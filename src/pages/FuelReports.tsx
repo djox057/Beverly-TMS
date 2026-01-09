@@ -43,6 +43,7 @@ const COMPANIES = [
   { id: "bg_prime_inc", label: "BG Prime Inc" },
   { id: "beverly_group_drivers", label: "Beverly Group Drivers" },
   { id: "united_enterprise", label: "United Enterprise Solutions" },
+  { id: "ap_silver_trans", label: "AP Silver Trans" },
 ];
 
 const ITEMS_PER_PAGE = 20;

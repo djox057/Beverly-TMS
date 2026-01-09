@@ -365,6 +365,10 @@ const EditOrder = () => {
       sender: "United Enterprise Solutions Dispatch <truckload@unitedenterprisesolutions.net>",
       cc: "dispatch@unitedenterprisesolutions.net",
     },
+    "AP Silver Trans LLC": {
+      sender: "AP Silver Trans Dispatch <truckload@apsilvertrans.net>",
+      cc: "dispatch@apsilvertrans.net",
+    },
   };
 
   // Fetch profiles for booked by dropdown
