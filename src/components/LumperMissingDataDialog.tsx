@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,7 @@ export function LumperMissingDataDialog({
   const { data: lumperOrders = [], isLoading } = useQuery({
     queryKey: ["lumper-missing-revised-rc-driver", driverId],
     queryFn: async () => {
+      // Fetch all orders with lumper > 0 (don't filter by lumper_revised_rc_path since file might be deleted)
       const { data, error } = await supabase
         .from("orders")
         .select(`
@@ -49,23 +50,21 @@ export function LumperMissingDataDialog({
           internal_load_number,
           broker_load_number,
           lumper,
-          lumper_revised_rc_path,
           order_files(id, file_category)
         `)
         .gt("lumper", 0)
-        .is("lumper_revised_rc_path", null)
         .gte("created_at", "2026-01-09T00:00:00Z")
         .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
       
-      // Filter orders missing revised RC (same logic as panel)
+      // Filter orders missing revised RC - need 2+ RC files to be considered complete
       const ordersWithMissingRC = (data || []).filter((order) => {
         const orderFiles = order.order_files || [];
         const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
-        if (rcFileCount >= 2) return false;
-        return true;
+        // Need at least 2 RC files (original + revised) to be complete
+        return rcFileCount < 2;
       });
       
       return ordersWithMissingRC.map((order) => ({
@@ -230,7 +229,7 @@ export function LumperMissingDataDialog({
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <Upload className="h-4 w-4" />
+                          <FileText className="h-4 w-4" />
                           <span>Drop or click</span>
                         </>
                       )}
