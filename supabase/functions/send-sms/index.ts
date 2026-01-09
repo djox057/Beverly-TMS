@@ -11,6 +11,11 @@ interface SmsRequest {
   phoneNumbers?: string[];
 }
 
+const env = (key: string) => {
+  const v = Deno.env.get(key);
+  return typeof v === "string" ? v.trim() : undefined;
+};
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,12 +24,12 @@ serve(async (req: Request) => {
   try {
     const requestData: SmsRequest = await req.json();
     
-    // Get credentials from environment
-    const CLIENT_ID = Deno.env.get("RINGCENTRAL_CLIENT_ID");
-    const CLIENT_SECRET = Deno.env.get("RINGCENTRAL_CLIENT_SECRET");
-    const REFRESH_TOKEN = Deno.env.get("RINGCENTRAL_REFRESH_TOKEN");
-    const SERVER_URL = Deno.env.get("RINGCENTRAL_SERVER_URL") || "https://platform.ringcentral.com";
-    const FROM_NUMBER = Deno.env.get("RINGCENTRAL_PHONE_NUMBER");
+    // Get credentials from environment (trim to avoid hidden whitespace/newlines)
+    const CLIENT_ID = env("RINGCENTRAL_CLIENT_ID");
+    const CLIENT_SECRET = env("RINGCENTRAL_CLIENT_SECRET");
+    const REFRESH_TOKEN = env("RINGCENTRAL_REFRESH_TOKEN");
+    const SERVER_URL = env("RINGCENTRAL_SERVER_URL") || "https://platform.ringcentral.com";
+    const FROM_NUMBER = env("RINGCENTRAL_PHONE_NUMBER");
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !FROM_NUMBER) {
       console.error("Missing RingCentral configuration", {
@@ -38,7 +43,7 @@ serve(async (req: Request) => {
 
     // Prepare recipients
     const recipients = requestData.phoneNumbers || (requestData.phoneNumber ? [requestData.phoneNumber] : []);
-    
+
     if (recipients.length === 0) {
       throw new Error("No phone numbers provided");
     }
@@ -48,15 +53,21 @@ serve(async (req: Request) => {
     }
 
     console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
+    console.log("RingCentral token debug:", { refreshTokenLength: REFRESH_TOKEN.length });
 
     // Step 1: Get access token using refresh_token grant
+    const authBody = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: REFRESH_TOKEN,
+    });
+
     const authResponse = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
       },
-      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(REFRESH_TOKEN)}`
+      body: authBody.toString(),
     });
 
     if (!authResponse.ok) {
