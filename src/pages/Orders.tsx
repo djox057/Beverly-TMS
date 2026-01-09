@@ -30,7 +30,10 @@ import {
   Undo2,
   Info,
   Layers,
+  CalendarClock,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -949,6 +952,7 @@ const Orders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16"></TableHead>
                     <TableHead className="w-20">Truck #</TableHead>
                     <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-20">Load #</TableHead>
@@ -973,7 +977,7 @@ const Orders = () => {
                 <TableBody>
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow>
@@ -1005,6 +1009,162 @@ const Orders = () => {
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                          <TableCell className="w-16">
+                            <div className="flex items-center gap-1">
+                              {/* Additional/Reduced Pay Icon */}
+                              {(hasAdditionalPay || hasReducedPay) && (() => {
+                                const isPositive = hasAdditionalPay;
+                                const freightAmountVal = Number((order as any).freightAmount) || 0;
+                                const totalFreightVal = Number(order.totalFreightAmount) || 0;
+                                const difference = totalFreightVal - freightAmountVal;
+
+                                // Get driver values
+                                const driverPrice = Number((order as any).driverPrice) || 0;
+                                const totalDriverPay = Number((order as any).totalDriverPay) || 0;
+
+                                // Freight side values
+                                const detention = Number((order as any).detention) || 0;
+                                const layover = Number((order as any).layover) || 0;
+                                const tonu = Number((order as any).tonu) || 0;
+                                const extraStop = Number((order as any).extraStop) || 0;
+                                const lateFee = Number((order as any).lateFee) || 0;
+                                const noTrackingFee = Number((order as any).noTrackingFee) || 0;
+                                const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
+                                const escortFee = Number((order as any).escortFee) || 0;
+                                const lumper = Number((order as any).lumper) || 0;
+                                const otherCharges = Number((order as any).otherCharges) || 0;
+                                const otherAdditionals = Number((order as any).otherAdditionals) || 0;
+
+                                // Driver side values
+                                const detentionDriver = Number((order as any).detentionDriver) || 0;
+                                const layoverDriver = Number((order as any).layoverDriver) || 0;
+                                const tonuDriver = Number((order as any).tonuDriver) || 0;
+                                const extraStopDriver = Number((order as any).extraStopDriver) || 0;
+                                const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
+                                const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
+                                const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
+                                const lumperDriver = Number((order as any).lumperDriver) || 0;
+                                const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
+                                const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
+
+                                const freightItems: { label: string; value: number }[] = [];
+                                const driverItems: { label: string; value: number }[] = [];
+
+                                // Build freight items
+                                if (detention !== 0) freightItems.push({ label: "Detention", value: detention });
+                                if (layover !== 0) freightItems.push({ label: "Layover", value: layover });
+                                if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
+                                if (extraStop !== 0) freightItems.push({ label: "Extra Stop", value: extraStop });
+                                if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: lateFee });
+                                if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: noTrackingFee });
+                                if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: wrongAddressFee });
+                                if (escortFee !== 0) freightItems.push({ label: "Escort", value: escortFee });
+                                if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
+                                if (otherCharges !== 0) {
+                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                  freightItems.push({ label: reason || "Other Charges", value: otherCharges });
+                                }
+                                if (otherAdditionals !== 0) {
+                                  const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                  freightItems.push({ label: reason || "Other Additionals", value: otherAdditionals });
+                                }
+
+                                // Build driver items
+                                if (detentionDriver !== 0) driverItems.push({ label: "Detention", value: detentionDriver });
+                                if (layoverDriver !== 0) driverItems.push({ label: "Layover", value: layoverDriver });
+                                if (tonuDriver !== 0) driverItems.push({ label: "TONU", value: tonuDriver });
+                                if (extraStopDriver !== 0) driverItems.push({ label: "Extra Stop", value: extraStopDriver });
+                                if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: lateFeeDriver });
+                                if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: noTrackingFeeDriver });
+                                if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: wrongAddressFeeDriver });
+                                if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
+                                if (otherChargesDriver !== 0) {
+                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                  driverItems.push({ label: reason || "Other Charges", value: otherChargesDriver });
+                                }
+                                if (otherAdditionalsDriver !== 0) {
+                                  const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                  driverItems.push({ label: reason || "Other Additionals", value: otherAdditionalsDriver });
+                                }
+
+                                const driverDifference = totalDriverPay - driverPrice;
+                                const hasDriverItems = driverItems.length > 0;
+
+                                return (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                        <img 
+                                          src={moneyStackIcon} 
+                                          alt={isPositive ? "Additional pay" : "Reduced pay"} 
+                                          className={`h-5 w-5 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+                                        />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-3 max-w-sm" align="start">
+                                      <div className="text-sm font-semibold mb-2">
+                                        {isPositive ? "Additional Pay" : "Reduced Pay"}
+                                      </div>
+                                      
+                                      {/* Freight Section */}
+                                      <div className="space-y-1 text-sm">
+                                        <div className="font-medium text-muted-foreground">Company (Freight)</div>
+                                        <div>Base: {formatCurrency(freightAmountVal)}</div>
+                                        {freightItems.map((item, idx) => {
+                                          const sign = item.value >= 0 ? "+" : "-";
+                                          return (
+                                            <div key={idx} className="text-muted-foreground pl-2">
+                                              {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                            </div>
+                                          );
+                                        })}
+                                        <div className="pt-1 border-t">Total: {formatCurrency(totalFreightVal)}</div>
+                                        <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                                          Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
+                                        </div>
+                                      </div>
+
+                                      {/* Driver Section */}
+                                      {hasDriverItems && (
+                                        <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                                          <div className="font-medium text-muted-foreground">Driver Pay</div>
+                                          <div>Base: {formatCurrency(driverPrice)}</div>
+                                          {driverItems.map((item, idx) => {
+                                            const sign = item.value >= 0 ? "+" : "-";
+                                            return (
+                                              <div key={idx} className="text-muted-foreground pl-2">
+                                                {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                              </div>
+                                            );
+                                          })}
+                                          <div className="pt-1 border-t">Total: {formatCurrency(totalDriverPay)}</div>
+                                          <div className={`font-semibold ${driverDifference >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                            Difference: {driverDifference >= 0 ? "+" : ""}{formatCurrency(driverDifference)}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
+                                );
+                              })()}
+                              {/* Rescheduled icon */}
+                              {(order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "" && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                      <CalendarClock className="h-5 w-5 text-orange-500" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                    <div className="text-sm font-semibold mb-2">Rescheduled</div>
+                                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                      {(order as any).dateChangeNotes}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
                           <TableCell className="w-32">
                             <div className="line-clamp-2">{order.driverName}</div>
