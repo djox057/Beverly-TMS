@@ -1621,6 +1621,35 @@ const EditOrder = () => {
       // Check if original assignment was N/A (manual entry case)
       const isManualOriginal = data.manualOriginalDriver || data.manualOriginalTruck;
 
+      // Get driver and truck names for the note
+      const recoveryDriver = drivers?.find(d => d.id === data.recoveryDriverId);
+      const recoveryTruck = trucks?.find(t => t.id === data.recoveryTruckId);
+
+      // Build transfer note to add to order notes
+      const transferDate = new Date(data.transferDatetime);
+      const formattedDate = transferDate.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const transferNote = `[TRANSFER #1] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${recoveryDriver?.name || "Unknown"} | Truck: ${recoveryTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
+
+      // Get current order notes to append transfer note
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from("orders")
+        .select("notes")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Parse existing notes and append new transfer note to user notes section
+      const { userNotes: existingUserNotes, systemNotes: existingSystemNotes } = parseNotes(currentOrder?.notes);
+      const updatedUserNotes = existingUserNotes ? `${existingUserNotes}\n\n${transferNote}` : transferNote;
+      const newNotes = combineNotes(updatedUserNotes, existingSystemNotes);
+
       const { error } = await supabase
         .from("orders")
         .update({
@@ -1639,6 +1668,7 @@ const EditOrder = () => {
           trailer_id: data.swapTrailers ? trailerId : data.recoveryTrailerId || null,
           driver1_id: data.recoveryDriverId,
           driver2_id: null,
+          notes: newNotes,
         })
         .eq("id", id);
       if (error) throw error;
@@ -1688,6 +1718,10 @@ const EditOrder = () => {
           miles: data.recoveryMiles,
           driver_price: data.recoveryDriverRate,
           transfer_date: data.recoveryDate,
+          transfer_city: data.transferCity,
+          transfer_state: data.transferState,
+          transfer_address: data.transferAddress || null,
+          transfer_datetime: data.transferDatetime,
           created_by: profile?.user_id || null,
         },
       ];
