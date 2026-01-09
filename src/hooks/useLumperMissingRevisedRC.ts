@@ -25,8 +25,9 @@ export function useLumperMissingRevisedRC() {
   const { data: lumperRequests = [], isLoading, refetch } = useQuery({
     queryKey: ["lumper-missing-revised-rc"],
     queryFn: async () => {
-      // Fetch orders with lumper > 0, including order_files to check for RC uploads
+      // Fetch all orders with lumper > 0, including order_files to check for RC uploads
       // Only check orders created on/after January 9, 2026
+      // Don't filter by lumper_revised_rc_path since file might be deleted
       const { data, error } = await supabase
         .from("orders")
         .select(`
@@ -34,7 +35,6 @@ export function useLumperMissingRevisedRC() {
           internal_load_number,
           lumper,
           pickup_datetime,
-          lumper_revised_rc_path,
           driver1_id,
           driver2_id,
           driver1:drivers!orders_driver1_id_fkey(id, name),
@@ -43,23 +43,18 @@ export function useLumperMissingRevisedRC() {
           order_files(id, file_category, file_name)
         `)
         .gt("lumper", 0)
-        .is("lumper_revised_rc_path", null)
         .gte("created_at", "2026-01-09T00:00:00Z")
         .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
       
       // Filter to only include orders that are truly missing revised RC
-      // An order has revised RC if:
-      // 1. lumper_revised_rc_path is set (already filtered above), OR
-      // 2. There are MORE THAN 1 RC files (meaning a revised RC was uploaded after the original)
+      // An order has revised RC if there are 2+ RC files (original + revised)
       const ordersWithMissingRC = (data || []).filter((order) => {
         const orderFiles = order.order_files || [];
         const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
-        // If there are 2+ RC files, one is likely the revised RC
-        if (rcFileCount >= 2) return false;
-        
-        return true;
+        // Need at least 2 RC files to be complete
+        return rcFileCount < 2;
       });
       
       return ordersWithMissingRC.map((order) => ({
@@ -72,7 +67,7 @@ export function useLumperMissingRevisedRC() {
         internal_load_number: order.internal_load_number,
         lumper: order.lumper || 0,
         pickup_datetime: order.pickup_datetime,
-        lumper_revised_rc_path: order.lumper_revised_rc_path,
+        lumper_revised_rc_path: null, // Not fetched anymore, rely on RC file count
       })) as LumperMissingRevisedRC[];
     },
     staleTime: 30 * 1000,
