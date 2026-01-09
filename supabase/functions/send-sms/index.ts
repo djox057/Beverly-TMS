@@ -22,15 +22,18 @@ serve(async (req: Request) => {
     // Get credentials from environment
     const CLIENT_ID = Deno.env.get("RINGCENTRAL_CLIENT_ID");
     const CLIENT_SECRET = Deno.env.get("RINGCENTRAL_CLIENT_SECRET");
-    const JWT_TOKEN = Deno.env.get("RINGCENTRAL_JWT_TOKEN");
+    const USERNAME = Deno.env.get("RINGCENTRAL_USERNAME"); // Phone number with country code, e.g. +18001234567
+    const PASSWORD = Deno.env.get("RINGCENTRAL_PASSWORD");
+    const EXTENSION = Deno.env.get("RINGCENTRAL_EXTENSION") || "";
     const SERVER_URL = Deno.env.get("RINGCENTRAL_SERVER_URL") || "https://platform.ringcentral.com";
     const FROM_NUMBER = Deno.env.get("RINGCENTRAL_PHONE_NUMBER");
 
-    if (!CLIENT_ID || !CLIENT_SECRET || !JWT_TOKEN || !FROM_NUMBER) {
+    if (!CLIENT_ID || !CLIENT_SECRET || !USERNAME || !PASSWORD || !FROM_NUMBER) {
       console.error("Missing RingCentral configuration", {
         hasClientId: !!CLIENT_ID,
         hasClientSecret: !!CLIENT_SECRET,
-        hasJwtToken: !!JWT_TOKEN,
+        hasUsername: !!USERNAME,
+        hasPassword: !!PASSWORD,
         hasFromNumber: !!FROM_NUMBER,
       });
       throw new Error("Missing RingCentral configuration");
@@ -47,16 +50,21 @@ serve(async (req: Request) => {
       throw new Error("Message is required");
     }
 
-    console.log(`Authenticating with RingCentral at ${SERVER_URL}...`);
+    // Step 1: Authenticate with password grant
+    const authBody = new URLSearchParams({
+      grant_type: "password",
+      username: USERNAME,
+      password: PASSWORD,
+      ...(EXTENSION && { extension: EXTENSION }),
+    });
 
-    // Step 1: Authenticate with JWT
     const authResponse = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
       },
-      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${JWT_TOKEN}`
+      body: authBody.toString()
     });
 
     if (!authResponse.ok) {
