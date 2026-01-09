@@ -47,7 +47,9 @@ import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
+import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
+import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
@@ -273,7 +275,8 @@ const Reports = () => {
   
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
-  
+  const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
+
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
@@ -463,6 +466,12 @@ const Reports = () => {
   
   // EFS Missing Data dialog state
   const [efsMissingDataDialog, setEfsMissingDataDialog] = useState<{
+    driverId: string;
+    driverName: string;
+  } | null>(null);
+  
+  // Lumper Missing Revised RC dialog state
+  const [lumperMissingDataDialog, setLumperMissingDataDialog] = useState<{
     driverId: string;
     driverName: string;
   } | null>(null);
@@ -3253,7 +3262,28 @@ const Reports = () => {
                                             }
                                           }}
                                         >
-                                          <span>{truck.driver}</span>
+                                                                                              <span>{truck.driver}</span>
+                                          {hasLumperMissingRC(truck.driverId) && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  className="inline-flex"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setLumperMissingDataDialog({
+                                                      driverId: truck.driverId!,
+                                                      driverName: truck.driver || "Unknown",
+                                                    });
+                                                  }}
+                                                >
+                                                  <Upload className="h-3.5 w-3.5 text-blue-500 cursor-pointer" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="text-xs">Lumper - Missing Revised RC</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
                                           {hasEfsMissingData(truck.driverId) && (
                                             <Tooltip>
                                               <TooltipTrigger asChild>
@@ -5527,6 +5557,14 @@ const Reports = () => {
         onOpenChange={(open) => !open && setEfsMissingDataDialog(null)}
         driverId={efsMissingDataDialog?.driverId || ""}
         driverName={efsMissingDataDialog?.driverName || ""}
+      />
+      
+      {/* Lumper Missing Revised RC Dialog */}
+      <LumperMissingDataDialog
+        open={!!lumperMissingDataDialog}
+        onOpenChange={(open) => !open && setLumperMissingDataDialog(null)}
+        driverId={lumperMissingDataDialog?.driverId || ""}
+        driverName={lumperMissingDataDialog?.driverName || ""}
       />
     </>
   );

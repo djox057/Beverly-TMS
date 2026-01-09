@@ -19,6 +19,7 @@ import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
 import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
 import { EfsMissingReceiptsPanel } from "@/components/EfsMissingReceiptsPanel";
 import { useEfsMissingReceipts } from "@/hooks/useEfsMissingReceipts";
+import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { format, parse } from "date-fns";
 import { formatDateNoTimezone } from "@/lib/utils";
 import Papa from "papaparse";
@@ -99,7 +100,8 @@ const FuelReports = () => {
 
   // EFS missing data count for badge
   const { fuelRequests: efsMissingFuel } = useEfsMissingReceipts();
-  const efsMissingCount = efsMissingFuel.length;
+  const { lumperRequests: lumperMissingRC } = useLumperMissingRevisedRC();
+  const efsMissingCount = efsMissingFuel.length + lumperMissingRC.length;
 
   // IFTA search filter
   const [iftaTruckSearch, setIftaTruckSearch] = useState("");
