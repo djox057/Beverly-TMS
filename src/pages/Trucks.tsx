@@ -784,17 +784,17 @@ const Trucks = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center w-[80px]">Truck #</TableHead>
+                  <TableHead className="text-center w-[70px]">Truck #</TableHead>
                   <TableHead className="text-center w-[180px]">VIN</TableHead>
-                  <TableHead className="text-center w-[100px]">Company</TableHead>
+                  <TableHead className="text-center w-[140px]">Company</TableHead>
                   <TableHead className="text-center w-[80px]">Trailer #</TableHead>
                   <TableHead className="text-center w-[120px]">Driver 1</TableHead>
                   <TableHead className="text-center w-[120px]">Driver 2</TableHead>
-                  <TableHead className="text-center w-[120px]">Dispatcher</TableHead>
-                  <TableHead className="text-center w-[80px]">IPASS</TableHead>
-                  <TableHead className="text-center w-[110px]">DOT Inspection</TableHead>
-                  <TableHead className="text-center w-[100px]">Plate Exp.</TableHead>
-                  <TableHead className="text-center w-[110px]">Insurance Exp.</TableHead>
+                  <TableHead className="text-center w-[150px]">Dispatcher</TableHead>
+                  <TableHead className="text-center w-[110px]">IPASS</TableHead>
+                  <TableHead className="text-center w-[95px]">DOT Inspection</TableHead>
+                  <TableHead className="text-center w-[85px]">Plate Exp.</TableHead>
+                  <TableHead className="text-center w-[95px]">Insurance Exp.</TableHead>
                   <TableHead className="text-center w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
