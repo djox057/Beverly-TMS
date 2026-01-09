@@ -953,16 +953,16 @@ const Orders = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16"></TableHead>
-                    <TableHead className="w-20">Truck #</TableHead>
+                    <TableHead className="w-20 whitespace-nowrap">Truck #</TableHead>
                     <TableHead className="w-32">Driver</TableHead>
-                    <TableHead className="w-20">Load #</TableHead>
-                    <TableHead className="w-32">Pickup Date</TableHead>
-                    <TableHead className="w-40">Pickup City</TableHead>
-                    <TableHead className="w-32">Delivery Date</TableHead>
-                    <TableHead className="w-40">Delivery City</TableHead>
+                    <TableHead className="w-20 whitespace-nowrap">Load #</TableHead>
+                    <TableHead className="w-32 whitespace-nowrap">Pickup Date</TableHead>
+                    <TableHead className="w-40 whitespace-nowrap">Pickup City</TableHead>
+                    <TableHead className="w-32 whitespace-nowrap">Delivery Date</TableHead>
+                    <TableHead className="w-40 whitespace-nowrap">Delivery City</TableHead>
                     <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-36">Broker Name</TableHead>
-                    <TableHead className="w-28">Broker Load #</TableHead>
+                    <TableHead className="w-36 whitespace-nowrap">Broker Name</TableHead>
+                    <TableHead className="w-28 whitespace-nowrap">Broker Load #</TableHead>
                     <TableHead className="w-20">Invoiced</TableHead>
                     <TableHead className="w-20">Notes</TableHead>
                     <TableHead className="w-24">Driver Pay</TableHead>
