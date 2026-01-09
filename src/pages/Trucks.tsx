@@ -16,7 +16,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrailers } from "@/hooks/useTrailers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -74,9 +74,6 @@ const Trucks = () => {
     plate_expiration_date: "",
     insurance_expiration_date: ""
   });
-  const {
-    toast
-  } = useToast();
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
   const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
@@ -217,10 +214,7 @@ const Trucks = () => {
           .neq('truck_number', formData.truck_number);
       }
 
-      toast({
-        title: "Success",
-        description: "Truck added successfully"
-      });
+      toast.success("Truck added successfully");
       resetForm();
       setIsAddDialogOpen(false);
       // Invalidate all related queries to sync with other pages
@@ -228,11 +222,7 @@ const Trucks = () => {
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add truck",
-        variant: "destructive"
-      });
+      toast.error(error.message || "Failed to add truck");
     } finally {
       setIsSubmitting(false);
     }
@@ -296,10 +286,7 @@ const Trucks = () => {
           .neq('id', editingTruck.id);
       }
 
-      toast({
-        title: "Success",
-        description: "Truck updated successfully"
-      });
+      toast.success("Truck updated successfully");
       resetForm();
       setIsEditDialogOpen(false);
       setEditingTruck(null);
@@ -308,11 +295,7 @@ const Trucks = () => {
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update truck",
-        variant: "destructive"
-      });
+      toast.error(error.message || "Failed to update truck");
     } finally {
       setIsSubmitting(false);
     }
@@ -376,21 +359,14 @@ const Trucks = () => {
       const { error } = await supabase.from('trucks').delete().eq('id', truckId);
       if (error) throw error;
       
-      toast({
-        title: "Success",
-        description: "Truck deleted and archived successfully"
-      });
+      toast.success("Truck deleted and archived successfully");
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete truck",
-        variant: "destructive"
-      });
+      toast.error(error.message || "Failed to delete truck");
     }
   };
   const openEditDialog = async (truck: any) => {
@@ -462,10 +438,7 @@ const Trucks = () => {
       
       if (updateError) throw updateError;
       
-      toast({
-        title: "Success",
-        description: `Truck ${editingTruck.truck_number} marked as done`
-      });
+      toast.success(`Truck ${editingTruck.truck_number} marked as done`);
       
       setShowNoteDialog(false);
       setTerminationNote("");
@@ -476,11 +449,7 @@ const Trucks = () => {
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to mark truck as done",
-        variant: "destructive"
-      });
+      toast.error(error.message || "Failed to mark truck as done");
     } finally {
       setIsSubmitting(false);
     }
@@ -509,21 +478,14 @@ const Trucks = () => {
       
       if (updateError) throw updateError;
       
-      toast({
-        title: "Success",
-        description: `Truck ${editingTruck.truck_number} reactivated`
-      });
+      toast.success(`Truck ${editingTruck.truck_number} reactivated`);
       
       setIsEditDialogOpen(false);
       setEditingTruck(null);
       
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reactivate truck",
-        variant: "destructive"
-      });
+      toast.error(error.message || "Failed to reactivate truck");
     } finally {
       setIsSubmitting(false);
     }
@@ -549,10 +511,7 @@ const Trucks = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Trucks");
     XLSX.writeFile(wb, `trucks_export_${new Date().toISOString().split('T')[0]}.xlsx`);
     
-    toast({
-      title: "Export Complete",
-      description: `Exported ${exportData.length} trucks to Excel`
-    });
+    toast.success(`Exported ${exportData.length} trucks to Excel`);
   };
 
   if (isLoading) {
@@ -791,11 +750,11 @@ const Trucks = () => {
                   <TableHead className="text-center w-[120px]">Driver 1</TableHead>
                   <TableHead className="text-center w-[120px]">Driver 2</TableHead>
                   <TableHead className="text-center w-[150px]">Dispatcher</TableHead>
-                  <TableHead className="text-center w-[110px]">IPASS</TableHead>
+                  <TableHead className="text-center w-[90px]">IPASS</TableHead>
                   <TableHead className="text-center w-[95px]">DOT Inspection</TableHead>
                   <TableHead className="text-center w-[85px]">Plate Exp.</TableHead>
                   <TableHead className="text-center w-[95px]">Insurance Exp.</TableHead>
-                  <TableHead className="text-center w-[120px]">Actions</TableHead>
+                  <TableHead className="text-center w-[140px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -808,12 +767,31 @@ const Trucks = () => {
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
                         <TableCell className="font-medium text-center whitespace-nowrap">{truck.truck_number}</TableCell>
                         <TableCell className="font-mono text-sm text-center whitespace-nowrap">{truck.vin || "—"}</TableCell>
-                        <TableCell className="text-center whitespace-nowrap">{truck.driver1?.company?.name || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
+                          {truck.driver1?.company?.name 
+                            ? truck.driver1.company.name
+                                .replace(/\s+(LLC|Inc\.?|INC|Corporation|Corp\.?)$/i, '')
+                                .replace(/\s+Solutions$/i, '')
+                            : "—"}
+                        </TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.trailer?.trailer_number || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.driver2?.name || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
-                        <TableCell className="text-center whitespace-nowrap">{truck.ipass || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
+                          {truck.ipass ? (
+                            <span 
+                              className="cursor-pointer hover:text-primary"
+                              title={`Click to copy: ${truck.ipass}`}
+                              onClick={() => {
+                                navigator.clipboard.writeText(truck.ipass || '');
+                                toast.success('IPASS copied to clipboard');
+                              }}
+                            >
+                              {truck.ipass.length > 10 ? truck.ipass.slice(0, 10) + '…' : truck.ipass}
+                            </span>
+                          ) : "—"}
+                        </TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.plate_expiration_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.insurance_expiration_date || "—"}</TableCell>
