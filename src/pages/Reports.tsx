@@ -4274,6 +4274,36 @@ const Reports = () => {
                       description: `Yard action saved for ${driverNames}`,
                     });
                     // Real-time subscription handles cache updates
+                    
+                    // Send SMS notification for new yard arrival
+                    try {
+                      const actionTypeLabels: Record<string, string> = {
+                        maintenance: "Maintenance",
+                        return_truck: "Returning Truck",
+                        recovery: "Recovery",
+                        safety: "Safety"
+                      };
+                      
+                      const formattedDate = format(yardActionDatetime, "MMM dd 'at' h:mm a");
+                      
+                      const smsMessage = `New Yard Arrival:\n` +
+                        `Truck: ${yardActionDialog.truckNumber || 'N/A'}\n` +
+                        `Driver: ${driverNames}\n` +
+                        `Type: ${actionTypeLabels[yardActionType] || yardActionType}\n` +
+                        `Date: ${formattedDate}\n` +
+                        `Note: ${yardActionComment.trim()}`;
+                      
+                      supabase.functions.invoke("send-sms", {
+                        body: {
+                          message: smsMessage,
+                          phoneNumbers: ["+12192465764", "+18474835375"]
+                        }
+                      }).catch((smsError) => {
+                        console.error("Failed to send SMS notification:", smsError);
+                      });
+                    } catch (smsError) {
+                      console.error("Failed to send SMS notification:", smsError);
+                    }
                   }
 
                   setYardActionDialog(null);

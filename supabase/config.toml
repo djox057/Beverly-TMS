@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.send-late-notification]
 verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
