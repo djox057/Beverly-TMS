@@ -636,6 +636,7 @@ export type Database = {
           driver_id: string
           id: string
           requested_at: string
+          requested_by: string | null
           truck_number: string | null
         }
         Insert: {
@@ -644,6 +645,7 @@ export type Database = {
           driver_id: string
           id?: string
           requested_at?: string
+          requested_by?: string | null
           truck_number?: string | null
         }
         Update: {
@@ -652,6 +654,7 @@ export type Database = {
           driver_id?: string
           id?: string
           requested_at?: string
+          requested_by?: string | null
           truck_number?: string | null
         }
         Relationships: [

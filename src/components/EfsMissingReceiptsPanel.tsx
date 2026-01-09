@@ -133,6 +133,7 @@ export function EfsMissingReceiptsPanel() {
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Requested By</TableHead>
               <TableHead className="text-center">Gallons</TableHead>
               <TableHead className="text-center">Receipt</TableHead>
             </TableRow>
@@ -152,9 +153,12 @@ export function EfsMissingReceiptsPanel() {
                   <TableCell>
                     {req.city && req.state ? `${req.city}, ${req.state}` : "—"}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(req.requested_at), "MMM d, h:mm a")}
-                  </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(req.requested_at), "MMM d, h:mm a")}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {req.requested_by || "—"}
+                    </TableCell>
                   <TableCell>
                     {hasGallons ? (
                       <div className="flex items-center justify-center gap-1 text-green-600">
