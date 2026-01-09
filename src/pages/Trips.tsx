@@ -3497,9 +3497,11 @@ const Trips = () => {
                                     
                                     const isPositive = difference > 0;
                                     
-                                    // Build itemized breakdown (freight-side additionals)
-                                    const items: { label: string; value: number }[] = [];
+                                    // Build itemized breakdown for freight-side and driver-side
+                                    const freightItems: { label: string; value: number }[] = [];
+                                    const driverItems: { label: string; value: number }[] = [];
 
+                                    // Freight amounts
                                     const detention = Number((order as any).detention) || 0;
                                     const layover = Number((order as any).layover) || 0;
                                     const tonu = Number((order as any).tonu) || 0;
@@ -3512,25 +3514,61 @@ const Trips = () => {
                                     const otherCharges = Number((order as any).otherCharges) || 0;
                                     const otherAdditionals = Number((order as any).otherAdditionals) || 0;
 
-                                    if (detention !== 0) items.push({ label: "Detention", value: detention });
-                                    if (layover !== 0) items.push({ label: "Layover", value: layover });
-                                    if (tonu !== 0) items.push({ label: "TONU", value: tonu });
-                                    if (extraStop !== 0) items.push({ label: "Extra Stop", value: extraStop });
-                                    if (lateFee !== 0) items.push({ label: "Late Fee", value: lateFee });
-                                    if (noTrackingFee !== 0) items.push({ label: "No Tracking", value: noTrackingFee });
-                                    if (wrongAddressFee !== 0) items.push({ label: "Wrong Address", value: wrongAddressFee });
-                                    if (escortFee !== 0) items.push({ label: "Escort", value: escortFee });
-                                    if (lumper !== 0) items.push({ label: "Lumper", value: lumper });
+                                    // Driver amounts
+                                    const detentionDriver = Number((order as any).detentionDriver) || 0;
+                                    const layoverDriver = Number((order as any).layoverDriver) || 0;
+                                    const tonuDriver = Number((order as any).tonuDriver) || 0;
+                                    const extraStopDriver = Number((order as any).extraStopDriver) || 0;
+                                    const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
+                                    const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
+                                    const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
+                                    const lumperDriver = Number((order as any).lumperDriver) || 0;
+                                    const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
+                                    const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
 
+                                    // Base driver pay
+                                    const driverPrice = Number((order as any).driverPrice) || 0;
+                                    const totalDriverPay = Number((order as any).totalDriverPay) || 0;
+
+                                    // Build freight items
+                                    if (detention !== 0) freightItems.push({ label: "Detention", value: detention });
+                                    if (layover !== 0) freightItems.push({ label: "Layover", value: layover });
+                                    if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
+                                    if (extraStop !== 0) freightItems.push({ label: "Extra Stop", value: extraStop });
+                                    if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: lateFee });
+                                    if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: noTrackingFee });
+                                    if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: wrongAddressFee });
+                                    if (escortFee !== 0) freightItems.push({ label: "Escort", value: escortFee });
+                                    if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
                                     if (otherCharges !== 0) {
                                       const reason = String((order as any).otherChargesReason || "").trim();
-                                      items.push({ label: reason || "Other Charges", value: otherCharges });
+                                      freightItems.push({ label: reason || "Other Charges", value: otherCharges });
                                     }
-
                                     if (otherAdditionals !== 0) {
                                       const reason = String((order as any).otherAdditionalsReason || "").trim();
-                                      items.push({ label: reason || "Other Additionals", value: otherAdditionals });
+                                      freightItems.push({ label: reason || "Other Additionals", value: otherAdditionals });
                                     }
+
+                                    // Build driver items
+                                    if (detentionDriver !== 0) driverItems.push({ label: "Detention", value: detentionDriver });
+                                    if (layoverDriver !== 0) driverItems.push({ label: "Layover", value: layoverDriver });
+                                    if (tonuDriver !== 0) driverItems.push({ label: "TONU", value: tonuDriver });
+                                    if (extraStopDriver !== 0) driverItems.push({ label: "Extra Stop", value: extraStopDriver });
+                                    if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: lateFeeDriver });
+                                    if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: noTrackingFeeDriver });
+                                    if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: wrongAddressFeeDriver });
+                                    if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
+                                    if (otherChargesDriver !== 0) {
+                                      const reason = String((order as any).otherChargesReason || "").trim();
+                                      driverItems.push({ label: reason || "Other Charges", value: otherChargesDriver });
+                                    }
+                                    if (otherAdditionalsDriver !== 0) {
+                                      const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                      driverItems.push({ label: reason || "Other Additionals", value: otherAdditionalsDriver });
+                                    }
+
+                                    const driverDifference = totalDriverPay - driverPrice;
+                                    const hasDriverItems = driverItems.length > 0;
                                     
                                     return (
                                       <Popover>
@@ -3543,25 +3581,48 @@ const Trips = () => {
                                             />
                                           </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                        <PopoverContent className="w-auto p-3 max-w-sm" align="start">
                                           <div className="text-sm font-semibold mb-2">
                                             {isPositive ? "Additional Pay" : "Reduced Pay"}
                                           </div>
+                                          
+                                          {/* Freight Section */}
                                           <div className="space-y-1 text-sm">
-                                            <div>Base Freight: {formatCurrency(freightAmount)}</div>
-                                            {items.map((item, idx) => {
+                                            <div className="font-medium text-muted-foreground">Company (Freight)</div>
+                                            <div>Base: {formatCurrency(freightAmount)}</div>
+                                            {freightItems.map((item, idx) => {
                                               const sign = item.value >= 0 ? "+" : "-";
                                               return (
-                                                <div key={idx} className="text-muted-foreground">
+                                                <div key={idx} className="text-muted-foreground pl-2">
                                                   {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
                                                 </div>
                                               );
                                             })}
-                                            <div className="pt-1 border-t">Total Freight: {formatCurrency(totalFreight)}</div>
+                                            <div className="pt-1 border-t">Total: {formatCurrency(totalFreight)}</div>
                                             <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
                                               Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
                                             </div>
                                           </div>
+
+                                          {/* Driver Section - only show if there are driver items */}
+                                          {hasDriverItems && (
+                                            <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                                              <div className="font-medium text-muted-foreground">Driver Pay</div>
+                                              <div>Base: {formatCurrency(driverPrice)}</div>
+                                              {driverItems.map((item, idx) => {
+                                                const sign = item.value >= 0 ? "+" : "-";
+                                                return (
+                                                  <div key={idx} className="text-muted-foreground pl-2">
+                                                    {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                                  </div>
+                                                );
+                                              })}
+                                              <div className="pt-1 border-t">Total: {formatCurrency(totalDriverPay)}</div>
+                                              <div className={`font-semibold ${driverDifference >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                                Difference: {driverDifference >= 0 ? "+" : ""}{formatCurrency(driverDifference)}
+                                              </div>
+                                            </div>
+                                          )}
                                         </PopoverContent>
                                       </Popover>
                                     );
