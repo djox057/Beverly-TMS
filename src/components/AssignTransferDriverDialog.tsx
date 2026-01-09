@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -39,8 +38,6 @@ export interface TransferDriverData {
   transferState: string;
   transferAddress?: string;
   transferDatetime: string;
-  // Description of what happened
-  transferDescription: string;
 }
 
 export function AssignTransferDriverDialog({
@@ -74,7 +71,6 @@ export function AssignTransferDriverDialog({
   const [transferState, setTransferState] = useState<string>("IL");
   const [transferAddress, setTransferAddress] = useState<string>("");
   const [transferDatetime, setTransferDatetime] = useState<string>("");
-  const [transferDescription, setTransferDescription] = useState<string>("");
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -92,7 +88,6 @@ export function AssignTransferDriverDialog({
       setTransferAddress("");
       // Default to current time
       setTransferDatetime(new Date().toISOString().slice(0, 16));
-      setTransferDescription("");
     }
   }, [open, initialRecoveryMiles, yardLoadTrailerId]);
 
@@ -145,11 +140,6 @@ export function AssignTransferDriverDialog({
       return;
     }
 
-    if (!transferDescription || transferDescription.trim().length < 10) {
-      setError("Please provide a detailed description (at least 10 characters)");
-      return;
-    }
-
     onSave({
       transferTruckId,
       transferTrailerId,
@@ -160,7 +150,6 @@ export function AssignTransferDriverDialog({
       transferState,
       transferAddress: transferAddress || undefined,
       transferDatetime: new Date(transferDatetime).toISOString(),
-      transferDescription: transferDescription.trim(),
     });
 
     onOpenChange(false);
@@ -317,18 +306,6 @@ export function AssignTransferDriverDialog({
                   placeholder="0.00"
                 />
               </div>
-            </div>
-            <div>
-              <Label>Detailed Description of What Happened *</Label>
-              <Textarea
-                value={transferDescription}
-                onChange={(e) => setTransferDescription(e.target.value)}
-                placeholder="Describe the transfer situation (minimum 10 characters)..."
-                className="min-h-[80px]"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {transferDescription.length}/10 characters minimum
-              </p>
             </div>
           </div>
         </div>
