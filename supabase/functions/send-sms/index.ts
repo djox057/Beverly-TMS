@@ -28,21 +28,28 @@ serve(async (req: Request) => {
     const CLIENT_ID = env("RINGCENTRAL_CLIENT_ID");
     const CLIENT_SECRET = env("RINGCENTRAL_CLIENT_SECRET");
     const REFRESH_TOKEN = env("RINGCENTRAL_REFRESH_TOKEN");
+    const JWT_TOKEN = env("RINGCENTRAL_JWT_TOKEN");
     const SERVER_URL = env("RINGCENTRAL_SERVER_URL") || "https://platform.ringcentral.com";
     const FROM_NUMBER = env("RINGCENTRAL_PHONE_NUMBER");
 
-    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !FROM_NUMBER) {
+    if (!CLIENT_ID || !CLIENT_SECRET || !FROM_NUMBER || (!REFRESH_TOKEN && !JWT_TOKEN)) {
       console.error("Missing RingCentral configuration", {
         hasClientId: !!CLIENT_ID,
         hasClientSecret: !!CLIENT_SECRET,
         hasRefreshToken: !!REFRESH_TOKEN,
+        hasJwtToken: !!JWT_TOKEN,
         hasFromNumber: !!FROM_NUMBER,
+        serverUrl: SERVER_URL,
       });
-      throw new Error("Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN");
+      throw new Error(
+        "Missing RingCentral configuration - need RINGCENTRAL_JWT_TOKEN or RINGCENTRAL_REFRESH_TOKEN",
+      );
     }
 
     // Prepare recipients
-    const recipients = requestData.phoneNumbers || (requestData.phoneNumber ? [requestData.phoneNumber] : []);
+    const recipients =
+      requestData.phoneNumbers ||
+      (requestData.phoneNumber ? [requestData.phoneNumber] : []);
 
     if (recipients.length === 0) {
       throw new Error("No phone numbers provided");
@@ -52,42 +59,77 @@ serve(async (req: Request) => {
       throw new Error("Message is required");
     }
 
-    console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
-    console.log("RingCentral token debug:", { refreshTokenLength: REFRESH_TOKEN.length });
+    const tokenUrl = `${SERVER_URL}/restapi/oauth/token`;
+    const authHeader = `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`;
 
-    // Step 1: Get access token using refresh_token grant
-    const authBody = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: REFRESH_TOKEN,
-    });
+    const requestAccessToken = async (authBody: URLSearchParams) => {
+      const authResponse = await fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": authHeader,
+        },
+        body: authBody.toString(),
+      });
 
-    const authResponse = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
-      },
-      body: authBody.toString(),
-    });
+      const raw = await authResponse.text();
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = { raw };
+      }
 
-    if (!authResponse.ok) {
-      const errorText = await authResponse.text();
-      console.error("RingCentral auth failed:", errorText);
-      throw new Error(`RingCentral auth failed: ${errorText}`);
-    }
+      if (!authResponse.ok) {
+        console.error("RingCentral auth failed:", parsed);
+        throw new Error(`RingCentral auth failed: ${JSON.stringify(parsed)}`);
+      }
 
-    const authData = await authResponse.json();
-    const access_token = authData.access_token;
-    
-    // Log if we got a new refresh token (should update secret if different)
-    if (authData.refresh_token && authData.refresh_token !== REFRESH_TOKEN) {
-      console.log("New refresh token received - consider updating RINGCENTRAL_REFRESH_TOKEN secret");
+      return parsed as { access_token: string; refresh_token?: string };
+    };
+
+    let access_token: string;
+
+    // Prefer JWT auth (doesn't require storing/rotating refresh tokens)
+    if (JWT_TOKEN) {
+      console.log(`Authenticating with RingCentral at ${SERVER_URL} using JWT grant...`);
+
+      const authBody = new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: JWT_TOKEN,
+      });
+
+      const authData = await requestAccessToken(authBody);
+      access_token = authData.access_token;
+    } else {
+      // Fallback to refresh_token grant
+      if (!REFRESH_TOKEN) {
+        throw new Error("Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN");
+      }
+
+      console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
+      console.log("RingCentral token debug:", { refreshTokenLength: REFRESH_TOKEN.length });
+
+      const authBody = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      const authData = await requestAccessToken(authBody);
+      access_token = authData.access_token;
+
+      // Log if we got a new refresh token (should update secret if different)
+      if (authData.refresh_token && authData.refresh_token !== REFRESH_TOKEN) {
+        console.log(
+          "New refresh token received - consider updating RINGCENTRAL_REFRESH_TOKEN secret",
+        );
+      }
     }
 
     console.log("Successfully authenticated with RingCentral");
 
     // Step 2: Send SMS to each recipient
-    const toArray = recipients.map(num => ({ phoneNumber: num }));
+    const toArray = recipients.map((num: string) => ({ phoneNumber: num }));
 
     console.log(`Sending SMS to ${recipients.length} recipient(s):`, recipients);
 
