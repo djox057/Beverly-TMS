@@ -48,7 +48,7 @@ export function LumperMissingRevisedRCPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-500" />
-            Lumper - Missing Revised RC
+            Lumper - Missing Receipt
           </CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
@@ -64,7 +64,7 @@ export function LumperMissingRevisedRCPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-500" />
-            Lumper - Missing Revised RC
+            Lumper - Missing Receipt
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -81,7 +81,7 @@ export function LumperMissingRevisedRCPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-blue-500" />
-          Lumper - Missing Revised RC
+          Lumper - Missing Receipt
           <Badge variant="secondary" className="ml-2">{lumperRequests.length}</Badge>
         </CardTitle>
       </CardHeader>

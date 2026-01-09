@@ -3280,7 +3280,7 @@ const Reports = () => {
                                                 </button>
                                               </TooltipTrigger>
                                               <TooltipContent>
-                                                <p className="text-xs">Lumper - Missing Revised RC</p>
+                                                <p className="text-xs">Lumper - Missing Receipt</p>
                                               </TooltipContent>
                                             </Tooltip>
                                           )}
