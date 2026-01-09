@@ -1918,13 +1918,14 @@ const Drivers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[150px]">Name</TableHead>
-                  <TableHead className="w-[100px]">Company</TableHead>
-                  <TableHead className="w-[80px]">Truck #</TableHead>
-                  <TableHead className="w-[80px]">Trailer #</TableHead>
-                  <TableHead className="w-[120px]">Dispatcher</TableHead>
+                  <TableHead className="w-[200px]">Name</TableHead>
+                  <TableHead className="w-[140px]">Company</TableHead>
+                  <TableHead className="w-[70px]">Truck #</TableHead>
+                  <TableHead className="w-[70px]">Trailer #</TableHead>
+                  <TableHead className="w-[140px]">Dispatcher</TableHead>
                   <TableHead className="w-[220px]">Contact</TableHead>
-                  <TableHead className="w-[140px]">Home Location</TableHead>
+                  <TableHead className="w-[120px]">Home Location</TableHead>
+                  <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1937,20 +1938,20 @@ const Drivers = () => {
                 ) : (
                   paginatedDrivers.map((driver: any) => (
                     <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {driver.name}
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="truncate">{driver.name}</span>
                           {!driver.is_active && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground flex-shrink-0">
                               Inactive
                             </span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{driver.company?.name || "—"}</TableCell>
+                      <TableCell className="truncate">{driver.company?.name || "—"}</TableCell>
                       <TableCell className="whitespace-nowrap">{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell className="whitespace-nowrap">{driver.truck_info?.trailer_number || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
+                      <TableCell className="truncate">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {driver.phone && (
@@ -1960,9 +1961,9 @@ const Drivers = () => {
                             </div>
                           )}
                           {driver.email && (
-                            <div className="flex items-center gap-2 text-sm whitespace-nowrap">
+                            <div className="flex items-center gap-2 text-sm overflow-hidden">
                               <Mail className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              {driver.email}
+                              <span className="truncate">{driver.email}</span>
                             </div>
                           )}
                           {!driver.phone && !driver.email && "—"}
