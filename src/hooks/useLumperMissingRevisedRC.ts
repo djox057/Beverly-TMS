@@ -16,7 +16,7 @@ export interface LumperMissingRevisedRC {
 
 /**
  * Hook to get orders with lumper that are missing revised rate confirmation
- * Checks both lumper_revised_rc_path column AND order_files table for RC files
+ * Checks lumper_revised_rc_path column OR multiple RC files (indicating a revised RC was uploaded)
  */
 export function useLumperMissingRevisedRC() {
   const queryClient = useQueryClient();
@@ -42,22 +42,20 @@ export function useLumperMissingRevisedRC() {
           order_files(id, file_category, file_name)
         `)
         .gt("lumper", 0)
+        .is("lumper_revised_rc_path", null)
         .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
       
       // Filter to only include orders that are truly missing revised RC
       // An order has revised RC if:
-      // 1. lumper_revised_rc_path is set, OR
-      // 2. There are RC files in order_files (uploaded via EditOrder)
+      // 1. lumper_revised_rc_path is set (already filtered above), OR
+      // 2. There are MORE THAN 1 RC files (meaning a revised RC was uploaded after the original)
       const ordersWithMissingRC = (data || []).filter((order) => {
-        // Has explicit lumper_revised_rc_path
-        if (order.lumper_revised_rc_path) return false;
-        
-        // Has RC files uploaded via EditOrder
         const orderFiles = order.order_files || [];
-        const hasRCFile = orderFiles.some((file: any) => file.file_category === "RC");
-        if (hasRCFile) return false;
+        const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
+        // If there are 2+ RC files, one is likely the revised RC
+        if (rcFileCount >= 2) return false;
         
         return true;
       });
