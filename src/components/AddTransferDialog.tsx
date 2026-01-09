@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -42,6 +43,8 @@ export interface AddTransferData {
   transferState: string;
   transferAddress?: string;
   transferDatetime: string;
+  // Transfer description (mandatory note)
+  description: string;
 }
 
 export function AddTransferDialog({
@@ -69,6 +72,9 @@ export function AddTransferDialog({
   const [transferState, setTransferState] = useState<string>("");
   const [transferAddress, setTransferAddress] = useState<string>("");
   const [transferDatetime, setTransferDatetime] = useState<string>("");
+  
+  // Transfer description (mandatory note)
+  const [description, setDescription] = useState<string>("");
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -86,6 +92,8 @@ export function AddTransferDialog({
       setTransferAddress("");
       // Default to current time
       setTransferDatetime(new Date().toISOString().slice(0, 16));
+      // Reset description
+      setDescription("");
     }
   }, [open]);
 
@@ -125,6 +133,11 @@ export function AddTransferDialog({
       return;
     }
 
+    if (!description || description.trim().length < 10) {
+      setError("Please enter a detailed description (at least 10 characters)");
+      return;
+    }
+
     onSave({
       newTruckId,
       newTrailerId,
@@ -137,6 +150,7 @@ export function AddTransferDialog({
       transferState,
       transferAddress: transferAddress || undefined,
       transferDatetime: new Date(transferDatetime).toISOString(),
+      description: description.trim(),
     });
 
     onOpenChange(false);
@@ -302,6 +316,21 @@ export function AddTransferDialog({
                   placeholder="0.00"
                 />
               </div>
+            </div>
+            <div>
+              <Label>Detailed Description of What Happened *</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter a detailed description of why this transfer is happening (at least 10 characters)"
+                rows={3}
+                className={description.trim().length > 0 && description.trim().length < 10 ? "border-destructive" : ""}
+              />
+              {description.trim().length > 0 && description.trim().length < 10 && (
+                <p className="text-xs text-destructive mt-1">
+                  {10 - description.trim().length} more characters required
+                </p>
+              )}
             </div>
           </div>
         </div>

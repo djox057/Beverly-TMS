@@ -1756,6 +1756,10 @@ const EditOrder = () => {
       // Get the last transfer to use as "previous"
       const lastTransfer = orderTransfers[orderTransfers.length - 1];
       
+      // Get driver name for the note
+      const newDriver = drivers?.find(d => d.id === data.newDriverId);
+      const newTruck = trucks?.find(t => t.id === data.newTruckId);
+      
       // Insert new transfer record
       const { error } = await supabase.from("order_transfers").insert({
         order_id: id,
@@ -1766,18 +1770,48 @@ const EditOrder = () => {
         miles: data.newMiles,
         driver_price: data.newDriverPrice,
         transfer_date: data.transferDate,
+        transfer_city: data.transferCity,
+        transfer_state: data.transferState,
+        transfer_address: data.transferAddress || null,
+        transfer_datetime: data.transferDatetime,
         created_by: profile?.user_id || null,
       });
 
       if (error) throw error;
 
-      // Update the order's current driver/truck/trailer
+      // Build transfer note to add to order notes
+      const transferDate = new Date(data.transferDatetime);
+      const formattedDate = transferDate.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const transferNote = `[TRANSFER #${data.sequenceNumber}] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${newDriver?.name || "Unknown"} | Truck: ${newTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
+
+      // Get current order notes to append transfer note
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from("orders")
+        .select("notes")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Parse existing notes and append new transfer note to user notes section
+      const { userNotes, systemNotes } = parseNotes(currentOrder?.notes);
+      const updatedUserNotes = userNotes ? `${userNotes}\n\n${transferNote}` : transferNote;
+      const newNotes = combineNotes(updatedUserNotes, systemNotes);
+
+      // Update the order's current driver/truck/trailer and notes
       const { error: orderError } = await supabase
         .from("orders")
         .update({
           driver1_id: data.newDriverId,
           truck_id: data.newTruckId,
           trailer_id: data.newTrailerId || null,
+          notes: newNotes,
         })
         .eq("id", id);
 
