@@ -7,11 +7,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2, Check } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
 
 interface LumperMissingDataDialogProps {
   open: boolean;
@@ -20,14 +21,12 @@ interface LumperMissingDataDialogProps {
   driverName: string;
 }
 
-interface LumperRequest {
+interface LumperOrder {
   id: string;
-  driver_name: string;
+  internal_load_number: number | null;
   truck_number: string | null;
-  amount: number;
-  requested_at: string;
-  requested_by: string | null;
-  revised_rc_path: string | null;
+  lumper: number;
+  pickup_datetime: string | null;
 }
 
 export function LumperMissingDataDialog({
@@ -41,40 +40,54 @@ export function LumperMissingDataDialog({
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  // Fetch missing lumper revised RC data for this specific driver
-  const { data: lumperRequests = [], isLoading } = useQuery({
+  // Fetch orders with lumper missing revised RC for this specific driver
+  const { data: lumperOrders = [], isLoading } = useQuery({
     queryKey: ["lumper-missing-revised-rc-driver", driverId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, requested_at, requested_by, revised_rc_path")
-        .eq("purpose", "Lumper")
-        .eq("driver_id", driverId)
-        .is("revised_rc_path", null)
-        .order("requested_at", { ascending: false });
+        .from("orders")
+        .select(`
+          id,
+          internal_load_number,
+          lumper,
+          pickup_datetime,
+          lumper_revised_rc_path,
+          truck:trucks!orders_truck_id_fkey(truck_number)
+        `)
+        .gt("lumper", 0)
+        .is("lumper_revised_rc_path", null)
+        .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
+        .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
-      return data as LumperRequest[];
+      
+      return (data || []).map((order) => ({
+        id: order.id,
+        internal_load_number: order.internal_load_number,
+        truck_number: (order.truck as any)?.truck_number || null,
+        lumper: order.lumper || 0,
+        pickup_datetime: order.pickup_datetime,
+      })) as LumperOrder[];
     },
     enabled: open && !!driverId,
     staleTime: 30 * 1000,
   });
 
   const uploadRevisedRCMutation = useMutation({
-    mutationFn: async ({ requestId, file }: { requestId: string; file: File }) => {
+    mutationFn: async ({ orderId, file }: { orderId: string; file: File }) => {
       const fileExt = file.name.split(".").pop();
-      const fileName = `revised-rc/${driverId}/${Date.now()}.${fileExt}`;
+      const fileName = `lumper-revised-rc/${driverId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("efs-receipts")
+        .from("order-files")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { error: updateError } = await supabase
-        .from("efs_other_requests")
-        .update({ revised_rc_path: fileName })
-        .eq("id", requestId);
+        .from("orders")
+        .update({ lumper_revised_rc_path: fileName })
+        .eq("id", orderId);
 
       if (updateError) throw updateError;
 
@@ -83,15 +96,16 @@ export function LumperMissingDataDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc"] });
       queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc-driver", driverId] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
 
-  const handleFileChange = async (requestId: string, file: File | undefined) => {
+  const handleFileChange = async (orderId: string, file: File | undefined) => {
     if (!file) return;
 
-    setUploadingId(requestId);
+    setUploadingId(orderId);
     try {
-      await uploadRevisedRCMutation.mutateAsync({ requestId, file });
+      await uploadRevisedRCMutation.mutateAsync({ orderId, file });
       toast({
         title: "Revised RC uploaded",
         description: "The revised rate confirmation has been uploaded successfully.",
@@ -121,7 +135,7 @@ export function LumperMissingDataDialog({
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : lumperRequests.length === 0 ? (
+        ) : lumperOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             No missing revised rate confirmations for this driver.
           </p>
@@ -129,41 +143,44 @@ export function LumperMissingDataDialog({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Load #</TableHead>
                 <TableHead>Truck</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Requested By</TableHead>
+                <TableHead className="text-right">Lumper</TableHead>
+                <TableHead>Pickup Date</TableHead>
                 <TableHead className="text-center">Revised RC</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lumperRequests.map((req) => (
-                <TableRow key={req.id}>
-                  <TableCell className="font-medium">{req.truck_number || "—"}</TableCell>
+              {lumperOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">
+                    #{order.internal_load_number || "—"}
+                  </TableCell>
+                  <TableCell>{order.truck_number || "—"}</TableCell>
                   <TableCell className="text-right font-medium">
-                    ${req.amount.toFixed(2)}
+                    ${order.lumper.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {format(new Date(req.requested_at), "MMM d, h:mm a")}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {req.requested_by || "—"}
+                    {order.pickup_datetime 
+                      ? format(new Date(order.pickup_datetime), "MMM d, h:mm a")
+                      : "—"
+                    }
                   </TableCell>
                   <TableCell className="text-center">
                     <input
                       type="file"
                       accept=".pdf,image/*"
                       className="hidden"
-                      ref={(el) => (fileInputRefs.current[req.id] = el)}
-                      onChange={(e) => handleFileChange(req.id, e.target.files?.[0])}
+                      ref={(el) => (fileInputRefs.current[order.id] = el)}
+                      onChange={(e) => handleFileChange(order.id, e.target.files?.[0])}
                     />
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={uploadRevisedRCMutation.isPending && uploadingId === req.id}
-                      onClick={() => fileInputRefs.current[req.id]?.click()}
+                      disabled={uploadRevisedRCMutation.isPending && uploadingId === order.id}
+                      onClick={() => fileInputRefs.current[order.id]?.click()}
                     >
-                      {uploadRevisedRCMutation.isPending && uploadingId === req.id ? (
+                      {uploadRevisedRCMutation.isPending && uploadingId === order.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
