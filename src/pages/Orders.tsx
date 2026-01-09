@@ -969,9 +969,9 @@ const Orders = () => {
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
-                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">RC</TableHead>
-                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">POD</TableHead>
-                    <TableHead className="w-[130px] min-w-[130px] max-w-[130px] whitespace-nowrap">Actions</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">RC</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">POD</TableHead>
+                    <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
