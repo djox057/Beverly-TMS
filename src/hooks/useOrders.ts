@@ -651,50 +651,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
 
-  // Set up real-time subscriptions for automatic updates with smart cache manipulation
-  useEffect(() => {
-    const channelName = `orders-realtime-${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "orders",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["orders"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["orders"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "orders",
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["orders"] });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Real-time subscriptions removed - refreshes now only happen when the current user
+  // creates, updates, or deletes a load (triggered by their own actions, not database events)
 
   return query;
 };
