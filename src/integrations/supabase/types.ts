@@ -1208,6 +1208,7 @@ export type Database = {
           receipt_path: string | null
           requested_at: string
           requested_by: string | null
+          revised_rc_path: string | null
           state: string | null
           truck_number: string | null
         }
@@ -1224,6 +1225,7 @@ export type Database = {
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null
         }
@@ -1240,6 +1242,7 @@ export type Database = {
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null
         }
