@@ -3566,6 +3566,22 @@ const Trips = () => {
                                       </Popover>
                                     );
                                   })()}
+                                  {/* Rescheduled icon */}
+                                  {(order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "" && (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                          <CalendarClock className="h-5 w-5 text-orange-500" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                        <div className="text-sm font-semibold mb-2">Rescheduled</div>
+                                        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                          {(order as any).dateChangeNotes}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
