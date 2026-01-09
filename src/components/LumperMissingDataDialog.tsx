@@ -54,6 +54,7 @@ export function LumperMissingDataDialog({
         `)
         .gt("lumper", 0)
         .is("lumper_revised_rc_path", null)
+        .gte("created_at", "2026-01-09T00:00:00Z")
         .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .order("pickup_datetime", { ascending: false });
 
@@ -98,7 +99,7 @@ export function LumperMissingDataDialog({
           file_path: storagePath,
           file_size: file.size,
           content_type: file.type,
-          file_category: "additional",
+          file_category: "ADDITIONAL",
         });
 
       if (fileRecordError) throw fileRecordError;

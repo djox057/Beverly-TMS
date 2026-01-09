@@ -26,6 +26,7 @@ export function useLumperMissingRevisedRC() {
     queryKey: ["lumper-missing-revised-rc"],
     queryFn: async () => {
       // Fetch orders with lumper > 0, including order_files to check for RC uploads
+      // Only check orders created on/after January 9, 2026
       const { data, error } = await supabase
         .from("orders")
         .select(`
@@ -43,6 +44,7 @@ export function useLumperMissingRevisedRC() {
         `)
         .gt("lumper", 0)
         .is("lumper_revised_rc_path", null)
+        .gte("created_at", "2026-01-09T00:00:00Z")
         .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
@@ -111,7 +113,7 @@ export function useLumperMissingRevisedRC() {
           file_path: storagePath,
           file_size: file.size,
           content_type: file.type,
-          file_category: "additional",
+          file_category: "ADDITIONAL",
         });
 
       if (fileRecordError) throw fileRecordError;
