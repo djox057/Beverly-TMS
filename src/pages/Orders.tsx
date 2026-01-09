@@ -964,14 +964,14 @@ const Orders = () => {
                     <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Broker Name</TableHead>
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">Broker Load #</TableHead>
                     <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>
-                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px] whitespace-nowrap">Notes</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Notes</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
-                    <TableHead className="w-[50px] min-w-[50px] max-w-[50px] whitespace-nowrap">RC</TableHead>
-                    <TableHead className="w-[50px] min-w-[50px] max-w-[50px] whitespace-nowrap">POD</TableHead>
-                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Actions</TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">RC</TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">POD</TableHead>
+                    <TableHead className="w-[130px] min-w-[130px] max-w-[130px] whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
