@@ -2546,8 +2546,8 @@ const EditOrder = () => {
         }
       }
 
-      // Invalidate orders cache to refresh data across all pages
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Force Orders list to reload next time it's opened (orders query is cached indefinitely)
+      queryClient.removeQueries({ queryKey: ["orders"] });
 
       toast({
         title: "Success",
