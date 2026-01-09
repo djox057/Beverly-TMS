@@ -22,21 +22,18 @@ serve(async (req: Request) => {
     // Get credentials from environment
     const CLIENT_ID = Deno.env.get("RINGCENTRAL_CLIENT_ID");
     const CLIENT_SECRET = Deno.env.get("RINGCENTRAL_CLIENT_SECRET");
-    const USERNAME = Deno.env.get("RINGCENTRAL_USERNAME"); // Phone number with country code, e.g. +18001234567
-    const PASSWORD = Deno.env.get("RINGCENTRAL_PASSWORD");
-    const EXTENSION = Deno.env.get("RINGCENTRAL_EXTENSION") || "";
+    const REFRESH_TOKEN = Deno.env.get("RINGCENTRAL_REFRESH_TOKEN");
     const SERVER_URL = Deno.env.get("RINGCENTRAL_SERVER_URL") || "https://platform.ringcentral.com";
     const FROM_NUMBER = Deno.env.get("RINGCENTRAL_PHONE_NUMBER");
 
-    if (!CLIENT_ID || !CLIENT_SECRET || !USERNAME || !PASSWORD || !FROM_NUMBER) {
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !FROM_NUMBER) {
       console.error("Missing RingCentral configuration", {
         hasClientId: !!CLIENT_ID,
         hasClientSecret: !!CLIENT_SECRET,
-        hasUsername: !!USERNAME,
-        hasPassword: !!PASSWORD,
+        hasRefreshToken: !!REFRESH_TOKEN,
         hasFromNumber: !!FROM_NUMBER,
       });
-      throw new Error("Missing RingCentral configuration");
+      throw new Error("Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN");
     }
 
     // Prepare recipients
@@ -50,21 +47,16 @@ serve(async (req: Request) => {
       throw new Error("Message is required");
     }
 
-    // Step 1: Authenticate with password grant
-    const authBody = new URLSearchParams({
-      grant_type: "password",
-      username: USERNAME,
-      password: PASSWORD,
-      ...(EXTENSION && { extension: EXTENSION }),
-    });
+    console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
 
+    // Step 1: Get access token using refresh_token grant
     const authResponse = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
       },
-      body: authBody.toString()
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(REFRESH_TOKEN)}`
     });
 
     if (!authResponse.ok) {
@@ -75,6 +67,11 @@ serve(async (req: Request) => {
 
     const authData = await authResponse.json();
     const access_token = authData.access_token;
+    
+    // Log if we got a new refresh token (should update secret if different)
+    if (authData.refresh_token && authData.refresh_token !== REFRESH_TOKEN) {
+      console.log("New refresh token received - consider updating RINGCENTRAL_REFRESH_TOKEN secret");
+    }
 
     console.log("Successfully authenticated with RingCentral");
 
