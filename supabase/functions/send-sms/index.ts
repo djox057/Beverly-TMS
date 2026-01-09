@@ -90,30 +90,9 @@ serve(async (req: Request) => {
 
     let access_token: string;
 
-    // Default to 3‑legged OAuth (refresh_token) for this project.
-    // JWT is only used as a fallback when no refresh token is configured.
-    if (REFRESH_TOKEN) {
-      console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
-      console.log("RingCentral token debug:", { refreshTokenLength: REFRESH_TOKEN.length });
-
-      const authBody = new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: REFRESH_TOKEN,
-      });
-
-      const authData = await requestAccessToken(authBody);
-      access_token = authData.access_token;
-
-      // Log if we got a new refresh token (should update secret if different)
-      if (authData.refresh_token && authData.refresh_token !== REFRESH_TOKEN) {
-        console.log(
-          "New refresh token received - consider updating RINGCENTRAL_REFRESH_TOKEN secret",
-        );
-      }
-    } else if (JWT_TOKEN) {
-      console.log(
-        `Authenticating with RingCentral at ${SERVER_URL} using JWT grant...`,
-      );
+    // Use JWT auth (preferred - no token rotation needed)
+    if (JWT_TOKEN) {
+      console.log(`Authenticating with RingCentral at ${SERVER_URL} using JWT grant...`);
 
       const authBody = new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
@@ -122,9 +101,19 @@ serve(async (req: Request) => {
 
       const authData = await requestAccessToken(authBody);
       access_token = authData.access_token;
+    } else if (REFRESH_TOKEN) {
+      console.log(`Authenticating with RingCentral at ${SERVER_URL} using refresh_token...`);
+
+      const authBody = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      const authData = await requestAccessToken(authBody);
+      access_token = authData.access_token;
     } else {
       throw new Error(
-        "Missing RingCentral configuration - need RINGCENTRAL_REFRESH_TOKEN",
+        "Missing RingCentral configuration - need RINGCENTRAL_JWT_TOKEN or RINGCENTRAL_REFRESH_TOKEN",
       );
     }
 
