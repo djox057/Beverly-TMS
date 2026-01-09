@@ -48,6 +48,7 @@ import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
+import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
@@ -3276,7 +3277,7 @@ const Reports = () => {
                                                     });
                                                   }}
                                                 >
-                                                  <Upload className="h-3.5 w-3.5 text-blue-500 cursor-pointer" />
+                                                  <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
                                                 </button>
                                               </TooltipTrigger>
                                               <TooltipContent>
