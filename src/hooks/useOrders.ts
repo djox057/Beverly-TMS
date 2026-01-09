@@ -667,7 +667,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
           try {
             const newOrder = await fetchSingleOrder(payload.new.id);
             if (newOrder) {
-              const queryKey = ["orders", options?.bookedBy];
+              const queryKey = ["orders", options?.bookedBy, options?.dispatcherUserId];
               queryClient.setQueryData(queryKey, (old: any) => {
                 if (!old) return [newOrder];
                 return [newOrder, ...old];
@@ -690,7 +690,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
             const updatedOrder = await fetchSingleOrder(payload.new.id);
             if (!updatedOrder) return;
 
-            const queryKey = ["orders", options?.bookedBy];
+            const queryKey = ["orders", options?.bookedBy, options?.dispatcherUserId];
             queryClient.setQueryData(queryKey, (old: any) => {
               if (!old || !Array.isArray(old)) return [updatedOrder];
               const orderIndex = old.findIndex((o: any) => o.id === updatedOrder.id);
@@ -713,7 +713,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
         },
         (payload) => {
           try {
-            queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
+            queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
               if (!old) return [];
               return old.filter((o: any) => o.id !== payload.old.id);
             });
@@ -735,7 +735,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
-                queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
+                queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
                 });
@@ -759,7 +759,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
-                queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
+                queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
                 });
@@ -775,7 +775,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [options?.bookedBy, queryClient]);
+  }, [options?.bookedBy, options?.dispatcherUserId, queryClient]);
 
   return query;
 };
