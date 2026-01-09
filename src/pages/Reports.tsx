@@ -4921,6 +4921,16 @@ const Reports = () => {
                   />
                   <span className="text-sm font-bold">United Enterprise Solutions INC</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-16 h-8 rounded border"
+                    style={{
+                      backgroundColor: "hsl(var(--company-ap-silver))",
+                      color: "hsl(var(--company-ap-silver-foreground))",
+                    }}
+                  />
+                  <span className="text-sm font-bold">AP Silver Trans LLC</span>
+                </div>
               </div>
             </div>
 

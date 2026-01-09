@@ -87,6 +87,8 @@
     --company-bg-prime-foreground: 60 100% 15%;
     --company-united-enterprise: 200 80% 50%;
     --company-united-enterprise-foreground: 0 0% 100%;
+    --company-ap-silver: 0 0% 75%;
+    --company-ap-silver-foreground: 0 0% 20%;
 
     /* Borders and inputs */
     --border: 214 32% 91%;
@@ -193,6 +195,8 @@
     --company-bg-prime-foreground: 60 100% 10%;
     --company-united-enterprise: 200 80% 45%;
     --company-united-enterprise-foreground: 0 0% 100%;
+    --company-ap-silver: 0 0% 55%;
+    --company-ap-silver-foreground: 0 0% 95%;
 
     --border: 217 32% 27%;
     --input: 217 32% 27%;

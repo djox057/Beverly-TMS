@@ -37,6 +37,7 @@ const getEfsEmail = (companyName: string | null): string => {
   if (normalized.includes("BG PRIME")) return "efs@bgprime.net";
   if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
   if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
+  if (normalized.includes("AP SILVER")) return "efs@apsilvertrans.net";
   return "efs@bfprime.net";
 };
 
