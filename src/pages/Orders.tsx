@@ -1009,8 +1009,8 @@ const Orders = () => {
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                          <TableCell className="w-16">
-                            <div className="flex items-center gap-1">
+                          <TableCell className="w-12 px-1">
+                            <div className="flex items-center gap-0">
                               {/* Additional/Reduced Pay Icon */}
                               {(hasAdditionalPay || hasReducedPay) && (() => {
                                 const isPositive = hasAdditionalPay;
