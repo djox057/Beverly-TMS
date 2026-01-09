@@ -952,26 +952,26 @@ const Orders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16"></TableHead>
-                    <TableHead className="w-20 whitespace-nowrap">Truck #</TableHead>
-                    <TableHead className="w-32">Driver</TableHead>
-                    <TableHead className="w-20 whitespace-nowrap">Load #</TableHead>
-                    <TableHead className="w-32 whitespace-nowrap">Pickup Date</TableHead>
-                    <TableHead className="w-40 whitespace-nowrap">Pickup City</TableHead>
-                    <TableHead className="w-32 whitespace-nowrap">Delivery Date</TableHead>
-                    <TableHead className="w-40 whitespace-nowrap">Delivery City</TableHead>
-                    <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-36 whitespace-nowrap">Broker Name</TableHead>
-                    <TableHead className="w-28 whitespace-nowrap">Broker Load #</TableHead>
-                    <TableHead className="w-20">Invoiced</TableHead>
-                    <TableHead className="w-20">Notes</TableHead>
-                    <TableHead className="w-24">Driver Pay</TableHead>
-                    <TableHead className="w-28">Freight Amount</TableHead>
-                    <TableHead className="w-28">Company</TableHead>
-                    <TableHead className="w-24">Booked By</TableHead>
-                    <TableHead className="w-24">RC</TableHead>
-                    <TableHead className="w-24">POD</TableHead>
-                    <TableHead className="w-32">Actions</TableHead>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px]"></TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Truck #</TableHead>
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap">Driver</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Load #</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Pickup Date</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Pickup City</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Delivery Date</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Delivery City</TableHead>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px] whitespace-nowrap">Miles</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Broker Name</TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">Broker Load #</TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px] whitespace-nowrap">Notes</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
+                    <TableHead className="w-[50px] min-w-[50px] max-w-[50px] whitespace-nowrap">RC</TableHead>
+                    <TableHead className="w-[50px] min-w-[50px] max-w-[50px] whitespace-nowrap">POD</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
