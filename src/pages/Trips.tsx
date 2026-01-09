@@ -2398,12 +2398,12 @@ const Trips = () => {
       // Deductions section (rows 25-33)
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
-        { row: 25, description: "Cargo Insurance", amount: 0 },
-        { row: 26, description: "Trailer + Insurance", amount: 0 },
-        { row: 27, description: "ELD", amount: 0 },
-        { row: 28, description: "Pre-Pass", amount: 0 },
+        { row: 25, description: "Cargo Insurance", amount: 250.0 },
+        { row: 26, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 27, description: "ELD", amount: 50.0 },
+        { row: 28, description: "Pre-Pass", amount: 20.0 },
         { row: 29, description: "Truck Payment" },
-        { row: 30, description: "Truck Insurance", amount: 0 },
+        { row: 30, description: "Truck Insurance", amount: 195.0 },
       ];
 
       deductions.forEach(({ row, description, amount }) => {
