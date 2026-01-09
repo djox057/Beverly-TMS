@@ -663,19 +663,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
           schema: "public",
           table: "orders",
         },
-        async (payload) => {
-          try {
-            const newOrder = await fetchSingleOrder(payload.new.id);
-            if (newOrder) {
-              const queryKey = ["orders", options?.bookedBy, options?.dispatcherUserId];
-              queryClient.setQueryData(queryKey, (old: any) => {
-                if (!old) return [newOrder];
-                return [newOrder, ...old];
-              });
-            }
-          } catch (error) {
-            console.error("[useOrders] Error handling INSERT:", error);
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
         },
       )
       .on(
@@ -685,23 +674,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
           schema: "public",
           table: "orders",
         },
-        async (payload) => {
-          try {
-            const updatedOrder = await fetchSingleOrder(payload.new.id);
-            if (!updatedOrder) return;
-
-            const queryKey = ["orders", options?.bookedBy, options?.dispatcherUserId];
-            queryClient.setQueryData(queryKey, (old: any) => {
-              if (!old || !Array.isArray(old)) return [updatedOrder];
-              const orderIndex = old.findIndex((o: any) => o.id === updatedOrder.id);
-              if (orderIndex === -1) return [updatedOrder, ...old];
-              const newData = [...old];
-              newData[orderIndex] = updatedOrder;
-              return newData;
-            });
-          } catch (error) {
-            console.error("[useOrders] Error handling UPDATE:", error);
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
         },
       )
       .on(
@@ -711,63 +685,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
           schema: "public",
           table: "orders",
         },
-        (payload) => {
-          try {
-            queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
-              if (!old) return [];
-              return old.filter((o: any) => o.id !== payload.old.id);
-            });
-          } catch (error) {
-            console.error("[useOrders] Error handling DELETE:", error);
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pickup_drops",
-        },
-        async (payload) => {
-          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-          if (orderId) {
-            try {
-              const updatedOrder = await fetchSingleOrder(orderId);
-              if (updatedOrder) {
-                queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
-                  if (!old) return [updatedOrder];
-                  return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
-                });
-              }
-            } catch (error) {
-              console.error("[useOrders] Error handling pickup_drops change:", error);
-            }
-          }
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "order_files",
-        },
-        async (payload) => {
-          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-          if (orderId) {
-            try {
-              const updatedOrder = await fetchSingleOrder(orderId);
-              if (updatedOrder) {
-                queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], (old: any) => {
-                  if (!old) return [updatedOrder];
-                  return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
-                });
-              }
-            } catch (error) {
-              console.error("[useOrders] Error handling order_files change:", error);
-            }
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
         },
       )
       .subscribe();
@@ -775,7 +694,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [options?.bookedBy, options?.dispatcherUserId, queryClient]);
+  }, [queryClient]);
 
   return query;
 };
