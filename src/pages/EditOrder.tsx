@@ -35,7 +35,6 @@ import {
   Loader2,
   GripVertical,
   ArrowLeft,
-  Sparkles,
   Upload,
   FileText,
   RefreshCw,
@@ -970,163 +969,6 @@ const EditOrder = () => {
       ),
     );
   };
-  const handleExtractWithAI = async () => {
-    if (!rcFiles || rcFiles.length === 0) {
-      toast({
-        title: "No RC File Selected",
-        description: "Please select a PDF file in the RC section to extract data from.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const pdfFile = Array.from(rcFiles).find((file) => file.type === "application/pdf");
-    if (!pdfFile) {
-      toast({
-        title: "PDF Required",
-        description: "Please select a PDF file for AI extraction.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsExtracting(true);
-    try {
-      console.log("Starting PDF extraction with OpenAI...");
-      const formData = new FormData();
-      formData.append("pdf", pdfFile);
-      console.log("Calling extract-order-fields edge function...");
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
-        },
-        body: formData,
-      });
-      console.log("Edge function response status:", response.status);
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Edge function error:", errorText);
-        throw new Error(`Edge function failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      if (!data?.success) {
-        console.error("Extraction failed:", data?.error);
-        throw new Error(data?.error || "Failed to extract data");
-      }
-      const extractedData = data.data;
-      console.log("Successfully extracted data:", extractedData);
-
-      // Populate form fields with extracted data
-      if (extractedData.brokerLoadNumber) {
-        setBrokerLoadNumber(extractedData.brokerLoadNumber);
-      }
-      if (extractedData.freightAmount) {
-        setFreightAmount(extractedData.freightAmount.toString());
-      }
-      if (extractedData.mileage) {
-        setLoadedMiles(extractedData.mileage.toString());
-      }
-
-      // Handle date ranges from AI extraction - fix timezone offset
-      if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
-        setPickupDateRange({
-          from: new Date(extractedData.pickupStartDate + "T12:00:00"),
-          to: new Date(extractedData.pickupEndDate + "T12:00:00"),
-        });
-      } else if (extractedData.pickupDate) {
-        const pickupDate = new Date(extractedData.pickupDate + "T12:00:00");
-        setPickupDateRange({
-          from: pickupDate,
-          to: pickupDate,
-        });
-      }
-      if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
-        setDeliveryDateRange({
-          from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
-          to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
-        });
-      } else if (extractedData.deliveryDate) {
-        const deliveryDate = new Date(extractedData.deliveryDate + "T12:00:00");
-        setDeliveryDateRange({
-          from: deliveryDate,
-          to: deliveryDate,
-        });
-      }
-
-      // Handle pickups and deliveries with date ranges
-      const newPickupsDrops: PickupDrop[] = [];
-      if (extractedData.pickupAddress) {
-        const pickupDateRange =
-          extractedData.pickupStartDate && extractedData.pickupEndDate
-            ? {
-                from: new Date(extractedData.pickupStartDate + "T12:00:00"),
-                to: new Date(extractedData.pickupEndDate + "T12:00:00"),
-              }
-            : extractedData.pickupDate
-              ? {
-                  from: new Date(extractedData.pickupDate + "T12:00:00"),
-                  to: new Date(extractedData.pickupDate + "T12:00:00"),
-                }
-              : undefined;
-        newPickupsDrops.push({
-          id: "pickup-1",
-          type: "pickup",
-          address: extractedData.pickupAddress,
-          city: extractedData.pickupCity || "",
-          state: extractedData.pickupState || "",
-          zipCode: extractedData.pickupZip || "",
-          datetime: extractedData.pickupDate || "",
-          dateRange: pickupDateRange,
-          startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
-          endTime: extractedData.pickupEndTime || extractedData.pickupStartTime || extractedData.pickupTime || "",
-        });
-      }
-      if (extractedData.deliveryAddress) {
-        const deliveryDateRange =
-          extractedData.deliveryStartDate && extractedData.deliveryEndDate
-            ? {
-                from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
-                to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
-              }
-            : extractedData.deliveryDate
-              ? {
-                  from: new Date(extractedData.deliveryDate + "T12:00:00"),
-                  to: new Date(extractedData.deliveryDate + "T12:00:00"),
-                }
-              : undefined;
-        newPickupsDrops.push({
-          id: "delivery-1",
-          type: "delivery",
-          address: extractedData.deliveryAddress,
-          city: extractedData.deliveryCity || "",
-          state: extractedData.deliveryState || "",
-          zipCode: extractedData.deliveryZip || "",
-          datetime: extractedData.deliveryDate || "",
-          dateRange: deliveryDateRange,
-          startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-          endTime: extractedData.deliveryEndTime || extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-        });
-      }
-      if (newPickupsDrops.length > 0) {
-        setPickupsDrops(newPickupsDrops);
-      }
-      toast({
-        title: "Data Extracted Successfully",
-        description: `Extracted ${data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`,
-      });
-    } catch (error: any) {
-      console.error("Extraction error:", error);
-      toast({
-        title: "Extraction Failed",
-        description: error.message || "Failed to extract data from PDF",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExtracting(false);
-    }
-  };
 
   // Build email subject line (same as NewOrder)
   const buildEmailSubject = (): string => {
@@ -1564,12 +1406,6 @@ const EditOrder = () => {
   // Click handler for file upload cards
   const handleCardClick = (fileType: "rc" | "bol" | "pod" | "additional") => (e: React.MouseEvent) => {
     console.log(`[DEBUG] Card clicked for ${fileType}`);
-
-    // Don't trigger if clicking on the Extract with AI button
-    if (fileType === "rc" && (e.target as HTMLElement).closest("button[data-ai-extract]")) {
-      console.log("[DEBUG] Clicked on Extract AI button, skipping file input");
-      return;
-    }
 
     // Don't trigger if clicking on view/delete buttons
     if ((e.target as HTMLElement).closest("button")) {
@@ -2599,12 +2435,47 @@ const EditOrder = () => {
     }
   };
 
+  // Check if any additionals (except lumper) have been added compared to original values
+  const hasNewAdditionalsRequiringRC = useCallback((): boolean => {
+    if (!originalSnapshot) return false;
+    
+    // Check each additional field (except lumper) - only require RC if value was added/increased
+    const checkField = (current: string, original: number | null | undefined): boolean => {
+      const currentVal = current ? parseFloat(current) : 0;
+      const originalVal = original || 0;
+      return currentVal > originalVal;
+    };
+    
+    return (
+      checkField(detention, originalSnapshot.detention) ||
+      checkField(layover, originalSnapshot.layover) ||
+      checkField(extraStop, originalSnapshot.extraStop) ||
+      checkField(lateFee, originalSnapshot.lateFee) ||
+      checkField(tonu, originalSnapshot.tonu) ||
+      checkField(noTrackingFee, originalSnapshot.noTrackingFee) ||
+      checkField(wrongAddressFee, originalSnapshot.wrongAddressFee) ||
+      checkField(otherCharges, originalSnapshot.otherCharges) ||
+      (parseFloat(otherAdditionals) || 0) > 0 || // otherAdditionals - just check if there's a value
+      checkField(escortFee, originalSnapshot.escortFee)
+    );
+  }, [originalSnapshot, detention, layover, extraStop, lateFee, tonu, noTrackingFee, wrongAddressFee, otherCharges, otherAdditionals, escortFee]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Prevent duplicate submissions
     if (isSubmitting) {
       console.log("Form submission already in progress, ignoring duplicate submission");
+      return;
+    }
+
+    // Check if revised RC is required (additionals added except lumper)
+    if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
+      toast({
+        title: "Revised Rate Confirmation Required",
+        description: "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -4053,34 +3924,15 @@ const EditOrder = () => {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
                       <Upload className="h-5 w-5" />
-                      RC (Rate Confirmation) Upload
+                      Revised Rate Confirmation
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm text-blue-700">
-                        {rcFiles && rcFiles.length > 0
-                          ? `${rcFiles.length} file(s) selected`
-                          : "Click or drag files here"}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExtractWithAI}
-                        disabled={
-                          isExtracting ||
-                          !rcFiles ||
-                          rcFiles.length === 0 ||
-                          !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
-                        }
-                        className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                        data-ai-extract="true"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        {isExtracting ? "Extracting..." : "Extract with AI"}
-                      </Button>
-                    </div>
+                    <p className="text-sm text-blue-700 mb-3">
+                      {rcFiles && rcFiles.length > 0
+                        ? `${rcFiles.length} file(s) selected`
+                        : "Click or drag files here"}
+                    </p>
 
                     {dragStates.rc ? (
                       <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
@@ -4111,7 +3963,7 @@ const EditOrder = () => {
                       className="hidden"
                     />
                     <p className="text-xs text-blue-600">
-                      Rate confirmation files. AI extraction works only with PDF files.
+                      Upload revised rate confirmation when adding additional charges.
                     </p>
                   </CardContent>
                 </Card>
