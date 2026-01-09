@@ -2196,11 +2196,13 @@ const EditOrder = () => {
           originalDeliveryDate.getMonth(),
           originalDeliveryDate.getDate(),
         );
-        const newDateOnly = new Date(newDeliveryDatetime);
+        
+        // Parse the new datetime string WITHOUT timezone conversion (same as how we loaded originalDeliveryDate)
+        const parsedNewDate = parseSimpleDateTime(newDeliveryDatetime);
         const newDateOnlyNormalized = new Date(
-          newDateOnly.getFullYear(),
-          newDateOnly.getMonth(),
-          newDateOnly.getDate(),
+          parsedNewDate.year,
+          parsedNewDate.month - 1,
+          parsedNewDate.day,
         );
 
         // Only add note if the dates are different (ignoring time)
