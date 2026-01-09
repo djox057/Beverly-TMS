@@ -2003,6 +2003,9 @@ const NewOrder = () => {
         queryKey: ["nextInternalLoadNumber"],
       });
 
+      // Force Orders list to reload next time it's opened (orders query is cached indefinitely)
+      queryClient.removeQueries({ queryKey: ["orders"] });
+
       // Reset form and refetch next internal load number
       setBrokerLoadNumber("");
       setBroker("");
