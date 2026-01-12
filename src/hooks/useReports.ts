@@ -1030,6 +1030,8 @@ export const useReports = (options?: UseReportsOptions) => {
       const cachedOrderFiles = await getOrderFiles();
       const cachedOrderTransfers = await getOrderTransfers();
 
+      console.log(`[useReports] 📦 Cache status: orders=${cachedOrders?.length || 0}, pickupDrops=${cachedPickupDrops?.length || 0}, files=${cachedOrderFiles?.length || 0}, transfers=${cachedOrderTransfers?.length || 0}`);
+
       if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
         console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
 
@@ -1127,8 +1129,44 @@ export const useReports = (options?: UseReportsOptions) => {
       lockedOrders = [];
     }
 
-    // NOTE: Recently locked orders fetch was removed due to high CPU usage (50% increase).
-    // Locked orders now only appear after CSV cache is updated via Data Management page.
+    // Fetch recently locked orders from database to fill gaps in storage cache
+    // This ensures orders locked after the last archive upload still appear
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
+      
+      const { data: recentlyLocked, error: recentlyLockedError } = await supabase
+        .from("orders")
+        .select(`
+          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+          canceled, driver1_id, driver2_id, truck_id, is_recovery, locked, mileage, loaded_miles, dh_miles,
+          original_driver1_id, original_driver2_id, freight_amount, driver_price,
+          detention, detention_driver, layover, layover_driver, tonu, tonu_driver,
+          extra_stop, extra_stop_driver, lumper, lumper_driver, late_fee, late_fee_driver,
+          no_tracking_fee, no_tracking_fee_driver, wrong_address_fee, wrong_address_fee_driver,
+          escort_fee, other_charges, other_charges_driver, booked_by,
+          pickup_drops (id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at),
+          order_files (id, file_category, file_name, file_path),
+          order_transfers (id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, transfer_city, transfer_state, transfer_address, transfer_datetime)
+        `)
+        .eq("locked", true)
+        .gte("delivery_datetime", thirtyDaysAgo.toISOString())
+        .order("delivery_datetime", { ascending: false })
+        .limit(500);
+
+      if (!recentlyLockedError && recentlyLocked) {
+        const newLockedOrders = recentlyLocked.filter((o: any) => !lockedOrderIds.has(o.id) && !o.canceled);
+        if (newLockedOrders.length > 0) {
+          console.log(`[useReports] 🔄 Added ${newLockedOrders.length} recently locked orders from DATABASE (not in storage cache)`);
+          lockedOrders = [...lockedOrders, ...newLockedOrders];
+        }
+      }
+    } catch (error) {
+      console.error('[useReports] ⚠️ Could not fetch recently locked orders:', error);
+    }
 
     // Combine unlocked (from database) and locked (from storage bucket) orders
     // IMPORTANT: Deduplicate by order ID, prioritizing unlocked orders (from DB) 
@@ -1136,6 +1174,18 @@ export const useReports = (options?: UseReportsOptions) => {
     const unlockedOrderIds = new Set((unlockedOrdersRaw || []).map((o: any) => o.id));
     const deduplicatedLockedOrders = lockedOrders.filter((o: any) => !unlockedOrderIds.has(o.id));
     const allOrders = [...(unlockedOrdersRaw || []), ...deduplicatedLockedOrders];
+    
+    // Debug: Log sample locked orders to verify driver matching
+    if (deduplicatedLockedOrders.length > 0) {
+      const sampleLocked = deduplicatedLockedOrders.slice(0, 3).map((o: any) => ({
+        id: o.id,
+        load_number: o.load_number || o.broker_load_number,
+        driver1_id: o.driver1_id,
+        pickup_drops_count: o.pickup_drops?.length || 0,
+      }));
+      console.log(`[useReports] 🔍 Sample locked orders:`, JSON.stringify(sampleLocked));
+    }
+    
     console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)${filterOffice ? ` for ${filterOffice}` : ""}`);
 
     // PERF: Index orders by driver once (instead of filtering allOrders for every truck/driver)
