@@ -373,9 +373,6 @@ export const useReports = (options?: UseReportsOptions) => {
       if (authError) throw authError;
       if (!user) throw new Error("Not authenticated");
 
-      // Client-side timestamp (DB has no guarantee of updated_at triggers)
-      const nowIso = new Date().toISOString();
-
       // First check if a note already exists for this driver
       const { data: existingNotes, error: fetchError } = await supabase
         .from("truck_notes")
@@ -395,9 +392,8 @@ export const useReports = (options?: UseReportsOptions) => {
           .update({
             note,
             updated_by: user.id,
-            updated_at: nowIso,
           })
-          .eq("id", existingNote.id);
+          .eq("driver_id", driverId);
 
         if (error) throw error;
       } else {
@@ -407,7 +403,6 @@ export const useReports = (options?: UseReportsOptions) => {
           driver_id: driverId,
           note,
           updated_by: user.id,
-          updated_at: nowIso,
         });
 
         if (error) throw error;
@@ -422,10 +417,6 @@ export const useReports = (options?: UseReportsOptions) => {
       const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
       const previousFull = queryClient.getQueryData(["reports", "full"]);
 
-      const now = new Date();
-      const lastEdit = now.toLocaleTimeString();
-      const editDate = now.toLocaleDateString();
-
       // Helper to update note in data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
@@ -434,7 +425,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note, lastEdit, editDate };
+              return { ...truck, note };
             }
             return truck;
           }),
@@ -546,21 +537,10 @@ export const useReports = (options?: UseReportsOptions) => {
       }
     },
     onMutate: async ({ driverId, date, note, noteType }) => {
-      // Cancel any outgoing refetches for both query keys
-      await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
-      await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
-
-      // Snapshot previous values for both queries
-      const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
-      const previousFull = queryClient.getQueryData(["reports", "full"]);
-
-      const now = new Date();
-      const nowIso = now.toISOString();
-      const lastEdit = now.toLocaleTimeString();
-      const editDate = now.toLocaleDateString();
-
-      // Helper to update lost day note in data structure
-      const updateNoteInData = (old: any) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      const nowIso = new Date().toISOString();
+      queryClient.setQueryData(["reports"], (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
           ...group,
@@ -573,32 +553,21 @@ export const useReports = (options?: UseReportsOptions) => {
             const updatedNotes = noteIndex >= 0
               ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
               : [...existingNotes, newNote];
-            // Update lastEdit and editDate to show the new timestamp
+            // Update lastEdit to show the new timestamp
             return { 
               ...truck, 
               lost_day_notes: updatedNotes,
-              lastEdit,
-              editDate,
+              lastEdit: new Date().toLocaleTimeString(),
+              editDate: new Date().toLocaleDateString(),
             };
           }),
         }));
-      };
-
-      // Optimistically update both query caches immediately
-      queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
-      queryClient.setQueryData(["reports", "full"], updateNoteInData);
-
-      return { previousPriority, previousFull };
+      });
+      return { previousData };
     },
     onError: (err, variables, context) => {
-      // Rollback both caches on error
-      if (context?.previousPriority) {
-        context.previousPriority.forEach(([queryKey, data]: [any, any]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-      if (context?.previousFull) {
-        queryClient.setQueryData(["reports", "full"], context.previousFull);
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
       }
     },
     // Real-time subscription handles cache updates - no invalidation needed
@@ -1725,26 +1694,12 @@ export const useReports = (options?: UseReportsOptions) => {
               twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
-              // Compute lastEdit/editDate from the most recent update across truckNote, truck, and lost_day_notes
-              ...(() => {
-                const candidates: Date[] = [];
-                if (truckNote?.updated_at) candidates.push(new Date(truckNote.updated_at));
-                if (truck.updated_at) candidates.push(new Date(truck.updated_at));
-                // Check most recent lost_day_note update
-                const mostRecentLostDayNote = truckLostDayNotes
-                  ?.filter((n: any) => n.updated_at)
-                  .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
-                if (mostRecentLostDayNote?.updated_at) candidates.push(new Date(mostRecentLostDayNote.updated_at));
-                
-                const mostRecent = candidates.length > 0 
-                  ? new Date(Math.max(...candidates.map(d => d.getTime())))
-                  : new Date();
-                
-                return {
-                  lastEdit: mostRecent.toLocaleTimeString(),
-                  editDate: mostRecent.toLocaleDateString(),
-                };
-              })(),
+              lastEdit: truckNote
+                ? new Date(truckNote.updated_at).toLocaleTimeString()
+                : new Date(truck.updated_at).toLocaleTimeString(),
+              editDate: truckNote
+                ? new Date(truckNote.updated_at).toLocaleDateString()
+                : new Date(truck.updated_at).toLocaleDateString(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
