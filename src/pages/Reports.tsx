@@ -3837,19 +3837,11 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${(truck as any).lastEditOrderId ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
                                           maxWidth: "80px",
-                                        }}
-                                        onClick={() => {
-                                          const orderId = (truck as any).lastEditOrderId;
-                                          if (orderId) {
-                                            localStorage.setItem("returnToReports", "true");
-                                            localStorage.removeItem("returnToOrders");
-                                            navigate(`/edit-order/${orderId}`);
-                                          }
                                         }}
                                       >
                                         {truck.lastEdit}

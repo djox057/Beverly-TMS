@@ -1687,15 +1687,6 @@ export const useReports = (options?: UseReportsOptions) => {
               twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
-              // Find most recently updated order
-              lastEditOrderId: (() => {
-                if (!allOrdersWithStops || allOrdersWithStops.length === 0) return null;
-                const sorted = [...allOrdersWithStops].sort((a, b) => 
-                  new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                );
-                return sorted[0]?.id || null;
-              })(),
-              // Last edit shows note update time if note exists, otherwise truck update time
               lastEdit: truckNote
                 ? new Date(truckNote.updated_at).toLocaleTimeString()
                 : new Date(truck.updated_at).toLocaleTimeString(),
@@ -2007,13 +1998,6 @@ export const useReports = (options?: UseReportsOptions) => {
             twoWeekBlockDate: driver.two_week_block_date || null,
             randomDrugTestDate: driver.random_drug_test_date || null,
             note: driverNote?.note || "",
-            lastEditOrderId: (() => {
-              if (!allOrdersWithStops || allOrdersWithStops.length === 0) return null;
-              const sorted = [...allOrdersWithStops].sort((a, b) => 
-                new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-              );
-              return sorted[0]?.id || null;
-            })(),
             lastEdit: driverNote?.updated_at
               ? new Date(driverNote.updated_at).toLocaleTimeString()
               : new Date().toLocaleTimeString(),
