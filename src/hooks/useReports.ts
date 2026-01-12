@@ -539,20 +539,27 @@ export const useReports = (options?: UseReportsOptions) => {
     onMutate: async ({ driverId, date, note, noteType }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
       const previousData = queryClient.getQueryData(["reports"]);
+      const nowIso = new Date().toISOString();
       queryClient.setQueryData(["reports"], (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
           ...group,
           trucks: group.trucks.map((truck: any) => {
             if (truck.driverId !== driverId) return truck;
-            // Update lost day notes for this truck/driver
-            const existingNotes = truck.lostDayNotes || [];
+            // Update lost day notes for this truck/driver (use lost_day_notes to match data structure)
+            const existingNotes = truck.lost_day_notes || [];
             const noteIndex = existingNotes.findIndex((n: any) => n.date === date);
-            const newNote = { date, note, note_type: noteType, driver_id: driverId };
+            const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
             const updatedNotes = noteIndex >= 0
               ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
               : [...existingNotes, newNote];
-            return { ...truck, lostDayNotes: updatedNotes };
+            // Update lastEdit to show the new timestamp
+            return { 
+              ...truck, 
+              lost_day_notes: updatedNotes,
+              lastEdit: new Date().toLocaleTimeString(),
+              editDate: new Date().toLocaleDateString(),
+            };
           }),
         }));
       });
