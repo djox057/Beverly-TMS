@@ -889,107 +889,133 @@ export const useReports = (options?: UseReportsOptions) => {
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops and order_transfers)...');
-    
-    // Build query - filter by driver IDs when loading for specific office
-    let ordersQuery = supabase
-      .from("orders")
-      .select(`
-        id,
-        load_number,
-        internal_load_number,
-        broker_load_number,
-        status,
-        notes,
-        date_change_notes,
-        created_at,
-        updated_at,
-        pickup_datetime,
-        pickup_end_datetime,
-        delivery_datetime,
-        delivery_end_datetime,
-        canceled,
-        driver1_id,
-        driver2_id,
-        truck_id,
-        is_recovery,
-        locked,
-        mileage,
-        loaded_miles,
-        dh_miles,
-        original_driver1_id,
-        original_driver2_id,
-        freight_amount,
-        driver_price,
-        detention,
-        detention_driver,
-        layover,
-        layover_driver,
-        tonu,
-        tonu_driver,
-        extra_stop,
-        extra_stop_driver,
-        lumper,
-        lumper_driver,
-        late_fee,
-        late_fee_driver,
-        no_tracking_fee,
-        no_tracking_fee_driver,
-        wrong_address_fee,
-        wrong_address_fee_driver,
-        escort_fee,
-        other_charges,
-        other_charges_driver,
-        booked_by,
-        pickup_drops (
+
+    // NOTE: PostgREST enforces a max of 1000 rows per request.
+    // Some offices have >1000 unlocked orders inside our 90-day/active filter, so we MUST batch.
+    const UNLOCKED_BATCH_SIZE = 1000;
+
+    // Build query factory (so we can re-run it with different ranges)
+    const buildUnlockedOrdersQuery = () =>
+      supabase
+        .from("orders")
+        .select(`
           id,
-          type,
-          address,
-          city,
-          state,
-          zip_code,
-          datetime,
-          end_datetime,
-          sequence_number,
-          arrived_at,
-          checked_out_at,
-          going_to_at
-        ),
-        order_files (
-          id,
-          file_category,
-          file_name,
-          file_path
-        ),
-        order_transfers (
-          id,
-          sequence_number,
+          load_number,
+          internal_load_number,
+          broker_load_number,
+          status,
+          notes,
+          date_change_notes,
+          created_at,
+          updated_at,
+          pickup_datetime,
+          pickup_end_datetime,
+          delivery_datetime,
+          delivery_end_datetime,
+          canceled,
           driver1_id,
           driver2_id,
           truck_id,
-          trailer_id,
-          miles,
+          is_recovery,
+          locked,
+          mileage,
+          loaded_miles,
+          dh_miles,
+          original_driver1_id,
+          original_driver2_id,
+          freight_amount,
           driver_price,
-          transfer_city,
-          transfer_state,
-          transfer_address,
-          transfer_datetime
+          detention,
+          detention_driver,
+          layover,
+          layover_driver,
+          tonu,
+          tonu_driver,
+          extra_stop,
+          extra_stop_driver,
+          lumper,
+          lumper_driver,
+          late_fee,
+          late_fee_driver,
+          no_tracking_fee,
+          no_tracking_fee_driver,
+          wrong_address_fee,
+          wrong_address_fee_driver,
+          escort_fee,
+          other_charges,
+          other_charges_driver,
+          booked_by,
+          pickup_drops (
+            id,
+            type,
+            address,
+            city,
+            state,
+            zip_code,
+            datetime,
+            end_datetime,
+            sequence_number,
+            arrived_at,
+            checked_out_at,
+            going_to_at
+          ),
+          order_files (
+            id,
+            file_category,
+            file_name,
+            file_path
+          ),
+          order_transfers (
+            id,
+            sequence_number,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            trailer_id,
+            miles,
+            driver_price,
+            transfer_city,
+            transfer_state,
+            transfer_address,
+            transfer_datetime
+          )
+        `)
+        .eq("locked", false)
+        .or(
+          `delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`,
         )
-      `)
-      .eq("locked", false)
-      .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
-      .order("delivery_datetime", { ascending: false, nullsFirst: true })
-      .limit(2000);
+        .order("delivery_datetime", { ascending: false, nullsFirst: true })
+        // Tiebreaker for stable pagination
+        .order("id", { ascending: true });
 
-    // Note: For priority office loading, we filter orders in JS after fetching
-    // since combining multiple OR conditions in Supabase is complex. 
-    // The main speed improvement comes from skipping locked orders loading.
+    // Note: For priority office loading, we still filter orders in JS after fetching
+    // since pushing large driver UUID lists into the URL can exceed URL limits.
 
-    const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await ordersQuery;
+    let unlockedOrdersRaw: any[] = [];
+    for (let from = 0; ; from += UNLOCKED_BATCH_SIZE) {
+      const to = from + UNLOCKED_BATCH_SIZE - 1;
 
-    if (unlockedOrdersError) throw unlockedOrdersError;
+      const { data: pageData, error: pageError } = await queryWithTimeout(
+        async () => await buildUnlockedOrdersQuery().range(from, to),
+        60000,
+      );
 
-    const totalPickupDropsFromDB = unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;
-    console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE${filterOffice ? ` (filtered for ${filterOffice})` : ""}`);
+      if (pageError) throw pageError;
+
+      const page = pageData || [];
+      unlockedOrdersRaw = unlockedOrdersRaw.concat(page);
+
+      // Last page
+      if (page.length < UNLOCKED_BATCH_SIZE) break;
+    }
+
+    const totalPickupDropsFromDB =
+      unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;
+    console.log(
+      `[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE${
+        filterOffice ? ` (filtered for ${filterOffice})` : ""
+      }`,
+    );
 
     // STEP 2: Load locked orders from storage bucket (avoids database egress)
     // Always load locked orders to ensure calendar displays complete history
