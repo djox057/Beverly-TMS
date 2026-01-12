@@ -373,6 +373,9 @@ export const useReports = (options?: UseReportsOptions) => {
       if (authError) throw authError;
       if (!user) throw new Error("Not authenticated");
 
+      // Client-side timestamp (DB has no guarantee of updated_at triggers)
+      const nowIso = new Date().toISOString();
+
       // First check if a note already exists for this driver
       const { data: existingNotes, error: fetchError } = await supabase
         .from("truck_notes")
@@ -392,8 +395,9 @@ export const useReports = (options?: UseReportsOptions) => {
           .update({
             note,
             updated_by: user.id,
+            updated_at: nowIso,
           })
-          .eq("driver_id", driverId);
+          .eq("id", existingNote.id);
 
         if (error) throw error;
       } else {
@@ -403,6 +407,7 @@ export const useReports = (options?: UseReportsOptions) => {
           driver_id: driverId,
           note,
           updated_by: user.id,
+          updated_at: nowIso,
         });
 
         if (error) throw error;
@@ -417,6 +422,10 @@ export const useReports = (options?: UseReportsOptions) => {
       const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
       const previousFull = queryClient.getQueryData(["reports", "full"]);
 
+      const now = new Date();
+      const lastEdit = now.toLocaleTimeString();
+      const editDate = now.toLocaleDateString();
+
       // Helper to update note in data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
@@ -425,7 +434,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note };
+              return { ...truck, note, lastEdit, editDate };
             }
             return truck;
           }),
