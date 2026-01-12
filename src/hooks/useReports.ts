@@ -1725,12 +1725,26 @@ export const useReports = (options?: UseReportsOptions) => {
               twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
-              lastEdit: truckNote
-                ? new Date(truckNote.updated_at).toLocaleTimeString()
-                : new Date(truck.updated_at).toLocaleTimeString(),
-              editDate: truckNote
-                ? new Date(truckNote.updated_at).toLocaleDateString()
-                : new Date(truck.updated_at).toLocaleDateString(),
+              // Compute lastEdit/editDate from the most recent update across truckNote, truck, and lost_day_notes
+              ...(() => {
+                const candidates: Date[] = [];
+                if (truckNote?.updated_at) candidates.push(new Date(truckNote.updated_at));
+                if (truck.updated_at) candidates.push(new Date(truck.updated_at));
+                // Check most recent lost_day_note update
+                const mostRecentLostDayNote = truckLostDayNotes
+                  ?.filter((n: any) => n.updated_at)
+                  .sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
+                if (mostRecentLostDayNote?.updated_at) candidates.push(new Date(mostRecentLostDayNote.updated_at));
+                
+                const mostRecent = candidates.length > 0 
+                  ? new Date(Math.max(...candidates.map(d => d.getTime())))
+                  : new Date();
+                
+                return {
+                  lastEdit: mostRecent.toLocaleTimeString(),
+                  editDate: mostRecent.toLocaleDateString(),
+                };
+              })(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
