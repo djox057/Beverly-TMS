@@ -1034,12 +1034,54 @@ const Orders = () => {
                         </>
                       )}
                     </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Not Invoiced: {formatCurrency(
-                        orders?.filter(o => o.invoiced !== true)
-                          .reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0
-                      )}
-                    </p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="text-xs text-muted-foreground text-center hover:text-foreground hover:underline cursor-pointer transition-colors w-full">
+                          Not Invoiced: {formatCurrency(
+                            orders?.filter(o => o.invoiced !== true)
+                              .reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-4" align="center">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Not Invoiced by Company</h4>
+                          <div className="space-y-2">
+                            {(() => {
+                              const notInvoicedOrders = orders?.filter(o => o.invoiced !== true) || [];
+                              const byCompany = notInvoicedOrders.reduce((acc, order) => {
+                                const company = order.bookedByCompanyName || 'Unknown';
+                                if (!acc[company]) {
+                                  acc[company] = { count: 0, freight: 0 };
+                                }
+                                acc[company].count += 1;
+                                acc[company].freight += order.totalFreightAmount || 0;
+                                return acc;
+                              }, {} as Record<string, { count: number; freight: number }>);
+                              
+                              return Object.entries(byCompany)
+                                .sort((a, b) => b[1].freight - a[1].freight)
+                                .map(([company, data]) => (
+                                  <div key={company} className="flex justify-between items-center text-sm">
+                                    <span className="text-muted-foreground">{company}</span>
+                                    <div className="text-right">
+                                      <span className="font-medium">{formatCurrency(data.freight)}</span>
+                                      <span className="text-muted-foreground ml-2">({data.count})</span>
+                                    </div>
+                                  </div>
+                                ));
+                            })()}
+                          </div>
+                          <div className="border-t pt-2 flex justify-between items-center text-sm font-medium">
+                            <span>Total</span>
+                            <span>{formatCurrency(
+                              orders?.filter(o => o.invoiced !== true)
+                                .reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0
+                            )}</span>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </ScrollArea>
