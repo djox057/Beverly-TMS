@@ -1302,14 +1302,14 @@ const Analytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Driver Name</TableHead>
-                      <TableHead className="text-right">Total Driver Rate</TableHead>
-                      <TableHead className="text-right">Total Miles</TableHead>
-                      <TableHead className="text-right">Rate/Mile</TableHead>
-                      <TableHead>GROSS Tier</TableHead>
-                      <TableHead>Safety Tier</TableHead>
-                      <TableHead>Management Tier</TableHead>
-                      <TableHead>Notice</TableHead>
+                      <TableHead className="w-[12%]">Driver Name</TableHead>
+                      <TableHead className="text-right w-[10%]">Total Driver Rate</TableHead>
+                      <TableHead className="text-right w-[8%]">Total Miles</TableHead>
+                      <TableHead className="text-right w-[8%]">Rate/Mile</TableHead>
+                      <TableHead className="w-[8%]">GROSS Tier</TableHead>
+                      <TableHead className="w-[10%]">Safety Tier</TableHead>
+                      <TableHead className="w-[12%]">Management Tier</TableHead>
+                      <TableHead className="w-[32%]">Notice</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1342,7 +1342,7 @@ const Analytics = () => {
                               value={stat.safetyTier}
                               onValueChange={(value) => handleTierChange(stat.name, "safetyTier", value)}
                             >
-                              <SelectTrigger className={`w-22 ${getTierColor(stat.safetyTier)}`}>
+                              <SelectTrigger className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.safetyTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-background z-50">
@@ -1357,7 +1357,7 @@ const Analytics = () => {
                               value={stat.managementTier}
                               onValueChange={(value) => handleTierChange(stat.name, "managementTier", value)}
                             >
-                              <SelectTrigger className={`w-22 ${getTierColor(stat.managementTier)}`}>
+                              <SelectTrigger className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.managementTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-background z-50">
