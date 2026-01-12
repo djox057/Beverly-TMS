@@ -49,12 +49,15 @@ export function useLumperMissingRevisedRC() {
       if (error) throw error;
       
       // Filter to only include orders that are truly missing revised RC
-      // An order has revised RC if there are 2+ RC files (original + revised)
+      // An order is complete if EITHER:
+      // - Has 2+ RC files (original + revised), OR
+      // - Has at least 1 file in "ADDITIONAL" category
       const ordersWithMissingRC = (data || []).filter((order) => {
         const orderFiles = order.order_files || [];
         const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
-        // Need at least 2 RC files to be complete
-        return rcFileCount < 2;
+        const hasAdditionalFile = orderFiles.some((file: any) => file.file_category === "ADDITIONAL");
+        // Complete if has 2+ RC files OR has an additional file
+        return rcFileCount < 2 && !hasAdditionalFile;
       });
       
       return ordersWithMissingRC.map((order) => ({
