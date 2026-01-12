@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatPhoneNumber } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1198,25 +1199,12 @@ const Drivers = () => {
                       <Input
                         id="phone"
                         value={formData.phone}
-                        onChange={(e) => {
-                          const input = e.target.value.replace(/\D/g, "");
-                          let formatted = "";
-
-                          if (input.length > 0) {
-                            formatted = "(" + input.substring(0, 3);
-                          }
-                          if (input.length >= 4) {
-                            formatted += ") " + input.substring(3, 6);
-                          }
-                          if (input.length >= 7) {
-                            formatted += "-" + input.substring(6, 10);
-                          }
-
+                        onChange={(e) =>
                           setFormData({
                             ...formData,
-                            phone: formatted,
-                          });
-                        }}
+                            phone: formatPhoneNumber(e.target.value),
+                          })
+                        }
                         placeholder="(555) 123-4567"
                         required
                       />
@@ -1296,7 +1284,7 @@ const Drivers = () => {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            emergency_contact_phone: e.target.value,
+                            emergency_contact_phone: formatPhoneNumber(e.target.value),
                           })
                         }
                         placeholder="(555) 987-6543"
@@ -2174,7 +2162,7 @@ const Drivers = () => {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          phone: e.target.value,
+                          phone: formatPhoneNumber(e.target.value),
                         })
                       }
                       placeholder="(555) 123-4567"
@@ -2245,7 +2233,7 @@ const Drivers = () => {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          emergency_contact_phone: e.target.value,
+                          emergency_contact_phone: formatPhoneNumber(e.target.value),
                         })
                       }
                       placeholder="(555) 987-6543"
