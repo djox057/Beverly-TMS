@@ -992,108 +992,113 @@ export const useReports = (options?: UseReportsOptions) => {
     console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE${filterOffice ? ` (filtered for ${filterOffice})` : ""}`);
 
     // STEP 2: Load locked orders from storage bucket (avoids database egress)
-    // For priority office loading, we filter locked orders to only those relevant to office drivers
+    // Always load locked orders to ensure calendar displays complete history
     let lockedOrders: any[] = [];
     
-    // Skip locked orders entirely for priority office loading - they slow things down significantly
-    // and most current/active orders are unlocked anyway
-    if (!filterOffice) {
-      try {
-        console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
-        const { getLockedOrders, getPickupDrops, getOrderFiles, getOrderTransfers } = await import("@/utils/ordersCache");
-        
-        const cachedOrders = await getLockedOrders();
-        const cachedPickupDrops = await getPickupDrops();
-        const cachedOrderFiles = await getOrderFiles();
-        const cachedOrderTransfers = await getOrderTransfers();
+    try {
+      console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
+      const { getLockedOrders, getPickupDrops, getOrderFiles, getOrderTransfers } = await import("@/utils/ordersCache");
+      
+      const cachedOrders = await getLockedOrders();
+      const cachedPickupDrops = await getPickupDrops();
+      const cachedOrderFiles = await getOrderFiles();
+      const cachedOrderTransfers = await getOrderTransfers();
 
-        if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
-          console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
+      if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
+        console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
 
-          // Helper to convert CSV "null" strings and booleans to proper types
-          const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
-          const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
+        // Helper to convert CSV "null" strings and booleans to proper types
+        const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
+        const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
 
-          // PERF FIX: Pre-index pickup_drops, order_files, order_transfers by order_id
-          // This converts O(orders * relations) to O(orders + relations) - massive speedup
-          const pickupDropsByOrderId = new Map<string, any[]>();
-          for (const pd of cachedPickupDrops || []) {
-            if (pd.order_id) {
-              const existing = pickupDropsByOrderId.get(pd.order_id);
-              if (existing) existing.push(pd);
-              else pickupDropsByOrderId.set(pd.order_id, [pd]);
-            }
+        // PERF FIX: Pre-index pickup_drops, order_files, order_transfers by order_id
+        // This converts O(orders * relations) to O(orders + relations) - massive speedup
+        const pickupDropsByOrderId = new Map<string, any[]>();
+        for (const pd of cachedPickupDrops || []) {
+          if (pd.order_id) {
+            const existing = pickupDropsByOrderId.get(pd.order_id);
+            if (existing) existing.push(pd);
+            else pickupDropsByOrderId.set(pd.order_id, [pd]);
           }
-
-          const orderFilesByOrderId = new Map<string, any[]>();
-          for (const of_ of cachedOrderFiles || []) {
-            if (of_.order_id) {
-              const existing = orderFilesByOrderId.get(of_.order_id);
-              if (existing) existing.push(of_);
-              else orderFilesByOrderId.set(of_.order_id, [of_]);
-            }
-          }
-
-          const orderTransfersByOrderId = new Map<string, any[]>();
-          for (const ot of cachedOrderTransfers || []) {
-            if (ot.order_id) {
-              const existing = orderTransfersByOrderId.get(ot.order_id);
-              if (existing) existing.push(ot);
-              else orderTransfersByOrderId.set(ot.order_id, [ot]);
-            }
-          }
-
-          // Match pickup_drops, order_files, and order_transfers to orders using O(1) lookups
-          const ordersWithRelations = cachedOrders.map((order: any) => ({
-            ...order,
-            // Normalize CSV string values to proper types
-            is_recovery: normalizeBool(order.is_recovery),
-            canceled: normalizeBool(order.canceled),
-            locked: normalizeBool(order.locked),
-            invoiced: normalizeBool(order.invoiced),
-            notes: normalizeNull(order.notes),
-            date_change_notes: normalizeNull(order.date_change_notes),
-            commodity: normalizeNull(order.commodity),
-            pickup_drops: pickupDropsByOrderId.get(order.id) || [],
-            order_files: orderFilesByOrderId.get(order.id) || [],
-            order_transfers: orderTransfersByOrderId.get(order.id) || [],
-          }));
-
-          const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
-          console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
-
-          // Filter locked orders for reports criteria (90 days)
-          const ninetyDaysAgoForFilter = new Date();
-          ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
-
-          lockedOrders = ordersWithRelations.filter((order: any) => {
-            // Per spec: Locked canceled orders should NOT display
-            if (order.canceled || order.status === 'canceled') return false;
-            
-            // Normalize delivery_datetime - CSV uses space separator, ISO uses T
-            const deliveryDateStr = order.delivery_datetime ? 
-              String(order.delivery_datetime).replace(' ', 'T') : null;
-            const deliveryDate = deliveryDateStr ? new Date(deliveryDateStr) : null;
-
-            return (
-              !order.delivery_datetime ||
-              (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgoForFilter) ||
-              order.status === 'in_transit' ||
-              order.status === 'pending'
-            );
-          });
-
-          console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from STORAGE`);
-        } else {
-          console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
         }
-      } catch (error) {
-        console.error('[useReports] ⚠️ Could not load locked orders from storage:', error);
-        // Continue without locked orders - this is not a fatal error
-        lockedOrders = [];
+
+        const orderFilesByOrderId = new Map<string, any[]>();
+        for (const of_ of cachedOrderFiles || []) {
+          if (of_.order_id) {
+            const existing = orderFilesByOrderId.get(of_.order_id);
+            if (existing) existing.push(of_);
+            else orderFilesByOrderId.set(of_.order_id, [of_]);
+          }
+        }
+
+        const orderTransfersByOrderId = new Map<string, any[]>();
+        for (const ot of cachedOrderTransfers || []) {
+          if (ot.order_id) {
+            const existing = orderTransfersByOrderId.get(ot.order_id);
+            if (existing) existing.push(ot);
+            else orderTransfersByOrderId.set(ot.order_id, [ot]);
+          }
+        }
+
+        // Match pickup_drops, order_files, and order_transfers to orders using O(1) lookups
+        const ordersWithRelations = cachedOrders.map((order: any) => ({
+          ...order,
+          // Normalize CSV string values to proper types
+          is_recovery: normalizeBool(order.is_recovery),
+          canceled: normalizeBool(order.canceled),
+          locked: normalizeBool(order.locked),
+          invoiced: normalizeBool(order.invoiced),
+          notes: normalizeNull(order.notes),
+          date_change_notes: normalizeNull(order.date_change_notes),
+          commodity: normalizeNull(order.commodity),
+          pickup_drops: pickupDropsByOrderId.get(order.id) || [],
+          order_files: orderFilesByOrderId.get(order.id) || [],
+          order_transfers: orderTransfersByOrderId.get(order.id) || [],
+        }));
+
+        const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
+        console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
+
+        // Filter locked orders for reports criteria (90 days)
+        const ninetyDaysAgoForFilter = new Date();
+        ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
+
+        lockedOrders = ordersWithRelations.filter((order: any) => {
+          // Per spec: Locked canceled orders should NOT display
+          if (order.canceled || order.status === 'canceled') return false;
+          
+          // Normalize delivery_datetime - CSV uses space separator, ISO uses T
+          const deliveryDateStr = order.delivery_datetime ? 
+            String(order.delivery_datetime).replace(' ', 'T') : null;
+          const deliveryDate = deliveryDateStr ? new Date(deliveryDateStr) : null;
+
+          return (
+            !order.delivery_datetime ||
+            (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgoForFilter) ||
+            order.status === 'in_transit' ||
+            order.status === 'pending'
+          );
+        });
+
+        // For priority office loading, filter locked orders to only those for office drivers
+        if (filterOffice && driverIdsArray.length > 0) {
+          const driverIdsSet = new Set(driverIdsArray);
+          const filteredCount = lockedOrders.length;
+          lockedOrders = lockedOrders.filter((order: any) => 
+            (order.driver1_id && driverIdsSet.has(order.driver1_id)) ||
+            (order.driver2_id && driverIdsSet.has(order.driver2_id))
+          );
+          console.log(`[useReports] 🎯 Filtered locked orders for ${filterOffice}: ${filteredCount} → ${lockedOrders.length}`);
+        }
+
+        console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from STORAGE`);
+      } else {
+        console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
       }
-    } else {
-      console.log(`[useReports] ⚡ Skipping locked orders for priority load (${filterOffice})`);
+    } catch (error) {
+      console.error('[useReports] ⚠️ Could not load locked orders from storage:', error);
+      // Continue without locked orders - this is not a fatal error
+      lockedOrders = [];
     }
 
     // NOTE: Recently locked orders fetch was removed due to high CPU usage (50% increase).
