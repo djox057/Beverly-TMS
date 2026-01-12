@@ -219,9 +219,6 @@ export default function YardLoads() {
 
   const toggleOrderLock = async (orderId: string, currentLockState: boolean) => {
     try {
-      // Import cache functions dynamically
-      const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
-      
       // When unlocking, also set invoiced to false
       const updateData = currentLockState 
         ? { locked: false, invoiced: false } 
@@ -234,24 +231,33 @@ export default function YardLoads() {
 
       if (error) throw error;
 
-      // Update the locked orders cache
-      if (!currentLockState) {
-        // Locking - fetch full order data and add to cache
-        const { data: orderData } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
-        
-        if (orderData) {
-          await addLockedOrderToCache(orderData);
-        }
-      } else {
-        // Unlocking - remove from cache
-        await removeLockedOrderFromCache(orderId);
-      }
-
+      // Show success immediately
       toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
+
+      // Update cache in background (non-blocking)
+      (async () => {
+        try {
+          const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
+          
+          if (!currentLockState) {
+            // Locking - fetch full order data and add to cache
+            const { data: orderData } = await supabase
+              .from("orders")
+              .select("*")
+              .eq("id", orderId)
+              .single();
+            
+            if (orderData) {
+              await addLockedOrderToCache(orderData);
+            }
+          } else {
+            // Unlocking - remove from cache
+            await removeLockedOrderFromCache(orderId);
+          }
+        } catch (cacheError) {
+          console.warn("Cache update failed (will sync on next archive export):", cacheError);
+        }
+      })();
     } catch (error) {
       console.error('Error toggling lock:', error);
       toast.error("Failed to toggle lock status");

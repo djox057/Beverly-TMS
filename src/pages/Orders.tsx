@@ -503,9 +503,6 @@ const Orders = () => {
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     try {
-      // Import cache functions dynamically
-      const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
-      
       // When unlocking, also set invoiced to false
       const updateData = currentLockStatus 
         ? { locked: false, invoiced: false } 
@@ -515,27 +512,36 @@ const Orders = () => {
 
       if (error) throw error;
 
-      // Update the locked orders cache
-      if (!currentLockStatus) {
-        // Locking - fetch full order data and add to cache
-        const { data: orderData } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("id", orderId)
-          .single();
-        
-        if (orderData) {
-          await addLockedOrderToCache(orderData);
-        }
-      } else {
-        // Unlocking - remove from cache
-        await removeLockedOrderFromCache(orderId);
-      }
-
+      // Show success immediately - cache update happens in background
       toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
 
-      // Refresh orders list
+      // Refresh orders list immediately
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+
+      // Update cache in background (non-blocking)
+      (async () => {
+        try {
+          const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
+          
+          if (!currentLockStatus) {
+            // Locking - fetch full order data and add to cache
+            const { data: orderData } = await supabase
+              .from("orders")
+              .select("*")
+              .eq("id", orderId)
+              .single();
+            
+            if (orderData) {
+              await addLockedOrderToCache(orderData);
+            }
+          } else {
+            // Unlocking - remove from cache
+            await removeLockedOrderFromCache(orderId);
+          }
+        } catch (cacheError) {
+          console.warn("Cache update failed (will sync on next archive export):", cacheError);
+        }
+      })();
     } catch (error) {
       console.error("Error toggling order lock:", error);
       toast.error("Failed to update load lock status");
