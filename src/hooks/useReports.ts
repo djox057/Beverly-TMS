@@ -978,7 +978,7 @@ export const useReports = (options?: UseReportsOptions) => {
       .eq("locked", false)
       .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
       .order("delivery_datetime", { ascending: false, nullsFirst: true })
-      .limit(1000);
+      .limit(2000);
 
     // Note: For priority office loading, we filter orders in JS after fetching
     // since combining multiple OR conditions in Supabase is complex. 
