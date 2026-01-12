@@ -373,6 +373,9 @@ export const useReports = (options?: UseReportsOptions) => {
       if (authError) throw authError;
       if (!user) throw new Error("Not authenticated");
 
+      // Client-side timestamp (DB has no guarantee of updated_at triggers)
+      const nowIso = new Date().toISOString();
+
       // First check if a note already exists for this driver
       const { data: existingNotes, error: fetchError } = await supabase
         .from("truck_notes")
@@ -392,8 +395,9 @@ export const useReports = (options?: UseReportsOptions) => {
           .update({
             note,
             updated_by: user.id,
+            updated_at: nowIso,
           })
-          .eq("driver_id", driverId);
+          .eq("id", existingNote.id);
 
         if (error) throw error;
       } else {
@@ -403,6 +407,7 @@ export const useReports = (options?: UseReportsOptions) => {
           driver_id: driverId,
           note,
           updated_by: user.id,
+          updated_at: nowIso,
         });
 
         if (error) throw error;
@@ -417,6 +422,10 @@ export const useReports = (options?: UseReportsOptions) => {
       const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
       const previousFull = queryClient.getQueryData(["reports", "full"]);
 
+      const now = new Date();
+      const lastEdit = now.toLocaleTimeString();
+      const editDate = now.toLocaleDateString();
+
       // Helper to update note in data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
@@ -425,7 +434,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note };
+              return { ...truck, note, lastEdit, editDate };
             }
             return truck;
           }),
@@ -537,10 +546,21 @@ export const useReports = (options?: UseReportsOptions) => {
       }
     },
     onMutate: async ({ driverId, date, note, noteType }) => {
-      await queryClient.cancelQueries({ queryKey: ["reports"] });
-      const previousData = queryClient.getQueryData(["reports"]);
-      const nowIso = new Date().toISOString();
-      queryClient.setQueryData(["reports"], (old: any) => {
+      // Cancel any outgoing refetches for both query keys
+      await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
+      await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
+
+      // Snapshot previous values for both queries
+      const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
+      const previousFull = queryClient.getQueryData(["reports", "full"]);
+
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const lastEdit = now.toLocaleTimeString();
+      const editDate = now.toLocaleDateString();
+
+      // Helper to update lost day note in data structure
+      const updateNoteInData = (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
           ...group,
@@ -553,21 +573,32 @@ export const useReports = (options?: UseReportsOptions) => {
             const updatedNotes = noteIndex >= 0
               ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
               : [...existingNotes, newNote];
-            // Update lastEdit to show the new timestamp
+            // Update lastEdit and editDate to show the new timestamp
             return { 
               ...truck, 
               lost_day_notes: updatedNotes,
-              lastEdit: new Date().toLocaleTimeString(),
-              editDate: new Date().toLocaleDateString(),
+              lastEdit,
+              editDate,
             };
           }),
         }));
-      });
-      return { previousData };
+      };
+
+      // Optimistically update both query caches immediately
+      queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
+      queryClient.setQueryData(["reports", "full"], updateNoteInData);
+
+      return { previousPriority, previousFull };
     },
     onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(["reports"], context.previousData);
+      // Rollback both caches on error
+      if (context?.previousPriority) {
+        context.previousPriority.forEach(([queryKey, data]: [any, any]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousFull) {
+        queryClient.setQueryData(["reports", "full"], context.previousFull);
       }
     },
     // Real-time subscription handles cache updates - no invalidation needed
