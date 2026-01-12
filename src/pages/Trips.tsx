@@ -3615,11 +3615,11 @@ const Trips = () => {
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Truck#</TableHead>
                   <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver</TableHead>
                   <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Load#</TableHead>
-                  <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Pickup Date</TableHead>
+                  <TableHead className="w-[100px] min-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Pickup Date</TableHead>
                   <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Pickup City</TableHead>
-                  <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Delivery Date</TableHead>
+                  <TableHead className="w-[105px] min-w-[105px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Delivery Date</TableHead>
                   <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Delivery City</TableHead>
-                  <TableHead className="w-[60px] min-w-[60px] max-w-[60px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Miles</TableHead>
+                  <TableHead className="w-[50px] min-w-[50px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Miles</TableHead>
                   <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Name</TableHead>
                   <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Load#</TableHead>
                   <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Booked By</TableHead>
