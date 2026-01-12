@@ -1338,12 +1338,28 @@ const Analytics = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${getTierColor(stat.safetyTier)}`}>
+                            <Badge 
+                              className={`${getTierColor(stat.safetyTier)} cursor-pointer hover:opacity-80`}
+                              onClick={() => {
+                                const tiers = ["Tier 1", "Tier 2", "Tier 3"];
+                                const currentIndex = tiers.indexOf(stat.safetyTier);
+                                const nextTier = tiers[(currentIndex + 1) % tiers.length];
+                                handleTierChange(stat.name, "safetyTier", nextTier);
+                              }}
+                            >
                               {stat.safetyTier}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${getTierColor(stat.managementTier)}`}>
+                            <Badge 
+                              className={`${getTierColor(stat.managementTier)} cursor-pointer hover:opacity-80`}
+                              onClick={() => {
+                                const tiers = ["Tier 1", "Tier 2", "Tier 3"];
+                                const currentIndex = tiers.indexOf(stat.managementTier);
+                                const nextTier = tiers[(currentIndex + 1) % tiers.length];
+                                handleTierChange(stat.name, "managementTier", nextTier);
+                              }}
+                            >
                               {stat.managementTier}
                             </Badge>
                           </TableCell>
