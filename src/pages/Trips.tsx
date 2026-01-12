@@ -3625,7 +3625,7 @@ const Trips = () => {
               <TableBody>
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canMoveLoads ? 15 : 14} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={canMoveLoads ? 14 : 13} className="text-center py-8 text-muted-foreground">
                       No trips found
                     </TableCell>
                   </TableRow>
@@ -3677,7 +3677,7 @@ const Trips = () => {
                               </div>
                             </TableCell>
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
-                          <TableCell colSpan={3} className="py-3"></TableCell>
+                          <TableCell colSpan={2} className="py-3"></TableCell>
                           <TableCell className="py-3">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.driverPay)}
