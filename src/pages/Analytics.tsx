@@ -1,3 +1,4 @@
+import React from "react";
 import { DateRange } from "react-day-picker";
 import { formatDateNoTimezone } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,8 @@ const Analytics = () => {
     name: string;
     notice: string;
   } | null>(null);
+  const [pendingNotice, setPendingNotice] = useState<{ name: string; notice: string } | null>(null);
+  const noticeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
 
   // Fetch dispatcher notes for the current date range
@@ -881,7 +884,7 @@ const Analytics = () => {
       notice: currentData.notice,
     });
   };
-  const handleNoticeChange = (driverName: string, notice: string) => {
+  const saveNotice = React.useCallback((driverName: string, notice: string) => {
     const currentData = driverTiers[driverName] || {
       grossTier: "Tier 1",
       safetyTier: "Tier 1",
@@ -895,6 +898,36 @@ const Analytics = () => {
       management_tier: currentData.managementTier,
       notice,
     });
+  }, [driverTiers, updatePerformance]);
+
+  const handleNoticeInputChange = (driverName: string, notice: string) => {
+    // Update local state immediately for responsive typing
+    setPendingNotice({ name: driverName, notice });
+    setSelectedDriverNotice({ name: driverName, notice });
+    
+    // Clear existing timeout
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+    }
+    
+    // Set new timeout to save after 5 seconds
+    noticeTimeoutRef.current = setTimeout(() => {
+      saveNotice(driverName, notice);
+      setPendingNotice(null);
+    }, 5000);
+  };
+
+  const handleNoticeDialogClose = (driverName: string) => {
+    // Save immediately when dialog closes if there's a pending change
+    if (noticeTimeoutRef.current) {
+      clearTimeout(noticeTimeoutRef.current);
+      noticeTimeoutRef.current = null;
+    }
+    if (pendingNotice && pendingNotice.name === driverName) {
+      saveNotice(driverName, pendingNotice.notice);
+      setPendingNotice(null);
+    }
+    setSelectedDriverNotice(null);
   };
 
   const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
@@ -1370,7 +1403,11 @@ const Analytics = () => {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Dialog>
+                            <Dialog onOpenChange={(open) => {
+                              if (!open) {
+                                handleNoticeDialogClose(stat.name);
+                              }
+                            }}>
                               <DialogTrigger asChild>
                                 <Button
                                   variant="ghost"
@@ -1384,10 +1421,10 @@ const Analytics = () => {
                                   className="h-auto p-2 text-left justify-start"
                                 >
                                   <span className="line-clamp-2 text-xs">
-                                    {stat.notice
-                                      ? stat.notice.length > 44
-                                        ? stat.notice.substring(0, 44) + "..."
-                                        : stat.notice
+                                    {(pendingNotice?.name === stat.name ? pendingNotice.notice : stat.notice)
+                                      ? (pendingNotice?.name === stat.name ? pendingNotice.notice : stat.notice).length > 44
+                                        ? (pendingNotice?.name === stat.name ? pendingNotice.notice : stat.notice).substring(0, 44) + "..."
+                                        : (pendingNotice?.name === stat.name ? pendingNotice.notice : stat.notice)
                                       : "Click to add note..."}
                                   </span>
                                 </Button>
@@ -1404,12 +1441,7 @@ const Analytics = () => {
                                         : stat.notice
                                     }
                                     onChange={(e) => {
-                                      const newNotice = e.target.value;
-                                      setSelectedDriverNotice({
-                                        name: stat.name,
-                                        notice: newNotice,
-                                      });
-                                      handleNoticeChange(stat.name, newNotice);
+                                      handleNoticeInputChange(stat.name, e.target.value);
                                     }}
                                     placeholder="Enter notice for this driver..."
                                     className="min-h-[200px]"
