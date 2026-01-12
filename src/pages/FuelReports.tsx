@@ -874,7 +874,7 @@ const FuelReports = () => {
                           </TableHeader>
                           <TableBody>
                             {truck.states.map((state) => (
-                              <TableRow key={state.state}>
+                              <TableRow key={state.state} className="border-b border-border">
                                 <TableCell className="font-medium">{state.state}</TableCell>
                                 <TableCell className="text-right">{formatNumber(state.totalMiles, 1)}</TableCell>
                                 <TableCell className="text-right">{formatNumber(state.taxableMiles, 1)}</TableCell>
