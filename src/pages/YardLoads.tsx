@@ -218,8 +218,19 @@ export default function YardLoads() {
   };
 
   const toggleOrderLock = async (orderId: string, currentLockState: boolean) => {
+    // Optimistic update - immediately update UI
+    queryClient.setQueryData(["yard-loads-orders"], (oldData: any) => {
+      if (!oldData) return oldData;
+      return oldData.map((order: any) => 
+        order.id === orderId 
+          ? { ...order, locked: !currentLockState, invoiced: currentLockState ? false : order.invoiced }
+          : order
+      );
+    });
+
+    toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
+
     try {
-      // When unlocking, also set invoiced to false
       const updateData = currentLockState 
         ? { locked: false, invoiced: false } 
         : { locked: true };
@@ -231,16 +242,12 @@ export default function YardLoads() {
 
       if (error) throw error;
 
-      // Show success immediately
-      toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
-
       // Update cache in background (non-blocking)
       (async () => {
         try {
           const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
           
           if (!currentLockState) {
-            // Locking - fetch full order data and add to cache
             const { data: orderData } = await supabase
               .from("orders")
               .select("*")
@@ -251,7 +258,6 @@ export default function YardLoads() {
               await addLockedOrderToCache(orderData);
             }
           } else {
-            // Unlocking - remove from cache
             await removeLockedOrderFromCache(orderId);
           }
         } catch (cacheError) {
@@ -260,6 +266,8 @@ export default function YardLoads() {
       })();
     } catch (error) {
       console.error('Error toggling lock:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
       toast.error("Failed to toggle lock status");
     }
   };
