@@ -2363,14 +2363,20 @@ const Trips = () => {
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
 
-        // C: Pickup city (using merged C+D for pickup location in template)
+        // C: Pickup city
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+
+        // D: Pickup state
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
 
         // E: Delivery date
         worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
 
-        // F: Delivery city (using merged F+G for delivery location)
+        // F: Delivery city
         worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+
+        // G: Delivery state
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
 
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
@@ -2398,7 +2404,7 @@ const Trips = () => {
       // Deductions section (rows 25-33)
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
-        { row: 25, description: "Cargo Insurance", amount: 250.0 },
+        { row: 25, description: "Cargo Insurance", amount: 285.0 },
         { row: 26, description: "Trailer + Insurance", amount: 285.0 },
         { row: 27, description: "ELD", amount: 50.0 },
         { row: 28, description: "Pre-Pass", amount: 20.0 },
