@@ -2583,6 +2583,12 @@ const Trips = () => {
         creditsRow++;
       });
 
+      // Widen pickup date (column B) and delivery date (column E) by 6%
+      const colB = worksheet.getColumn(2);
+      const colE = worksheet.getColumn(5);
+      if (colB.width) colB.width = colB.width * 1.06;
+      if (colE.width) colE.width = colE.width * 1.06;
+
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
       const driverName = driver?.name || firstOrder?.driverName || "";
