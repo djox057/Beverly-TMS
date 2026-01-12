@@ -379,31 +379,26 @@ export const useOrders = (options?: UseOrdersOptions) => {
       // Load LOCKED orders from cache only (no DB fetch for performance)
       let lockedOrders = await getLockedOrders() || [];
       
-      // Fetch recently locked orders from DB to fill gaps in storage cache
-      // This ensures orders locked after the last archive upload still appear
+      // Fetch ALL locked orders from DB that are missing from archive cache
+      // This ensures any locked order in the database appears, regardless of archive state
       try {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
         const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
         
-        const { data: recentlyLocked, error: recentlyLockedError } = await supabase
+        const { data: dbLockedOrders, error: dbLockedError } = await supabase
           .from("orders")
           .select("*")
           .eq("locked", true)
-          .gte("updated_at", sevenDaysAgo.toISOString())
-          .order("updated_at", { ascending: false })
-          .limit(200);
+          .order("updated_at", { ascending: false });
 
-        if (!recentlyLockedError && recentlyLocked) {
-          const newLockedOrders = recentlyLocked.filter((o: any) => !lockedOrderIds.has(o.id));
-          if (newLockedOrders.length > 0) {
-            console.log(`[useOrders] 🔄 Added ${newLockedOrders.length} recently locked orders from DATABASE`);
-            lockedOrders = [...lockedOrders, ...newLockedOrders];
+        if (!dbLockedError && dbLockedOrders) {
+          const missingLockedOrders = dbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
+          if (missingLockedOrders.length > 0) {
+            console.log(`[useOrders] 🔄 Added ${missingLockedOrders.length} locked orders from DATABASE (missing from archive)`);
+            lockedOrders = [...lockedOrders, ...missingLockedOrders];
           }
         }
       } catch (error) {
-        console.warn('[useOrders] Could not fetch recently locked orders:', error);
+        console.warn('[useOrders] Could not fetch locked orders from DB:', error);
       }
       
       // Filter locked orders for dispatchers (by booked_by or assigned drivers)
