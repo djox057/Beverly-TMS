@@ -1302,14 +1302,14 @@ const Analytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[140px]">Driver Name</TableHead>
-                      <TableHead className="text-right w-[100px]">Total Driver Rate</TableHead>
-                      <TableHead className="text-right w-[80px]">Total Miles</TableHead>
-                      <TableHead className="text-right w-[70px]">Rate/Mile</TableHead>
-                      <TableHead className="w-[70px]">GROSS Tier</TableHead>
-                      <TableHead className="w-[70px]">Safety Tier</TableHead>
-                      <TableHead className="w-[90px]">Management Tier</TableHead>
-                      <TableHead className="min-w-[200px]">Notice</TableHead>
+                      <TableHead>Driver Name</TableHead>
+                      <TableHead className="text-right">Total Driver Rate</TableHead>
+                      <TableHead className="text-right">Total Miles</TableHead>
+                      <TableHead className="text-right">Rate/Mile</TableHead>
+                      <TableHead>GROSS Tier</TableHead>
+                      <TableHead>Safety Tier</TableHead>
+                      <TableHead>Management Tier</TableHead>
+                      <TableHead>Notice</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1338,14 +1338,34 @@ const Analytics = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${getTierColor(stat.safetyTier)}`}>
-                              {stat.safetyTier}
-                            </Badge>
+                            <Select
+                              value={stat.safetyTier}
+                              onValueChange={(value) => handleTierChange(stat.name, "safetyTier", value)}
+                            >
+                              <SelectTrigger className={`w-22 ${getTierColor(stat.safetyTier)}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                                <SelectItem value="Tier 3">Tier 3</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>
-                            <Badge className={`${getTierColor(stat.managementTier)}`}>
-                              {stat.managementTier}
-                            </Badge>
+                            <Select
+                              value={stat.managementTier}
+                              onValueChange={(value) => handleTierChange(stat.name, "managementTier", value)}
+                            >
+                              <SelectTrigger className={`w-22 ${getTierColor(stat.managementTier)}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                                <SelectItem value="Tier 3">Tier 3</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>
                             <DriverNoticeDialog
