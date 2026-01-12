@@ -3616,7 +3616,7 @@ const Trips = () => {
                   <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Miles</TableHead>
                   <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Name</TableHead>
                   <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Load#</TableHead>
-                  <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Booked By</TableHead>
+                  
                   <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver Pay</TableHead>
                   <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Freight Amt</TableHead>
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Actions</TableHead>
@@ -3884,9 +3884,6 @@ const Trips = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{order.brokerLoadNumber}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.bookedBy}</div>
                               </TableCell>
                               <TableCell>
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
