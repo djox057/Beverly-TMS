@@ -1695,44 +1695,13 @@ export const useReports = (options?: UseReportsOptions) => {
                 );
                 return sorted[0]?.id || null;
               })(),
-              lastEdit: (() => {
-                // Get most recent update from orders
-                if (allOrdersWithStops && allOrdersWithStops.length > 0) {
-                  const sorted = [...allOrdersWithStops].sort((a, b) => 
-                    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                  );
-                  const mostRecentOrder = sorted[0];
-                  if (mostRecentOrder) {
-                    const orderTime = new Date(mostRecentOrder.updated_at).getTime();
-                    const noteTime = truckNote ? new Date(truckNote.updated_at).getTime() : 0;
-                    if (orderTime > noteTime) {
-                      return new Date(mostRecentOrder.updated_at).toLocaleTimeString();
-                    }
-                  }
-                }
-                return truckNote
-                  ? new Date(truckNote.updated_at).toLocaleTimeString()
-                  : new Date(truck.updated_at).toLocaleTimeString();
-              })(),
-              editDate: (() => {
-                // Get most recent update from orders
-                if (allOrdersWithStops && allOrdersWithStops.length > 0) {
-                  const sorted = [...allOrdersWithStops].sort((a, b) => 
-                    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                  );
-                  const mostRecentOrder = sorted[0];
-                  if (mostRecentOrder) {
-                    const orderTime = new Date(mostRecentOrder.updated_at).getTime();
-                    const noteTime = truckNote ? new Date(truckNote.updated_at).getTime() : 0;
-                    if (orderTime > noteTime) {
-                      return new Date(mostRecentOrder.updated_at).toLocaleDateString();
-                    }
-                  }
-                }
-                return truckNote
-                  ? new Date(truckNote.updated_at).toLocaleDateString()
-                  : new Date(truck.updated_at).toLocaleDateString();
-              })(),
+              // Last edit shows note update time if note exists, otherwise truck update time
+              lastEdit: truckNote
+                ? new Date(truckNote.updated_at).toLocaleTimeString()
+                : new Date(truck.updated_at).toLocaleTimeString(),
+              editDate: truckNote
+                ? new Date(truckNote.updated_at).toLocaleDateString()
+                : new Date(truck.updated_at).toLocaleDateString(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
@@ -2045,44 +2014,12 @@ export const useReports = (options?: UseReportsOptions) => {
               );
               return sorted[0]?.id || null;
             })(),
-            lastEdit: (() => {
-              // Get most recent update from orders
-              if (allOrdersWithStops && allOrdersWithStops.length > 0) {
-                const sorted = [...allOrdersWithStops].sort((a, b) => 
-                  new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                );
-                const mostRecentOrder = sorted[0];
-                if (mostRecentOrder) {
-                  const orderTime = new Date(mostRecentOrder.updated_at).getTime();
-                  const noteTime = driverNote?.updated_at ? new Date(driverNote.updated_at).getTime() : 0;
-                  if (orderTime > noteTime) {
-                    return new Date(mostRecentOrder.updated_at).toLocaleTimeString();
-                  }
-                }
-              }
-              return driverNote?.updated_at
-                ? new Date(driverNote.updated_at).toLocaleTimeString()
-                : new Date().toLocaleTimeString();
-            })(),
-            editDate: (() => {
-              // Get most recent update from orders
-              if (allOrdersWithStops && allOrdersWithStops.length > 0) {
-                const sorted = [...allOrdersWithStops].sort((a, b) => 
-                  new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                );
-                const mostRecentOrder = sorted[0];
-                if (mostRecentOrder) {
-                  const orderTime = new Date(mostRecentOrder.updated_at).getTime();
-                  const noteTime = driverNote?.updated_at ? new Date(driverNote.updated_at).getTime() : 0;
-                  if (orderTime > noteTime) {
-                    return new Date(mostRecentOrder.updated_at).toLocaleDateString();
-                  }
-                }
-              }
-              return driverNote?.updated_at
-                ? new Date(driverNote.updated_at).toLocaleDateString()
-                : new Date().toLocaleDateString();
-            })(),
+            lastEdit: driverNote?.updated_at
+              ? new Date(driverNote.updated_at).toLocaleTimeString()
+              : new Date().toLocaleTimeString(),
+            editDate: driverNote?.updated_at
+              ? new Date(driverNote.updated_at).toLocaleDateString()
+              : new Date().toLocaleDateString(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
