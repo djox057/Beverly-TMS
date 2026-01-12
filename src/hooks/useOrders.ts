@@ -377,7 +377,34 @@ export const useOrders = (options?: UseOrdersOptions) => {
       }
 
       // Load LOCKED orders from cache only (no DB fetch for performance)
-      let lockedOrders = await getLockedOrders();
+      let lockedOrders = await getLockedOrders() || [];
+      
+      // Fetch recently locked orders from DB to fill gaps in storage cache
+      // This ensures orders locked after the last archive upload still appear
+      try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
+        
+        const { data: recentlyLocked, error: recentlyLockedError } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("locked", true)
+          .gte("updated_at", sevenDaysAgo.toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(200);
+
+        if (!recentlyLockedError && recentlyLocked) {
+          const newLockedOrders = recentlyLocked.filter((o: any) => !lockedOrderIds.has(o.id));
+          if (newLockedOrders.length > 0) {
+            console.log(`[useOrders] 🔄 Added ${newLockedOrders.length} recently locked orders from DATABASE`);
+            lockedOrders = [...lockedOrders, ...newLockedOrders];
+          }
+        }
+      } catch (error) {
+        console.warn('[useOrders] Could not fetch recently locked orders:', error);
+      }
       
       // Filter locked orders for dispatchers (by booked_by or assigned drivers)
       if (options?.dispatcherUserId && lockedOrders) {
