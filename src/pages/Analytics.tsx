@@ -716,7 +716,49 @@ const Analytics = () => {
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
-  // Calculate driver analytics
+  // Create a Set of active driver names for filtering
+  const activeDriverNames = useMemo(() => {
+    return new Set(
+      (drivers || [])
+        .filter(d => d.is_active)
+        .map(d => d.name)
+        .filter(Boolean)
+    );
+  }, [drivers]);
+
+  // Calculate driver analytics with first pickup date for gross tier calculation
+  // Use ALL orders (not filtered by date) for gross tier calculation
+  const driverAnalyticsAllTime = useMemo(() => {
+    return (orders || []).reduce(
+      (acc, order) => {
+        // Exclude canceled orders without TONU
+        if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
+          return acc;
+        }
+        const driverName = order.driverName;
+        if (driverName && driverName !== "N/A") {
+          if (!acc[driverName]) {
+            acc[driverName] = {
+              totalGross: 0,
+              firstPickupDate: null as string | null,
+            };
+          }
+          acc[driverName].totalGross += Number(order.totalFreightAmount) || 0;
+          // Track earliest pickup date
+          const pickupDate = order.pickupDate;
+          if (pickupDate && pickupDate !== "N/A" && pickupDate !== "Invalid Date") {
+            if (!acc[driverName].firstPickupDate || pickupDate < acc[driverName].firstPickupDate) {
+              acc[driverName].firstPickupDate = pickupDate;
+            }
+          }
+        }
+        return acc;
+      },
+      {} as Record<string, { totalGross: number; firstPickupDate: string | null }>
+    );
+  }, [orders]);
+
+  // Calculate driver analytics (filtered by date range for display)
   const driverAnalytics = filteredOrders.reduce(
     (acc, order) => {
       // Get driver name from the order (already transformed)
@@ -744,7 +786,41 @@ const Analytics = () => {
       }
     >,
   );
+
+  // Helper function to calculate gross tier based on weekly average
+  const calculateGrossTier = (driverName: string): string => {
+    const allTimeData = driverAnalyticsAllTime[driverName];
+    if (!allTimeData || !allTimeData.firstPickupDate) {
+      return "Tier 3"; // No data, default to Tier 3
+    }
+
+    // Get current date in Chicago time
+    const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    
+    // Parse first pickup date
+    const firstPickupStr = allTimeData.firstPickupDate.split("T")[0];
+    const [year, month, day] = firstPickupStr.split("-").map(Number);
+    const firstPickupDate = new Date(year, month - 1, day);
+    
+    // Calculate days in company
+    const diffTime = chicagoNow.getTime() - firstPickupDate.getTime();
+    const daysInCompany = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    
+    // Calculate weekly gross
+    const weeksInCompany = daysInCompany / 7;
+    const grossPerWeek = allTimeData.totalGross / weeksInCompany;
+    
+    // Determine tier
+    if (grossPerWeek >= 6000) {
+      return "Tier 1";
+    } else if (grossPerWeek >= 3500) {
+      return "Tier 2";
+    } else {
+      return "Tier 3";
+    }
+  };
   const driverStats = Object.entries(driverAnalytics)
+    .filter(([name]) => activeDriverNames.has(name)) // Only active drivers
     .map(([name, stats]: [string, { totalDriverRate: number; totalMiles: number; orderCount: number }]) => {
       const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
       return {
@@ -753,7 +829,7 @@ const Analytics = () => {
         totalMiles: stats.totalMiles,
         orderCount: stats.orderCount,
         ratePerMile,
-        grossTier: driverTiers[name]?.grossTier || "Tier 1",
+        grossTier: calculateGrossTier(name), // Auto-calculated
         safetyTier: driverTiers[name]?.safetyTier || "Tier 1",
         managementTier: driverTiers[name]?.managementTier || "Tier 1",
         notice: driverTiers[name]?.notice || "",
@@ -821,22 +897,6 @@ const Analytics = () => {
     });
   };
 
-  // Calculate driver totals
-  const driverTotals = driverStats.reduce(
-    (acc, stat) => {
-      acc.totalDriverRate += stat.totalDriverRate;
-      acc.totalMiles += stat.totalMiles;
-      acc.orderCount += stat.orderCount;
-      return acc;
-    },
-    {
-      totalDriverRate: 0,
-      totalMiles: 0,
-      orderCount: 0,
-    },
-  );
-  const driverTotalRatePerMile =
-    driverTotals.totalMiles > 0 ? driverTotals.totalDriverRate / driverTotals.totalMiles : 0;
   const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
@@ -1275,19 +1335,9 @@ const Analytics = () => {
                           <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
                           <TableCell>
-                            <Select
-                              value={stat.grossTier}
-                              onValueChange={(value) => handleTierChange(stat.name, "grossTier", value)}
-                            >
-                              <SelectTrigger className={`w-22 ${getTierColor(stat.grossTier)}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background z-50">
-                                <SelectItem value="Tier 1">Tier 1</SelectItem>
-                                <SelectItem value="Tier 2">Tier 2</SelectItem>
-                                <SelectItem value="Tier 3">Tier 3</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Badge className={`${getTierColor(stat.grossTier)}`}>
+                              {stat.grossTier}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Select
@@ -1376,37 +1426,6 @@ const Analytics = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Totals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Driver Rate</p>
-                    <p className="text-2xl font-bold">
-                      $
-                      {driverTotals.totalDriverRate.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Miles</p>
-                    <p className="text-2xl font-bold">{driverTotals.totalMiles.toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Rate/Mile</p>
-                    <p className="text-2xl font-bold">${driverTotalRatePerMile.toFixed(2)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Orders</p>
-                    <p className="text-2xl font-bold">{driverTotals.orderCount}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="loads" className="space-y-6">
