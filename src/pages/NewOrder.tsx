@@ -251,8 +251,10 @@ const NewOrder = () => {
     return true;
   });
 
-  // Show all companies to all users for "Booked by company" dropdown
-  const filteredCompanies = companies;
+  // Only show BF Prime LLC and Beverly Freight Inc for "Booked by company" dropdown
+  const filteredCompanies = companies?.filter(
+    (c) => c.name === "BF Prime LLC" || c.name === "Beverly Freight Inc"
+  );
 
   // Get company_id from selected driver1 (not from truck)
   const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
