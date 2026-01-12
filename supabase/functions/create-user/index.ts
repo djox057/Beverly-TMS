@@ -96,6 +96,28 @@ Deno.serve(async (req) => {
       throw createError
     }
 
+    // The handle_new_user trigger creates default 'dispatch' role, so we need to update it
+    if (newUser?.user?.id && role !== 'dispatch') {
+      // Update the role in user_roles table to the correct role
+      const { error: roleUpdateError } = await supabaseAdmin
+        .from('user_roles')
+        .update({ role: role })
+        .eq('user_id', newUser.user.id)
+      
+      if (roleUpdateError) {
+        console.error('Error updating role:', roleUpdateError)
+        // If update fails, try delete + insert
+        await supabaseAdmin
+          .from('user_roles')
+          .delete()
+          .eq('user_id', newUser.user.id)
+        
+        await supabaseAdmin
+          .from('user_roles')
+          .insert({ user_id: newUser.user.id, role: role })
+      }
+    }
+
     // Update profile with office if provided
     if (office && newUser?.user?.id) {
       const validOffices = ['Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery']
