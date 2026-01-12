@@ -502,6 +502,18 @@ const Orders = () => {
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
+    // Optimistic update - immediately update UI
+    queryClient.setQueryData(["orders"], (oldData: any) => {
+      if (!oldData) return oldData;
+      return oldData.map((order: any) => 
+        order.id === orderId 
+          ? { ...order, locked: !currentLockStatus, invoiced: currentLockStatus ? false : order.invoiced }
+          : order
+      );
+    });
+
+    toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
+
     try {
       // When unlocking, also set invoiced to false
       const updateData = currentLockStatus 
@@ -512,19 +524,12 @@ const Orders = () => {
 
       if (error) throw error;
 
-      // Show success immediately - cache update happens in background
-      toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
-
-      // Refresh orders list immediately
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-
       // Update cache in background (non-blocking)
       (async () => {
         try {
           const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
           
           if (!currentLockStatus) {
-            // Locking - fetch full order data and add to cache
             const { data: orderData } = await supabase
               .from("orders")
               .select("*")
@@ -535,7 +540,6 @@ const Orders = () => {
               await addLockedOrderToCache(orderData);
             }
           } else {
-            // Unlocking - remove from cache
             await removeLockedOrderFromCache(orderId);
           }
         } catch (cacheError) {
@@ -544,6 +548,8 @@ const Orders = () => {
       })();
     } catch (error) {
       console.error("Error toggling order lock:", error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.error("Failed to update load lock status");
     }
   };
