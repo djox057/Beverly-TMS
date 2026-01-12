@@ -36,11 +36,11 @@ export const DriverNoticeDialog = React.memo(({
       clearTimeout(timeoutRef.current);
     }
 
-    // Save after 5 seconds of inactivity
+    // Save after 2 seconds of inactivity
     timeoutRef.current = setTimeout(() => {
       onSave(driverName, value);
       hasUnsavedChanges.current = false;
-    }, 5000);
+    }, 2000);
   };
 
   const handleOpenChange = (open: boolean) => {
