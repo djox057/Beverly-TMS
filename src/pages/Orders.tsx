@@ -31,7 +31,10 @@ import {
   Info,
   Layers,
   CalendarClock,
+  CheckSquare,
+  Square,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
@@ -194,6 +197,8 @@ const Orders = () => {
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const ORDERS_PER_PAGE = 100;
 
   // Restore filter state from localStorage on mount
@@ -424,6 +429,94 @@ const Orders = () => {
     pickupDateRange,
     lockedNotInvoicedFilter,
   ]);
+
+  // Clear selection when filters change or selection mode is toggled off
+  useEffect(() => {
+    setSelectedOrderIds(new Set());
+  }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter]);
+
+  // Selection helpers
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.size === filteredOrders.length) {
+      setSelectedOrderIds(new Set());
+    } else {
+      setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)));
+    }
+  };
+
+  // Get selected orders data
+  const selectedOrders = filteredOrders.filter(o => selectedOrderIds.has(o.id));
+  const selectedTotalFreight = selectedOrders.reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0);
+  
+  // Group by booked by company
+  const selectedByCompany = selectedOrders.reduce((acc, order) => {
+    const company = order.bookedByCompanyName || 'Unknown';
+    if (!acc[company]) {
+      acc[company] = { count: 0, freight: 0 };
+    }
+    acc[company].count += 1;
+    acc[company].freight += order.totalFreightAmount || 0;
+    return acc;
+  }, {} as Record<string, { count: number; freight: number }>);
+
+  // Bulk lock selected orders
+  const bulkLockOrders = async () => {
+    if (selectedOrderIds.size === 0) return;
+    
+    const unlocked = selectedOrders.filter(o => !o.locked);
+    if (unlocked.length === 0) {
+      toast.info("All selected loads are already locked");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ locked: true })
+        .in("id", unlocked.map(o => o.id));
+
+      if (error) throw error;
+
+      toast.success(`Locked ${unlocked.length} loads successfully`);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setSelectedOrderIds(new Set());
+      setSelectionMode(false);
+
+      // Update cache in background
+      (async () => {
+        try {
+          const { addLockedOrderToCache } = await import("@/utils/ordersCache");
+          for (const order of unlocked) {
+            const { data: orderData } = await supabase
+              .from("orders")
+              .select("*")
+              .eq("id", order.id)
+              .single();
+            if (orderData) {
+              await addLockedOrderToCache(orderData);
+            }
+          }
+        } catch (cacheError) {
+          console.warn("Cache update failed:", cacheError);
+        }
+      })();
+    } catch (error) {
+      console.error("Error bulk locking orders:", error);
+      toast.error("Failed to lock selected loads");
+    }
+  };
 
   // Early returns after all hooks
   if (isLoading) {
@@ -958,7 +1051,25 @@ const Orders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px]"></TableHead>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px]">
+                      {selectionMode ? (
+                        <Checkbox
+                          checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                        />
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setSelectionMode(true)}
+                          title="Enable selection mode"
+                        >
+                          <Square className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableHead>
                     <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Truck #</TableHead>
                     <TableHead className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap">Driver</TableHead>
                     <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Load #</TableHead>
@@ -1017,6 +1128,14 @@ const Orders = () => {
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                           <TableCell className="w-12 px-1">
                             <div className="flex items-center gap-0">
+                              {selectionMode && (
+                                <Checkbox
+                                  checked={selectedOrderIds.has(order.id)}
+                                  onCheckedChange={() => toggleOrderSelection(order.id)}
+                                  className="mr-1"
+                                  aria-label={`Select load ${order.loadNumber}`}
+                                />
+                              )}
                               {/* Additional/Reduced Pay Icon */}
                               {(hasAdditionalPay || hasReducedPay) && (() => {
                                 const isPositive = hasAdditionalPay;
@@ -1669,6 +1788,58 @@ const Orders = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Selection Summary Panel */}
+        {selectionMode && (
+          <div className="fixed bottom-4 right-4 z-50 bg-card border rounded-lg shadow-lg p-4 min-w-[280px] max-w-[400px]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Selected Loads</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setSelectionMode(false)}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Count:</span>
+                <span className="font-medium">{selectedOrderIds.size} loads</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Freight:</span>
+                <span className="font-semibold text-primary">{formatCurrency(selectedTotalFreight)}</span>
+              </div>
+              
+              {Object.keys(selectedByCompany).length > 0 && (
+                <div className="border-t pt-2 mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">By Company:</p>
+                  {Object.entries(selectedByCompany).map(([company, data]) => (
+                    <div key={company} className="flex justify-between text-xs">
+                      <span className="truncate max-w-[150px]">{company} ({data.count})</span>
+                      <span>{formatCurrency(data.freight)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && (
+                <Button
+                  className="w-full mt-3"
+                  size="sm"
+                  onClick={bulkLockOrders}
+                  disabled={selectedOrderIds.size === 0}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Lock Selected ({selectedOrders.filter(o => !o.locked).length})
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Color Legend Dialog */}
         <Dialog open={showLegendDialog} onOpenChange={setShowLegendDialog}>
