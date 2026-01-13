@@ -640,15 +640,16 @@ const Reports = () => {
 
     const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
 
+    // Late fee, no tracking fee, wrong address fee SUBTRACT from driver pay (penalties)
     const driverPay =
       toNum(order.driver_price) +
       toNum(order.detention_driver) +
       toNum(order.layover_driver) +
       toNum(order.tonu_driver) +
       toNum(order.extra_stop_driver) +
-      toNum(order.lumper_driver) +
-      toNum(order.late_fee_driver) +
-      toNum(order.no_tracking_fee_driver) +
+      toNum(order.lumper_driver) -
+      toNum(order.late_fee_driver) -
+      toNum(order.no_tracking_fee_driver) -
       toNum(order.wrong_address_fee_driver) +
       toNum(order.other_charges_driver);
 
