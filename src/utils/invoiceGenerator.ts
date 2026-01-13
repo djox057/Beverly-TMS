@@ -463,13 +463,15 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
 
       // Add order data to company's XLSX data
       group.orders.forEach(order => {
+        // Use the driver's company (order.companyName) for the invoice suffix, not bookedByCompanyName
+        const driverCompanyName = order.companyName;
         xlsxDataByCompany[sanitizedCompanyName].push({
           'ClientNo': brokerMcMap.get(order.brokerName) || '',
-          'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, companyName),
+          'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, driverCompanyName),
           'Debtor Debtor Name': order.brokerName,
           'Pono': order.brokerLoadNumber,
           'InvDate': currentDate,
-          'InvAmt': `$${order.totalFreightAmount.toLocaleString()}`
+          'InvAmt': `$${order.totalFreightAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         });
       });
     }
