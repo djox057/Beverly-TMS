@@ -57,6 +57,43 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // SAFETY NET: Verify order is still valid for notification (not delivered, no POD)
+    const { data: orderCheck, error: orderError } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        status,
+        order_files(file_category)
+      `)
+      .eq("id", requestData.orderId)
+      .maybeSingle();
+
+    if (orderError) {
+      console.error("❌ Error checking order:", orderError);
+      // Continue anyway - don't block on this check
+    }
+
+    if (orderCheck) {
+      // Skip if order is already delivered
+      if (orderCheck.status === 'delivered') {
+        console.log(`⏭️ Order ${requestData.orderId} is already delivered, skipping late notification`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "order_already_delivered" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Skip if POD is already uploaded
+      const hasPOD = orderCheck.order_files?.some((f: any) => f.file_category === "POD");
+      if (hasPOD) {
+        console.log(`⏭️ Order ${requestData.orderId} has POD uploaded, skipping late notification`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "pod_already_uploaded" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
+
     // Check if notification already sent for this order/stop
     const { data: existingNotification } = await supabase
       .from("late_notifications")
