@@ -443,22 +443,22 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5" />
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6">
+        <DialogHeader className="space-y-1 sm:space-y-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
             Weekend Schedule
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-[auto_1fr] gap-6 flex-1 overflow-hidden">
+        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-hidden">
           {/* Left side - Calendar */}
-          <div className="flex flex-col space-y-4">
-            <h3 className="font-medium text-sm">Select Date (Weekends & Holidays)</h3>
+          <div className="flex flex-col space-y-3 sm:space-y-4">
+            <h3 className="font-medium text-xs sm:text-sm">Select Date (Weekends & Holidays)</h3>
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -467,7 +467,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 setForceShowOffice(null); // Reset force show when date changes
               }}
               disabled={isDateDisabled}
-              className="rounded-md border"
+              className="rounded-md border mx-auto sm:mx-0"
             />
 
             {/* People who worked more than 1 day this month */}
@@ -511,9 +511,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   .filter((entry) => entry.extraDays.length > 0);
 
                 return (
-                  <div className="border rounded-md p-3 bg-muted/30">
+                  <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-medium text-muted-foreground">
+                      <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
                         Extra days in {format(selectedDate, "MMMM")}
                       </h4>
                       {usersWithExtraDays.length > 0 && (
@@ -552,11 +552,11 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                         </Popover>
                       )}
                     </div>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                    <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
                       {usersWithMultipleDays.map(({ user, count }) => (
-                        <div key={user.id} className="flex items-center justify-between text-sm">
+                        <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
                           <span className="truncate">{user.full_name || user.email}</span>
-                          <Badge variant="secondary" className="text-xs ml-2">
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
                             {count}x
                           </Badge>
                         </div>
@@ -568,15 +568,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </div>
 
           {/* Right side - Schedule for selected date */}
-          <div className="flex flex-col space-y-4 overflow-hidden">
+          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-hidden min-h-0">
             {selectedDate ? (
               <>
-                <div className="flex items-center justify-between flex-shrink-0">
-                  <h3 className="font-medium text-sm">
-                    Schedule for {format(selectedDate, "EEEE, MMM d, yyyy")}
-                    {isPastDate && <span className="text-muted-foreground ml-2">(Past)</span>}
+                <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
+                  <h3 className="font-medium text-xs sm:text-sm">
+                    <span className="hidden sm:inline">{format(selectedDate, "EEEE, MMM d, yyyy")}</span>
+                    <span className="sm:hidden">{format(selectedDate, "EEE, MMM d")}</span>
+                    {isPastDate && <span className="text-muted-foreground ml-1 sm:ml-2">(Past)</span>}
                   </h3>
-                  <Badge variant={isSaturday(selectedDate) ? "default" : "secondary"}>
+                  <Badge variant={isSaturday(selectedDate) ? "default" : "secondary"} className="text-xs">
                     {format(selectedDate, "EEEE")}
                   </Badge>
                 </div>
@@ -631,7 +632,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <>
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
-                        <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
+                        <ScrollArea className="flex-1 border rounded-md p-2 sm:p-3 bg-muted/30 max-h-48 sm:max-h-none">
                           {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
@@ -644,9 +645,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             );
 
                             return (
-                              <div key={office} className="mb-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="outline">{config.label}</Badge>
+                              <div key={office} className="mb-3 sm:mb-4">
+                                <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                                  <Badge variant="outline" className="text-xs">{config.label}</Badge>
                                   <span className="text-xs text-muted-foreground">
                                     {officeSchedules.length}/{config.slots}
                                   </span>
@@ -680,14 +681,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     return (
                                       <div
                                         key={schedule.id}
-                                        className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                        className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                       >
-                                        <span className="flex items-center gap-2">
-                                          {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                        <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                          <span className="truncate">{schedule.user?.full_name || schedule.user?.email || "Unknown"}</span>
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
-                                              className="text-xs text-orange-500 border-orange-500"
+                                              className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
                                             >
                                               extra
                                             </Badge>
@@ -722,10 +723,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               );
 
                               return (
-                                <div className="mb-4 border-t pt-4 mt-4">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
-                                    <span className="text-xs text-muted-foreground">{maintenanceSchedules.length}</span>
+                                <div className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
+                                  <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                                    <Badge variant="outline" className="text-xs">{MAINTENANCE_CONFIG.label}</Badge>
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground">{maintenanceSchedules.length}</span>
                                     {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
                                       <Button
                                         variant="ghost"
@@ -758,14 +759,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       return (
                                         <div
                                           key={schedule.id}
-                                          className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                          className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                         >
-                                          <span className="flex items-center gap-2">
-                                            {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                          <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                            <span className="truncate">{schedule.user?.full_name || schedule.user?.email || "Unknown"}</span>
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
-                                                className="text-xs text-orange-500 border-orange-500"
+                                                className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
                                               >
                                                 extra
                                               </Badge>
@@ -802,14 +803,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       {canManageSchedules &&
                         !isPastDate &&
                         (existingForDate.length === 0 || needsMoreDispatchers || forceShowOffice) && (
-                          <>
-                            {loading ? (
-                              <div className="flex items-center justify-center py-4">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              </div>
-                            ) : (
-                              <>
-                                <ScrollArea className="flex-1 border rounded-md p-2">
+                            <>
+                              {loading ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                </div>
+                              ) : (
+                                <>
+                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-none">
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
                                     const config = OFFICE_CONFIG[office];
@@ -908,22 +909,22 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     }
 
                                     return (
-                                      <div key={office} className="mb-4">
-                                        <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                                          <Badge variant="outline">{config.label}</Badge>
-                                          <span className="text-xs text-muted-foreground">
+                                      <div key={office} className="mb-3 sm:mb-4">
+                                        <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
+                                          <Badge variant="outline" className="text-xs">{config.label}</Badge>
+                                          <span className="text-[10px] sm:text-xs text-muted-foreground">
                                             {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
                                             more)
                                           </span>
                                           {notWorkedThisMonth.length > 0 && (
-                                            <span className="text-xs text-amber-500 flex items-center gap-1">
+                                            <span className="text-[10px] sm:text-xs text-amber-500 flex items-center gap-1">
                                               <Lightbulb className="h-3 w-3" />
                                               {notWorkedThisMonth.length} haven't worked
                                             </span>
                                           )}
                                         </div>
                                         {sortedUsers.length === 0 ? (
-                                          <p className="text-xs text-muted-foreground pl-2">
+                                          <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
                                             No available users in this office
                                           </p>
                                         ) : (
@@ -934,7 +935,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                               return (
                                                 <label
                                                   key={user.id}
-                                                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
+                                                  className={`flex items-center gap-2 p-1 sm:p-1.5 rounded cursor-pointer ${
                                                     hasNotWorked
                                                       ? "bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
                                                       : "hover:bg-muted"
@@ -945,18 +946,19 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     onCheckedChange={() =>
                                                       handleUserToggle(user.id, office, forceShowOffice === office)
                                                     }
+                                                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                  <span className="text-sm flex-1">{user.full_name || user.email}</span>
+                                                  <span className="text-xs sm:text-sm flex-1 truncate">{user.full_name || user.email}</span>
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
-                                                      className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-500"
+                                                      className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-amber-500/50 text-amber-500 flex-shrink-0"
                                                     >
                                                       Suggested
                                                     </Badge>
                                                   ) : (
                                                     monthlyCount > 0 && (
-                                                      <span className="text-[10px] text-muted-foreground">
+                                                      <span className="text-[10px] text-muted-foreground flex-shrink-0">
                                                         {monthlyCount}x
                                                       </span>
                                                     )
@@ -973,7 +975,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                   {/* Maintenance section at bottom - only if below threshold or forceShowOffice is maintenance */}
                                   {(maintenanceBelowThreshold || forceShowOffice === "maintenance") &&
                                     maintenanceUsers.length > 0 && (
-                                      <div className="mb-4 border-t pt-4 mt-4">
+                                      <div className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
                                         {(() => {
                                           const existingMaintenanceCount = maintenanceSchedules.length;
                                           const alreadyScheduledIds = new Set(
@@ -1054,32 +1056,33 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
                                           return (
                                             <>
-                                              <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                                                <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
-                                                <span className="text-xs text-muted-foreground">
+                                              <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1">
+                                                <Badge variant="outline" className="text-xs">{MAINTENANCE_CONFIG.label}</Badge>
+                                                <span className="text-[10px] sm:text-xs text-muted-foreground">
                                                   {totalCount}/{MAINTENANCE_CONFIG.slots} (need{" "}
                                                   {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
                                                 </span>
                                               </div>
                                               <div className="space-y-1 pl-2">
                                                 {availableMaintenanceUsers.map((user) => (
-                                                  <label
-                                                    key={user.id}
-                                                    className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                                  >
-                                                    <Checkbox
-                                                      checked={selectedUsers.maintenance.includes(user.id)}
-                                                      onCheckedChange={() =>
-                                                        handleUserToggle(
-                                                          user.id,
-                                                          "maintenance",
-                                                          forceShowOffice === "maintenance",
-                                                        )
-                                                      }
-                                                    />
-                                                    <span className="text-sm">{user.full_name || user.email}</span>
-                                                  </label>
-                                                ))}
+                                                    <label
+                                                      key={user.id}
+                                                      className="flex items-center gap-2 p-1 sm:p-1.5 rounded hover:bg-muted cursor-pointer"
+                                                    >
+                                                      <Checkbox
+                                                        checked={selectedUsers.maintenance.includes(user.id)}
+                                                        onCheckedChange={() =>
+                                                          handleUserToggle(
+                                                            user.id,
+                                                            "maintenance",
+                                                            forceShowOffice === "maintenance",
+                                                          )
+                                                        }
+                                                        className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                                                      />
+                                                      <span className="text-xs sm:text-sm truncate">{user.full_name || user.email}</span>
+                                                    </label>
+                                                  ))}
                                               </div>
                                             </>
                                           );
@@ -1093,10 +1096,11 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             <Button
                               onClick={handleSaveSchedule}
                               disabled={saving || getTotalSelectedCount() === 0}
-                              className="w-full flex-shrink-0"
+                              className="w-full flex-shrink-0 text-sm"
+                              size="sm"
                             >
                               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                              Add to Schedule ({getTotalSelectedCount()} users)
+                              Add to Schedule ({getTotalSelectedCount()})
                             </Button>
                           </>
                         )}
@@ -1105,8 +1109,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 })()}
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p className="text-sm">Select a weekend date to manage schedule</p>
+              <div className="flex items-center justify-center h-32 sm:h-full text-muted-foreground">
+                <p className="text-xs sm:text-sm">Select a weekend date to manage schedule</p>
               </div>
             )}
           </div>
