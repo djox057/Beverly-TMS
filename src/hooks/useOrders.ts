@@ -872,15 +872,16 @@ function transformOrders(allOrders: any[]) {
     // - CSV cached orders might use shortened names (freight, driverPay)
     // - CSV cached orders may have "null" as STRINGS, not actual null values
     // Use toNum() helper to safely convert all values
+    // Late fee, no tracking fee, wrong address fee SUBTRACT from driver pay (penalties)
     const totalDriverPay =
       toNum(order.driver_price || order.driverPrice || order.driverPay) +
       toNum(order.detention_driver || order.detentionDriver) +
       toNum(order.layover_driver || order.layoverDriver) +
       toNum(order.tonu_driver || order.tonuDriver) +
       toNum(order.extra_stop_driver || order.extraStopDriver) +
-      toNum(order.lumper_driver || order.lumperDriver) +
-      toNum(order.late_fee_driver || order.lateFeeDriver) +
-      toNum(order.no_tracking_fee_driver || order.noTrackingFeeDriver) +
+      toNum(order.lumper_driver || order.lumperDriver) -
+      toNum(order.late_fee_driver || order.lateFeeDriver) -
+      toNum(order.no_tracking_fee_driver || order.noTrackingFeeDriver) -
       toNum(order.wrong_address_fee_driver || order.wrongAddressFeeDriver) +
       toNum(order.other_charges_driver || order.otherChargesDriver);
 
