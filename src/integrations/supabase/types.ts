@@ -602,6 +602,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_salary_payments: {
+        Row: {
+          created_at: string
+          id: string
+          month: string
+          paid_amount: number
+          paid_at: string | null
+          paid_by: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: string
+          paid_amount?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: string
+          paid_amount?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dispatcher_status: {
         Row: {
           created_at: string

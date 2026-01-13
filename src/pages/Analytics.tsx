@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2 } from "lucide-react";
+import { Loader2, XCircle, CheckCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -28,6 +29,7 @@ import { format } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
+import { useQueryClient } from "@tanstack/react-query";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -125,6 +127,12 @@ const Analytics = () => {
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
+  
+  // Salary selection and payment states
+  const [salarySelectionMode, setSalarySelectionMode] = useState(false);
+  const [selectedDispatcherIds, setSelectedDispatcherIds] = useState<Set<string>>(new Set());
+  const [salaryPayments, setSalaryPayments] = useState<Record<string, { paid_amount: number; paid_at: string | null }>>({});
+  const queryClient = useQueryClient();
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -404,7 +412,117 @@ const Analytics = () => {
     fetchExtraDays();
   }, [selectedMonth, dateRange]);
 
-  // Filter orders based on date and role - wait for profiles to load
+  // Fetch salary payments for the selected month
+  useEffect(() => {
+    const fetchSalaryPayments = async () => {
+      if (!selectedMonth || selectedMonth === "all") {
+        setSalaryPayments({});
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("dispatcher_salary_payments" as any)
+          .select("*")
+          .eq("month", selectedMonth);
+
+        if (error) {
+          console.error("Error fetching salary payments:", error);
+          return;
+        }
+
+        const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null }> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((record: any) => {
+            paymentsMap[record.user_id] = {
+              paid_amount: Number(record.paid_amount) || 0,
+              paid_at: record.paid_at,
+            };
+          });
+        }
+        setSalaryPayments(paymentsMap);
+      } catch (error) {
+        console.error("Error in fetchSalaryPayments:", error);
+      }
+    };
+
+    fetchSalaryPayments();
+  }, [selectedMonth]);
+
+  // Clear salary selection when month changes
+  useEffect(() => {
+    setSelectedDispatcherIds(new Set());
+  }, [selectedMonth]);
+
+  // Selection helpers for salaries
+  const toggleDispatcherSelection = (userId: string) => {
+    setSelectedDispatcherIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllDispatchers = (allUserIds: string[]) => {
+    if (selectedDispatcherIds.size === allUserIds.length) {
+      setSelectedDispatcherIds(new Set());
+    } else {
+      setSelectedDispatcherIds(new Set(allUserIds));
+    }
+  };
+
+  // Mark selected dispatchers as paid
+  const markSelectedAsPaid = async (calculatedSalaries: Record<string, number>) => {
+    if (selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all") {
+      toast.error("Please select a month and at least one dispatcher");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const upsertData = Array.from(selectedDispatcherIds).map(userId => ({
+        user_id: userId,
+        month: selectedMonth,
+        paid_amount: calculatedSalaries[userId] || 0,
+        paid_at: now,
+        paid_by: user.id,
+      }));
+
+      const { error } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .upsert(upsertData, { onConflict: "user_id,month" });
+
+      if (error) throw error;
+
+      toast.success(`Marked ${selectedDispatcherIds.size} dispatcher(s) as paid`);
+      
+      // Update local state
+      const newPayments = { ...salaryPayments };
+      upsertData.forEach(item => {
+        newPayments[item.user_id] = {
+          paid_amount: item.paid_amount,
+          paid_at: item.paid_at,
+        };
+      });
+      setSalaryPayments(newPayments);
+      setSelectedDispatcherIds(new Set());
+      setSalarySelectionMode(false);
+    } catch (error) {
+      console.error("Error marking as paid:", error);
+      toast.error("Failed to mark as paid");
+    }
+  };
+
   const filteredOrders = useMemo(() => {
     const primaryRole = getPrimaryRole();
 
@@ -622,8 +740,10 @@ const Analytics = () => {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      const yearMonth = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
       months.push({
-        value: i.toString(),
+        value: yearMonth, // Use YYYY-MM format for consistency with salary payments
+        index: i,
         label: monthStart.toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
@@ -642,12 +762,13 @@ const Analytics = () => {
     if (value === "all") {
       setDateRange(undefined);
     } else {
-      const monthIndex = parseInt(value);
-      const monthOption = monthOptions[monthIndex];
-      setDateRange({
-        from: monthOption.start,
-        to: monthOption.end,
-      });
+      const monthOption = monthOptions.find((m) => m.value === value);
+      if (monthOption) {
+        setDateRange({
+          from: monthOption.start,
+          to: monthOption.end,
+        });
+      }
     }
   };
   // Calculate dispatcher analytics
@@ -1725,26 +1846,11 @@ const Analytics = () => {
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <CardTitle>Salaries</CardTitle>
                   <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
-                    <Select value={selectedWeek} onValueChange={handleWeekChange}>
-                      <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue placeholder="Select week" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All time weekly</SelectItem>
-                        {weekOptions.map((week) => (
-                          <SelectItem key={week.value} value={week.value}>
-                            {week.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
                     <Select value={selectedMonth} onValueChange={handleMonthChange}>
                       <SelectTrigger className="w-full sm:w-64">
                         <SelectValue placeholder="Select month" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All time monthly</SelectItem>
                         {monthOptions.map((month) => (
                           <SelectItem key={month.value} value={month.value}>
                             {month.label}
@@ -1752,31 +1858,6 @@ const Analytics = () => {
                         ))}
                       </SelectContent>
                     </Select>
-
-                    <DateRangePicker
-                      date={filterType === "custom" ? dateRange : undefined}
-                      onDateChange={(range) => {
-                        setDateRange(range);
-                        setSelectedWeek("all");
-                        setSelectedMonth("all");
-                        setFilterType("custom");
-                      }}
-                      placeholder="Custom date range (by pickup)"
-                      className="w-full sm:w-72"
-                    />
-                    {dateRange && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDateRange(undefined);
-                          setSelectedWeek("all");
-                          setSelectedMonth("all");
-                        }}
-                      >
-                        Clear Filter
-                      </Button>
-                    )}
                   </div>
 
                   {/* Office Filters - Only for Admin/Manager/Chicago Management */}
@@ -1819,77 +1900,198 @@ const Analytics = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px]">
+                          {salarySelectionMode ? (
+                            <Checkbox
+                              checked={
+                                dispatcherStats.length > 0 &&
+                                selectedDispatcherIds.size === dispatcherStats.filter((s) => s.userId).length
+                              }
+                              onCheckedChange={() =>
+                                toggleSelectAllDispatchers(
+                                  dispatcherStats.filter((s) => s.userId).map((s) => s.userId!)
+                                )
+                              }
+                            />
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setSalarySelectionMode(true)}
+                              title="Enable selection mode"
+                              disabled={!selectedMonth || selectedMonth === "all"}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableHead>
                         <TableHead>Dispatcher</TableHead>
                         <TableHead className="text-right">Total Freight</TableHead>
                         <TableHead className="text-right">Total Comm.</TableHead>
                         <TableHead className="text-right">Extra/Lost Days</TableHead>
                         <TableHead className="text-right">Salary</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {dispatcherStats.map((stat, index) => {
-                        // Get Extra/Lost Days from afterhours_schedule
-                        const extraLostDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
+                      {(() => {
+                        // Build calculated salaries map for the bulk action
+                        const calculatedSalaries: Record<string, number> = {};
                         
-                        // Calculate days in the selected month
-                        let daysInMonth = 30; // default
-                        if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
-                          const parts = selectedMonth.split("-");
-                          if (parts.length === 2) {
-                            const year = parseInt(parts[0], 10);
-                            const month = parseInt(parts[1], 10);
-                            if (!isNaN(year) && !isNaN(month)) {
-                              daysInMonth = new Date(year, month, 0).getDate();
+                        return dispatcherStats.map((stat, index) => {
+                          // Get Extra/Lost Days from afterhours_schedule
+                          const extraLostDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
+                          
+                          // Calculate days in the selected month
+                          let daysInMonth = 30; // default
+                          if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+                            const parts = selectedMonth.split("-");
+                            if (parts.length === 2) {
+                              const year = parseInt(parts[0], 10);
+                              const month = parseInt(parts[1], 10);
+                              if (!isNaN(year) && !isNaN(month)) {
+                                daysInMonth = new Date(year, month, 0).getDate();
+                              }
                             }
                           }
-                        } else if (dateRange?.from) {
-                          const year = dateRange.from.getFullYear();
-                          const month = dateRange.from.getMonth() + 1;
-                          daysInMonth = new Date(year, month, 0).getDate();
-                        }
-                        
-                        // Ensure daysInMonth is valid
-                        if (isNaN(daysInMonth) || daysInMonth <= 0) {
-                          daysInMonth = 30;
-                        }
-                        
-                        // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
-                        const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
-                        const salary = baseRate * (1 + extraLostDays / daysInMonth);
+                          
+                          // Ensure daysInMonth is valid
+                          if (isNaN(daysInMonth) || daysInMonth <= 0) {
+                            daysInMonth = 30;
+                          }
+                          
+                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
+                          const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
+                          const salary = baseRate * (1 + extraLostDays / daysInMonth);
+                          
+                          // Store for bulk action
+                          if (stat.userId) {
+                            calculatedSalaries[stat.userId] = salary;
+                          }
+                          
+                          // Get payment info
+                          const payment = stat.userId ? salaryPayments[stat.userId] : null;
+                          const isPaid = payment && payment.paid_at;
 
-                        return (
-                          <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
-                            <TableCell className="font-medium">{stat.name}</TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {stat.totalFreight.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {stat.cut.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">{extraLostDays}</TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {salary.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                          return (
+                            <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                              <TableCell className="w-[50px]">
+                                {salarySelectionMode && stat.userId ? (
+                                  <Checkbox
+                                    checked={selectedDispatcherIds.has(stat.userId)}
+                                    onCheckedChange={() => toggleDispatcherSelection(stat.userId!)}
+                                  />
+                                ) : null}
+                              </TableCell>
+                              <TableCell className="font-medium">{stat.name}</TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {stat.totalFreight.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {stat.cut.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">{extraLostDays}</TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {salary.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isPaid ? (
+                                  <span className="text-green-600 font-medium">
+                                    ${payment.paid_amount.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Selection Summary Panel for Salaries */}
+            {salarySelectionMode && (
+              <div className="fixed bottom-4 right-4 z-50 bg-card border rounded-lg shadow-lg p-4 min-w-[280px] max-w-[400px]">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">Selected Dispatchers</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      setSalarySelectionMode(false);
+                      setSelectedDispatcherIds(new Set());
+                    }}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Count:</span>
+                    <span className="font-medium">{selectedDispatcherIds.size} dispatcher(s)</span>
+                  </div>
+
+                  {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && (
+                    <Button
+                      className="w-full mt-3"
+                      size="sm"
+                      onClick={() => {
+                        // Recalculate salaries for bulk action
+                        const calculatedSalaries: Record<string, number> = {};
+                        dispatcherStats.forEach((stat) => {
+                          if (stat.userId) {
+                            const extraLostDays = extraDaysByUser[stat.userId] || 0;
+                            let daysInMonth = 30;
+                            if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+                              const parts = selectedMonth.split("-");
+                              if (parts.length === 2) {
+                                const year = parseInt(parts[0], 10);
+                                const month = parseInt(parts[1], 10);
+                                if (!isNaN(year) && !isNaN(month)) {
+                                  daysInMonth = new Date(year, month, 0).getDate();
+                                }
+                              }
+                            }
+                            if (isNaN(daysInMonth) || daysInMonth <= 0) {
+                              daysInMonth = 30;
+                            }
+                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
+                            calculatedSalaries[stat.userId] = baseRate * (1 + extraLostDays / daysInMonth);
+                          }
+                        });
+                        markSelectedAsPaid(calculatedSalaries);
+                      }}
+                      disabled={selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all"}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark as Paid ({selectedDispatcherIds.size})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
