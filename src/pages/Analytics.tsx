@@ -287,7 +287,47 @@ const Analytics = () => {
     fetchDriverCounts();
   }, [dateRange]);
 
-  // Fetch extra days from afterhours_schedule for selected month
+  // Helper function to get holidays for a year (same as weekend schedule)
+  const getHolidaysForYear = (year: number) => {
+    const holidays: Date[] = [];
+    
+    // Fixed holidays
+    holidays.push(new Date(year, 0, 1)); // New Year's Day - Jan 1
+    holidays.push(new Date(year, 6, 4)); // Independence Day - Jul 4
+    holidays.push(new Date(year, 11, 25)); // Christmas - Dec 25
+    
+    // Memorial Day - last Monday of May
+    const lastDayMay = new Date(year, 5, 0);
+    const memorialDay = new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7));
+    holidays.push(memorialDay);
+    
+    // Labor Day - first Monday of September
+    const firstSept = new Date(year, 8, 1);
+    const laborDay = new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7));
+    holidays.push(laborDay);
+    
+    // Thanksgiving - 4th Thursday of November
+    const firstNov = new Date(year, 10, 1);
+    const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
+    const thanksgiving = new Date(year, 10, firstThursday.getDate() + 21);
+    holidays.push(thanksgiving);
+    
+    return holidays;
+  };
+
+  // Check if a date string is a holiday
+  const isHolidayDate = (dateStr: string, year: number) => {
+    const holidays = getHolidaysForYear(year);
+    const date = new Date(dateStr + "T12:00:00"); // Use noon to avoid timezone issues
+    return holidays.some(
+      (h) =>
+        h.getFullYear() === date.getFullYear() &&
+        h.getMonth() === date.getMonth() &&
+        h.getDate() === date.getDate()
+    );
+  };
+
+  // Fetch extra days from afterhours_schedule for selected month (excluding holidays)
   useEffect(() => {
     const fetchExtraDays = async () => {
       try {
@@ -335,10 +375,14 @@ const Analytics = () => {
           return;
         }
         
-        // Count days per user, then subtract 1 (same logic as weekend schedule display)
+        // Count non-holiday days per user, then subtract 1 (same logic as weekend schedule)
         const countsMap: Record<string, number> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
+            // Exclude holidays from count (same as weekend schedule)
+            if (isHolidayDate(record.scheduled_date, targetYear!)) {
+              return;
+            }
             if (!countsMap[record.user_id]) {
               countsMap[record.user_id] = 0;
             }
@@ -346,7 +390,7 @@ const Analytics = () => {
           });
         }
         
-        // Subtract 1 from each count (matching weekend schedule "Extra days" display)
+        // Subtract 1 from each count (first day is regular, rest are extra)
         Object.keys(countsMap).forEach(userId => {
           countsMap[userId] = Math.max(0, countsMap[userId] - 1);
         });
@@ -1789,13 +1833,24 @@ const Analytics = () => {
                         
                         // Calculate days in the selected month
                         let daysInMonth = 30; // default
-                        if (selectedMonth && selectedMonth !== "all") {
-                          const [year, month] = selectedMonth.split("-").map(Number);
-                          daysInMonth = new Date(year, month, 0).getDate();
+                        if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+                          const parts = selectedMonth.split("-");
+                          if (parts.length === 2) {
+                            const year = parseInt(parts[0], 10);
+                            const month = parseInt(parts[1], 10);
+                            if (!isNaN(year) && !isNaN(month)) {
+                              daysInMonth = new Date(year, month, 0).getDate();
+                            }
+                          }
                         } else if (dateRange?.from) {
                           const year = dateRange.from.getFullYear();
                           const month = dateRange.from.getMonth() + 1;
                           daysInMonth = new Date(year, month, 0).getDate();
+                        }
+                        
+                        // Ensure daysInMonth is valid
+                        if (isNaN(daysInMonth) || daysInMonth <= 0) {
+                          daysInMonth = 30;
                         }
                         
                         // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
