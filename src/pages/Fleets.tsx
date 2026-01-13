@@ -207,32 +207,32 @@ const Fleets = () => {
   if (loading) {
     return (
       <div className="h-full flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 border-b bg-background px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex-shrink-0 border-b bg-background px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <UserCheck className="h-6 w-6" />
-              <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
+              <UserCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+              <h1 className="text-lg sm:text-2xl font-bold">Dispatcher Fleet Management</h1>
             </div>
-            <Skeleton className="h-10 w-[240px]" />
+            <Skeleton className="h-8 sm:h-10 w-[160px] sm:w-[240px]" />
           </div>
-          <div className="flex gap-3 max-w-2xl">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:max-w-2xl">
             <Skeleton className="h-10 flex-1" />
             <Skeleton className="h-10 flex-1" />
           </div>
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Fleet Summary Skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+              {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-4" />
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                    <Skeleton className="h-3 sm:h-4 w-16 sm:w-32" />
+                    <Skeleton className="h-3 w-3 sm:h-4 sm:w-4" />
                   </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-12" />
+                  <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                    <Skeleton className="h-6 sm:h-8 w-10 sm:w-12" />
                   </CardContent>
                 </Card>
               ))}
@@ -241,31 +241,31 @@ const Fleets = () => {
             {/* Dispatcher Fleet Skeletons */}
             {[1, 2, 3].map((i) => (
               <Card key={i}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+                <CardHeader className="p-3 sm:p-6">
+                  <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Skeleton className="h-5 w-5" />
-                      <Skeleton className="h-6 w-48" />
-                      <Skeleton className="h-5 w-20" />
+                      <Skeleton className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <Skeleton className="h-5 sm:h-6 w-32 sm:w-48" />
+                      <Skeleton className="h-4 sm:h-5 w-14 sm:w-20" />
                     </div>
-                    <Skeleton className="h-9 w-32" />
+                    <Skeleton className="h-7 sm:h-9 w-20 sm:w-32" />
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                   <div className="grid gap-2">
                     {[1, 2, 3, 4, 5].map((j) => (
-                      <div key={j} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Skeleton className="h-4 w-4" />
-                          <Skeleton className="h-4 w-4" />
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-3 w-24" />
+                      <div key={j} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Skeleton className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <Skeleton className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <div className="space-y-1 sm:space-y-2">
+                            <Skeleton className="h-4 w-24 sm:w-32" />
+                            <Skeleton className="h-3 w-16 sm:w-24" />
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Skeleton className="h-8 w-20" />
-                          <Skeleton className="h-8 w-20" />
+                        <div className="flex gap-1 sm:gap-2">
+                          <Skeleton className="h-7 w-8 sm:h-8 sm:w-20" />
+                          <Skeleton className="h-7 w-8 sm:h-8 sm:w-20" />
                         </div>
                       </div>
                     ))}
@@ -282,22 +282,22 @@ const Fleets = () => {
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="h-full flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 border-b bg-background px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex-shrink-0 border-b bg-background px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <UserCheck className="h-6 w-6" />
-              <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
+              <UserCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+              <h1 className="text-lg sm:text-2xl font-bold">Dispatcher Fleet Management</h1>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsAfterhoursScheduleOpen(true)}>
-                <CalendarDays className="h-4 w-4 mr-2" />
-                Weekend Schedule
+              <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setIsAfterhoursScheduleOpen(true)}>
+                <CalendarDays className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Weekend Schedule</span>
               </Button>
               <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Assign Driver to Dispatcher
+                  <Button size="sm" className="sm:size-default">
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Assign Driver to Dispatcher</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -348,12 +348,12 @@ const Fleets = () => {
               </Dialog>
             </div>
           </div>
-          <div className="flex gap-3 max-w-2xl">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:max-w-2xl">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search drivers by name or truck..."
-                className="pl-10"
+                placeholder="Search drivers..."
+                className="pl-10 text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -361,8 +361,8 @@ const Fleets = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Filter by dispatcher name..."
-                className="pl-10"
+                placeholder="Filter dispatchers..."
+                className="pl-10 text-sm"
                 value={dispatcherFilter}
                 onChange={(e) => setDispatcherFilter(e.target.value)}
               />
@@ -371,16 +371,16 @@ const Fleets = () => {
         </div>
 
         <div className="flex-1 overflow-auto">
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Fleet Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">On Duty Dispatchers</CardTitle>
-                  <UserCheck className="h-4 w-4 text-primary" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                  <CardTitle className="text-xs sm:text-sm font-medium">On Duty</CardTitle>
+                  <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-primary">
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <div className="text-lg sm:text-2xl font-bold text-primary">
                     {dispatchers.filter((d) => d.isActive && d.dispatcher.roles?.includes("dispatch")).length} /{" "}
                     {allDispatchers.filter((d: any) => d.roles?.includes("dispatch")).length}
                   </div>
@@ -388,31 +388,31 @@ const Fleets = () => {
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Assigned Trucks</CardTitle>
-                  <Truck className="h-4 w-4 text-success" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Assigned</CardTitle>
+                  <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-success">{assignedTrucksCount}</div>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <div className="text-lg sm:text-2xl font-bold text-success">{assignedTrucksCount}</div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Unassigned Trucks</CardTitle>
-                  <Truck className="h-4 w-4 text-warning" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Unassigned</CardTitle>
+                  <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-warning" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-warning">{unassignedTrucksCount}</div>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <div className="text-lg sm:text-2xl font-bold text-warning">{unassignedTrucksCount}</div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Avg. Trucks per Dispatcher</CardTitle>
-                  <Truck className="h-4 w-4 text-primary" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                  <CardTitle className="text-xs sm:text-sm font-medium">Avg. per Disp.</CardTitle>
+                  <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                   {(() => {
                     // Only count trucks assigned to users with 'dispatch' role
                     const dispatchOnlyFleets = dispatchers.filter((d) => d.dispatcher.roles?.includes("dispatch"));
@@ -445,10 +445,10 @@ const Fleets = () => {
 
                     return (
                       <>
-                        <div className="text-2xl font-bold text-primary">
+                        <div className="text-lg sm:text-2xl font-bold text-primary">
                           {avgOnDuty} / {avgAll}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1 font-mono">{`median: ${median}`}</div>
+                        <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 font-mono">{`median: ${median}`}</div>
                       </>
                     );
                   })()}
@@ -483,17 +483,17 @@ const Fleets = () => {
                       {...provided.droppableProps}
                       className={`transition-colors ${snapshot.isDraggingOver ? "bg-primary/5 border-primary" : ""}`}
                     >
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <UserCheck className="h-5 w-5" />
-                            {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
+                      <CardHeader className="p-3 sm:p-6">
+                        <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <UserCheck className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span className="text-sm sm:text-base">{dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}</span>
                             {dispatcherFleet.dispatcher.ext && (
-                              <span className="text-sm font-normal text-muted-foreground">
+                              <span className="text-xs sm:text-sm font-normal text-muted-foreground">
                                 ext {dispatcherFleet.dispatcher.ext}
                               </span>
                             )}
-                            <Badge variant="secondary">
+                            <Badge variant="secondary" className="text-xs">
                               {(() => {
                                 const uniqueTrucks = new Set(
                                   filteredDrivers.map((driver: any) => driver.truck?.id).filter(Boolean),
@@ -503,7 +503,7 @@ const Fleets = () => {
                               trucks
                             </Badge>
                             {snapshot.isDraggingOver && (
-                              <Badge variant="outline" className="animate-pulse">
+                              <Badge variant="outline" className="animate-pulse text-xs">
                                 Drop here
                               </Badge>
                             )}
@@ -512,13 +512,14 @@ const Fleets = () => {
                           {/* Off Duty Toggle - Only visible to managers and admins */}
                           {(hasRole("manager") || hasRole("admin")) && (
                             <div className="flex items-center gap-2">
-                              <Badge variant={dispatcherFleet.isActive ? "default" : "secondary"} className="mr-2">
+                              <Badge variant={dispatcherFleet.isActive ? "default" : "secondary"} className="text-xs">
                                 {dispatcherFleet.isActive ? "Active" : "Off Duty"}
                               </Badge>
                               {dispatcherFleet.isActive ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="text-xs h-7 sm:h-9"
                                   onClick={() =>
                                     handleToggleDispatcher(
                                       dispatcherFleet.dispatcher.id,
@@ -528,23 +529,26 @@ const Fleets = () => {
                                   }
                                   disabled={loading || dispatcherFleet.drivers.length === 0}
                                 >
-                                  Set Off Duty
+                                  <span className="hidden sm:inline">Set Off Duty</span>
+                                  <span className="sm:hidden">Off Duty</span>
                                 </Button>
                               ) : (
                                 <Button
                                   variant="default"
                                   size="sm"
+                                  className="text-xs h-7 sm:h-9"
                                   onClick={() => setDispatcherActive(dispatcherFleet.dispatcher.id)}
                                   disabled={loading}
                                 >
-                                  Set Active
+                                  <span className="hidden sm:inline">Set Active</span>
+                                  <span className="sm:hidden">Active</span>
                                 </Button>
                               )}
                             </div>
                           )}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                         {!dispatcherFleet.isActive ? (
                           /* Placeholder drivers for inactive dispatchers */
                           <div className="grid gap-2">
@@ -576,12 +580,12 @@ const Fleets = () => {
                                   renderedItems.push(
                                     <div
                                       key={`truck-${truckNum}`}
-                                      className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
+                                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg opacity-60 bg-muted/30"
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                      <div className="flex items-center gap-2 sm:gap-3">
+                                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                         <div>
-                                          <div className="font-medium flex items-center gap-2 flex-wrap">
+                                          <div className="text-sm sm:text-base font-medium flex items-center gap-2 flex-wrap">
                                             {isTeam ? "TEAM" : firstDriver.name}
                                             {isTeam && (
                                               <Popover>
@@ -609,12 +613,12 @@ const Fleets = () => {
                                                 </PopoverContent>
                                               </Popover>
                                             )}
-                                            <span className="text-muted-foreground">•</span>
-                                            <span className="text-sm font-normal whitespace-nowrap">
+                                            <span className="text-muted-foreground hidden sm:inline">•</span>
+                                            <span className="text-xs sm:text-sm font-normal whitespace-nowrap">
                                               Truck {truckNum}
                                             </span>
                                           </div>
-                                          <div className="text-xs text-muted-foreground">Temporarily reassigned</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned</div>
                                         </div>
                                       </div>
                                     </div>,
@@ -626,13 +630,13 @@ const Fleets = () => {
                                   renderedItems.push(
                                     <div
                                       key={driver.id}
-                                      className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
+                                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg opacity-60 bg-muted/30"
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                      <div className="flex items-center gap-2 sm:gap-3">
+                                        <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                         <div>
-                                          <div className="font-medium">{driver.name}</div>
-                                          <div className="text-xs text-muted-foreground">Temporarily reassigned</div>
+                                          <div className="text-sm sm:text-base font-medium">{driver.name}</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned</div>
                                         </div>
                                       </div>
                                     </div>,
@@ -680,25 +684,25 @@ const Fleets = () => {
                                       <div
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
-                                        className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                        className={`flex items-center justify-between p-2 sm:p-3 border rounded-lg transition-transform hover:shadow-md ${
                                           snapshot.isDragging ? "shadow-lg scale-105 bg-background rotate-2" : ""
                                         }`}
                                       >
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
                                           <div
                                             {...provided.dragHandleProps}
                                             className="cursor-grab active:cursor-grabbing"
                                           >
-                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                            <GripVertical className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                           </div>
-                                          <Users className="h-4 w-4" />
+                                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                                           <div>
-                                            <div className="font-medium flex items-center gap-2">
+                                            <div className="text-sm sm:text-base font-medium flex items-center gap-2">
                                               {isTeam ? "TEAM" : firstDriver.name}
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <button className="inline-flex">
-                                                    <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
                                                   </button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto">
@@ -735,16 +739,17 @@ const Fleets = () => {
                                                 </PopoverContent>
                                               </Popover>
                                             </div>
-                                            <div className="text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
+                                            <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
                                               <span className="whitespace-nowrap">Truck {truckNum}</span>
                                             </div>
                                           </div>
                                         </div>
                                         {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && (
-                                          <div className="flex gap-2">
+                                          <div className="flex gap-1 sm:gap-2">
                                             <Button
                                               variant="outline"
                                               size="sm"
+                                              className="h-7 sm:h-9 px-2 sm:px-3"
                                               onClick={() => {
                                                 if (isTeam) {
                                                   // For teams, switch all drivers together
@@ -760,12 +765,13 @@ const Fleets = () => {
                                                 }
                                               }}
                                             >
-                                              <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                              Switch
+                                              <ArrowRightLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                              <span className="hidden sm:inline">Switch</span>
                                             </Button>
                                             <Button
                                               variant="outline"
                                               size="sm"
+                                              className="h-7 sm:h-9 px-2 sm:px-3"
                                               onClick={() => {
                                                 if (isTeam) {
                                                   // Remove all drivers in the team
@@ -775,8 +781,8 @@ const Fleets = () => {
                                                 }
                                               }}
                                             >
-                                              <Minus className="h-4 w-4 mr-1" />
-                                              Remove
+                                              <Minus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                              <span className="hidden sm:inline">Remove</span>
                                             </Button>
                                           </div>
                                         )}
@@ -794,25 +800,25 @@ const Fleets = () => {
                                       <div
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
-                                        className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                        className={`flex items-center justify-between p-2 sm:p-3 border rounded-lg transition-transform hover:shadow-md ${
                                           snapshot.isDragging ? "shadow-lg scale-105 bg-background rotate-2" : ""
                                         }`}
                                       >
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
                                           <div
                                             {...provided.dragHandleProps}
                                             className="cursor-grab active:cursor-grabbing"
                                           >
-                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                            <GripVertical className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                           </div>
-                                          <Users className="h-4 w-4" />
+                                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                                           <div>
-                                            <div className="font-medium flex items-center gap-2">
+                                            <div className="text-sm sm:text-base font-medium flex items-center gap-2">
                                               {driver.name}
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <button className="inline-flex">
-                                                    <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                    <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
                                                   </button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto">
@@ -824,14 +830,15 @@ const Fleets = () => {
                                                 </PopoverContent>
                                               </Popover>
                                             </div>
-                                            <div className="text-sm text-muted-foreground">No truck assigned</div>
+                                            <div className="text-xs sm:text-sm text-muted-foreground">No truck assigned</div>
                                           </div>
                                         </div>
                                         {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && (
-                                          <div className="flex gap-2">
+                                          <div className="flex gap-1 sm:gap-2">
                                             <Button
                                               variant="outline"
                                               size="sm"
+                                              className="h-7 sm:h-9 px-2 sm:px-3"
                                               onClick={() =>
                                                 setDriverToSwitch({
                                                   driverIds: [driver.id],
@@ -839,16 +846,17 @@ const Fleets = () => {
                                                 })
                                               }
                                             >
-                                              <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                              Switch
+                                              <ArrowRightLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                              <span className="hidden sm:inline">Switch</span>
                                             </Button>
                                             <Button
                                               variant="outline"
                                               size="sm"
+                                              className="h-7 sm:h-9 px-2 sm:px-3"
                                               onClick={() => handleRemoveDriver(driver.id)}
                                             >
-                                              <Minus className="h-4 w-4 mr-1" />
-                                              Remove
+                                              <Minus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+                                              <span className="hidden sm:inline">Remove</span>
                                             </Button>
                                           </div>
                                         )}
@@ -907,12 +915,12 @@ const Fleets = () => {
 
             {/* Dispatchers with no drivers */}
             {filterDispatchers(dispatchers.filter((d) => d.drivers.length === 0)).length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   Available Dispatchers
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {filterDispatchers(dispatchers.filter((d) => d.drivers.length === 0)).map((dispatcherFleet) => (
                     <Droppable
                       key={dispatcherFleet.dispatcher.id}
@@ -924,25 +932,25 @@ const Fleets = () => {
                           {...provided.droppableProps}
                           className={`transition-colors ${snapshot.isDraggingOver ? "bg-primary/5 border-primary" : ""}`}
                         >
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <UserCheck className="h-4 w-4" />
-                                <div>
-                                  <div className="font-medium">
+                          <CardContent className="p-3 sm:p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="text-sm sm:text-base font-medium truncate">
                                     {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
                                     {dispatcherFleet.dispatcher.ext && (
-                                      <span className="text-sm font-normal text-muted-foreground ml-2">
+                                      <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-1 sm:ml-2">
                                         ext {dispatcherFleet.dispatcher.ext}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
+                                  <div className="text-xs sm:text-sm text-muted-foreground">
                                     {snapshot.isDraggingOver ? "Drop driver here" : "No drivers assigned"}
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline">Available</Badge>
+                              <Badge variant="outline" className="text-xs flex-shrink-0">Available</Badge>
                             </div>
                             {provided.placeholder}
                           </CardContent>
@@ -973,19 +981,19 @@ const Fleets = () => {
                         {...provided.droppableProps}
                         className={`transition-colors ${snapshot.isDraggingOver ? "bg-warning/5 border-warning" : ""}`}
                       >
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            Unassigned Drivers
-                            <Badge variant="outline">{filteredUnassigned.length} drivers</Badge>
+                        <CardHeader className="p-3 sm:p-6">
+                          <CardTitle className="flex items-center gap-2 flex-wrap text-sm sm:text-base">
+                            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span>Unassigned Drivers</span>
+                            <Badge variant="outline" className="text-xs">{filteredUnassigned.length} drivers</Badge>
                             {snapshot.isDraggingOver && (
-                              <Badge variant="outline" className="animate-pulse">
+                              <Badge variant="outline" className="animate-pulse text-xs">
                                 Drop to unassign
                               </Badge>
                             )}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                           <div className="grid gap-2">
                             {paginatedDrivers.map((driver, index) => (
                               <Draggable key={driver.id} draggableId={driver.id} index={index}>
@@ -993,22 +1001,22 @@ const Fleets = () => {
                                   <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
-                                    className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                    className={`flex items-center justify-between p-2 sm:p-3 border rounded-lg transition-transform hover:shadow-md ${
                                       snapshot.isDragging ? "shadow-lg scale-105 bg-background rotate-2" : ""
                                     }`}
                                   >
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 sm:gap-3">
                                       <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing">
-                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                        <GripVertical className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                       </div>
-                                      <Users className="h-4 w-4" />
+                                      <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                                       <div>
-                                        <div className="font-medium flex items-center gap-2">
+                                        <div className="text-sm sm:text-base font-medium flex items-center gap-2">
                                           {driver.name}
                                           <Popover>
                                             <PopoverTrigger asChild>
                                               <button className="inline-flex">
-                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
                                               </button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto">
@@ -1020,12 +1028,12 @@ const Fleets = () => {
                                             </PopoverContent>
                                           </Popover>
                                         </div>
-                                        <div className="text-sm text-muted-foreground">
+                                        <div className="text-xs sm:text-sm text-muted-foreground">
                                           {driver.truck ? `Truck ${driver.truck.truck_number}` : "No truck assigned"}
                                         </div>
                                       </div>
                                     </div>
-                                    <Badge variant="secondary">Available</Badge>
+                                    <Badge variant="secondary" className="text-xs">Available</Badge>
                                   </div>
                                 )}
                               </Draggable>
