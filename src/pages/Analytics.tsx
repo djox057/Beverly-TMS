@@ -326,7 +326,7 @@ const Analytics = () => {
           return;
         }
         
-        // Count days per user
+        // Count days per user, then subtract 1 (same logic as weekend schedule display)
         const countsMap: Record<string, number> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
@@ -337,13 +337,10 @@ const Analytics = () => {
           });
         }
         
-        // For January 2026, subtract 1 from each count
-        const isJanuary2026 = year === 2026 && month === 0;
-        if (isJanuary2026) {
-          Object.keys(countsMap).forEach(userId => {
-            countsMap[userId] = Math.max(0, countsMap[userId] - 1);
-          });
-        }
+        // Subtract 1 from each count (matching weekend schedule "Extra days" display)
+        Object.keys(countsMap).forEach(userId => {
+          countsMap[userId] = Math.max(0, countsMap[userId] - 1);
+        });
         
         setExtraDaysByUser(countsMap);
       } catch (error) {
@@ -1792,9 +1789,9 @@ const Analytics = () => {
                           daysInMonth = new Date(year, month, 0).getDate();
                         }
                         
-                        // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * Days in month + Extra/Lost Days / days in month
+                        // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
                         const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
-                        const salary = baseRate * daysInMonth + extraLostDays / daysInMonth;
+                        const salary = baseRate * (1 + extraLostDays / daysInMonth);
 
                         return (
                           <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
