@@ -979,6 +979,7 @@ const Analytics = () => {
             <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
             <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger>
             <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
+            <TabsTrigger value="salaries">Salaries</TabsTrigger>
           </TabsList>
 
           <TabsContent value="performance" className="space-y-6">
@@ -1598,6 +1599,154 @@ const Analytics = () => {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="salaries" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <CardTitle>Salaries</CardTitle>
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                    <Select value={selectedWeek} onValueChange={handleWeekChange}>
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue placeholder="Select week" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All time weekly</SelectItem>
+                        {weekOptions.map((week) => (
+                          <SelectItem key={week.value} value={week.value}>
+                            {week.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue placeholder="Select month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All time monthly</SelectItem>
+                        {monthOptions.map((month) => (
+                          <SelectItem key={month.value} value={month.value}>
+                            {month.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <DateRangePicker
+                      date={filterType === "custom" ? dateRange : undefined}
+                      onDateChange={(range) => {
+                        setDateRange(range);
+                        setSelectedWeek("all");
+                        setSelectedMonth("all");
+                        setFilterType("custom");
+                      }}
+                      placeholder="Custom date range (by pickup)"
+                      className="w-full sm:w-72"
+                    />
+                    {dateRange && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          setSelectedWeek("all");
+                          setSelectedMonth("all");
+                        }}
+                      >
+                        Clear Filter
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Office Filters - Only for Admin/Manager/Chicago Management */}
+                  {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
+                    <div className="flex flex-wrap gap-2 items-center w-full">
+                      <span className="text-sm font-medium text-muted-foreground">Office:</span>
+                      {Array.from(
+                        new Set(
+                          Object.values(dispatcherProfiles)
+                            .map((p) => p.office)
+                            .filter(Boolean),
+                        ),
+                      ).map((office) => (
+                        <Button
+                          key={office}
+                          variant={selectedOffices.includes(office as string) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedOffices((prev) =>
+                              prev.includes(office as string)
+                                ? prev.filter((o) => o !== office)
+                                : [...prev, office as string],
+                            );
+                          }}
+                        >
+                          {office}
+                        </Button>
+                      ))}
+                      {selectedOffices.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
+                          Clear Offices
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Dispatcher</TableHead>
+                        <TableHead className="text-right">Total Freight</TableHead>
+                        <TableHead className="text-right">Total Comm.</TableHead>
+                        <TableHead className="text-right">Extra/Lost Days</TableHead>
+                        <TableHead className="text-right">Salary</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dispatcherStats.map((stat, index) => {
+                        // Placeholder values for Extra/Lost Days and Salary - to be implemented
+                        const extraLostDays = 0;
+                        const salary = 0;
+
+                        return (
+                          <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                            <TableCell className="font-medium">{stat.name}</TableCell>
+                            <TableCell className="text-right">
+                              $
+                              {stat.totalFreight.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              $
+                              {stat.cut.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">{extraLostDays}</TableCell>
+                            <TableCell className="text-right">
+                              $
+                              {salary.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
