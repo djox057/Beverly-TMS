@@ -292,25 +292,34 @@ const Analytics = () => {
     const fetchExtraDays = async () => {
       try {
         // Determine the month to fetch based on selectedMonth or dateRange
-        let targetMonth: Date | null = null;
+        let targetYear: number | null = null;
+        let targetMonthNum: number | null = null;
         
-        if (selectedMonth && selectedMonth !== "all") {
+        if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
           // selectedMonth format is "YYYY-MM"
-          const [year, month] = selectedMonth.split("-").map(Number);
-          targetMonth = new Date(year, month - 1, 1);
+          const parts = selectedMonth.split("-");
+          if (parts.length === 2) {
+            targetYear = parseInt(parts[0], 10);
+            targetMonthNum = parseInt(parts[1], 10) - 1; // Convert to 0-indexed
+          }
         } else if (dateRange?.from) {
-          targetMonth = dateRange.from;
+          targetYear = dateRange.from.getFullYear();
+          targetMonthNum = dateRange.from.getMonth();
         }
         
-        if (!targetMonth) {
+        if (targetYear === null || targetMonthNum === null || isNaN(targetYear) || isNaN(targetMonthNum)) {
           setExtraDaysByUser({});
           return;
         }
         
-        const year = targetMonth.getFullYear();
-        const month = targetMonth.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
+        const firstDay = new Date(targetYear, targetMonthNum, 1);
+        const lastDay = new Date(targetYear, targetMonthNum + 1, 0);
+        
+        // Validate dates
+        if (isNaN(firstDay.getTime()) || isNaN(lastDay.getTime())) {
+          setExtraDaysByUser({});
+          return;
+        }
         
         const fromDate = format(firstDay, "yyyy-MM-dd");
         const toDate = format(lastDay, "yyyy-MM-dd");
