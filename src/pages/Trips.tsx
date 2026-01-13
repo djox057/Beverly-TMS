@@ -3949,33 +3949,33 @@ const Trips = () => {
                                     const driverPrice = Number((order as any).driverPrice) || 0;
                                     const totalDriverPay = Number((order as any).totalDriverPay) || 0;
 
-                                    // Build freight items
+                                    // Build freight items - late fee, no tracking, wrong address, other charges are deductions (negative)
                                     if (detention !== 0) freightItems.push({ label: "Detention", value: detention });
                                     if (layover !== 0) freightItems.push({ label: "Layover", value: layover });
                                     if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
                                     if (extraStop !== 0) freightItems.push({ label: "Extra Stop", value: extraStop });
-                                    if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: lateFee });
-                                    if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: noTrackingFee });
-                                    if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: wrongAddressFee });
+                                    if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: -lateFee });
+                                    if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: -noTrackingFee });
+                                    if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: -wrongAddressFee });
                                     if (escortFee !== 0) freightItems.push({ label: "Escort", value: escortFee });
                                     if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
                                     if (otherCharges !== 0) {
                                       const reason = String((order as any).otherChargesReason || "").trim();
-                                      freightItems.push({ label: reason || "Other Charges", value: otherCharges });
+                                      freightItems.push({ label: reason || "Other Charges", value: -otherCharges });
                                     }
                                     if (otherAdditionals !== 0) {
                                       const reason = String((order as any).otherAdditionalsReason || "").trim();
                                       freightItems.push({ label: reason || "Other Additionals", value: otherAdditionals });
                                     }
 
-                                    // Build driver items
+                                    // Build driver items - late fee, no tracking, wrong address are deductions (negative)
                                     if (detentionDriver !== 0) driverItems.push({ label: "Detention", value: detentionDriver });
                                     if (layoverDriver !== 0) driverItems.push({ label: "Layover", value: layoverDriver });
                                     if (tonuDriver !== 0) driverItems.push({ label: "TONU", value: tonuDriver });
                                     if (extraStopDriver !== 0) driverItems.push({ label: "Extra Stop", value: extraStopDriver });
-                                    if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: lateFeeDriver });
-                                    if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: noTrackingFeeDriver });
-                                    if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: wrongAddressFeeDriver });
+                                    if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: -lateFeeDriver });
+                                    if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: -noTrackingFeeDriver });
+                                    if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: -wrongAddressFeeDriver });
                                     if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
                                     if (otherChargesDriver !== 0) {
                                       const reason = String((order as any).otherChargesReason || "").trim();
