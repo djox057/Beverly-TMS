@@ -82,17 +82,18 @@ export const useIftaRecords = (fuelFilters?: FuelFilters) => {
     queryFn: fetchAllIftaRecordsInBatches,
   });
 
-  // Fetch fuel transactions to get ULSD gallons by driver/state
-  const defaultFilters: FuelFilters = {
-    startDate: null,
+  // Fetch ALL fuel transactions to get ULSD gallons by driver/state (no date filter for IFTA)
+  // IFTA calculations need complete fuel data, not filtered by date range
+  const iftaFuelFilters: FuelFilters = {
+    startDate: null,  // No date filter - get all fuel data
     endDate: null,
-    truckNumber: "",
-    driverName: "",
-    itemType: "ULSD",
-    paymentType: "CARD",
+    truckNumber: fuelFilters?.truckNumber || "",
+    driverName: fuelFilters?.driverName || "",
+    itemType: "ULSD",  // Only ULSD for IFTA
+    paymentType: "ALL",  // Include all payment types
   };
   
-  const { transactions: fuelTransactions } = useFuelTransactions(fuelFilters || defaultFilters);
+  const { transactions: fuelTransactions } = useFuelTransactions(iftaFuelFilters);
 
   // Combine IFTA miles data with fuel ULSD data per truck per state
   const truckStateReport: TruckStateData[] = (() => {
