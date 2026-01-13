@@ -2724,6 +2724,11 @@ const Reports = () => {
     </div>
   );
   if (error) {
+    // Auto-refresh the page on query timeout errors
+    if (error.message?.includes('timeout') || error.message?.includes('connection')) {
+      window.location.reload();
+      return null;
+    }
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-center py-8 text-destructive">
