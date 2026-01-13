@@ -271,25 +271,8 @@ export const useFleetManagement = () => {
 
       if (statusError) throw statusError;
 
-      // Record this as a lost day (upsert to ensure max 1 per day per dispatcher)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentUserId = sessionData?.session?.user?.id || null;
-      
-      const { error: lostDayError } = await supabase
-        .from('dispatcher_off_duty_days')
-        .upsert({
-          dispatcher_id: dispatcherId,
-          off_duty_date: todayDate,
-          created_by: currentUserId
-        }, {
-          onConflict: 'dispatcher_id,off_duty_date',
-          ignoreDuplicates: true
-        });
-
-      if (lostDayError) {
-        console.error('Error recording lost day:', lostDayError);
-        // Don't throw - this is not critical
-      }
+      // Note: Lost days are recorded by scheduled edge function at 10am Chicago time
+      // This ensures only dispatchers still off-duty at 10am get a lost day recorded
 
       // Assign each driver to its cover dispatcher
       for (const [driverId, coverId] of Object.entries(driverAssignments)) {
