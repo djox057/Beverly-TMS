@@ -602,6 +602,30 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_off_duty_days: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dispatcher_id: string
+          id: string
+          off_duty_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id: string
+          id?: string
+          off_duty_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id?: string
+          id?: string
+          off_duty_date?: string
+        }
+        Relationships: []
+      }
       dispatcher_salary_payments: {
         Row: {
           calculated_salary: number | null

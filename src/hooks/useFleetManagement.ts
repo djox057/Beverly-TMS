@@ -256,6 +256,7 @@ export const useFleetManagement = () => {
       // Store original driver assignments before going off duty
       const now = new Date();
       const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
       const { error: statusError } = await supabase
         .from('dispatcher_status')
@@ -269,6 +270,26 @@ export const useFleetManagement = () => {
         });
 
       if (statusError) throw statusError;
+
+      // Record this as a lost day (upsert to ensure max 1 per day per dispatcher)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id || null;
+      
+      const { error: lostDayError } = await supabase
+        .from('dispatcher_off_duty_days')
+        .upsert({
+          dispatcher_id: dispatcherId,
+          off_duty_date: todayDate,
+          created_by: currentUserId
+        }, {
+          onConflict: 'dispatcher_id,off_duty_date',
+          ignoreDuplicates: true
+        });
+
+      if (lostDayError) {
+        console.error('Error recording lost day:', lostDayError);
+        // Don't throw - this is not critical
+      }
 
       // Assign each driver to its cover dispatcher
       for (const [driverId, coverId] of Object.entries(driverAssignments)) {
