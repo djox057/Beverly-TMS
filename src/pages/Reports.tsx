@@ -2294,8 +2294,9 @@ const Reports = () => {
           const estimatedArrivalUtc = new Date(now.getTime() + etaMinutes * 60 * 1000);
 
           // Determine the current order for this truck (same logic as rendering)
+          // Filter out canceled, game over, AND already delivered orders
           const allSortedOrders = truck.allOrders
-            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
+            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER" && order.status !== 'delivered')
             .sort((a: any, b: any) => {
               const aDate = a.pickupStop?.datetime || "";
               const bDate = b.pickupStop?.datetime || "";
@@ -2328,7 +2329,10 @@ const Reports = () => {
 
           if (!currentOrder) return;
 
-          // Check if current order is already delivered
+          // Double-check: skip if order is already delivered
+          if (currentOrder.status === 'delivered') return;
+
+          // Check if current order has POD uploaded (means delivery completed)
           const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === "POD");
           if (hasPOD) return;
 
