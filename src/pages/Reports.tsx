@@ -2246,7 +2246,11 @@ const Reports = () => {
         scheduledTime: string;
         estimatedArrival: string;
         loadNumber: string;
+        currentMiles?: number;
       }> = [];
+      
+      // Track stops to auto-mark as arrived (truck within 1 mile)
+      const stopsToAutoArrive: Array<{ stopId: string; stopType: "pickup" | "delivery" }> = [];
       
       // Collect new notified keys to batch update
       const newNotifiedKeys: string[] = [];
@@ -2345,6 +2349,11 @@ const Reports = () => {
               // This matches user expectation: "late" means the deadline has passed, not future ETA projection
               const isOverdue = now > scheduledEnd;
               
+              // Auto-mark arrival if truck is within 1 mile (check before isOverdue)
+              if (truck.milesAway !== undefined && truck.milesAway > 0 && truck.milesAway < 1 && stop.id) {
+                stopsToAutoArrive.push({ stopId: stop.id, stopType: "pickup" });
+              }
+              
               if (isOverdue) {
                 newLatePickups.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
@@ -2365,6 +2374,7 @@ const Reports = () => {
                     scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
                     estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                     loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
+                    currentMiles: truck.milesAway,
                   });
                   newNotifiedKeys.push(notifyKey);
                 }
@@ -2389,6 +2399,11 @@ const Reports = () => {
               // This matches user expectation: "late" means the deadline has passed, not future ETA projection
               const isOverdue = now > scheduledEnd;
               
+              // Auto-mark arrival if truck is within 1 mile (check before isOverdue)
+              if (truck.milesAway !== undefined && truck.milesAway > 0 && truck.milesAway < 1 && stop.id) {
+                stopsToAutoArrive.push({ stopId: stop.id, stopType: "delivery" });
+              }
+              
               if (isOverdue) {
                 newLateDeliveries.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
@@ -2409,6 +2424,7 @@ const Reports = () => {
                     scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
                     estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                     loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
+                    currentMiles: truck.milesAway,
                   });
                   newNotifiedKeys.push(notifyKey);
                 }
@@ -2454,6 +2470,21 @@ const Reports = () => {
       if (lateStopsToNotify.length > 0) {
         sendNotificationsSequentially();
       }
+      
+      // Auto-mark arrivals for trucks within 1 mile (fire and forget)
+      if (stopsToAutoArrive.length > 0) {
+        const processAutoArrivals = async () => {
+          for (const { stopId, stopType } of stopsToAutoArrive) {
+            try {
+              await updatePickupDropArrival.mutateAsync({ pickupDropId: stopId });
+              console.log(`📍 Auto-marked ${stopType} arrival for stop ${stopId} (truck within 1 mile)`);
+            } catch (error) {
+              console.error(`Failed to auto-mark ${stopType} arrival:`, error);
+            }
+          }
+        };
+        processAutoArrivals();
+      }
     };
 
     // Run immediately
@@ -2462,7 +2493,7 @@ const Reports = () => {
     // Re-run every 60 seconds
     const interval = setInterval(checkLateStops, 60 * 1000);
     return () => clearInterval(interval);
-  }, [groupedReports, notifiedLateStops, isFetchingBackground]);
+  }, [groupedReports, notifiedLateStops, isFetchingBackground, updatePickupDropArrival]);
 
 
   // Auto-switch to correct dispatcher page when filters find matches
