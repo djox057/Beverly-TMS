@@ -857,9 +857,13 @@ const Analytics = () => {
         const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
         const avgTrucks = truckCountData ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
 
+        // Validate userId is a valid UUID before storing
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const validUserId = dispatcherUserId && uuidRegex.test(dispatcherUserId) ? dispatcherUserId : "";
+
         return {
           name,
-          userId: dispatcherUserId || "",
+          userId: validUserId,
           totalFreight: stats.totalFreight,
           totalDriverRate: stats.totalDriverRate,
           totalMiles: stats.totalMiles,
