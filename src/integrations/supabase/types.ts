@@ -604,6 +604,7 @@ export type Database = {
       }
       dispatcher_salary_payments: {
         Row: {
+          calculated_salary: number | null
           created_at: string
           id: string
           month: string
@@ -614,6 +615,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calculated_salary?: number | null
           created_at?: string
           id?: string
           month: string
@@ -624,6 +626,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          calculated_salary?: number | null
           created_at?: string
           id?: string
           month?: string

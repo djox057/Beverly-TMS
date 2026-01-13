@@ -11,6 +11,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, XCircle, CheckCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -514,8 +515,8 @@ const Analytics = () => {
     }
   };
 
-  // Mark selected dispatchers as paid
-  const markSelectedAsPaid = async (calculatedSalaries: Record<string, number>) => {
+  // Mark selected dispatchers as paid - stores calculated_salary for future adjustment calculations
+  const markSelectedAsPaid = async (calculatedSalaries: Record<string, number>, adjustedSalaries: Record<string, number>) => {
     if (selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all") {
       toast.error("Please select a month and at least one dispatcher");
       return;
@@ -529,10 +530,12 @@ const Analytics = () => {
       }
 
       const now = new Date().toISOString();
+      // Store both the adjusted salary (what's paid) and the base calculated salary (for next month's adjustment)
       const upsertData = Array.from(selectedDispatcherIds).map(userId => ({
         user_id: userId,
         month: selectedMonth,
-        paid_amount: calculatedSalaries[userId] || 0,
+        paid_amount: adjustedSalaries[userId] || calculatedSalaries[userId] || 0,
+        calculated_salary: calculatedSalaries[userId] || 0, // Store base salary for next month adjustment
         paid_at: now,
         paid_by: user.id,
       }));
@@ -2002,16 +2005,42 @@ const Analytics = () => {
                           
                           // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
                           const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
-                          const salary = baseRate * (1 + extraLostDays / daysInMonth);
+                          const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
                           
-                          // Store for bulk action
+                          // Calculate adjustment from previous month (paid - calculated = difference)
+                          // If paid > calculated, dispatcher got extra, so subtract from this month
+                          // If paid < calculated, dispatcher got less, so add to this month
+                          const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
+                          let adjustment = 0;
+                          if (prevPayment && prevPayment.calculated_salary > 0) {
+                            // Difference: paid_amount - calculated_salary
+                            // Positive = overpaid last month, subtract this month
+                            // Negative = underpaid last month, add this month
+                            adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
+                          }
+                          
+                          // Final salary = base salary - adjustment (subtract overpayment, add underpayment)
+                          const finalSalary = baseSalary - adjustment;
+                          
+                          // Store for bulk action - store baseSalary as calculated_salary, finalSalary as what gets paid
                           if (stat.userId) {
-                            calculatedSalaries[stat.userId] = salary;
+                            calculatedSalaries[stat.userId] = baseSalary;
                           }
                           
                           // Get payment info
                           const payment = stat.userId ? salaryPayments[stat.userId] : null;
                           const isPaid = payment && payment.paid_at;
+                          
+                          // Determine salary color and tooltip
+                          const hasAdjustment = Math.abs(adjustment) >= 0.01;
+                          const salaryColorClass = hasAdjustment 
+                            ? (adjustment > 0 ? "text-red-600" : "text-green-600")
+                            : "";
+                          const adjustmentTooltip = hasAdjustment
+                            ? adjustment > 0
+                              ? `Previous month overpaid by $${adjustment.toFixed(2)}, deducted from this salary`
+                              : `Previous month underpaid by $${Math.abs(adjustment).toFixed(2)}, added to this salary`
+                            : null;
 
                           return (
                             <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
@@ -2040,11 +2069,35 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="text-right">{extraLostDays}</TableCell>
                               <TableCell className="text-right">
-                                $
-                                {salary.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
+                                {hasAdjustment ? (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`font-medium cursor-help ${salaryColorClass}`}>
+                                          $
+                                          {finalSalary.toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{adjustmentTooltip}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <span>
+                                    $
+                                    {finalSalary.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right">
                                 {isPaid ? (
@@ -2099,6 +2152,7 @@ const Analytics = () => {
                       onClick={() => {
                         // Recalculate salaries for bulk action
                         const calculatedSalaries: Record<string, number> = {};
+                        const adjustedSalaries: Record<string, number> = {};
                         dispatcherStats.forEach((stat) => {
                           if (stat.userId) {
                             const extraLostDays = extraDaysByUser[stat.userId] || 0;
@@ -2117,10 +2171,20 @@ const Analytics = () => {
                               daysInMonth = 30;
                             }
                             const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
-                            calculatedSalaries[stat.userId] = baseRate * (1 + extraLostDays / daysInMonth);
+                            const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
+                            
+                            // Calculate adjustment from previous month
+                            const prevPayment = prevMonthPayments[stat.userId];
+                            let adjustment = 0;
+                            if (prevPayment && prevPayment.calculated_salary > 0) {
+                              adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
+                            }
+                            
+                            calculatedSalaries[stat.userId] = baseSalary;
+                            adjustedSalaries[stat.userId] = baseSalary - adjustment;
                           }
                         });
-                        markSelectedAsPaid(calculatedSalaries);
+                        markSelectedAsPaid(calculatedSalaries, adjustedSalaries);
                       }}
                       disabled={selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all"}
                     >
