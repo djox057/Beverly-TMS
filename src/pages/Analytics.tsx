@@ -127,6 +127,7 @@ const Analytics = () => {
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
+  const [lostDaysByUser, setLostDaysByUser] = useState<Record<string, number>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
   
   // Salary selection and payment states
@@ -414,7 +415,73 @@ const Analytics = () => {
     fetchExtraDays();
   }, [selectedMonth, dateRange]);
 
-  // Helper to get previous month in YYYY-MM format
+  // Fetch lost days from dispatcher_off_duty_days for selected month
+  useEffect(() => {
+    const fetchLostDays = async () => {
+      try {
+        // Determine the month to fetch based on selectedMonth or dateRange
+        let targetYear: number | null = null;
+        let targetMonthNum: number | null = null;
+        
+        if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+          const parts = selectedMonth.split("-");
+          if (parts.length === 2) {
+            targetYear = parseInt(parts[0], 10);
+            targetMonthNum = parseInt(parts[1], 10) - 1; // Convert to 0-indexed
+          }
+        } else if (dateRange?.from) {
+          targetYear = dateRange.from.getFullYear();
+          targetMonthNum = dateRange.from.getMonth();
+        }
+        
+        if (targetYear === null || targetMonthNum === null || isNaN(targetYear) || isNaN(targetMonthNum)) {
+          setLostDaysByUser({});
+          return;
+        }
+        
+        const firstDay = new Date(targetYear, targetMonthNum, 1);
+        const lastDay = new Date(targetYear, targetMonthNum + 1, 0);
+        
+        // Validate dates
+        if (isNaN(firstDay.getTime()) || isNaN(lastDay.getTime())) {
+          setLostDaysByUser({});
+          return;
+        }
+        
+        const fromDate = format(firstDay, "yyyy-MM-dd");
+        const toDate = format(lastDay, "yyyy-MM-dd");
+        
+        const { data, error } = await supabase
+          .from("dispatcher_off_duty_days")
+          .select("dispatcher_id, off_duty_date")
+          .gte("off_duty_date", fromDate)
+          .lte("off_duty_date", toDate);
+        
+        if (error) {
+          console.error("Error fetching lost days:", error);
+          return;
+        }
+        
+        // Count lost days per dispatcher
+        const countsMap: Record<string, number> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((record: any) => {
+            if (!countsMap[record.dispatcher_id]) {
+              countsMap[record.dispatcher_id] = 0;
+            }
+            countsMap[record.dispatcher_id] += 1;
+          });
+        }
+        
+        setLostDaysByUser(countsMap);
+      } catch (error) {
+        console.error("Error in fetchLostDays:", error);
+      }
+    };
+    
+    fetchLostDays();
+  }, [selectedMonth, dateRange]);
+
   const getPreviousMonth = (month: string): string | null => {
     if (!month || month === "all" || !month.includes("-")) return null;
     const [yearStr, monthStr] = month.split("-");
@@ -1894,9 +1961,12 @@ const Analytics = () => {
                   <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
                     <Select value={selectedMonth} onValueChange={handleMonthChange}>
                       <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue placeholder="All time monthly" />
+                        <SelectValue placeholder="All time monthly">
+                          {selectedMonth === "all" ? "All time monthly" : monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="all">All time monthly</SelectItem>
                         {monthOptions.map((month) => (
                           <SelectItem key={month.value} value={month.value}>
                             {month.label}
@@ -1986,8 +2056,10 @@ const Analytics = () => {
                         const calculatedSalaries: Record<string, number> = {};
                         
                         return dispatcherStats.map((stat, index) => {
-                          // Get Extra/Lost Days from afterhours_schedule
-                          const extraLostDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
+                          // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
+                          const extraDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
+                          const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : 0;
+                          const extraLostDays = extraDays - lostDays;
                           
                           // Calculate days in the selected month
                           let daysInMonth = 30; // default
@@ -2159,7 +2231,9 @@ const Analytics = () => {
                         const adjustedSalaries: Record<string, number> = {};
                         dispatcherStats.forEach((stat) => {
                           if (stat.userId) {
-                            const extraLostDays = extraDaysByUser[stat.userId] || 0;
+                            const extraDays = extraDaysByUser[stat.userId] || 0;
+                            const lostDays = lostDaysByUser[stat.userId] || 0;
+                            const extraLostDays = extraDays - lostDays;
                             let daysInMonth = 30;
                             if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
                               const parts = selectedMonth.split("-");
