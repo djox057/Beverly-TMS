@@ -16,7 +16,7 @@ interface ScheduleUser {
   id: string;
   email: string;
   full_name: string | null;
-  office: 'kragujevac' | 'cacak' | 'beograd' | null;
+  office: "kragujevac" | "cacak" | "beograd" | null;
   isMaintenance?: boolean;
 }
 
@@ -28,7 +28,7 @@ interface ScheduleEntry {
     id: string;
     email: string;
     full_name: string | null;
-    office?: 'kragujevac' | 'cacak' | 'beograd' | null;
+    office?: "kragujevac" | "cacak" | "beograd" | null;
     isMaintenance?: boolean;
   };
 }
@@ -40,23 +40,23 @@ interface AfterhoursScheduleDialogProps {
 
 // Office configuration: slots per office
 const OFFICE_CONFIG = {
-  kragujevac: { label: 'Kragujevac (KG)', slots: 3 },
-  cacak: { label: 'Čačak (CA)', slots: 2 },
-  beograd: { label: 'Beograd (BG)', slots: 2 },
+  kragujevac: { label: "Kragujevac (KG)", slots: 3 },
+  cacak: { label: "Čačak (CA)", slots: 2 },
+  beograd: { label: "Beograd (BG)", slots: 2 },
 } as const;
 
-const MAINTENANCE_CONFIG = { label: 'Maintenance', slots: 10 };
+const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
 
 type OfficeKey = keyof typeof OFFICE_CONFIG;
-type SelectionKey = OfficeKey | 'maintenance';
+type SelectionKey = OfficeKey | "maintenance";
 
 // Special users who can manage weekend schedules regardless of role
-const SCHEDULE_MANAGER_EMAILS = ['tommyj@bfprime.net', 'acccoc225@gmail.com'];
+const SCHEDULE_MANAGER_EMAILS = ["tommyj@bfprime.net", "acccoc225@gmail.com"];
 
 export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursScheduleDialogProps) => {
   const { hasRole, profile } = useAuthContext();
-  const isAdmin = hasRole('admin');
-  const canManageSchedules = isAdmin || SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || '');
+  const isAdmin = hasRole("admin");
+  const canManageSchedules = isAdmin || SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || "");
   const [scheduleUsers, setScheduleUsers] = useState<ScheduleUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Record<SelectionKey, string[]>>({
     kragujevac: [],
@@ -89,34 +89,36 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     try {
       // Get users with dispatch, supervisor, manager, or maintenance role
       const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['dispatch', 'supervisor', 'manager', 'maintenance']);
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["dispatch", "supervisor", "manager", "maintenance"]);
 
       if (roleError) throw roleError;
 
       if (roleData && roleData.length > 0) {
-        const userIds = [...new Set(roleData.map(r => r.user_id))];
-        const maintenanceUserIds = new Set(roleData.filter(r => r.role === 'maintenance').map(r => r.user_id));
-        
+        const userIds = [...new Set(roleData.map((r) => r.user_id))];
+        const maintenanceUserIds = new Set(roleData.filter((r) => r.role === "maintenance").map((r) => r.user_id));
+
         const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_id, email, full_name, office')
-          .in('user_id', userIds);
+          .from("profiles")
+          .select("user_id, email, full_name, office")
+          .in("user_id", userIds);
 
         if (profileError) throw profileError;
 
-        setScheduleUsers(profileData?.map(p => ({
-          id: p.user_id,
-          email: p.email,
-          full_name: p.full_name,
-          office: p.office as ScheduleUser['office'],
-          isMaintenance: maintenanceUserIds.has(p.user_id)
-        })) || []);
+        setScheduleUsers(
+          profileData?.map((p) => ({
+            id: p.user_id,
+            email: p.email,
+            full_name: p.full_name,
+            office: p.office as ScheduleUser["office"],
+            isMaintenance: maintenanceUserIds.has(p.user_id),
+          })) || [],
+        );
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -125,40 +127,42 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const fetchExistingSchedules = async () => {
     try {
       const { data, error } = await supabase
-        .from('afterhours_schedule')
-        .select('*')
-        .order('scheduled_date', { ascending: false });
+        .from("afterhours_schedule")
+        .select("*")
+        .order("scheduled_date", { ascending: false });
 
       if (error) throw error;
 
       // Fetch user profiles and roles for the schedules
       if (data && data.length > 0) {
-        const userIds = [...new Set(data.map(s => s.user_id))];
+        const userIds = [...new Set(data.map((s) => s.user_id))];
         const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, email, full_name, office')
-          .in('user_id', userIds);
+          .from("profiles")
+          .select("user_id, email, full_name, office")
+          .in("user_id", userIds);
 
         // Check maintenance roles
         const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .in('user_id', userIds)
-          .eq('role', 'maintenance');
-        
-        const maintenanceUserIds = new Set(roleData?.map(r => r.user_id) || []);
+          .from("user_roles")
+          .select("user_id")
+          .in("user_id", userIds)
+          .eq("role", "maintenance");
 
-        const schedulesWithUsers = data.map(schedule => {
-          const profile = profiles?.find(p => p.user_id === schedule.user_id);
+        const maintenanceUserIds = new Set(roleData?.map((r) => r.user_id) || []);
+
+        const schedulesWithUsers = data.map((schedule) => {
+          const profile = profiles?.find((p) => p.user_id === schedule.user_id);
           return {
             ...schedule,
-            user: profile ? {
-              id: profile.user_id,
-              email: profile.email,
-              full_name: profile.full_name,
-              office: profile.office as ScheduleUser['office'],
-              isMaintenance: maintenanceUserIds.has(profile.user_id)
-            } : undefined
+            user: profile
+              ? {
+                  id: profile.user_id,
+                  email: profile.email,
+                  full_name: profile.full_name,
+                  office: profile.office as ScheduleUser["office"],
+                  isMaintenance: maintenanceUserIds.has(profile.user_id),
+                }
+              : undefined,
           };
         });
 
@@ -167,54 +171,56 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         setExistingSchedules([]);
       }
     } catch (error) {
-      console.error('Error fetching schedules:', error);
+      console.error("Error fetching schedules:", error);
     }
   };
 
   const handleUserToggle = (userId: string, category: SelectionKey, bypassLimit = false) => {
-    setSelectedUsers(prev => {
+    setSelectedUsers((prev) => {
       const currentUsers = prev[category];
       const isSelected = currentUsers.includes(userId);
-      const maxSlots = category === 'maintenance' ? MAINTENANCE_CONFIG.slots : OFFICE_CONFIG[category as OfficeKey].slots;
-      
+      const maxSlots =
+        category === "maintenance" ? MAINTENANCE_CONFIG.slots : OFFICE_CONFIG[category as OfficeKey].slots;
+
       if (isSelected) {
         return {
           ...prev,
-          [category]: currentUsers.filter(id => id !== userId)
+          [category]: currentUsers.filter((id) => id !== userId),
         };
       } else {
         if (!bypassLimit && currentUsers.length >= maxSlots) {
-          const label = category === 'maintenance' ? MAINTENANCE_CONFIG.label : OFFICE_CONFIG[category as OfficeKey].label;
+          const label =
+            category === "maintenance" ? MAINTENANCE_CONFIG.label : OFFICE_CONFIG[category as OfficeKey].label;
           toast.error(`Maximum ${maxSlots} users for ${label}`);
           return prev;
         }
         return {
           ...prev,
-          [category]: [...currentUsers, userId]
+          [category]: [...currentUsers, userId],
         };
       }
     });
   };
-  
+
   // Direct add user to schedule (bypasses selection, saves immediately)
   const handleDirectAddUser = async (userId: string, category: SelectionKey) => {
     if (!selectedDate) return;
-    
+
     setSaving(true);
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+
       const { error } = await supabase
-        .from('afterhours_schedule')
-        .upsert({ user_id: userId, scheduled_date: dateStr }, { onConflict: 'user_id,scheduled_date' });
+        .from("afterhours_schedule")
+        .upsert({ user_id: userId, scheduled_date: dateStr }, { onConflict: "user_id,scheduled_date" });
 
       if (error) throw error;
 
-      toast.success('User added to schedule');
+      toast.success("User added to schedule");
       fetchExistingSchedules();
     } catch (error: any) {
-      console.error('Error adding user:', error);
-      toast.error(error.message || 'Failed to add user');
+      console.error("Error adding user:", error);
+      toast.error(error.message || "Failed to add user");
     } finally {
       setSaving(false);
     }
@@ -226,44 +232,44 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   const handleSaveSchedule = async () => {
     const allSelectedUsers = Object.values(selectedUsers).flat();
-    
+
     if (!selectedDate || allSelectedUsers.length === 0) {
-      toast.error('Please select a date and at least one user');
+      toast.error("Please select a date and at least one user");
       return;
     }
 
     // Check if it's a weekend or holiday (using the dynamic isHoliday function)
     const isValidScheduleDate = isWeekend(selectedDate) || isHoliday(selectedDate);
-    
+
     if (!isValidScheduleDate) {
-      toast.error('Please select a weekend or holiday');
+      toast.error("Please select a weekend or holiday");
       return;
     }
 
     setSaving(true);
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+
       // Insert schedule entries for each selected user
-      const entries = allSelectedUsers.map(userId => ({
+      const entries = allSelectedUsers.map((userId) => ({
         user_id: userId,
-        scheduled_date: dateStr
+        scheduled_date: dateStr,
       }));
 
       const { error } = await supabase
-        .from('afterhours_schedule')
-        .upsert(entries, { onConflict: 'user_id,scheduled_date' });
+        .from("afterhours_schedule")
+        .upsert(entries, { onConflict: "user_id,scheduled_date" });
 
       if (error) throw error;
 
-      toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, 'EEEE, MMM d, yyyy')}`);
+      toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, "EEEE, MMM d, yyyy")}`);
       setSelectedUsers({ kragujevac: [], cacak: [], beograd: [], maintenance: [] });
       setSelectedDate(undefined);
       setForceShowOffice(null);
       fetchExistingSchedules();
     } catch (error: any) {
-      console.error('Error saving schedule:', error);
-      toast.error(error.message || 'Failed to save schedule');
+      console.error("Error saving schedule:", error);
+      toast.error(error.message || "Failed to save schedule");
     } finally {
       setSaving(false);
     }
@@ -271,63 +277,66 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   const handleDeleteSchedule = async (scheduleId: string) => {
     try {
-      const { error } = await supabase
-        .from('afterhours_schedule')
-        .delete()
-        .eq('id', scheduleId);
+      const { error } = await supabase.from("afterhours_schedule").delete().eq("id", scheduleId);
 
       if (error) throw error;
 
-      toast.success('Schedule removed');
+      toast.success("Schedule removed");
       fetchExistingSchedules();
     } catch (error) {
-      console.error('Error deleting schedule:', error);
-      toast.error('Failed to remove schedule');
+      console.error("Error deleting schedule:", error);
+      toast.error("Failed to remove schedule");
     }
   };
 
   // Separate maintenance users from office users
-  const maintenanceUsers = scheduleUsers.filter(u => u.isMaintenance);
-  const officeUsers = scheduleUsers.filter(u => !u.isMaintenance);
+  const maintenanceUsers = scheduleUsers.filter((u) => u.isMaintenance);
+  const officeUsers = scheduleUsers.filter((u) => !u.isMaintenance);
 
   // Group non-maintenance users by office (case-insensitive matching)
-  const usersByOffice = officeUsers.reduce((acc, user) => {
-    const officeRaw = user.office?.toLowerCase() || '';
-    let office: OfficeKey = 'kragujevac'; // Default
-    if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
-      office = 'cacak';
-    } else if (officeRaw.includes('beograd')) {
-      office = 'beograd';
-    } else if (officeRaw.includes('kragujevac')) {
-      office = 'kragujevac';
-    }
-    if (!acc[office]) acc[office] = [];
-    acc[office].push(user);
-    return acc;
-  }, {} as Record<OfficeKey, ScheduleUser[]>);
+  const usersByOffice = officeUsers.reduce(
+    (acc, user) => {
+      const officeRaw = user.office?.toLowerCase() || "";
+      let office: OfficeKey = "kragujevac"; // Default
+      if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
+        office = "cacak";
+      } else if (officeRaw.includes("beograd")) {
+        office = "beograd";
+      } else if (officeRaw.includes("kragujevac")) {
+        office = "kragujevac";
+      }
+      if (!acc[office]) acc[office] = [];
+      acc[office].push(user);
+      return acc;
+    },
+    {} as Record<OfficeKey, ScheduleUser[]>,
+  );
 
   // Group schedules by date
-  const schedulesByDate = existingSchedules.reduce((acc, schedule) => {
-    const date = schedule.scheduled_date;
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(schedule);
-    return acc;
-  }, {} as Record<string, ScheduleEntry[]>);
+  const schedulesByDate = existingSchedules.reduce(
+    (acc, schedule) => {
+      const date = schedule.scheduled_date;
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(schedule);
+      return acc;
+    },
+    {} as Record<string, ScheduleEntry[]>,
+  );
 
   // Calculate who has worked this month (for suggestions)
   const getMonthlyWorkCounts = (targetDate: Date) => {
     const monthStart = startOfMonth(targetDate);
     const monthEnd = endOfMonth(targetDate);
-    
+
     const workCounts: Record<string, { count: number; user: ScheduleUser }> = {};
-    
+
     // Initialize all non-maintenance users with 0 count
-    officeUsers.forEach(user => {
+    officeUsers.forEach((user) => {
       workCounts[user.id] = { count: 0, user };
     });
-    
+
     // Count schedules within the month
-    existingSchedules.forEach(schedule => {
+    existingSchedules.forEach((schedule) => {
       const scheduleDate = new Date(schedule.scheduled_date);
       if (isWithinInterval(scheduleDate, { start: monthStart, end: monthEnd })) {
         if (workCounts[schedule.user_id]) {
@@ -335,7 +344,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         }
       }
     });
-    
+
     return workCounts;
   };
 
@@ -343,52 +352,52 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const getSuggestions = (targetDate: Date, office: OfficeKey, alreadyScheduledIds: Set<string>) => {
     const workCounts = getMonthlyWorkCounts(targetDate);
     const officeUsersForOffice = usersByOffice[office] || [];
-    
+
     // Filter to users in this office who aren't already scheduled for the selected date
-    const availableOfficeUsers = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
-    
+    const availableOfficeUsers = officeUsersForOffice.filter((u) => !alreadyScheduledIds.has(u.id));
+
     // Sort by work count (ascending) - those who worked less come first
     const sorted = availableOfficeUsers.sort((a, b) => {
       const countA = workCounts[a.id]?.count || 0;
       const countB = workCounts[b.id]?.count || 0;
       return countA - countB;
     });
-    
+
     // Get users who haven't worked this month
-    const notWorkedThisMonth = sorted.filter(u => (workCounts[u.id]?.count || 0) === 0);
-    
+    const notWorkedThisMonth = sorted.filter((u) => (workCounts[u.id]?.count || 0) === 0);
+
     return {
       notWorkedThisMonth,
       workCounts,
-      sorted
+      sorted,
     };
   };
 
   // Helper function to calculate dynamic holidays for a given year
   const getHolidaysForYear = (year: number) => {
     const holidays: { date: Date; name: string }[] = [];
-    
+
     // Fixed holidays
     holidays.push({ date: new Date(year, 0, 1), name: "New Year's Day" }); // Jan 1
     holidays.push({ date: new Date(year, 6, 4), name: "Independence Day" }); // Jul 4
     holidays.push({ date: new Date(year, 11, 25), name: "Christmas" }); // Dec 25
-    
+
     // Memorial Day - last Monday of May
     const lastDayMay = new Date(year, 5, 0); // Last day of May
     const memorialDay = new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7));
     holidays.push({ date: memorialDay, name: "Memorial Day" });
-    
+
     // Labor Day - first Monday of September
     const firstSept = new Date(year, 8, 1);
     const laborDay = new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7));
     holidays.push({ date: laborDay, name: "Labor Day" });
-    
+
     // Thanksgiving - 4th Thursday of November
     const firstNov = new Date(year, 10, 1);
     const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
     const thanksgiving = new Date(year, 10, firstThursday.getDate() + 21);
     holidays.push({ date: thanksgiving, name: "Thanksgiving" });
-    
+
     return holidays;
   };
 
@@ -398,19 +407,21 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   // Check if a date is a holiday
   const isHoliday = (date: Date) => {
-    return HOLIDAYS.some(h => 
-      h.date.getFullYear() === date.getFullYear() &&
-      h.date.getMonth() === date.getMonth() &&
-      h.date.getDate() === date.getDate()
+    return HOLIDAYS.some(
+      (h) =>
+        h.date.getFullYear() === date.getFullYear() &&
+        h.date.getMonth() === date.getMonth() &&
+        h.date.getDate() === date.getDate(),
     );
   };
 
   // Get holiday name for a date
   const getHolidayName = (date: Date) => {
-    const holiday = HOLIDAYS.find(h => 
-      h.date.getFullYear() === date.getFullYear() &&
-      h.date.getMonth() === date.getMonth() &&
-      h.date.getDate() === date.getDate()
+    const holiday = HOLIDAYS.find(
+      (h) =>
+        h.date.getFullYear() === date.getFullYear() &&
+        h.date.getMonth() === date.getMonth() &&
+        h.date.getDate() === date.getDate(),
     );
     return holiday?.name || null;
   };
@@ -424,10 +435,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const isPastDate = selectedDate ? startOfDay(selectedDate) < startOfDay(new Date()) : false;
 
   const getOfficeLabel = (office: string | null | undefined) => {
-    if (office === 'kragujevac') return 'KG';
-    if (office === 'cacak') return 'CA';
-    if (office === 'beograd') return 'BG';
-    return '';
+    if (office === "kragujevac") return "KG";
+    if (office === "cacak") return "CA";
+    if (office === "beograd") return "BG";
+    return "";
   };
 
   return (
@@ -439,8 +450,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             Weekend Schedule
           </DialogTitle>
           <DialogDescription>
-            Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays.
-            Role changes: 6am → afterhours, 5pm → dispatch (Chicago time)
+            Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays. Role changes: 6am →
+            afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
 
@@ -458,98 +469,102 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
               disabled={isDateDisabled}
               className="rounded-md border"
             />
-            
+
             {/* People who worked more than 1 day this month */}
-            {selectedDate && (() => {
-              const workCounts = getMonthlyWorkCounts(selectedDate);
-              const usersWithMultipleDays = Object.values(workCounts)
-                .filter(entry => entry.count > 1)
-                .sort((a, b) => b.count - a.count);
-              
-              if (usersWithMultipleDays.length === 0) return null;
-              
-              // Calculate extra days per person (excluding holidays)
-              const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-              const monthEndStr = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-              
-              const getExtraDaysForUser = (userId: string) => {
-                // Get all non-holiday dates this user worked in the month
-                const userSchedules = existingSchedules
-                  .filter(s => 
-                    s.user_id === userId &&
-                    s.scheduled_date >= monthStartStr &&
-                    s.scheduled_date <= monthEndStr &&
-                    !isHoliday(new Date(s.scheduled_date + 'T12:00:00')) // Use noon to avoid timezone issues
-                  )
-                  .map(s => s.scheduled_date)
-                  .sort();
-                
-                // First day is not extra, subsequent days are extra
-                return userSchedules.slice(1);
-              };
-              
-              // Build list of users with extra days
-              const usersWithExtraDays = usersWithMultipleDays
-                .map(({ user, count }) => ({
-                  user,
-                  count,
-                  extraDays: getExtraDaysForUser(user.id)
-                }))
-                .filter(entry => entry.extraDays.length > 0);
-              
-              return (
-                <div className="border rounded-md p-3 bg-muted/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-medium text-muted-foreground">
-                      Worked 2+ days in {format(selectedDate, 'MMMM')}
-                    </h4>
-                    {usersWithExtraDays.length > 0 && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-5 w-5">
-                            <Info className="h-3 w-3" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
-                          <div className="space-y-3">
-                            <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, 'MMMM')}</h4>
-                            <p className="text-xs text-muted-foreground">Holidays are excluded from extra day calculations.</p>
+            {selectedDate &&
+              (() => {
+                const workCounts = getMonthlyWorkCounts(selectedDate);
+                const usersWithMultipleDays = Object.values(workCounts)
+                  .filter((entry) => entry.count > 1)
+                  .sort((a, b) => b.count - a.count);
+
+                if (usersWithMultipleDays.length === 0) return null;
+
+                // Calculate extra days per person (excluding holidays)
+                const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
+                const monthEndStr = format(endOfMonth(selectedDate), "yyyy-MM-dd");
+
+                const getExtraDaysForUser = (userId: string) => {
+                  // Get all non-holiday dates this user worked in the month
+                  const userSchedules = existingSchedules
+                    .filter(
+                      (s) =>
+                        s.user_id === userId &&
+                        s.scheduled_date >= monthStartStr &&
+                        s.scheduled_date <= monthEndStr &&
+                        !isHoliday(new Date(s.scheduled_date + "T12:00:00")), // Use noon to avoid timezone issues
+                    )
+                    .map((s) => s.scheduled_date)
+                    .sort();
+
+                  // First day is not extra, subsequent days are extra
+                  return userSchedules.slice(1);
+                };
+
+                // Build list of users with extra days
+                const usersWithExtraDays = usersWithMultipleDays
+                  .map(({ user, count }) => ({
+                    user,
+                    count,
+                    extraDays: getExtraDaysForUser(user.id),
+                  }))
+                  .filter((entry) => entry.extraDays.length > 0);
+
+                return (
+                  <div className="border rounded-md p-3 bg-muted/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium text-muted-foreground">
+                        Extra days in {format(selectedDate, "MMMM")}
+                      </h4>
+                      {usersWithExtraDays.length > 0 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-5 w-5">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
                             <div className="space-y-3">
-                              {usersWithExtraDays.map(({ user, extraDays }) => (
-                                <div key={user.id} className="border-b pb-2 last:border-0">
-                                  <div className="font-medium text-sm">{user.full_name || user.email}</div>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {extraDays.map(date => (
-                                      <Badge 
-                                        key={date} 
-                                        variant="outline" 
-                                        className="text-xs text-orange-500 border-orange-500"
-                                      >
-                                        {format(new Date(date + 'T12:00:00'), 'MMM d')}
-                                      </Badge>
-                                    ))}
+                              <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, "MMMM")}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                Holidays are excluded from extra day calculations.
+                              </p>
+                              <div className="space-y-3">
+                                {usersWithExtraDays.map(({ user, extraDays }) => (
+                                  <div key={user.id} className="border-b pb-2 last:border-0">
+                                    <div className="font-medium text-sm">{user.full_name || user.email}</div>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {extraDays.map((date) => (
+                                        <Badge
+                                          key={date}
+                                          variant="outline"
+                                          className="text-xs text-orange-500 border-orange-500"
+                                        >
+                                          {format(new Date(date + "T12:00:00"), "MMM d")}
+                                        </Badge>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    )}
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {usersWithMultipleDays.map(({ user, count }) => (
+                        <div key={user.id} className="flex items-center justify-between text-sm">
+                          <span className="truncate">{user.full_name || user.email}</span>
+                          <Badge variant="secondary" className="text-xs ml-2">
+                            {count}x
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {usersWithMultipleDays.map(({ user, count }) => (
-                      <div key={user.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">{user.full_name || user.email}</span>
-                        <Badge variant="secondary" className="text-xs ml-2">
-                          {count}x
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
           </div>
 
           {/* Right side - Schedule for selected date */}
@@ -558,19 +573,19 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
               <>
                 <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="font-medium text-sm">
-                    Schedule for {format(selectedDate, 'EEEE, MMM d, yyyy')}
+                    Schedule for {format(selectedDate, "EEEE, MMM d, yyyy")}
                     {isPastDate && <span className="text-muted-foreground ml-2">(Past)</span>}
                   </h3>
                   <Badge variant={isSaturday(selectedDate) ? "default" : "secondary"}>
-                    {format(selectedDate, 'EEEE')}
+                    {format(selectedDate, "EEEE")}
                   </Badge>
                 </div>
 
                 {/* Already scheduled for this date - grouped by office */}
                 {(() => {
-                  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                  const dateStr = format(selectedDate, "yyyy-MM-dd");
                   const existingForDate = schedulesByDate[dateStr] || [];
-                  
+
                   // Define minimum thresholds for showing add section
                   const MIN_THRESHOLDS: Record<SelectionKey, number> = {
                     kragujevac: 3,
@@ -578,33 +593,36 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     beograd: 2,
                     maintenance: 1,
                   };
-                  
+
                   // Separate maintenance users from office users
-                  const maintenanceSchedules = existingForDate.filter(s => s.user?.isMaintenance);
-                  const officeSchedulesOnly = existingForDate.filter(s => !s.user?.isMaintenance);
-                  
+                  const maintenanceSchedules = existingForDate.filter((s) => s.user?.isMaintenance);
+                  const officeSchedulesOnly = existingForDate.filter((s) => !s.user?.isMaintenance);
+
                   // Group non-maintenance scheduled users by office
-                  const scheduledByOffice = officeSchedulesOnly.reduce((acc, schedule) => {
-                    const officeRaw = schedule.user?.office?.toLowerCase() || '';
-                    let office: OfficeKey | null = null;
-                    if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
-                      office = 'cacak';
-                    } else if (officeRaw.includes('beograd')) {
-                      office = 'beograd';
-                    } else if (officeRaw.includes('kragujevac')) {
-                      office = 'kragujevac';
-                    }
-                    // Only group if we found a valid office, otherwise skip
-                    if (office) {
-                      if (!acc[office]) acc[office] = [];
-                      acc[office].push(schedule);
-                    }
-                    return acc;
-                  }, {} as Record<OfficeKey, ScheduleEntry[]>);
-                  
+                  const scheduledByOffice = officeSchedulesOnly.reduce(
+                    (acc, schedule) => {
+                      const officeRaw = schedule.user?.office?.toLowerCase() || "";
+                      let office: OfficeKey | null = null;
+                      if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
+                        office = "cacak";
+                      } else if (officeRaw.includes("beograd")) {
+                        office = "beograd";
+                      } else if (officeRaw.includes("kragujevac")) {
+                        office = "kragujevac";
+                      }
+                      // Only group if we found a valid office, otherwise skip
+                      if (office) {
+                        if (!acc[office]) acc[office] = [];
+                        acc[office].push(schedule);
+                      }
+                      return acc;
+                    },
+                    {} as Record<OfficeKey, ScheduleEntry[]>,
+                  );
+
                   // Check which offices need more dispatchers
-                  const officesBelowThreshold = (['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).filter(
-                    office => (scheduledByOffice[office]?.length || 0) < MIN_THRESHOLDS[office]
+                  const officesBelowThreshold = (["kragujevac", "cacak", "beograd"] as OfficeKey[]).filter(
+                    (office) => (scheduledByOffice[office]?.length || 0) < MIN_THRESHOLDS[office],
                   );
                   const maintenanceBelowThreshold = maintenanceSchedules.length < MIN_THRESHOLDS.maintenance;
                   const needsMoreDispatchers = officesBelowThreshold.length > 0 || maintenanceBelowThreshold;
@@ -614,15 +632,17 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
                         <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
-                        {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                          {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
-                            
+
                             const config = OFFICE_CONFIG[office];
-                            const alreadyScheduledIds = new Set(officeSchedules.map(s => s.user_id));
+                            const alreadyScheduledIds = new Set(officeSchedules.map((s) => s.user_id));
                             const officeUsersForOffice = usersByOffice[office] || [];
-                            const availableUsersToAdd = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
-                            
+                            const availableUsersToAdd = officeUsersForOffice.filter(
+                              (u) => !alreadyScheduledIds.has(u.id),
+                            );
+
                             return (
                               <div key={office} className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -631,38 +651,44 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     {officeSchedules.length}/{config.slots}
                                   </span>
                                   {canManageSchedules && !isPastDate && availableUsersToAdd.length > 0 && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-5 w-5"
-                                      onClick={() => setForceShowOffice(prev => prev === office ? null : office)}
+                                      onClick={() => setForceShowOffice((prev) => (prev === office ? null : office))}
                                     >
-                                      <Plus className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === office ? 'rotate-45' : ''}`} />
+                                      <Plus
+                                        className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === office ? "rotate-45" : ""}`}
+                                      />
                                     </Button>
                                   )}
                                 </div>
                                 <div className="space-y-1 pl-2">
-                                  {officeSchedules.map(schedule => {
+                                  {officeSchedules.map((schedule) => {
                                     // Check if this user worked any day BEFORE this date in the same month
                                     // Use string comparison to avoid timezone issues
-                                    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-                                    const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-                                    const daysWorkedBefore = existingSchedules.filter(s => 
-                                      s.user_id === schedule.user_id &&
-                                      s.scheduled_date >= monthStartStr &&
-                                      s.scheduled_date < selectedDateStr
+                                    const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+                                    const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
+                                    const daysWorkedBefore = existingSchedules.filter(
+                                      (s) =>
+                                        s.user_id === schedule.user_id &&
+                                        s.scheduled_date >= monthStartStr &&
+                                        s.scheduled_date < selectedDateStr,
                                     ).length;
                                     const isExtra = daysWorkedBefore >= 1;
-                                    
+
                                     return (
-                                      <div 
-                                        key={schedule.id} 
+                                      <div
+                                        key={schedule.id}
                                         className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                       >
                                         <span className="flex items-center gap-2">
-                                          {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
+                                          {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                           {isExtra && (
-                                            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs text-orange-500 border-orange-500"
+                                            >
                                               extra
                                             </Badge>
                                           )}
@@ -684,73 +710,84 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               </div>
                             );
                           })}
-                          
+
                           {/* Maintenance section at bottom */}
-                          {maintenanceSchedules.length > 0 && (() => {
-                            const alreadyScheduledMaintenanceIds = new Set(maintenanceSchedules.map(s => s.user_id));
-                            const availableMaintenanceToAdd = maintenanceUsers.filter(u => !alreadyScheduledMaintenanceIds.has(u.id));
-                            
-                            return (
-                              <div className="mb-4 border-t pt-4 mt-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {maintenanceSchedules.length}
-                                  </span>
-                                  {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-5 w-5"
-                                      onClick={() => setForceShowOffice(prev => prev === 'maintenance' ? null : 'maintenance')}
-                                    >
-                                      <Plus className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === 'maintenance' ? 'rotate-45' : ''}`} />
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="space-y-1 pl-2">
-                                  {maintenanceSchedules.map(schedule => {
-                                    // Check if this user worked any day BEFORE this date in the same month
-                                    // Use string comparison to avoid timezone issues
-                                    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-                                    const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-                                    const daysWorkedBefore = existingSchedules.filter(s => 
-                                      s.user_id === schedule.user_id &&
-                                      s.scheduled_date >= monthStartStr &&
-                                      s.scheduled_date < selectedDateStr
-                                    ).length;
-                                    const isExtra = daysWorkedBefore >= 1;
-                                    
-                                    return (
-                                      <div 
-                                        key={schedule.id} 
-                                        className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                          {maintenanceSchedules.length > 0 &&
+                            (() => {
+                              const alreadyScheduledMaintenanceIds = new Set(
+                                maintenanceSchedules.map((s) => s.user_id),
+                              );
+                              const availableMaintenanceToAdd = maintenanceUsers.filter(
+                                (u) => !alreadyScheduledMaintenanceIds.has(u.id),
+                              );
+
+                              return (
+                                <div className="mb-4 border-t pt-4 mt-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
+                                    <span className="text-xs text-muted-foreground">{maintenanceSchedules.length}</span>
+                                    {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5"
+                                        onClick={() =>
+                                          setForceShowOffice((prev) => (prev === "maintenance" ? null : "maintenance"))
+                                        }
                                       >
-                                        <span className="flex items-center gap-2">
-                                          {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
-                                          {isExtra && (
-                                            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
-                                              extra
-                                            </Badge>
+                                        <Plus
+                                          className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === "maintenance" ? "rotate-45" : ""}`}
+                                        />
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1 pl-2">
+                                    {maintenanceSchedules.map((schedule) => {
+                                      // Check if this user worked any day BEFORE this date in the same month
+                                      // Use string comparison to avoid timezone issues
+                                      const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+                                      const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
+                                      const daysWorkedBefore = existingSchedules.filter(
+                                        (s) =>
+                                          s.user_id === schedule.user_id &&
+                                          s.scheduled_date >= monthStartStr &&
+                                          s.scheduled_date < selectedDateStr,
+                                      ).length;
+                                      const isExtra = daysWorkedBefore >= 1;
+
+                                      return (
+                                        <div
+                                          key={schedule.id}
+                                          className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                            {isExtra && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs text-orange-500 border-orange-500"
+                                              >
+                                                extra
+                                              </Badge>
+                                            )}
+                                          </span>
+                                          {canManageSchedules && !isPastDate && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5 text-destructive hover:text-destructive"
+                                              onClick={() => handleDeleteSchedule(schedule.id)}
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
                                           )}
-                                        </span>
-                                        {canManageSchedules && !isPastDate && (
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-5 w-5 text-destructive hover:text-destructive"
-                                            onClick={() => handleDeleteSchedule(schedule.id)}
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })()}
+                              );
+                            })()}
                         </ScrollArea>
                       )}
 
@@ -760,271 +797,309 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           <p className="text-sm">No schedule recorded for this date</p>
                         </div>
                       )}
-                      
+
                       {/* Show add section for offices/maintenance below minimum threshold - Admin only, future dates only */}
-                      {canManageSchedules && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers || forceShowOffice) && (
-                        <>
-                          {loading ? (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            </div>
-                          ) : (
-                            <>
-                              <ScrollArea className="flex-1 border rounded-md p-2">
-                              {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
-                                const officeUsersForOffice = usersByOffice[office] || [];
-                                const config = OFFICE_CONFIG[office];
-                                const existingCount = scheduledByOffice[office]?.length || 0;
-                                const selectedCount = selectedUsers[office].length;
-                                const totalCount = existingCount + selectedCount;
-                                
-                                // Skip if already at or above threshold (unless forceShowOffice matches)
-                                if (existingCount >= MIN_THRESHOLDS[office] && forceShowOffice !== office) return null;
-                                
-                                // Filter out already scheduled users
-                                const alreadyScheduledIds = new Set((scheduledByOffice[office] || []).map(s => s.user_id));
-                                const availableUsers = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
-                                
-                                // Get suggestions for this office
-                                const { notWorkedThisMonth, workCounts } = selectedDate 
-                                  ? getSuggestions(selectedDate, office, alreadyScheduledIds)
-                                  : { notWorkedThisMonth: [], workCounts: {} };
-                                const notWorkedIds = new Set(notWorkedThisMonth.map(u => u.id));
-                                
-                                // Sort users: those who haven't worked first, then by name
-                                const sortedUsers = [...availableUsers].sort((a, b) => {
-                                  const aNotWorked = notWorkedIds.has(a.id);
-                                  const bNotWorked = notWorkedIds.has(b.id);
-                                  if (aNotWorked && !bNotWorked) return -1;
-                                  if (!aNotWorked && bNotWorked) return 1;
-                                  return (a.full_name || a.email).localeCompare(b.full_name || b.email);
-                                });
-                                
-                                const isFilled = totalCount >= config.slots;
-                                
-                                // Collapse office section if slots are filled (unless expanded or forceShowOffice)
-                                if (isFilled && !expandedFilledOffices[office] && forceShowOffice !== office) {
-                                  return (
-                                    <div key={office} className="mb-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
-                                        className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
-                                      >
-                                        <Badge variant="default" className="bg-green-600">
-                                          {config.label} ✓
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                          {totalCount}/{config.slots} complete - click to view
-                                        </span>
-                                      </button>
-                                    </div>
-                                  );
-                                }
-                                
-                                // Show expanded filled office with collapse option (skip if forceShowOffice)
-                                if (isFilled && expandedFilledOffices[office] && forceShowOffice !== office) {
-                                  const selectedOfficeUsers = availableUsers.filter(u => selectedUsers[office].includes(u.id));
-                                  return (
-                                    <div key={office} className="mb-4">
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
-                                        className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
-                                      >
-                                        <Badge variant="default" className="bg-green-600">
-                                          {config.label} ✓
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                          {totalCount}/{config.slots} complete - click to hide
-                                        </span>
-                                      </button>
-                                      <div className="space-y-1 pl-2">
-                                        {selectedOfficeUsers.map(user => (
-                                          <label
-                                            key={user.id}
-                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                          >
-                                            <Checkbox
-                                              checked={true}
-                                              onCheckedChange={() => handleUserToggle(user.id, office)}
-                                            />
-                                            <span className="text-sm">
-                                              {user.full_name || user.email}
-                                            </span>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                }
-                                
-                                return (
-                                  <div key={office} className="mb-4">
-                                    <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                                      <Badge variant="outline">
-                                        {config.label}
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount} more)
-                                      </span>
-                                      {notWorkedThisMonth.length > 0 && (
-                                        <span className="text-xs text-amber-500 flex items-center gap-1">
-                                          <Lightbulb className="h-3 w-3" />
-                                          {notWorkedThisMonth.length} haven't worked
-                                        </span>
-                                      )}
-                                    </div>
-                                    {sortedUsers.length === 0 ? (
-                                      <p className="text-xs text-muted-foreground pl-2">No available users in this office</p>
-                                    ) : (
-                                      <div className="space-y-1 pl-2">
-                                        {sortedUsers.map(user => {
-                                          const hasNotWorked = notWorkedIds.has(user.id);
-                                          const monthlyCount = workCounts[user.id]?.count || 0;
-                                          return (
-                                            <label
-                                              key={user.id}
-                                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
-                                                hasNotWorked 
-                                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30' 
-                                                  : 'hover:bg-muted'
-                                              }`}
-                                            >
-                                              <Checkbox
-                                                checked={selectedUsers[office].includes(user.id)}
-                                                onCheckedChange={() => handleUserToggle(user.id, office, forceShowOffice === office)}
-                                              />
-                                              <span className="text-sm flex-1">
-                                                {user.full_name || user.email}
-                                              </span>
-                                              {hasNotWorked ? (
-                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-500">
-                                                  Suggested
-                                                </Badge>
-                                              ) : monthlyCount > 0 && (
-                                                <span className="text-[10px] text-muted-foreground">
-                                                  {monthlyCount}x
-                                                </span>
-                                              )}
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                              
-                              {/* Maintenance section at bottom - only if below threshold or forceShowOffice is maintenance */}
-                              {(maintenanceBelowThreshold || forceShowOffice === 'maintenance') && maintenanceUsers.length > 0 && (
-                                <div className="mb-4 border-t pt-4 mt-4">
-                                  {(() => {
-                                    const existingMaintenanceCount = maintenanceSchedules.length;
-                                    const alreadyScheduledIds = new Set(maintenanceSchedules.map(s => s.user_id));
-                                    const availableMaintenanceUsers = maintenanceUsers.filter(u => !alreadyScheduledIds.has(u.id));
-                                    const selectedCount = selectedUsers.maintenance.length;
-                                    const totalCount = existingMaintenanceCount + selectedCount;
-                                    const isFilled = totalCount >= MAINTENANCE_CONFIG.slots;
-                                    
-                                    if (isFilled && !expandedFilledOffices.maintenance) {
+                      {canManageSchedules &&
+                        !isPastDate &&
+                        (existingForDate.length === 0 || needsMoreDispatchers || forceShowOffice) && (
+                          <>
+                            {loading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              </div>
+                            ) : (
+                              <>
+                                <ScrollArea className="flex-1 border rounded-md p-2">
+                                  {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
+                                    const officeUsersForOffice = usersByOffice[office] || [];
+                                    const config = OFFICE_CONFIG[office];
+                                    const existingCount = scheduledByOffice[office]?.length || 0;
+                                    const selectedCount = selectedUsers[office].length;
+                                    const totalCount = existingCount + selectedCount;
+
+                                    // Skip if already at or above threshold (unless forceShowOffice matches)
+                                    if (existingCount >= MIN_THRESHOLDS[office] && forceShowOffice !== office)
+                                      return null;
+
+                                    // Filter out already scheduled users
+                                    const alreadyScheduledIds = new Set(
+                                      (scheduledByOffice[office] || []).map((s) => s.user_id),
+                                    );
+                                    const availableUsers = officeUsersForOffice.filter(
+                                      (u) => !alreadyScheduledIds.has(u.id),
+                                    );
+
+                                    // Get suggestions for this office
+                                    const { notWorkedThisMonth, workCounts } = selectedDate
+                                      ? getSuggestions(selectedDate, office, alreadyScheduledIds)
+                                      : { notWorkedThisMonth: [], workCounts: {} };
+                                    const notWorkedIds = new Set(notWorkedThisMonth.map((u) => u.id));
+
+                                    // Sort users: those who haven't worked first, then by name
+                                    const sortedUsers = [...availableUsers].sort((a, b) => {
+                                      const aNotWorked = notWorkedIds.has(a.id);
+                                      const bNotWorked = notWorkedIds.has(b.id);
+                                      if (aNotWorked && !bNotWorked) return -1;
+                                      if (!aNotWorked && bNotWorked) return 1;
+                                      return (a.full_name || a.email).localeCompare(b.full_name || b.email);
+                                    });
+
+                                    const isFilled = totalCount >= config.slots;
+
+                                    // Collapse office section if slots are filled (unless expanded or forceShowOffice)
+                                    if (isFilled && !expandedFilledOffices[office] && forceShowOffice !== office) {
                                       return (
-                                        <button
-                                          type="button"
-                                          onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: true }))}
-                                          className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
-                                        >
-                                          <Badge variant="default" className="bg-green-600">
-                                            {MAINTENANCE_CONFIG.label} ✓
-                                          </Badge>
-                                          <span className="text-xs text-muted-foreground">
-                                            {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
-                                          </span>
-                                        </button>
-                                      );
-                                    }
-                                    
-                                    if (isFilled && expandedFilledOffices.maintenance) {
-                                      const selectedMaintenanceUsers = availableMaintenanceUsers.filter(u => selectedUsers.maintenance.includes(u.id));
-                                      return (
-                                        <>
+                                        <div key={office} className="mb-2">
                                           <button
                                             type="button"
-                                            onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: false }))}
+                                            onClick={() =>
+                                              setExpandedFilledOffices((prev) => ({ ...prev, [office]: true }))
+                                            }
+                                            className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                          >
+                                            <Badge variant="default" className="bg-green-600">
+                                              {config.label} ✓
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                              {totalCount}/{config.slots} complete - click to view
+                                            </span>
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    // Show expanded filled office with collapse option (skip if forceShowOffice)
+                                    if (isFilled && expandedFilledOffices[office] && forceShowOffice !== office) {
+                                      const selectedOfficeUsers = availableUsers.filter((u) =>
+                                        selectedUsers[office].includes(u.id),
+                                      );
+                                      return (
+                                        <div key={office} className="mb-4">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setExpandedFilledOffices((prev) => ({ ...prev, [office]: false }))
+                                            }
                                             className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
                                           >
                                             <Badge variant="default" className="bg-green-600">
-                                              {MAINTENANCE_CONFIG.label} ✓
+                                              {config.label} ✓
                                             </Badge>
                                             <span className="text-xs text-muted-foreground">
-                                              {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
+                                              {totalCount}/{config.slots} complete - click to hide
                                             </span>
                                           </button>
                                           <div className="space-y-1 pl-2">
-                                            {selectedMaintenanceUsers.map(user => (
+                                            {selectedOfficeUsers.map((user) => (
                                               <label
                                                 key={user.id}
                                                 className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
                                               >
                                                 <Checkbox
                                                   checked={true}
-                                                  onCheckedChange={() => handleUserToggle(user.id, 'maintenance', forceShowOffice === 'maintenance')}
+                                                  onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
-                                                <span className="text-sm">
-                                                  {user.full_name || user.email}
-                                                </span>
+                                                <span className="text-sm">{user.full_name || user.email}</span>
                                               </label>
                                             ))}
                                           </div>
-                                        </>
+                                        </div>
                                       );
                                     }
-                                    
-                                    return (
-                                      <>
-                                        <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                                          <Badge variant="outline">
-                                            {MAINTENANCE_CONFIG.label}
-                                          </Badge>
-                                          <span className="text-xs text-muted-foreground">
-                                            {totalCount}/{MAINTENANCE_CONFIG.slots} (need {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
-                                          </span>
-                                        </div>
-                                        <div className="space-y-1 pl-2">
-                                          {availableMaintenanceUsers.map(user => (
-                                            <label
-                                              key={user.id}
-                                              className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                            >
-                                              <Checkbox
-                                                checked={selectedUsers.maintenance.includes(user.id)}
-                                                onCheckedChange={() => handleUserToggle(user.id, 'maintenance', forceShowOffice === 'maintenance')}
-                                              />
-                                              <span className="text-sm">
-                                                {user.full_name || user.email}
-                                              </span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              )}
-                            </ScrollArea>
-                            </>
-                          )}
 
-                          <Button 
-                            onClick={handleSaveSchedule} 
-                            disabled={saving || getTotalSelectedCount() === 0}
-                            className="w-full flex-shrink-0"
-                          >
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                            Add to Schedule ({getTotalSelectedCount()} users)
-                          </Button>
-                        </>
-                      )}
+                                    return (
+                                      <div key={office} className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                                          <Badge variant="outline">{config.label}</Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
+                                            more)
+                                          </span>
+                                          {notWorkedThisMonth.length > 0 && (
+                                            <span className="text-xs text-amber-500 flex items-center gap-1">
+                                              <Lightbulb className="h-3 w-3" />
+                                              {notWorkedThisMonth.length} haven't worked
+                                            </span>
+                                          )}
+                                        </div>
+                                        {sortedUsers.length === 0 ? (
+                                          <p className="text-xs text-muted-foreground pl-2">
+                                            No available users in this office
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-1 pl-2">
+                                            {sortedUsers.map((user) => {
+                                              const hasNotWorked = notWorkedIds.has(user.id);
+                                              const monthlyCount = workCounts[user.id]?.count || 0;
+                                              return (
+                                                <label
+                                                  key={user.id}
+                                                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
+                                                    hasNotWorked
+                                                      ? "bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30"
+                                                      : "hover:bg-muted"
+                                                  }`}
+                                                >
+                                                  <Checkbox
+                                                    checked={selectedUsers[office].includes(user.id)}
+                                                    onCheckedChange={() =>
+                                                      handleUserToggle(user.id, office, forceShowOffice === office)
+                                                    }
+                                                  />
+                                                  <span className="text-sm flex-1">{user.full_name || user.email}</span>
+                                                  {hasNotWorked ? (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-500"
+                                                    >
+                                                      Suggested
+                                                    </Badge>
+                                                  ) : (
+                                                    monthlyCount > 0 && (
+                                                      <span className="text-[10px] text-muted-foreground">
+                                                        {monthlyCount}x
+                                                      </span>
+                                                    )
+                                                  )}
+                                                </label>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Maintenance section at bottom - only if below threshold or forceShowOffice is maintenance */}
+                                  {(maintenanceBelowThreshold || forceShowOffice === "maintenance") &&
+                                    maintenanceUsers.length > 0 && (
+                                      <div className="mb-4 border-t pt-4 mt-4">
+                                        {(() => {
+                                          const existingMaintenanceCount = maintenanceSchedules.length;
+                                          const alreadyScheduledIds = new Set(
+                                            maintenanceSchedules.map((s) => s.user_id),
+                                          );
+                                          const availableMaintenanceUsers = maintenanceUsers.filter(
+                                            (u) => !alreadyScheduledIds.has(u.id),
+                                          );
+                                          const selectedCount = selectedUsers.maintenance.length;
+                                          const totalCount = existingMaintenanceCount + selectedCount;
+                                          const isFilled = totalCount >= MAINTENANCE_CONFIG.slots;
+
+                                          if (isFilled && !expandedFilledOffices.maintenance) {
+                                            return (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setExpandedFilledOffices((prev) => ({ ...prev, maintenance: true }))
+                                                }
+                                                className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                              >
+                                                <Badge variant="default" className="bg-green-600">
+                                                  {MAINTENANCE_CONFIG.label} ✓
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
+                                                </span>
+                                              </button>
+                                            );
+                                          }
+
+                                          if (isFilled && expandedFilledOffices.maintenance) {
+                                            const selectedMaintenanceUsers = availableMaintenanceUsers.filter((u) =>
+                                              selectedUsers.maintenance.includes(u.id),
+                                            );
+                                            return (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setExpandedFilledOffices((prev) => ({
+                                                      ...prev,
+                                                      maintenance: false,
+                                                    }))
+                                                  }
+                                                  className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                                                >
+                                                  <Badge variant="default" className="bg-green-600">
+                                                    {MAINTENANCE_CONFIG.label} ✓
+                                                  </Badge>
+                                                  <span className="text-xs text-muted-foreground">
+                                                    {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
+                                                  </span>
+                                                </button>
+                                                <div className="space-y-1 pl-2">
+                                                  {selectedMaintenanceUsers.map((user) => (
+                                                    <label
+                                                      key={user.id}
+                                                      className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                                    >
+                                                      <Checkbox
+                                                        checked={true}
+                                                        onCheckedChange={() =>
+                                                          handleUserToggle(
+                                                            user.id,
+                                                            "maintenance",
+                                                            forceShowOffice === "maintenance",
+                                                          )
+                                                        }
+                                                      />
+                                                      <span className="text-sm">{user.full_name || user.email}</span>
+                                                    </label>
+                                                  ))}
+                                                </div>
+                                              </>
+                                            );
+                                          }
+
+                                          return (
+                                            <>
+                                              <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                                                <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
+                                                <span className="text-xs text-muted-foreground">
+                                                  {totalCount}/{MAINTENANCE_CONFIG.slots} (need{" "}
+                                                  {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
+                                                </span>
+                                              </div>
+                                              <div className="space-y-1 pl-2">
+                                                {availableMaintenanceUsers.map((user) => (
+                                                  <label
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                                  >
+                                                    <Checkbox
+                                                      checked={selectedUsers.maintenance.includes(user.id)}
+                                                      onCheckedChange={() =>
+                                                        handleUserToggle(
+                                                          user.id,
+                                                          "maintenance",
+                                                          forceShowOffice === "maintenance",
+                                                        )
+                                                      }
+                                                    />
+                                                    <span className="text-sm">{user.full_name || user.email}</span>
+                                                  </label>
+                                                ))}
+                                              </div>
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                </ScrollArea>
+                              </>
+                            )}
+
+                            <Button
+                              onClick={handleSaveSchedule}
+                              disabled={saving || getTotalSelectedCount() === 0}
+                              className="w-full flex-shrink-0"
+                            >
+                              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                              Add to Schedule ({getTotalSelectedCount()} users)
+                            </Button>
+                          </>
+                        )}
                     </>
                   );
                 })()}
