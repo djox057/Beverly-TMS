@@ -123,6 +123,7 @@ const Analytics = () => {
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
+  const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
 
   // Check if user has only dispatch role (same logic as Orders page)
@@ -285,6 +286,73 @@ const Analytics = () => {
 
     fetchDriverCounts();
   }, [dateRange]);
+
+  // Fetch extra days from afterhours_schedule for selected month
+  useEffect(() => {
+    const fetchExtraDays = async () => {
+      try {
+        // Determine the month to fetch based on selectedMonth or dateRange
+        let targetMonth: Date | null = null;
+        
+        if (selectedMonth && selectedMonth !== "all") {
+          // selectedMonth format is "YYYY-MM"
+          const [year, month] = selectedMonth.split("-").map(Number);
+          targetMonth = new Date(year, month - 1, 1);
+        } else if (dateRange?.from) {
+          targetMonth = dateRange.from;
+        }
+        
+        if (!targetMonth) {
+          setExtraDaysByUser({});
+          return;
+        }
+        
+        const year = targetMonth.getFullYear();
+        const month = targetMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const fromDate = format(firstDay, "yyyy-MM-dd");
+        const toDate = format(lastDay, "yyyy-MM-dd");
+        
+        const { data, error } = await supabase
+          .from("afterhours_schedule")
+          .select("user_id, scheduled_date")
+          .gte("scheduled_date", fromDate)
+          .lte("scheduled_date", toDate);
+        
+        if (error) {
+          console.error("Error fetching extra days:", error);
+          return;
+        }
+        
+        // Count days per user
+        const countsMap: Record<string, number> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((record: any) => {
+            if (!countsMap[record.user_id]) {
+              countsMap[record.user_id] = 0;
+            }
+            countsMap[record.user_id] += 1;
+          });
+        }
+        
+        // For January 2026, subtract 1 from each count
+        const isJanuary2026 = year === 2026 && month === 0;
+        if (isJanuary2026) {
+          Object.keys(countsMap).forEach(userId => {
+            countsMap[userId] = Math.max(0, countsMap[userId] - 1);
+          });
+        }
+        
+        setExtraDaysByUser(countsMap);
+      } catch (error) {
+        console.error("Error in fetchExtraDays:", error);
+      }
+    };
+    
+    fetchExtraDays();
+  }, [selectedMonth, dateRange]);
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
@@ -1710,9 +1778,23 @@ const Analytics = () => {
                     </TableHeader>
                     <TableBody>
                       {dispatcherStats.map((stat, index) => {
-                        // Placeholder values for Extra/Lost Days and Salary - to be implemented
-                        const extraLostDays = 0;
-                        const salary = 0;
+                        // Get Extra/Lost Days from afterhours_schedule
+                        const extraLostDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
+                        
+                        // Calculate days in the selected month
+                        let daysInMonth = 30; // default
+                        if (selectedMonth && selectedMonth !== "all") {
+                          const [year, month] = selectedMonth.split("-").map(Number);
+                          daysInMonth = new Date(year, month, 0).getDate();
+                        } else if (dateRange?.from) {
+                          const year = dateRange.from.getFullYear();
+                          const month = dateRange.from.getMonth() + 1;
+                          daysInMonth = new Date(year, month, 0).getDate();
+                        }
+                        
+                        // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * Days in month + Extra/Lost Days / days in month
+                        const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
+                        const salary = baseRate * daysInMonth + extraLostDays / daysInMonth;
 
                         return (
                           <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
