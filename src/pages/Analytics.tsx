@@ -1894,7 +1894,7 @@ const Analytics = () => {
                   <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
                     <Select value={selectedMonth} onValueChange={handleMonthChange}>
                       <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue placeholder="Select month" />
+                        <SelectValue placeholder="All time monthly" />
                       </SelectTrigger>
                       <SelectContent>
                         {monthOptions.map((month) => (
