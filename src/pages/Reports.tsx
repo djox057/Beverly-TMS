@@ -625,17 +625,18 @@ const Reports = () => {
     };
 
     // Calculate financial totals from cached order data
+    // Late fee, no tracking fee, wrong address fee, other charges SUBTRACT from freight
     const freightAmount =
       toNum(order.freight_amount) +
       toNum(order.detention) +
       toNum(order.layover) +
       toNum(order.tonu) +
       toNum(order.extra_stop) +
-      toNum(order.lumper) +
-      toNum(order.late_fee) +
-      toNum(order.no_tracking_fee) +
+      toNum(order.lumper) -
+      toNum(order.late_fee) -
+      toNum(order.no_tracking_fee) -
       toNum(order.wrong_address_fee) +
-      toNum(order.escort_fee) +
+      toNum(order.escort_fee) -
       toNum(order.other_charges);
 
     const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
