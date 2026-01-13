@@ -553,14 +553,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       )}
                     </div>
                     <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                      {usersWithMultipleDays.map(({ user, count }) => (
-                        <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="truncate">{user.full_name || user.email}</span>
-                          <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                            {count}x
-                          </Badge>
-                        </div>
-                      ))}
+                      {usersWithMultipleDays.map(({ user, count }) => {
+                        // Display count - 1 (first day is regular, rest are extra)
+                        const extraDaysCount = count - 1;
+                        return (
+                          <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="truncate">{user.full_name || user.email}</span>
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                              {extraDaysCount}x
+                            </Badge>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
