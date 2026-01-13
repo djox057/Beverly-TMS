@@ -132,6 +132,7 @@ const Analytics = () => {
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
   const [selectedDispatcherIds, setSelectedDispatcherIds] = useState<Set<string>>(new Set());
   const [salaryPayments, setSalaryPayments] = useState<Record<string, { paid_amount: number; paid_at: string | null }>>({});
+  const [prevMonthPayments, setPrevMonthPayments] = useState<Record<string, { paid_amount: number; calculated_salary: number }>>({});
   const queryClient = useQueryClient();
 
   // Check if user has only dispatch role (same logic as Orders page)
@@ -412,15 +413,29 @@ const Analytics = () => {
     fetchExtraDays();
   }, [selectedMonth, dateRange]);
 
-  // Fetch salary payments for the selected month
+  // Helper to get previous month in YYYY-MM format
+  const getPreviousMonth = (month: string): string | null => {
+    if (!month || month === "all" || !month.includes("-")) return null;
+    const [yearStr, monthStr] = month.split("-");
+    const year = parseInt(yearStr, 10);
+    const monthNum = parseInt(monthStr, 10);
+    if (isNaN(year) || isNaN(monthNum)) return null;
+    
+    const prevDate = new Date(year, monthNum - 2, 1); // month is 1-indexed, Date uses 0-indexed
+    return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  // Fetch salary payments for the selected month AND previous month
   useEffect(() => {
     const fetchSalaryPayments = async () => {
       if (!selectedMonth || selectedMonth === "all") {
         setSalaryPayments({});
+        setPrevMonthPayments({});
         return;
       }
 
       try {
+        // Fetch current month payments
         const { data, error } = await supabase
           .from("dispatcher_salary_payments" as any)
           .select("*")
@@ -441,6 +456,30 @@ const Analytics = () => {
           });
         }
         setSalaryPayments(paymentsMap);
+
+        // Fetch previous month payments to calculate adjustments
+        const prevMonth = getPreviousMonth(selectedMonth);
+        if (prevMonth) {
+          const { data: prevData, error: prevError } = await supabase
+            .from("dispatcher_salary_payments" as any)
+            .select("*")
+            .eq("month", prevMonth);
+
+          if (!prevError && prevData && Array.isArray(prevData)) {
+            const prevMap: Record<string, { paid_amount: number; calculated_salary: number }> = {};
+            prevData.forEach((record: any) => {
+              prevMap[record.user_id] = {
+                paid_amount: Number(record.paid_amount) || 0,
+                calculated_salary: Number(record.calculated_salary) || Number(record.paid_amount) || 0,
+              };
+            });
+            setPrevMonthPayments(prevMap);
+          } else {
+            setPrevMonthPayments({});
+          }
+        } else {
+          setPrevMonthPayments({});
+        }
       } catch (error) {
         console.error("Error in fetchSalaryPayments:", error);
       }
