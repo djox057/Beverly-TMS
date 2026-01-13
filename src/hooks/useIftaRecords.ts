@@ -43,22 +43,43 @@ const extractTruckNumber = (vehicle: string): string => {
   return match ? match[1] : vehicle;
 };
 
+const BATCH_SIZE = 1000;
+
+// Fetch all IFTA records in batches to handle > 1000 records
+async function fetchAllIftaRecordsInBatches(): Promise<IftaRecord[]> {
+  const allRecords: IftaRecord[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("ifta_records")
+      .select("*")
+      .order("vehicle", { ascending: true })
+      .range(offset, offset + BATCH_SIZE - 1);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allRecords.push(...(data as IftaRecord[]));
+      offset += BATCH_SIZE;
+      hasMore = data.length === BATCH_SIZE;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allRecords;
+}
+
 export const useIftaRecords = (fuelFilters?: FuelFilters) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all IFTA records
+  // Fetch all IFTA records with batch loading
   const { data: iftaRecords = [], isLoading: isLoadingIfta } = useQuery({
     queryKey: ["ifta-records"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ifta_records")
-        .select("*")
-        .order("vehicle", { ascending: true });
-      
-      if (error) throw error;
-      return data as IftaRecord[];
-    },
+    queryFn: fetchAllIftaRecordsInBatches,
   });
 
   // Fetch fuel transactions to get ULSD gallons by driver/state
