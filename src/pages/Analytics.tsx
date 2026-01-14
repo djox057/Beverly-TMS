@@ -45,7 +45,8 @@ const getStatusBadge = (status: string) => {
 };
 const Analytics = () => {
   const navigate = useNavigate();
-  const { hasRole, profile, getPrimaryRole } = useAuthContext();
+  const { hasRole, profile, getPrimaryRole, roles } = useAuthContext();
+  const isAdmin = roles.includes('admin');
 
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -1344,7 +1345,7 @@ const Analytics = () => {
             <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
             <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger>
             <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
-            <TabsTrigger value="salaries">Salaries</TabsTrigger>
+            {isAdmin && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="performance" className="space-y-6">
@@ -1966,7 +1967,7 @@ const Analytics = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="salaries" className="space-y-6">
+          {isAdmin && <TabsContent value="salaries" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -2286,7 +2287,7 @@ const Analytics = () => {
                 </div>
               </div>
             )}
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
       </div>
     </div>
