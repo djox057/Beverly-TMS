@@ -444,12 +444,14 @@ export default function YardArrivals() {
     const dateStr = startDate.toISOString().split("T")[0];
     const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
     
-    // Create lost_day_note
-    await supabase.from("lost_day_notes").insert({
+    // Create or update lost_day_note (upsert to handle existing notes)
+    await supabase.from("lost_day_notes").upsert({
       driver_id: statusDialogData.driverId,
       date: dateStr,
       note: noteText,
       note_type: "game_over",
+    }, {
+      onConflict: "driver_id,date",
     });
     
     // Set truck.needs_recovery = true and set left_by_driver_id to current driver
@@ -475,12 +477,14 @@ export default function YardArrivals() {
     const dateStr = startDate.toISOString().split("T")[0];
     const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
     
-    // Create lost_day_note
-    await supabase.from("lost_day_notes").insert({
+    // Create or update lost_day_note (upsert to handle existing notes)
+    await supabase.from("lost_day_notes").upsert({
       driver_id: statusDialogData.driverId,
       date: dateStr,
       note: noteText,
       note_type: "game_over",
+    }, {
+      onConflict: "driver_id,date",
     });
     
     // Update truck

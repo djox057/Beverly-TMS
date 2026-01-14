@@ -601,7 +601,11 @@ export const useReports = (options?: UseReportsOptions) => {
         queryClient.setQueryData(["reports", "full"], context.previousFull);
       }
     },
-    // Real-time subscription handles cache updates - no invalidation needed
+    onSuccess: () => {
+      // Invalidate both queries to ensure cache is synced with database
+      queryClient.invalidateQueries({ queryKey: ["reports", "priority"] });
+      queryClient.invalidateQueries({ queryKey: ["reports", "full"] });
+    },
   });
 
   const updatePickupDropArrival = useMutation({
