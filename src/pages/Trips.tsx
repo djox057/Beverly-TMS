@@ -693,6 +693,7 @@ const Trips = () => {
             driverPrice: order.originalDriverPrice || 0,
             mileage: order.originalMiles || 0,
             totalFreightAmount: order.totalFreightAmount,
+            totalFreightAmountNoLumper: order.totalFreightAmountNoLumper,
           });
         }
 
@@ -845,6 +846,7 @@ const Trips = () => {
             mileage: order.originalMiles || 0,
             // Show full freight amount for original driver portion
             totalFreightAmount: order.totalFreightAmount,
+            totalFreightAmountNoLumper: order.totalFreightAmountNoLumper,
           });
         } else {
           // Non-recovery order - add as-is
@@ -865,7 +867,7 @@ const Trips = () => {
 
       // Exclude orders with both freight amount and driver pay equal to 0
       const hasValue =
-        (order.totalFreightAmount && order.totalFreightAmount !== 0) ||
+        (order.totalFreightAmountNoLumper && order.totalFreightAmountNoLumper !== 0) ||
         (order.totalDriverPay && order.totalDriverPay !== 0);
 
       return matchesTruck && matchesDriver && hasValue;
@@ -3909,7 +3911,7 @@ const Trips = () => {
                                   </Button>
                                   {(() => {
                                     const freightAmount = Number(order.freightAmount) || 0;
-                                    const totalFreight = Number(order.totalFreightAmount) || 0;
+                                    const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
                                     const difference = totalFreight - freightAmount;
                                     
                                     if (difference === 0) return null;
