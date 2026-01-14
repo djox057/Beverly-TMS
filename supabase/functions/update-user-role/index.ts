@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName } = await req.json()
+    const { userId: targetUserId, role, office, fullName, ext } = await req.json()
 
-    console.log('Request body:', { targetUserId, role, office, fullName })
+    console.log('Request body:', { targetUserId, role, office, fullName, ext })
 
     if (!targetUserId || !role) {
       throw new Error('Invalid request. userId and role are required.')
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       throw new Error('Failed to insert new role')
     }
 
-    // Update profile (full_name and/or office) if provided
+    // Update profile (full_name, office, and/or ext) if provided
     const profileUpdates: Record<string, any> = {}
     
     if (fullName !== undefined) {
@@ -126,6 +126,10 @@ Deno.serve(async (req) => {
     if (office !== undefined) {
       const validOffices = ['Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery']
       profileUpdates.office = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
+    }
+    
+    if (ext !== undefined) {
+      profileUpdates.ext = ext === null || ext === '' ? null : ext
     }
     
     if (Object.keys(profileUpdates).length > 0) {
