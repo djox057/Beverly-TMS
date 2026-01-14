@@ -31,6 +31,7 @@ interface User {
   email: string;
   full_name: string | null;
   office: OfficeLocation;
+  ext: string | null;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard')[];
   created_at: string;
 }
@@ -49,6 +50,7 @@ const AdminUsers = () => {
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
+  const [editExt, setEditExt] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -59,6 +61,7 @@ const AdminUsers = () => {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [office, setOffice] = useState<OfficeLocation>(null);
+  const [ext, setExt] = useState("");
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   // Security check: Only admins and accounting should access this page
@@ -103,6 +106,7 @@ const AdminUsers = () => {
         return {
           ...profile,
           office: profile.office as OfficeLocation,
+          ext: profile.ext as string | null,
           roles: userRoles
         };
       });
@@ -164,7 +168,8 @@ const AdminUsers = () => {
             password, 
             fullName: fullName || email, 
             role,
-            office: office || null
+            office: office || null,
+            ext: ext || null
           })
         }
       );
@@ -188,6 +193,7 @@ const AdminUsers = () => {
       setFullName("");
       setRole('dispatch');
       setOffice(null);
+      setExt("");
       setFormErrors({});
       setIsDialogOpen(false);
       
@@ -270,6 +276,7 @@ const AdminUsers = () => {
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
     setEditOffice(user.office);
+    setEditExt(user.ext || '');
     setIsEditDialogOpen(true);
   };
 
@@ -278,13 +285,14 @@ const AdminUsers = () => {
 
     setIsUpdatingRoles(true);
     try {
-      // Update role, full name, and office via edge function
+      // Update role, full name, office, and ext via edge function
       const { data, error } = await supabase.functions.invoke('update-user-role', {
         body: { 
           userId: userToEdit.user_id,
           role: editRole,
           fullName: editFullName,
-          office: editOffice
+          office: editOffice,
+          ext: editExt || null
         }
       });
 
@@ -558,6 +566,15 @@ const AdminUsers = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-ext">Extension (Optional)</Label>
+                <Input
+                  id="new-ext"
+                  placeholder="e.g. 101"
+                  value={ext}
+                  onChange={(e) => setExt(e.target.value)}
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
@@ -592,6 +609,7 @@ const AdminUsers = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Ext</TableHead>
                 <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Created</TableHead>
@@ -603,6 +621,7 @@ const AdminUsers = () => {
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.ext || '-'}</TableCell>
                   <TableCell>{user.office || '-'}</TableCell>
                   <TableCell>
                     {user.roles.length > 0 ? (
@@ -649,7 +668,7 @@ const AdminUsers = () => {
               ))}
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -717,6 +736,16 @@ const AdminUsers = () => {
                   <SelectItem value="Recovery">Recovery</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-ext">Extension</Label>
+              <Input
+                id="edit-ext"
+                value={editExt}
+                onChange={(e) => setEditExt(e.target.value)}
+                placeholder="e.g. 101"
+              />
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
