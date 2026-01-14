@@ -663,9 +663,14 @@ const Orders = () => {
   };
 
   const generateInvoices = async () => {
-    if (!filteredOrders.length) return;
+    // Use selected orders if in selection mode, otherwise use all filtered orders
+    const ordersToInvoice = selectionMode && selectedOrderIds.size > 0
+      ? filteredOrders.filter(order => selectedOrderIds.has(order.id))
+      : filteredOrders;
+    
+    if (!ordersToInvoice.length) return;
     try {
-      const processedOrderIds = await generateInvoicePDF(filteredOrders);
+      const processedOrderIds = await generateInvoicePDF(ordersToInvoice);
 
       // Update invoiced status for all orders that were successfully processed
       if (processedOrderIds.length > 0) {
@@ -863,9 +868,14 @@ const Orders = () => {
                   <span className="hidden sm:inline">Export to Excel</span>
                   <span className="sm:hidden">Export</span>
                 </Button>
-                <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length} className="text-xs md:text-sm">
+                <Button 
+                  variant="outline" 
+                  onClick={generateInvoices} 
+                  disabled={selectionMode ? selectedOrderIds.size === 0 : !filteredOrders.length} 
+                  className="text-xs md:text-sm"
+                >
                   <FileText className="mr-1 md:mr-2 h-4 w-4" />
-                  INVOICE
+                  {selectionMode && selectedOrderIds.size > 0 ? `INVOICE (${selectedOrderIds.size})` : 'INVOICE'}
                 </Button>
               </>
             )}
