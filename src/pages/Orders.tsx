@@ -1004,13 +1004,13 @@ const Orders = () => {
                     options={[
                       { value: "all", label: "All Orders" },
                       { value: "updated", label: "Updated Orders" },
-                      { value: "pending-payment", label: "Pending Payment" },
-                      { value: "billed", label: "Billed Loads" },
                       { value: "complete", label: "Complete (RC + POD)" },
                       { value: "missing-rc", label: "Missing RC" },
                       { value: "missing-bol", label: "Missing BOL" },
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
+                      { value: "pending-payment", label: "Pending Payment" },
+                      { value: "billed", label: "Billed Loads" },
                     ]}
                     className="w-full"
                   />
