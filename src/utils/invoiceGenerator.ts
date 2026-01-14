@@ -132,10 +132,13 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     for (const group of Object.values(brokerGroups)) {
       const doc = new jsPDF();
       
-      // Header - Company name and INVOICE
+      // Header - Use bookedByCompanyName for display, but companyName (driver's company) for invoice suffix
+      const firstOrderInGroup = group.orders[0];
+      const displayCompanyName = firstOrderInGroup.bookedByCompanyName || group.companyName;
+      
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text(group.companyName, 20, 25);
+      doc.text(displayCompanyName, 20, 25);
       doc.text('INVOICE', 150, 25);
       
       // Bill To section
@@ -396,22 +399,33 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     yPosition += 30;
     doc.setTextColor(255, 0, 0);
     doc.setFont('helvetica', 'bold');
-    doc.text('NOTICE OF ASSIGNMENT', 105, yPosition, { align: 'center' });
+    doc.text('NOTICE OF ASSIGMENT', 105, yPosition, { align: 'center' });
     
-    yPosition += 10;
+    yPosition += 6;
     doc.setFont('helvetica', 'normal');
-    const noticeText = [
-      'This invoice is assigned to, owned by and only payable to:',
-      'Capital Depot Inc',
-      '8930 Waukegan Rd Suite 230',
-      'Morton Grove, IL 60053',
-      'Any disputes, claims etc. must be reported to Capital Depot INC at 847-470-1687',
-      'immediately upon receipt of this invoice'
-    ];
+    doc.text('This invoice is assigned to, owned by and only payable to:', 105, yPosition, { align: 'center' });
     
-    noticeText.forEach((line, i) => {
-      doc.text(line, 105, yPosition + (i * 5), { align: 'center' });
-    });
+    yPosition += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Capital Depot INC', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('606 Potter Road', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('Des Plaines IL 60016', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('847-470-1687', 105, yPosition, { align: 'center' });
+    
+    yPosition += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.text('ACH Payments to be sent to:', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('Account name: Capital Depot INC', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('Routing Number: 071000013', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('Account Number: 522702898', 105, yPosition, { align: 'center' });
+    yPosition += 5;
+    doc.text('Remittance address: AR@capitaldepot.com', 105, yPosition, { align: 'center' });
     
     // Footer
     doc.setTextColor(0, 0, 0);
