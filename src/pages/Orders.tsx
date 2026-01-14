@@ -1034,37 +1034,16 @@ const Orders = () => {
                     className="w-full"
                   />
 
-                  {/* Column 6 Row 2: Show Locked & Show Invoiced */}
+                  {/* Column 6 Row 2: Show Invoiced */}
                   <div className="flex flex-col gap-1">
-                    <div className="flex gap-1">
-                      <Button
-                        variant={lockedNotInvoicedFilter ? "default" : "outline"}
-                        onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                        className="flex-1 text-xs px-2"
-                        size="sm"
-                      >
-                        {lockedNotInvoicedFilter ? (
-                          <>
-                            <LockOpen className="mr-1 h-3 w-3 shrink-0" />
-                            Locked
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="mr-1 h-3 w-3 shrink-0" />
-                            Locked
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant={invoicedFilter ? "default" : "outline"}
-                        onClick={() => setInvoicedFilter(!invoicedFilter)}
-                        className="flex-1 text-xs px-2"
-                        size="sm"
-                      >
-                        <FileText className="mr-1 h-3 w-3 shrink-0" />
-                        Invoiced
-                      </Button>
-                    </div>
+                    <Button
+                      variant={invoicedFilter ? "default" : "outline"}
+                      onClick={() => setInvoicedFilter(!invoicedFilter)}
+                      className="w-full"
+                    >
+                      <FileText className="mr-2 h-3.5 w-3.5 shrink-0" />
+                      {invoicedFilter ? "Hide Invoiced" : "Show Invoiced"}
+                    </Button>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-xs text-muted-foreground text-center hover:text-foreground hover:underline cursor-pointer transition-colors w-full">
