@@ -678,6 +678,7 @@ const Orders = () => {
           .from("orders")
           .update({
             invoiced: true,
+            locked: true,
           })
           .in("id", processedOrderIds);
         if (error) {
