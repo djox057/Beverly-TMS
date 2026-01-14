@@ -114,6 +114,7 @@ const Orders = () => {
       truckFilter,
       driverFilter,
       lockedNotInvoicedFilter,
+      invoicedFilter,
       dateRange: dateRange
         ? {
             from: dateRange.from?.toISOString(),
@@ -181,6 +182,7 @@ const Orders = () => {
   const [driverFilter, setDriverFilter] = useState("all-drivers");
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
+  const [invoicedFilter, setInvoicedFilter] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -218,6 +220,7 @@ const Orders = () => {
           setDriverFilter(state.driverFilter || "all-drivers");
           setBrokerFilter(state.brokerFilter || "all-brokers");
           setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
+          setInvoicedFilter(state.invoicedFilter || false);
           if (state.dateRange) {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
@@ -398,6 +401,9 @@ const Orders = () => {
       const matchesLockedNotInvoiced =
         !lockedNotInvoicedFilter || (order.locked && !order.invoiced && (order.totalFreightAmount || 0) > 0);
 
+      // Filter for invoiced loads
+      const matchesInvoiced = !invoicedFilter || order.invoiced === true;
+
       return (
         matchesSearch &&
         matchesCompany &&
@@ -409,7 +415,8 @@ const Orders = () => {
         matchesMissingDocs &&
         matchesDate &&
         matchesPickupDate &&
-        matchesLockedNotInvoiced
+        matchesLockedNotInvoiced &&
+        matchesInvoiced
       );
     }) || [];
 
@@ -428,12 +435,13 @@ const Orders = () => {
     dateRange,
     pickupDateRange,
     lockedNotInvoicedFilter,
+    invoicedFilter,
   ]);
 
   // Clear selection when filters change or selection mode is toggled off
   useEffect(() => {
     setSelectedOrderIds(new Set());
-  }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter]);
+  }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter, invoicedFilter]);
 
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
@@ -1026,25 +1034,37 @@ const Orders = () => {
                     className="w-full"
                   />
 
-                  {/* Column 6 Row 2: Show Locked */}
+                  {/* Column 6 Row 2: Show Locked & Show Invoiced */}
                   <div className="flex flex-col gap-1">
-                    <Button
-                      variant={lockedNotInvoicedFilter ? "default" : "outline"}
-                      onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                      className="w-full"
-                    >
-                      {lockedNotInvoicedFilter ? (
-                        <>
-                          <LockOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
-                          Hide Locked
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="mr-2 h-3.5 w-3.5 shrink-0" />
-                          Show Locked
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={lockedNotInvoicedFilter ? "default" : "outline"}
+                        onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
+                        className="flex-1 text-xs px-2"
+                        size="sm"
+                      >
+                        {lockedNotInvoicedFilter ? (
+                          <>
+                            <LockOpen className="mr-1 h-3 w-3 shrink-0" />
+                            Locked
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="mr-1 h-3 w-3 shrink-0" />
+                            Locked
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant={invoicedFilter ? "default" : "outline"}
+                        onClick={() => setInvoicedFilter(!invoicedFilter)}
+                        className="flex-1 text-xs px-2"
+                        size="sm"
+                      >
+                        <FileText className="mr-1 h-3 w-3 shrink-0" />
+                        Invoiced
+                      </Button>
+                    </div>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-xs text-muted-foreground text-center hover:text-foreground hover:underline cursor-pointer transition-colors w-full">
