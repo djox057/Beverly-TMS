@@ -672,28 +672,24 @@ const Orders = () => {
     try {
       const processedOrderIds = await generateInvoicePDF(ordersToInvoice);
 
-      // TODO: Temporarily disabled - invoiced should split by driver companies first
       // Update invoiced status for all orders that were successfully processed
-      // if (processedOrderIds.length > 0) {
-      //   const { error } = await supabase
-      //     .from("orders")
-      //     .update({
-      //       invoiced: true,
-      //       locked: true,
-      //     })
-      //     .in("id", processedOrderIds);
-      //   if (error) {
-      //     console.error("Error updating invoice status:", error);
-      //     toast.error("Failed to update invoice status");
-      //   } else {
-      //     console.log(`Successfully updated ${processedOrderIds.length} orders as invoiced`);
-      //     toast.success(`${processedOrderIds.length} orders marked as invoiced`);
-      //     // Refresh orders data to show updated status
-      //     queryClient.invalidateQueries({ queryKey: ["orders"] });
-      //   }
-      // }
       if (processedOrderIds.length > 0) {
-        toast.success(`Generated invoices for ${processedOrderIds.length} orders`);
+        const { error } = await supabase
+          .from("orders")
+          .update({
+            invoiced: true,
+            locked: true,
+          })
+          .in("id", processedOrderIds);
+        if (error) {
+          console.error("Error updating invoice status:", error);
+          toast.error("Failed to update invoice status");
+        } else {
+          console.log(`Successfully updated ${processedOrderIds.length} orders as invoiced`);
+          toast.success(`${processedOrderIds.length} orders marked as invoiced`);
+          // Refresh orders data to show updated status
+          queryClient.invalidateQueries({ queryKey: ["orders"] });
+        }
       }
     } catch (error) {
       console.error("Error generating invoices:", error);
