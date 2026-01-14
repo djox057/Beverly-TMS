@@ -12,9 +12,6 @@ const corsHeaders = {
 const AUTH_URL = 'https://assets.transittracking.us/api/v1/auth';
 const API_URL = 'https://assets.transittracking.us/api/v1/assets/currentWithTimers';
 
-// Company name that uses a separate API key
-const UNITED_COMPANY_NAME = 'United Enterprise Solutions Inc';
-
 interface TransitRecord {
   name?: string;
   minsTillDriving?: number;
@@ -172,49 +169,48 @@ serve(async (req) => {
     console.log('Raw API keys env:', apiKeysEnv ? `Found ${apiKeysEnv.length} characters` : 'Not found');
     console.log('United API key:', unitedApiKey ? `Found ${unitedApiKey.length} characters` : 'Not found');
     
-    if (!apiKeysEnv) {
-      console.error('TRANSIT_TRACKING_API_KEYS environment variable not set');
-      throw new Error('TRANSIT_TRACKING_API_KEYS environment variable not set');
+    if (!apiKeysEnv && !unitedApiKey) {
+      console.error('No API keys found');
+      throw new Error('No Transit Tracking API keys configured');
     }
 
-    // Parse general API keys (expecting comma-separated values)
-    const apiKeys = apiKeysEnv.split(',').map(key => key.trim()).filter(key => key.length > 0);
-    console.log(`Parsed ${apiKeys.length} general API keys for Transit Tracking`);
+    // Parse all API keys - combine general keys with United key
+    const apiKeys: string[] = [];
+    
+    if (apiKeysEnv) {
+      const generalKeys = apiKeysEnv.split(',').map(key => key.trim()).filter(key => key.length > 0);
+      apiKeys.push(...generalKeys);
+    }
+    
+    // Add United API key to the list if available (treat it like all other keys)
+    if (unitedApiKey && unitedApiKey.trim().length > 0) {
+      apiKeys.push(unitedApiKey.trim());
+    }
+    
+    console.log(`Total API keys to process: ${apiKeys.length}`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch data from Transit Tracking API (general keys)
-    const generalApiData = await getAllTransitData(apiKeys);
+    // Fetch data from all API keys
+    const allApiData = await getAllTransitData(apiKeys);
     
-    // Fetch data from United-specific API key if available
-    let unitedApiData: TransitRecord[] = [];
-    if (unitedApiKey) {
-      console.log('Fetching data for United Enterprise Solutions Inc...');
-      unitedApiData = await getTransitDataForKey(unitedApiKey);
-      console.log(`Got ${unitedApiData.length} records from United API key`);
-    }
-
-    // Create lookup maps
-    const generalTruckLookupMap = createTruckLookupMap(generalApiData);
-    const unitedTruckLookupMap = createTruckLookupMap(unitedApiData);
+    // Create single lookup map from all data
+    const truckLookupMap = createTruckLookupMap(allApiData);
     
-    console.log(`Created general lookup map with ${Object.keys(generalTruckLookupMap).length} trucks`);
-    console.log(`Created United lookup map with ${Object.keys(unitedTruckLookupMap).length} trucks`);
+    console.log(`Created lookup map with ${Object.keys(truckLookupMap).length} trucks from ${allApiData.length} total records`);
 
-    // Get trucks and their assigned drivers from database, including company info
+    // Get trucks and their assigned drivers from database
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select(`
         truck_number,
         driver1_id,
         driver2_id,
-        company_id,
-        company:companies!trucks_company_id_fkey(id, name),
-        driver1:drivers!trucks_driver1_id_fkey(id, name, email, phone, license_number, company_id, company:companies!drivers_company_id_fkey(id, name)),
-        driver2:drivers!trucks_driver2_id_fkey(id, name, email, phone, license_number, company_id, company:companies!drivers_company_id_fkey(id, name))
+        driver1:drivers!trucks_driver1_id_fkey(id, name),
+        driver2:drivers!trucks_driver2_id_fkey(id, name)
       `);
 
     if (trucksError) {
@@ -235,37 +231,16 @@ serve(async (req) => {
     // Update drivers with HOS data based on truck assignments
     let updatedCount = 0;
 
-    console.log(`Processing ${trucks.length} trucks from database:`);
-    console.log(`Available assets in general lookup map: ${Object.keys(generalTruckLookupMap).slice(0, 20).join(', ')}...`);
-    console.log(`Available assets in United lookup map: ${Object.keys(unitedTruckLookupMap).join(', ')}`);
+    console.log(`Processing ${trucks.length} trucks from database`);
+    console.log(`Available assets in lookup map: ${Object.keys(truckLookupMap).slice(0, 30).join(', ')}...`);
 
     for (const truck of trucks) {
-      console.log(`Truck: ${truck.truck_number}`);
-      
       // Get drivers to update
       const driversToUpdate = [truck.driver1, truck.driver2].filter(Boolean);
       
       for (const driver of driversToUpdate) {
         if (driver && typeof driver === 'object' && 'id' in driver && 'name' in driver) {
-          // Check if driver belongs to United Enterprise Solutions Inc
-          // Access company data using bracket notation to handle nested relation
-          const driverObj = driver as Record<string, unknown>;
-          const companyData = driverObj['company'];
-          let driverCompanyName: string | null = null;
-          
-          if (Array.isArray(companyData) && companyData.length > 0 && companyData[0] && typeof companyData[0] === 'object') {
-            driverCompanyName = (companyData[0] as { name?: string }).name || null;
-          } else if (companyData && typeof companyData === 'object' && 'name' in (companyData as object)) {
-            driverCompanyName = (companyData as { name: string }).name;
-          }
-          
-          const isUnitedDriver = driverCompanyName === UNITED_COMPANY_NAME;
-          
-          // Use appropriate lookup map based on driver's company
-          const lookupMap = isUnitedDriver ? unitedTruckLookupMap : generalTruckLookupMap;
-          const hosData = lookupMap[truck.truck_number];
-          
-          console.log(`Driver ${driver.name} (Company: ${driverCompanyName || 'N/A'}) - Using ${isUnitedDriver ? 'United' : 'General'} lookup map`);
+          const hosData = truckLookupMap[truck.truck_number];
           
           if (hosData && isValidHosRecord(hosData)) {
             console.log(`✅ Found VALID HOS data for driver ${driver.name} on truck ${truck.truck_number}:`, {
@@ -274,7 +249,6 @@ serve(async (req) => {
               break_minutes: hosData.minsTillBreak || 0,
               cycle_minutes: hosData.minsTillCycle || 0,
               status: hosData.statusAbbreviation || null,
-              api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
             });
             
             const now = new Date();
@@ -313,8 +287,8 @@ serve(async (req) => {
       success: true, 
       updated: updatedCount,
       total_drivers: updatedCount,
-      general_api_records: generalApiData.length,
-      united_api_records: unitedApiData.length
+      total_api_records: allApiData.length,
+      api_keys_used: apiKeys.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
