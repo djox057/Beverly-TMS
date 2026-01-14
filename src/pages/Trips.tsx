@@ -1122,7 +1122,7 @@ const Trips = () => {
       // J3: cents_per_mile as dollars (e.g., 0.60 for 60 cents)
       const j3Cell = worksheet.getCell("J3");
       const centsPerMile = driver?.cents_per_mile || 0;
-      j3Cell.value = `$${(centsPerMile / 100).toFixed(2)}/mile`;
+      j3Cell.value = `$${(centsPerMile / 100).toFixed(2)}`;
 
       // J7: Driver name
       const j7Cell = worksheet.getCell("J7");
