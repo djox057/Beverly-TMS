@@ -314,6 +314,8 @@ const Orders = () => {
           matchesMissingDocs = order.canceled === true;
         } else if (missingDocsFilter === "pending-payment") {
           matchesMissingDocs = order.invoiced === true && order.paid !== true;
+        } else if (missingDocsFilter === "billed") {
+          matchesMissingDocs = order.paid === true;
         } else if (missingDocsFilter === "updated") {
           matchesMissingDocs = hasUpdateTracking(order.notes);
         }
@@ -1001,13 +1003,14 @@ const Orders = () => {
                     searchPlaceholder="Search status..."
                     options={[
                       { value: "all", label: "All Orders" },
+                      { value: "updated", label: "Updated Orders" },
+                      { value: "pending-payment", label: "Pending Payment" },
+                      { value: "billed", label: "Billed Loads" },
                       { value: "complete", label: "Complete (RC + POD)" },
                       { value: "missing-rc", label: "Missing RC" },
                       { value: "missing-bol", label: "Missing BOL" },
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
-                      { value: "pending-payment", label: "Pending Payment" },
-                      { value: "updated", label: "Updated Orders" },
                     ]}
                     className="w-full"
                   />
