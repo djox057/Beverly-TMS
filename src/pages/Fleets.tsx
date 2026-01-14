@@ -618,7 +618,7 @@ const Fleets = () => {
                                               Truck {truckNum}
                                             </span>
                                           </div>
-                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned to {firstDriver.coverDispatcherName || 'another dispatcher'}</div>
                                         </div>
                                       </div>
                                     </div>,
@@ -636,7 +636,7 @@ const Fleets = () => {
                                         <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                         <div>
                                           <div className="text-sm sm:text-base font-medium">{driver.name}</div>
-                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned to {driver.coverDispatcherName || 'another dispatcher'}</div>
                                         </div>
                                       </div>
                                     </div>,
