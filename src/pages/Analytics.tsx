@@ -168,7 +168,7 @@ const Analytics = () => {
   // Helper function: For company drivers, driver pay equals freight amount (0% cut)
   const getEffectiveDriverPay = (order: any): number => {
     if (order.driver1Id && companyDriverIds.has(order.driver1Id)) {
-      return Number(order.totalFreightAmount) || 0;
+      return Number(order.totalFreightAmountNoLumper) || 0;
     }
     return Number(order.totalDriverPay) || 0;
   };
@@ -1026,7 +1026,7 @@ const Analytics = () => {
   // This ensures totals match what the /orders page shows, regardless of dispatcher profile status
   const totals = filteredOrders.reduce(
     (acc, order) => {
-      acc.totalFreight += Number(order.totalFreightAmount) || 0;
+      acc.totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
       acc.totalDriverRate += getEffectiveDriverPay(order);
       acc.totalMiles += Number(order.mileage) || 0;
       acc.orderCount += 1;
@@ -1070,7 +1070,7 @@ const Analytics = () => {
               firstPickupDate: null as string | null,
             };
           }
-          acc[driverName].totalGross += Number(order.totalFreightAmount) || 0;
+          acc[driverName].totalGross += Number(order.totalFreightAmountNoLumper) || 0;
           // Track earliest pickup date
           const pickupDate = order.pickupDate;
           if (pickupDate && pickupDate !== "N/A" && pickupDate !== "Invalid Date") {
@@ -1267,7 +1267,7 @@ const Analytics = () => {
   const qualifyingLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
-    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+    const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
     const meetsRateThreshold = ratePerMile <= 1.7;
     return isToday && meetsRateThreshold;
   });
@@ -1276,7 +1276,7 @@ const Analytics = () => {
   const highRateLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
-    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+    const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
     const meetsRateThreshold = ratePerMile >= 4.0;
     return isThisWeek && meetsRateThreshold;
   });
@@ -1798,7 +1798,7 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               $
-                              {order.totalFreightAmount.toLocaleString(undefined, {
+                              {order.totalFreightAmountNoLumper.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
@@ -1863,7 +1863,7 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 $
-                                {order.totalFreightAmount.toLocaleString(undefined, {
+                                {order.totalFreightAmountNoLumper.toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })}
