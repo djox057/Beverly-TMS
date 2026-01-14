@@ -1921,6 +1921,7 @@ export type Database = {
           other_charges: number | null
           other_charges_driver: number | null
           other_charges_reason: string | null
+          paid: boolean | null
           partial_booked_by_companies: Json | null
           partial_broker_loads: Json | null
           partial_brokers: Json | null
@@ -2026,6 +2027,7 @@ export type Database = {
           other_charges?: number | null
           other_charges_driver?: number | null
           other_charges_reason?: string | null
+          paid?: boolean | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
           partial_brokers?: Json | null
@@ -2131,6 +2133,7 @@ export type Database = {
           other_charges?: number | null
           other_charges_driver?: number | null
           other_charges_reason?: string | null
+          paid?: boolean | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
           partial_brokers?: Json | null

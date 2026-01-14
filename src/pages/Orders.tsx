@@ -196,6 +196,8 @@ const Orders = () => {
     dhMiles: "",
     notes: "",
   });
+  const [paidConfirmDialogOpen, setPaidConfirmDialogOpen] = useState(false);
+  const [pendingPaidOrder, setPendingPaidOrder] = useState<{ id: string; currentPaid: boolean } | null>(null);
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
@@ -310,8 +312,8 @@ const Orders = () => {
           matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
         } else if (missingDocsFilter === "canceled") {
           matchesMissingDocs = order.canceled === true;
-        } else if (missingDocsFilter === "not-invoiced") {
-          matchesMissingDocs = order.invoiced !== true;
+        } else if (missingDocsFilter === "pending-payment") {
+          matchesMissingDocs = order.invoiced === true && order.paid !== true;
         } else if (missingDocsFilter === "updated") {
           matchesMissingDocs = hasUpdateTracking(order.notes);
         }
@@ -864,6 +866,29 @@ const Orders = () => {
       toast.error("Failed to revert cancellation");
     }
   };
+
+  const handleConfirmPaidChange = async () => {
+    if (!pendingPaidOrder) return;
+    
+    try {
+      const newPaidStatus = !pendingPaidOrder.currentPaid;
+      const { error } = await supabase
+        .from("orders")
+        .update({ paid: newPaidStatus })
+        .eq("id", pendingPaidOrder.id);
+
+      if (error) throw error;
+
+      toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error) {
+      console.error("Error updating paid status:", error);
+      toast.error("Failed to update paid status");
+    } finally {
+      setPaidConfirmDialogOpen(false);
+      setPendingPaidOrder(null);
+    }
+  };
   return (
     <div className="h-full w-full">
       <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-none">
@@ -981,7 +1006,7 @@ const Orders = () => {
                       { value: "missing-bol", label: "Missing BOL" },
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
-                      { value: "not-invoiced", label: "Not Invoiced" },
+                      { value: "pending-payment", label: "Pending Payment" },
                       { value: "updated", label: "Updated Orders" },
                     ]}
                     className="w-full"
@@ -1138,15 +1163,16 @@ const Orders = () => {
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">RC</TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">POD</TableHead>
-                    <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap">Actions</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">RC</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">POD</TableHead>
+                    <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">Actions</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">Paid</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={21} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow>
@@ -1497,8 +1523,8 @@ const Orders = () => {
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
                           </TableCell>
-                          <TableCell className="w-24">
-                            <div className="flex gap-1 flex-wrap">
+                          <TableCell className="w-24 text-center">
+                            <div className="flex gap-1 flex-wrap justify-center">
                               {order.rcFiles && order.rcFiles.length > 0 ? (
                                 <Button
                                   variant="outline"
@@ -1548,8 +1574,8 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="w-24">
-                            <div className="flex gap-1 flex-wrap">
+                          <TableCell className="w-24 text-center">
+                            <div className="flex gap-1 flex-wrap justify-center">
                               {order.podFiles && order.podFiles.length > 0 ? (
                                 <Button
                                   variant="outline"
@@ -1599,8 +1625,8 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="w-32">
-                            <div className="flex gap-1 w-32">
+                          <TableCell className="w-32 text-center">
+                            <div className="flex gap-1 w-32 justify-center">
                               <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -1669,6 +1695,18 @@ const Orders = () => {
                                   <Undo2 className="h-4 w-4 text-primary" />
                                 </Button>
                               )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-20 text-center">
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={order.paid === true}
+                                onCheckedChange={() => {
+                                  setPendingPaidOrder({ id: order.id, currentPaid: order.paid === true });
+                                  setPaidConfirmDialogOpen(true);
+                                }}
+                                aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1941,6 +1979,34 @@ const Orders = () => {
             </div>
             <DialogFooter>
               <Button onClick={() => setShowLegendDialog(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Paid Confirmation Dialog */}
+        <Dialog open={paidConfirmDialogOpen} onOpenChange={(open) => {
+          setPaidConfirmDialogOpen(open);
+          if (!open) setPendingPaidOrder(null);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Payment Status Change</DialogTitle>
+              <DialogDescription>
+                {pendingPaidOrder?.currentPaid 
+                  ? "Are you sure you want to mark this load as unpaid?"
+                  : "Are you sure you want to mark this load as paid?"
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setPaidConfirmDialogOpen(false);
+                setPendingPaidOrder(null);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmPaidChange}>
+                Confirm
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -922,6 +922,8 @@ function transformOrders(allOrders: any[]) {
       canceled: order.canceled === true || order.canceled === "true" || order.canceled === 1,
       // Handle invoiced boolean - convert string "true"/"false" to actual boolean
       invoiced: order.invoiced === true || order.invoiced === "true" || order.invoiced === 1,
+      // Handle paid boolean - convert string "true"/"false" to actual boolean
+      paid: order.paid === true || order.paid === "true" || order.paid === 1,
       isRecovery: order.is_recovery === true || order.is_recovery === "true" || order.is_recovery === 1,
 
       // Truck and equipment - use enriched objects, fallback to deleted_* fields for archived orders
