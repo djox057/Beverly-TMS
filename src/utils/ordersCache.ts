@@ -85,21 +85,27 @@ async function getServerVersion(archiveType: string): Promise<number> {
 }
 
 // Helper to update server version after upload
-async function updateServerVersion(archiveType: string): Promise<void> {
+async function updateServerVersion(archiveType: string): Promise<number> {
+  const newVersion = Date.now();
   try {
-    const newVersion = Date.now();
+    // Use upsert so version updates never silently fail if the row is missing
     const { error } = await supabase
-      .from('archive_version')
-      .update({ version: newVersion, updated_at: new Date().toISOString() })
-      .eq('id', archiveType);
-    
+      .from("archive_version")
+      .upsert(
+        { id: archiveType, version: newVersion, updated_at: new Date().toISOString() },
+        { onConflict: "id" },
+      );
+
     if (error) {
       console.error(`Failed to update server version for ${archiveType}:`, error);
-    } else {
-      console.log(`✅ Updated server version for ${archiveType} to ${newVersion}`);
+      return newVersion;
     }
+
+    console.log(`✅ Updated server version for ${archiveType} to ${newVersion}`);
+    return newVersion;
   } catch (error) {
     console.error(`Failed to update server version for ${archiveType}:`, error);
+    return newVersion;
   }
 }
 
@@ -107,33 +113,36 @@ export async function saveLockedOrders(orders: any[]): Promise<void> {
   try {
     // Save to Supabase Storage for company-wide access
     const csvContent = JSON.stringify(orders);
-    const blob = new Blob([csvContent], { type: 'application/json' });
-    
+    const blob = new Blob([csvContent], { type: "application/json" });
+
     const { error: uploadError } = await supabase.storage
-      .from('archived-orders')
-      .upload('locked-orders.json', blob, {
-        cacheControl: '31536000', // 1 year - CDN can cache forever, we invalidate via version
+      .from("archived-orders")
+      .upload("locked-orders.json", blob, {
+        cacheControl: "31536000", // 1 year - CDN can cache forever, we invalidate via version
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
     // Update server version to invalidate all client caches
-    await updateServerVersion('locked-orders');
+    const serverVersion = await updateServerVersion("locked-orders");
 
     // Also cache locally for faster access
     const db = await getDB();
-    const serverVersion = Date.now();
-    await db.put(ORDERS_STORE, {
-      data: orders,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-      serverVersion,
-    }, ORDERS_CACHE_KEY);
-    
-    console.log('✅ Uploaded', orders.length, 'locked orders to company storage');
+    await db.put(
+      ORDERS_STORE,
+      {
+        data: orders,
+        timestamp: Date.now(),
+        version: CACHE_VERSION,
+        serverVersion, // store the SAME server version we just wrote
+      },
+      ORDERS_CACHE_KEY,
+    );
+
+    console.log("✅ Uploaded", orders.length, "locked orders to company storage");
   } catch (error) {
-    console.error('Failed to save locked orders:', error);
+    console.error("Failed to save locked orders:", error);
     throw error;
   }
 }
@@ -142,33 +151,36 @@ export async function savePickupDrops(pickupDrops: any[]): Promise<void> {
   try {
     // Save to Supabase Storage for company-wide access
     const csvContent = JSON.stringify(pickupDrops);
-    const blob = new Blob([csvContent], { type: 'application/json' });
-    
+    const blob = new Blob([csvContent], { type: "application/json" });
+
     const { error: uploadError } = await supabase.storage
-      .from('archived-orders')
-      .upload('pickup-drops.json', blob, {
-        cacheControl: '31536000', // 1 year
+      .from("archived-orders")
+      .upload("pickup-drops.json", blob, {
+        cacheControl: "31536000", // 1 year
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
     // Update server version
-    await updateServerVersion('pickup-drops');
+    const serverVersion = await updateServerVersion("pickup-drops");
 
     // Also cache locally
     const db = await getDB();
-    const serverVersion = Date.now();
-    await db.put(PICKUP_DROPS_STORE, {
-      data: pickupDrops,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-      serverVersion,
-    }, PICKUP_DROPS_CACHE_KEY);
-    
-    console.log('✅ Uploaded', pickupDrops.length, 'pickup/drops to company storage');
+    await db.put(
+      PICKUP_DROPS_STORE,
+      {
+        data: pickupDrops,
+        timestamp: Date.now(),
+        version: CACHE_VERSION,
+        serverVersion,
+      },
+      PICKUP_DROPS_CACHE_KEY,
+    );
+
+    console.log("✅ Uploaded", pickupDrops.length, "pickup/drops to company storage");
   } catch (error) {
-    console.error('Failed to save pickup/drops:', error);
+    console.error("Failed to save pickup/drops:", error);
     throw error;
   }
 }
@@ -177,33 +189,36 @@ export async function saveOrderFiles(orderFiles: any[]): Promise<void> {
   try {
     // Save to Supabase Storage for company-wide access
     const csvContent = JSON.stringify(orderFiles);
-    const blob = new Blob([csvContent], { type: 'application/json' });
-    
+    const blob = new Blob([csvContent], { type: "application/json" });
+
     const { error: uploadError } = await supabase.storage
-      .from('archived-orders')
-      .upload('order-files.json', blob, {
-        cacheControl: '31536000', // 1 year
+      .from("archived-orders")
+      .upload("order-files.json", blob, {
+        cacheControl: "31536000", // 1 year
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
     // Update server version
-    await updateServerVersion('order-files');
+    const serverVersion = await updateServerVersion("order-files");
 
     // Also cache locally
     const db = await getDB();
-    const serverVersion = Date.now();
-    await db.put(ORDER_FILES_STORE, {
-      data: orderFiles,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-      serverVersion,
-    }, ORDER_FILES_CACHE_KEY);
-    
-    console.log('✅ Uploaded', orderFiles.length, 'order files to company storage');
+    await db.put(
+      ORDER_FILES_STORE,
+      {
+        data: orderFiles,
+        timestamp: Date.now(),
+        version: CACHE_VERSION,
+        serverVersion,
+      },
+      ORDER_FILES_CACHE_KEY,
+    );
+
+    console.log("✅ Uploaded", orderFiles.length, "order files to company storage");
   } catch (error) {
-    console.error('Failed to save order files:', error);
+    console.error("Failed to save order files:", error);
     throw error;
   }
 }
@@ -521,34 +536,35 @@ export async function getCacheStats(): Promise<{
 // Add a newly locked order to the cache
 export async function addLockedOrderToCache(order: any): Promise<void> {
   try {
-    console.log('📦 Adding locked order to cache:', order.id);
-    
-    // Get current locked orders from storage
-    const { data, error } = await supabase.storage
-      .from('archived-orders')
-      .download('locked-orders.json');
+    console.log("📦 Adding locked order to cache:", order.id);
 
-    let existingOrders: any[] = [];
-    if (!error && data) {
-      const text = await data.text();
-      existingOrders = JSON.parse(text);
+    // IMPORTANT:
+    // Do NOT use storage.download('locked-orders.json') here.
+    // That endpoint can return stale CDN-cached content, and then we would overwrite
+    // the company archive with an older/smaller dataset.
+
+    const db = await getDB();
+    const cached = await db.get(ORDERS_STORE, ORDERS_CACHE_KEY);
+
+    let existingOrders: any[] =
+      cached && Array.isArray(cached.data) && cached.data.length > 0 ? [...cached.data] : (await getLockedOrders()) || [];
+
+    if (!Array.isArray(existingOrders) || existingOrders.length === 0) {
+      console.warn("[ordersCache] Skipping archive update: could not load existing locked orders");
+      return;
     }
 
-    // Check if order already exists
     const existingIndex = existingOrders.findIndex((o: any) => o.id === order.id);
     if (existingIndex >= 0) {
-      // Update existing order
       existingOrders[existingIndex] = order;
     } else {
-      // Add new order
       existingOrders.push(order);
     }
 
-    // Save back to storage
     await saveLockedOrders(existingOrders);
-    console.log('✅ Added locked order to cache, total:', existingOrders.length);
+    console.log("✅ Added locked order to cache, total:", existingOrders.length);
   } catch (error) {
-    console.error('Failed to add locked order to cache:', error);
+    console.error("Failed to add locked order to cache:", error);
     throw error;
   }
 }
@@ -556,32 +572,28 @@ export async function addLockedOrderToCache(order: any): Promise<void> {
 // Remove an order from the locked cache (when unlocking)
 export async function removeLockedOrderFromCache(orderId: string): Promise<void> {
   try {
-    console.log('📦 Removing unlocked order from cache:', orderId);
-    
-    // Get current locked orders from storage
-    const { data, error } = await supabase.storage
-      .from('archived-orders')
-      .download('locked-orders.json');
+    console.log("📦 Removing unlocked order from cache:", orderId);
 
-    if (error || !data) {
-      console.log('No locked orders cache to remove from');
+    const db = await getDB();
+    const cached = await db.get(ORDERS_STORE, ORDERS_CACHE_KEY);
+
+    let existingOrders: any[] =
+      cached && Array.isArray(cached.data) && cached.data.length > 0 ? [...cached.data] : (await getLockedOrders()) || [];
+
+    if (!Array.isArray(existingOrders) || existingOrders.length === 0) {
+      console.warn("[ordersCache] Skipping archive update: could not load existing locked orders");
       return;
     }
 
-    const text = await data.text();
-    let existingOrders: any[] = JSON.parse(text);
-
-    // Remove the order
     const originalLength = existingOrders.length;
-    existingOrders = existingOrders.filter((o: any) => o.id !== orderId);
+    const updated = existingOrders.filter((o: any) => o.id !== orderId);
 
-    if (existingOrders.length < originalLength) {
-      // Save back to storage
-      await saveLockedOrders(existingOrders);
-      console.log('✅ Removed order from cache, remaining:', existingOrders.length);
+    if (updated.length < originalLength) {
+      await saveLockedOrders(updated);
+      console.log("✅ Removed order from cache, remaining:", updated.length);
     }
   } catch (error) {
-    console.error('Failed to remove order from cache:', error);
+    console.error("Failed to remove order from cache:", error);
     // Don't throw - unlocking should still work even if cache update fails
   }
 }
