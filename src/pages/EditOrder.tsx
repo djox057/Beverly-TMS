@@ -69,6 +69,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes, combineNotes, appendUserNote } from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
+import { OrderAdditionalsManager } from "@/components/OrderAdditionalsManager";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -3102,375 +3103,64 @@ const EditOrder = () => {
                   <Label className="text-base font-medium">Additional Charges</Label>
                 </div>
 
-                {/* Accessorial Charges - Company/Driver Split */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="detention" className="text-sm">
-                      Detention - Company
-                    </Label>
-                    <Input
-                      id="detention"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={detention}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setDetention)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="detention-driver" className="text-sm">
-                      Detention - Driver
-                    </Label>
-                    <Input
-                      id="detention-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={detentionDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setDetentionDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="layover" className="text-sm">
-                      Layover - Company
-                    </Label>
-                    <Input
-                      id="layover"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={layover}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setLayover)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="layover-driver" className="text-sm">
-                      Layover - Driver
-                    </Label>
-                    <Input
-                      id="layover-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={layoverDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setLayoverDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
+                {/* New unified additionals manager */}
+                <OrderAdditionalsManager
+                  detention={detention}
+                  setDetention={setDetention}
+                  detentionDriver={detentionDriver}
+                  setDetentionDriver={setDetentionDriver}
+                  layover={layover}
+                  setLayover={setLayover}
+                  layoverDriver={layoverDriver}
+                  setLayoverDriver={setLayoverDriver}
+                  extraStop={extraStop}
+                  setExtraStop={setExtraStop}
+                  lumper={lumper}
+                  setLumper={setLumper}
+                  lateFee={lateFee}
+                  setLateFee={setLateFee}
+                  lateFeeDriver={lateFeeDriver}
+                  setLateFeeDriver={setLateFeeDriver}
+                  noTrackingFee={noTrackingFee}
+                  setNoTrackingFee={setNoTrackingFee}
+                  noTrackingFeeDriver={noTrackingFeeDriver}
+                  setNoTrackingFeeDriver={setNoTrackingFeeDriver}
+                  wrongAddressFee={wrongAddressFee}
+                  setWrongAddressFee={setWrongAddressFee}
+                  wrongAddressFeeDriver={wrongAddressFeeDriver}
+                  setWrongAddressFeeDriver={setWrongAddressFeeDriver}
+                  tonu={tonu}
+                  setTonu={setTonu}
+                  tonuDriver={tonuDriver}
+                  setTonuDriver={setTonuDriver}
+                  otherCharges={otherCharges}
+                  setOtherCharges={setOtherCharges}
+                  otherChargesDriver={otherChargesDriver}
+                  setOtherChargesDriver={setOtherChargesDriver}
+                  otherChargesReason={otherChargesReason}
+                  setOtherChargesReason={setOtherChargesReason}
+                  otherAdditionals={otherAdditionals}
+                  setOtherAdditionals={setOtherAdditionals}
+                  otherAdditionalsDriver={otherAdditionalsDriver}
+                  setOtherAdditionalsDriver={setOtherAdditionalsDriver}
+                  otherAdditionalsReason={otherAdditionalsReason}
+                  setOtherAdditionalsReason={setOtherAdditionalsReason}
+                  onTonuChange={(value) => {
+                    if (value === "" || parseFloat(value) >= 0) {
+                      setTonu(value);
+                      // If TONU has a value, set freight amount, loaded miles, and driver price to 0
+                      if (value && parseFloat(value) > 0) {
+                        setFreightAmount("0");
+                        setLoadedMiles("0");
+                        setDriverPrice("0");
+                      }
+                    }
+                  }}
+                  isLocked={isLocked}
+                />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="extra-stop" className="text-sm">
-                      Extra Stop - Company
-                    </Label>
-                    <Input
-                      id="extra-stop"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={extraStop}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setExtraStop)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lumper" className="text-sm">
-                      Lumper - Company
-                    </Label>
-                    <Input
-                      id="lumper"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={lumper}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setLumper)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="late-fee" className="text-sm">
-                      Late Fee - Company
-                    </Label>
-                    <Input
-                      id="late-fee"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={lateFee}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setLateFee)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="late-fee-driver" className="text-sm">
-                      Late Fee - Driver
-                    </Label>
-                    <Input
-                      id="late-fee-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={lateFeeDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setLateFeeDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="no-tracking-fee" className="text-sm">
-                      No Tracking Fee - Company
-                    </Label>
-                    <Input
-                      id="no-tracking-fee"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={noTrackingFee}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setNoTrackingFee)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="no-tracking-fee-driver" className="text-sm">
-                      No Tracking Fee - Driver
-                    </Label>
-                    <Input
-                      id="no-tracking-fee-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={noTrackingFeeDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setNoTrackingFeeDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="wrong-address-fee" className="text-sm">
-                      Wrong Address Fee-Company
-                    </Label>
-                    <Input
-                      id="wrong-address-fee"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={wrongAddressFee}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setWrongAddressFee)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="wrong-address-fee-driver" className="text-sm">
-                      Wrong Address Fee - Driver
-                    </Label>
-                    <Input
-                      id="wrong-address-fee-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={wrongAddressFeeDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setWrongAddressFeeDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tonu" className="text-sm">
-                      TONU - Company
-                    </Label>
-                    <Input
-                      id="tonu"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={tonu}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow empty string or non-negative numbers
-                        if (value === "" || parseFloat(value) >= 0) {
-                          setTonu(value);
-                          // If TONU has a value, set freight amount, loaded miles, and driver price to 0
-                          if (value && parseFloat(value) > 0) {
-                            setFreightAmount("0");
-                            setLoadedMiles("0");
-                            setDriverPrice("0");
-                          }
-                        }
-                      }}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tonu-driver" className="text-sm">
-                      TONU - Driver
-                    </Label>
-                    <Input
-                      id="tonu-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={tonuDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setTonuDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-
-                {/* Other Charges Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="other-charges" className="text-sm">
-                      Other Charges - Company
-                    </Label>
-                    <Input
-                      id="other-charges"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={otherCharges}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setOtherCharges)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="other-charges-driver" className="text-sm">
-                      Other Charges - Driver
-                    </Label>
-                    <Input
-                      id="other-charges-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={otherChargesDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setOtherChargesDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="other-charges-reason" className="text-sm">
-                      Other Charges - Reason
-                    </Label>
-                    <Input
-                      id="other-charges-reason"
-                      type="text"
-                      placeholder="Reason for other charges"
-                      value={otherChargesReason}
-                      onChange={(e) => setOtherChargesReason(e.target.value)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-
-                {/* Other Additionals Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="other-additionals" className="text-sm">
-                      Other Additionals - Company
-                    </Label>
-                    <Input
-                      id="other-additionals"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={otherAdditionals}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setOtherAdditionals)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="other-additionals-driver" className="text-sm">
-                      Other Additionals - Driver
-                    </Label>
-                    <Input
-                      id="other-additionals-driver"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      value={otherAdditionalsDriver}
-                      onKeyDown={handleNumericKeyDown}
-                      onChange={handleNumericChange(setOtherAdditionalsDriver)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="other-additionals-reason" className="text-sm">
-                      Other Additionals - Reason
-                    </Label>
-                    <Input
-                      id="other-additionals-reason"
-                      type="text"
-                      placeholder="Reason for other additionals"
-                      value={otherAdditionalsReason}
-                      onChange={(e) => setOtherAdditionalsReason(e.target.value)}
-                      className="bg-green-50/50 dark:bg-green-950/20"
-                      disabled={isLocked}
-                    />
-                  </div>
-                </div>
-
-                {/* Escort Fee and Additional Miles Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Escort Fee and Additional Miles Section - kept separate */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-muted">
                   <div className="space-y-2">
                     <Label htmlFor="escort-fee">Escort Fee</Label>
                     <Input
