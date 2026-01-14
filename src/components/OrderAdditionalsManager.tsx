@@ -282,8 +282,103 @@ export const OrderAdditionalsManager = ({
 
   return (
     <div className="space-y-4">
-      {/* List of active additionals */}
-      {activeAdditionals.length > 0 && (
+      {/* Add new additional form - now ABOVE the list */}
+      {!isLocked && availableTypes.length > 0 && (
+        <div className="flex items-end gap-3 p-3 bg-muted/30 rounded-lg border border-dashed">
+          <div className="space-y-1.5 flex-1 min-w-[200px] max-w-[280px]">
+            <Label className="text-xs">Type</Label>
+            <Popover open={typeOpen} onOpenChange={setTypeOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={typeOpen}
+                  className="w-full justify-between h-9"
+                >
+                  {selectedType
+                    ? getTypeLabel(selectedType)
+                    : "Select type..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-0 bg-popover z-50" align="start">
+                <Command>
+                  <CommandInput placeholder="Search type..." />
+                  <CommandList>
+                    <CommandEmpty>No type found.</CommandEmpty>
+                    <CommandGroup>
+                      {availableTypes.map((type) => (
+                        <CommandItem
+                          key={type.value}
+                          value={type.value}
+                          onSelect={(currentValue) => {
+                            setSelectedType(currentValue as AdditionalType);
+                            setTypeOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedType === type.value ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {type.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-1.5 w-28">
+            <Label className="text-xs">Company</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={newCompanyAmount}
+              onKeyDown={handleNumericKeyDown}
+              onChange={(e) => setNewCompanyAmount(e.target.value)}
+              className="h-9"
+              disabled={!selectedType}
+            />
+          </div>
+
+          {selectedTypeInfo?.hasDriver && (
+            <div className="space-y-1.5 w-28">
+              <Label className="text-xs">Driver</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={newDriverAmount}
+                onKeyDown={handleNumericKeyDown}
+                onChange={(e) => setNewDriverAmount(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          )}
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleAddAdditional}
+            disabled={!selectedType}
+            className="h-9 px-3"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add
+          </Button>
+        </div>
+      )}
+
+      {/* List of active additionals - now BELOW the form */}
+      {activeAdditionals.length > 0 ? (
         <div className="space-y-2">
           {activeAdditionals.map((item) => (
             <div
@@ -307,7 +402,7 @@ export const OrderAdditionalsManager = ({
                         value={editCompanyAmount}
                         onKeyDown={handleNumericKeyDown}
                         onChange={(e) => setEditCompanyAmount(e.target.value)}
-                        className="h-8 w-24"
+                        className="h-8 w-28"
                         autoFocus
                       />
                     </div>
@@ -322,7 +417,7 @@ export const OrderAdditionalsManager = ({
                           value={editDriverAmount}
                           onKeyDown={handleNumericKeyDown}
                           onChange={(e) => setEditDriverAmount(e.target.value)}
-                          className="h-8 w-24"
+                          className="h-8 w-28"
                         />
                       </div>
                     )}
@@ -393,104 +488,7 @@ export const OrderAdditionalsManager = ({
             </div>
           ))}
         </div>
-      )}
-
-      {/* Add new additional form */}
-      {!isLocked && availableTypes.length > 0 && (
-        <div className="flex items-end gap-3 p-3 bg-muted/30 rounded-lg border border-dashed">
-          <div className="space-y-1.5 flex-1 max-w-[200px]">
-            <Label className="text-xs">Type</Label>
-            <Popover open={typeOpen} onOpenChange={setTypeOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={typeOpen}
-                  className="w-full justify-between h-9"
-                >
-                  {selectedType
-                    ? getTypeLabel(selectedType)
-                    : "Select type..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search type..." />
-                  <CommandList>
-                    <CommandEmpty>No type found.</CommandEmpty>
-                    <CommandGroup>
-                      {availableTypes.map((type) => (
-                        <CommandItem
-                          key={type.value}
-                          value={type.value}
-                          onSelect={(currentValue) => {
-                            setSelectedType(currentValue as AdditionalType);
-                            setTypeOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedType === type.value ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {type.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="space-y-1.5 w-24">
-            <Label className="text-xs">Company</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-              value={newCompanyAmount}
-              onKeyDown={handleNumericKeyDown}
-              onChange={(e) => setNewCompanyAmount(e.target.value)}
-              className="h-9"
-              disabled={!selectedType}
-            />
-          </div>
-
-          {selectedTypeInfo?.hasDriver && (
-            <div className="space-y-1.5 w-24">
-              <Label className="text-xs">Driver</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={newDriverAmount}
-                onKeyDown={handleNumericKeyDown}
-                onChange={(e) => setNewDriverAmount(e.target.value)}
-                className="h-9"
-              />
-            </div>
-          )}
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleAddAdditional}
-            disabled={!selectedType || (!newCompanyAmount && !newDriverAmount)}
-            className="h-9"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
-        </div>
-      )}
-
-      {activeAdditionals.length === 0 && !isLocked && availableTypes.length > 0 && (
+      ) : (
         <p className="text-sm text-muted-foreground text-center py-2">
           No additional charges added. Use the form above to add detention, layover, etc.
         </p>
