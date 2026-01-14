@@ -597,8 +597,21 @@ const Analytics = () => {
       }
 
       const now = new Date().toISOString();
+      
+      // Delete previous records for the selected month first
+      const selectedUserIds = Array.from(selectedDispatcherIds);
+      const { error: deleteError } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .delete()
+        .eq("month", selectedMonth)
+        .in("user_id", selectedUserIds);
+
+      if (deleteError) {
+        console.error("Error deleting previous records:", deleteError);
+      }
+
       // Store both the adjusted salary (what's paid) and the base calculated salary (for next month's adjustment)
-      const upsertData = Array.from(selectedDispatcherIds).map(userId => ({
+      const insertData = selectedUserIds.map(userId => ({
         user_id: userId,
         month: selectedMonth,
         paid_amount: adjustedSalaries[userId] || calculatedSalaries[userId] || 0,
@@ -609,7 +622,7 @@ const Analytics = () => {
 
       const { error } = await supabase
         .from("dispatcher_salary_payments" as any)
-        .upsert(upsertData, { onConflict: "user_id,month" });
+        .insert(insertData);
 
       if (error) throw error;
 
@@ -617,7 +630,7 @@ const Analytics = () => {
       
       // Update local state
       const newPayments = { ...salaryPayments };
-      upsertData.forEach(item => {
+      insertData.forEach(item => {
         newPayments[item.user_id] = {
           paid_amount: item.paid_amount,
           paid_at: item.paid_at,
@@ -2079,8 +2092,8 @@ const Analytics = () => {
                             daysInMonth = 30;
                           }
                           
-                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05 + 70) * (1 + Extra/Lost Days / days in month)
-                          const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
+                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * (1 + Extra/Lost Days / days in month)
+                          const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
                           const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
                           
                           // Calculate adjustment from previous month (paid - calculated = difference)
@@ -2248,7 +2261,7 @@ const Analytics = () => {
                             if (isNaN(daysInMonth) || daysInMonth <= 0) {
                               daysInMonth = 30;
                             }
-                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05 + 70;
+                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
                             const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
                             
                             // Calculate adjustment from previous month
