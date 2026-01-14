@@ -244,20 +244,14 @@ export const useFleetManagement = () => {
       const dispatcherFleet = dispatchers.find(d => d.dispatcher.id === dispatcherId);
       if (!dispatcherFleet) throw new Error('Dispatcher not found');
 
-      // Store complete driver data for placeholders including cover dispatcher info
-      const inactiveDriversData = dispatcherFleet.drivers.map(driver => {
-        const coverDispatcherId = driverAssignments[driver.id];
-        const coverDispatcher = allDispatchers.find(d => d.id === coverDispatcherId);
-        return {
-          id: driver.id,
-          name: driver.name,
-          phone: driver.phone,
-          email: driver.email,
-          truck: driver.truck,
-          coverDispatcherId: coverDispatcherId,
-          coverDispatcherName: coverDispatcher?.full_name || coverDispatcher?.email || null
-        };
-      });
+      // Store complete driver data for placeholders (keeping inactive_trucks column name for backwards compat)
+      const inactiveDriversData = dispatcherFleet.drivers.map(driver => ({
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        email: driver.email,
+        truck: driver.truck
+      }));
       
       // Store original driver assignments before going off duty
       const now = new Date();

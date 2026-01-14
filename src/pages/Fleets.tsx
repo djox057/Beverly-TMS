@@ -554,6 +554,16 @@ const Fleets = () => {
                           <div className="grid gap-2">
                             {paginatedDrivers.length > 0 ? (
                               (() => {
+                                // Helper to find which active dispatcher a driver is currently assigned to
+                                const findCurrentDispatcher = (driverId: string) => {
+                                  for (const fleet of dispatchers) {
+                                    if (fleet.isActive && fleet.drivers.some(d => d.id === driverId)) {
+                                      return fleet.dispatcher.full_name || fleet.dispatcher.email;
+                                    }
+                                  }
+                                  return null;
+                                };
+
                                 // Group drivers by truck number
                                 const groupedByTruck = new Map<string, any[]>();
                                 const noTruckDrivers: any[] = [];
@@ -576,6 +586,7 @@ const Fleets = () => {
                                 groupedByTruck.forEach((drivers, truckNum) => {
                                   const isTeam = drivers.length > 1;
                                   const firstDriver = drivers[0];
+                                  const currentDispatcherName = findCurrentDispatcher(firstDriver.id);
 
                                   renderedItems.push(
                                     <div
@@ -618,7 +629,9 @@ const Fleets = () => {
                                               Truck {truckNum}
                                             </span>
                                           </div>
-                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned to {firstDriver.coverDispatcherName || 'another dispatcher'}</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                            Temporarily reassigned to {currentDispatcherName || 'another dispatcher'}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>,
@@ -627,6 +640,7 @@ const Fleets = () => {
 
                                 // Add drivers without trucks
                                 noTruckDrivers.forEach((driver) => {
+                                  const currentDispatcherName = findCurrentDispatcher(driver.id);
                                   renderedItems.push(
                                     <div
                                       key={driver.id}
@@ -636,7 +650,9 @@ const Fleets = () => {
                                         <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                         <div>
                                           <div className="text-sm sm:text-base font-medium">{driver.name}</div>
-                                          <div className="text-[10px] sm:text-xs text-muted-foreground">Temporarily reassigned to {driver.coverDispatcherName || 'another dispatcher'}</div>
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                            Temporarily reassigned to {currentDispatcherName || 'another dispatcher'}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>,
