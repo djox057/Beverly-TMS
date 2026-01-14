@@ -1005,7 +1005,7 @@ const Trips = () => {
       const { data: driver, error: driverError } = await supabase
         .from("drivers")
         .select(
-          "name, company_id, company_name, agreement_start_date, weekly_payment, weeks_count, companies!drivers_company_id_fkey(name)",
+          "name, company_id, company_name, agreement_start_date, weekly_payment, weeks_count, is_company_driver, cents_per_mile, companies!drivers_company_id_fkey(name)",
         )
         .eq("id", firstOrder.driver1Id)
         .single();
@@ -1016,8 +1016,10 @@ const Trips = () => {
 
       const companyName = driver?.companies?.name || "";
 
-      // Use template based on company name
-      if (companyName === "BF Prime United LLC") {
+      // Check if driver is a company driver - use company driver template regardless of company
+      if (driver?.is_company_driver) {
+        await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+      } else if (companyName === "BF Prime United LLC") {
         await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else if (
         companyName === "BF Prime Drivers LLC" ||
@@ -1041,6 +1043,318 @@ const Trips = () => {
     }
   };
 
+
+  // Company Driver Template Export
+  const exportCompanyDriverTemplate = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
+    try {
+      // Load the Company Driver template
+      const response = await fetch(new URL("../assets/templates/Company_Driver.xlsx", import.meta.url).toString());
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+
+      if (!worksheet) {
+        throw new Error("Template worksheet not found");
+      }
+
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
+      // Fetch and update invoice number from database
+      const { data: configData, error: configError } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "company_driver")
+        .single();
+
+      let invoiceNumber = 23108; // Default starting number from template
+
+      if (!configError && configData) {
+        // Calculate the Monday of the week for weekStartDate
+        const currentMonday = startOfWeek(weekStartDate, { weekStartsOn: 1 });
+        const lastMonday = new Date(configData.last_monday);
+
+        invoiceNumber = configData.current_number;
+
+        // If it's a new week (different Monday), increment the invoice number
+        if (currentMonday.getTime() !== lastMonday.getTime()) {
+          invoiceNumber = configData.current_number + 1;
+
+          // Update the database with new invoice number and Monday date
+          await supabase
+            .from("invoice_number_config")
+            .update({
+              current_number: invoiceNumber,
+              last_monday: format(currentMonday, "yyyy-MM-dd"),
+            })
+            .eq("statement_type", "company_driver");
+        }
+      }
+
+      // Find Thursday 2 weeks in the future
+      // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
+      const thursdayDate = addDays(weekStartDate, 16);
+
+      // F3: Statement number
+      const f3Cell = worksheet.getCell("F3");
+      f3Cell.value = invoiceNumber;
+
+      // F4: Date (Thursday)
+      const f4Cell = worksheet.getCell("F4");
+      f4Cell.value = format(thursdayDate, "M/d/yy");
+
+      // F5: Unit# (Truck number)
+      const f5Cell = worksheet.getCell("F5");
+      f5Cell.value = firstOrder.truckNumber || "";
+
+      // F7: Company (Driver's company_name from drivers table, NOT the company they're assigned to)
+      const f7Cell = worksheet.getCell("F7");
+      f7Cell.value = driver?.company_name || "";
+
+      // J3: cents_per_mile as dollars (e.g., 0.60 for 60 cents)
+      const j3Cell = worksheet.getCell("J3");
+      const centsPerMile = driver?.cents_per_mile || 0;
+      j3Cell.value = `$${(centsPerMile / 100).toFixed(2)}/mile`;
+
+      // J7: Driver name
+      const j7Cell = worksheet.getCell("J7");
+      j7Cell.value = driver?.name || "";
+
+      // B12: Date range of that week
+      const b12Cell = worksheet.getCell("B12");
+      b12Cell.value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+
+      // Clear the trip rows (rows 14-19) by directly setting values to null
+      for (let row = 14; row <= 19; row++) {
+        worksheet.getCell(`A${row}`).value = null;
+        worksheet.getCell(`B${row}`).value = null;
+        worksheet.getCell(`C${row}`).value = null;
+        worksheet.getCell(`D${row}`).value = null;
+        worksheet.getCell(`E${row}`).value = null;
+        worksheet.getCell(`F${row}`).value = null;
+        worksheet.getCell(`G${row}`).value = null;
+        worksheet.getCell(`H${row}`).value = null;
+        worksheet.getCell(`I${row}`).value = null;
+        worksheet.getCell(`J${row}`).value = null;
+      }
+
+      // Trips Rows 14-19
+      let currentRow = 14;
+      sortedOrders.forEach((order: any) => {
+        if (currentRow > 19) return;
+
+        // A: Internal load number
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+
+        // B: Pickup date
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
+
+        // C: Pickup city
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+
+        // D: Pickup state
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
+
+        // E: Delivery date
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
+
+        // F: Delivery city
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+
+        // G: Delivery state
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
+
+        // J: Total miles (mileage)
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = parseFloat(String(order.mileage)) || 0;
+
+        currentRow++;
+      });
+
+      // Collect positive additionals (Credits) from all orders for rows 27-31
+      const credits: Array<{
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      sortedOrders.forEach((order: any) => {
+        const detention = Number(order.detentionDriver) || 0;
+        if (detention > 0) {
+          credits.push({
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: detention
+          });
+        }
+        const layover = Number(order.layoverDriver) || 0;
+        if (layover > 0) {
+          credits.push({
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: layover
+          });
+        }
+        const tonu = Number(order.tonuDriver) || 0;
+        if (tonu > 0) {
+          credits.push({
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: tonu
+          });
+        }
+        const extraStop = Number(order.extraStopDriver) || 0;
+        if (extraStop > 0) {
+          credits.push({
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: extraStop
+          });
+        }
+        const lumper = Number(order.lumperDriver) || 0;
+        if (lumper > 0) {
+          credits.push({
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: lumper
+          });
+        }
+        const otherCharges = Number(order.otherChargesDriver) || 0;
+        if (otherCharges > 0) {
+          credits.push({
+            type: "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
+          });
+        }
+        const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
+        if (otherAdditionals > 0) {
+          credits.push({
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals
+          });
+        }
+      });
+
+      // Write credits section (rows 27-31)
+      let creditsRow = 27;
+      credits.forEach((credit) => {
+        if (creditsRow > 31) return;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Collect negative additionals for deductions (rows 37-40)
+      const negativeAdditionals: Array<{
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      sortedOrders.forEach((order: any) => {
+        const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
+        if (lateFee > 0) {
+          negativeAdditionals.push({
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: lateFee
+          });
+        }
+        const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
+        if (noTrackingFee > 0) {
+          negativeAdditionals.push({
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: noTrackingFee
+          });
+        }
+        const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
+        if (wrongAddressFee > 0) {
+          negativeAdditionals.push({
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: wrongAddressFee
+          });
+        }
+      });
+
+      // Write deductions section (rows 37-40)
+      const endDateFormatted = format(weekEndDate, "M/d/yy");
+      let deductionsRow = 37;
+      negativeAdditionals.forEach((neg) => {
+        if (deductionsRow > 40) return;
+        worksheet.getCell(`C${deductionsRow}`).value = neg.type;
+        worksheet.getCell(`I${deductionsRow}`).value = endDateFormatted;
+        const amtCell = worksheet.getCell(`J${deductionsRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        deductionsRow++;
+      });
+
+      // Fetch and write EFS deductions (cash advances and other requests) after negative additionals
+      const efsDeductions = await fetchEfsDeductionsForStatement(
+        firstOrder.driver1Id || "",
+        weekStartDate,
+        weekEndDate
+      );
+      efsDeductions.forEach((efs) => {
+        if (deductionsRow > 40) return;
+        worksheet.getCell(`C${deductionsRow}`).value = efs.description;
+        worksheet.getCell(`I${deductionsRow}`).value = efs.date;
+        const amtCell = worksheet.getCell(`J${deductionsRow}`);
+        amtCell.value = efs.amount;
+        amtCell.numFmt = "$#,##0.00";
+        deductionsRow++;
+      });
+
+      // Fetch and write fuel transactions (rows 45-54 based on template structure)
+      const fuelTransactions = await fetchFuelTransactionsForStatement(
+        firstOrder.truckNumber || "",
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate
+      );
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 45, 54);
+
+      // Generate filename
+      const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
+      const weekStart = format(weekStartDate, "MM-dd-yyyy");
+      const weekEnd = format(weekEndDate, "MM-dd-yyyy");
+      const filename = `${driverName}_Company_Driver_Statement_${weekStart}_to_${weekEnd}.xlsx`;
+
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 60, 12);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Company driver statement exported successfully");
+    } catch (error) {
+      console.error("Error exporting Company Driver template:", error);
+      toast.error("Failed to export company driver statement");
+    }
+  };
 
   const exportBFPrimeDriversTemplate = async (
     week: any,
