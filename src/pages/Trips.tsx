@@ -2985,7 +2985,7 @@ const Trips = () => {
         "Broker Name": order.brokerName || "",
         "Broker Load #": order.brokerLoadNumber || "",
         Invoiced: order.invoiced || "",
-        "Freight Amount": order.totalFreightAmount || 0,
+        "Freight Amount": order.totalFreightAmountNoLumper || 0,
       }));
 
       // Calculate totals
@@ -3004,7 +3004,7 @@ const Trips = () => {
         "Broker Name": "",
         "Broker Load #": "",
         Invoiced: "",
-        "Freight Amount": week.orders.reduce((acc: number, o: any) => acc + (o.totalFreightAmount || 0), 0),
+        "Freight Amount": week.orders.reduce((acc: number, o: any) => acc + (o.totalFreightAmountNoLumper || 0), 0),
       };
 
       // Add totals row
@@ -3635,7 +3635,7 @@ const Trips = () => {
                       (acc, order) => ({
                         miles: acc.miles + (Number(order.mileage) || 0),
                         driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
-                        freightAmount: acc.freightAmount + (Number(order.totalFreightAmount) || 0),
+                        freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
                       }),
                       { miles: 0, driverPay: 0, freightAmount: 0 },
                     );
@@ -3744,7 +3744,7 @@ const Trips = () => {
                           // Background color rules - Based on total freight vs freight amount
                           const isRecovery = order.isRecovery;
                           const freightAmount = Number(order.freightAmount) || 0;
-                          const totalFreight = Number(order.totalFreightAmount) || 0;
+                          const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
                           const hasAdditionalPay = totalFreight > freightAmount;
                           const hasReducedPay = totalFreight < freightAmount;
 
@@ -3892,7 +3892,7 @@ const Trips = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
-                                  {formatCurrency(order.totalFreightAmount)}
+                                  {formatCurrency(order.totalFreightAmountNoLumper)}
                                 </div>
                               </TableCell>
                               <TableCell>

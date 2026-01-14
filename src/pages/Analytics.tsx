@@ -905,7 +905,7 @@ const Analytics = () => {
           orderCount: 0,
         };
       }
-      acc[dispatcher].totalFreight += Number(order.totalFreightAmount) || 0;
+      acc[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
       acc[dispatcher].totalDriverRate += getEffectiveDriverPay(order);
       acc[dispatcher].totalMiles += Number(order.mileage) || 0;
       acc[dispatcher].orderCount += 1;
@@ -1288,7 +1288,7 @@ const Analytics = () => {
     const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
     if (!isThisWeek) return false;
     
-    const freightAmount = Number(order.totalFreightAmount) || 0;
+    const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
     const driverPay = getEffectiveDriverPay(order);
     if (freightAmount <= 0) return false;
     const cutPercent = ((freightAmount - driverPay) / freightAmount) * 100;
@@ -1912,7 +1912,7 @@ const Analytics = () => {
                         </TableRow>
                       ) : (
                         highCutLoads.map((order) => {
-                          const freightAmount = Number(order.totalFreightAmount) || 0;
+                          const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
                           const driverPay = Number(order.totalDriverPay) || 0;
                           const cut = freightAmount - driverPay;
                           const cutPercent = freightAmount > 0 ? (cut / freightAmount) * 100 : 0;
