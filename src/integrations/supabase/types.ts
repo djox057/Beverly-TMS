@@ -569,6 +569,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_monthly_bonuses: {
+        Row: {
+          bonus_amount: number
+          bonus_rank: number
+          created_at: string
+          created_by: string | null
+          dispatcher_id: string
+          id: string
+          month: string
+          updated_at: string
+        }
+        Insert: {
+          bonus_amount: number
+          bonus_rank: number
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id: string
+          id?: string
+          month: string
+          updated_at?: string
+        }
+        Update: {
+          bonus_amount?: number
+          bonus_rank?: number
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id?: string
+          id?: string
+          month?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dispatcher_notes: {
         Row: {
           color: string

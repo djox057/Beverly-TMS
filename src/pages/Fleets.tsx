@@ -32,6 +32,13 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Truck,
   Plus,
   Minus,
@@ -42,6 +49,7 @@ import {
   Info,
   ArrowRightLeft,
   CalendarDays,
+  Award,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +58,22 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
+import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { supabase } from "@/integrations/supabase/client";
+
+// Generate month options for the last 12 months
+const generateMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    options.push({ value, label });
+  }
+  return options;
+};
+
 const Fleets = () => {
   const { hasRole } = useAuthContext();
   const {
@@ -84,6 +107,12 @@ const Fleets = () => {
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
   const [dayOffToggle, setDayOffToggle] = useState(false);
+  const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
+  const [bonusMonth, setBonusMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const monthOptions = generateMonthOptions();
 
   const itemsPerPage = 12;
 
@@ -350,24 +379,44 @@ const Fleets = () => {
               </Dialog>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search drivers..."
-                className="pl-10 text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1 sm:max-w-2xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search drivers..."
+                  className="pl-10 text-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Filter dispatchers..."
+                  className="pl-10 text-sm"
+                  value={dispatcherFilter}
+                  onChange={(e) => setDispatcherFilter(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Filter dispatchers..."
-                className="pl-10 text-sm"
-                value={dispatcherFilter}
-                onChange={(e) => setDispatcherFilter(e.target.value)}
-              />
+            <div className="flex gap-2 items-center">
+              <Select value={bonusMonth} onValueChange={setBonusMonth}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setIsBonusesDialogOpen(true)}>
+                <Award className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Bonuses</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -1230,6 +1279,17 @@ const Fleets = () => {
       </AlertDialog>
 
       <AfterhoursScheduleDialog open={isAfterhoursScheduleOpen} onOpenChange={setIsAfterhoursScheduleOpen} />
+      
+      <DispatcherBonusesDialog 
+        open={isBonusesDialogOpen} 
+        onOpenChange={setIsBonusesDialogOpen}
+        dispatchers={allDispatchers.filter((d: any) => d.roles?.includes("dispatch")).map((d: any) => ({
+          id: d.id,
+          full_name: d.full_name,
+          email: d.email,
+        }))}
+        selectedMonth={bonusMonth}
+      />
     </DragDropContext>
   );
 };
