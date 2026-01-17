@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOrders } from "@/hooks/useOrders";
@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
+import { downloadPayrollDoc } from "@/utils/payrollDocGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -128,7 +129,9 @@ const Analytics = () => {
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
+  const [extraDayDatesByUser, setExtraDayDatesByUser] = useState<Record<string, string[]>>({});
   const [lostDaysByUser, setLostDaysByUser] = useState<Record<string, number>>({});
+  const [lostDayDatesByUser, setLostDayDatesByUser] = useState<Record<string, string[]>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
   
   // Salary selection and payment states
@@ -389,6 +392,7 @@ const Analytics = () => {
         
         // Count only weekend (Sat/Sun) non-holiday days per user, then subtract 1 (same logic as Fleets weekend schedule)
         const countsMap: Record<string, number> = {};
+        const datesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
@@ -403,12 +407,28 @@ const Analytics = () => {
             }
             if (!countsMap[record.user_id]) {
               countsMap[record.user_id] = 0;
+              datesMap[record.user_id] = [];
             }
             countsMap[record.user_id] += 1;
+            // Format date as M/DD (e.g., 12/16)
+            const month = scheduleDate.getMonth() + 1;
+            const day = scheduleDate.getDate();
+            datesMap[record.user_id].push(`${month}/${day}`);
           });
         }
         
+        // Sort dates for each user
+        Object.keys(datesMap).forEach(userId => {
+          datesMap[userId].sort((a, b) => {
+            const [aMonth, aDay] = a.split('/').map(Number);
+            const [bMonth, bDay] = b.split('/').map(Number);
+            if (aMonth !== bMonth) return aMonth - bMonth;
+            return aDay - bDay;
+          });
+        });
+        
         setExtraDaysByUser(countsMap);
+        setExtraDayDatesByUser(datesMap);
       } catch (error) {
         console.error("Error in fetchExtraDays:", error);
       }
@@ -464,18 +484,36 @@ const Analytics = () => {
           return;
         }
         
-        // Count lost days per dispatcher
+        // Count lost days per dispatcher and collect dates
         const countsMap: Record<string, number> = {};
+        const datesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             if (!countsMap[record.dispatcher_id]) {
               countsMap[record.dispatcher_id] = 0;
+              datesMap[record.dispatcher_id] = [];
             }
             countsMap[record.dispatcher_id] += 1;
+            // Format date as M/DD (e.g., 12/16)
+            const dateObj = new Date(record.off_duty_date + "T12:00:00");
+            const month = dateObj.getMonth() + 1;
+            const day = dateObj.getDate();
+            datesMap[record.dispatcher_id].push(`${month}/${day}`);
           });
         }
         
+        // Sort dates for each user
+        Object.keys(datesMap).forEach(userId => {
+          datesMap[userId].sort((a, b) => {
+            const [aMonth, aDay] = a.split('/').map(Number);
+            const [bMonth, bDay] = b.split('/').map(Number);
+            if (aMonth !== bMonth) return aMonth - bMonth;
+            return aDay - bDay;
+          });
+        });
+        
         setLostDaysByUser(countsMap);
+        setLostDayDatesByUser(datesMap);
       } catch (error) {
         console.error("Error in fetchLostDays:", error);
       }
@@ -2143,7 +2181,61 @@ const Analytics = () => {
                                   />
                                 ) : null}
                               </TableCell>
-                              <TableCell className="font-medium">{stat.name}</TableCell>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  {stat.name}
+                                  {selectedMonth && selectedMonth !== "all" && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              // Calculate extra days amount: (baseRate * extraDays / daysInMonth)
+                                              const extraDaysAmount = extraDays !== lostDays 
+                                                ? baseRate * (extraDays - lostDays) / daysInMonth
+                                                : 0;
+                                              
+                                              // Get pay period label from selectedMonth
+                                              const monthParts = selectedMonth.split("-");
+                                              const year = parseInt(monthParts[0], 10);
+                                              const monthNum = parseInt(monthParts[1], 10) - 1;
+                                              const monthDate = new Date(year, monthNum, 1);
+                                              const payPeriod = format(monthDate, "MMMM, yyyy");
+                                              
+                                              // Get dates for extra/lost days
+                                              const extraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
+                                              const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
+                                              
+                                              downloadPayrollDoc({
+                                                employeeName: stat.name,
+                                                payPeriod,
+                                                salary1Percent: stat.totalFreight * 0.01,
+                                                bonus5Percent: stat.cut * 0.05,
+                                                foodAllowance: 0,
+                                                extraDays,
+                                                lostDays,
+                                                extraDayDates,
+                                                lostDayDates,
+                                                extraDaysAmount: Math.max(0, extraDaysAmount),
+                                              }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
+                                              toast.success(`Payroll document generated for ${stat.name}`);
+                                            }}
+                                          >
+                                            <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Download payroll statement</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-right">
                                 $
                                 {stat.totalFreight.toLocaleString(undefined, {
