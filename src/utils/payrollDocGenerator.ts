@@ -99,8 +99,8 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
         }),
       ],
     }),
-    // Salary 1% row (changed to Bonus 1%)
-    createTableRow("Bonus 1%", `$${data.salary1Percent.toFixed(2)}`),
+    // Salary 1% row
+    createTableRow("Salary 1%", `$${data.salary1Percent.toFixed(2)}`),
     // Bonus 5% row
     createTableRow("Bonus 5%", `$${data.bonus5Percent.toFixed(2)}`),
     // Food allowance row
