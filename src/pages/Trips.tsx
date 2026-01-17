@@ -4383,7 +4383,7 @@ const Trips = () => {
                                     <Popover>
                                       <PopoverTrigger asChild>
                                         <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                                          <AlertCircle className="h-5 w-5 text-red-500" />
+                                          <AlertCircle className="h-5 w-5 text-red-600 fill-red-100" strokeWidth={2.5} />
                                         </Button>
                                       </PopoverTrigger>
                                       <PopoverContent className="w-auto p-3 max-w-xs" align="start">
