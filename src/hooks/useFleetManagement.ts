@@ -238,7 +238,7 @@ export const useFleetManagement = () => {
     }
   };
 
-  const setDispatcherOffDuty = async (dispatcherId: string, driverAssignments: Record<string, string>) => {
+  const setDispatcherOffDuty = async (dispatcherId: string, driverAssignments: Record<string, string>, recordDayOff: boolean = false) => {
     try {
       // Get the dispatcher's drivers with their full data for placeholders
       const dispatcherFleet = dispatchers.find(d => d.dispatcher.id === dispatcherId);
@@ -271,8 +271,22 @@ export const useFleetManagement = () => {
 
       if (statusError) throw statusError;
 
-      // Note: Lost days are recorded by scheduled edge function at 10am Chicago time
-      // This ensures only dispatchers still off-duty at 10am get a lost day recorded
+      // Record a lost day if the "Day off" toggle was checked
+      if (recordDayOff) {
+        const { error: lostDayError } = await supabase
+          .from('dispatcher_off_duty_days')
+          .upsert({
+            dispatcher_id: dispatcherId,
+            off_duty_date: todayDate,
+          }, {
+            onConflict: 'dispatcher_id,off_duty_date'
+          });
+
+        if (lostDayError) {
+          console.error('Error recording lost day:', lostDayError);
+          // Don't throw, just log - the main operation succeeded
+        }
+      }
 
       // Assign each driver to its cover dispatcher
       for (const [driverId, coverId] of Object.entries(driverAssignments)) {
@@ -284,9 +298,10 @@ export const useFleetManagement = () => {
         if (assignError) throw assignError;
       }
 
+      const dayOffMessage = recordDayOff ? ' Lost day recorded.' : '';
       toast({
         title: "Success",
-        description: `Dispatcher set to Off Duty. ${Object.keys(driverAssignments).length} drivers reassigned to cover dispatchers.`,
+        description: `Dispatcher set to Off Duty. ${Object.keys(driverAssignments).length} drivers reassigned to cover dispatchers.${dayOffMessage}`,
       });
 
       fetchFleetData();

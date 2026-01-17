@@ -83,6 +83,7 @@ const Fleets = () => {
   } | null>(null);
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
+  const [dayOffToggle, setDayOffToggle] = useState(false);
 
   const itemsPerPage = 12;
 
@@ -199,9 +200,10 @@ const Fleets = () => {
       return; // Don't proceed if not all drivers have cover
     }
 
-    await setDispatcherOffDuty(dispatcherToToggle.id, driverCoverAssignments);
+    await setDispatcherOffDuty(dispatcherToToggle.id, driverCoverAssignments, dayOffToggle);
     setDispatcherToToggle(null);
     setDriverCoverAssignments({});
+    setDayOffToggle(false);
   };
 
   if (loading) {
@@ -1154,12 +1156,23 @@ const Fleets = () => {
           if (!open) {
             setDispatcherToToggle(null);
             setDriverCoverAssignments({});
+            setDayOffToggle(false);
           }
         }}
       >
         <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
+            <div className="flex items-center justify-between">
+              <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="day-off-toggle" className="text-sm font-normal">Day off</Label>
+                <Switch
+                  id="day-off-toggle"
+                  checked={dayOffToggle}
+                  onCheckedChange={setDayOffToggle}
+                />
+              </div>
+            </div>
             <AlertDialogDescription>
               <div className="space-y-4">
                 <p>Assign a cover dispatcher for each driver currently assigned to {dispatcherToToggle?.name}.</p>
