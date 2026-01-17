@@ -29,9 +29,8 @@ interface PayrollData {
 }
 
 const BLACK_COLOR = "000000";
-const BLUE_COLOR = "0000FF";
+const LINE_COLOR = "2596BE"; // #2596be for horizontal lines
 const RED_COLOR = "FF0000";
-const GREEN_COLOR = "008000";
 const LIGHT_BLUE_BG = "DCE6F1";
 const GRAY_HEADER_BG = "C0C0C0";
 
@@ -40,12 +39,13 @@ const HEADER_SIZE = 32; // Beverly Group LLC
 const TITLE_SIZE = 36; // PAYROLL STATEMENT
 const BODY_SIZE = 26; // Employee info text (increased by ~4px)
 const TABLE_SIZE = 28; // Table text (30% bigger)
+const TABLE_ROW_HEIGHT = 480; // 20% taller rows (in twips, ~0.33 inches)
 
 const createHorizontalLine = () => {
   return new Paragraph({
     border: {
       bottom: {
-        color: BLUE_COLOR,
+        color: LINE_COLOR,
         size: 12,
         style: BorderStyle.SINGLE,
         space: 1,
@@ -70,9 +70,10 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   // Build table rows
   const tableRows: TableRow[] = [];
 
-  // Header row - gray background, underlined text (not bold)
+  // Header row - gray background, underlined text (not bold), taller height
   tableRows.push(
     new TableRow({
+      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
           width: { size: 50, type: WidthType.PERCENTAGE },
@@ -112,9 +113,10 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Salary 1% row - white description, light blue amount
+  // Salary 1% row - white description, light blue amount, taller height
   tableRows.push(
     new TableRow({
+      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
@@ -140,9 +142,10 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Bonus 5% row - white description, light blue amount
+  // Bonus 5% row - white description, light blue amount, taller height
   tableRows.push(
     new TableRow({
+      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
@@ -168,9 +171,10 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Food allowance row - white description, light blue amount
+  // Food allowance row - white description, light blue amount, taller height
   tableRows.push(
     new TableRow({
+      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
@@ -196,10 +200,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Extra days row (only if has extra days) - white description, light blue amount
+  // Extra days row (only if has extra days) - white description, light blue amount, taller height
+  // Only show 2nd+ dates (extraDayDates already excludes the first regular day)
   if (hasExtraDays) {
     tableRows.push(
       new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
         children: [
           new TableCell({
             shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
@@ -226,9 +232,10 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     );
   }
 
-  // Check amount row
+  // Check amount row - RED amount, taller height
   tableRows.push(
     new TableRow({
+      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
           borders: {
@@ -265,7 +272,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               children: [
                 new TextRun({
                   text: `$${checkAmount.toFixed(2)}`,
-                  color: GREEN_COLOR,
+                  color: RED_COLOR,
                   bold: true,
                   size: TABLE_SIZE,
                 }),
@@ -316,11 +323,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             ],
             spacing: { after: 400 },
           }),
-          // Blue horizontal line
-          createHorizontalLine(),
-          // Empty line
-          new Paragraph({ spacing: { after: 200 } }),
-          // Blue horizontal line
+          // Blue horizontal line (only 1 line, removed 2nd)
           createHorizontalLine(),
           // Employee name - bold, not italic
           new Paragraph({
