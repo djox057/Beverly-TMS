@@ -2200,9 +2200,10 @@ const Analytics = () => {
                                             className="h-6 w-6 p-0"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              // Calculate extra days amount: (baseRate * extraDays / daysInMonth)
-                                              const extraDaysAmount = extraDays !== lostDays 
-                                                ? baseRate * (extraDays - lostDays) / daysInMonth
+                                              // Calculate extra days amount: (Total Freight * 0.01 + Total Comm. * 0.05) / Days in month per extra day
+                                              const netExtraDays = extraDays - lostDays;
+                                              const extraDaysAmount = netExtraDays > 0 
+                                                ? ((stat.totalFreight * 0.01 + stat.cut * 0.05) / daysInMonth) * netExtraDays
                                                 : 0;
                                               
                                               // Get pay period label from selectedMonth
@@ -2212,8 +2213,9 @@ const Analytics = () => {
                                               const monthDate = new Date(year, monthNum, 1);
                                               const payPeriod = format(monthDate, "MMMM, yyyy");
                                               
-                                              // Get dates for extra/lost days
-                                              const extraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
+                                              // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
+                                              const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
+                                              const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
                                               const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
                                               
                                               downloadPayrollDoc({
