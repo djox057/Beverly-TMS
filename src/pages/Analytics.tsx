@@ -387,10 +387,16 @@ const Analytics = () => {
           return;
         }
         
-        // Count non-holiday days per user, then subtract 1 (same logic as weekend schedule)
+        // Count only weekend (Sat/Sun) non-holiday days per user, then subtract 1 (same logic as Fleets weekend schedule)
         const countsMap: Record<string, number> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
+            const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
+            const dayOfWeek = scheduleDate.getDay();
+            // Only count weekend days (Saturday=6, Sunday=0)
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              return;
+            }
             // Exclude holidays from count (same as weekend schedule)
             if (isHolidayDate(record.scheduled_date, targetYear!)) {
               return;
