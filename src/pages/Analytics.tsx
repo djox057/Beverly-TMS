@@ -390,8 +390,8 @@ const Analytics = () => {
           return;
         }
         
-        // Count only weekend (Sat/Sun) non-holiday days per user, then subtract 1 (same logic as Fleets weekend schedule)
-        const countsMap: Record<string, number> = {};
+        // Count only weekend (Sat/Sun) non-holiday days per user
+        const rawCountsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
@@ -405,11 +405,11 @@ const Analytics = () => {
             if (isHolidayDate(record.scheduled_date, targetYear!)) {
               return;
             }
-            if (!countsMap[record.user_id]) {
-              countsMap[record.user_id] = 0;
+            if (!rawCountsMap[record.user_id]) {
+              rawCountsMap[record.user_id] = 0;
               datesMap[record.user_id] = [];
             }
-            countsMap[record.user_id] += 1;
+            rawCountsMap[record.user_id] += 1;
             // Format date as M/DD (e.g., 12/16)
             const month = scheduleDate.getMonth() + 1;
             const day = scheduleDate.getDate();
@@ -425,6 +425,12 @@ const Analytics = () => {
             if (aMonth !== bMonth) return aMonth - bMonth;
             return aDay - bDay;
           });
+        });
+        
+        // Subtract 1 from each count (first weekend day is regular, 2+ days = extra)
+        const countsMap: Record<string, number> = {};
+        Object.keys(rawCountsMap).forEach(userId => {
+          countsMap[userId] = Math.max(0, rawCountsMap[userId] - 1);
         });
         
         setExtraDaysByUser(countsMap);
