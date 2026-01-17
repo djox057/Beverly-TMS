@@ -63,7 +63,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   // Build table rows
   const tableRows: TableRow[] = [];
 
-  // Header row
+  // Header row - gray background, underlined text (not bold)
   tableRows.push(
     new TableRow({
       children: [
@@ -76,7 +76,6 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               children: [
                 new TextRun({
                   text: "Description",
-                  bold: true,
                   underline: {},
                 }),
               ],
@@ -93,7 +92,6 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               children: [
                 new TextRun({
                   text: "Amount",
-                  bold: true,
                   underline: {},
                 }),
               ],
@@ -105,11 +103,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Salary 1% row
+  // Salary 1% row - white description, light blue amount
   tableRows.push(
     new TableRow({
       children: [
         new TableCell({
+          shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
@@ -132,11 +131,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Bonus 5% row
+  // Bonus 5% row - white description, light blue amount
   tableRows.push(
     new TableRow({
       children: [
         new TableCell({
+          shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
@@ -159,11 +159,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Food allowance row
+  // Food allowance row - white description, light blue amount
   tableRows.push(
     new TableRow({
       children: [
         new TableCell({
+          shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
@@ -186,12 +187,13 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Extra days row (only if has extra days)
+  // Extra days row (only if has extra days) - white description, light blue amount
   if (hasExtraDays) {
     tableRows.push(
       new TableRow({
         children: [
           new TableCell({
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
@@ -291,7 +293,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               }),
             ],
           }),
-          // PAYROLL STATEMENT
+          // PAYROLL STATEMENT - no underline
           new Paragraph({
             children: [
               new TextRun({
@@ -299,7 +301,6 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
                 bold: true,
                 color: BLUE_COLOR,
                 size: 32,
-                underline: {},
               }),
             ],
             spacing: { after: 400 },
@@ -310,14 +311,16 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           new Paragraph({ spacing: { after: 200 } }),
           // Blue horizontal line
           createHorizontalLine(),
-          // Employee name
+          // Employee name - only "Employee" is underlined/italic
           new Paragraph({
             children: [
               new TextRun({
-                text: "Employee name:",
-                bold: true,
+                text: "Employee",
                 italics: true,
                 underline: {},
+              }),
+              new TextRun({
+                text: " name:",
               }),
               new TextRun({
                 text: `  ${data.employeeName}`,
@@ -325,12 +328,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             ],
             spacing: { after: 100 },
           }),
-          // Department
+          // Department - regular text, not bold
           new Paragraph({
             children: [
               new TextRun({
                 text: "Department:",
-                bold: true,
+                italics: true,
               }),
               new TextRun({
                 text: " Dispatch",
@@ -338,12 +341,12 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             ],
             spacing: { after: 100 },
           }),
-          // Pay period
+          // Pay period - regular text, not bold
           new Paragraph({
             children: [
               new TextRun({
                 text: "Pay period:",
-                bold: true,
+                italics: true,
               }),
               new TextRun({
                 text: ` ${data.payPeriod}`,
