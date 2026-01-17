@@ -28,11 +28,18 @@ interface PayrollData {
   extraDaysAmount: number; // Additional amount earned from extra days
 }
 
+const BLACK_COLOR = "000000";
 const BLUE_COLOR = "0000FF";
 const RED_COLOR = "FF0000";
 const GREEN_COLOR = "008000";
 const LIGHT_BLUE_BG = "DCE6F1";
 const GRAY_HEADER_BG = "C0C0C0";
+
+// Text sizes (in half-points, so 24 = 12pt, 28 = 14pt, etc.)
+const HEADER_SIZE = 32; // Beverly Group LLC
+const TITLE_SIZE = 36; // PAYROLL STATEMENT
+const BODY_SIZE = 26; // Employee info text (increased by ~4px)
+const TABLE_SIZE = 28; // Table text (30% bigger)
 
 const createHorizontalLine = () => {
   return new Paragraph({
@@ -77,6 +84,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
                 new TextRun({
                   text: "Description",
                   underline: {},
+                  size: TABLE_SIZE,
                 }),
               ],
             }),
@@ -93,6 +101,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
                 new TextRun({
                   text: "Amount",
                   underline: {},
+                  size: TABLE_SIZE,
                 }),
               ],
             }),
@@ -112,7 +121,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Salary 1%" })],
+              children: [new TextRun({ text: "Salary 1%", size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -122,7 +131,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: `$${data.salary1Percent.toFixed(2)}` })],
+              children: [new TextRun({ text: `$${data.salary1Percent.toFixed(2)}`, size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -140,7 +149,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Bonus 5%" })],
+              children: [new TextRun({ text: "Bonus 5%", size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -150,7 +159,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: `$${data.bonus5Percent.toFixed(2)}` })],
+              children: [new TextRun({ text: `$${data.bonus5Percent.toFixed(2)}`, size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -168,7 +177,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Food allowance" })],
+              children: [new TextRun({ text: "Food allowance", size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -178,7 +187,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: `$${data.foodAllowance.toFixed(2)}` })],
+              children: [new TextRun({ text: `$${data.foodAllowance.toFixed(2)}`, size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -197,7 +206,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `Worked additional days (${extraDatesText})` })],
+                children: [new TextRun({ text: `Worked additional days (${extraDatesText})`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
@@ -207,7 +216,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `$${data.extraDaysAmount.toFixed(2)}` })],
+                children: [new TextRun({ text: `$${data.extraDaysAmount.toFixed(2)}`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
@@ -236,6 +245,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
                   text: "Check amount:",
                   bold: true,
                   underline: {},
+                  size: TABLE_SIZE,
                 }),
               ],
             }),
@@ -257,6 +267,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
                   text: `$${checkAmount.toFixed(2)}`,
                   color: GREEN_COLOR,
                   bold: true,
+                  size: TABLE_SIZE,
                 }),
               ],
             }),
@@ -281,26 +292,26 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           },
         },
         children: [
-          // Header - Beverly Group LLC
+          // Header - Beverly Group LLC (black)
           new Paragraph({
             children: [
               new TextRun({
                 text: "Beverly Group LLC",
                 italics: true,
                 bold: true,
-                color: BLUE_COLOR,
-                size: 28,
+                color: BLACK_COLOR,
+                size: HEADER_SIZE,
               }),
             ],
           }),
-          // PAYROLL STATEMENT - no underline
+          // PAYROLL STATEMENT - no underline (black)
           new Paragraph({
             children: [
               new TextRun({
                 text: "PAYROLL STATEMENT",
                 bold: true,
-                color: BLUE_COLOR,
-                size: 32,
+                color: BLACK_COLOR,
+                size: TITLE_SIZE,
               }),
             ],
             spacing: { after: 400 },
@@ -311,45 +322,47 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           new Paragraph({ spacing: { after: 200 } }),
           // Blue horizontal line
           createHorizontalLine(),
-          // Employee name - only "Employee" is underlined/italic
+          // Employee name - bold, not italic
           new Paragraph({
             children: [
               new TextRun({
-                text: "Employee",
-                italics: true,
-                underline: {},
-              }),
-              new TextRun({
-                text: " name:",
+                text: "Employee name:",
+                bold: true,
+                size: BODY_SIZE,
               }),
               new TextRun({
                 text: `  ${data.employeeName}`,
+                size: BODY_SIZE,
               }),
             ],
             spacing: { after: 100 },
           }),
-          // Department - regular text, not bold
+          // Department - bold, not italic
           new Paragraph({
             children: [
               new TextRun({
                 text: "Department:",
-                italics: true,
+                bold: true,
+                size: BODY_SIZE,
               }),
               new TextRun({
                 text: " Dispatch",
+                size: BODY_SIZE,
               }),
             ],
             spacing: { after: 100 },
           }),
-          // Pay period - regular text, not bold
+          // Pay period - bold, not italic
           new Paragraph({
             children: [
               new TextRun({
                 text: "Pay period:",
-                italics: true,
+                bold: true,
+                size: BODY_SIZE,
               }),
               new TextRun({
                 text: ` ${data.payPeriod}`,
+                size: BODY_SIZE,
               }),
             ],
             spacing: { after: 200 },
