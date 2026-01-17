@@ -32,6 +32,7 @@ import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -185,6 +186,7 @@ const Analytics = () => {
   const [salaryPayments, setSalaryPayments] = useState<Record<string, { paid_amount: number; paid_at: string | null }>>({});
   const [prevMonthPayments, setPrevMonthPayments] = useState<Record<string, { paid_amount: number; calculated_salary: number }>>({});
   const queryClient = useQueryClient();
+  const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -2078,6 +2080,13 @@ const Analytics = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsBonusesDialogOpen(true)}
+                    >
+                      Bonuses
+                    </Button>
                   </div>
 
                   {/* Office Filters - Only for Admin/Manager/Chicago Management */}
@@ -2462,6 +2471,26 @@ const Analytics = () => {
             )}
           </TabsContent>}
         </Tabs>
+        
+        {/* Bonuses Dialog */}
+        <DispatcherBonusesDialog
+          open={isBonusesDialogOpen}
+          onOpenChange={setIsBonusesDialogOpen}
+          dispatchers={Object.entries(dispatcherProfiles)
+            .filter(([key, profile]) => {
+              // Filter to only include entries keyed by user_id (UUID format)
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              return uuidRegex.test(key) && profile.roles.includes('dispatch');
+            })
+            .map(([userId, profile]) => ({
+              id: userId,
+              full_name: Object.entries(dispatcherProfiles).find(
+                ([k, p]) => p.user_id === userId && !k.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+              )?.[0] || profile.email.split('@')[0],
+              email: profile.email
+            }))}
+          selectedMonth={selectedMonth !== "all" ? selectedMonth : format(new Date(), "yyyy-MM")}
+        />
       </div>
     </div>
   );
