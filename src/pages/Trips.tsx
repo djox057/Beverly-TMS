@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle } from "lucide-react";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
@@ -4374,6 +4374,22 @@ const Trips = () => {
                                         <div className="text-sm font-semibold mb-2">Rescheduled</div>
                                         <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                                           {(order as any).dateChangeNotes}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
+                                  {/* Missing POD icon */}
+                                  {(!order.podFiles || order.podFiles.length === 0) && (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                          <AlertCircle className="h-5 w-5 text-red-500" />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                        <div className="text-sm font-semibold text-red-500">POD Missing</div>
+                                        <div className="text-sm text-muted-foreground">
+                                          No proof of delivery uploaded for this load.
                                         </div>
                                       </PopoverContent>
                                     </Popover>
