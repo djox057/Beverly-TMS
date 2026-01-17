@@ -49,17 +49,18 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     ? data.lostDayDates.join(", ") 
     : "";
 
-  // Set template data - these placeholders need to match the template
+  // Set template data - field names must match Word form fields exactly
   doc.setData({
-    employee_name: data.employeeName,
-    pay_period: data.payPeriod,
-    salary_1_percent: `$${data.salary1Percent.toFixed(2)}`,
-    bonus_5_percent: `$${data.bonus5Percent.toFixed(2)}`,
-    food_allowance: data.foodAllowance > 0 ? `$${data.foodAllowance.toFixed(2)}` : "",
-    extra_days_amount: hasExtraDays ? `$${data.extraDaysAmount.toFixed(2)}` : "",
-    extra_days_dates: extraDatesText,
-    lost_days_dates: lostDatesText,
-    check_amount: `$${checkAmount.toFixed(2)}`,
+    "Employee name": data.employeeName,
+    "Month": data.payPeriod,
+    "Salary 1": `$${data.salary1Percent.toFixed(2)}`,
+    "Bonus 5": `$${data.bonus5Percent.toFixed(2)}`,
+    "Food allowance": data.foodAllowance > 0 ? `$${data.foodAllowance.toFixed(2)}` : "$0.00",
+    "Total": `$${checkAmount.toFixed(2)}`,
+    // Extra day fields (only used in extra day template)
+    "extra_days_amount": hasExtraDays ? `$${data.extraDaysAmount.toFixed(2)}` : "",
+    "extra_days_dates": extraDatesText,
+    "lost_days_dates": lostDatesText,
   });
 
   // Render the document
