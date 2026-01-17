@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle, FileDown } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOrders } from "@/hooks/useOrders";
@@ -33,6 +33,7 @@ import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
+import crownImage from "@/assets/crown.png";
 
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -187,6 +188,7 @@ const Analytics = () => {
   const [prevMonthPayments, setPrevMonthPayments] = useState<Record<string, { paid_amount: number; calculated_salary: number }>>({});
   const queryClient = useQueryClient();
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
+  const [dispatcherBonuses, setDispatcherBonuses] = useState<Record<string, { rank: number; amount: number }>>({});
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -648,6 +650,43 @@ const Analytics = () => {
 
     fetchSalaryPayments();
   }, [selectedMonth]);
+
+  // Fetch dispatcher bonuses for the selected month
+  useEffect(() => {
+    const fetchBonuses = async () => {
+      if (!selectedMonth || selectedMonth === "all") {
+        setDispatcherBonuses({});
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("dispatcher_monthly_bonuses")
+          .select("*")
+          .eq("month", selectedMonth);
+
+        if (error) {
+          console.error("Error fetching dispatcher bonuses:", error);
+          return;
+        }
+
+        const bonusesMap: Record<string, { rank: number; amount: number }> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((record: any) => {
+            bonusesMap[record.dispatcher_id] = {
+              rank: record.bonus_rank,
+              amount: record.bonus_amount,
+            };
+          });
+        }
+        setDispatcherBonuses(bonusesMap);
+      } catch (error) {
+        console.error("Error in fetchBonuses:", error);
+      }
+    };
+
+    fetchBonuses();
+  }, [selectedMonth, isBonusesDialogOpen]); // Refetch when dialog closes
 
   // Clear salary selection when month changes
   useEffect(() => {
@@ -2199,6 +2238,11 @@ const Analytics = () => {
                           const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
                           const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
                           
+                          // Get dispatcher bonus for this month
+                          const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
+                          const bonusAmount = bonusInfo?.amount ?? 0;
+                          const bonusRank = bonusInfo?.rank ?? 0;
+                          
                           // Calculate adjustment from previous month (paid - calculated = difference)
                           // If paid > calculated, dispatcher got extra, so subtract from this month
                           // If paid < calculated, dispatcher got less, so add to this month
@@ -2211,12 +2255,13 @@ const Analytics = () => {
                             adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
                           }
                           
-                          // Final salary = base salary - adjustment (subtract overpayment, add underpayment)
-                          const finalSalary = baseSalary - adjustment;
+                          // Final salary = base salary + bonus - adjustment (subtract overpayment, add underpayment)
+                          const salaryWithoutBonus = baseSalary - adjustment;
+                          const finalSalary = salaryWithoutBonus + bonusAmount;
                           
-                          // Store for bulk action - store baseSalary as calculated_salary, finalSalary as what gets paid
+                          // Store for bulk action - store baseSalary + bonus as calculated_salary
                           if (stat.userId) {
-                            calculatedSalaries[stat.userId] = baseSalary;
+                            calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
                           }
                           
                           // Get payment info
@@ -2225,14 +2270,39 @@ const Analytics = () => {
                           
                           // Determine salary color and tooltip
                           const hasAdjustment = Math.abs(adjustment) >= 0.01;
-                          const salaryColorClass = hasAdjustment 
-                            ? (adjustment > 0 ? "text-red-600" : "text-green-600")
-                            : "";
+                          const hasBonus = bonusAmount > 0;
+                          
+                          // Salary color: golden if has bonus, otherwise red/green for adjustments
+                          const salaryColorClass = hasBonus 
+                            ? "text-yellow-600" 
+                            : hasAdjustment 
+                              ? (adjustment > 0 ? "text-red-600" : "text-green-600")
+                              : "";
                           const adjustmentTooltip = hasAdjustment
                             ? adjustment > 0
                               ? `Previous month overpaid by $${adjustment.toFixed(2)}, deducted from this salary`
                               : `Previous month underpaid by $${Math.abs(adjustment).toFixed(2)}, added to this salary`
                             : null;
+                          
+                          // Helper to render rank icon
+                          const renderRankIcon = () => {
+                            if (!bonusRank) return null;
+                            const iconClass = "h-5 w-5";
+                            switch (bonusRank) {
+                              case 1:
+                                return <img src={crownImage} alt="1st place" className="h-5 w-5" />;
+                              case 2:
+                                return <Medal className={`${iconClass} text-gray-400`} />;
+                              case 3:
+                                return <Award className={`${iconClass} text-amber-600`} />;
+                              case 4:
+                                return <Trophy className={`${iconClass} text-blue-500`} />;
+                              case 5:
+                                return <Star className={`${iconClass} text-purple-500`} />;
+                              default:
+                                return null;
+                            }
+                          };
 
                           return (
                             <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
@@ -2246,6 +2316,7 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="font-medium">
                                 <div className="flex items-center gap-2">
+                                  {renderRankIcon()}
                                   {stat.name}
                                   {selectedMonth && selectedMonth !== "all" && (
                                     <TooltipProvider>
@@ -2287,6 +2358,7 @@ const Analytics = () => {
                                                 extraDayDates,
                                                 lostDayDates,
                                                 extraDaysAmount: Math.max(0, extraDaysAmount),
+                                                dispatcherBonus: bonusAmount,
                                               }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
                                               toast.success(`Payroll document generated for ${stat.name}`);
                                             }}
@@ -2319,7 +2391,7 @@ const Analytics = () => {
                               <TableCell className="text-right text-green-600">{extraDays > 0 ? `+${extraDays}` : extraDays}</TableCell>
                               <TableCell className="text-right text-red-600">{lostDays > 0 ? `-${lostDays}` : lostDays}</TableCell>
                               <TableCell className="text-right">
-                                {hasAdjustment ? (
+                                {(hasAdjustment || hasBonus) ? (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -2332,10 +2404,19 @@ const Analytics = () => {
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>{adjustmentTooltip}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
-                                        </p>
+                                        {hasBonus && (
+                                          <p className="text-yellow-500 font-medium">
+                                            Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
+                                          </p>
+                                        )}
+                                        {hasAdjustment && (
+                                          <>
+                                            <p>{adjustmentTooltip}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                              Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
+                                            </p>
+                                          </>
+                                        )}
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -2447,6 +2528,10 @@ const Analytics = () => {
                             const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
                             const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
                             
+                            // Get dispatcher bonus
+                            const bonusInfo = dispatcherBonuses[stat.userId];
+                            const bonusAmount = bonusInfo?.amount ?? 0;
+                            
                             // Calculate adjustment from previous month
                             const prevPayment = prevMonthPayments[stat.userId];
                             let adjustment = 0;
@@ -2454,8 +2539,9 @@ const Analytics = () => {
                               adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
                             }
                             
-                            calculatedSalaries[stat.userId] = baseSalary;
-                            adjustedSalaries[stat.userId] = baseSalary - adjustment;
+                            // Include bonus in calculated salary
+                            calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
+                            adjustedSalaries[stat.userId] = baseSalary + bonusAmount - adjustment;
                           }
                         });
                         markSelectedAsPaid(calculatedSalaries, adjustedSalaries);

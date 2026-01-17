@@ -26,6 +26,7 @@ interface PayrollData {
   extraDayDates: string[]; // Array of date strings like "12/16", "12/19"
   lostDayDates: string[]; // Array of date strings
   extraDaysAmount: number; // Additional amount earned from extra days
+  dispatcherBonus?: number; // Monthly performance bonus (1st place $1000, etc.)
 }
 
 const BLACK_COLOR = "000000";
@@ -57,10 +58,11 @@ const createHorizontalLine = () => {
 
 export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> => {
   const hasExtraDays = data.extraDays > data.lostDays;
+  const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
   
   // Calculate check amount
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    (hasExtraDays ? data.extraDaysAmount : 0);
+    (hasExtraDays ? data.extraDaysAmount : 0) + (data.dispatcherBonus ?? 0);
 
   // Format dates for display
   const extraDatesText = data.extraDayDates.length > 0 
@@ -223,6 +225,37 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [new TextRun({ text: `$${data.extraDaysAmount.toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
+
+  // Dispatcher performance bonus row (only if has bonus)
+  if (hasDispatcherBonus) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: "Performance Bonus", size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `$${data.dispatcherBonus!.toFixed(2)}`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
