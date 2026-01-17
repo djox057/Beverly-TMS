@@ -2059,7 +2059,8 @@ const Analytics = () => {
                         <TableHead>Dispatcher</TableHead>
                         <TableHead className="text-right">Total Freight</TableHead>
                         <TableHead className="text-right">Total Comm.</TableHead>
-                        <TableHead className="text-right">Extra/Lost Days</TableHead>
+                        <TableHead className="text-right">Extra</TableHead>
+                        <TableHead className="text-right">Lost Days</TableHead>
                         <TableHead className="text-right">Salary</TableHead>
                         <TableHead className="text-right">Paid</TableHead>
                       </TableRow>
@@ -2073,7 +2074,6 @@ const Analytics = () => {
                           // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
                           const extraDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
                           const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : 0;
-                          const extraLostDays = extraDays - lostDays;
                           
                           // Calculate days in the selected month
                           let daysInMonth = 30; // default
@@ -2093,9 +2093,9 @@ const Analytics = () => {
                             daysInMonth = 30;
                           }
                           
-                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * (1 + Extra/Lost Days / days in month)
+                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * ((Days in month + Extra days - Lost days) / Days in month)
                           const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                          const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
+                          const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
                           
                           // Calculate adjustment from previous month (paid - calculated = difference)
                           // If paid > calculated, dispatcher got extra, so subtract from this month
@@ -2157,7 +2157,8 @@ const Analytics = () => {
                                   maximumFractionDigits: 2,
                                 })}
                               </TableCell>
-                              <TableCell className="text-right">{extraLostDays}</TableCell>
+                              <TableCell className="text-right text-green-600">{extraDays > 0 ? `+${extraDays}` : extraDays}</TableCell>
+                              <TableCell className="text-right text-red-600">{lostDays > 0 ? `-${lostDays}` : lostDays}</TableCell>
                               <TableCell className="text-right">
                                 {hasAdjustment ? (
                                   <TooltipProvider>
@@ -2205,6 +2206,29 @@ const Analytics = () => {
                           );
                         });
                       })()}
+                      {/* Totals Row for All Time view */}
+                      {selectedMonth === "all" && (
+                        <TableRow className="bg-muted/50 font-medium border-t-2">
+                          <TableCell></TableCell>
+                          <TableCell className="font-bold">Total</TableCell>
+                          <TableCell className="text-right font-bold">
+                            ${dispatcherStats.reduce((sum, s) => sum + s.totalFreight, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            ${dispatcherStats.reduce((sum, s) => sum + s.cut, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-green-600">
+                            +{dispatcherStats.reduce((sum, s) => sum + (s.userId ? (extraDaysByUser[s.userId] || 0) : 0), 0)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-red-600">
+                            -{dispatcherStats.reduce((sum, s) => sum + (s.userId ? (lostDaysByUser[s.userId] || 0) : 0), 0)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">—</TableCell>
+                          <TableCell className="text-right font-bold text-green-600">
+                            ${Object.values(salaryPayments).reduce((sum, p) => sum + (p.paid_amount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -2247,7 +2271,6 @@ const Analytics = () => {
                           if (stat.userId) {
                             const extraDays = extraDaysByUser[stat.userId] || 0;
                             const lostDays = lostDaysByUser[stat.userId] || 0;
-                            const extraLostDays = extraDays - lostDays;
                             let daysInMonth = 30;
                             if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
                               const parts = selectedMonth.split("-");
@@ -2263,7 +2286,7 @@ const Analytics = () => {
                               daysInMonth = 30;
                             }
                             const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                            const baseSalary = baseRate * (1 + extraLostDays / daysInMonth);
+                            const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
                             
                             // Calculate adjustment from previous month
                             const prevPayment = prevMonthPayments[stat.userId];
