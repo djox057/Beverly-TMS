@@ -274,16 +274,8 @@ export function EfsRequestDialog({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {cashAdvanceData?.weekCount ?? 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount ?? 150} remaining
+                    ${cashAdvanceData?.remainingAmount ?? 150} remaining this week
                   </p>
-                </div>
-
-                {/* Daily Usage */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Today</span>
-                  <span className="text-sm">
-                    {cashAdvanceData?.todayCount || 0} / 1 request
-                  </span>
                 </div>
 
                 {/* Amount Input */}
@@ -312,11 +304,7 @@ export function EfsRequestDialog({
                 {cashAdvanceData && !cashAdvanceData.canRequest && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive font-medium">
-                      {(cashAdvanceData.remainingAmount ?? 150) <= 0
-                        ? "Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time)."
-                        : cashAdvanceData.weekCount >= 3
-                          ? "Weekly request limit (3 requests) reached. Resets Monday at midnight (Chicago time)."
-                          : "Daily limit reached. Resets at midnight (Chicago time)."}
+                      Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time).
                     </p>
                   </div>
                 )}
