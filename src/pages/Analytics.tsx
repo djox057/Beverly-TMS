@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -2392,34 +2393,32 @@ const Analytics = () => {
                               <TableCell className="text-right text-red-600">{lostDays > 0 ? `-${lostDays}` : lostDays}</TableCell>
                               <TableCell className="text-right">
                                 {(hasAdjustment || hasBonus) ? (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className={`font-medium cursor-help ${salaryColorClass}`}>
-                                          $
-                                          {finalSalary.toLocaleString(undefined, {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          })}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        {hasBonus && (
-                                          <p className="text-yellow-500 font-medium">
-                                            Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <span className={`font-medium cursor-pointer underline decoration-dotted ${salaryColorClass}`}>
+                                        $
+                                        {finalSalary.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </span>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-2">
+                                      {hasBonus && (
+                                        <p className="text-yellow-500 font-medium">
+                                          Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
+                                        </p>
+                                      )}
+                                      {hasAdjustment && (
+                                        <>
+                                          <p>{adjustmentTooltip}</p>
+                                          <p className="text-xs text-muted-foreground">
+                                            Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
                                           </p>
-                                        )}
-                                        {hasAdjustment && (
-                                          <>
-                                            <p>{adjustmentTooltip}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
-                                            </p>
-                                          </>
-                                        )}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                        </>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
                                 ) : (
                                   <span>
                                     $
