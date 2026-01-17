@@ -54,23 +54,10 @@ export function useDriverCashAdvance(driverId: string | null) {
     queryKey: ["driver-cash-advances", driverId],
     queryFn: async () => {
       if (!driverId) {
-        return { todayCount: 0, weekCount: 0, weeklyAmount: 0, canRequest: true };
+        return { weekCount: 0, weeklyAmount: 0, canRequest: true };
       }
 
-      const todayStart = getChicagoTodayStartUTC();
       const weekStart = getChicagoWeekStartUTC();
-
-      // Fetch today's advances
-      const { data: todayAdvances, error: todayError } = await supabase
-        .from("driver_cash_advances")
-        .select("id")
-        .eq("driver_id", driverId)
-        .gte("requested_at", todayStart);
-
-      if (todayError) {
-        console.error("Error fetching today's advances:", todayError);
-        throw todayError;
-      }
 
       // Fetch this week's advances with amounts
       const { data: weekAdvances, error: weekError } = await supabase
@@ -84,13 +71,13 @@ export function useDriverCashAdvance(driverId: string | null) {
         throw weekError;
       }
 
-      const todayCount = todayAdvances?.length || 0;
       const weekCount = weekAdvances?.length || 0;
       const weeklyAmount = weekAdvances?.reduce((sum, adv) => sum + (adv.amount || 0), 0) || 0;
       const remainingAmount = 150 - weeklyAmount;
-      const canRequest = todayCount < 1 && weekCount < 3 && remainingAmount > 0;
+      // Only check weekly $150 limit (no daily limit)
+      const canRequest = remainingAmount > 0;
 
-      return { todayCount, weekCount, weeklyAmount, remainingAmount, canRequest };
+      return { weekCount, weeklyAmount, remainingAmount, canRequest };
     },
     enabled: !!driverId,
     staleTime: 30000, // 30 seconds

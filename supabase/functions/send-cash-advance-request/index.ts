@@ -144,42 +144,11 @@ const handler = async (req: Request): Promise<Response> => {
 
 
     // Get Chicago time boundaries as UTC ISO strings
-    const todayStart = getChicagoTodayStartUTC();
     const weekStart = getChicagoWeekStartUTC();
 
-    console.log("Time boundaries (UTC):", { todayStart, weekStart });
+    console.log("Time boundaries (UTC):", { weekStart });
 
-    // Check today's cash advances
-    const { data: todayAdvances, error: todayError } = await supabase
-      .from("driver_cash_advances")
-      .select("id")
-      .eq("driver_id", driverId)
-      .gte("requested_at", todayStart);
-
-    if (todayError) {
-      console.error("Error checking today's advances:", todayError);
-      throw new Error("Failed to check daily limit");
-    }
-
-    const todayCount = todayAdvances?.length || 0;
-    console.log("Today's advances count:", todayCount);
-
-    if (todayCount >= 1) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Daily limit reached. You can only request 1 cash advance per day.",
-          todayCount,
-          weekCount: null, // Will be fetched client-side
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Check this week's cash advances with amounts
+    // Check this week's cash advances with amounts (no daily limit)
     const { data: weekAdvances, error: weekError } = await supabase
       .from("driver_cash_advances")
       .select("id, amount")
@@ -196,27 +165,11 @@ const handler = async (req: Request): Promise<Response> => {
     const remainingAmount = 150 - weeklyAmount;
     console.log("Week's advances:", { weekCount, weeklyAmount, remainingAmount });
 
-    if (weekCount >= 3) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Weekly limit reached. You can only request 3 cash advances per week (resets Monday).",
-          todayCount,
-          weekCount,
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
     if (amount > remainingAmount) {
       return new Response(
         JSON.stringify({
           success: false,
           error: `Amount exceeds remaining weekly limit. You can request up to $${remainingAmount}.`,
-          todayCount,
           weekCount,
           weeklyAmount,
           remainingAmount,
@@ -341,7 +294,6 @@ Purpose: Cash advance`;
       JSON.stringify({
         success: true,
         message: "Cash advance request sent successfully",
-        todayCount: todayCount + 1,
         weekCount: weekCount + 1,
       }),
       {
