@@ -408,11 +408,6 @@ const Analytics = () => {
           });
         }
         
-        // Subtract 1 from each count (first day is regular, rest are extra)
-        Object.keys(countsMap).forEach(userId => {
-          countsMap[userId] = Math.max(0, countsMap[userId] - 1);
-        });
-        
         setExtraDaysByUser(countsMap);
       } catch (error) {
         console.error("Error in fetchExtraDays:", error);
