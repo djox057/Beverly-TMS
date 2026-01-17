@@ -2200,11 +2200,6 @@ const Analytics = () => {
                                             className="h-6 w-6 p-0"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              // Calculate extra days amount: (Total Freight * 0.01 + Total Comm. * 0.05) / Days in month per extra day
-                                              const netExtraDays = extraDays - lostDays;
-                                              const extraDaysAmount = netExtraDays > 0 
-                                                ? ((stat.totalFreight * 0.01 + stat.cut * 0.05) / daysInMonth) * netExtraDays
-                                                : 0;
                                               
                                               // Get pay period label from selectedMonth
                                               const monthParts = selectedMonth.split("-");
@@ -2218,12 +2213,17 @@ const Analytics = () => {
                                               const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
                                               const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
                                               
+                                              // Calculate extra days amount: (Total Freight * 0.01 + Total Comm. * 0.05) / Days in month * actual extra days count
+                                              const actualExtraDaysCount = extraDayDates.length;
+                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / daysInMonth;
+                                              const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+                                              
                                               downloadPayrollDoc({
                                                 employeeName: stat.name,
                                                 payPeriod,
                                                 salary1Percent: stat.totalFreight * 0.01,
                                                 bonus5Percent: stat.cut * 0.05,
-                                                foodAllowance: 0,
+                                                foodAllowance: 70,
                                                 extraDays,
                                                 lostDays,
                                                 extraDayDates,
