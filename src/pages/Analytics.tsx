@@ -189,7 +189,6 @@ const Analytics = () => {
   const queryClient = useQueryClient();
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
   const [dispatcherBonuses, setDispatcherBonuses] = useState<Record<string, { rank: number; amount: number }>>({});
-  const [expandedSalaryIds, setExpandedSalaryIds] = useState<Set<string>>(new Set());
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -2392,65 +2391,44 @@ const Analytics = () => {
                               <TableCell className="text-right text-green-600">{extraDays > 0 ? `+${extraDays}` : extraDays}</TableCell>
                               <TableCell className="text-right text-red-600">{lostDays > 0 ? `-${lostDays}` : lostDays}</TableCell>
                               <TableCell className="text-right">
-                                <div className="flex flex-col items-end">
-                                  {hasBonus && stat.userId && expandedSalaryIds.has(stat.userId) && (
-                                    <span className="text-xs text-yellow-500 whitespace-nowrap">
-                                      Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
-                                    </span>
-                                  )}
-                                  {hasBonus ? (
-                                    <span 
-                                      className={`font-medium cursor-pointer ${salaryColorClass}`}
-                                      onClick={() => {
-                                        if (stat.userId) {
-                                          setExpandedSalaryIds(prev => {
-                                            const newSet = new Set(prev);
-                                            if (newSet.has(stat.userId!)) {
-                                              newSet.delete(stat.userId!);
-                                            } else {
-                                              newSet.add(stat.userId!);
-                                            }
-                                            return newSet;
-                                          });
-                                        }
-                                      }}
-                                    >
-                                      $
-                                      {finalSalary.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </span>
-                                  ) : hasAdjustment ? (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className={`font-medium cursor-help ${salaryColorClass}`}>
-                                            $
-                                            {finalSalary.toLocaleString(undefined, {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            })}
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>{adjustmentTooltip}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
+                                {(hasAdjustment || hasBonus) ? (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={`font-medium cursor-help ${salaryColorClass}`}>
+                                          $
+                                          {finalSalary.toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        {hasBonus && (
+                                          <p className="text-yellow-500 font-medium">
+                                            Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
                                           </p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  ) : (
-                                    <span>
-                                      $
-                                      {finalSalary.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
+                                        )}
+                                        {hasAdjustment && (
+                                          <>
+                                            <p>{adjustmentTooltip}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                              Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
+                                            </p>
+                                          </>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <span>
+                                    $
+                                    {finalSalary.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right">
                                 {isPaid ? (
