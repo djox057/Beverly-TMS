@@ -32,6 +32,51 @@ import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient } from "@tanstack/react-query";
+
+const isWeekday = (date: Date) => {
+  const day = date.getDay();
+  return day !== 0 && day !== 6;
+};
+
+// Counts Mon-Fri days in a calendar month, minus observed fixed-date holidays.
+// This matches the payroll “days in month” expectation used for extra-day pay.
+const getWorkDaysInMonth = (year: number, monthIndex: number) => {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  let weekdayCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, monthIndex, day);
+    if (isWeekday(d)) weekdayCount++;
+  }
+
+  const fixedHolidays = [
+    { monthIndex: 0, day: 1 }, // New Year's Day
+    { monthIndex: 5, day: 19 }, // Juneteenth
+    { monthIndex: 6, day: 4 }, // Independence Day
+    { monthIndex: 10, day: 11 }, // Veterans Day
+    { monthIndex: 11, day: 25 }, // Christmas Day
+  ];
+
+  const observedHolidayCount = fixedHolidays.reduce((acc, h) => {
+    if (h.monthIndex !== monthIndex) return acc;
+
+    const actual = new Date(year, monthIndex, h.day);
+    let observed = actual;
+
+    // Observed dates: Sat -> Fri, Sun -> Mon
+    if (actual.getDay() === 6) observed = new Date(year, monthIndex, h.day - 1);
+    if (actual.getDay() === 0) observed = new Date(year, monthIndex, h.day + 1);
+
+    // If observed day shifts out of the month, ignore for this month’s count
+    if (observed.getMonth() !== monthIndex) return acc;
+
+    return isWeekday(observed) ? acc + 1 : acc;
+  }, 0);
+
+  const workDays = weekdayCount - observedHolidayCount;
+  return workDays > 0 ? workDays : weekdayCount;
+};
+
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -2121,14 +2166,17 @@ const Analytics = () => {
                           const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : 0;
                           
                           // Calculate days in the selected month
-                          let daysInMonth = 30; // default
+                          let daysInMonth = 30; // calendar days (used for monthly salary weighting)
+                          let workDaysInMonth = 22; // Mon-Fri minus holidays (used for extra-day pay)
+
                           if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
                             const parts = selectedMonth.split("-");
                             if (parts.length === 2) {
                               const year = parseInt(parts[0], 10);
-                              const month = parseInt(parts[1], 10);
+                              const month = parseInt(parts[1], 10); // 1-12
                               if (!isNaN(year) && !isNaN(month)) {
                                 daysInMonth = new Date(year, month, 0).getDate();
+                                workDaysInMonth = getWorkDaysInMonth(year, month - 1);
                               }
                             }
                           }
@@ -2213,9 +2261,10 @@ const Analytics = () => {
                                               const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
                                               const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
                                               
-                                              // Calculate extra days amount: (Total Freight * 0.01 + Total Comm. * 0.05) / Days in month * actual extra days count
+                                              // Calculate extra days amount: per-workday rate * actual extra days count
+                                              // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
                                               const actualExtraDaysCount = extraDayDates.length;
-                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / daysInMonth;
+                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
                                               const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
                                               
                                               downloadPayrollDoc({
