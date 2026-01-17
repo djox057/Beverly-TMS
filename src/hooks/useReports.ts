@@ -1250,13 +1250,15 @@ export const useReports = (options?: UseReportsOptions) => {
           }
         }
 
-        // Fetch lost day notes - filter by driver IDs when loading for specific office
+        // Fetch lost day notes - ALWAYS filter by driver IDs from trucks we're showing
+        // This ensures consistency between priority and background queries
         let lostDayQuery = supabase
           .from("lost_day_notes")
           .select("*")
           .order("id", { ascending: true });
 
-        if (filterOffice && driverIdsArray.length > 0) {
+        // Always filter by driver IDs if we have them - ensures home time notes are matched correctly
+        if (driverIdsArray.length > 0) {
           lostDayQuery = lostDayQuery.in("driver_id", driverIdsArray);
         }
 
