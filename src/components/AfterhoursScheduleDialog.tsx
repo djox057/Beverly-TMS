@@ -323,7 +323,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     {} as Record<string, ScheduleEntry[]>,
   );
 
-  // Calculate who has worked this month (for suggestions)
+  // Calculate who has worked this month (for suggestions) - only count weekend days
   const getMonthlyWorkCounts = (targetDate: Date) => {
     const monthStart = startOfMonth(targetDate);
     const monthEnd = endOfMonth(targetDate);
@@ -335,12 +335,15 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       workCounts[user.id] = { count: 0, user };
     });
 
-    // Count schedules within the month
+    // Count weekend (Sat/Sun) schedules within the month, excluding holidays
     existingSchedules.forEach((schedule) => {
-      const scheduleDate = new Date(schedule.scheduled_date);
+      const scheduleDate = new Date(schedule.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
       if (isWithinInterval(scheduleDate, { start: monthStart, end: monthEnd })) {
-        if (workCounts[schedule.user_id]) {
-          workCounts[schedule.user_id].count++;
+        // Only count weekend days (Sat/Sun), exclude holidays
+        if (isWeekend(scheduleDate) && !isHoliday(scheduleDate)) {
+          if (workCounts[schedule.user_id]) {
+            workCounts[schedule.user_id].count++;
+          }
         }
       }
     });
@@ -485,15 +488,17 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 const monthEndStr = format(endOfMonth(selectedDate), "yyyy-MM-dd");
 
                 const getExtraDaysForUser = (userId: string) => {
-                  // Get all non-holiday dates this user worked in the month
+                  // Get all weekend (Sat/Sun) non-holiday dates this user worked in the month
                   const userSchedules = existingSchedules
-                    .filter(
-                      (s) =>
-                        s.user_id === userId &&
-                        s.scheduled_date >= monthStartStr &&
-                        s.scheduled_date <= monthEndStr &&
-                        !isHoliday(new Date(s.scheduled_date + "T12:00:00")), // Use noon to avoid timezone issues
-                    )
+                    .filter((s) => {
+                      if (s.user_id !== userId) return false;
+                      if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
+                      const scheduleDate = new Date(s.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
+                      // Only count weekend days (Sat/Sun), exclude holidays
+                      if (!isWeekend(scheduleDate)) return false;
+                      if (isHoliday(scheduleDate)) return false;
+                      return true;
+                    })
                     .map((s) => s.scheduled_date)
                     .sort();
 
