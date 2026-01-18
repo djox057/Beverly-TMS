@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { downloadPayrollDoc, generatePayrollDocument } from "@/utils/payrollDocGenerator";
+import { generatePayrollPdf } from "@/utils/payrollPdfGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2400,8 +2401,8 @@ const Analytics = () => {
                                               try {
                                                 toast.loading("Generating and sending payroll email...");
                                                 
-                                                // Generate the document
-                                                const docBlob = await generatePayrollDocument({
+                                                // Generate the PDF document for email (previews correctly in email clients)
+                                                const pdfBlob = await generatePayrollPdf({
                                                   employeeName: stat.name,
                                                   payPeriod,
                                                   salary1Percent: stat.totalFreight * 0.01,
@@ -2416,8 +2417,8 @@ const Analytics = () => {
                                                 });
                                                 
                                                 // Convert blob to bytes array
-                                                const arrayBuffer = await docBlob.arrayBuffer();
-                                                const docBytes = Array.from(new Uint8Array(arrayBuffer));
+                                                const arrayBuffer = await pdfBlob.arrayBuffer();
+                                                const pdfBytes = Array.from(new Uint8Array(arrayBuffer));
                                                 
                                                 // Get dispatcher email - use profile email
                                                 const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
@@ -2429,7 +2430,7 @@ const Analytics = () => {
                                                     recipientEmail,
                                                     dispatcherName: stat.name,
                                                     payPeriod,
-                                                    docBytes,
+                                                    pdfBytes,
                                                   },
                                                 });
                                                 
