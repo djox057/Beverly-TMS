@@ -488,6 +488,7 @@ const Reports = () => {
     driverId: string;
     driverName: string;
     truckNumber: string;
+    dispatcherName: string;
   } | null>(null);
   
   // All Problems dialog state
@@ -3565,6 +3566,7 @@ const Reports = () => {
                                                                   driverId: truck.driverId!,
                                                                   driverName: truck.driver1Name,
                                                                   truckNumber: truck.truckNumber,
+                                                                  dispatcherName: truck.dispatcher || "",
                                                                 });
                                                               }}
                                                             >
@@ -3733,6 +3735,7 @@ const Reports = () => {
                                                                     driverId: truck.driverId!,
                                                                     driverName: truck.driver,
                                                                     truckNumber: truck.truckNumber,
+                                                                    dispatcherName: truck.dispatcher || "",
                                                                   });
                                                                 }}
                                                               >
@@ -5718,6 +5721,7 @@ const Reports = () => {
         driverId={problemDialog?.driverId || ""}
         driverName={problemDialog?.driverName || ""}
         truckNumber={problemDialog?.truckNumber || ""}
+        dispatcherName={problemDialog?.dispatcherName || ""}
       />
 
       {/* All Problems Dialog */}

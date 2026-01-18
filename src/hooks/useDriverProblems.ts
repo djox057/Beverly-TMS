@@ -6,6 +6,8 @@ export interface DriverProblem {
   id: string;
   driver_id: string;
   reason: string;
+  truck_number: string | null;
+  dispatcher_name: string | null;
   created_at: string;
   created_by: string | null;
   resolved_at: string | null;
@@ -33,7 +35,17 @@ export function useDriverProblems() {
 
   // Add a new problem
   const addProblem = useMutation({
-    mutationFn: async ({ driverId, reason }: { driverId: string; reason: string }) => {
+    mutationFn: async ({ 
+      driverId, 
+      reason, 
+      truckNumber, 
+      dispatcherName 
+    }: { 
+      driverId: string; 
+      reason: string; 
+      truckNumber?: string; 
+      dispatcherName?: string;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase
@@ -41,6 +53,8 @@ export function useDriverProblems() {
         .insert({
           driver_id: driverId,
           reason,
+          truck_number: truckNumber || null,
+          dispatcher_name: dispatcherName || null,
           created_by: user?.id || null,
         })
         .select()
