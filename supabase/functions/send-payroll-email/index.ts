@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
         {
           filename,
           content: base64Content,
-        },
+        } as any,
       ],
     });
 
