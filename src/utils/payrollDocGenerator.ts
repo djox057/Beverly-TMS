@@ -121,6 +121,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
       height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -131,6 +132,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           verticalAlign: VerticalAlign.CENTER,
         }),
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -150,6 +152,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
       height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -160,6 +163,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           verticalAlign: VerticalAlign.CENTER,
         }),
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -179,6 +183,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
       height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -189,6 +194,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           verticalAlign: VerticalAlign.CENTER,
         }),
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
           children: [
             new Paragraph({
@@ -210,6 +216,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
         height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
         children: [
           new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
             shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
             children: [
               new Paragraph({
@@ -220,6 +227,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             verticalAlign: VerticalAlign.CENTER,
           }),
           new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
             shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
             children: [
               new Paragraph({
@@ -241,6 +249,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
         height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
         children: [
           new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
             shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
             children: [
               new Paragraph({
@@ -251,6 +260,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             verticalAlign: VerticalAlign.CENTER,
           }),
           new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
             shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
             children: [
               new Paragraph({
@@ -271,6 +281,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
       height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
       children: [
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           borders: {
             top: { style: BorderStyle.NIL },
             bottom: { style: BorderStyle.NIL },
@@ -293,6 +304,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           verticalAlign: VerticalAlign.CENTER,
         }),
         new TableCell({
+          width: { size: 50, type: WidthType.PERCENTAGE },
           borders: {
             top: { style: BorderStyle.SINGLE },
             bottom: { style: BorderStyle.SINGLE },
