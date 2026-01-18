@@ -3358,6 +3358,25 @@ const Reports = () => {
                                             }
                                           }}
                                         >
+                                          {truck.driverId && hasDriverProblem(truck.driverId) && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                                  <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-auto max-w-xs p-3">
+                                                <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
+                                                <p className="text-xs whitespace-pre-wrap">
+                                                  {getProblemForDriver(truck.driverId)?.reason}
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground mt-2">
+                                                  {getProblemForDriver(truck.driverId)?.created_at && 
+                                                    new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                </p>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                                                                               <span>{truck.driver}</span>
                                           {hasLumperMissingRC(truck.driverId) && (
                                             <Tooltip>
@@ -3400,25 +3419,6 @@ const Reports = () => {
                                                 <p className="text-xs">EFS Fuel - Missing Data</p>
                                               </TooltipContent>
                                             </Tooltip>
-                                          )}
-                                          {truck.driverId && hasDriverProblem(truck.driverId) && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                  <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
-                                                </button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto max-w-xs p-3">
-                                                <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
-                                                <p className="text-xs whitespace-pre-wrap">
-                                                  {getProblemForDriver(truck.driverId)?.reason}
-                                                </p>
-                                                <p className="text-[10px] text-muted-foreground mt-2">
-                                                  {getProblemForDriver(truck.driverId)?.created_at && 
-                                                    new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
-                                                </p>
-                                              </PopoverContent>
-                                            </Popover>
                                           )}
                                           {truck.randomDrugTestDate && (
                                             <Popover>
