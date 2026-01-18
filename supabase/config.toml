@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.send-sms]
 verify_jwt = false
+
+[functions.send-payroll-email]
+verify_jwt = false
