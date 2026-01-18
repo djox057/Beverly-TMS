@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,7 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
-import { downloadPayrollDoc } from "@/utils/payrollDocGenerator";
+import { downloadPayrollDoc, generatePayrollDocument } from "@/utils/payrollDocGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2369,6 +2369,90 @@ const Analytics = () => {
                                         </TooltipTrigger>
                                         <TooltipContent>
                                           <p>Download payroll statement</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              
+                                              // Get pay period label from selectedMonth
+                                              const monthParts = selectedMonth.split("-");
+                                              const year = parseInt(monthParts[0], 10);
+                                              const monthNum = parseInt(monthParts[1], 10) - 1;
+                                              const monthDate = new Date(year, monthNum, 1);
+                                              const payPeriod = format(monthDate, "MMMM, yyyy");
+                                              
+                                              // Get dates for extra/lost days
+                                              const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
+                                              const extraDayDatesForDoc = allExtraDayDates.slice(1);
+                                              const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
+                                              
+                                              // Calculate extra days amount
+                                              const actualExtraDaysCount = extraDayDatesForDoc.length;
+                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                              const extraDaysAmountForDoc = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+                                              
+                                              try {
+                                                toast.loading("Generating and sending payroll email...");
+                                                
+                                                // Generate the document
+                                                const docBlob = await generatePayrollDocument({
+                                                  employeeName: stat.name,
+                                                  payPeriod,
+                                                  salary1Percent: stat.totalFreight * 0.01,
+                                                  bonus5Percent: stat.cut * 0.05,
+                                                  foodAllowance: 70,
+                                                  extraDays,
+                                                  lostDays,
+                                                  extraDayDates: extraDayDatesForDoc,
+                                                  lostDayDates: lostDayDatesForDoc,
+                                                  extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
+                                                  dispatcherBonus: bonusAmount,
+                                                });
+                                                
+                                                // Convert blob to bytes array
+                                                const arrayBuffer = await docBlob.arrayBuffer();
+                                                const docBytes = Array.from(new Uint8Array(arrayBuffer));
+                                                
+                                                // Get dispatcher email - use profile email
+                                                const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
+                                                const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
+                                                
+                                                // Send email via edge function
+                                                const { error } = await supabase.functions.invoke("send-payroll-email", {
+                                                  body: {
+                                                    recipientEmail,
+                                                    dispatcherName: stat.name,
+                                                    payPeriod,
+                                                    docBytes,
+                                                  },
+                                                });
+                                                
+                                                toast.dismiss();
+                                                
+                                                if (error) {
+                                                  console.error("Error sending payroll email:", error);
+                                                  toast.error(`Failed to send email: ${error.message}`);
+                                                } else {
+                                                  toast.success(`Payroll email sent for ${stat.name} (test: jon@bfprime.net)`);
+                                                }
+                                              } catch (err: any) {
+                                                toast.dismiss();
+                                                console.error("Error:", err);
+                                                toast.error(`Failed to send email: ${err.message}`);
+                                              }
+                                            }}
+                                          >
+                                            <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Send payroll statement via email</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
