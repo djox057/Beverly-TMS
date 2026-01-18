@@ -1006,6 +1006,44 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_problems: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_problems_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_sensitive_pii: {
         Row: {
           created_at: string

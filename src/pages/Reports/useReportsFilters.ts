@@ -27,6 +27,11 @@ export function useReportsFilters() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [showProblems, setShowProblems] = useState(() => {
+    const saved = localStorage.getItem("reports-showProblems");
+    return saved ? JSON.parse(saved) : false;
+  });
+
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
   });
@@ -55,6 +60,10 @@ export function useReportsFilters() {
   useEffect(() => {
     localStorage.setItem("reports-showLateTrucks", JSON.stringify(showLateTrucks));
   }, [showLateTrucks]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-showProblems", JSON.stringify(showProblems));
+  }, [showProblems]);
 
   useEffect(() => {
     localStorage.setItem("reports-truckDriverFilter", truckDriverFilter);
@@ -120,6 +129,8 @@ export function useReportsFilters() {
     setShowTwoWeekNotice,
     showLateTrucks,
     setShowLateTrucks,
+    showProblems,
+    setShowProblems,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
@@ -140,6 +151,7 @@ export function useReportsFilters() {
     showNewDrivers,
     showTwoWeekNotice,
     showLateTrucks,
+    showProblems,
     truckDriverFilter,
     dispatchNameFilter,
     loadNumberFilter,
