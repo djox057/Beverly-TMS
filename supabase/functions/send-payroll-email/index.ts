@@ -12,7 +12,7 @@ interface PayrollEmailRequest {
   recipientEmail: string;
   dispatcherName: string;
   payPeriod: string;
-  docBytes: number[]; // Raw bytes array
+  pdfBytes: number[]; // Raw PDF bytes array
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -22,7 +22,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { recipientEmail, dispatcherName, payPeriod, docBytes }: PayrollEmailRequest = await req.json();
+    const { recipientEmail, dispatcherName, payPeriod, pdfBytes }: PayrollEmailRequest = await req.json();
 
     console.log(`Sending payroll email to ${recipientEmail} for ${dispatcherName}`);
 
@@ -31,10 +31,10 @@ const handler = async (req: Request): Promise<Response> => {
     const actualRecipient = testEmail; // Change to recipientEmail when going live
 
     // Convert bytes array to base64 for attachment
-    const uint8Array = new Uint8Array(docBytes);
+    const uint8Array = new Uint8Array(pdfBytes);
     const base64Content = btoa(String.fromCharCode.apply(null, [...uint8Array]));
 
-    const filename = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/,?\s+/g, "_")}.docx`;
+    const filename = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/,?\s+/g, "_")}.pdf`;
 
     const emailResponse = await resend.emails.send({
       from: "Beverly Freight Management <statements@beverlyfreight.net>",
