@@ -11,6 +11,7 @@ interface DriverProblemDialogProps {
   driverId: string;
   driverName: string;
   truckNumber: string;
+  dispatcherName?: string;
 }
 
 export function DriverProblemDialog({
@@ -19,6 +20,7 @@ export function DriverProblemDialog({
   driverId,
   driverName,
   truckNumber,
+  dispatcherName,
 }: DriverProblemDialogProps) {
   const [reason, setReason] = useState("");
   const { addProblem, getProblemForDriver, resolveProblem } = useDriverProblems();
@@ -30,7 +32,12 @@ export function DriverProblemDialog({
   const handleSubmit = async () => {
     if (!reason.trim()) return;
     
-    await addProblem.mutateAsync({ driverId, reason: reason.trim() });
+    await addProblem.mutateAsync({ 
+      driverId, 
+      reason: reason.trim(),
+      truckNumber,
+      dispatcherName,
+    });
     setReason("");
     onOpenChange(false);
   };

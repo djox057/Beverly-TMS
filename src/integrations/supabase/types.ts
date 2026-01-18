@@ -1010,29 +1010,35 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          dispatcher_name: string | null
           driver_id: string
           id: string
           reason: string
           resolved_at: string | null
           resolved_by: string | null
+          truck_number: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          dispatcher_name?: string | null
           driver_id: string
           id?: string
           reason: string
           resolved_at?: string | null
           resolved_by?: string | null
+          truck_number?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          dispatcher_name?: string | null
           driver_id?: string
           id?: string
           reason?: string
           resolved_at?: string | null
           resolved_by?: string | null
+          truck_number?: string | null
         }
         Relationships: [
           {

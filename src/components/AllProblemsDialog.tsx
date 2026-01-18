@@ -25,14 +25,10 @@ export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps
   const isAfterhoursOnly = roles.includes('afterhours') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
   const canSeeActions = !isDispatchOnly && !isAfterhoursOnly;
 
-  // Build a map of driver_id -> driver info
-  const driverMap = new Map<string, { name: string; truckNumber: string; dispatcherName: string }>();
+  // Build a map of driver_id -> driver name (for fallback only)
+  const driverMap = new Map<string, string>();
   drivers.forEach((driver: any) => {
-    driverMap.set(driver.id, {
-      name: driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "Unknown",
-      truckNumber: driver.truck_number || "N/A",
-      dispatcherName: driver.dispatcher_name || "N/A",
-    });
+    driverMap.set(driver.id, driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "Unknown");
   });
 
   const formatChicagoTime = (dateStr: string) => {
@@ -95,21 +91,21 @@ export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {problems.map((problem) => {
-                    const driverInfo = driverMap.get(problem.driver_id);
+                {problems.map((problem) => {
+                    const driverName = driverMap.get(problem.driver_id) || "Unknown Driver";
                     const problemText = problem.reason;
                     const isLongText = problemText.length > 60;
                     
                     return (
                       <TableRow key={problem.id}>
                         <TableCell className="font-medium">
-                          {driverInfo?.truckNumber || "N/A"}
+                          {problem.truck_number || "N/A"}
                         </TableCell>
                         <TableCell>
-                          {driverInfo?.name || "Unknown Driver"}
+                          {driverName}
                         </TableCell>
                         <TableCell>
-                          {driverInfo?.dispatcherName || "N/A"}
+                          {problem.dispatcher_name || "N/A"}
                         </TableCell>
                         <TableCell className="min-w-[350px]">
                           {isLongText ? (
