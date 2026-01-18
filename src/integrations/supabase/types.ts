@@ -695,6 +695,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_sick_days: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          sick_date: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sick_date: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sick_date?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       dispatcher_status: {
         Row: {
           created_at: string

@@ -24,6 +24,7 @@ import * as XLSX from "xlsx";
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { downloadPayrollDoc, generatePayrollDocument } from "@/utils/payrollDocGenerator";
 import { generatePayrollPdf } from "@/utils/payrollPdfGenerator";
+import { PayrollPreviewDialog } from "@/components/PayrollPreviewDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -191,6 +192,24 @@ const Analytics = () => {
   const queryClient = useQueryClient();
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
   const [dispatcherBonuses, setDispatcherBonuses] = useState<Record<string, { rank: number; amount: number }>>({});
+  
+  // Payroll preview dialog state
+  const [payrollPreviewOpen, setPayrollPreviewOpen] = useState(false);
+  const [payrollPreviewData, setPayrollPreviewData] = useState<{
+    dispatcherName: string;
+    dispatcherUserId: string;
+    recipientEmail: string;
+    payPeriod: string;
+    salary1Percent: number;
+    bonus5Percent: number;
+    foodAllowance: number;
+    extraDays: number;
+    lostDays: number;
+    extraDayDates: string[];
+    lostDayDates: string[];
+    extraDaysAmount: number;
+    dispatcherBonus: number;
+  } | null>(null);
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -2378,7 +2397,7 @@ const Analytics = () => {
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 w-6 p-0"
-                                            onClick={async (e) => {
+                                            onClick={(e) => {
                                               e.stopPropagation();
                                               
                                               // Get pay period label from selectedMonth
@@ -2398,55 +2417,27 @@ const Analytics = () => {
                                               const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
                                               const extraDaysAmountForDoc = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
                                               
-                                              try {
-                                                toast.loading("Generating and sending payroll email...");
-                                                
-                                                // Generate the PDF document for email (previews correctly in email clients)
-                                                const pdfBlob = await generatePayrollPdf({
-                                                  employeeName: stat.name,
-                                                  payPeriod,
-                                                  salary1Percent: stat.totalFreight * 0.01,
-                                                  bonus5Percent: stat.cut * 0.05,
-                                                  foodAllowance: 70,
-                                                  extraDays,
-                                                  lostDays,
-                                                  extraDayDates: extraDayDatesForDoc,
-                                                  lostDayDates: lostDayDatesForDoc,
-                                                  extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
-                                                  dispatcherBonus: bonusAmount,
-                                                });
-                                                
-                                                // Convert blob to bytes array
-                                                const arrayBuffer = await pdfBlob.arrayBuffer();
-                                                const pdfBytes = Array.from(new Uint8Array(arrayBuffer));
-                                                
-                                                // Get dispatcher email - use profile email
-                                                const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
-                                                const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
-                                                
-                                                // Send email via edge function
-                                                const { error } = await supabase.functions.invoke("send-payroll-email", {
-                                                  body: {
-                                                    recipientEmail,
-                                                    dispatcherName: stat.name,
-                                                    payPeriod,
-                                                    pdfBytes,
-                                                  },
-                                                });
-                                                
-                                                toast.dismiss();
-                                                
-                                                if (error) {
-                                                  console.error("Error sending payroll email:", error);
-                                                  toast.error(`Failed to send email: ${error.message}`);
-                                                } else {
-                                                  toast.success(`Payroll email sent for ${stat.name} (test: jon@bfprime.net)`);
-                                                }
-                                              } catch (err: any) {
-                                                toast.dismiss();
-                                                console.error("Error:", err);
-                                                toast.error(`Failed to send email: ${err.message}`);
-                                              }
+                                              // Get dispatcher email
+                                              const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
+                                              const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
+                                              
+                                              // Open preview dialog with all the data
+                                              setPayrollPreviewData({
+                                                dispatcherName: stat.name,
+                                                dispatcherUserId: stat.userId || "",
+                                                recipientEmail,
+                                                payPeriod,
+                                                salary1Percent: stat.totalFreight * 0.01,
+                                                bonus5Percent: stat.cut * 0.05,
+                                                foodAllowance: 70,
+                                                extraDays,
+                                                lostDays,
+                                                extraDayDates: extraDayDatesForDoc,
+                                                lostDayDates: lostDayDatesForDoc,
+                                                extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
+                                                dispatcherBonus: bonusAmount,
+                                              });
+                                              setPayrollPreviewOpen(true);
                                             }}
                                           >
                                             <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
@@ -2661,6 +2652,51 @@ const Analytics = () => {
             }))}
           selectedMonth={selectedMonth !== "all" ? selectedMonth : format(new Date(), "yyyy-MM")}
         />
+        
+        {/* Payroll Preview Dialog */}
+        {payrollPreviewData && (
+          <PayrollPreviewDialog
+            open={payrollPreviewOpen}
+            onOpenChange={setPayrollPreviewOpen}
+            dispatcherName={payrollPreviewData.dispatcherName}
+            dispatcherUserId={payrollPreviewData.dispatcherUserId}
+            recipientEmail={payrollPreviewData.recipientEmail}
+            payPeriod={payrollPreviewData.payPeriod}
+            selectedMonth={selectedMonth}
+            salary1Percent={payrollPreviewData.salary1Percent}
+            bonus5Percent={payrollPreviewData.bonus5Percent}
+            foodAllowance={payrollPreviewData.foodAllowance}
+            extraDays={payrollPreviewData.extraDays}
+            lostDays={payrollPreviewData.lostDays}
+            extraDayDates={payrollPreviewData.extraDayDates}
+            lostDayDates={payrollPreviewData.lostDayDates}
+            extraDaysAmount={payrollPreviewData.extraDaysAmount}
+            dispatcherBonus={payrollPreviewData.dispatcherBonus}
+            onEmailSent={() => {
+              // Refresh salary payments data
+              queryClient.invalidateQueries({ queryKey: ["dispatcher_salary_payments"] });
+              // Refetch salary payments for the current month
+              if (selectedMonth && selectedMonth !== "all") {
+                supabase
+                  .from("dispatcher_salary_payments" as any)
+                  .select("*")
+                  .eq("month", selectedMonth)
+                  .then(({ data }) => {
+                    if (data) {
+                      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null }> = {};
+                      data.forEach((payment: any) => {
+                        paymentsMap[payment.user_id] = {
+                          paid_amount: payment.paid_amount,
+                          paid_at: payment.paid_at,
+                        };
+                      });
+                      setSalaryPayments(paymentsMap);
+                    }
+                  });
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );
