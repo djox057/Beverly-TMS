@@ -17,11 +17,13 @@ interface AllProblemsDialogProps {
 export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps) {
   const { problems, isLoading, resolveProblem } = useDriverProblems();
   const { data: drivers = [] } = useDrivers();
-  const { hasRole } = useAuthContext();
+  const { roles } = useAuthContext();
   const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
 
-  // Check if user should see actions (hide for dispatcher and afterhours)
-  const canSeeActions = !hasRole('dispatch') && !hasRole('afterhours');
+  // Hide actions ONLY for users who have dispatch or afterhours role and no other elevated roles
+  const isDispatchOnly = roles.includes('dispatch') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
+  const isAfterhoursOnly = roles.includes('afterhours') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
+  const canSeeActions = !isDispatchOnly && !isAfterhoursOnly;
 
   // Build a map of driver_id -> driver info
   const driverMap = new Map<string, { name: string; truckNumber: string; dispatcherName: string }>();
@@ -52,9 +54,17 @@ export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps
     }
   };
 
+  const handleDialogClose = (newOpen: boolean) => {
+    if (!newOpen && !confirmResolveId) {
+      onOpenChange(false);
+    } else if (newOpen) {
+      onOpenChange(true);
+    }
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open && !confirmResolveId} onOpenChange={handleDialogClose}>
         <DialogContent className="sm:max-w-[80%] max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>All Driver Problems</DialogTitle>
