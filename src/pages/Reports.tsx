@@ -11,6 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
+import { DriverProblemDialog } from "@/components/DriverProblemDialog";
+import { AllProblemsDialog } from "@/components/AllProblemsDialog";
+import { useDriverProblems } from "@/hooks/useDriverProblems";
 import {
   MapPin,
   AlertCircle,
@@ -258,6 +261,8 @@ const Reports = () => {
     setShowTwoWeekNotice,
     showLateTrucks,
     setShowLateTrucks,
+    showProblems,
+    setShowProblems,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
@@ -277,6 +282,7 @@ const Reports = () => {
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
+  const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
 
 
   // Helper to get driver cell styling (combines drug test and game over styling)
@@ -476,6 +482,16 @@ const Reports = () => {
     driverId: string;
     driverName: string;
   } | null>(null);
+  
+  // Driver Problem dialog state
+  const [problemDialog, setProblemDialog] = useState<{
+    driverId: string;
+    driverName: string;
+    truckNumber: string;
+  } | null>(null);
+  
+  // All Problems dialog state
+  const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -2605,6 +2621,22 @@ const Reports = () => {
         })
         .filter((group) => group.trucks.length > 0);
     }
+
+    // Problems filter: show only trucks with drivers that have active problems
+    if (showProblems) {
+      return reports
+        .map((group) => {
+          const problemTrucks = group.trucks.filter((truck) => {
+            return truck.driverId && hasDriverProblem(truck.driverId);
+          });
+          return {
+            ...group,
+            trucks: problemTrucks,
+          };
+        })
+        .filter((group) => group.trucks.length > 0);
+    }
+
     if (!showEmptyTrucks) {
       return reports;
     }
@@ -2701,7 +2733,7 @@ const Reports = () => {
         };
       })
       .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice, showLateTrucks, lateTrucks]);
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice, showLateTrucks, showProblems, lateTrucks, hasDriverProblem]);
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
     <div className="space-y-4 p-4">
@@ -2790,6 +2822,15 @@ const Reports = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setAllProblemsDialogOpen(true)} 
+                className="gap-2"
+              >
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                All Problems
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2 ml-auto">
                 <HelpCircle className="h-4 w-4" />
                 Legend
@@ -2838,6 +2879,15 @@ const Reports = () => {
                   >
                     <UserPlus className="h-4 w-4" />
                     New drivers
+                  </Button>
+                  <Button
+                    variant={showProblems ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowProblems(!showProblems)}
+                    className="gap-2"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Problems
                   </Button>
                 </div>
               )}
@@ -3348,6 +3398,25 @@ const Reports = () => {
                                               </TooltipContent>
                                             </Tooltip>
                                           )}
+                                          {truck.driverId && hasDriverProblem(truck.driverId) && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                                  <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-auto max-w-xs p-3">
+                                                <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
+                                                <p className="text-xs whitespace-pre-wrap">
+                                                  {getProblemForDriver(truck.driverId)?.reason}
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground mt-2">
+                                                  {getProblemForDriver(truck.driverId)?.created_at && 
+                                                    new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                </p>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                           {truck.randomDrugTestDate && (
                                             <Popover>
                                               <PopoverTrigger asChild>
@@ -3483,6 +3552,21 @@ const Reports = () => {
                                                               }}
                                                             >
                                                               <Clock className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setProblemDialog({
+                                                                  driverId: truck.driverId!,
+                                                                  driverName: truck.driver1Name,
+                                                                  truckNumber: truck.truckNumber,
+                                                                });
+                                                              }}
+                                                            >
+                                                              <AlertCircle className="h-3 w-3 text-destructive" />
                                                             </Button>
                                                           </div>
                                                         )}
@@ -3636,6 +3720,21 @@ const Reports = () => {
                                                                 }}
                                                               >
                                                                 <Clock className="h-3 w-3" />
+                                                              </Button>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setProblemDialog({
+                                                                    driverId: truck.driverId!,
+                                                                    driverName: truck.driver,
+                                                                    truckNumber: truck.truckNumber,
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <AlertCircle className="h-3 w-3 text-destructive" />
                                                               </Button>
                                                             </>
                                                           )}
@@ -5608,6 +5707,21 @@ const Reports = () => {
         onOpenChange={(open) => !open && setLumperMissingDataDialog(null)}
         driverId={lumperMissingDataDialog?.driverId || ""}
         driverName={lumperMissingDataDialog?.driverName || ""}
+      />
+
+      {/* Driver Problem Dialog */}
+      <DriverProblemDialog
+        open={!!problemDialog}
+        onOpenChange={(open) => !open && setProblemDialog(null)}
+        driverId={problemDialog?.driverId || ""}
+        driverName={problemDialog?.driverName || ""}
+        truckNumber={problemDialog?.truckNumber || ""}
+      />
+
+      {/* All Problems Dialog */}
+      <AllProblemsDialog
+        open={allProblemsDialogOpen}
+        onOpenChange={setAllProblemsDialogOpen}
       />
     </>
   );
