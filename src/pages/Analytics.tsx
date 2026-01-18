@@ -209,6 +209,7 @@ const Analytics = () => {
     lostDayDates: string[];
     extraDaysAmount: number;
     dispatcherBonus: number;
+    perDayRate: number;
   } | null>(null);
 
   // Check if user has only dispatch role (same logic as Orders page)
@@ -2380,6 +2381,7 @@ const Analytics = () => {
                                                 lostDayDates,
                                                 extraDaysAmount: Math.max(0, extraDaysAmount),
                                                 dispatcherBonus: bonusAmount,
+                                                perDayRate,
                                               }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
                                               toast.success(`Payroll document generated for ${stat.name}`);
                                             }}
@@ -2436,6 +2438,7 @@ const Analytics = () => {
                                                 lostDayDates: lostDayDatesForDoc,
                                                 extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
                                                 dispatcherBonus: bonusAmount,
+                                                perDayRate,
                                               });
                                               setPayrollPreviewOpen(true);
                                             }}

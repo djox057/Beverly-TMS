@@ -25,6 +25,7 @@ interface PayrollPreviewDialogProps {
   lostDayDates: string[];
   extraDaysAmount: number;
   dispatcherBonus?: number;
+  perDayRate?: number;
   onEmailSent: () => void;
 }
 
@@ -45,6 +46,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   lostDayDates,
   extraDaysAmount,
   dispatcherBonus = 0,
+  perDayRate = 0,
   onEmailSent,
 }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -122,6 +124,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         lostDayDates: adjustedLostDayDates,
         extraDaysAmount,
         dispatcherBonus,
+        perDayRate,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -221,6 +224,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         lostDayDates: adjustedLostDayDates,
         extraDaysAmount,
         dispatcherBonus,
+        perDayRate,
       });
 
       // Convert to bytes
@@ -296,7 +300,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               </div>
             ) : pdfUrl ? (
               <iframe
-                src={pdfUrl}
+                src={`${pdfUrl}#zoom=80`}
                 className="w-full h-full min-h-[500px]"
                 title="Payroll Preview"
               />
