@@ -2822,19 +2822,21 @@ const Reports = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setAllProblemsDialogOpen(true)} 
-                className="gap-2"
-              >
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                All Problems
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2 ml-auto">
-                <HelpCircle className="h-4 w-4" />
-                Legend
-              </Button>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setAllProblemsDialogOpen(true)} 
+                  className="gap-2"
+                >
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  All Problems
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
+                  <HelpCircle className="h-4 w-4" />
+                  Legend
+                </Button>
+              </div>
             </div>
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
