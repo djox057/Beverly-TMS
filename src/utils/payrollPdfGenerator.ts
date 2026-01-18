@@ -12,6 +12,7 @@ interface PayrollData {
   lostDayDates: string[];
   extraDaysAmount: number;
   dispatcherBonus?: number;
+  perDayRate?: number; // Per-workday rate for lost days calculation
 }
 
 const BLACK_COLOR = "#000000";
@@ -22,13 +23,22 @@ const GRAY_HEADER_BG = "#C0C0C0";
 
 export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   const hasExtraDays = data.extraDays > data.lostDays;
+  const hasLostDays = data.lostDays > 0 && !hasExtraDays;
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
   
+  // Calculate lost days deduction using provided perDayRate
+  const perDayRate = data.perDayRate ?? 0;
+  const lostDaysDeduction = hasLostDays ? data.lostDays * perDayRate : 0;
+  
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    (hasExtraDays ? data.extraDaysAmount : 0) + (data.dispatcherBonus ?? 0);
+    (hasExtraDays ? data.extraDaysAmount : 0) - lostDaysDeduction + (data.dispatcherBonus ?? 0);
 
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
+    : "";
+
+  const lostDatesText = data.lostDayDates.length > 0 
+    ? data.lostDayDates.join(", ") 
     : "";
 
   const doc = new jsPDF({
@@ -191,6 +201,18 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
       `$${data.extraDaysAmount.toFixed(2)}`, 
       "#FFFFFF", 
       LIGHT_BLUE_BG
+    );
+  }
+
+  // Lost days row (if applicable - when lost days exceed extra days)
+  if (hasLostDays && lostDaysDeduction > 0) {
+    drawRow(
+      `Lost days (${lostDatesText})`, 
+      `-$${lostDaysDeduction.toFixed(2)}`, 
+      "#FFFFFF", 
+      LIGHT_BLUE_BG,
+      false,
+      RED_COLOR
     );
   }
 

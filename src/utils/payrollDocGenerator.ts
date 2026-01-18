@@ -27,6 +27,7 @@ interface PayrollData {
   lostDayDates: string[]; // Array of date strings
   extraDaysAmount: number; // Additional amount earned from extra days
   dispatcherBonus?: number; // Monthly performance bonus (1st place $1000, etc.)
+  perDayRate?: number; // Per-workday rate for lost days calculation
 }
 
 const BLACK_COLOR = "000000";
@@ -58,15 +59,24 @@ const createHorizontalLine = () => {
 
 export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> => {
   const hasExtraDays = data.extraDays > data.lostDays;
+  const hasLostDays = data.lostDays > 0 && !hasExtraDays;
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
+  
+  // Calculate lost days deduction using provided perDayRate
+  const perDayRate = data.perDayRate ?? 0;
+  const lostDaysDeduction = hasLostDays ? data.lostDays * perDayRate : 0;
   
   // Calculate check amount
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    (hasExtraDays ? data.extraDaysAmount : 0) + (data.dispatcherBonus ?? 0);
+    (hasExtraDays ? data.extraDaysAmount : 0) - lostDaysDeduction + (data.dispatcherBonus ?? 0);
 
   // Format dates for display
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
+    : "";
+
+  const lostDatesText = data.lostDayDates.length > 0 
+    ? data.lostDayDates.join(", ") 
     : "";
 
   // Build table rows
@@ -233,6 +243,39 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [new TextRun({ text: `$${data.extraDaysAmount.toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
+
+  // Lost days row (only if has lost days and no extra days offset)
+  if (hasLostDays && lostDaysDeduction > 0) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `Lost days (${lostDatesText})`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `-$${lostDaysDeduction.toFixed(2)}`, size: TABLE_SIZE, color: RED_COLOR })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
