@@ -191,8 +191,10 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   // Bonus 5% row
   drawRow("Bonus 5%", `$${data.bonus5Percent.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
 
-  // Food allowance row
-  drawRow("Food allowance", `$${data.foodAllowance.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  // Food allowance row (only if > 0)
+  if (data.foodAllowance > 0) {
+    drawRow("Food allowance", `$${data.foodAllowance.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  }
 
   // Extra days row (if applicable)
   if (hasExtraDays) {
