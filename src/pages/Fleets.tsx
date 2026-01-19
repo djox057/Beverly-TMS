@@ -745,7 +745,17 @@ const Fleets = () => {
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="text-xs flex-shrink-0">Available</Badge>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Badge variant={dispatcherFleet.isActive ? "outline" : "secondary"} className="text-xs">
+                                  {dispatcherFleet.isActive ? "Available" : "Off Duty"}
+                                </Badge>
+                                {/* Toggle buttons - Only visible to managers and admins */}
+                                {(hasRole("manager") || hasRole("admin")) && !dispatcherFleet.isActive && (
+                                  <Button variant="default" size="sm" className="text-xs h-7" onClick={() => setDispatcherActive(dispatcherFleet.dispatcher.id)} disabled={loading}>
+                                    Set Active
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             {provided.placeholder}
                           </CardContent>
