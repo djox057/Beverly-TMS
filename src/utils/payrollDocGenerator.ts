@@ -253,7 +253,8 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   }
 
   // Lost days row (only if has lost days and no extra days offset)
-  if (hasLostDays && lostDaysDeduction > 0) {
+  // Match extra days logic: show row whenever hasLostDays is true
+  if (hasLostDays) {
     tableRows.push(
       new TableRow({
         height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
