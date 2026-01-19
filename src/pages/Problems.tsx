@@ -56,40 +56,65 @@ export default function Problems() {
     });
   };
 
-  const getDateKey = (dateStr: string) => {
+  const formatShortDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return format(date, "M/dd");
+  };
+
+  const getDateKey = (dateStr: string | null) => {
+    if (!dateStr) return null;
     const date = new Date(dateStr);
     return format(date, "yyyy-MM-dd");
   };
 
-  const formatDateHeader = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return format(date, "EEEE, MMMM d, yyyy");
+  const getTodayKey = () => {
+    return format(new Date(), "yyyy-MM-dd");
   };
 
-  // Group problems by date
-  const groupedProblems = useMemo(() => {
-    const groups: { date: string; problems: typeof problems }[] = [];
-    let currentDate = "";
-    let currentGroup: typeof problems = [];
+  const formatDateHeader = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return format(date, "EEEE, MM/dd/yyyy");
+  };
 
+  const isResolved = (problem: typeof problems[0]) => {
+    return problem.resolved_at !== null;
+  };
+
+  // Group problems by resolution date (or today for unresolved)
+  const groupedProblems = useMemo(() => {
+    const today = getTodayKey();
+    const groups = new Map<string, typeof problems>();
+
+    // Sort problems - resolved by resolved_at date, unresolved go to "today"
     problems.forEach((problem) => {
-      const dateKey = getDateKey(problem.created_at);
-      if (dateKey !== currentDate) {
-        if (currentGroup.length > 0) {
-          groups.push({ date: currentDate, problems: currentGroup });
-        }
-        currentDate = dateKey;
-        currentGroup = [problem];
+      let dateKey: string;
+      if (problem.resolved_at) {
+        dateKey = getDateKey(problem.resolved_at) || today;
       } else {
-        currentGroup.push(problem);
+        // Unresolved problems appear under today's date
+        dateKey = today;
       }
+
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(problem);
     });
 
-    if (currentGroup.length > 0) {
-      groups.push({ date: currentDate, problems: currentGroup });
-    }
+    // Convert to array and sort by date descending
+    const sortedGroups = Array.from(groups.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, probs]) => ({
+        date,
+        problems: probs.sort((a, b) => {
+          // Unresolved first, then by created_at desc
+          if (!a.resolved_at && b.resolved_at) return -1;
+          if (a.resolved_at && !b.resolved_at) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }),
+      }));
 
-    return groups;
+    return sortedGroups;
   }, [problems]);
 
   const handleResolveConfirm = () => {
@@ -131,10 +156,6 @@ export default function Problems() {
     setEditStatusValue("");
   };
 
-  const isResolved = (problem: typeof problems[0]) => {
-    return problem.resolved_at !== null;
-  };
-
   return (
     <div className="py-6 px-4 space-y-6 w-full">
       <Card className="w-full">
@@ -151,165 +172,156 @@ export default function Problems() {
               No problems reported.
             </div>
           ) : (
-            <div className="overflow-auto">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Truck #</TableHead>
-                    <TableHead className="w-[150px]">Driver</TableHead>
-                    <TableHead className="w-[150px]">Dispatcher</TableHead>
-                    <TableHead className="min-w-[300px]">Problem</TableHead>
-                    <TableHead className="min-w-[150px]">Status</TableHead>
-                    <TableHead className="w-[180px]">Submitted</TableHead>
-                    <TableHead className="w-[150px]">Reported By</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="w-[80px]">Truck #</TableHead>
+                    <TableHead className="w-[120px]">Driver</TableHead>
+                    <TableHead className="w-[120px]">Dispatcher</TableHead>
+                    <TableHead className="w-[350px] min-w-[350px]">Problem</TableHead>
+                    <TableHead className="w-[200px] min-w-[200px]">Status</TableHead>
+                    <TableHead className="w-[100px]">Submitted</TableHead>
+                    <TableHead className="w-[120px]">Reported By</TableHead>
+                    <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {groupedProblems.map((group) => (
                     <>
-                      {/* Date separator row */}
-                      <TableRow key={`date-${group.date}`} className="bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/30">
-                        <TableCell colSpan={8} className="font-semibold text-center py-2 text-yellow-800 dark:text-yellow-200">
-                          {formatDateHeader(group.date)}
-                        </TableCell>
-                      </TableRow>
-                      {group.problems.map((problem) => {
+                      {group.problems.map((problem, index) => {
                         const driverName = driverMap.get(problem.driver_id) || "Unknown Driver";
                         const reportedByName = problem.created_by ? profileMap.get(problem.created_by) || "Unknown" : "Unknown";
                         const problemText = problem.reason;
-                        const isLongText = problemText.length > 50;
                         const isEditingProblem = editingProblemId === problem.id;
                         const isEditingStatus = editingStatusId === problem.id;
                         const problemResolved = isResolved(problem);
+                        const isLastInGroup = index === group.problems.length - 1;
 
                         return (
-                          <TableRow 
-                            key={problem.id}
-                            className={problemResolved ? "bg-green-100 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/30" : ""}
-                          >
-                            <TableCell className="font-medium">
-                              {problem.truck_number || "N/A"}
-                            </TableCell>
-                            <TableCell>{driverName}</TableCell>
-                            <TableCell>{problem.dispatcher_name || "N/A"}</TableCell>
-                            <TableCell className="min-w-[300px]">
-                              {isEditingProblem ? (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    value={editProblemValue}
-                                    onChange={(e) => setEditProblemValue(e.target.value)}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleSaveProblem(problem.id)}
-                                    disabled={updateProblem.isPending}
-                                  >
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={handleCancelEditProblem}
-                                  >
-                                    <X className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2 group">
-                                  {isLongText ? (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <button className="text-left cursor-pointer hover:underline max-w-[250px] truncate block">
-                                          {problemText.substring(0, 50)}...
-                                        </button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-96 max-h-60 overflow-auto">
-                                        <p className="text-sm whitespace-pre-wrap">{problemText}</p>
-                                      </PopoverContent>
-                                    </Popover>
-                                  ) : (
-                                    <span>{problemText}</span>
-                                  )}
-                                  {!problemResolved && (
+                          <>
+                            <TableRow 
+                              key={problem.id}
+                              className={problemResolved ? "bg-green-100 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/30" : ""}
+                            >
+                              <TableCell className="font-medium">
+                                {problem.truck_number || "N/A"}
+                              </TableCell>
+                              <TableCell>{driverName}</TableCell>
+                              <TableCell>{problem.dispatcher_name || "N/A"}</TableCell>
+                              <TableCell className="w-[350px] min-w-[350px]">
+                                {isEditingProblem ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={editProblemValue}
+                                      onChange={(e) => setEditProblemValue(e.target.value)}
+                                      className="flex-1"
+                                    />
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="opacity-0 group-hover:opacity-100 h-6 w-6"
-                                      onClick={() => handleStartEditProblem(problem.id, problemText)}
+                                      onClick={() => handleSaveProblem(problem.id)}
+                                      disabled={updateProblem.isPending}
                                     >
-                                      <Pencil className="h-3 w-3" />
+                                      <Check className="h-4 w-4 text-green-500" />
                                     </Button>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="min-w-[150px]">
-                              {isEditingStatus ? (
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    value={editStatusValue}
-                                    onChange={(e) => setEditStatusValue(e.target.value)}
-                                    className="w-[120px] h-8"
-                                    placeholder="Status..."
-                                  />
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6"
-                                    onClick={() => handleSaveStatus(problem.id)}
-                                    disabled={updateProblem.isPending}
-                                  >
-                                    <Check className="h-3 w-3 text-green-500" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6"
-                                    onClick={handleCancelEditStatus}
-                                  >
-                                    <X className="h-3 w-3 text-red-500" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 group">
-                                  <span className="capitalize">
-                                    {problem.status || "open"}
-                                  </span>
-                                  {!problemResolved && (
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="opacity-0 group-hover:opacity-100 h-6 w-6"
-                                      onClick={() => handleStartEditStatus(problem.id, problem.status || "open")}
+                                      onClick={handleCancelEditProblem}
                                     >
-                                      <Pencil className="h-3 w-3" />
+                                      <X className="h-4 w-4 text-red-500" />
                                     </Button>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {formatChicagoTime(problem.created_at)}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {reportedByName}
-                            </TableCell>
-                            <TableCell>
-                              {!problemResolved && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setConfirmResolveId(problem.id)}
-                                  disabled={resolveProblem.isPending}
-                                >
-                                  Resolve
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-start gap-2 group">
+                                    <span className="whitespace-pre-wrap break-words line-clamp-2">{problemText}</span>
+                                    {!problemResolved && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="opacity-0 group-hover:opacity-100 h-6 w-6 shrink-0"
+                                        onClick={() => handleStartEditProblem(problem.id, problemText)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="w-[200px] min-w-[200px]">
+                                {isEditingStatus ? (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      value={editStatusValue}
+                                      onChange={(e) => setEditStatusValue(e.target.value)}
+                                      className="flex-1 h-8"
+                                      placeholder="Status..."
+                                    />
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 shrink-0"
+                                      onClick={() => handleSaveStatus(problem.id)}
+                                      disabled={updateProblem.isPending}
+                                    >
+                                      <Check className="h-3 w-3 text-green-500" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 shrink-0"
+                                      onClick={handleCancelEditStatus}
+                                    >
+                                      <X className="h-3 w-3 text-red-500" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-start gap-1 group">
+                                    <span className="whitespace-pre-wrap break-words line-clamp-2 capitalize">
+                                      {problem.status || "open"}
+                                    </span>
+                                    {!problemResolved && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="opacity-0 group-hover:opacity-100 h-6 w-6 shrink-0"
+                                        onClick={() => handleStartEditStatus(problem.id, problem.status || "open")}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {formatShortDate(problem.created_at)}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {reportedByName}
+                              </TableCell>
+                              <TableCell>
+                                {!problemResolved && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setConfirmResolveId(problem.id)}
+                                    disabled={resolveProblem.isPending}
+                                  >
+                                    Resolve
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                            {/* Yellow date separator row after last problem in group */}
+                            {isLastInGroup && (
+                              <TableRow key={`date-${group.date}`} className="bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/30">
+                                <TableCell colSpan={8} className="font-semibold text-center py-2 text-yellow-800 dark:text-yellow-200">
+                                  {formatDateHeader(group.date)}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         );
                       })}
                     </>
