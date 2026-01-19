@@ -13,6 +13,8 @@ interface PayrollData {
   extraDaysAmount: number;
   dispatcherBonus?: number;
   perDayRate?: number; // Per-workday rate for lost days calculation
+  sickDayDates?: string[]; // Dates marked as sick days
+  totalSickDaysAvailable?: number; // Max sick days per year (3)
 }
 
 const BLACK_COLOR = "#000000";
@@ -22,23 +24,38 @@ const LIGHT_BLUE_BG = "#DCE6F1";
 const GRAY_HEADER_BG = "#C0C0C0";
 
 export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
-  const hasExtraDays = data.extraDays > data.lostDays;
-  const hasLostDays = data.lostDays > 0 && !hasExtraDays;
+  const sickDayDates = data.sickDayDates || [];
+  const totalSickDaysAvailable = data.totalSickDaysAvailable ?? 3;
+  
+  // Independent visibility - both can show at the same time
+  const hasExtraDays = data.extraDays > 0;
+  const hasSickDays = sickDayDates.length > 0;
+  
+  // Non-sick lost days are the ones that get deducted
+  const nonSickLostDayDates = data.lostDayDates.filter(d => !sickDayDates.includes(d));
+  const nonSickLostDays = nonSickLostDayDates.length;
+  const hasNonSickLostDays = nonSickLostDays > 0;
+  
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
   
-  // Calculate lost days deduction using provided perDayRate
+  // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
-  const lostDaysDeduction = hasLostDays ? data.lostDays * perDayRate : 0;
+  const extraDaysAdd = hasExtraDays ? data.extraDaysAmount : 0;
+  const daysOffDeduction = nonSickLostDays * perDayRate;
   
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    (hasExtraDays ? data.extraDaysAmount : 0) - lostDaysDeduction + (data.dispatcherBonus ?? 0);
+    extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0);
 
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
     : "";
 
-  const lostDatesText = data.lostDayDates.length > 0 
-    ? data.lostDayDates.join(", ") 
+  const sickDatesText = sickDayDates.length > 0 
+    ? sickDayDates.join(", ") 
+    : "";
+
+  const nonSickLostDatesText = nonSickLostDayDates.length > 0 
+    ? nonSickLostDayDates.join(", ") 
     : "";
 
   const doc = new jsPDF({
@@ -196,7 +213,7 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
     drawRow("Food allowance", `$${data.foodAllowance.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
   }
 
-  // Extra days row (if applicable)
+  // Extra days row (if applicable - independent)
   if (hasExtraDays) {
     drawRow(
       `Worked additional days (${extraDatesText})`, 
@@ -206,16 +223,31 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
     );
   }
 
-  // Lost days row (if applicable - when lost days exceed extra days)
-  // Match extra days logic: show row whenever hasLostDays is true
-  if (hasLostDays) {
+  // Sick days row (if any sick days used) - shows $0.00
+  if (hasSickDays) {
     drawRow(
-      `Lost days (${lostDatesText})`, 
-      `-$${lostDaysDeduction.toFixed(2)}`, 
+      `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} sick days`, 
+      `$0.00`, 
+      "#FFFFFF", 
+      LIGHT_BLUE_BG
+    );
+  }
+
+  // Non-sick days off row (deducted) - BLACK text, not red
+  if (hasNonSickLostDays) {
+    // If there are sick days, show just the dates on a new line
+    // Otherwise, show full "Days off (dates)" format
+    const daysOffLabel = hasSickDays 
+      ? nonSickLostDatesText 
+      : `Days off (${nonSickLostDatesText})`;
+    
+    drawRow(
+      daysOffLabel, 
+      `-$${daysOffDeduction.toFixed(2)}`, 
       "#FFFFFF", 
       LIGHT_BLUE_BG,
       false,
-      RED_COLOR
+      BLACK_COLOR  // BLACK, not red
     );
   }
 

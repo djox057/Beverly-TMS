@@ -104,13 +104,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const generatePreview = async () => {
     setLoading(true);
     try {
-      // Calculate adjusted values based on sick days
-      const selectedSickDays = Object.entries(sickDaySelections)
+      // Get selected sick day dates (MM/DD format)
+      const selectedSickDayDates = Object.entries(sickDaySelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
-
-      const adjustedLostDays = lostDays - selectedSickDays.length;
-      const adjustedLostDayDates = lostDayDates.filter(d => !sickDaySelections[d]);
 
       const pdfBlob = await generatePayrollPdf({
         employeeName: dispatcherName,
@@ -119,12 +116,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         bonus5Percent,
         foodAllowance,
         extraDays,
-        lostDays: Math.max(0, adjustedLostDays),
+        lostDays,
         extraDayDates,
-        lostDayDates: adjustedLostDayDates,
+        lostDayDates,
         extraDaysAmount,
         dispatcherBonus,
         perDayRate,
+        sickDayDates: selectedSickDayDates,
+        totalSickDaysAvailable: maxSickDays,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -207,11 +206,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         if (insertError) throw insertError;
       }
 
-      // Calculate adjusted values for the PDF
-      const adjustedLostDays = lostDays - selectedSickDays.length;
-      const adjustedLostDayDates = lostDayDates.filter(d => !sickDaySelections[d]);
+      // Get selected sick day dates (MM/DD format)
+      const selectedSickDayDates = Object.entries(sickDaySelections)
+        .filter(([_, isChecked]) => isChecked)
+        .map(([date]) => date);
 
-      // Generate the final PDF
+      // Generate the final PDF with sick day data
       const pdfBlob = await generatePayrollPdf({
         employeeName: dispatcherName,
         payPeriod,
@@ -219,12 +219,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         bonus5Percent,
         foodAllowance,
         extraDays,
-        lostDays: Math.max(0, adjustedLostDays),
+        lostDays,
         extraDayDates,
-        lostDayDates: adjustedLostDayDates,
+        lostDayDates,
         extraDaysAmount,
         dispatcherBonus,
         perDayRate,
+        sickDayDates: selectedSickDayDates,
+        totalSickDaysAvailable: maxSickDays,
       });
 
       // Convert to bytes
@@ -254,12 +256,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("user_id", dispatcherUserId);
 
       // Calculate the salary amount (paid_amount excludes food allowance)
-      const hasExtraDays = extraDays > adjustedLostDays;
-      const hasLostDays = adjustedLostDays > 0 && !hasExtraDays;
-      const lostDaysDeduction = hasLostDays ? adjustedLostDays * perDayRate : 0;
+      // Non-sick lost days are the ones that get deducted
+      const nonSickLostDays = lostDays - selectedSickDayDates.length;
+      const daysOffDeduction = Math.max(0, nonSickLostDays) * perDayRate;
       // Paid amount = salary components WITHOUT food allowance
       const paidAmount = salary1Percent + bonus5Percent + 
-        (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction + dispatcherBonus;
+        (extraDays > 0 ? extraDaysAmount : 0) - daysOffDeduction + dispatcherBonus;
 
       // Insert new payment record
       await supabase
