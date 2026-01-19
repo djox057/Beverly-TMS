@@ -316,7 +316,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
             )}
           </div>
 
-          {/* Sick Days Panel - only show if there are lost days */}
+          {/* Sick Days Panel - only show if there are days off */}
           {lostDayDates.length > 0 && (
             <div className="w-64 border rounded-lg p-4 space-y-4">
               <div>
@@ -336,7 +336,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               )}
 
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Lost Days:</p>
+                <p className="text-xs font-medium text-muted-foreground">Days off:</p>
                 {lostDayDates.map(date => (
                   <div key={date} className="flex items-center gap-2">
                     <Checkbox

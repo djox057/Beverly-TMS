@@ -31,17 +31,17 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   const hasExtraDays = data.extraDays > 0;
   const hasSickDays = sickDayDates.length > 0;
   
-  // Non-sick lost days are the ones that get deducted
-  const nonSickLostDayDates = data.lostDayDates.filter(d => !sickDayDates.includes(d));
-  const nonSickLostDays = nonSickLostDayDates.length;
-  const hasNonSickLostDays = nonSickLostDays > 0;
+  // Non-sick days off are the ones that get deducted
+  const nonSickDaysOffDates = data.lostDayDates.filter(d => !sickDayDates.includes(d));
+  const nonSickDaysOff = nonSickDaysOffDates.length;
+  const hasNonSickDaysOff = nonSickDaysOff > 0;
   
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
   
   // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
   const extraDaysAdd = hasExtraDays ? data.extraDaysAmount : 0;
-  const daysOffDeduction = nonSickLostDays * perDayRate;
+  const daysOffDeduction = nonSickDaysOff * perDayRate;
   
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
     extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0);
@@ -54,8 +54,8 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
     ? sickDayDates.join(", ") 
     : "";
 
-  const nonSickLostDatesText = nonSickLostDayDates.length > 0 
-    ? nonSickLostDayDates.join(", ") 
+  const nonSickDaysOffText = nonSickDaysOffDates.length > 0 
+    ? nonSickDaysOffDates.join(", ") 
     : "";
 
   const doc = new jsPDF({
@@ -234,12 +234,13 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   }
 
   // Non-sick days off row (deducted) - BLACK text, not red
-  if (hasNonSickLostDays) {
+  // Only show if there are actually days to deduct (nonSickDaysOff > 0)
+  if (hasNonSickDaysOff) {
     // If there are sick days, show just the dates on a new line
     // Otherwise, show full "Days off (dates)" format
     const daysOffLabel = hasSickDays 
-      ? nonSickLostDatesText 
-      : `Days off (${nonSickLostDatesText})`;
+      ? nonSickDaysOffText 
+      : `Days off (${nonSickDaysOffText})`;
     
     drawRow(
       daysOffLabel, 
