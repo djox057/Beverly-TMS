@@ -176,14 +176,14 @@ export default function Problems() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px]">Truck #</TableHead>
-                    <TableHead className="w-[120px]">Driver</TableHead>
-                    <TableHead className="w-[120px]">Dispatcher</TableHead>
-                    <TableHead className="w-[350px] min-w-[350px]">Problem</TableHead>
-                    <TableHead className="w-[200px] min-w-[200px]">Status</TableHead>
-                    <TableHead className="w-[100px]">Submitted</TableHead>
-                    <TableHead className="w-[120px]">Reported By</TableHead>
-                    <TableHead className="w-[80px]">Actions</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px]">Truck #</TableHead>
+                    <TableHead className="w-[120px] min-w-[120px]">Driver</TableHead>
+                    <TableHead className="w-[120px] min-w-[120px]">Dispatcher</TableHead>
+                    <TableHead className="w-[400px] min-w-[400px]">Problem</TableHead>
+                    <TableHead className="w-[280px] min-w-[280px]">Status</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px]">Submitted</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px]">Reported By</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -209,7 +209,7 @@ export default function Problems() {
                               </TableCell>
                               <TableCell>{driverName}</TableCell>
                               <TableCell>{problem.dispatcher_name || "N/A"}</TableCell>
-                              <TableCell className="w-[350px] min-w-[350px]">
+                              <TableCell className="w-[400px] min-w-[400px]">
                                 {isEditingProblem ? (
                                   <div className="flex items-center gap-2">
                                     <Input
@@ -249,7 +249,7 @@ export default function Problems() {
                                   </div>
                                 )}
                               </TableCell>
-                              <TableCell className="w-[200px] min-w-[200px]">
+                              <TableCell className="w-[280px] min-w-[280px]">
                                 {isEditingStatus ? (
                                   <div className="flex items-center gap-1">
                                     <Input
