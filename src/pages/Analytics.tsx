@@ -1177,6 +1177,21 @@ const Analytics = () => {
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
     });
 
+  // Filtered stats for Salaries tab: only dispatcher/afterhours roles with gross > 0
+  const salaryDispatcherStats = dispatcherStats.filter((stat) => {
+    // Must have gross > 0
+    if (stat.totalFreight <= 0) return false;
+    
+    const dispatcherProfile = dispatcherProfiles[stat.name];
+    if (!dispatcherProfile) return false;
+    
+    // Must have dispatcher or afterhours role
+    const hasDispatcherRole = dispatcherProfile.roles.includes("dispatch");
+    const hasAfterhoursRole = dispatcherProfile.roles.includes("afterhours");
+    
+    return hasDispatcherRole || hasAfterhoursRole;
+  });
+
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
   // This ensures totals match what the /orders page shows, regardless of dispatcher profile status
   const totals = filteredOrders.reduce(
@@ -2195,12 +2210,12 @@ const Analytics = () => {
                           {salarySelectionMode ? (
                             <Checkbox
                               checked={
-                                dispatcherStats.length > 0 &&
-                                selectedDispatcherIds.size === dispatcherStats.filter((s) => s.userId).length
+                                salaryDispatcherStats.length > 0 &&
+                                selectedDispatcherIds.size === salaryDispatcherStats.filter((s) => s.userId).length
                               }
                               onCheckedChange={() =>
                                 toggleSelectAllDispatchers(
-                                  dispatcherStats.filter((s) => s.userId).map((s) => s.userId!)
+                                  salaryDispatcherStats.filter((s) => s.userId).map((s) => s.userId!)
                                 )
                               }
                             />
@@ -2231,7 +2246,7 @@ const Analytics = () => {
                         // Build calculated salaries map for the bulk action
                         const calculatedSalaries: Record<string, number> = {};
                         
-                        return dispatcherStats.map((stat, index) => {
+                        return salaryDispatcherStats.map((stat, index) => {
                           // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
                           const extraDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
                           const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : 0;
