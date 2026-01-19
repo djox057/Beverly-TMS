@@ -107,6 +107,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both">("truck");
   const [pendingFormEvent, setPendingFormEvent] = useState<React.FormEvent | null>(null);
+  
+  // Already assigned warning dialog state
+  const [showAlreadyAssignedWarning, setShowAlreadyAssignedWarning] = useState(false);
+  const [alreadyAssignedInfo, setAlreadyAssignedInfo] = useState<{
+    truckDriverName?: string;
+    trailerDriverName?: string;
+    truckNumber?: string;
+    trailerNumber?: string;
+  } | null>(null);
 
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || "");
 
@@ -252,12 +261,14 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   // Check if assignment change requires a reason
   const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
-    const truckChanged = (formData.truck_id || null) !== originalTruckId;
-    const trailerChanged = (formData.trailer_id || null) !== originalTrailerId;
+    const newTruckId = formData.truck_id || null;
+    const newTrailerId = formData.trailer_id || null;
+    const truckChanged = newTruckId !== originalTruckId;
+    const trailerChanged = newTrailerId !== originalTrailerId;
     
     // Only require reason if there was a previous assignment (not null)
-    const hadTruck = originalTruckId !== null;
-    const hadTrailer = originalTrailerId !== null;
+    const hadTruck = originalTruckId !== null && originalTruckId !== "";
+    const hadTrailer = originalTrailerId !== null && originalTrailerId !== "";
     
     if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
       return "both";
@@ -269,18 +280,108 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     return null;
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  // Check if truck/trailer is already assigned to another driver
+  const checkAlreadyAssigned = async (): Promise<{
+    truckDriverName?: string;
+    trailerDriverName?: string;
+    truckNumber?: string;
+    trailerNumber?: string;
+  } | null> => {
+    const result: {
+      truckDriverName?: string;
+      trailerDriverName?: string;
+      truckNumber?: string;
+      trailerNumber?: string;
+    } = {};
+    let hasConflict = false;
+
+    // Check if the selected truck is assigned to another driver
+    if (formData.truck_id && formData.truck_id !== originalTruckId) {
+      const selectedTruck = allTrucks?.find(t => t.id === formData.truck_id);
+      if (selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver?.id) {
+        // Get driver name
+        const { data: driverData } = await supabase
+          .from("drivers")
+          .select("name")
+          .eq("id", selectedTruck.driver1_id)
+          .single();
+        if (driverData) {
+          result.truckDriverName = driverData.name || "Unknown Driver";
+          result.truckNumber = selectedTruck.truck_number;
+          hasConflict = true;
+        }
+      }
+    }
+
+    // Check if the selected trailer is assigned to another truck (with a different driver)
+    if (formData.trailer_id && formData.trailer_id !== originalTrailerId) {
+      const { data: trucksWithTrailer } = await supabase
+        .from("trucks")
+        .select("id, truck_number, driver1_id, trailer_id")
+        .eq("trailer_id", formData.trailer_id)
+        .neq("id", formData.truck_id || "")
+        .limit(1);
+
+      if (trucksWithTrailer && trucksWithTrailer.length > 0) {
+        const truckWithTrailer = trucksWithTrailer[0];
+        if (truckWithTrailer.driver1_id && truckWithTrailer.driver1_id !== editingDriver?.id) {
+          const { data: driverData } = await supabase
+            .from("drivers")
+            .select("name")
+            .eq("id", truckWithTrailer.driver1_id)
+            .single();
+          if (driverData) {
+            // Get trailer number
+            const { data: trailerData } = await supabase
+              .from("trailers")
+              .select("trailer_number")
+              .eq("id", formData.trailer_id)
+              .single();
+            result.trailerDriverName = driverData.name || "Unknown Driver";
+            result.trailerNumber = trailerData?.trailer_number || "Unknown";
+            hasConflict = true;
+          }
+        }
+      }
+    }
+
+    return hasConflict ? result : null;
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // First check for already assigned equipment
+    const alreadyAssigned = await checkAlreadyAssigned();
+    if (alreadyAssigned) {
+      setAlreadyAssignedInfo(alreadyAssigned);
+      setShowAlreadyAssignedWarning(true);
+      return;
+    }
+    
+    proceedWithSubmit();
+  };
+
+  const proceedWithSubmit = () => {
     const reasonNeeded = checkAssignmentChangeNeedsReason();
     if (reasonNeeded) {
       setPendingReasonType(reasonNeeded);
-      setPendingFormEvent(e);
       setShowReasonDialog(true);
     } else {
       // No reason needed, proceed directly
       handleEditDriverWithReason(null);
     }
+  };
+
+  const handleAlreadyAssignedConfirm = () => {
+    setShowAlreadyAssignedWarning(false);
+    setAlreadyAssignedInfo(null);
+    proceedWithSubmit();
+  };
+
+  const handleAlreadyAssignedCancel = () => {
+    setShowAlreadyAssignedWarning(false);
+    setAlreadyAssignedInfo(null);
   };
 
   const handleReasonConfirm = (reason: string) => {
@@ -1139,6 +1240,36 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Already Assigned Warning Dialog */}
+      <AlertDialog open={showAlreadyAssignedWarning} onOpenChange={setShowAlreadyAssignedWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Equipment Already Assigned</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {alreadyAssignedInfo?.truckDriverName && (
+                  <p>
+                    Truck <span className="font-semibold">{alreadyAssignedInfo.truckNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.truckDriverName}</span>.
+                  </p>
+                )}
+                {alreadyAssignedInfo?.trailerDriverName && (
+                  <p>
+                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.trailerDriverName}</span>.
+                  </p>
+                )}
+                <p className="mt-2">Are you sure you want to proceed with this assignment?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleAlreadyAssignedCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAlreadyAssignedConfirm}>Yes, Proceed</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Assignment Reason Dialog */}
       <AssignmentReasonDialog
