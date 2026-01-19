@@ -97,8 +97,8 @@ const getStatusBadge = (status: string) => {
 const Analytics = () => {
   const navigate = useNavigate();
   const { hasRole, profile, getPrimaryRole, roles } = useAuthContext();
-  const isAdmin = roles.includes('admin');
-  const canViewSalaries = roles.includes('admin') || roles.includes('chicago_management');
+  const isAdmin = roles.includes("admin");
+  const canViewSalaries = roles.includes("admin") || roles.includes("chicago_management");
 
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -184,16 +184,20 @@ const Analytics = () => {
   const [lostDaysByUser, setLostDaysByUser] = useState<Record<string, number>>({});
   const [lostDayDatesByUser, setLostDayDatesByUser] = useState<Record<string, string[]>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
-  
+
   // Salary selection and payment states
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
   const [selectedDispatcherIds, setSelectedDispatcherIds] = useState<Set<string>>(new Set());
-  const [salaryPayments, setSalaryPayments] = useState<Record<string, { paid_amount: number; paid_at: string | null }>>({});
-  const [prevMonthPayments, setPrevMonthPayments] = useState<Record<string, { paid_amount: number; calculated_salary: number }>>({});
+  const [salaryPayments, setSalaryPayments] = useState<Record<string, { paid_amount: number; paid_at: string | null }>>(
+    {},
+  );
+  const [prevMonthPayments, setPrevMonthPayments] = useState<
+    Record<string, { paid_amount: number; calculated_salary: number }>
+  >({});
   const queryClient = useQueryClient();
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
   const [dispatcherBonuses, setDispatcherBonuses] = useState<Record<string, { rank: number; amount: number }>>({});
-  
+
   // Payroll preview dialog state
   const [payrollPreviewOpen, setPayrollPreviewOpen] = useState(false);
   const [payrollPreviewData, setPayrollPreviewData] = useState<{
@@ -234,11 +238,7 @@ const Analytics = () => {
 
   // Create a Set of company driver IDs for analytics calculations
   const companyDriverIds = useMemo(() => {
-    return new Set(
-      (drivers || [])
-        .filter(d => d.is_company_driver)
-        .map(d => d.id)
-    );
+    return new Set((drivers || []).filter((d) => d.is_company_driver).map((d) => d.id));
   }, [drivers]);
 
   // Helper function: For company drivers, driver pay equals freight amount (0% cut)
@@ -377,28 +377,28 @@ const Analytics = () => {
   // Helper function to get holidays for a year (same as weekend schedule)
   const getHolidaysForYear = (year: number) => {
     const holidays: Date[] = [];
-    
+
     // Fixed holidays
     holidays.push(new Date(year, 0, 1)); // New Year's Day - Jan 1
     holidays.push(new Date(year, 6, 4)); // Independence Day - Jul 4
     holidays.push(new Date(year, 11, 25)); // Christmas - Dec 25
-    
+
     // Memorial Day - last Monday of May
     const lastDayMay = new Date(year, 5, 0);
     const memorialDay = new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7));
     holidays.push(memorialDay);
-    
+
     // Labor Day - first Monday of September
     const firstSept = new Date(year, 8, 1);
     const laborDay = new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7));
     holidays.push(laborDay);
-    
+
     // Thanksgiving - 4th Thursday of November
     const firstNov = new Date(year, 10, 1);
     const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
     const thanksgiving = new Date(year, 10, firstThursday.getDate() + 21);
     holidays.push(thanksgiving);
-    
+
     return holidays;
   };
 
@@ -408,9 +408,7 @@ const Analytics = () => {
     const date = new Date(dateStr + "T12:00:00"); // Use noon to avoid timezone issues
     return holidays.some(
       (h) =>
-        h.getFullYear() === date.getFullYear() &&
-        h.getMonth() === date.getMonth() &&
-        h.getDate() === date.getDate()
+        h.getFullYear() === date.getFullYear() && h.getMonth() === date.getMonth() && h.getDate() === date.getDate(),
     );
   };
 
@@ -421,7 +419,7 @@ const Analytics = () => {
         // Determine the month to fetch based on selectedMonth or dateRange
         let targetYear: number | null = null;
         let targetMonthNum: number | null = null;
-        
+
         if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
           // selectedMonth format is "YYYY-MM"
           const parts = selectedMonth.split("-");
@@ -433,35 +431,35 @@ const Analytics = () => {
           targetYear = dateRange.from.getFullYear();
           targetMonthNum = dateRange.from.getMonth();
         }
-        
+
         if (targetYear === null || targetMonthNum === null || isNaN(targetYear) || isNaN(targetMonthNum)) {
           setExtraDaysByUser({});
           return;
         }
-        
+
         const firstDay = new Date(targetYear, targetMonthNum, 1);
         const lastDay = new Date(targetYear, targetMonthNum + 1, 0);
-        
+
         // Validate dates
         if (isNaN(firstDay.getTime()) || isNaN(lastDay.getTime())) {
           setExtraDaysByUser({});
           return;
         }
-        
+
         const fromDate = format(firstDay, "yyyy-MM-dd");
         const toDate = format(lastDay, "yyyy-MM-dd");
-        
+
         const { data, error } = await supabase
           .from("afterhours_schedule")
           .select("user_id, scheduled_date")
           .gte("scheduled_date", fromDate)
           .lte("scheduled_date", toDate);
-        
+
         if (error) {
           console.error("Error fetching extra days:", error);
           return;
         }
-        
+
         // Count only weekend (Sat/Sun) non-holiday days per user
         const rawCountsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
@@ -488,30 +486,30 @@ const Analytics = () => {
             datesMap[record.user_id].push(`${month}/${day}`);
           });
         }
-        
+
         // Sort dates for each user
-        Object.keys(datesMap).forEach(userId => {
+        Object.keys(datesMap).forEach((userId) => {
           datesMap[userId].sort((a, b) => {
-            const [aMonth, aDay] = a.split('/').map(Number);
-            const [bMonth, bDay] = b.split('/').map(Number);
+            const [aMonth, aDay] = a.split("/").map(Number);
+            const [bMonth, bDay] = b.split("/").map(Number);
             if (aMonth !== bMonth) return aMonth - bMonth;
             return aDay - bDay;
           });
         });
-        
+
         // Subtract 1 from each count (first weekend day is regular, 2+ days = extra)
         const countsMap: Record<string, number> = {};
-        Object.keys(rawCountsMap).forEach(userId => {
+        Object.keys(rawCountsMap).forEach((userId) => {
           countsMap[userId] = Math.max(0, rawCountsMap[userId] - 1);
         });
-        
+
         setExtraDaysByUser(countsMap);
         setExtraDayDatesByUser(datesMap);
       } catch (error) {
         console.error("Error in fetchExtraDays:", error);
       }
     };
-    
+
     fetchExtraDays();
   }, [selectedMonth, dateRange]);
 
@@ -522,7 +520,7 @@ const Analytics = () => {
         // Determine the month to fetch based on selectedMonth or dateRange
         let targetYear: number | null = null;
         let targetMonthNum: number | null = null;
-        
+
         if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
           const parts = selectedMonth.split("-");
           if (parts.length === 2) {
@@ -533,35 +531,35 @@ const Analytics = () => {
           targetYear = dateRange.from.getFullYear();
           targetMonthNum = dateRange.from.getMonth();
         }
-        
+
         if (targetYear === null || targetMonthNum === null || isNaN(targetYear) || isNaN(targetMonthNum)) {
           setLostDaysByUser({});
           return;
         }
-        
+
         const firstDay = new Date(targetYear, targetMonthNum, 1);
         const lastDay = new Date(targetYear, targetMonthNum + 1, 0);
-        
+
         // Validate dates
         if (isNaN(firstDay.getTime()) || isNaN(lastDay.getTime())) {
           setLostDaysByUser({});
           return;
         }
-        
+
         const fromDate = format(firstDay, "yyyy-MM-dd");
         const toDate = format(lastDay, "yyyy-MM-dd");
-        
+
         const { data, error } = await supabase
           .from("dispatcher_off_duty_days")
           .select("dispatcher_id, off_duty_date")
           .gte("off_duty_date", fromDate)
           .lte("off_duty_date", toDate);
-        
+
         if (error) {
           console.error("Error fetching lost days:", error);
           return;
         }
-        
+
         // Count lost days per dispatcher and collect dates
         const countsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
@@ -579,24 +577,24 @@ const Analytics = () => {
             datesMap[record.dispatcher_id].push(`${month}/${day}`);
           });
         }
-        
+
         // Sort dates for each user
-        Object.keys(datesMap).forEach(userId => {
+        Object.keys(datesMap).forEach((userId) => {
           datesMap[userId].sort((a, b) => {
-            const [aMonth, aDay] = a.split('/').map(Number);
-            const [bMonth, bDay] = b.split('/').map(Number);
+            const [aMonth, aDay] = a.split("/").map(Number);
+            const [bMonth, bDay] = b.split("/").map(Number);
             if (aMonth !== bMonth) return aMonth - bMonth;
             return aDay - bDay;
           });
         });
-        
+
         setLostDaysByUser(countsMap);
         setLostDayDatesByUser(datesMap);
       } catch (error) {
         console.error("Error in fetchLostDays:", error);
       }
     };
-    
+
     fetchLostDays();
   }, [selectedMonth, dateRange]);
 
@@ -606,7 +604,7 @@ const Analytics = () => {
     const year = parseInt(yearStr, 10);
     const monthNum = parseInt(monthStr, 10);
     if (isNaN(year) || isNaN(monthNum)) return null;
-    
+
     const prevDate = new Date(year, monthNum - 2, 1); // month is 1-indexed, Date uses 0-indexed
     return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
   };
@@ -718,7 +716,7 @@ const Analytics = () => {
 
   // Selection helpers for salaries
   const toggleDispatcherSelection = (userId: string) => {
-    setSelectedDispatcherIds(prev => {
+    setSelectedDispatcherIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(userId)) {
         newSet.delete(userId);
@@ -738,21 +736,26 @@ const Analytics = () => {
   };
 
   // Mark selected dispatchers as paid - stores calculated_salary for future adjustment calculations
-  const markSelectedAsPaid = async (calculatedSalaries: Record<string, number>, adjustedSalaries: Record<string, number>) => {
+  const markSelectedAsPaid = async (
+    calculatedSalaries: Record<string, number>,
+    adjustedSalaries: Record<string, number>,
+  ) => {
     if (selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all") {
       toast.error("Please select a month and at least one dispatcher");
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         toast.error("You must be logged in");
         return;
       }
 
       const now = new Date().toISOString();
-      
+
       // Delete previous records for the selected month first
       const selectedUserIds = Array.from(selectedDispatcherIds);
       const { error: deleteError } = await supabase
@@ -766,7 +769,7 @@ const Analytics = () => {
       }
 
       // Store both the adjusted salary (what's paid) and the base calculated salary (for next month's adjustment)
-      const insertData = selectedUserIds.map(userId => ({
+      const insertData = selectedUserIds.map((userId) => ({
         user_id: userId,
         month: selectedMonth,
         paid_amount: adjustedSalaries[userId] || calculatedSalaries[userId] || 0,
@@ -775,17 +778,15 @@ const Analytics = () => {
         paid_by: user.id,
       }));
 
-      const { error } = await supabase
-        .from("dispatcher_salary_payments" as any)
-        .insert(insertData);
+      const { error } = await supabase.from("dispatcher_salary_payments" as any).insert(insertData);
 
       if (error) throw error;
 
       toast.success(`Marked ${selectedDispatcherIds.size} dispatcher(s) as paid`);
-      
+
       // Update local state
       const newPayments = { ...salaryPayments };
-      insertData.forEach(item => {
+      insertData.forEach((item) => {
         newPayments[item.user_id] = {
           paid_amount: item.paid_amount,
           paid_at: item.paid_at,
@@ -1118,7 +1119,7 @@ const Analytics = () => {
       // Show users with gross > 0 (including deleted users who still have orders)
       // OR users with 'dispatch' role OR managers/supervisors/afterhours who have booked orders
       const hasBookedOrders = stat.totalFreight > 0;
-      
+
       // If no profile exists but they have orders with gross, show them (deleted users)
       if (!dispatcherProfile) {
         return hasBookedOrders;
@@ -1126,10 +1127,10 @@ const Analytics = () => {
 
       const hasDispatchRole = dispatcherProfile.roles.includes("dispatch");
       const isManagerOrSupervisorOrAfterhours =
-        dispatcherProfile.roles.includes("manager") || 
+        dispatcherProfile.roles.includes("manager") ||
         dispatcherProfile.roles.includes("supervisor") ||
         dispatcherProfile.roles.includes("afterhours");
-      
+
       // Show if: has dispatch role, OR is manager/supervisor/afterhours with orders, OR has gross > 0 (deleted users)
       if (!hasDispatchRole && !(isManagerOrSupervisorOrAfterhours && hasBookedOrders) && !hasBookedOrders) {
         return false;
@@ -1177,21 +1178,6 @@ const Analytics = () => {
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
     });
 
-  // Filtered stats for Salaries tab: only dispatcher/afterhours roles with gross > 0
-  const salaryDispatcherStats = dispatcherStats.filter((stat) => {
-    // Must have gross > 0
-    if (stat.totalFreight <= 0) return false;
-    
-    const dispatcherProfile = dispatcherProfiles[stat.name];
-    if (!dispatcherProfile) return false;
-    
-    // Must have dispatcher or afterhours role
-    const hasDispatcherRole = dispatcherProfile.roles.includes("dispatch");
-    const hasAfterhoursRole = dispatcherProfile.roles.includes("afterhours");
-    
-    return hasDispatcherRole || hasAfterhoursRole;
-  });
-
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
   // This ensures totals match what the /orders page shows, regardless of dispatcher profile status
   const totals = filteredOrders.reduce(
@@ -1217,9 +1203,9 @@ const Analytics = () => {
   const activeDriverNames = useMemo(() => {
     return new Set(
       (drivers || [])
-        .filter(d => d.is_active)
-        .map(d => d.name)
-        .filter(Boolean)
+        .filter((d) => d.is_active)
+        .map((d) => d.name)
+        .filter(Boolean),
     );
   }, [drivers]);
 
@@ -1251,7 +1237,7 @@ const Analytics = () => {
         }
         return acc;
       },
-      {} as Record<string, { totalGross: number; firstPickupDate: string | null }>
+      {} as Record<string, { totalGross: number; firstPickupDate: string | null }>,
     );
   }, [orders]);
 
@@ -1293,20 +1279,20 @@ const Analytics = () => {
 
     // Get current date in Chicago time
     const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
-    
+
     // Parse first pickup date
     const firstPickupStr = allTimeData.firstPickupDate.split("T")[0];
     const [year, month, day] = firstPickupStr.split("-").map(Number);
     const firstPickupDate = new Date(year, month - 1, day);
-    
+
     // Calculate days in company
     const diffTime = chicagoNow.getTime() - firstPickupDate.getTime();
     const daysInCompany = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    
+
     // Calculate weekly gross
     const weeksInCompany = daysInCompany / 7;
     const grossPerWeek = allTimeData.totalGross / weeksInCompany;
-    
+
     // Determine tier
     if (grossPerWeek >= 6000) {
       return "Tier 1";
@@ -1378,21 +1364,24 @@ const Analytics = () => {
       notice: currentData.notice,
     });
   };
-  const handleNoticeSave = React.useCallback((driverName: string, notice: string) => {
-    const currentData = driverTiers[driverName] || {
-      grossTier: "Tier 1",
-      safetyTier: "Tier 1",
-      managementTier: "Tier 1",
-      notice: "",
-    };
-    updatePerformance({
-      driver_name: driverName,
-      gross_tier: currentData.grossTier,
-      safety_tier: currentData.safetyTier,
-      management_tier: currentData.managementTier,
-      notice,
-    });
-  }, [driverTiers, updatePerformance]);
+  const handleNoticeSave = React.useCallback(
+    (driverName: string, notice: string) => {
+      const currentData = driverTiers[driverName] || {
+        grossTier: "Tier 1",
+        safetyTier: "Tier 1",
+        managementTier: "Tier 1",
+        notice: "",
+      };
+      updatePerformance({
+        driver_name: driverName,
+        gross_tier: currentData.grossTier,
+        safety_tier: currentData.safetyTier,
+        management_tier: currentData.managementTier,
+        notice,
+      });
+    },
+    [driverTiers, updatePerformance],
+  );
 
   const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
     if (sortBy === column) {
@@ -1414,23 +1403,23 @@ const Analytics = () => {
     // Get current time in Chicago
     const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
     const dayOfWeek = chicagoNow.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
+
     // Calculate days since Monday (if Sunday, go back 6 days)
     const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    
+
     // Week start (Monday 00:00:00 Chicago time)
     const weekStart = new Date(chicagoNow);
     weekStart.setDate(chicagoNow.getDate() - daysSinceMonday);
     weekStart.setHours(0, 0, 0, 0);
-    
+
     // Week end (Sunday 23:59:59 Chicago time)
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
-    
+
     return { weekStart, weekEnd };
   };
-  
+
   const { weekStart, weekEnd } = getChicagoWeekBounds();
 
   // Filter loads booked today with rate <= 1.70, respecting role permissions
@@ -1457,7 +1446,7 @@ const Analytics = () => {
     const createdAt = new Date(order.createdAt);
     const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
     if (!isThisWeek) return false;
-    
+
     const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
     const driverPay = getEffectiveDriverPay(order);
     if (freightAmount <= 0) return false;
@@ -1582,33 +1571,33 @@ const Analytics = () => {
                     <div className="flex flex-wrap gap-2 items-center w-full justify-between">
                       <div className="flex flex-wrap gap-2 items-center">
                         <span className="text-sm font-medium text-muted-foreground">Office:</span>
-                      {Array.from(
-                        new Set(
-                          Object.values(dispatcherProfiles)
-                            .map((p) => p.office)
-                            .filter(Boolean),
-                        ),
-                      ).map((office) => (
-                        <Button
-                          key={office}
-                          variant={selectedOffices.includes(office as string) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setSelectedOffices((prev) =>
-                              prev.includes(office as string)
-                                ? prev.filter((o) => o !== office)
-                                : [...prev, office as string],
-                            );
-                          }}
-                        >
-                          {office}
-                        </Button>
-                      ))}
-                      {selectedOffices.length > 0 && (
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
-                          Clear Offices
-                        </Button>
-                      )}
+                        {Array.from(
+                          new Set(
+                            Object.values(dispatcherProfiles)
+                              .map((p) => p.office)
+                              .filter(Boolean),
+                          ),
+                        ).map((office) => (
+                          <Button
+                            key={office}
+                            variant={selectedOffices.includes(office as string) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOffices((prev) =>
+                                prev.includes(office as string)
+                                  ? prev.filter((o) => o !== office)
+                                  : [...prev, office as string],
+                              );
+                            }}
+                          >
+                            {office}
+                          </Button>
+                        ))}
+                        {selectedOffices.length > 0 && (
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
+                            Clear Offices
+                          </Button>
+                        )}
                       </div>
                       <Button
                         variant={showOver100kGross ? "default" : "outline"}
@@ -1663,105 +1652,108 @@ const Analytics = () => {
 
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
                 {dispatcherStats.length > 1 && (
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Dispatcher</TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("totalFreight")}
-                      >
-                        Total Freight {sortBy === "totalFreight" && (sortDirection === "desc" ? "↓" : "↑")}
-                      </TableHead>
-                      <TableHead className="text-right">Total Miles</TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("ratePerMile")}
-                      >
-                        Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
-                      </TableHead>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Dispatcher</TableHead>
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("totalFreight")}
+                          >
+                            Total Freight {sortBy === "totalFreight" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
+                          <TableHead className="text-right">Total Miles</TableHead>
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("ratePerMile")}
+                          >
+                            Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
 
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("cut")}
-                      >
-                        Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
-                      </TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("cutPercent")}
-                      >
-                        Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
-                      </TableHead>
-                      <TableHead className="text-right">Avg Trucks</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dispatcherStats.map((stat, index) => {
-                      // Get the most recent note for this dispatcher in the date range
-                      const dispatcherNotesForUser = dispatcherNotes.filter((n) => n.dispatcher_id === stat.userId);
-                      const mostRecentNote =
-                        dispatcherNotesForUser.length > 0
-                          ? dispatcherNotesForUser.reduce((latest, current) =>
-                              new Date(current.date) > new Date(latest.date) ? current : latest,
-                            )
-                          : null;
-
-                      const canViewAndEditNotes =
-                        hasRole("manager") || hasRole("admin") || hasRole("chicago_management");
-                      const todayDate = format(new Date(), "yyyy-MM-dd");
-
-                      return (
-                        <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center">
-                              {stat.name}
-                              {canViewAndEditNotes && stat.userId && (
-                                <DispatcherNoteDialog
-                                  dispatcherId={stat.userId}
-                                  initialDate={todayDate}
-                                  existingNote={
-                                    mostRecentNote
-                                      ? {
-                                          id: mostRecentNote.id,
-                                          note: mostRecentNote.note,
-                                          color: mostRecentNote.color,
-                                        }
-                                      : undefined
-                                  }
-                                  canEdit={canViewAndEditNotes}
-                                />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            $
-                            {stat.totalFreight.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
-
-                          <TableCell className="text-right">
-                            $
-                            {stat.cut.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                          <TableCell className="text-right">
-                            {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
-                          </TableCell>
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("cut")}
+                          >
+                            Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("cutPercent")}
+                          >
+                            Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
+                          <TableHead className="text-right">Avg Trucks</TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {dispatcherStats.map((stat, index) => {
+                          // Get the most recent note for this dispatcher in the date range
+                          const dispatcherNotesForUser = dispatcherNotes.filter((n) => n.dispatcher_id === stat.userId);
+                          const mostRecentNote =
+                            dispatcherNotesForUser.length > 0
+                              ? dispatcherNotesForUser.reduce((latest, current) =>
+                                  new Date(current.date) > new Date(latest.date) ? current : latest,
+                                )
+                              : null;
+
+                          const canViewAndEditNotes =
+                            hasRole("manager") || hasRole("admin") || hasRole("chicago_management");
+                          const todayDate = format(new Date(), "yyyy-MM-dd");
+
+                          return (
+                            <TableRow
+                              key={stat.name}
+                              className={index === dispatcherStats.length - 1 ? "border-b" : ""}
+                            >
+                              <TableCell className="font-medium">
+                                <div className="flex items-center">
+                                  {stat.name}
+                                  {canViewAndEditNotes && stat.userId && (
+                                    <DispatcherNoteDialog
+                                      dispatcherId={stat.userId}
+                                      initialDate={todayDate}
+                                      existingNote={
+                                        mostRecentNote
+                                          ? {
+                                              id: mostRecentNote.id,
+                                              note: mostRecentNote.note,
+                                              color: mostRecentNote.color,
+                                            }
+                                          : undefined
+                                      }
+                                      canEdit={canViewAndEditNotes}
+                                    />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {stat.totalFreight.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+
+                              <TableCell className="text-right">
+                                $
+                                {stat.cut.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                              <TableCell className="text-right">
+                                {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1871,16 +1863,16 @@ const Analytics = () => {
                           <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
                           <TableCell>
-                            <Badge className={`${getTierColor(stat.grossTier)}`}>
-                              {stat.grossTier}
-                            </Badge>
+                            <Badge className={`${getTierColor(stat.grossTier)}`}>{stat.grossTier}</Badge>
                           </TableCell>
                           <TableCell>
                             <Select
                               value={stat.safetyTier}
                               onValueChange={(value) => handleTierChange(stat.name, "safetyTier", value)}
                             >
-                              <SelectTrigger className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.safetyTier)}`}>
+                              <SelectTrigger
+                                className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.safetyTier)}`}
+                              >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-background z-50">
@@ -1895,7 +1887,9 @@ const Analytics = () => {
                               value={stat.managementTier}
                               onValueChange={(value) => handleTierChange(stat.name, "managementTier", value)}
                             >
-                              <SelectTrigger className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.managementTier)}`}>
+                              <SelectTrigger
+                                className={`w-[90px] h-6 px-2 py-0 text-xs font-medium border-0 rounded-full ${getTierColor(stat.managementTier)}`}
+                              >
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="bg-background z-50">
@@ -1919,7 +1913,6 @@ const Analytics = () => {
                 </Table>
               </CardContent>
             </Card>
-
           </TabsContent>
 
           <TabsContent value="loads" className="space-y-6">
@@ -1955,7 +1948,7 @@ const Analytics = () => {
                         const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                         const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                         return (
-                          <TableRow 
+                          <TableRow
                             key={order.id}
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => navigateToEditOrder(order.id)}
@@ -1987,7 +1980,7 @@ const Analytics = () => {
               </CardContent>
             </Card>
 
-            {hasRole('admin') && (
+            {hasRole("admin") && (
               <Card>
                 <CardHeader>
                   <CardTitle>Loads Booked This Week (Rate ≥ $4.00/mile)</CardTitle>
@@ -2020,7 +2013,7 @@ const Analytics = () => {
                           const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                           const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                           return (
-                            <TableRow 
+                            <TableRow
                               key={order.id}
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => navigateToEditOrder(order.id)}
@@ -2053,7 +2046,7 @@ const Analytics = () => {
               </Card>
             )}
 
-            {hasRole('admin') && (
+            {hasRole("admin") && (
               <Card>
                 <CardHeader>
                   <CardTitle>50%+ Cut Loads This Week ({highCutLoads.length})</CardTitle>
@@ -2089,8 +2082,8 @@ const Analytics = () => {
                           const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                           const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                           return (
-                            <TableRow 
-                              key={order.id} 
+                            <TableRow
+                              key={order.id}
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => navigateToEditOrder(order.id)}
                             >
@@ -2136,558 +2129,569 @@ const Analytics = () => {
             )}
           </TabsContent>
 
-          {canViewSalaries && <TabsContent value="salaries" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <CardTitle>Salaries</CardTitle>
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
-                    <Select value={selectedMonth} onValueChange={handleMonthChange}>
-                      <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue placeholder="All time monthly">
-                          {selectedMonth === "all" ? "All time monthly" : monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All time monthly</SelectItem>
-                        {monthOptions.map((month) => (
-                          <SelectItem key={month.value} value={month.value}>
-                            {month.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsBonusesDialogOpen(true)}
-                    >
-                      Bonuses
-                    </Button>
-                  </div>
-
-                  {/* Office Filters - Only for Admin/Manager/Chicago Management */}
-                  {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
-                    <div className="flex flex-wrap gap-2 items-center w-full">
-                      <span className="text-sm font-medium text-muted-foreground">Office:</span>
-                      {Array.from(
-                        new Set(
-                          Object.values(dispatcherProfiles)
-                            .map((p) => p.office)
-                            .filter(Boolean),
-                        ),
-                      ).map((office) => (
-                        <Button
-                          key={office}
-                          variant={selectedOffices.includes(office as string) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setSelectedOffices((prev) =>
-                              prev.includes(office as string)
-                                ? prev.filter((o) => o !== office)
-                                : [...prev, office as string],
-                            );
-                          }}
-                        >
-                          {office}
-                        </Button>
-                      ))}
-                      {selectedOffices.length > 0 && (
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
-                          Clear Offices
-                        </Button>
-                      )}
+          {canViewSalaries && (
+            <TabsContent value="salaries" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <CardTitle>Salaries</CardTitle>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                      <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                        <SelectTrigger className="w-full sm:w-64">
+                          <SelectValue placeholder="All time monthly">
+                            {selectedMonth === "all"
+                              ? "All time monthly"
+                              : monthOptions.find((m) => m.value === selectedMonth)?.label || selectedMonth}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All time monthly</SelectItem>
+                          {monthOptions.map((month) => (
+                            <SelectItem key={month.value} value={month.value}>
+                              {month.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" onClick={() => setIsBonusesDialogOpen(true)}>
+                        Bonuses
+                      </Button>
                     </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]">
-                          {salarySelectionMode ? (
-                            <Checkbox
-                              checked={
-                                salaryDispatcherStats.length > 0 &&
-                                selectedDispatcherIds.size === salaryDispatcherStats.filter((s) => s.userId).length
-                              }
-                              onCheckedChange={() =>
-                                toggleSelectAllDispatchers(
-                                  salaryDispatcherStats.filter((s) => s.userId).map((s) => s.userId!)
-                                )
-                              }
-                            />
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setSalarySelectionMode(true)}
-                              title="Enable selection mode"
-                              disabled={!selectedMonth || selectedMonth === "all"}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableHead>
-                        <TableHead>Dispatcher</TableHead>
-                        <TableHead className="text-right">Total Freight</TableHead>
-                        <TableHead className="text-right">Total Comm.</TableHead>
-                        <TableHead className="text-right">Extra</TableHead>
-                        <TableHead className="text-right">Lost Days</TableHead>
-                        <TableHead className="text-right">Salary</TableHead>
-                        <TableHead className="text-right">Paid</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(() => {
-                        // Build calculated salaries map for the bulk action
-                        const calculatedSalaries: Record<string, number> = {};
-                        
-                        return salaryDispatcherStats.map((stat, index) => {
-                          // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
-                          const extraDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : 0;
-                          const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : 0;
-                          
-                          // Calculate days in the selected month
-                          let daysInMonth = 30; // calendar days (used for monthly salary weighting)
-                          let workDaysInMonth = 22; // Mon-Fri minus holidays (used for extra-day pay)
 
-                          if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
-                            const parts = selectedMonth.split("-");
-                            if (parts.length === 2) {
-                              const year = parseInt(parts[0], 10);
-                              const month = parseInt(parts[1], 10); // 1-12
-                              if (!isNaN(year) && !isNaN(month)) {
-                                daysInMonth = new Date(year, month, 0).getDate();
-                                workDaysInMonth = getWorkDaysInMonth(year, month - 1);
-                              }
-                            }
-                          }
-                          
-                          // Ensure daysInMonth is valid
-                          if (isNaN(daysInMonth) || daysInMonth <= 0) {
-                            daysInMonth = 30;
-                          }
-                          
-                          // Salary formula: same as PDF/Word - line-item calculation with per-day rate
-                          // This matches the payroll preview exactly (minus food allowance, which is separate)
-                          const salary1Percent = stat.totalFreight * 0.01;
-                          const bonus5Percent = stat.cut * 0.05;
-                          const perDayRate = (salary1Percent + bonus5Percent) / workDaysInMonth;
-                          
-                          // Get dates for extra/lost days calculation
-                          const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
-                          const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
-                          const actualExtraDaysCount = extraDayDates.length;
-                          
-                          // Calculate extra days amount and lost days deduction
-                          const hasExtraDays = extraDays > lostDays;
-                          const hasLostDays = lostDays > 0 && !hasExtraDays;
-                          const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
-                          const lostDaysDeduction = hasLostDays ? lostDays * perDayRate : 0;
-                          
-                          // Base salary = salary1Percent + bonus5Percent + extraDaysAmount - lostDaysDeduction
-                          // (Food allowance is NOT included - it's shown in PDF but not in paid amount)
-                          const baseSalary = salary1Percent + bonus5Percent + 
-                            (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction;
-                          
-                          // Get dispatcher bonus for this month
-                          const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
-                          const bonusAmount = bonusInfo?.amount ?? 0;
-                          const bonusRank = bonusInfo?.rank ?? 0;
-                          
-                          // Calculate adjustment from previous month (paid - calculated = difference)
-                          // If paid > calculated, dispatcher got extra, so subtract from this month
-                          // If paid < calculated, dispatcher got less, so add to this month
-                          const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
-                          let adjustment = 0;
-                          if (prevPayment && prevPayment.calculated_salary > 0) {
-                            // Difference: paid_amount - calculated_salary
-                            // Positive = overpaid last month, subtract this month
-                            // Negative = underpaid last month, add this month
-                            adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
-                          }
-                          
-                          // Final salary = base salary + bonus - adjustment (subtract overpayment, add underpayment)
-                          const salaryWithoutBonus = baseSalary - adjustment;
-                          const finalSalary = salaryWithoutBonus + bonusAmount;
-                          
-                          // Store for bulk action - store baseSalary + bonus as calculated_salary
-                          if (stat.userId) {
-                            calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
-                          }
-                          
-                          // Get payment info
-                          const payment = stat.userId ? salaryPayments[stat.userId] : null;
-                          const isPaid = payment && payment.paid_at;
-                          
-                          // Determine salary color and tooltip
-                          const hasAdjustment = Math.abs(adjustment) >= 0.01;
-                          const hasBonus = bonusAmount > 0;
-                          
-                          // Salary color: golden if has bonus, otherwise red/green for adjustments
-                          const salaryColorClass = hasBonus 
-                            ? "text-yellow-600" 
-                            : hasAdjustment 
-                              ? (adjustment > 0 ? "text-red-600" : "text-green-600")
-                              : "";
-                          const adjustmentTooltip = hasAdjustment
-                            ? adjustment > 0
-                              ? `Previous month overpaid by $${adjustment.toFixed(2)}, deducted from this salary`
-                              : `Previous month underpaid by $${Math.abs(adjustment).toFixed(2)}, added to this salary`
-                            : null;
-                          
-                          // Helper to render rank icon
-                          const renderRankIcon = () => {
-                            if (!bonusRank) return null;
-                            const iconClass = "h-5 w-5";
-                            switch (bonusRank) {
-                              case 1:
-                                return <img src={crownImage} alt="1st place" className="h-5 w-5" />;
-                              case 2:
-                                return <Medal className={`${iconClass} text-gray-400`} />;
-                              case 3:
-                                return <Award className={`${iconClass} text-amber-600`} />;
-                              case 4:
-                                return <Trophy className={`${iconClass} text-blue-500`} />;
-                              case 5:
-                                return <Star className={`${iconClass} text-purple-500`} />;
-                              default:
-                                return null;
-                            }
-                          };
-
-                          return (
-                            <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
-                              <TableCell className="w-[50px]">
-                                {salarySelectionMode && stat.userId ? (
-                                  <Checkbox
-                                    checked={selectedDispatcherIds.has(stat.userId)}
-                                    onCheckedChange={() => toggleDispatcherSelection(stat.userId!)}
-                                  />
-                                ) : null}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                <div className="flex items-center gap-2">
-                                  {renderRankIcon()}
-                                  {stat.name}
-                                  {selectedMonth && selectedMonth !== "all" && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              
-                                              // Get pay period label from selectedMonth
-                                              const monthParts = selectedMonth.split("-");
-                                              const year = parseInt(monthParts[0], 10);
-                                              const monthNum = parseInt(monthParts[1], 10) - 1;
-                                              const monthDate = new Date(year, monthNum, 1);
-                                              const payPeriod = format(monthDate, "MMMM, yyyy");
-                                              
-                                              // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
-                                              const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
-                                              const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
-                                              const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
-                                              
-                                              // Calculate extra days amount: per-workday rate * actual extra days count
-                                              // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
-                                              const actualExtraDaysCount = extraDayDates.length;
-                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
-                                              const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
-                                              
-                                              // Check if dispatcher is from BEOGRAD office (no food allowance)
-                                              const dispatcherProfileForFood = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
-                                              const isBeograd = dispatcherProfileForFood?.office === "BEOGRAD";
-                                              
-                                              downloadPayrollDoc({
-                                                employeeName: stat.name,
-                                                payPeriod,
-                                                salary1Percent: stat.totalFreight * 0.01,
-                                                bonus5Percent: stat.cut * 0.05,
-                                                foodAllowance: isBeograd ? 0 : 70,
-                                                extraDays,
-                                                lostDays,
-                                                extraDayDates,
-                                                lostDayDates,
-                                                extraDaysAmount: Math.max(0, extraDaysAmount),
-                                                dispatcherBonus: bonusAmount,
-                                                perDayRate,
-                                              }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
-                                              toast.success(`Payroll document generated for ${stat.name}`);
-                                            }}
-                                          >
-                                            <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Download payroll statement</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              
-                                              // Get pay period label from selectedMonth
-                                              const monthParts = selectedMonth.split("-");
-                                              const year = parseInt(monthParts[0], 10);
-                                              const monthNum = parseInt(monthParts[1], 10) - 1;
-                                              const monthDate = new Date(year, monthNum, 1);
-                                              const payPeriod = format(monthDate, "MMMM, yyyy");
-                                              
-                                              // Get dates for extra/lost days
-                                              const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
-                                              const extraDayDatesForDoc = allExtraDayDates.slice(1);
-                                              const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : [];
-                                              
-                                              // Calculate extra days amount
-                                              const actualExtraDaysCount = extraDayDatesForDoc.length;
-                                              const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
-                                              const extraDaysAmountForDoc = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
-                                              
-                                              // Get dispatcher email and check office for food allowance
-                                              const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
-                                              const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
-                                              const isBeograd = dispatcherProfile?.office === "BEOGRAD";
-                                              
-                                              // Open preview dialog with all the data
-                                              setPayrollPreviewData({
-                                                dispatcherName: stat.name,
-                                                dispatcherUserId: stat.userId || "",
-                                                recipientEmail,
-                                                payPeriod,
-                                                salary1Percent: stat.totalFreight * 0.01,
-                                                bonus5Percent: stat.cut * 0.05,
-                                                foodAllowance: isBeograd ? 0 : 70,
-                                                extraDays,
-                                                lostDays,
-                                                extraDayDates: extraDayDatesForDoc,
-                                                lostDayDates: lostDayDatesForDoc,
-                                                extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
-                                                dispatcherBonus: bonusAmount,
-                                                perDayRate,
-                                              });
-                                              setPayrollPreviewOpen(true);
-                                            }}
-                                          >
-                                            <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Send payroll statement via email</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                $
-                                {stat.totalFreight.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                $
-                                {stat.cut.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-right text-green-600">{extraDays > 0 ? `+${extraDays}` : extraDays}</TableCell>
-                              <TableCell className="text-right text-red-600">{lostDays > 0 ? `-${lostDays}` : lostDays}</TableCell>
-                              <TableCell className="text-right">
-                                {(hasAdjustment || hasBonus) ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <span className={`font-medium cursor-pointer underline decoration-dotted ${salaryColorClass}`}>
-                                        $
-                                        {finalSalary.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
-                                      </span>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-2">
-                                      {hasBonus && (
-                                        <p className="text-yellow-500 font-medium">
-                                          Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
-                                        </p>
-                                      )}
-                                      {hasAdjustment && (
-                                        <>
-                                          <p>{adjustmentTooltip}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}${Math.abs(adjustment).toFixed(2)}
-                                          </p>
-                                        </>
-                                      )}
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : (
-                                  <span>
-                                    $
-                                    {finalSalary.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {isPaid ? (
-                                  <span className="text-green-600 font-medium">
-                                    ${payment.paid_amount.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        });
-                      })()}
-                      {/* Totals Row for All Time view */}
-                      {selectedMonth === "all" && (
-                        <TableRow className="bg-muted/50 font-medium border-t-2">
-                          <TableCell></TableCell>
-                          <TableCell className="font-bold">Total</TableCell>
-                          <TableCell className="text-right font-bold">
-                            ${dispatcherStats.reduce((sum, s) => sum + s.totalFreight, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            ${dispatcherStats.reduce((sum, s) => sum + s.cut, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-green-600">
-                            +{dispatcherStats.reduce((sum, s) => sum + (s.userId ? (extraDaysByUser[s.userId] || 0) : 0), 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-red-600">
-                            -{dispatcherStats.reduce((sum, s) => sum + (s.userId ? (lostDaysByUser[s.userId] || 0) : 0), 0)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">—</TableCell>
-                          <TableCell className="text-right font-bold text-green-600">
-                            ${Object.values(salaryPayments).reduce((sum, p) => sum + (p.paid_amount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Selection Summary Panel for Salaries */}
-            {salarySelectionMode && (
-              <div className="fixed bottom-4 right-4 z-50 bg-card border rounded-lg shadow-lg p-4 min-w-[280px] max-w-[400px]">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Selected Dispatchers</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => {
-                      setSalarySelectionMode(false);
-                      setSelectedDispatcherIds(new Set());
-                    }}
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Count:</span>
-                    <span className="font-medium">{selectedDispatcherIds.size} dispatcher(s)</span>
+                    {/* Office Filters - Only for Admin/Manager/Chicago Management */}
+                    {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
+                      <div className="flex flex-wrap gap-2 items-center w-full">
+                        <span className="text-sm font-medium text-muted-foreground">Office:</span>
+                        {Array.from(
+                          new Set(
+                            Object.values(dispatcherProfiles)
+                              .map((p) => p.office)
+                              .filter(Boolean),
+                          ),
+                        ).map((office) => (
+                          <Button
+                            key={office}
+                            variant={selectedOffices.includes(office as string) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOffices((prev) =>
+                                prev.includes(office as string)
+                                  ? prev.filter((o) => o !== office)
+                                  : [...prev, office as string],
+                              );
+                            }}
+                          >
+                            {office}
+                          </Button>
+                        ))}
+                        {selectedOffices.length > 0 && (
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
+                            Clear Offices
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px]">
+                            {salarySelectionMode ? (
+                              <Checkbox
+                                checked={
+                                  dispatcherStats.length > 0 &&
+                                  selectedDispatcherIds.size === dispatcherStats.filter((s) => s.userId).length
+                                }
+                                onCheckedChange={() =>
+                                  toggleSelectAllDispatchers(
+                                    dispatcherStats.filter((s) => s.userId).map((s) => s.userId!),
+                                  )
+                                }
+                              />
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setSalarySelectionMode(true)}
+                                title="Enable selection mode"
+                                disabled={!selectedMonth || selectedMonth === "all"}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableHead>
+                          <TableHead>Dispatcher</TableHead>
+                          <TableHead className="text-right">Total Freight</TableHead>
+                          <TableHead className="text-right">Total Comm.</TableHead>
+                          <TableHead className="text-right">Extra</TableHead>
+                          <TableHead className="text-right">Days Off</TableHead>
+                          <TableHead className="text-right">Salary</TableHead>
+                          <TableHead className="text-right">Paid</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          // Build calculated salaries map for the bulk action
+                          const calculatedSalaries: Record<string, number> = {};
 
-                  {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && (
-                    <Button
-                      className="w-full mt-3"
-                      size="sm"
-                      onClick={() => {
-                        // Recalculate salaries for bulk action
-                        const calculatedSalaries: Record<string, number> = {};
-                        const adjustedSalaries: Record<string, number> = {};
-                        dispatcherStats.forEach((stat) => {
-                          if (stat.userId) {
-                            const extraDays = extraDaysByUser[stat.userId] || 0;
-                            const lostDays = lostDaysByUser[stat.userId] || 0;
-                            let workDaysInMonthBulk = 22;
+                          return dispatcherStats.map((stat, index) => {
+                            // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
+                            const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
+                            const lostDays = stat.userId ? lostDaysByUser[stat.userId] || 0 : 0;
+
+                            // Calculate days in the selected month
+                            let daysInMonth = 30; // calendar days (used for monthly salary weighting)
+                            let workDaysInMonth = 22; // Mon-Fri minus holidays (used for extra-day pay)
+
                             if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
                               const parts = selectedMonth.split("-");
                               if (parts.length === 2) {
                                 const year = parseInt(parts[0], 10);
-                                const month = parseInt(parts[1], 10);
+                                const month = parseInt(parts[1], 10); // 1-12
                                 if (!isNaN(year) && !isNaN(month)) {
-                                  workDaysInMonthBulk = getWorkDaysInMonth(year, month - 1);
+                                  daysInMonth = new Date(year, month, 0).getDate();
+                                  workDaysInMonth = getWorkDaysInMonth(year, month - 1);
                                 }
                               }
                             }
-                            
-                            // Use same line-item formula as table display and PayrollPreviewDialog
-                            const salary1Percent = stat.totalFreight * 0.01;
-                            const bonus5Percent = stat.cut * 0.05;
-                            const perDayRate = (salary1Percent + bonus5Percent) / workDaysInMonthBulk;
-                            
-                            // Get dates for extra days calculation
-                            const allExtraDayDates = extraDayDatesByUser[stat.userId] || [];
-                            const extraDayDates = allExtraDayDates.slice(1);
-                            const actualExtraDaysCount = extraDayDates.length;
-                            
-                            const hasExtraDays = extraDays > lostDays;
-                            const hasLostDays = lostDays > 0 && !hasExtraDays;
-                            const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
-                            const lostDaysDeduction = hasLostDays ? lostDays * perDayRate : 0;
-                            
-                            const baseSalary = salary1Percent + bonus5Percent + 
-                              (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction;
-                            
-                            // Get dispatcher bonus
-                            const bonusInfo = dispatcherBonuses[stat.userId];
+
+                            // Ensure daysInMonth is valid
+                            if (isNaN(daysInMonth) || daysInMonth <= 0) {
+                              daysInMonth = 30;
+                            }
+
+                            // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * ((Days in month + Extra days - Lost days) / Days in month)
+                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                            const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
+
+                            // Get dispatcher bonus for this month
+                            const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
                             const bonusAmount = bonusInfo?.amount ?? 0;
-                            
-                            // Calculate adjustment from previous month
-                            const prevPayment = prevMonthPayments[stat.userId];
+                            const bonusRank = bonusInfo?.rank ?? 0;
+
+                            // Calculate adjustment from previous month (paid - calculated = difference)
+                            // If paid > calculated, dispatcher got extra, so subtract from this month
+                            // If paid < calculated, dispatcher got less, so add to this month
+                            const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
                             let adjustment = 0;
                             if (prevPayment && prevPayment.calculated_salary > 0) {
+                              // Difference: paid_amount - calculated_salary
+                              // Positive = overpaid last month, subtract this month
+                              // Negative = underpaid last month, add this month
                               adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
                             }
-                            
-                            // Include bonus in calculated salary (no food allowance in paid amount)
-                            calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
-                            adjustedSalaries[stat.userId] = baseSalary + bonusAmount - adjustment;
-                          }
-                        });
-                        markSelectedAsPaid(calculatedSalaries, adjustedSalaries);
+
+                            // Final salary = base salary + bonus - adjustment (subtract overpayment, add underpayment)
+                            const salaryWithoutBonus = baseSalary - adjustment;
+                            const finalSalary = salaryWithoutBonus + bonusAmount;
+
+                            // Store for bulk action - store baseSalary + bonus as calculated_salary
+                            if (stat.userId) {
+                              calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
+                            }
+
+                            // Get payment info
+                            const payment = stat.userId ? salaryPayments[stat.userId] : null;
+                            const isPaid = payment && payment.paid_at;
+
+                            // Determine salary color and tooltip
+                            const hasAdjustment = Math.abs(adjustment) >= 0.01;
+                            const hasBonus = bonusAmount > 0;
+
+                            // Salary color: golden if has bonus, otherwise red/green for adjustments
+                            const salaryColorClass = hasBonus
+                              ? "text-yellow-600"
+                              : hasAdjustment
+                                ? adjustment > 0
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                                : "";
+                            const adjustmentTooltip = hasAdjustment
+                              ? adjustment > 0
+                                ? `Previous month overpaid by $${adjustment.toFixed(2)}, deducted from this salary`
+                                : `Previous month underpaid by $${Math.abs(adjustment).toFixed(2)}, added to this salary`
+                              : null;
+
+                            // Helper to render rank icon
+                            const renderRankIcon = () => {
+                              if (!bonusRank) return null;
+                              const iconClass = "h-5 w-5";
+                              switch (bonusRank) {
+                                case 1:
+                                  return <img src={crownImage} alt="1st place" className="h-5 w-5" />;
+                                case 2:
+                                  return <Medal className={`${iconClass} text-gray-400`} />;
+                                case 3:
+                                  return <Award className={`${iconClass} text-amber-600`} />;
+                                case 4:
+                                  return <Trophy className={`${iconClass} text-blue-500`} />;
+                                case 5:
+                                  return <Star className={`${iconClass} text-purple-500`} />;
+                                default:
+                                  return null;
+                              }
+                            };
+
+                            return (
+                              <TableRow
+                                key={stat.name}
+                                className={index === dispatcherStats.length - 1 ? "border-b" : ""}
+                              >
+                                <TableCell className="w-[50px]">
+                                  {salarySelectionMode && stat.userId ? (
+                                    <Checkbox
+                                      checked={selectedDispatcherIds.has(stat.userId)}
+                                      onCheckedChange={() => toggleDispatcherSelection(stat.userId!)}
+                                    />
+                                  ) : null}
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    {renderRankIcon()}
+                                    {stat.name}
+                                    {selectedMonth && selectedMonth !== "all" && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+
+                                                // Get pay period label from selectedMonth
+                                                const monthParts = selectedMonth.split("-");
+                                                const year = parseInt(monthParts[0], 10);
+                                                const monthNum = parseInt(monthParts[1], 10) - 1;
+                                                const monthDate = new Date(year, monthNum, 1);
+                                                const payPeriod = format(monthDate, "MMMM, yyyy");
+
+                                                // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
+                                                const allExtraDayDates = stat.userId
+                                                  ? extraDayDatesByUser[stat.userId] || []
+                                                  : [];
+                                                const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
+                                                const lostDayDates = stat.userId
+                                                  ? lostDayDatesByUser[stat.userId] || []
+                                                  : [];
+
+                                                // Calculate extra days amount: per-workday rate * actual extra days count
+                                                // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
+                                                const actualExtraDaysCount = extraDayDates.length;
+                                                const perDayRate =
+                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                const extraDaysAmount =
+                                                  actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+
+                                                downloadPayrollDoc(
+                                                  {
+                                                    employeeName: stat.name,
+                                                    payPeriod,
+                                                    salary1Percent: stat.totalFreight * 0.01,
+                                                    bonus5Percent: stat.cut * 0.05,
+                                                    foodAllowance: 70,
+                                                    extraDays,
+                                                    lostDays,
+                                                    extraDayDates,
+                                                    lostDayDates,
+                                                    extraDaysAmount: Math.max(0, extraDaysAmount),
+                                                    dispatcherBonus: bonusAmount,
+                                                    perDayRate,
+                                                  },
+                                                  `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`,
+                                                );
+                                                toast.success(`Payroll document generated for ${stat.name}`);
+                                              }}
+                                            >
+                                              <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Download payroll statement</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+
+                                                // Get pay period label from selectedMonth
+                                                const monthParts = selectedMonth.split("-");
+                                                const year = parseInt(monthParts[0], 10);
+                                                const monthNum = parseInt(monthParts[1], 10) - 1;
+                                                const monthDate = new Date(year, monthNum, 1);
+                                                const payPeriod = format(monthDate, "MMMM, yyyy");
+
+                                                // Get dates for extra/lost days
+                                                const allExtraDayDates = stat.userId
+                                                  ? extraDayDatesByUser[stat.userId] || []
+                                                  : [];
+                                                const extraDayDatesForDoc = allExtraDayDates.slice(1);
+                                                const lostDayDatesForDoc = stat.userId
+                                                  ? lostDayDatesByUser[stat.userId] || []
+                                                  : [];
+
+                                                // Calculate extra days amount
+                                                const actualExtraDaysCount = extraDayDatesForDoc.length;
+                                                const perDayRate =
+                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                const extraDaysAmountForDoc =
+                                                  actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+
+                                                // Get dispatcher email
+                                                const dispatcherProfile =
+                                                  dispatcherProfiles[stat.name] ||
+                                                  dispatcherProfiles[stat.userId || ""];
+                                                const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
+
+                                                // Open preview dialog with all the data
+                                                setPayrollPreviewData({
+                                                  dispatcherName: stat.name,
+                                                  dispatcherUserId: stat.userId || "",
+                                                  recipientEmail,
+                                                  payPeriod,
+                                                  salary1Percent: stat.totalFreight * 0.01,
+                                                  bonus5Percent: stat.cut * 0.05,
+                                                  foodAllowance: 70,
+                                                  extraDays,
+                                                  lostDays,
+                                                  extraDayDates: extraDayDatesForDoc,
+                                                  lostDayDates: lostDayDatesForDoc,
+                                                  extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
+                                                  dispatcherBonus: bonusAmount,
+                                                  perDayRate,
+                                                });
+                                                setPayrollPreviewOpen(true);
+                                              }}
+                                            >
+                                              <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Send payroll statement via email</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  $
+                                  {stat.totalFreight.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  $
+                                  {stat.cut.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-right text-green-600">
+                                  {extraDays > 0 ? `+${extraDays}` : extraDays}
+                                </TableCell>
+                                <TableCell className="text-right text-red-600">
+                                  {lostDays > 0 ? `-${lostDays}` : lostDays}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {hasAdjustment || hasBonus ? (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <span
+                                          className={`font-medium cursor-pointer underline decoration-dotted ${salaryColorClass}`}
+                                        >
+                                          $
+                                          {finalSalary.toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                          })}
+                                        </span>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-2">
+                                        {hasBonus && (
+                                          <p className="text-yellow-500 font-medium">
+                                            Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
+                                          </p>
+                                        )}
+                                        {hasAdjustment && (
+                                          <>
+                                            <p>{adjustmentTooltip}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                              Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}$
+                                              {Math.abs(adjustment).toFixed(2)}
+                                            </p>
+                                          </>
+                                        )}
+                                      </PopoverContent>
+                                    </Popover>
+                                  ) : (
+                                    <span>
+                                      $
+                                      {finalSalary.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {isPaid ? (
+                                    <span className="text-green-600 font-medium">
+                                      $
+                                      {payment.paid_amount.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                        })()}
+                        {/* Totals Row for All Time view */}
+                        {selectedMonth === "all" && (
+                          <TableRow className="bg-muted/50 font-medium border-t-2">
+                            <TableCell></TableCell>
+                            <TableCell className="font-bold">Total</TableCell>
+                            <TableCell className="text-right font-bold">
+                              $
+                              {dispatcherStats
+                                .reduce((sum, s) => sum + s.totalFreight, 0)
+                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              $
+                              {dispatcherStats
+                                .reduce((sum, s) => sum + s.cut, 0)
+                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              +
+                              {dispatcherStats.reduce(
+                                (sum, s) => sum + (s.userId ? extraDaysByUser[s.userId] || 0 : 0),
+                                0,
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-red-600">
+                              -
+                              {dispatcherStats.reduce(
+                                (sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0),
+                                0,
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">—</TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              $
+                              {Object.values(salaryPayments)
+                                .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
+                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Selection Summary Panel for Salaries */}
+              {salarySelectionMode && (
+                <div className="fixed bottom-4 right-4 z-50 bg-card border rounded-lg shadow-lg p-4 min-w-[280px] max-w-[400px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm">Selected Dispatchers</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        setSalarySelectionMode(false);
+                        setSelectedDispatcherIds(new Set());
                       }}
-                      disabled={selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all"}
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Mark as Paid ({selectedDispatcherIds.size})
+                      <XCircle className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Count:</span>
+                      <span className="font-medium">{selectedDispatcherIds.size} dispatcher(s)</span>
+                    </div>
+
+                    {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && (
+                      <Button
+                        className="w-full mt-3"
+                        size="sm"
+                        onClick={() => {
+                          // Recalculate salaries for bulk action
+                          const calculatedSalaries: Record<string, number> = {};
+                          const adjustedSalaries: Record<string, number> = {};
+                          dispatcherStats.forEach((stat) => {
+                            if (stat.userId) {
+                              const extraDays = extraDaysByUser[stat.userId] || 0;
+                              const lostDays = lostDaysByUser[stat.userId] || 0;
+                              let daysInMonth = 30;
+                              if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+                                const parts = selectedMonth.split("-");
+                                if (parts.length === 2) {
+                                  const year = parseInt(parts[0], 10);
+                                  const month = parseInt(parts[1], 10);
+                                  if (!isNaN(year) && !isNaN(month)) {
+                                    daysInMonth = new Date(year, month, 0).getDate();
+                                  }
+                                }
+                              }
+                              if (isNaN(daysInMonth) || daysInMonth <= 0) {
+                                daysInMonth = 30;
+                              }
+                              const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                              const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
+
+                              // Get dispatcher bonus
+                              const bonusInfo = dispatcherBonuses[stat.userId];
+                              const bonusAmount = bonusInfo?.amount ?? 0;
+
+                              // Calculate adjustment from previous month
+                              const prevPayment = prevMonthPayments[stat.userId];
+                              let adjustment = 0;
+                              if (prevPayment && prevPayment.calculated_salary > 0) {
+                                adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
+                              }
+
+                              // Include bonus in calculated salary
+                              calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
+                              adjustedSalaries[stat.userId] = baseSalary + bonusAmount - adjustment;
+                            }
+                          });
+                          markSelectedAsPaid(calculatedSalaries, adjustedSalaries);
+                        }}
+                        disabled={selectedDispatcherIds.size === 0 || !selectedMonth || selectedMonth === "all"}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark as Paid ({selectedDispatcherIds.size})
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </TabsContent>}
+              )}
+            </TabsContent>
+          )}
         </Tabs>
-        
+
         {/* Bonuses Dialog */}
         <DispatcherBonusesDialog
           open={isBonusesDialogOpen}
@@ -2696,18 +2700,20 @@ const Analytics = () => {
             .filter(([key, profile]) => {
               // Filter to only include entries keyed by user_id (UUID format)
               const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-              return uuidRegex.test(key) && profile.roles.includes('dispatch');
+              return uuidRegex.test(key) && profile.roles.includes("dispatch");
             })
             .map(([userId, profile]) => ({
               id: userId,
-              full_name: Object.entries(dispatcherProfiles).find(
-                ([k, p]) => p.user_id === userId && !k.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-              )?.[0] || profile.email.split('@')[0],
-              email: profile.email
+              full_name:
+                Object.entries(dispatcherProfiles).find(
+                  ([k, p]) =>
+                    p.user_id === userId && !k.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+                )?.[0] || profile.email.split("@")[0],
+              email: profile.email,
             }))}
           selectedMonth={selectedMonth !== "all" ? selectedMonth : format(new Date(), "yyyy-MM")}
         />
-        
+
         {/* Payroll Preview Dialog */}
         {payrollPreviewData && (
           <PayrollPreviewDialog
@@ -2727,7 +2733,6 @@ const Analytics = () => {
             lostDayDates={payrollPreviewData.lostDayDates}
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={payrollPreviewData.dispatcherBonus}
-            perDayRate={payrollPreviewData.perDayRate}
             onEmailSent={() => {
               // Refresh salary payments data
               queryClient.invalidateQueries({ queryKey: ["dispatcher_salary_payments"] });
