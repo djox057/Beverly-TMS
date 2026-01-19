@@ -59,7 +59,7 @@ const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
   { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management', 'yard'] },
-  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management'] },
+  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management', 'safety'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
@@ -237,9 +237,9 @@ export const Sidebar = () => {
       ];
     }
     
-    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Alerts)
+    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
