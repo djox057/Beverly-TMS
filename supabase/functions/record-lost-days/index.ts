@@ -40,6 +40,110 @@ serve(async (req) => {
     const currentHour = chicagoDate.getHours();
     const todayStr = chicagoDate.toISOString().split('T')[0];
 
+    // Helper function to check if a date is a weekday (Mon-Fri)
+    const isWeekday = (date: Date): boolean => {
+      const day = date.getDay();
+      return day !== 0 && day !== 6; // 0 = Sunday, 6 = Saturday
+    };
+
+    // Helper function to get observed holiday date (Sat -> Fri, Sun -> Mon)
+    const getObservedDate = (year: number, month: number, day: number): Date => {
+      const actual = new Date(year, month, day);
+      const dayOfWeek = actual.getDay();
+      if (dayOfWeek === 6) return new Date(year, month, day - 1); // Saturday -> Friday
+      if (dayOfWeek === 0) return new Date(year, month, day + 1); // Sunday -> Monday
+      return actual;
+    };
+
+    // Helper function to get Nth weekday of a month (for moving holidays)
+    const getNthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number): Date => {
+      let count = 0;
+      for (let day = 1; day <= 31; day++) {
+        const d = new Date(year, month, day);
+        if (d.getMonth() !== month) break;
+        if (d.getDay() === weekday) {
+          count++;
+          if (count === n) return d;
+        }
+      }
+      return new Date(year, month, 1);
+    };
+
+    // Helper function to get last weekday of a month (for Memorial Day)
+    const getLastWeekdayOfMonth = (year: number, month: number, weekday: number): Date => {
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      for (let day = lastDay; day >= 1; day--) {
+        const d = new Date(year, month, day);
+        if (d.getDay() === weekday) return d;
+      }
+      return new Date(year, month, 1);
+    };
+
+    // Helper function to check if a date is a holiday
+    const isHoliday = (date: Date): boolean => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+
+      // Fixed holidays (with observed dates for weekends)
+      const fixedHolidays = [
+        { month: 0, day: 1 },   // New Year's Day
+        { month: 5, day: 19 },  // Juneteenth
+        { month: 6, day: 4 },   // Independence Day
+        { month: 10, day: 11 }, // Veterans Day
+        { month: 11, day: 25 }, // Christmas Day
+      ];
+
+      for (const h of fixedHolidays) {
+        const observed = getObservedDate(year, h.month, h.day);
+        if (observed.getMonth() === month && observed.getDate() === day) {
+          return true;
+        }
+      }
+
+      // Moving holidays
+      // MLK Day: 3rd Monday of January
+      const mlkDay = getNthWeekdayOfMonth(year, 0, 1, 3);
+      if (month === mlkDay.getMonth() && day === mlkDay.getDate()) return true;
+
+      // Presidents Day: 3rd Monday of February
+      const presidentsDay = getNthWeekdayOfMonth(year, 1, 1, 3);
+      if (month === presidentsDay.getMonth() && day === presidentsDay.getDate()) return true;
+
+      // Memorial Day: Last Monday of May
+      const memorialDay = getLastWeekdayOfMonth(year, 4, 1);
+      if (month === memorialDay.getMonth() && day === memorialDay.getDate()) return true;
+
+      // Labor Day: 1st Monday of September
+      const laborDay = getNthWeekdayOfMonth(year, 8, 1, 1);
+      if (month === laborDay.getMonth() && day === laborDay.getDate()) return true;
+
+      // Thanksgiving: 4th Thursday of November
+      const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4);
+      if (month === thanksgiving.getMonth() && day === thanksgiving.getDate()) return true;
+
+      return false;
+    };
+
+    // Helper function to check if a date is a working day
+    const isWorkingDay = (date: Date): boolean => {
+      return isWeekday(date) && !isHoliday(date);
+    };
+
+    // Check if today is a working day
+    if (!isWorkingDay(chicagoDate)) {
+      console.log(`${todayStr} is not a working day (weekend or holiday), skipping lost day recording`);
+      return new Response(
+        JSON.stringify({ 
+          message: 'Not a working day (weekend or holiday), skipping', 
+          date: todayStr,
+          isWeekday: isWeekday(chicagoDate),
+          isHoliday: isHoliday(chicagoDate)
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log(`Recording lost days - Chicago time: ${chicagoTime}, hour: ${currentHour}, date: ${todayStr}`);
 
     // Only run at 10am Chicago time (unless forced via query param)
