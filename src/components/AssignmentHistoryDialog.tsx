@@ -143,6 +143,11 @@ export const AssignmentHistoryDialog = ({
                   <div className="font-medium text-sm mb-2">
                     {formatChangeDescription(entry, showType)}
                   </div>
+                  {entry.reason && (
+                    <div className="text-sm text-muted-foreground mb-2 italic">
+                      Reason: {entry.reason}
+                    </div>
+                  )}
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>
                       Changed: {format(new Date(entry.changed_at), "MMM dd, yyyy 'at' h:mm a")}
