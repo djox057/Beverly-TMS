@@ -19,14 +19,13 @@ export function useDriverProblems() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch all active (unresolved) driver problems
+  // Fetch all driver problems (including resolved)
   const { data: problems = [], isLoading } = useQuery({
     queryKey: ["driver-problems"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("driver_problems")
         .select("*")
-        .is("resolved_at", null)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
