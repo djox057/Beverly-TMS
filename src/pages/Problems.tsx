@@ -56,9 +56,15 @@ export default function Problems() {
     });
   };
 
-  const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return format(date, "M/dd");
+  const formatShortDateTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      month: "numeric",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   const getDateKey = (dateStr: string | null) => {
@@ -72,7 +78,9 @@ export default function Problems() {
   };
 
   const formatDateHeader = (dateStr: string) => {
+    // Add 1 day to fix the off-by-one issue
     const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
     return format(date, "EEEE, MM/dd/yyyy");
   };
 
@@ -157,7 +165,7 @@ export default function Problems() {
   };
 
   return (
-    <div className="py-6 px-4 space-y-6 w-full">
+    <div className="py-6 px-4 space-y-6 w-full min-w-[1400px]">
       <Card className="w-full">
         <CardHeader>
           <CardTitle>Driver Problems</CardTitle>
@@ -181,7 +189,7 @@ export default function Problems() {
                     <TableHead className="w-[120px] min-w-[120px]">Dispatcher</TableHead>
                     <TableHead className="w-[400px] min-w-[400px]">Problem</TableHead>
                     <TableHead className="w-[280px] min-w-[280px]">Status</TableHead>
-                    <TableHead className="w-[100px] min-w-[100px]">Submitted</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px]">Submitted</TableHead>
                     <TableHead className="w-[140px] min-w-[140px]">Reported By</TableHead>
                     <TableHead className="w-[100px] min-w-[100px]">Actions</TableHead>
                   </TableRow>
@@ -294,8 +302,8 @@ export default function Problems() {
                                   </div>
                                 )}
                               </TableCell>
-                              <TableCell className="text-xs">
-                                {formatShortDate(problem.created_at)}
+                              <TableCell className="text-xs whitespace-nowrap">
+                                {formatShortDateTime(problem.created_at)}
                               </TableCell>
                               <TableCell className="text-sm">
                                 {reportedByName}
