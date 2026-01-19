@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { transformOrders } from "@/utils/ordersTransform";
 
 /**
  * Hook that subscribes to real-time changes on orders and related tables.
@@ -63,153 +64,9 @@ export function useOrdersRealtime() {
       return data;
     };
 
-    // Transform raw order to match the expected structure
-    const transformOrder = (order: any) => {
-      const toNum = (val: any): number => {
-        if (val === null || val === undefined || val === "" || val === "null") return 0;
-        const num = Number(val);
-        return isNaN(num) ? 0 : num;
-      };
+    // Transform raw order to match the UI shape (single source of truth)
+    const transformOrder = (order: any) => transformOrders([order])[0];
 
-      const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
-      const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
-      const firstPickup = pickupDrops.find((pd: any) => pd.type === "pickup");
-      const lastDelivery = pickupDrops.filter((pd: any) => pd.type === "delivery").pop();
-
-      const totalDriverPay =
-        toNum(order.driver_price) +
-        toNum(order.detention_driver) +
-        toNum(order.layover_driver) +
-        toNum(order.tonu_driver) +
-        toNum(order.extra_stop_driver) +
-        toNum(order.lumper_driver) -
-        toNum(order.late_fee_driver) -
-        toNum(order.no_tracking_fee_driver) -
-        toNum(order.wrong_address_fee_driver) +
-        toNum(order.other_charges_driver);
-
-      const totalFreightAmount =
-        toNum(order.freight_amount) +
-        toNum(order.detention) +
-        toNum(order.layover) +
-        toNum(order.tonu) +
-        toNum(order.extra_stop) +
-        toNum(order.lumper) -
-        toNum(order.late_fee) -
-        toNum(order.no_tracking_fee) -
-        toNum(order.wrong_address_fee) -
-        toNum(order.other_charges) +
-        toNum(order.other_additionals) +
-        toNum(order.escort_fee);
-
-      const rcFiles = orderFiles.filter((f: any) => f.file_category === "RC");
-      const podFiles = orderFiles.filter((f: any) => f.file_category === "POD");
-      const bolFiles = orderFiles.filter((f: any) => f.file_category === "BOL");
-
-      return {
-        ...order,
-        id: order.id,
-        loadNumber: order.load_number,
-        internalLoadNumber: order.internal_load_number,
-        brokerLoadNumber: order.broker_load_number,
-        pickupDatetime: order.pickup_datetime,
-        pickupEndDatetime: order.pickup_end_datetime,
-        deliveryDatetime: order.delivery_datetime,
-        deliveryEndDatetime: order.delivery_end_datetime,
-        freightAmount: toNum(order.freight_amount),
-        driverPrice: toNum(order.driver_price),
-        totalFreightAmount,
-        totalDriverPay,
-        loadedMiles: toNum(order.loaded_miles),
-        dhMiles: toNum(order.dh_miles),
-        mileage: toNum(order.mileage) || (toNum(order.loaded_miles) + toNum(order.dh_miles)),
-        notes: order.notes,
-        status: order.status,
-        locked: order.locked,
-        canceled: order.canceled,
-        paid: order.paid,
-        invoiced: order.invoiced,
-        bookedBy: order.booked_by,
-        detention: toNum(order.detention),
-        detentionDriver: toNum(order.detention_driver),
-        layover: toNum(order.layover),
-        layoverDriver: toNum(order.layover_driver),
-        tonu: toNum(order.tonu),
-        tonuDriver: toNum(order.tonu_driver),
-        extraStop: toNum(order.extra_stop),
-        extraStopDriver: toNum(order.extra_stop_driver),
-        lumper: toNum(order.lumper),
-        lumperDriver: toNum(order.lumper_driver),
-        lateFee: toNum(order.late_fee),
-        lateFeeDriver: toNum(order.late_fee_driver),
-        noTrackingFee: toNum(order.no_tracking_fee),
-        noTrackingFeeDriver: toNum(order.no_tracking_fee_driver),
-        wrongAddressFee: toNum(order.wrong_address_fee),
-        wrongAddressFeeDriver: toNum(order.wrong_address_fee_driver),
-        otherCharges: toNum(order.other_charges),
-        otherChargesDriver: toNum(order.other_charges_driver),
-        otherChargesReason: order.other_charges_reason,
-        otherAdditionals: toNum(order.other_additionals),
-        otherAdditionalsDriver: toNum(order.other_additionals_driver),
-        otherAdditionalsReason: order.other_additionals_reason,
-        escortFee: toNum(order.escort_fee),
-        escortFeeBrokerPaid: order.escort_fee_broker_paid,
-        commodity: order.commodity,
-        weight: order.weight,
-        puNumber: order.pu_number,
-        poNumber: order.po_number,
-        referenceNumber: order.reference_number,
-        isPartial: order.is_partial,
-        isRecovery: order.is_recovery,
-        recoveryDate: order.recovery_date,
-        recoveryMiles: toNum(order.recovery_miles),
-        recoveryFreightAmount: toNum(order.recovery_freight_amount),
-        recoveryDriverPrice: toNum(order.recovery_driver_price),
-        additionalMiles: toNum(order.additional_miles),
-        dateChangeNotes: order.date_change_notes,
-        deletedDriver1Name: order.deleted_driver1_name,
-        deletedDriver2Name: order.deleted_driver2_name,
-        deletedTruckNumber: order.deleted_truck_number,
-        deletedTrailerNumber: order.deleted_trailer_number,
-        lumperRevisedRcPath: order.lumper_revised_rc_path,
-        partialBrokers: order.partial_brokers,
-        partialBrokerLoads: order.partial_broker_loads,
-        partialBookedByCompanies: order.partial_booked_by_companies,
-        companyId: order.company_id,
-        bookedByCompanyId: order.booked_by_company_id,
-        truckId: order.truck_id,
-        trailerId: order.trailer_id,
-        driver1Id: order.driver1_id,
-        driver2Id: order.driver2_id,
-        brokerId: order.broker_id,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        truck: order.truck,
-        trailer: order.trailer,
-        driver1: order.driver1,
-        driver2: order.driver2,
-        broker: order.broker,
-        company: order.company,
-        bookedByCompany: order.booked_by_company,
-        originalDriver1: order.original_driver1,
-        originalDriver2: order.original_driver2,
-        originalTruck: order.original_truck,
-        originalTrailer: order.original_trailer,
-        pickupDrops,
-        orderFiles,
-        orderTransfers: order.order_transfers || [],
-        recoveryHistory: order.recovery_history || [],
-        rcFiles,
-        podFiles,
-        bolFiles,
-        pickupAddress: firstPickup?.address || "",
-        pickupCity: firstPickup?.city || "",
-        pickupState: firstPickup?.state || "",
-        deliveryAddress: lastDelivery?.address || "",
-        deliveryCity: lastDelivery?.city || "",
-        deliveryState: lastDelivery?.state || "",
-      };
-    };
 
     // Update ALL orders caches that start with ["orders"]
     const updateAllOrdersCaches = (
