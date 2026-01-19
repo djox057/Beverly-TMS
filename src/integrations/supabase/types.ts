@@ -1043,6 +1043,7 @@ export type Database = {
           reason: string
           resolved_at: string | null
           resolved_by: string | null
+          status: string | null
           truck_number: string | null
         }
         Insert: {
@@ -1054,6 +1055,7 @@ export type Database = {
           reason: string
           resolved_at?: string | null
           resolved_by?: string | null
+          status?: string | null
           truck_number?: string | null
         }
         Update: {
@@ -1065,6 +1067,7 @@ export type Database = {
           reason?: string
           resolved_at?: string | null
           resolved_by?: string | null
+          status?: string | null
           truck_number?: string | null
         }
         Relationships: [
