@@ -192,6 +192,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   useEffect(() => {
     if (open && driver) {
       loadDriverData(driver);
+    } else if (!open) {
+      // Reset original assignment tracking when dialog closes
+      setOriginalTruckId(null);
+      setOriginalTrailerId(null);
     }
   }, [open, driver]);
 
@@ -206,8 +210,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       .maybeSingle();
 
     // Store original assignment for detecting changes
-    setOriginalTruckId(truckData?.id || null);
-    setOriginalTrailerId(truckData?.trailer_id || null);
+    const origTruckId = truckData?.id || null;
+    const origTrailerId = truckData?.trailer_id || null;
+    console.log("Loading driver data - original assignment:", { origTruckId, origTrailerId });
+    setOriginalTruckId(origTruckId);
+    setOriginalTrailerId(origTrailerId);
 
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
@@ -261,14 +268,23 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   // Check if assignment change requires a reason
   const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
-    const newTruckId = formData.truck_id || null;
-    const newTrailerId = formData.trailer_id || null;
-    const truckChanged = newTruckId !== originalTruckId;
-    const trailerChanged = newTrailerId !== originalTrailerId;
+    // Normalize to null for empty strings
+    const newTruckId = formData.truck_id && formData.truck_id.trim() !== "" ? formData.truck_id : null;
+    const newTrailerId = formData.trailer_id && formData.trailer_id.trim() !== "" ? formData.trailer_id : null;
+    const origTruck = originalTruckId && originalTruckId.trim() !== "" ? originalTruckId : null;
+    const origTrailer = originalTrailerId && originalTrailerId.trim() !== "" ? originalTrailerId : null;
     
-    // Only require reason if there was a previous assignment (not null)
-    const hadTruck = originalTruckId !== null && originalTruckId !== "";
-    const hadTrailer = originalTrailerId !== null && originalTrailerId !== "";
+    const truckChanged = newTruckId !== origTruck;
+    const trailerChanged = newTrailerId !== origTrailer;
+    
+    // Only require reason if there was a previous assignment (not null/empty)
+    const hadTruck = origTruck !== null;
+    const hadTrailer = origTrailer !== null;
+    
+    console.log("Assignment check:", { 
+      newTruckId, origTruck, truckChanged, hadTruck,
+      newTrailerId, origTrailer, trailerChanged, hadTrailer 
+    });
     
     if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
       return "both";
