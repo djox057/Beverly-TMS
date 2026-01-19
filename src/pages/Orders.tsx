@@ -287,8 +287,13 @@ const Orders = () => {
   const filteredOrders =
     orders?.filter((order) => {
       const searchLower = searchTerm.toLowerCase();
+      // Format internal load number with company suffix for search
+      const formattedInternalLoadNumber = order.internalLoadNumber 
+        ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName)
+        : "";
       const matchesSearch =
         (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+        formattedInternalLoadNumber.toLowerCase().includes(searchLower) ||
         (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
         (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
         (order.driverName?.toLowerCase() || "").includes(searchLower) ||
@@ -620,9 +625,9 @@ const Orders = () => {
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     try {
-      // When unlocking, also set invoiced to false
+      // When unlocking, also set invoiced to false and clear invoiced_at
       const updateData = currentLockStatus 
-        ? { locked: false, invoiced: false } 
+        ? { locked: false, invoiced: false, invoiced_at: null } 
         : { locked: true };
       
       const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
@@ -700,6 +705,7 @@ const Orders = () => {
           .update({
             invoiced: true,
             locked: true,
+            invoiced_at: new Date().toISOString(),
           })
           .in("id", processedOrderIds);
         if (error) {
