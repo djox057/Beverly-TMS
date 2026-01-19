@@ -253,10 +253,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("month", selectedMonth)
         .eq("user_id", dispatcherUserId);
 
-      // Calculate the salary amount
+      // Calculate the salary amount - must match PDF generator logic exactly
       const hasExtraDays = extraDays > adjustedLostDays;
+      const hasLostDays = adjustedLostDays > 0 && !hasExtraDays;
+      const lostDaysDeduction = hasLostDays ? adjustedLostDays * perDayRate : 0;
       const checkAmount = salary1Percent + bonus5Percent + foodAllowance + 
-        (hasExtraDays ? extraDaysAmount : 0) + dispatcherBonus;
+        (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction + dispatcherBonus;
 
       // Insert new payment record
       await supabase
