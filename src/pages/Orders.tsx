@@ -37,6 +37,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import moneyStackIcon from "@/assets/money-stack.png";
+import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
+import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
+import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -203,7 +206,16 @@ const Orders = () => {
   const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [lumperMissingDataDialog, setLumperMissingDataDialog] = useState<{
+    orderId: string;
+    driverId: string;
+    driverName: string;
+  } | null>(null);
   const ORDERS_PER_PAGE = 100;
+  
+  // Lumper missing revised RC hook - check by order ID
+  const { lumperRequests } = useLumperMissingRevisedRC();
+  const orderIdsWithMissingLumperRC = new Set(lumperRequests.map(r => r.id));
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
@@ -1361,6 +1373,31 @@ const Orders = () => {
                                   </PopoverContent>
                                 </Popover>
                               )}
+                              {/* Lumper Missing Revised RC icon */}
+                              {orderIdsWithMissingLumperRC.has(order.id) && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        className="inline-flex p-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLumperMissingDataDialog({
+                                            orderId: order.id,
+                                            driverId: (order as any).driver1Id || "",
+                                            driverName: order.driverName || "Unknown",
+                                          });
+                                        }}
+                                      >
+                                        <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Lumper - Missing Receipt</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
@@ -2005,6 +2042,14 @@ const Orders = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Lumper Missing Data Dialog */}
+        <LumperMissingDataDialog
+          open={!!lumperMissingDataDialog}
+          onOpenChange={(open) => !open && setLumperMissingDataDialog(null)}
+          driverId={lumperMissingDataDialog?.driverId || ""}
+          driverName={lumperMissingDataDialog?.driverName || ""}
+          filterOrderId={lumperMissingDataDialog?.orderId}
+        />
       </div>
     </div>
   );
