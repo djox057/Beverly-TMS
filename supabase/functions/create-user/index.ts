@@ -20,11 +20,12 @@ Deno.serve(async (req) => {
     // Extract the JWT token from the header
     const token = authHeader.replace('Bearer ', '')
     
-    // Create a Supabase client with anon key
+    // Create a Supabase client with the user's auth header
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
+        global: { headers: { Authorization: authHeader } },
         auth: {
           autoRefreshToken: false,
           persistSession: false
@@ -32,17 +33,21 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Verify the user token by passing it directly
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
+    // Verify the user token using getClaims
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token)
     
-    if (userError) {
-      console.error('Token verification error:', userError)
-      throw new Error(`Invalid token: ${userError.message}`)
+    if (claimsError || !claimsData?.claims) {
+      console.error('Token verification error:', claimsError)
+      throw new Error(`Invalid token: ${claimsError?.message || 'No claims found'}`)
     }
     
-    if (!user) {
-      throw new Error('No user found in token')
+    const userId = claimsData.claims.sub
+    if (!userId) {
+      throw new Error('No user ID found in token')
     }
+    
+    // Create a user object with the ID from claims
+    const user = { id: userId }
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(
