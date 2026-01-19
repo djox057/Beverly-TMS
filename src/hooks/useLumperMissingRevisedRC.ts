@@ -129,7 +129,7 @@ export function useLumperMissingRevisedRC() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update orders cache
     },
   });
 

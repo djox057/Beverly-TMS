@@ -116,7 +116,7 @@ export function LumperMissingDataDialog({
       queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc"] });
       queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc-driver", driverId] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update orders cache
     },
   });
 

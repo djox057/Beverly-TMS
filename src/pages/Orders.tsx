@@ -502,7 +502,7 @@ const Orders = () => {
       if (error) throw error;
 
       toast.success(`Locked ${unlocked.length} loads successfully`);
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache automatically
       setSelectedOrderIds(new Set());
       setSelectionMode(false);
 
@@ -617,11 +617,8 @@ const Orders = () => {
 
       if (error) throw error;
 
-      // Show success immediately - cache update happens in background
+      // Show success immediately - real-time subscription will update cache
       toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
-
-      // Refresh orders list immediately
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
 
       // Update cache in background (non-blocking)
       (async () => {
@@ -699,8 +696,7 @@ const Orders = () => {
         } else {
           console.log(`Successfully updated ${processedOrderIds.length} orders as invoiced`);
           toast.success(`${processedOrderIds.length} orders marked as invoiced`);
-          // Refresh orders data to show updated status
-          queryClient.invalidateQueries({ queryKey: ["orders"] });
+          // Real-time subscription will update the cache
         }
       }
     } catch (error) {
@@ -793,9 +789,7 @@ const Orders = () => {
       setCancelDialogOpen(false);
       setSelectedOrderId(null);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
-
-      // Refresh orders list
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -831,7 +825,7 @@ const Orders = () => {
           .eq("id", orderId);
         if (updateError) throw updateError;
         toast.success("Load uncanceled");
-        queryClient.invalidateQueries({ queryKey: ["orders"] });
+        // Real-time subscription will update the cache
         return;
       }
 
@@ -860,9 +854,7 @@ const Orders = () => {
       if (deleteError) console.error("Error deleting backup:", deleteError);
 
       toast.success("Load cancellation reverted successfully");
-
-      // Refresh orders list
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache
     } catch (error) {
       console.error("Error reverting cancellation:", error);
       toast.error("Failed to revert cancellation");
@@ -882,7 +874,7 @@ const Orders = () => {
       if (error) throw error;
 
       toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast.error("Failed to update paid status");

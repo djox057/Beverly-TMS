@@ -1698,7 +1698,7 @@ const EditOrder = () => {
       });
 
       await loadOrderData();
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache
     } catch (error: any) {
       console.error("Error adding transfer:", error);
       toast({
@@ -1739,7 +1739,7 @@ const EditOrder = () => {
       });
 
       await loadOrderData();
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update the cache
       queryClient.invalidateQueries({ queryKey: ["reports"] });
     } catch (error: any) {
       console.error("Error updating transfer:", error);
