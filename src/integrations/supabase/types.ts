@@ -1979,6 +1979,7 @@ export type Database = {
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
+          invoiced_at: string | null
           is_partial: boolean | null
           is_recovery: boolean | null
           late_fee: number | null
@@ -2085,6 +2086,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          invoiced_at?: string | null
           is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
@@ -2191,6 +2193,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          invoiced_at?: string | null
           is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
