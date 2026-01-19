@@ -205,7 +205,8 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   }
 
   // Lost days row (if applicable - when lost days exceed extra days)
-  if (hasLostDays && lostDaysDeduction > 0) {
+  // Match extra days logic: show row whenever hasLostDays is true
+  if (hasLostDays) {
     drawRow(
       `Lost days (${lostDatesText})`, 
       `-$${lostDaysDeduction.toFixed(2)}`, 
