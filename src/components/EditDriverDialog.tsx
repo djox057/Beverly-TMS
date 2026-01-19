@@ -203,18 +203,20 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     setEditingDriver(driver);
     fetchTerminationNotes(driver.id);
 
-    const { data: truckData } = await supabase
+    const { data: truckData, error: truckError } = await supabase
       .from("trucks")
       .select("id, trailer_id")
       .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+      .limit(1)
       .maybeSingle();
 
+    if (truckError) {
+      console.error("Error loading driver truck assignment:", truckError);
+    }
+
     // Store original assignment for detecting changes
-    const origTruckId = truckData?.id || null;
-    const origTrailerId = truckData?.trailer_id || null;
-    console.log("Loading driver data - original assignment:", { origTruckId, origTrailerId });
-    setOriginalTruckId(origTruckId);
-    setOriginalTrailerId(origTrailerId);
+    setOriginalTruckId(truckData?.id ?? null);
+    setOriginalTrailerId(truckData?.trailer_id ?? null);
 
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
