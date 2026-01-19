@@ -187,8 +187,8 @@ export default function Problems() {
                     <TableHead className="w-[80px] min-w-[80px]">Truck #</TableHead>
                     <TableHead className="w-[120px] min-w-[120px]">Driver</TableHead>
                     <TableHead className="w-[120px] min-w-[120px]">Dispatcher</TableHead>
-                    <TableHead className="w-[400px] min-w-[400px]">Problem</TableHead>
-                    <TableHead className="w-[280px] min-w-[280px]">Status</TableHead>
+                    <TableHead className="w-[480px] min-w-[480px]">Problem</TableHead>
+                    <TableHead className="w-[480px] min-w-[480px]">Status</TableHead>
                     <TableHead className="w-[140px] min-w-[140px]">Submitted</TableHead>
                     <TableHead className="w-[140px] min-w-[140px]">Reported By</TableHead>
                     <TableHead className="w-[100px] min-w-[100px]">Actions</TableHead>
@@ -217,7 +217,7 @@ export default function Problems() {
                               </TableCell>
                               <TableCell>{driverName}</TableCell>
                               <TableCell>{problem.dispatcher_name || "N/A"}</TableCell>
-                              <TableCell className="w-[400px] min-w-[400px]">
+                              <TableCell className="w-[480px] min-w-[480px]">
                                 {isEditingProblem ? (
                                   <div className="flex items-center gap-2">
                                     <Input
@@ -243,7 +243,20 @@ export default function Problems() {
                                   </div>
                                 ) : (
                                   <div className="flex items-start gap-2 group">
-                                    <span className="whitespace-pre-wrap break-words line-clamp-2">{problemText}</span>
+                                    {problemText.length > 80 ? (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="text-left cursor-pointer hover:underline whitespace-pre-wrap break-words line-clamp-2">
+                                            {problemText}
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[500px] max-h-60 overflow-auto z-50 bg-popover">
+                                          <p className="text-sm whitespace-pre-wrap">{problemText}</p>
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : (
+                                      <span className="whitespace-pre-wrap break-words line-clamp-2">{problemText}</span>
+                                    )}
                                     {!problemResolved && (
                                       <Button
                                         size="icon"
@@ -257,7 +270,7 @@ export default function Problems() {
                                   </div>
                                 )}
                               </TableCell>
-                              <TableCell className="w-[280px] min-w-[280px]">
+                              <TableCell className="w-[480px] min-w-[480px]">
                                 {isEditingStatus ? (
                                   <div className="flex items-center gap-1">
                                     <Input
@@ -286,9 +299,22 @@ export default function Problems() {
                                   </div>
                                 ) : (
                                   <div className="flex items-start gap-1 group">
-                                    <span className="whitespace-pre-wrap break-words line-clamp-2 capitalize">
-                                      {problem.status || "open"}
-                                    </span>
+                                    {(problem.status || "open").length > 60 ? (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="text-left cursor-pointer hover:underline whitespace-pre-wrap break-words line-clamp-2 capitalize">
+                                            {problem.status || "open"}
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[500px] max-h-60 overflow-auto z-50 bg-popover">
+                                          <p className="text-sm whitespace-pre-wrap capitalize">{problem.status || "open"}</p>
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : (
+                                      <span className="whitespace-pre-wrap break-words line-clamp-2 capitalize">
+                                        {problem.status || "open"}
+                                      </span>
+                                    )}
                                     {!problemResolved && (
                                       <Button
                                         size="icon"
