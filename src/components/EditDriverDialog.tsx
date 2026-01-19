@@ -31,6 +31,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { formatPhoneNumber } from "@/lib/utils";
+import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
 
 interface DriverFormData {
   first_name: string;
@@ -97,6 +98,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
+  
+  // Track original assignment for detecting changes
+  const [originalTruckId, setOriginalTruckId] = useState<string | null>(null);
+  const [originalTrailerId, setOriginalTrailerId] = useState<string | null>(null);
+  
+  // Assignment reason dialog state
+  const [showReasonDialog, setShowReasonDialog] = useState(false);
+  const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both">("truck");
+  const [pendingFormEvent, setPendingFormEvent] = useState<React.FormEvent | null>(null);
 
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || "");
 
@@ -186,6 +196,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
       .maybeSingle();
 
+    // Store original assignment for detecting changes
+    setOriginalTruckId(truckData?.id || null);
+    setOriginalTrailerId(truckData?.trailer_id || null);
+
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
       const { data } = await supabase.from("driver_sensitive_pii").select("*").eq("driver_id", driver.id).maybeSingle();
@@ -236,8 +250,50 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     }
   };
 
-  const handleEditDriver = async (e: React.FormEvent) => {
+  // Check if assignment change requires a reason
+  const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
+    const truckChanged = (formData.truck_id || null) !== originalTruckId;
+    const trailerChanged = (formData.trailer_id || null) !== originalTrailerId;
+    
+    // Only require reason if there was a previous assignment (not null)
+    const hadTruck = originalTruckId !== null;
+    const hadTrailer = originalTrailerId !== null;
+    
+    if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
+      return "both";
+    } else if (truckChanged && hadTruck) {
+      return "truck";
+    } else if (trailerChanged && hadTrailer) {
+      return "trailer";
+    }
+    return null;
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const reasonNeeded = checkAssignmentChangeNeedsReason();
+    if (reasonNeeded) {
+      setPendingReasonType(reasonNeeded);
+      setPendingFormEvent(e);
+      setShowReasonDialog(true);
+    } else {
+      // No reason needed, proceed directly
+      handleEditDriverWithReason(null);
+    }
+  };
+
+  const handleReasonConfirm = (reason: string) => {
+    setShowReasonDialog(false);
+    handleEditDriverWithReason(reason);
+  };
+
+  const handleReasonCancel = () => {
+    setShowReasonDialog(false);
+    setPendingFormEvent(null);
+  };
+
+  const handleEditDriverWithReason = async (reason: string | null) => {
     if (!editingDriver) return;
 
     setIsSubmitting(true);
@@ -306,6 +362,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
       const existingTruckId = currentTrucks?.id;
 
+      // Track if assignment changed for history logging
+      const truckChanged = (formData.truck_id || null) !== originalTruckId;
+      const trailerChanged = (formData.trailer_id || null) !== originalTrailerId;
+
       if (formData.truck_id) {
         if (formData.trailer_id) {
           await supabase
@@ -357,12 +417,34 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
       }
 
+      // Insert assignment history with reason if there was a change
+      if (reason && (truckChanged || trailerChanged)) {
+        const { data: userData } = await supabase.auth.getUser();
+        let changeType = "assignment_change";
+        if (truckChanged && !trailerChanged) {
+          changeType = "driver_assignment";
+        } else if (!truckChanged && trailerChanged) {
+          changeType = "trailer_assignment";
+        }
+
+        await supabase.from("assignment_history").insert({
+          truck_id: formData.truck_id || originalTruckId || null,
+          trailer_id: formData.trailer_id || originalTrailerId || null,
+          driver1_id: editingDriver.id,
+          driver2_id: null,
+          change_type: changeType,
+          changed_by: userData?.user?.id || null,
+          reason: reason,
+        });
+      }
+
       toast({ title: "Success", description: "Driver updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["trailers"] });
       queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
       queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["assignment-history"] });
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -521,7 +603,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
             </TabsList>
 
             <TabsContent value="info">
-              <form id="edit-driver-form" onSubmit={handleEditDriver} className="space-y-4">
+              <form id="edit-driver-form" onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="edit_first_name">First Name*</Label>
@@ -1057,6 +1139,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Assignment Reason Dialog */}
+      <AssignmentReasonDialog
+        open={showReasonDialog}
+        onOpenChange={setShowReasonDialog}
+        changeType={pendingReasonType}
+        onConfirm={handleReasonConfirm}
+        onCancel={handleReasonCancel}
+      />
     </>
   );
 }

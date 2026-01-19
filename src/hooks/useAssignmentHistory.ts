@@ -15,6 +15,7 @@ export interface AssignmentHistoryEntry {
   driver1_name: string | null;
   driver2_name: string | null;
   changed_by_name: string | null;
+  reason: string | null;
 }
 
 export const useAssignmentHistory = (

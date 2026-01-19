@@ -3317,6 +3317,7 @@ export type Database = {
           driver2_id: string
           driver2_name: string
           id: string
+          reason: string
           trailer_id: string
           trailer_number: string
           truck_id: string
