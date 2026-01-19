@@ -2389,9 +2389,6 @@ const EditOrder = () => {
         }
       }
 
-      // Force Orders list to reload next time it's opened (orders query is cached indefinitely)
-      queryClient.removeQueries({ queryKey: ["orders"] });
-
       toast({
         title: "Success",
         description: "Load updated successfully",
@@ -2403,27 +2400,7 @@ const EditOrder = () => {
         setDateChangeNotes(updatedDateChangeNotes);
       }
 
-      // Navigate back to where we came from
-      const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
-      const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
-      if (returnToReports) {
-        localStorage.removeItem("returnToReports");
-        navigate("/reports");
-        window.scrollTo(0, 0);
-      } else if (returnToTrips) {
-        localStorage.removeItem("returnToTrips");
-        navigate("/trips");
-        window.scrollTo(0, 0);
-      } else if (shouldReturnToYardLoads) {
-        localStorage.removeItem("returnToYardLoads");
-        navigate("/yard-loads");
-        window.scrollTo(0, 0);
-      } else if (shouldReturnToOrders) {
-        navigate("/orders");
-        window.scrollTo(0, 0);
-      } else {
-        navigate("/orders");
-      }
+      // Stay on page - real-time subscription will update the orders cache automatically
     } catch (error) {
       console.error("Error updating order:", error);
       toast({
