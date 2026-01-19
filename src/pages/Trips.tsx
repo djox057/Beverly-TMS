@@ -3954,7 +3954,7 @@ const Trips = () => {
                   
                   <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver Pay</TableHead>
                   <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Freight Amt</TableHead>
-                  <TableHead className="w-[60px] min-w-[60px] max-w-[60px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">Paid</TableHead>
+                  <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">Paid</TableHead>
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
