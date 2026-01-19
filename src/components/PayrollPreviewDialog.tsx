@@ -253,11 +253,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("month", selectedMonth)
         .eq("user_id", dispatcherUserId);
 
-      // Calculate the salary amount - must match PDF generator logic exactly
+      // Calculate the salary amount (paid_amount excludes food allowance)
       const hasExtraDays = extraDays > adjustedLostDays;
       const hasLostDays = adjustedLostDays > 0 && !hasExtraDays;
       const lostDaysDeduction = hasLostDays ? adjustedLostDays * perDayRate : 0;
-      const checkAmount = salary1Percent + bonus5Percent + foodAllowance + 
+      // Paid amount = salary components WITHOUT food allowance
+      const paidAmount = salary1Percent + bonus5Percent + 
         (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction + dispatcherBonus;
 
       // Insert new payment record
@@ -266,8 +267,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .insert({
           user_id: dispatcherUserId,
           month: selectedMonth,
-          paid_amount: checkAmount,
-          calculated_salary: checkAmount,
+          paid_amount: paidAmount,
+          calculated_salary: paidAmount,
           paid_at: now,
           paid_by: user.id,
         });
