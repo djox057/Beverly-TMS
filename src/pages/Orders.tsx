@@ -1189,12 +1189,16 @@ const Orders = () => {
                       const isRecovery = (order as any).isRecovery;
                       const freightAmount = Number((order as any).freightAmount) || 0;
                       const totalFreight = Number(order.totalFreightAmount) || 0;
-                      const hasAdditionalPay = totalFreight > freightAmount;
+                      const lumper = Number((order as any).lumper) || 0;
+                      const escortFee = Number((order as any).escortFee) || 0;
+                      const hasLumperOrEscort = lumper > 0 || escortFee > 0;
+                      const hasAdditionalPay = totalFreight > freightAmount && !hasLumperOrEscort;
                       const hasReducedPay = totalFreight < freightAmount;
 
                       const hasOrangeCondition =
                         order.canceled ||
-                        ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
+                        ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "") ||
+                        hasLumperOrEscort;
 
                       const isEvenRow = index % 2 === 1;
                       const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
