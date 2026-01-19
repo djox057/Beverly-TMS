@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
+import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
@@ -122,6 +123,12 @@ const Drivers = () => {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState(false);
   const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
+  
+  // Assignment reason dialog state
+  const [showReasonDialog, setShowReasonDialog] = useState(false);
+  const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both" | null>(null);
+  const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({ truckId: null, trailerId: null });
+  
   const itemsPerPage = 100;
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
@@ -552,8 +559,48 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
-  const handleEditDriver = async (e: React.FormEvent) => {
+  // Check if assignment change requires a reason
+  const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
+    const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
+    
+    // Normalize to null for empty strings
+    const newTruckId = formData.truck_id && formData.truck_id.trim() !== "" ? formData.truck_id : null;
+    const newTrailerId = formData.trailer_id && formData.trailer_id.trim() !== "" ? formData.trailer_id : null;
+    const origTruck = origTruckId && origTruckId.trim() !== "" ? origTruckId : null;
+    const origTrailer = origTrailerId && origTrailerId.trim() !== "" ? origTrailerId : null;
+    
+    const truckChanged = newTruckId !== origTruck;
+    const trailerChanged = newTrailerId !== origTrailer;
+    
+    // Only require reason if there was a previous assignment (not null/empty)
+    const hadTruck = origTruck !== null;
+    const hadTrailer = origTrailer !== null;
+    
+    if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
+      return "both";
+    } else if (truckChanged && hadTruck) {
+      return "truck";
+    } else if (trailerChanged && hadTrailer) {
+      return "trailer";
+    }
+    return null;
+  };
+
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if reason is needed for assignment change
+    const reasonNeeded = checkAssignmentChangeNeedsReason();
+    if (reasonNeeded) {
+      setPendingReasonType(reasonNeeded);
+      setShowReasonDialog(true);
+    } else {
+      // No reason needed, proceed directly
+      handleEditDriverWithReason(null);
+    }
+  };
+
+  const handleEditDriverWithReason = async (reason: string | null) => {
     if (!editingDriver) return;
     setIsSubmitting(true);
     try {
@@ -624,6 +671,11 @@ const Drivers = () => {
         .single();
 
       const existingTruckId = currentTrucks?.id;
+      const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
+
+      // Track if assignment changed for history logging
+      const truckChanged = (formData.truck_id || null) !== origTruckId;
+      const trailerChanged = (formData.trailer_id || null) !== origTrailerId;
 
       // Handle truck/trailer assignment
       if (formData.truck_id) {
@@ -692,6 +744,28 @@ const Drivers = () => {
 
         await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
       }
+
+      // Insert assignment history with reason if there was a change
+      if (reason && (truckChanged || trailerChanged)) {
+        const { data: userData } = await supabase.auth.getUser();
+        let changeType = "assignment_change";
+        if (truckChanged && !trailerChanged) {
+          changeType = "driver_assignment";
+        } else if (!truckChanged && trailerChanged) {
+          changeType = "trailer_assignment";
+        }
+
+        await supabase.from("assignment_history").insert({
+          truck_id: formData.truck_id || origTruckId || null,
+          trailer_id: formData.trailer_id || origTrailerId || null,
+          driver1_id: editingDriver.id,
+          driver2_id: null,
+          change_type: changeType,
+          changed_by: userData?.user?.id || null,
+          reason: reason,
+        });
+      }
+
       toast({
         title: "Success",
         description: "Driver updated successfully",
@@ -703,6 +777,7 @@ const Drivers = () => {
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["trailers"] });
+      queryClient.invalidateQueries({ queryKey: ["assignment-history"] });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to update driver";
 
@@ -1057,6 +1132,12 @@ const Drivers = () => {
       .select("id, trailer_id")
       .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
       .maybeSingle();
+
+    // Store original assignment for reason dialog check
+    originalAssignmentRef.current = {
+      truckId: truckData?.id || null,
+      trailerId: truckData?.trailer_id || null,
+    };
 
     // Fetch sensitive PII if user has permission
     let sensitivePIIData = null;
@@ -2122,7 +2203,7 @@ const Drivers = () => {
             </TabsList>
 
             <TabsContent value="info">
-              <form id="edit-driver-form" onSubmit={handleEditDriver} className="space-y-4">
+              <form id="edit-driver-form" onSubmit={handleEditFormSubmit} className="space-y-4">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="edit_first_name">First Name*</Label>
@@ -2910,6 +2991,24 @@ const Drivers = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Assignment Reason Dialog */}
+      <AssignmentReasonDialog
+        open={showReasonDialog}
+        onOpenChange={(open) => {
+          setShowReasonDialog(open);
+          if (!open) setPendingReasonType(null);
+        }}
+        changeType={pendingReasonType || "truck"}
+        onConfirm={(reason) => {
+          setShowReasonDialog(false);
+          handleEditDriverWithReason(reason);
+        }}
+        onCancel={() => {
+          setShowReasonDialog(false);
+          setPendingReasonType(null);
+        }}
+      />
     </div>
   );
 };
