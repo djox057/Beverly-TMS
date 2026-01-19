@@ -2733,6 +2733,7 @@ const Analytics = () => {
             lostDayDates={payrollPreviewData.lostDayDates}
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={payrollPreviewData.dispatcherBonus}
+            perDayRate={payrollPreviewData.perDayRate}
             onEmailSent={() => {
               // Refresh salary payments data
               queryClient.invalidateQueries({ queryKey: ["dispatcher_salary_payments"] });

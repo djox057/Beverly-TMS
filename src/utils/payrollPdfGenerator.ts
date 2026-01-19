@@ -234,8 +234,8 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   }
 
   // Non-sick days off row (deducted) - BLACK text, not red
-  // Only show if there are actually days to deduct (nonSickDaysOff > 0)
-  if (hasNonSickDaysOff) {
+  // Only show if there are actually days to deduct AND the deduction is meaningful (> $0.005)
+  if (hasNonSickDaysOff && daysOffDeduction > 0.005) {
     // If there are sick days, show just the dates on a new line
     // Otherwise, show full "Days off (dates)" format
     const daysOffLabel = hasSickDays 
