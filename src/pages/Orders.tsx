@@ -1187,12 +1187,13 @@ const Orders = () => {
                     paginatedOrders.map((order, index) => {
                       // Background color rules - Based on total freight vs freight amount
                       const isRecovery = (order as any).isRecovery;
+                      const isCanceled = order.canceled;
                       const freightAmount = Number((order as any).freightAmount) || 0;
                       const totalFreight = Number(order.totalFreightAmount) || 0;
                       const lumper = Number((order as any).lumper) || 0;
                       const escortFee = Number((order as any).escortFee) || 0;
                       const hasLumperOrEscort = lumper > 0 || escortFee > 0;
-                      const hasAdditionalPay = totalFreight > freightAmount && !hasLumperOrEscort;
+                      const hasAdditionalPay = totalFreight > freightAmount;
                       const hasReducedPay = totalFreight < freightAmount;
 
                       const hasOrangeCondition =
@@ -1227,7 +1228,20 @@ const Orders = () => {
                                   aria-label={`Select load ${order.loadNumber}`}
                                 />
                               )}
-                              {/* Additional/Reduced Pay Icon */}
+                              {/* Canceled icon */}
+                              {isCanceled && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-lg leading-none cursor-default">🚫</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Canceled</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {/* Additional/Reduced Pay Icon (includes lumper/escort) */}
                               {(hasAdditionalPay || hasReducedPay) && (() => {
                                 const isPositive = hasAdditionalPay;
                                 const freightAmountVal = Number((order as any).freightAmount) || 0;
