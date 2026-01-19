@@ -187,36 +187,38 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
-  // Food allowance row - white description, light blue amount, taller height
-  tableRows.push(
-    new TableRow({
-      height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
-      children: [
-        new TableCell({
-          width: { size: 50, type: WidthType.PERCENTAGE },
-          shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Food allowance", size: TABLE_SIZE })],
-            }),
-          ],
-          verticalAlign: VerticalAlign.CENTER,
-        }),
-        new TableCell({
-          width: { size: 50, type: WidthType.PERCENTAGE },
-          shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: `$${data.foodAllowance.toFixed(2)}`, size: TABLE_SIZE })],
-            }),
-          ],
-          verticalAlign: VerticalAlign.CENTER,
-        }),
-      ],
-    })
-  );
+  // Food allowance row - white description, light blue amount, taller height (only if > 0)
+  if (data.foodAllowance > 0) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: "Food allowance", size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `$${data.foodAllowance.toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
 
   // Extra days row (only if has extra days) - white description, light blue amount, taller height
   // Only show 2nd+ dates (extraDayDates already excludes the first regular day)
