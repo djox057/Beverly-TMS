@@ -594,6 +594,48 @@ const Trips = () => {
     newPaidStatus: boolean;
   } | null>(null);
 
+  // State for individual order paid confirmation dialog
+  const [orderPaidConfirmDialog, setOrderPaidConfirmDialog] = useState<{
+    open: boolean;
+    orderId: string;
+    currentPaid: boolean;
+    loadNumber: string;
+  } | null>(null);
+
+  // Handle individual order paid status toggle
+  const handleOrderPaidToggle = (orderId: string, currentPaid: boolean, loadNumber: string) => {
+    setOrderPaidConfirmDialog({
+      open: true,
+      orderId,
+      currentPaid,
+      loadNumber,
+    });
+  };
+
+  // Confirm individual order paid status change
+  const confirmOrderPaidToggle = async () => {
+    if (!orderPaidConfirmDialog) return;
+    
+    try {
+      const newPaidStatus = !orderPaidConfirmDialog.currentPaid;
+      const { error } = await supabase
+        .from("orders")
+        .update({ paid: newPaidStatus })
+        .eq("id", orderPaidConfirmDialog.orderId);
+
+      if (error) throw error;
+
+      toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
+      // Invalidate orders cache to refresh data
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error) {
+      console.error("Error updating paid status:", error);
+      toast.error("Failed to update paid status");
+    } finally {
+      setOrderPaidConfirmDialog(null);
+    }
+  };
+
   // Show confirmation dialog before toggling paid status
   const handlePaidToggle = (truckNumber: string, truckId: string, driverName: string, weekStart: string, weekOrders: any[]) => {
     const currentStatus = isWeekPaid(truckNumber, driverName, weekStart);
@@ -3946,7 +3988,7 @@ const Trips = () => {
                         <Fragment key={`week-${week.weekStart}`}>
                           {/* Weekly Summary Row - Now appears FIRST */}
                           <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
-                            <TableCell colSpan={canMoveLoads ? 8 : 7} className="py-3">
+                            <TableCell colSpan={canMoveLoads ? 9 : 8} className="py-3">
                               <div className="flex items-center gap-4">
                                 <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
                                 <div className="flex items-center gap-2">
@@ -3982,6 +4024,7 @@ const Trips = () => {
                               {formatCurrency(weekTotal.freightAmount)}
                             </div>
                           </TableCell>
+                          <TableCell className="py-3"></TableCell>
                           <TableCell className="py-3">
                             <Button
                               variant="ghost"
@@ -4189,10 +4232,14 @@ const Trips = () => {
                                   {formatCurrency(order.totalFreightAmountNoLumper)}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <span className={order.paid ? "text-green-600 dark:text-green-400 font-semibold" : "text-muted-foreground"}>
-                                  {order.paid ? "Yes" : "No"}
-                                </span>
+                              <TableCell className="text-center">
+                                <div className="flex justify-center">
+                                  <Checkbox
+                                    checked={order.paid === true}
+                                    onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
+                                    aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                                  />
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
@@ -4437,6 +4484,26 @@ const Trips = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPaidToggle}>
               {paidConfirmDialog?.newPaidStatus ? "Mark Paid" : "Mark Unpaid"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Individual Order Paid Confirmation Dialog */}
+      <AlertDialog open={orderPaidConfirmDialog?.open ?? false} onOpenChange={(open) => !open && setOrderPaidConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Payment Status Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderPaidConfirmDialog?.currentPaid 
+                ? "Are you sure you want to mark this load as unpaid?"
+                : "Are you sure you want to mark this load as paid?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmOrderPaidToggle}>
+              Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
