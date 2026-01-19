@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -99,14 +99,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   
-  // Track original assignment for detecting changes
-  const [originalTruckId, setOriginalTruckId] = useState<string | null>(null);
-  const [originalTrailerId, setOriginalTrailerId] = useState<string | null>(null);
+  // Track original assignment for detecting changes - use ref for synchronous access
+  const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({
+    truckId: null,
+    trailerId: null,
+  });
   
   // Assignment reason dialog state
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both">("truck");
-  const [pendingFormEvent, setPendingFormEvent] = useState<React.FormEvent | null>(null);
   
   // Already assigned warning dialog state
   const [showAlreadyAssignedWarning, setShowAlreadyAssignedWarning] = useState(false);
@@ -194,8 +195,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       loadDriverData(driver);
     } else if (!open) {
       // Reset original assignment tracking when dialog closes
-      setOriginalTruckId(null);
-      setOriginalTrailerId(null);
+      originalAssignmentRef.current = { truckId: null, trailerId: null };
     }
   }, [open, driver]);
 
@@ -214,9 +214,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       console.error("Error loading driver truck assignment:", truckError);
     }
 
-    // Store original assignment for detecting changes
-    setOriginalTruckId(truckData?.id ?? null);
-    setOriginalTrailerId(truckData?.trailer_id ?? null);
+    // Store original assignment for detecting changes (using ref for synchronous access)
+    originalAssignmentRef.current = {
+      truckId: truckData?.id ?? null,
+      trailerId: truckData?.trailer_id ?? null,
+    };
 
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
@@ -270,11 +272,13 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   // Check if assignment change requires a reason
   const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
+    const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
+    
     // Normalize to null for empty strings
     const newTruckId = formData.truck_id && formData.truck_id.trim() !== "" ? formData.truck_id : null;
     const newTrailerId = formData.trailer_id && formData.trailer_id.trim() !== "" ? formData.trailer_id : null;
-    const origTruck = originalTruckId && originalTruckId.trim() !== "" ? originalTruckId : null;
-    const origTrailer = originalTrailerId && originalTrailerId.trim() !== "" ? originalTrailerId : null;
+    const origTruck = origTruckId && origTruckId.trim() !== "" ? origTruckId : null;
+    const origTrailer = origTrailerId && origTrailerId.trim() !== "" ? origTrailerId : null;
     
     const truckChanged = newTruckId !== origTruck;
     const trailerChanged = newTrailerId !== origTrailer;
@@ -312,9 +316,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       trailerNumber?: string;
     } = {};
     let hasConflict = false;
+    const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
 
     // Check if the selected truck is assigned to another driver
-    if (formData.truck_id && formData.truck_id !== originalTruckId) {
+    if (formData.truck_id && formData.truck_id !== origTruckId) {
       const selectedTruck = allTrucks?.find(t => t.id === formData.truck_id);
       if (selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver?.id) {
         // Get driver name
@@ -332,7 +337,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     }
 
     // Check if the selected trailer is assigned to another truck (with a different driver)
-    if (formData.trailer_id && formData.trailer_id !== originalTrailerId) {
+    if (formData.trailer_id && formData.trailer_id !== origTrailerId) {
       const { data: trucksWithTrailer } = await supabase
         .from("trucks")
         .select("id, truck_number, driver1_id, trailer_id")
@@ -409,7 +414,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   const handleReasonCancel = () => {
     setShowReasonDialog(false);
-    setPendingFormEvent(null);
   };
 
   const handleEditDriverWithReason = async (reason: string | null) => {
@@ -480,10 +484,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         .single();
 
       const existingTruckId = currentTrucks?.id;
+      const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
 
       // Track if assignment changed for history logging
-      const truckChanged = (formData.truck_id || null) !== originalTruckId;
-      const trailerChanged = (formData.trailer_id || null) !== originalTrailerId;
+      const truckChanged = (formData.truck_id || null) !== origTruckId;
+      const trailerChanged = (formData.trailer_id || null) !== origTrailerId;
 
       if (formData.truck_id) {
         if (formData.trailer_id) {
@@ -547,8 +552,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         }
 
         await supabase.from("assignment_history").insert({
-          truck_id: formData.truck_id || originalTruckId || null,
-          trailer_id: formData.trailer_id || originalTrailerId || null,
+          truck_id: formData.truck_id || origTruckId || null,
+          trailer_id: formData.trailer_id || origTrailerId || null,
           driver1_id: editingDriver.id,
           driver2_id: null,
           change_type: changeType,
