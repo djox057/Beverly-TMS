@@ -411,7 +411,7 @@ export default function YardLoads() {
 
       toast.success("Transfer reverted - original driver and truck restored");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update orders cache
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["trailers"] });
@@ -537,7 +537,7 @@ export default function YardLoads() {
 
       toast.success("Transfer driver assigned successfully");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Real-time subscription will update orders cache
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["trailers"] });

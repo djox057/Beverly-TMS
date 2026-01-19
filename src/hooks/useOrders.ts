@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
-
+import { useOrdersRealtime } from "./useOrdersRealtime";
 // Helper function to enrich locked orders with lookup data and fetch pickup_drops/order_files from database
 async function enrichLockedOrdersWithLookups(
   lockedOrders: any[],
@@ -171,6 +171,8 @@ interface UseOrdersOptions {
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
 
+  // Subscribe to real-time updates
+  useOrdersRealtime(options);
 
   const query = useQuery({
     queryKey: ["orders", options?.bookedBy, options?.dispatcherUserId],
@@ -673,9 +675,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
 
-  // Real-time subscriptions removed - refreshes now only happen when the current user
-  // creates, updates, or deletes a load (triggered by their own actions, not database events)
-
+  // Real-time subscriptions are handled by useOrdersRealtime hook
+  // Cache updates happen via setQueryData, avoiding expensive full refetches
   return query;
 };
 
