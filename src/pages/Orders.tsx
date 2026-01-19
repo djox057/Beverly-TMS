@@ -1204,14 +1204,15 @@ const Orders = () => {
                       const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
 
                       // Yellow (hue ~50) for lumper/escort, Orange (hue ~25) for canceled/date changed
+                      // Lumper/Escort takes priority over additional/reduced pay for yellow background
                       const rowClassName = isRecovery
                         ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
-                        : hasReducedPay
-                          ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
-                          : hasAdditionalPay
-                            ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
-                            : hasLumperOrEscort
-                              ? "bg-[hsl(50_95%_88%)] dark:bg-[hsl(50_75%_25%)] hover:bg-[hsl(50_95%_88%)] dark:hover:bg-[hsl(50_75%_25%)]"
+                        : hasLumperOrEscort
+                          ? "bg-[hsl(50_95%_88%)] dark:bg-[hsl(50_75%_25%)] hover:bg-[hsl(50_95%_88%)] dark:hover:bg-[hsl(50_75%_25%)]"
+                          : hasReducedPay
+                            ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
+                            : hasAdditionalPay
+                              ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
                               : hasOrangeCondition
                                 ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
                                 : alternatingBg;
@@ -1338,7 +1339,7 @@ const Orders = () => {
                                       
                                       {/* Freight Section */}
                                       <div className="space-y-1 text-sm">
-                                        <div className="font-medium text-muted-foreground">Company (Freight)</div>
+                                        <div className="font-medium text-muted-foreground">Company (Freight Amount)</div>
                                         <div>Base: {formatCurrency(freightAmountVal)}</div>
                                         {freightItems.map((item, idx) => {
                                           const sign = item.value >= 0 ? "+" : "-";
