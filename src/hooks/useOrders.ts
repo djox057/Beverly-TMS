@@ -172,7 +172,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
 
   // Subscribe to real-time updates
-  useOrdersRealtime(options);
+  useOrdersRealtime();
 
   const query = useQuery({
     queryKey: ["orders", options?.bookedBy, options?.dispatcherUserId],

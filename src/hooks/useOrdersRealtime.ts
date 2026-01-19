@@ -3,21 +3,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-interface UseOrdersRealtimeOptions {
-  bookedBy?: string | null;
-  dispatcherUserId?: string | null;
-}
-
 /**
  * Hook that subscribes to real-time changes on orders and related tables.
- * Updates the React Query cache directly via setQueryData to avoid expensive refetches.
+ * Updates ALL matching React Query caches directly via setQueryData to avoid expensive refetches.
  */
-export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
+export function useOrdersRealtime() {
   const queryClient = useQueryClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const isSubscribedRef = useRef(false);
 
   useEffect(() => {
-    const queryKey = ["orders", options?.bookedBy, options?.dispatcherUserId];
+    // Only subscribe once globally
+    if (isSubscribedRef.current) return;
+    isSubscribedRef.current = true;
 
     // Helper to fetch a single order with all joins
     const fetchSingleOrder = async (orderId: string) => {
@@ -58,7 +56,10 @@ export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
         .eq("id", orderId)
         .single();
 
-      if (error || !data) return null;
+      if (error) {
+        console.error("[Realtime] Error fetching order:", error);
+        return null;
+      }
       return data;
     };
 
@@ -210,6 +211,42 @@ export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
       };
     };
 
+    // Update ALL orders caches that start with ["orders"]
+    const updateAllOrdersCaches = (
+      orderId: string,
+      transformedOrder: any | null,
+      isDelete: boolean = false
+    ) => {
+      // Get all queries that start with "orders"
+      const cache = queryClient.getQueryCache();
+      const orderQueries = cache.findAll({ queryKey: ["orders"] });
+
+      console.log(`[Realtime] Updating ${orderQueries.length} orders caches for order ${orderId}`);
+
+      orderQueries.forEach((query) => {
+        queryClient.setQueryData(query.queryKey, (old: any[] | undefined) => {
+          if (!old) return isDelete ? old : (transformedOrder ? [transformedOrder] : old);
+
+          if (isDelete) {
+            return old.filter((o) => o.id !== orderId);
+          }
+
+          if (!transformedOrder) return old;
+
+          const existingIndex = old.findIndex((o) => o.id === orderId);
+          if (existingIndex >= 0) {
+            // Update existing order
+            const updated = [...old];
+            updated[existingIndex] = transformedOrder;
+            return updated;
+          } else {
+            // Insert new order at the beginning
+            return [transformedOrder, ...old];
+          }
+        });
+      });
+    };
+
     // Handle order changes
     const handleOrderChange = async (
       payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
@@ -217,41 +254,26 @@ export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
       const eventType = payload.eventType;
       const newRecord = payload.new as any;
       const oldRecord = payload.old as any;
+      const orderId = newRecord?.id || oldRecord?.id;
 
-      console.log(`[Realtime] Order ${eventType}:`, newRecord?.id || oldRecord?.id);
+      console.log(`[Realtime] Order ${eventType}:`, orderId);
 
       if (eventType === "DELETE") {
-        // Remove from cache
-        queryClient.setQueryData(queryKey, (old: any[] | undefined) => {
-          if (!old) return old;
-          return old.filter((o) => o.id !== oldRecord.id);
-        });
+        updateAllOrdersCaches(oldRecord.id, null, true);
         return;
       }
 
       // For INSERT and UPDATE, fetch the full order with joins
-      const orderId = newRecord?.id;
       if (!orderId) return;
 
       const fullOrder = await fetchSingleOrder(orderId);
-      if (!fullOrder) return;
+      if (!fullOrder) {
+        console.error("[Realtime] Could not fetch order:", orderId);
+        return;
+      }
 
       const transformedOrder = transformOrder(fullOrder);
-
-      queryClient.setQueryData(queryKey, (old: any[] | undefined) => {
-        if (!old) return [transformedOrder];
-
-        const existingIndex = old.findIndex((o) => o.id === orderId);
-        if (existingIndex >= 0) {
-          // Update existing order
-          const updated = [...old];
-          updated[existingIndex] = transformedOrder;
-          return updated;
-        } else {
-          // Insert new order at the beginning
-          return [transformedOrder, ...old];
-        }
-      });
+      updateAllOrdersCaches(orderId, transformedOrder);
     };
 
     // Handle related table changes (pickup_drops, order_files, order_transfers)
@@ -271,23 +293,12 @@ export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
       if (!fullOrder) return;
 
       const transformedOrder = transformOrder(fullOrder);
-
-      queryClient.setQueryData(queryKey, (old: any[] | undefined) => {
-        if (!old) return old;
-
-        const existingIndex = old.findIndex((o) => o.id === orderId);
-        if (existingIndex >= 0) {
-          const updated = [...old];
-          updated[existingIndex] = transformedOrder;
-          return updated;
-        }
-        return old;
-      });
+      updateAllOrdersCaches(orderId, transformedOrder);
     };
 
     // Create channel and subscribe
     const channel = supabase
-      .channel("orders-realtime")
+      .channel("orders-realtime-global")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
@@ -316,10 +327,11 @@ export function useOrdersRealtime(options?: UseOrdersRealtimeOptions) {
 
     return () => {
       console.log("[Realtime] Unsubscribing from orders channel");
+      isSubscribedRef.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [queryClient, options?.bookedBy, options?.dispatcherUserId]);
+  }, [queryClient]);
 }
