@@ -680,7 +680,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
                   return next;
                 },
               );
-
+            }
           } catch (error) {
             console.error("[useOrders] Background loading error:", error);
           }
