@@ -59,11 +59,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const year = parseInt(selectedMonth.split("-")[0], 10);
   const maxSickDays = 3;
 
-  // Load existing sick days for this year and generate PDF
+  // Load existing sick days for this year
   useEffect(() => {
     if (open && dispatcherUserId) {
       loadSickDays();
-      generatePreview();
     }
     return () => {
       if (pdfUrl) {
@@ -71,6 +70,13 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       }
     };
   }, [open, dispatcherUserId]);
+
+  // Generate initial preview after component mounts
+  useEffect(() => {
+    if (open && !loading) {
+      generatePreview();
+    }
+  }, [open]);
 
   const loadSickDays = async () => {
     try {
