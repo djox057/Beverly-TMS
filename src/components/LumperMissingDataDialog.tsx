@@ -17,6 +17,8 @@ interface LumperMissingDataDialogProps {
   onOpenChange: (open: boolean) => void;
   driverId: string;
   driverName: string;
+  /** If provided, only show this specific order instead of all orders for the driver */
+  filterOrderId?: string;
 }
 
 interface LumperOrder {
@@ -31,6 +33,7 @@ export function LumperMissingDataDialog({
   onOpenChange,
   driverId,
   driverName,
+  filterOrderId,
 }: LumperMissingDataDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,10 +41,44 @@ export function LumperMissingDataDialog({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  // Fetch orders with lumper missing revised RC for this specific driver
+  // Fetch orders with lumper missing revised RC for this specific driver or order
   const { data: lumperOrders = [], isLoading } = useQuery({
-    queryKey: ["lumper-missing-revised-rc-driver", driverId],
+    queryKey: ["lumper-missing-revised-rc-driver", driverId, filterOrderId],
     queryFn: async () => {
+      // If filtering by specific order ID, fetch just that order
+      if (filterOrderId) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select(`
+            id,
+            internal_load_number,
+            broker_load_number,
+            lumper,
+            order_files(id, file_category)
+          `)
+          .eq("id", filterOrderId)
+          .single();
+
+        if (error) throw error;
+        
+        // Check if order is missing revised RC
+        const orderFiles = data.order_files || [];
+        const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
+        const hasAdditionalFile = orderFiles.some((file: any) => file.file_category === "ADDITIONAL");
+        
+        // If complete, return empty array
+        if (rcFileCount >= 2 || hasAdditionalFile) {
+          return [];
+        }
+        
+        return [{
+          id: data.id,
+          internal_load_number: data.internal_load_number,
+          broker_load_number: data.broker_load_number,
+          lumper: data.lumper || 0,
+        }] as LumperOrder[];
+      }
+      
       // Fetch all orders with lumper > 0 (don't filter by lumper_revised_rc_path since file might be deleted)
       const { data, error } = await supabase
         .from("orders")
@@ -59,12 +96,12 @@ export function LumperMissingDataDialog({
 
       if (error) throw error;
       
-      // Filter orders missing revised RC - need 2+ RC files to be considered complete
+      // Filter orders missing revised RC - need 2+ RC files OR an ADDITIONAL file to be considered complete
       const ordersWithMissingRC = (data || []).filter((order) => {
         const orderFiles = order.order_files || [];
         const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
-        // Need at least 2 RC files (original + revised) to be complete
-        return rcFileCount < 2;
+        const hasAdditionalFile = orderFiles.some((file: any) => file.file_category === "ADDITIONAL");
+        return rcFileCount < 2 && !hasAdditionalFile;
       });
       
       return ordersWithMissingRC.map((order) => ({
@@ -74,7 +111,7 @@ export function LumperMissingDataDialog({
         lumper: order.lumper || 0,
       })) as LumperOrder[];
     },
-    enabled: open && !!driverId,
+    enabled: open && (!!driverId || !!filterOrderId),
     staleTime: 30 * 1000,
   });
 
