@@ -435,18 +435,19 @@ const Fleets = () => {
                               </Badge>}
                           </div>
 
-                          {/* Off Duty Toggle - Only visible to managers and admins */}
-                          {(hasRole("manager") || hasRole("admin")) && <div className="flex items-center gap-2">
+                          {/* Off Duty Badge - visible to managers, admins, and safety */}
+                          {(hasRole("manager") || hasRole("admin") || hasRole("safety")) && <div className="flex items-center gap-2">
                               <Badge variant={dispatcherFleet.isActive ? "default" : "secondary"} className="text-xs">
                                 {dispatcherFleet.isActive ? "Active" : "Off Duty"}
                               </Badge>
-                              {dispatcherFleet.isActive ? <Button variant="outline" size="sm" className="text-xs h-7 sm:h-9" onClick={() => handleToggleDispatcher(dispatcherFleet.dispatcher.id, dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email, dispatcherFleet.drivers)} disabled={loading || dispatcherFleet.drivers.length === 0}>
+                              {/* Toggle buttons - Only visible to managers and admins */}
+                              {(hasRole("manager") || hasRole("admin")) && (dispatcherFleet.isActive ? <Button variant="outline" size="sm" className="text-xs h-7 sm:h-9" onClick={() => handleToggleDispatcher(dispatcherFleet.dispatcher.id, dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email, dispatcherFleet.drivers)} disabled={loading || dispatcherFleet.drivers.length === 0}>
                                   <span className="hidden sm:inline">Set Off Duty</span>
                                   <span className="sm:hidden">Off Duty</span>
                                 </Button> : <Button variant="default" size="sm" className="text-xs h-7 sm:h-9" onClick={() => setDispatcherActive(dispatcherFleet.dispatcher.id)} disabled={loading}>
                                   <span className="hidden sm:inline">Set Active</span>
                                   <span className="sm:hidden">Active</span>
-                                </Button>}
+                                </Button>)}
                             </div>}
                         </CardTitle>
                       </CardHeader>
