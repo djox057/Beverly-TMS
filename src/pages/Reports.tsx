@@ -2824,15 +2824,6 @@ const Reports = () => {
                 </Button>
               )}
               <div className="flex items-center gap-2 ml-auto">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setAllProblemsDialogOpen(true)} 
-                  className="gap-2"
-                >
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  All Problems
-                </Button>
                 <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
                   <HelpCircle className="h-4 w-4" />
                   Legend
@@ -3556,22 +3547,24 @@ const Reports = () => {
                                                             >
                                                               <Clock className="h-3 w-3" />
                                                             </Button>
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setProblemDialog({
-                                                                  driverId: truck.driverId!,
-                                                                  driverName: truck.driver1Name,
-                                                                  truckNumber: truck.truckNumber,
-                                                                  dispatcherName: truck.dispatcher || "",
-                                                                });
-                                                              }}
-                                                            >
-                                                              <AlertCircle className="h-3 w-3 text-destructive" />
-                                                            </Button>
+                                                            {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && (
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setProblemDialog({
+                                                                    driverId: truck.driverId!,
+                                                                    driverName: truck.driver1Name,
+                                                                    truckNumber: truck.truckNumber,
+                                                                    dispatcherName: truck.dispatcher || "",
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <AlertCircle className="h-3 w-3 text-destructive" />
+                                                              </Button>
+                                                            )}
                                                           </div>
                                                         )}
                                                       </div>
@@ -3725,22 +3718,24 @@ const Reports = () => {
                                                               >
                                                                 <Clock className="h-3 w-3" />
                                                               </Button>
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setProblemDialog({
-                                                                    driverId: truck.driverId!,
-                                                                    driverName: truck.driver,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    dispatcherName: truck.dispatcher || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <AlertCircle className="h-3 w-3 text-destructive" />
-                                                              </Button>
+                                                              {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && (
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setProblemDialog({
+                                                                      driverId: truck.driverId!,
+                                                                      driverName: truck.driver,
+                                                                      truckNumber: truck.truckNumber,
+                                                                      dispatcherName: truck.dispatcher || "",
+                                                                    });
+                                                                  }}
+                                                                >
+                                                                  <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                </Button>
+                                                              )}
                                                             </>
                                                           )}
                                                         </div>
