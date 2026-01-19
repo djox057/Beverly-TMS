@@ -2272,9 +2272,27 @@ const Analytics = () => {
                             daysInMonth = 30;
                           }
                           
-                          // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * ((Days in month + Extra days - Lost days) / Days in month)
-                          const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                          const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
+                          // Salary formula: same as PDF/Word - line-item calculation with per-day rate
+                          // This matches the payroll preview exactly (minus food allowance, which is separate)
+                          const salary1Percent = stat.totalFreight * 0.01;
+                          const bonus5Percent = stat.cut * 0.05;
+                          const perDayRate = (salary1Percent + bonus5Percent) / workDaysInMonth;
+                          
+                          // Get dates for extra/lost days calculation
+                          const allExtraDayDates = stat.userId ? (extraDayDatesByUser[stat.userId] || []) : [];
+                          const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
+                          const actualExtraDaysCount = extraDayDates.length;
+                          
+                          // Calculate extra days amount and lost days deduction
+                          const hasExtraDays = extraDays > lostDays;
+                          const hasLostDays = lostDays > 0 && !hasExtraDays;
+                          const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+                          const lostDaysDeduction = hasLostDays ? lostDays * perDayRate : 0;
+                          
+                          // Base salary = salary1Percent + bonus5Percent + extraDaysAmount - lostDaysDeduction
+                          // (Food allowance is NOT included - it's shown in PDF but not in paid amount)
+                          const baseSalary = salary1Percent + bonus5Percent + 
+                            (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction;
                           
                           // Get dispatcher bonus for this month
                           const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
@@ -2385,12 +2403,16 @@ const Analytics = () => {
                                               const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
                                               const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
                                               
+                                              // Check if dispatcher is from BEOGRAD office (no food allowance)
+                                              const dispatcherProfileForFood = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
+                                              const isBeograd = dispatcherProfileForFood?.office === "BEOGRAD";
+                                              
                                               downloadPayrollDoc({
                                                 employeeName: stat.name,
                                                 payPeriod,
                                                 salary1Percent: stat.totalFreight * 0.01,
                                                 bonus5Percent: stat.cut * 0.05,
-                                                foodAllowance: 70,
+                                                foodAllowance: isBeograd ? 0 : 70,
                                                 extraDays,
                                                 lostDays,
                                                 extraDayDates,
@@ -2435,9 +2457,10 @@ const Analytics = () => {
                                               const perDayRate = (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
                                               const extraDaysAmountForDoc = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
                                               
-                                              // Get dispatcher email
+                                              // Get dispatcher email and check office for food allowance
                                               const dispatcherProfile = dispatcherProfiles[stat.name] || dispatcherProfiles[stat.userId || ""];
                                               const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
+                                              const isBeograd = dispatcherProfile?.office === "BEOGRAD";
                                               
                                               // Open preview dialog with all the data
                                               setPayrollPreviewData({
@@ -2447,7 +2470,7 @@ const Analytics = () => {
                                                 payPeriod,
                                                 salary1Percent: stat.totalFreight * 0.01,
                                                 bonus5Percent: stat.cut * 0.05,
-                                                foodAllowance: 70,
+                                                foodAllowance: isBeograd ? 0 : 70,
                                                 extraDays,
                                                 lostDays,
                                                 extraDayDates: extraDayDatesForDoc,
@@ -2605,22 +2628,35 @@ const Analytics = () => {
                           if (stat.userId) {
                             const extraDays = extraDaysByUser[stat.userId] || 0;
                             const lostDays = lostDaysByUser[stat.userId] || 0;
-                            let daysInMonth = 30;
+                            let workDaysInMonthBulk = 22;
                             if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
                               const parts = selectedMonth.split("-");
                               if (parts.length === 2) {
                                 const year = parseInt(parts[0], 10);
                                 const month = parseInt(parts[1], 10);
                                 if (!isNaN(year) && !isNaN(month)) {
-                                  daysInMonth = new Date(year, month, 0).getDate();
+                                  workDaysInMonthBulk = getWorkDaysInMonth(year, month - 1);
                                 }
                               }
                             }
-                            if (isNaN(daysInMonth) || daysInMonth <= 0) {
-                              daysInMonth = 30;
-                            }
-                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                            const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
+                            
+                            // Use same line-item formula as table display and PayrollPreviewDialog
+                            const salary1Percent = stat.totalFreight * 0.01;
+                            const bonus5Percent = stat.cut * 0.05;
+                            const perDayRate = (salary1Percent + bonus5Percent) / workDaysInMonthBulk;
+                            
+                            // Get dates for extra days calculation
+                            const allExtraDayDates = extraDayDatesByUser[stat.userId] || [];
+                            const extraDayDates = allExtraDayDates.slice(1);
+                            const actualExtraDaysCount = extraDayDates.length;
+                            
+                            const hasExtraDays = extraDays > lostDays;
+                            const hasLostDays = lostDays > 0 && !hasExtraDays;
+                            const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+                            const lostDaysDeduction = hasLostDays ? lostDays * perDayRate : 0;
+                            
+                            const baseSalary = salary1Percent + bonus5Percent + 
+                              (hasExtraDays ? extraDaysAmount : 0) - lostDaysDeduction;
                             
                             // Get dispatcher bonus
                             const bonusInfo = dispatcherBonuses[stat.userId];
@@ -2633,7 +2669,7 @@ const Analytics = () => {
                               adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
                             }
                             
-                            // Include bonus in calculated salary
+                            // Include bonus in calculated salary (no food allowance in paid amount)
                             calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
                             adjustedSalaries[stat.userId] = baseSalary + bonusAmount - adjustment;
                           }
