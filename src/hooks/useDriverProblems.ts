@@ -12,6 +12,7 @@ export interface DriverProblem {
   created_by: string | null;
   resolved_at: string | null;
   resolved_by: string | null;
+  status: string | null;
 }
 
 export function useDriverProblems() {
@@ -110,6 +111,36 @@ export function useDriverProblems() {
     },
   });
 
+  // Update a problem (reason or status)
+  const updateProblem = useMutation({
+    mutationFn: async ({ problemId, reason, status }: { problemId: string; reason?: string; status?: string }) => {
+      const updateData: { reason?: string; status?: string } = {};
+      if (reason !== undefined) updateData.reason = reason;
+      if (status !== undefined) updateData.status = status;
+
+      const { error } = await supabase
+        .from("driver_problems")
+        .update(updateData)
+        .eq("id", problemId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["driver-problems"] });
+      toast({
+        title: "Problem updated",
+        description: "Driver problem has been updated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Get problem for a specific driver
   const getProblemForDriver = (driverId: string) => {
     return problems.find((p) => p.driver_id === driverId);
@@ -125,6 +156,7 @@ export function useDriverProblems() {
     isLoading,
     addProblem,
     resolveProblem,
+    updateProblem,
     getProblemForDriver,
     hasDriverProblem,
   };

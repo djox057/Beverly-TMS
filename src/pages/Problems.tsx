@@ -1,0 +1,310 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useDriverProblems } from "@/hooks/useDriverProblems";
+import { useDrivers } from "@/hooks/useDrivers";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Pencil, Check, X } from "lucide-react";
+
+export default function Problems() {
+  const { problems, isLoading, resolveProblem, updateProblem } = useDriverProblems();
+  const { data: drivers = [] } = useDrivers();
+  const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
+  const [editingProblemId, setEditingProblemId] = useState<string | null>(null);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editProblemValue, setEditProblemValue] = useState("");
+  const [editStatusValue, setEditStatusValue] = useState("");
+
+  // Fetch profiles for "Reported by" column
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-for-problems"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Build maps
+  const driverMap = new Map<string, string>();
+  drivers.forEach((driver: any) => {
+    driverMap.set(driver.id, driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "Unknown");
+  });
+
+  const profileMap = new Map<string, string>();
+  profiles.forEach((profile: any) => {
+    profileMap.set(profile.user_id, profile.full_name || profile.email || "Unknown");
+  });
+
+  const formatChicagoTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const handleResolveConfirm = () => {
+    if (confirmResolveId) {
+      resolveProblem.mutate(confirmResolveId);
+      setConfirmResolveId(null);
+    }
+  };
+
+  const handleStartEditProblem = (problemId: string, currentReason: string) => {
+    setEditingProblemId(problemId);
+    setEditProblemValue(currentReason);
+  };
+
+  const handleSaveProblem = (problemId: string) => {
+    updateProblem.mutate({ problemId, reason: editProblemValue });
+    setEditingProblemId(null);
+    setEditProblemValue("");
+  };
+
+  const handleCancelEditProblem = () => {
+    setEditingProblemId(null);
+    setEditProblemValue("");
+  };
+
+  const handleStartEditStatus = (problemId: string, currentStatus: string) => {
+    setEditingStatusId(problemId);
+    setEditStatusValue(currentStatus || "open");
+  };
+
+  const handleSaveStatus = (problemId: string) => {
+    updateProblem.mutate({ problemId, status: editStatusValue });
+    setEditingStatusId(null);
+    setEditStatusValue("");
+  };
+
+  const handleCancelEditStatus = () => {
+    setEditingStatusId(null);
+    setEditStatusValue("");
+  };
+
+  const statusOptions = [
+    { value: "open", label: "Open" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "pending", label: "Pending" },
+    { value: "resolved", label: "Resolved" },
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "open":
+        return "text-red-500";
+      case "in_progress":
+        return "text-yellow-500";
+      case "pending":
+        return "text-blue-500";
+      case "resolved":
+        return "text-green-500";
+      default:
+        return "text-muted-foreground";
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Driver Problems</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : problems.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No active problems reported.
+            </div>
+          ) : (
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Truck #</TableHead>
+                    <TableHead className="w-[150px]">Driver</TableHead>
+                    <TableHead className="w-[150px]">Dispatcher</TableHead>
+                    <TableHead className="min-w-[300px]">Problem</TableHead>
+                    <TableHead className="w-[130px]">Status</TableHead>
+                    <TableHead className="w-[180px]">Submitted</TableHead>
+                    <TableHead className="w-[150px]">Reported By</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {problems.map((problem) => {
+                    const driverName = driverMap.get(problem.driver_id) || "Unknown Driver";
+                    const reportedByName = problem.created_by ? profileMap.get(problem.created_by) || "Unknown" : "Unknown";
+                    const problemText = problem.reason;
+                    const isLongText = problemText.length > 50;
+                    const isEditingProblem = editingProblemId === problem.id;
+                    const isEditingStatus = editingStatusId === problem.id;
+
+                    return (
+                      <TableRow key={problem.id}>
+                        <TableCell className="font-medium">
+                          {problem.truck_number || "N/A"}
+                        </TableCell>
+                        <TableCell>{driverName}</TableCell>
+                        <TableCell>{problem.dispatcher_name || "N/A"}</TableCell>
+                        <TableCell className="min-w-[300px]">
+                          {isEditingProblem ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editProblemValue}
+                                onChange={(e) => setEditProblemValue(e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleSaveProblem(problem.id)}
+                                disabled={updateProblem.isPending}
+                              >
+                                <Check className="h-4 w-4 text-green-500" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={handleCancelEditProblem}
+                              >
+                                <X className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 group">
+                              {isLongText ? (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-left cursor-pointer hover:underline max-w-[250px] truncate block">
+                                      {problemText.substring(0, 50)}...
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-96 max-h-60 overflow-auto">
+                                    <p className="text-sm whitespace-pre-wrap">{problemText}</p>
+                                  </PopoverContent>
+                                </Popover>
+                              ) : (
+                                <span>{problemText}</span>
+                              )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="opacity-0 group-hover:opacity-100 h-6 w-6"
+                                onClick={() => handleStartEditProblem(problem.id, problemText)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditingStatus ? (
+                            <div className="flex items-center gap-1">
+                              <Select value={editStatusValue} onValueChange={setEditStatusValue}>
+                                <SelectTrigger className="w-[100px] h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {statusOptions.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => handleSaveStatus(problem.id)}
+                                disabled={updateProblem.isPending}
+                              >
+                                <Check className="h-3 w-3 text-green-500" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={handleCancelEditStatus}
+                              >
+                                <X className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group">
+                              <span className={`capitalize ${getStatusColor(problem.status || "open")}`}>
+                                {problem.status || "Open"}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="opacity-0 group-hover:opacity-100 h-6 w-6"
+                                onClick={() => handleStartEditStatus(problem.id, problem.status || "open")}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {formatChicagoTime(problem.created_at)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {reportedByName}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmResolveId(problem.id)}
+                            disabled={resolveProblem.isPending}
+                          >
+                            Resolve
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!confirmResolveId} onOpenChange={(open) => !open && setConfirmResolveId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resolve Problem</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to resolve this problem? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResolveConfirm}>
+              Resolve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

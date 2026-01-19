@@ -32,6 +32,7 @@ import Repairs from "./pages/Repairs";
 import FuelReports from "./pages/FuelReports";
 import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
+import Problems from "./pages/Problems";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -207,6 +208,11 @@ const AppContent = () => {
         <Route path="/stuff/:driverId" element={
           <ProtectedRoute>
             <Layout><Stuff /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/problems" element={
+          <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
+            <Layout><Problems /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
