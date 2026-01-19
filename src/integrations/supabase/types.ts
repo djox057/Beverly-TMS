@@ -86,6 +86,7 @@ export type Database = {
           driver1_id: string | null
           driver2_id: string | null
           id: string
+          reason: string | null
           trailer_id: string | null
           truck_id: string | null
         }
@@ -97,6 +98,7 @@ export type Database = {
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          reason?: string | null
           trailer_id?: string | null
           truck_id?: string | null
         }
@@ -108,6 +110,7 @@ export type Database = {
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          reason?: string | null
           trailer_id?: string | null
           truck_id?: string | null
         }
