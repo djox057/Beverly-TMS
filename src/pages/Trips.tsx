@@ -422,11 +422,8 @@ const Trips = () => {
   const { data: orders, isLoading } = useOrders();
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [truckFilter, setTruckFilter] = useState(() => {
-    return localStorage.getItem("trips_truckFilter") || "";
-  });
-  const [driverFilter, setDriverFilter] = useState(() => {
-    return localStorage.getItem("trips_driverFilter") || "";
+  const [searchFilter, setSearchFilter] = useState(() => {
+    return localStorage.getItem("trips_searchFilter") || "";
   });
   const itemsPerPage = 50;
 
@@ -632,14 +629,10 @@ const Trips = () => {
     return paidWeeksData?.[key] || false;
   };
 
-  // Save filters to localStorage when they change
+  // Save filter to localStorage when it changes
   useEffect(() => {
-    localStorage.setItem("trips_truckFilter", truckFilter);
-  }, [truckFilter]);
-
-  useEffect(() => {
-    localStorage.setItem("trips_driverFilter", driverFilter);
-  }, [driverFilter]);
+    localStorage.setItem("trips_searchFilter", searchFilter);
+  }, [searchFilter]);
 
   // Expand orders to include all transfer segments
   const expandedOrders = useMemo(() => {
@@ -858,19 +851,20 @@ const Trips = () => {
     return result;
   }, [orders]);
 
-  // Filter orders based on truck and driver filters
+  // Filter orders based on combined search (truck number or driver name)
   const filteredOrders =
     expandedOrders?.filter((order) => {
-      const matchesTruck = !truckFilter || order.truckNumber?.toLowerCase() === truckFilter.toLowerCase();
-
-      const matchesDriver = !driverFilter || order.driverName?.toLowerCase().includes(driverFilter.toLowerCase());
+      const searchLower = searchFilter.toLowerCase().trim();
+      const matchesSearch = !searchLower || 
+        order.truckNumber?.toLowerCase().includes(searchLower) ||
+        order.driverName?.toLowerCase().includes(searchLower);
 
       // Exclude orders with both freight amount and driver pay equal to 0
       const hasValue =
         (order.totalFreightAmountNoLumper && order.totalFreightAmountNoLumper !== 0) ||
         (order.totalDriverPay && order.totalDriverPay !== 0);
 
-      return matchesTruck && matchesDriver && hasValue;
+      return matchesSearch && hasValue;
     }) || [];
 
   // Pagination - paginate individual orders first
@@ -3354,8 +3348,8 @@ const Trips = () => {
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
-      const truckInfo = truckFilter ? `_Truck-${truckFilter}` : "";
-      const filename = `Trips_Week_${weekRange}${truckInfo}.xlsx`;
+      const filterInfo = searchFilter ? `_${searchFilter}` : "";
+      const filename = `Trips_Week_${weekRange}${filterInfo}.xlsx`;
 
       // Save file
       XLSX.writeFile(wb, filename);
@@ -3369,8 +3363,8 @@ const Trips = () => {
 
   const exportFinalStatement = async () => {
     try {
-      // Require truck or driver filter
-      if (!truckFilter && !driverFilter) {
+      // Require search filter
+      if (!searchFilter) {
         toast.error("Please filter by truck or driver first");
         return;
       }
@@ -3390,9 +3384,9 @@ const Trips = () => {
         const paidKeys = Object.entries(paidWeeksData)
           .filter(([key, isPaid]) => {
             const [truck, driver] = key.split("_");
-            const matchesTruck = !truckFilter || truck.toLowerCase() === truckFilter.toLowerCase();
-            const matchesDriver = !driverFilter || driver.toLowerCase().includes(driverFilter.toLowerCase());
-            return isPaid && matchesTruck && matchesDriver;
+            const searchLower = searchFilter.toLowerCase().trim();
+            const matchesSearch = !searchLower || truck.toLowerCase().includes(searchLower) || driver.toLowerCase().includes(searchLower);
+            return isPaid && matchesSearch;
           })
           .map(([key]) => {
             const parts = key.split("_");
@@ -3863,37 +3857,20 @@ const Trips = () => {
 
       <Card className="bg-background">
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filter</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Truck Filter */}
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Filter by truck number..."
-                value={truckFilter}
-                onChange={(e) => {
-                  setTruckFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-8"
-              />
-            </div>
-
-            {/* Driver Filter */}
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Filter by driver name..."
-                value={driverFilter}
-                onChange={(e) => {
-                  setDriverFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="pl-8"
-              />
-            </div>
+        <CardContent>
+          <div className="relative max-w-md">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Filter by truck # or driver name..."
+              value={searchFilter}
+              onChange={(e) => {
+                setSearchFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-8"
+            />
           </div>
         </CardContent>
       </Card>
@@ -3907,8 +3884,8 @@ const Trips = () => {
             variant="outline"
             size="sm"
             onClick={exportFinalStatement}
-            disabled={!truckFilter && !driverFilter}
-            title={!truckFilter && !driverFilter ? "Filter by truck or driver first" : "Export final statement"}
+            disabled={!searchFilter}
+            title={!searchFilter ? "Filter by truck or driver first" : "Export final statement"}
             className="text-xs md:text-sm"
           >
             <FileDown className="h-4 w-4 mr-1 md:mr-2" />

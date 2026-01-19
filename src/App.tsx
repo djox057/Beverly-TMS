@@ -191,7 +191,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/trips" element={
-          <ProtectedRoute excludedRoles={['dispatch', 'afterhours', 'driver', 'safety', 'supervisor']}>
+          <ProtectedRoute excludedRoles={['dispatch', 'afterhours', 'driver', 'supervisor']}>
             <Layout><Trips /></Layout>
           </ProtectedRoute>
         } />
