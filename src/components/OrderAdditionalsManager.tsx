@@ -138,11 +138,13 @@ export const OrderAdditionalsManager = ({
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
   const [newDriverAmount, setNewDriverAmount] = useState("");
+  const [newReason, setNewReason] = useState("");
   
   // Track which items are in edit mode
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCompanyAmount, setEditCompanyAmount] = useState("");
   const [editDriverAmount, setEditDriverAmount] = useState("");
+  const [editReason, setEditReason] = useState("");
 
   // Helper to get value and setter for each type
   const getTypeHandlers = (type: AdditionalType) => {
@@ -218,16 +220,29 @@ export const OrderAdditionalsManager = ({
   const handleAddAdditional = () => {
     if (!selectedType || isLocked) return;
     
+    // Require reason for other_charges and other_additionals
+    if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
+      return;
+    }
+    
     const handlers = getTypeHandlers(selectedType);
     handlers.setCompany(newCompanyAmount || "0");
     if (ADDITIONAL_TYPES.find(t => t.value === selectedType)?.hasDriver) {
       handlers.setDriver(newDriverAmount || "0");
     }
     
+    // Set reason for other charges and other additionals
+    if (selectedType === "other_charges") {
+      setOtherChargesReason(newReason.trim());
+    } else if (selectedType === "other_additionals") {
+      setOtherAdditionalsReason(newReason.trim());
+    }
+    
     // Reset form
     setSelectedType("");
     setNewCompanyAmount("");
     setNewDriverAmount("");
+    setNewReason("");
     setTypeOpen(false);
   };
 
@@ -251,27 +266,63 @@ export const OrderAdditionalsManager = ({
     setEditingId(item.id);
     setEditCompanyAmount(item.companyAmount);
     setEditDriverAmount(item.driverAmount);
+    // Set current reason for other charges/additionals
+    if (item.type === "other_charges") {
+      setEditReason(otherChargesReason);
+    } else if (item.type === "other_additionals") {
+      setEditReason(otherAdditionalsReason);
+    } else {
+      setEditReason("");
+    }
   };
 
   const handleSaveEdit = (type: AdditionalType) => {
+    // Require reason for other_charges and other_additionals
+    if ((type === "other_charges" || type === "other_additionals") && !editReason.trim()) {
+      return;
+    }
+    
     const handlers = getTypeHandlers(type);
     handlers.setCompany(editCompanyAmount || "0");
     if (ADDITIONAL_TYPES.find(t => t.value === type)?.hasDriver) {
       handlers.setDriver(editDriverAmount || "0");
     }
+    
+    // Update reason for other charges and other additionals
+    if (type === "other_charges") {
+      setOtherChargesReason(editReason.trim());
+    } else if (type === "other_additionals") {
+      setOtherAdditionalsReason(editReason.trim());
+    }
+    
     setEditingId(null);
     setEditCompanyAmount("");
     setEditDriverAmount("");
+    setEditReason("");
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditCompanyAmount("");
     setEditDriverAmount("");
+    setEditReason("");
   };
 
-  const getTypeLabel = (type: AdditionalType) => {
+  const getTypeLabel = (type: AdditionalType, useReason: boolean = false) => {
+    // For other_charges and other_additionals, show the reason if available
+    if (useReason) {
+      if (type === "other_charges" && otherChargesReason.trim()) {
+        return otherChargesReason.trim();
+      }
+      if (type === "other_additionals" && otherAdditionalsReason.trim()) {
+        return otherAdditionalsReason.trim();
+      }
+    }
     return ADDITIONAL_TYPES.find(t => t.value === type)?.label || type;
+  };
+  
+  const typeRequiresReason = (type: AdditionalType) => {
+    return type === "other_charges" || type === "other_additionals";
   };
 
   const typeHasDriver = (type: AdditionalType) => {
@@ -363,12 +414,25 @@ export const OrderAdditionalsManager = ({
             </div>
           )}
 
+          {selectedType && typeRequiresReason(selectedType) && (
+            <div className="space-y-1.5 flex-1 min-w-[150px]">
+              <Label className="text-xs">Reason <span className="text-destructive">*</span></Label>
+              <Input
+                type="text"
+                placeholder="Enter reason..."
+                value={newReason}
+                onChange={(e) => setNewReason(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          )}
+
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleAddAdditional}
-            disabled={!selectedType}
+            disabled={!selectedType || (typeRequiresReason(selectedType) && !newReason.trim())}
             className="h-9 px-3"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -389,9 +453,9 @@ export const OrderAdditionalsManager = ({
                 // Edit mode
                 <>
                   <Badge variant="secondary" className="shrink-0">
-                    {getTypeLabel(item.type)}
+                    {typeRequiresReason(item.type) ? (item.type === "other_charges" ? "Other Charges" : "Other Additionals") : getTypeLabel(item.type)}
                   </Badge>
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground whitespace-nowrap">Company:</span>
                       <Input
@@ -421,6 +485,18 @@ export const OrderAdditionalsManager = ({
                         />
                       </div>
                     )}
+                    {typeRequiresReason(item.type) && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Reason:</span>
+                        <Input
+                          type="text"
+                          placeholder="Enter reason..."
+                          value={editReason}
+                          onChange={(e) => setEditReason(e.target.value)}
+                          className="h-8 w-40"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
@@ -428,6 +504,7 @@ export const OrderAdditionalsManager = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => handleSaveEdit(item.type)}
+                      disabled={typeRequiresReason(item.type) && !editReason.trim()}
                       className="h-8 px-2 text-green-600 hover:text-green-700"
                     >
                       <Check className="h-4 w-4" />
@@ -447,7 +524,7 @@ export const OrderAdditionalsManager = ({
                 // View mode
                 <>
                   <Badge variant="secondary" className="shrink-0">
-                    {getTypeLabel(item.type)}
+                    {getTypeLabel(item.type, true)}
                   </Badge>
                   <div className="flex items-center gap-4 flex-1 text-sm">
                     <span>
