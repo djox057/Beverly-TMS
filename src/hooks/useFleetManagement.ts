@@ -271,20 +271,102 @@ export const useFleetManagement = () => {
 
       if (statusError) throw statusError;
 
-      // Record a lost day if the "Day off" toggle was checked
+      // Record a lost day if the "Day off" toggle was checked AND it's a working day
       if (recordDayOff) {
-        const { error: lostDayError } = await supabase
-          .from('dispatcher_off_duty_days')
-          .upsert({
-            dispatcher_id: dispatcherId,
-            off_duty_date: todayDate,
-          }, {
-            onConflict: 'dispatcher_id,off_duty_date'
-          });
+        // Helper functions to check working day
+        const isWeekday = (date: Date): boolean => {
+          const day = date.getDay();
+          return day !== 0 && day !== 6; // 0 = Sunday, 6 = Saturday
+        };
 
-        if (lostDayError) {
-          console.error('Error recording lost day:', lostDayError);
-          // Don't throw, just log - the main operation succeeded
+        const getObservedDate = (year: number, month: number, day: number): Date => {
+          const actual = new Date(year, month, day);
+          const dayOfWeek = actual.getDay();
+          if (dayOfWeek === 6) return new Date(year, month, day - 1); // Saturday -> Friday
+          if (dayOfWeek === 0) return new Date(year, month, day + 1); // Sunday -> Monday
+          return actual;
+        };
+
+        const getNthWeekdayOfMonth = (year: number, month: number, weekday: number, n: number): Date => {
+          let count = 0;
+          for (let day = 1; day <= 31; day++) {
+            const d = new Date(year, month, day);
+            if (d.getMonth() !== month) break;
+            if (d.getDay() === weekday) {
+              count++;
+              if (count === n) return d;
+            }
+          }
+          return new Date(year, month, 1);
+        };
+
+        const getLastWeekdayOfMonth = (year: number, month: number, weekday: number): Date => {
+          const lastDay = new Date(year, month + 1, 0).getDate();
+          for (let day = lastDay; day >= 1; day--) {
+            const d = new Date(year, month, day);
+            if (d.getDay() === weekday) return d;
+          }
+          return new Date(year, month, 1);
+        };
+
+        const isHoliday = (date: Date): boolean => {
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const day = date.getDate();
+
+          // Fixed holidays (with observed dates for weekends)
+          const fixedHolidays = [
+            { month: 0, day: 1 },   // New Year's Day
+            { month: 5, day: 19 },  // Juneteenth
+            { month: 6, day: 4 },   // Independence Day
+            { month: 10, day: 11 }, // Veterans Day
+            { month: 11, day: 25 }, // Christmas Day
+          ];
+
+          for (const h of fixedHolidays) {
+            const observed = getObservedDate(year, h.month, h.day);
+            if (observed.getMonth() === month && observed.getDate() === day) {
+              return true;
+            }
+          }
+
+          // Moving holidays
+          const mlkDay = getNthWeekdayOfMonth(year, 0, 1, 3); // 3rd Monday of January
+          if (month === mlkDay.getMonth() && day === mlkDay.getDate()) return true;
+
+          const presidentsDay = getNthWeekdayOfMonth(year, 1, 1, 3); // 3rd Monday of February
+          if (month === presidentsDay.getMonth() && day === presidentsDay.getDate()) return true;
+
+          const memorialDay = getLastWeekdayOfMonth(year, 4, 1); // Last Monday of May
+          if (month === memorialDay.getMonth() && day === memorialDay.getDate()) return true;
+
+          const laborDay = getNthWeekdayOfMonth(year, 8, 1, 1); // 1st Monday of September
+          if (month === laborDay.getMonth() && day === laborDay.getDate()) return true;
+
+          const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4); // 4th Thursday of November
+          if (month === thanksgiving.getMonth() && day === thanksgiving.getDate()) return true;
+
+          return false;
+        };
+
+        const isWorkingDay = isWeekday(now) && !isHoliday(now);
+
+        if (isWorkingDay) {
+          const { error: lostDayError } = await supabase
+            .from('dispatcher_off_duty_days')
+            .upsert({
+              dispatcher_id: dispatcherId,
+              off_duty_date: todayDate,
+            }, {
+              onConflict: 'dispatcher_id,off_duty_date'
+            });
+
+          if (lostDayError) {
+            console.error('Error recording lost day:', lostDayError);
+            // Don't throw, just log - the main operation succeeded
+          }
+        } else {
+          console.log('Today is not a working day (weekend or holiday), skipping lost day recording');
         }
       }
 
