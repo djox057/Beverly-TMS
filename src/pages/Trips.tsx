@@ -3912,6 +3912,7 @@ const Trips = () => {
                   
                   <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver Pay</TableHead>
                   <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Freight Amt</TableHead>
+                  <TableHead className="w-[50px] min-w-[50px] max-w-[50px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Paid</TableHead>
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -4187,6 +4188,11 @@ const Trips = () => {
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalFreightAmountNoLumper)}
                                 </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={order.paid ? "text-green-600 dark:text-green-400 font-semibold" : "text-muted-foreground"}>
+                                  {order.paid ? "Yes" : "No"}
+                                </span>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
