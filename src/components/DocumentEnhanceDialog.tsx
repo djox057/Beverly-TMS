@@ -232,7 +232,7 @@ export const DocumentEnhanceDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1170px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5" />
@@ -266,9 +266,9 @@ export const DocumentEnhanceDialog = ({
 
           {!isLoading && !isPdf && previewUrl && (
             <div className="flex flex-col md:flex-row gap-4">
-              {/* Image Preview - Left side, much taller */}
+              {/* Image Preview - Left side */}
               <div className="flex-1 min-w-0">
-                <div className="rounded-lg overflow-hidden border bg-muted h-[500px] md:h-[600px] flex items-center justify-center">
+                <div className="rounded-lg overflow-hidden border bg-muted h-[550px] md:h-[700px] flex items-center justify-center">
                   <img
                     src={previewUrl}
                     alt="Document preview"
