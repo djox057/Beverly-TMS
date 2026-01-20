@@ -344,23 +344,13 @@ export const parseOrdersWithDates = (truck: any) => {
 };
 
 // Get previous load delivery status
-// IMPORTANT: Fail-closed - returns false if order not found to prevent false cyan
 export const getPreviousLoadDeliveryStatus = (ordersWithDates: any[], currentOrder: any): boolean => {
-  if (!currentOrder?.id) return false; // No order = not ready
-  
   const currentIndex = ordersWithDates.findIndex((o) => o.id === currentOrder.id);
-  
-  // Fail-closed: if order not found in list, return false (not ready)
-  if (currentIndex === -1) return false;
-  
-  // First load in sequence - consider ready (no previous to wait for)
-  if (currentIndex === 0) return true;
+  if (currentIndex <= 0) return true;
 
   const previousOrder = ordersWithDates[currentIndex - 1];
-  if (!previousOrder) return false; // Safety check
-  
   const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-  return !!hasPOD; // Ready only if previous has POD
+  return !!hasPOD;
 };
 
 // Status colors helper
