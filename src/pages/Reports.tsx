@@ -3349,7 +3349,8 @@ const Reports = () => {
                                             }
                                           }}
                                         >
-                                          {truck.driverId && hasDriverProblem(truck.driverId) && (
+                                          {truck.driverId && hasDriverProblem(truck.driverId) && 
+                                            !(hasRole("dispatch") || hasRole("afterhours")) && (
                                             <Popover>
                                               <PopoverTrigger asChild>
                                                 <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
