@@ -4129,7 +4129,7 @@ const Trips = () => {
                                 className="bg-card border-2 border-primary rounded-md p-3 shadow-xl opacity-90"
                               >
                                 <div className="font-medium">{draggedOrder?.truckNumber} - {draggedOrder?.driverName}</div>
-                                <div className="text-sm text-muted-foreground">Load #{draggedOrder?.internalLoadNumber}</div>
+                                <div className="text-sm text-muted-foreground">Load #{formatInternalLoadNumber(draggedOrder?.internalLoadNumber, draggedOrder?.companyName)}</div>
                               </div>
                             );
                           }}
@@ -4269,7 +4269,7 @@ const Trips = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="line-clamp-2">{order.internalLoadNumber}</div>
+                                <div className="line-clamp-2">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</div>
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
