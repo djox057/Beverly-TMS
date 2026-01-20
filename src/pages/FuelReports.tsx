@@ -14,7 +14,8 @@ import {
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight, MapPin, HelpCircle } from "lucide-react";
 import { useFuelTransactions, getDefaultDateRange, FuelTransactionInsert, FuelFilters } from "@/hooks/useFuelTransactions";
-import { useIftaRecords, IftaRecordInsert } from "@/hooks/useIftaRecords";
+import { useIftaRecords, IftaRecordInsert, generateQuarterOptions, IftaFilters } from "@/hooks/useIftaRecords";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
 import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
 import { EfsMissingReceiptsPanel } from "@/components/EfsMissingReceiptsPanel";
@@ -87,7 +88,11 @@ const FuelReports = () => {
 
   const { unmatchedDrivers, refetchUnmatched } = useFuelDriverMappings();
 
-  // IFTA data - use same date filters for fuel gallons
+  // IFTA quarter filter state
+  const [iftaQuarter, setIftaQuarter] = useState<string | null>(null);
+  const quarterOptions = generateQuarterOptions();
+  
+  // IFTA data - filter fuel gallons by quarter
   const {
     iftaRecords,
     isLoadingIfta,
@@ -96,14 +101,14 @@ const FuelReports = () => {
     isUploadingIfta,
     deleteAllIfta,
     isDeletingIfta,
-  } = useIftaRecords({ ...filters, itemType: "ULSD" });
+  } = useIftaRecords({ ...filters, itemType: "ULSD" }, { quarter: iftaQuarter });
 
   // EFS missing data count for badge
   const { fuelRequests: efsMissingFuel } = useEfsMissingReceipts();
   const { lumperRequests: lumperMissingRC } = useLumperMissingRevisedRC();
   const efsMissingCount = efsMissingFuel.length + lumperMissingRC.length;
 
-  // IFTA search filter
+  // IFTA truck search filter
   const [iftaTruckSearch, setIftaTruckSearch] = useState("");
   
   const filteredTruckStateReport = truckStateReport.filter(truck =>
@@ -826,18 +831,34 @@ const FuelReports = () => {
           {/* Truck State Report */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
                   Truck Miles & ULSD Gallons by State
                 </CardTitle>
-                <div className="w-64">
+                <div className="flex items-center gap-3">
+                  <Select
+                    value={iftaQuarter || "all"}
+                    onValueChange={(value) => setIftaQuarter(value === "all" ? null : value)}
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="All Quarters" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Quarters</SelectItem>
+                      {quarterOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <input
                     type="text"
-                    placeholder="Search by truck number..."
+                    placeholder="Search by truck..."
                     value={iftaTruckSearch}
                     onChange={(e) => setIftaTruckSearch(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                    className="w-44 px-3 py-2 text-sm border rounded-md bg-background"
                   />
                 </div>
               </div>
