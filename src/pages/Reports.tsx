@@ -1483,10 +1483,14 @@ const Reports = () => {
 
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
+      if (!currentOrder?.id) return true; // Safety check
+      
       const currentIndex = ordersWithDates.findIndex((o) => o.id === currentOrder.id);
-      if (currentIndex <= 0) return true; // First load, no previous
+      if (currentIndex <= 0) return true; // First load or not found, no previous
 
       const previousOrder = ordersWithDates[currentIndex - 1];
+      if (!previousOrder) return true;
+      
       const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
       return !!hasPOD; // Dark green if POD exists
     };
