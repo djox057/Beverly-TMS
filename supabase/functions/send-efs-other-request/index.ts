@@ -35,6 +35,7 @@ function getEfsEmail(companyName: string | null): string {
   const normalized = companyName.toUpperCase();
   if (normalized.includes("BEVERLY FREIGHT")) return "efs@beverlyfreight.net";
   if (normalized.includes("BF PRIME UNITED")) return "efs@bfprimeunited.net";
+  if (normalized.includes("UNITED ENTERPRISE")) return "efs@bfprime.net";
   if (normalized.includes("BG PRIME")) return "efs@bgprime.net";
   if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
   if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
@@ -144,11 +145,11 @@ const handler = async (req: Request): Promise<Response> => {
     // Check if this is a fuel request
     const isFuelRequest = purpose.toLowerCase() === "fuel";
 
-    // Validate fuel-specific fields
+    // Validate fuel-specific fields (city and state required, quantity is optional)
     if (isFuelRequest) {
-      if (!city || !state || !quantity || quantity <= 0) {
+      if (!city || !state) {
         return new Response(
-          JSON.stringify({ success: false, error: "Fuel requests require city, state, and quantity" }),
+          JSON.stringify({ success: false, error: "Fuel requests require city and state" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -160,10 +161,13 @@ Driver: ${driverName}
 Amount: $${amount.toFixed(2)}
 Purpose: ${purpose}`;
 
-    if (isFuelRequest && city && state && quantity) {
+    if (isFuelRequest && city && state) {
       emailBody += `
-Location: ${city}, ${state}
+Location: ${city}, ${state}`;
+      if (quantity && quantity > 0) {
+        emailBody += `
 Quantity: ${quantity} gallons`;
+      }
     }
 
     // Determine sender email based on company
@@ -251,8 +255,8 @@ Quantity: ${quantity} gallons`;
       console.log("EFS request saved to database");
     }
 
-    // If it's a fuel request, also create a fuel transaction record
-    if (isFuelRequest && city && state && quantity) {
+    // If it's a fuel request with quantity, also create a fuel transaction record
+    if (isFuelRequest && city && state && quantity && quantity > 0) {
       const today = new Date();
       const transactionDate = today.toISOString().split('T')[0];
       const companyCode = getCompanyCode(companyName);
