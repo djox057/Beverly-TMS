@@ -1420,8 +1420,13 @@ const Reports = () => {
           const pickupDatetimeToUse = firstPickupStop?.datetime || order.pickup_datetime;
           const pickupDate = pickupDatetimeToUse
             ? (() => {
-                const parsed = parseSimpleDateTime(pickupDatetimeToUse);
-                return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                try {
+                  const parsed = parseSimpleDateTime(pickupDatetimeToUse);
+                  const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                  return isNaN(date.getTime()) ? null : date;
+                } catch {
+                  return null;
+                }
               })()
             : null;
           
@@ -1429,8 +1434,13 @@ const Reports = () => {
           const deliveryDatetimeToUse = lastDeliveryStop?.datetime || order.delivery_datetime;
           const deliveryDate = deliveryDatetimeToUse
             ? (() => {
-                const parsed = parseSimpleDateTime(deliveryDatetimeToUse);
-                return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                try {
+                  const parsed = parseSimpleDateTime(deliveryDatetimeToUse);
+                  const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                  return isNaN(date.getTime()) ? null : date;
+                } catch {
+                  return null;
+                }
               })()
             : null;
 
@@ -1476,13 +1486,23 @@ const Reports = () => {
         }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
+    // IMPORTANT: Fail-closed - returns false if order not found to prevent false cyan
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
+      if (!currentOrder?.id) return false; // No order = not ready
+      
       const currentIndex = ordersWithDates.findIndex((o) => o.id === currentOrder.id);
-      if (currentIndex <= 0) return true; // First load, no previous
+      
+      // Fail-closed: if order not found in list, return false (not ready)
+      if (currentIndex === -1) return false;
+      
+      // First load in sequence - consider ready (no previous to wait for)
+      if (currentIndex === 0) return true;
 
       const previousOrder = ordersWithDates[currentIndex - 1];
+      if (!previousOrder) return false; // Safety check
+      
       const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-      return !!hasPOD; // Dark green if POD exists
+      return !!hasPOD; // Ready only if previous has POD
     };
 
     // Find the first pickup date for this truck
