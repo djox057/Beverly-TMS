@@ -1418,12 +1418,20 @@ const Reports = () => {
           
           // Use first pickup stop datetime (transfer-aware) if available, otherwise fall back to order datetime
           const pickupDatetimeToUse = firstPickupStop?.datetime || order.pickup_datetime;
-          const pickupDate = pickupDatetimeToUse
-            ? (() => {
-                const parsed = parseSimpleDateTime(pickupDatetimeToUse);
-                return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-              })()
+          const pickupParsed = pickupDatetimeToUse ? parseSimpleDateTime(pickupDatetimeToUse) : null;
+          const pickupDate = pickupParsed
+            ? new Date(pickupParsed.year, pickupParsed.month - 1, pickupParsed.day, pickupParsed.hours, pickupParsed.minutes)
             : null;
+
+          // Some loads store "00:00" as a placeholder time (especially when stop-level datetime is missing).
+          // Treat those as "unknown time" for same-day ordering so they don't incorrectly become the previous load.
+          const isPickupTimePlaceholder =
+            !!pickupParsed &&
+            pickupParsed.hours === 0 &&
+            pickupParsed.minutes === 0 &&
+            pickupDatetimeToUse === order.pickup_datetime &&
+            typeof order.pickup_datetime === "string" &&
+            /(T|\s)00:00(:00)?/.test(order.pickup_datetime);
           
           // Use last delivery stop datetime (transfer-aware) if available, otherwise fall back to order datetime
           const deliveryDatetimeToUse = lastDeliveryStop?.datetime || order.delivery_datetime;
@@ -1453,6 +1461,7 @@ const Reports = () => {
             ...order,
             pickupDate,
             deliveryDate,
+            isPickupTimePlaceholder,
             pickupStopsByDate,
             deliveryStopsByDate,
             pickupLocation: order.pickupStop
@@ -1472,7 +1481,25 @@ const Reports = () => {
           if (!a.pickupDate && !b.pickupDate) return 0;
           if (!a.pickupDate) return 1;
           if (!b.pickupDate) return -1;
-          return a.pickupDate.getTime() - b.pickupDate.getTime();
+
+          // First: sort by day (ignores time)
+          const aDay = new Date(a.pickupDate.getFullYear(), a.pickupDate.getMonth(), a.pickupDate.getDate()).getTime();
+          const bDay = new Date(b.pickupDate.getFullYear(), b.pickupDate.getMonth(), b.pickupDate.getDate()).getTime();
+          if (aDay !== bDay) return aDay - bDay;
+
+          // Same day: if one pickup time is a placeholder "00:00", push it AFTER known times.
+          if (!!a.isPickupTimePlaceholder !== !!b.isPickupTimePlaceholder) {
+            return a.isPickupTimePlaceholder ? 1 : -1;
+          }
+
+          // Same day, both known (or both placeholder): use time
+          const timeDiff = a.pickupDate.getTime() - b.pickupDate.getTime();
+          if (timeDiff !== 0) return timeDiff;
+
+          // Final tie-break: created_at for stable ordering
+          const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return aCreated - bCreated;
         }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
