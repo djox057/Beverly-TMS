@@ -44,6 +44,7 @@ import {
   Eye,
   Layers,
   MapPin,
+  ScanLine,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DateRange } from "react-day-picker";
@@ -70,6 +71,7 @@ import { Pencil } from "lucide-react";
 import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes, combineNotes, appendUserNote } from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 import { OrderAdditionalsManager } from "@/components/OrderAdditionalsManager";
+import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -281,7 +283,28 @@ const EditOrder = () => {
   const [recoveryDate, setRecoveryDate] = useState("");
   const [trailersSwapped, setTrailersSwapped] = useState(false);
 
-  // Handlers for numeric input validation
+  // Document scanner state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerCategory, setScannerCategory] = useState<"POD" | "ADDITIONAL">("POD");
+
+  const openScanner = (category: "POD" | "ADDITIONAL") => {
+    setScannerCategory(category);
+    setScannerOpen(true);
+  };
+
+  const handleScanCapture = (file: File) => {
+    // Add the scanned file to the appropriate file list
+    const dt = new DataTransfer();
+    if (scannerCategory === "POD") {
+      if (podFiles) Array.from(podFiles).forEach((f) => dt.items.add(f));
+      dt.items.add(file);
+      setPodFiles(dt.files);
+    } else {
+      if (additionalFiles) Array.from(additionalFiles).forEach((f) => dt.items.add(f));
+      dt.items.add(file);
+      setAdditionalFiles(dt.files);
+    }
+  };
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Prevent '-', 'e', 'E', and '+' characters
     if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+") {
@@ -3735,7 +3758,22 @@ const EditOrder = () => {
                         onChange={(e) => setPodFiles(e.target.files)}
                         className="hidden"
                       />
-                      <p className="text-xs text-purple-600">Delivery confirmation documents</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-purple-600">Delivery confirmation documents</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openScanner("POD");
+                          }}
+                        >
+                          <ScanLine className="h-3 w-3 mr-1" />
+                          Scan
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -3786,7 +3824,22 @@ const EditOrder = () => {
                         onChange={(e) => setAdditionalFiles(e.target.files)}
                         className="hidden"
                       />
-                      <p className="text-xs text-orange-600">Other supporting documents</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-orange-600">Other supporting documents</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openScanner("ADDITIONAL");
+                          }}
+                        >
+                          <ScanLine className="h-3 w-3 mr-1" />
+                          Scan
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -3857,6 +3910,26 @@ const EditOrder = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        {(file.file_category === "POD" || file.file_category === "ADDITIONAL") && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => openScanner(file.file_category as "POD" | "ADDITIONAL")}
+                                >
+                                  <ScanLine className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Scan new document</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
@@ -4297,6 +4370,14 @@ const EditOrder = () => {
         changes={pendingChanges}
         onConfirm={handleChangeNoteConfirm}
         isSubmitting={isSubmitting}
+      />
+
+      {/* Document Scanner Dialog */}
+      <DocumentScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onCapture={handleScanCapture}
+        category={scannerCategory}
       />
     </div>
   );
