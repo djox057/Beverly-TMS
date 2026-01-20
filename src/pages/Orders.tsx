@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import {
   Search,
   FileText,
@@ -47,7 +48,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
-import { generateInvoicePDF } from "@/utils/invoiceGenerator";
+import { generateInvoicePDF, InvoiceProgress } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
@@ -206,6 +207,7 @@ const Orders = () => {
   const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [invoiceProgress, setInvoiceProgress] = useState<InvoiceProgress | null>(null);
   const [lumperMissingDataDialog, setLumperMissingDataDialog] = useState<{
     orderId: string;
     driverId: string;
@@ -695,8 +697,15 @@ const Orders = () => {
       : filteredOrders;
     
     if (!ordersToInvoice.length) return;
+    
     try {
-      const processedOrderIds = await generateInvoicePDF(ordersToInvoice);
+      setInvoiceProgress({ current: 0, total: ordersToInvoice.length, phase: 'preparing', message: 'Preparing invoices...' });
+      
+      const processedOrderIds = await generateInvoicePDF(ordersToInvoice, (progress) => {
+        setInvoiceProgress(progress);
+      });
+
+      setInvoiceProgress(null);
 
       // Update invoiced status for all orders that were successfully processed
       if (processedOrderIds.length > 0) {
@@ -717,9 +726,10 @@ const Orders = () => {
           // Real-time subscription will update the cache
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      setInvoiceProgress(null);
       console.error("Error generating invoices:", error);
-      toast.error("Failed to generate invoices");
+      toast.error(error?.message || "Failed to generate invoices");
     }
   };
 
@@ -917,12 +927,24 @@ const Orders = () => {
                 <Button 
                   variant="outline" 
                   onClick={generateInvoices} 
-                  disabled={selectionMode ? selectedOrderIds.size === 0 : !filteredOrders.length} 
+                  disabled={invoiceProgress !== null || (selectionMode ? selectedOrderIds.size === 0 : !filteredOrders.length)} 
                   className="text-xs md:text-sm"
                 >
-                  <FileText className="mr-1 md:mr-2 h-4 w-4" />
+                  {invoiceProgress ? (
+                    <Loader2 className="mr-1 md:mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-1 md:mr-2 h-4 w-4" />
+                  )}
                   {selectionMode && selectedOrderIds.size > 0 ? `INVOICE (${selectedOrderIds.size})` : 'INVOICE'}
                 </Button>
+                {invoiceProgress && (
+                  <div className="flex items-center gap-2 min-w-[200px]">
+                    <Progress value={(invoiceProgress.current / invoiceProgress.total) * 100} className="h-2 flex-1" />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {invoiceProgress.current}/{invoiceProgress.total}
+                    </span>
+                  </div>
+                )}
               </>
             )}
             <Button onClick={() => navigate("/new-order")} className="text-xs md:text-sm">

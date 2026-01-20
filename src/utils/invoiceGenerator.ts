@@ -125,10 +125,22 @@ const processMergeTask = async (task: MergeTask): Promise<{ filename: string; pd
   return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)) };
 };
 
-export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => {
+export interface InvoiceProgress {
+  current: number;
+  total: number;
+  phase: 'preparing' | 'processing' | 'finalizing';
+  message: string;
+}
+
+export const generateInvoicePDF = async (
+  orders: Order[],
+  onProgress?: (progress: InvoiceProgress) => void
+): Promise<string[]> => {
   if (!orders.length) return [];
 
   console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
+  
+  onProgress?.({ current: 0, total: orders.length, phase: 'preparing', message: 'Preparing invoices...' });
 
   // Group orders by driver's company (companyName), then by broker within each company
   // This ensures invoices are organized by the company the driver belongs to
@@ -508,6 +520,8 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
   }
 
   console.log(`Collected ${mergeTasks.length} merge tasks, processing in parallel batches...`);
+  
+  onProgress?.({ current: 0, total: mergeTasks.length, phase: 'processing', message: `Processing 0 of ${mergeTasks.length} invoices...` });
 
   // Process merge tasks in parallel batches of 5
   const BATCH_SIZE = 5;
@@ -515,6 +529,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
   const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[]; success: boolean }>> = {};
   const failedInvoices: string[] = [];
   let successCount = 0;
+  let processedCount = 0;
   
   // Initialize company arrays
   for (const companyFolder of Object.keys(xlsxDataByCompany)) {
@@ -573,7 +588,16 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       }
     });
     
-    console.log(`Batch ${batchNumber} complete. Success so far: ${successCount}/${i + batch.length}`);
+    // Update progress after each batch
+    processedCount = i + batch.length;
+    onProgress?.({ 
+      current: processedCount, 
+      total: mergeTasks.length, 
+      phase: 'processing', 
+      message: `Processing ${processedCount} of ${mergeTasks.length} invoices...` 
+    });
+    
+    console.log(`Batch ${batchNumber} complete. Success so far: ${successCount}/${processedCount}`);
     
     // Small delay between batches to prevent rate limiting
     if (i + BATCH_SIZE < mergeTasks.length) {
@@ -589,6 +613,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     // Note: We still continue to create the ZIP with fallback PDFs
   }
 
+  onProgress?.({ current: mergeTasks.length, total: mergeTasks.length, phase: 'finalizing', message: 'Creating ZIP file...' });
   console.log(`All invoices processed. Creating ZIP file...`);
 
   // Create ZIP file with company folders
