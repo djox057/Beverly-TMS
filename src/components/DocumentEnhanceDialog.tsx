@@ -6,10 +6,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Check, Loader2, Wand2 } from "lucide-react";
+import { RotateCcw, Check, Loader2, Wand2, Crop, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import {
+  initOpenCV,
+  detectAndCropDocument,
+  processDocument,
+} from "@/utils/documentScanner";
 
 interface DocumentEnhanceDialogProps {
   open: boolean;
@@ -28,33 +33,22 @@ export const DocumentEnhanceDialog = ({
 }: DocumentEnhanceDialogProps) => {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scannerRef = useRef<any>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const originalImageRef = useRef<HTMLImageElement | null>(null);
+  const croppedCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
-  const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
+  const [isOpenCVLoading, setIsOpenCVLoading] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Enhancement controls
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
+  const [sharpness, setSharpness] = useState(0);
   const [grayscale, setGrayscale] = useState(false);
   const [autoCropped, setAutoCropped] = useState(false);
-
-  // Initialize scanner
-  useEffect(() => {
-    const loadScanner = async () => {
-      try {
-        const jscanify = (await import("jscanify")).default;
-        scannerRef.current = new jscanify();
-      } catch (err) {
-        console.error("Failed to load jscanify:", err);
-      }
-    };
-    loadScanner();
-  }, []);
 
   // Load the image when dialog opens
   useEffect(() => {
@@ -64,17 +58,17 @@ export const DocumentEnhanceDialog = ({
     setAutoCropped(false);
     setBrightness(100);
     setContrast(100);
+    setSharpness(0);
     setGrayscale(false);
+    croppedCanvasRef.current = null;
 
     // Check if it's a PDF
     const isPdfFile = fileName.toLowerCase().endsWith(".pdf") || fileUrl.includes(".pdf");
     setIsPdf(isPdfFile);
 
     if (isPdfFile) {
-      // For PDFs, we can't process them directly - show a message
       setIsLoading(false);
-      setOriginalImageUrl(null);
-      setProcessedImageUrl(null);
+      setPreviewUrl(null);
       return;
     }
 
@@ -82,9 +76,8 @@ export const DocumentEnhanceDialog = ({
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      imageRef.current = img;
-      setOriginalImageUrl(fileUrl);
-      setProcessedImageUrl(fileUrl);
+      originalImageRef.current = img;
+      setPreviewUrl(fileUrl);
       setIsLoading(false);
     };
     img.onerror = () => {
@@ -101,83 +94,144 @@ export const DocumentEnhanceDialog = ({
   // Cleanup on close
   useEffect(() => {
     if (!open) {
-      setOriginalImageUrl(null);
-      setProcessedImageUrl(null);
-      imageRef.current = null;
+      setPreviewUrl(null);
+      originalImageRef.current = null;
+      croppedCanvasRef.current = null;
     }
   }, [open]);
 
-  const handleAutoCrop = async () => {
-    if (!imageRef.current || !scannerRef.current || !canvasRef.current) return;
-
-    setIsProcessing(true);
+  // Update preview when enhancement settings change
+  const updatePreview = useCallback(async () => {
+    const sourceImage = croppedCanvasRef.current || originalImageRef.current;
+    if (!sourceImage) return;
 
     try {
-      // Try to extract and crop the paper
-      const resultCanvas = scannerRef.current.extractPaper(imageRef.current, 850, 1100);
-      const dataUrl = resultCanvas.toDataURL("image/jpeg", 0.92);
+      const canvas = await processDocument(sourceImage, {
+        autoCrop: false, // Already cropped if applicable
+        brightness,
+        contrast,
+        sharpness,
+        grayscale,
+      });
       
-      // Update the image ref with the cropped version
-      const newImg = new Image();
-      newImg.onload = () => {
-        imageRef.current = newImg;
-        setProcessedImageUrl(dataUrl);
-        setAutoCropped(true);
-        setIsProcessing(false);
-        toast({
-          title: "Auto-Crop Applied",
-          description: "Document edges detected and cropped",
-        });
-      };
-      newImg.src = dataUrl;
+      setPreviewUrl(canvas.toDataURL("image/jpeg", 0.92));
     } catch (err) {
-      console.log("Edge detection failed:", err);
+      console.error("Preview update error:", err);
+    }
+  }, [brightness, contrast, sharpness, grayscale]);
+
+  // Debounced preview update
+  useEffect(() => {
+    if (!open || isLoading || isPdf) return;
+    
+    const timer = setTimeout(() => {
+      updatePreview();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [brightness, contrast, sharpness, grayscale, open, isLoading, isPdf, updatePreview]);
+
+  const handleAutoCrop = async () => {
+    if (!originalImageRef.current) return;
+
+    setIsProcessing(true);
+    setIsOpenCVLoading(true);
+
+    try {
+      // Initialize OpenCV (lazy load)
       toast({
-        title: "Auto-Crop Failed",
-        description: "Could not detect document edges. Try adjusting the image manually.",
+        title: "Loading OpenCV",
+        description: "This may take a few seconds on first use...",
+      });
+      
+      await initOpenCV();
+      setIsOpenCVLoading(false);
+
+      // Detect and crop document
+      const croppedCanvas = await detectAndCropDocument(originalImageRef.current);
+      
+      if (croppedCanvas) {
+        croppedCanvasRef.current = croppedCanvas;
+        setAutoCropped(true);
+        
+        // Apply current enhancements to cropped image
+        const enhancedCanvas = await processDocument(croppedCanvas, {
+          brightness,
+          contrast,
+          sharpness,
+          grayscale,
+        });
+        
+        setPreviewUrl(enhancedCanvas.toDataURL("image/jpeg", 0.92));
+        
+        toast({
+          title: "Document Cropped",
+          description: "Edges detected and perspective corrected",
+        });
+      } else {
+        toast({
+          title: "Could Not Detect Document",
+          description: "Try adjusting the image or use manual enhancement controls",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error("Auto-crop error:", err);
+      toast({
+        title: "Processing Error",
+        description: "Failed to process the document",
         variant: "destructive",
       });
+    } finally {
       setIsProcessing(false);
+      setIsOpenCVLoading(false);
     }
   };
 
-  const handleReset = () => {
-    if (!originalImageUrl) return;
+  const handleQuickEnhance = async () => {
+    // Apply optimal settings for document scanning
+    setBrightness(110);
+    setContrast(120);
+    setSharpness(50);
+    setGrayscale(false);
     
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      imageRef.current = img;
-      setProcessedImageUrl(originalImageUrl);
-      setBrightness(100);
-      setContrast(100);
-      setGrayscale(false);
-      setAutoCropped(false);
-    };
-    img.src = originalImageUrl;
+    toast({
+      title: "Quick Enhance Applied",
+      description: "Optimized settings for document clarity",
+    });
+  };
+
+  const handleReset = () => {
+    setBrightness(100);
+    setContrast(100);
+    setSharpness(0);
+    setGrayscale(false);
+    setAutoCropped(false);
+    croppedCanvasRef.current = null;
+    
+    if (originalImageRef.current) {
+      setPreviewUrl(fileUrl);
+    }
   };
 
   const handleSave = async () => {
-    if (!imageRef.current) return;
+    const sourceImage = croppedCanvasRef.current || originalImageRef.current;
+    if (!sourceImage) return;
 
     setIsProcessing(true);
 
     try {
-      // Create a canvas with the current image and apply enhancements
-      const canvas = document.createElement("canvas");
-      canvas.width = imageRef.current.width;
-      canvas.height = imageRef.current.height;
-      const ctx = canvas.getContext("2d");
-
-      if (ctx) {
-        // Apply CSS filters via canvas
-        ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)${grayscale ? " grayscale(100%)" : ""}`;
-        ctx.drawImage(imageRef.current, 0, 0);
-      }
+      // Process with all enhancements
+      const finalCanvas = await processDocument(sourceImage, {
+        brightness,
+        contrast,
+        sharpness,
+        grayscale,
+      });
 
       // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
+        finalCanvas.toBlob(
           (b) => {
             if (b) resolve(b);
             else reject(new Error("Failed to create blob"));
@@ -211,14 +265,9 @@ export const DocumentEnhanceDialog = ({
     }
   };
 
-  // Get preview image style with enhancements
-  const getPreviewStyle = (): React.CSSProperties => ({
-    filter: `brightness(${brightness}%) contrast(${contrast}%)${grayscale ? " grayscale(100%)" : ""}`,
-  });
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5" />
@@ -250,36 +299,44 @@ export const DocumentEnhanceDialog = ({
             </div>
           )}
 
-          {!isLoading && !isPdf && processedImageUrl && (
+          {!isLoading && !isPdf && previewUrl && (
             <>
               {/* Image Preview */}
               <div className="rounded-lg overflow-hidden border bg-muted">
                 <img
-                  src={processedImageUrl}
+                  src={previewUrl}
                   alt="Document preview"
                   className="w-full h-auto max-h-[350px] object-contain"
-                  style={getPreviewStyle()}
                 />
               </div>
 
-              {/* Auto-crop button */}
-              <div className="flex justify-center">
+              {/* Processing buttons */}
+              <div className="flex flex-wrap justify-center gap-2">
                 <Button
                   variant="outline"
                   onClick={handleAutoCrop}
-                  disabled={isProcessing || autoCropped}
+                  disabled={isProcessing}
                 >
-                  {isProcessing ? (
+                  {isProcessing && isOpenCVLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Wand2 className="h-4 w-4 mr-2" />
+                    <Crop className="h-4 w-4 mr-2" />
                   )}
-                  {autoCropped ? "Cropped" : "Auto-Crop & Straighten"}
+                  {autoCropped ? "Re-detect Edges" : "Detect & Crop"}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={handleQuickEnhance}
+                  disabled={isProcessing}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Quick Enhance
                 </Button>
               </div>
 
               {/* Enhancement controls */}
-              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Enhancements</Label>
                   <Button variant="ghost" size="sm" onClick={handleReset}>
@@ -288,7 +345,7 @@ export const DocumentEnhanceDialog = ({
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <Label className="text-xs w-20">Brightness</Label>
                     <Slider
@@ -299,7 +356,7 @@ export const DocumentEnhanceDialog = ({
                       step={5}
                       className="flex-1"
                     />
-                    <span className="text-xs w-10 text-right">{brightness}%</span>
+                    <span className="text-xs w-12 text-right">{brightness}%</span>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -312,7 +369,20 @@ export const DocumentEnhanceDialog = ({
                       step={5}
                       className="flex-1"
                     />
-                    <span className="text-xs w-10 text-right">{contrast}%</span>
+                    <span className="text-xs w-12 text-right">{contrast}%</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Label className="text-xs w-20">Sharpness</Label>
+                    <Slider
+                      value={[sharpness]}
+                      onValueChange={([v]) => setSharpness(v)}
+                      min={0}
+                      max={100}
+                      step={10}
+                      className="flex-1"
+                    />
+                    <span className="text-xs w-12 text-right">{sharpness}%</span>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -345,8 +415,9 @@ export const DocumentEnhanceDialog = ({
             </>
           )}
 
-          {/* Hidden canvas for processing */}
+          {/* Hidden canvases for processing */}
           <canvas ref={canvasRef} className="hidden" />
+          <canvas ref={previewCanvasRef} className="hidden" />
         </div>
       </DialogContent>
     </Dialog>
