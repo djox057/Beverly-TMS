@@ -83,6 +83,48 @@ interface Order {
   pickup_drops?: PickupDrop[];
 }
 
+// Helper to add timeout to promises
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+};
+
+// Process a single invoice merge
+interface MergeTask {
+  invoicePdfBytes: ArrayBuffer;
+  rcFiles: OrderFile[];
+  podFiles: OrderFile[];
+  baseFilename: string;
+  companyFolder: string;
+}
+
+const processMergeTask = async (task: MergeTask): Promise<{ filename: string; pdfBytes: number[] }> => {
+  const { invoicePdfBytes, rcFiles, podFiles, baseFilename } = task;
+  
+  if (rcFiles.length > 0 || podFiles.length > 0) {
+    try {
+      const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
+        body: {
+          invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
+          rcFiles,
+          podFiles
+        }
+      });
+      
+      if (!mergeError && mergeResult?.pdfBytes) {
+        return { filename: baseFilename, pdfBytes: mergeResult.pdfBytes };
+      }
+    } catch (error) {
+      console.error(`Error merging ${baseFilename}:`, error);
+    }
+  }
+  
+  // Fallback to just the invoice
+  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)) };
+};
+
 export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => {
   if (!orders.length) return [];
 
@@ -109,10 +151,6 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
 
   console.log(`Grouped orders into ${Object.keys(companiesMap).length} companies (by driver company) with invoices`);
 
-  // Collect all invoice data organized by company
-  const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[] }>> = {};
-  const xlsxDataByCompany: Record<string, any[]> = {};
-
   // Fetch broker MC numbers for all orders
   const brokerNames = [...new Set(orders.map(o => o.brokerName))];
   const { data: brokersData } = await supabase
@@ -123,10 +161,14 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
   const brokerMcMap = new Map(brokersData?.map(b => [b.name, b.mc_number]) || []);
   const currentDate = new Date().toLocaleDateString();
 
+  // Collect all merge tasks first (don't await inside loop)
+  const mergeTasks: MergeTask[] = [];
+  const xlsxDataByCompany: Record<string, any[]> = {};
+  const taskToCompanyMap: Map<number, string> = new Map();
+
   // Generate PDF for each broker/company combination
   for (const [companyName, brokerGroups] of Object.entries(companiesMap)) {
     const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
-    invoicesByCompany[sanitizedCompanyName] = [];
     xlsxDataByCompany[sanitizedCompanyName] = [];
 
     for (const group of Object.values(brokerGroups)) {
@@ -176,7 +218,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       
       // Simple filename - just the load number with suffix
       const baseFilename = `${invoiceNumber}.pdf`;
-      console.log(`Generated invoice ${baseFilename} for company ${companyName}`);
+      console.log(`Preparing invoice ${baseFilename} for company ${companyName}`);
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -438,43 +480,16 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
       const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
       
-      // If we have RC or POD files, merge them first
-      if (allRcFiles.length > 0 || allPodFiles.length > 0) {
-        try {
-          const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
-            body: {
-              invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
-              rcFiles: allRcFiles,
-              podFiles: allPodFiles
-            }
-          });
-          
-          if (!mergeError && mergeResult?.pdfBytes) {
-            invoicesByCompany[sanitizedCompanyName].push({
-              filename: baseFilename,
-              pdfBytes: mergeResult.pdfBytes
-            });
-          } else {
-            // Fallback to just the invoice
-            invoicesByCompany[sanitizedCompanyName].push({
-              filename: baseFilename,
-              pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
-            });
-          }
-        } catch (error) {
-          // Fallback to just the invoice
-          invoicesByCompany[sanitizedCompanyName].push({
-            filename: baseFilename,
-            pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
-          });
-        }
-      } else {
-        // No additional files, just use the invoice
-        invoicesByCompany[sanitizedCompanyName].push({
-          filename: baseFilename,
-          pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
-        });
-      }
+      // Add merge task (don't await here - we'll process in batches)
+      const taskIndex = mergeTasks.length;
+      taskToCompanyMap.set(taskIndex, sanitizedCompanyName);
+      mergeTasks.push({
+        invoicePdfBytes,
+        rcFiles: allRcFiles,
+        podFiles: allPodFiles,
+        baseFilename,
+        companyFolder: sanitizedCompanyName
+      });
 
       // Add order data to company's XLSX data
       group.orders.forEach(order => {
@@ -492,7 +507,49 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     }
   }
 
-  console.log(`Collected invoices for ${Object.keys(invoicesByCompany).length} companies`);
+  console.log(`Collected ${mergeTasks.length} merge tasks, processing in parallel batches...`);
+
+  // Process merge tasks in parallel batches of 5
+  const BATCH_SIZE = 5;
+  const TIMEOUT_MS = 30000; // 30 second timeout per merge
+  const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[] }>> = {};
+  
+  // Initialize company arrays
+  for (const companyFolder of Object.keys(xlsxDataByCompany)) {
+    invoicesByCompany[companyFolder] = [];
+  }
+
+  for (let i = 0; i < mergeTasks.length; i += BATCH_SIZE) {
+    const batch = mergeTasks.slice(i, i + BATCH_SIZE);
+    console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(mergeTasks.length / BATCH_SIZE)} (${batch.length} invoices)`);
+    
+    // Process batch in parallel with timeout
+    const batchPromises = batch.map(task => 
+      withTimeout(
+        processMergeTask(task),
+        TIMEOUT_MS,
+        { filename: task.baseFilename, pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)) }
+      )
+    );
+    
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Add results to their respective company folders
+    batchResults.forEach((result, idx) => {
+      const taskIndex = i + idx;
+      const companyFolder = taskToCompanyMap.get(taskIndex);
+      if (companyFolder && invoicesByCompany[companyFolder]) {
+        invoicesByCompany[companyFolder].push(result);
+      }
+    });
+    
+    // Small delay between batches to prevent rate limiting
+    if (i + BATCH_SIZE < mergeTasks.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  console.log(`All invoices processed. Creating ZIP file...`);
 
   // Create ZIP file with company folders
   try {
