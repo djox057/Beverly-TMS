@@ -1,196 +1,198 @@
 /**
  * Document Scanner Utilities
- * Canvas-based edge detection, perspective correction, and image enhancement
- * Pure JavaScript implementation
+ * Canvas-based document detection and perspective correction
  */
 
 /**
- * Gaussian blur for noise reduction
+ * Threshold image to find bright regions (paper)
  */
-function gaussianBlur(imageData: ImageData, radius: number = 2): ImageData {
+function thresholdBrightness(imageData: ImageData, threshold: number = 150): Uint8Array {
   const w = imageData.width;
   const h = imageData.height;
   const src = imageData.data;
-  const dst = new Uint8ClampedArray(src.length);
+  const mask = new Uint8Array(w * h);
   
-  // Simple box blur approximation
+  for (let i = 0; i < w * h; i++) {
+    const idx = i * 4;
+    // Calculate brightness (simple average)
+    const brightness = (src[idx] + src[idx + 1] + src[idx + 2]) / 3;
+    mask[i] = brightness > threshold ? 255 : 0;
+  }
+  
+  return mask;
+}
+
+/**
+ * Dilate mask to fill small gaps
+ */
+function dilateMask(mask: Uint8Array, w: number, h: number, radius: number = 3): Uint8Array {
+  const result = new Uint8Array(mask.length);
+  
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      let r = 0, g = 0, b = 0, count = 0;
-      
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
+      let found = false;
+      for (let dy = -radius; dy <= radius && !found; dy++) {
+        for (let dx = -radius; dx <= radius && !found; dx++) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-            const idx = (ny * w + nx) * 4;
-            r += src[idx];
-            g += src[idx + 1];
-            b += src[idx + 2];
-            count++;
+            if (mask[ny * w + nx] > 0) {
+              found = true;
+            }
           }
         }
       }
-      
-      const idx = (y * w + x) * 4;
-      dst[idx] = r / count;
-      dst[idx + 1] = g / count;
-      dst[idx + 2] = b / count;
-      dst[idx + 3] = src[idx + 3];
+      result[y * w + x] = found ? 255 : 0;
     }
   }
   
-  return new ImageData(dst, w, h);
+  return result;
 }
 
 /**
- * Sobel edge detection
+ * Erode mask to remove small noise
  */
-function sobelEdgeDetection(imageData: ImageData): Uint8ClampedArray {
-  const w = imageData.width;
-  const h = imageData.height;
-  const src = imageData.data;
+function erodeMask(mask: Uint8Array, w: number, h: number, radius: number = 2): Uint8Array {
+  const result = new Uint8Array(mask.length);
   
-  // Convert to grayscale
-  const gray = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) {
-    const idx = i * 4;
-    gray[i] = 0.299 * src[idx] + 0.587 * src[idx + 1] + 0.114 * src[idx + 2];
-  }
-  
-  const edges = new Uint8ClampedArray(w * h);
-  const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-  const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-  
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      let gx = 0, gy = 0;
-      let ki = 0;
-      
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          const idx = (y + ky) * w + (x + kx);
-          gx += gray[idx] * sobelX[ki];
-          gy += gray[idx] * sobelY[ki];
-          ki++;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let allSet = true;
+      for (let dy = -radius; dy <= radius && allSet; dy++) {
+        for (let dx = -radius; dx <= radius && allSet; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+            if (mask[ny * w + nx] === 0) {
+              allSet = false;
+            }
+          } else {
+            allSet = false;
+          }
         }
       }
-      
-      edges[y * w + x] = Math.min(255, Math.sqrt(gx * gx + gy * gy));
+      result[y * w + x] = allSet ? 255 : 0;
     }
   }
   
-  return edges;
+  return result;
 }
 
 /**
- * Find the largest quadrilateral contour in edge image
+ * Find boundary points of the bright region
  */
-function findLargestQuad(
-  edges: Uint8ClampedArray,
-  w: number,
-  h: number,
-  threshold: number = 30
-): number[][] | null {
-  // Collect edge points
-  const edgePoints: number[][] = [];
-  for (let y = 5; y < h - 5; y++) {
-    for (let x = 5; x < w - 5; x++) {
-      if (edges[y * w + x] > threshold) {
-        edgePoints.push([x, y]);
+function findBoundaryPoints(mask: Uint8Array, w: number, h: number): number[][] {
+  const points: number[][] = [];
+  
+  // Only check every few pixels for performance
+  const step = 2;
+  
+  for (let y = step; y < h - step; y += step) {
+    for (let x = step; x < w - step; x += step) {
+      if (mask[y * w + x] > 0) {
+        // Check if this is a boundary pixel (has a dark neighbor)
+        let isBoundary = false;
+        for (let dy = -1; dy <= 1 && !isBoundary; dy++) {
+          for (let dx = -1; dx <= 1 && !isBoundary; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (mask[ny * w + nx] === 0) {
+              isBoundary = true;
+            }
+          }
+        }
+        if (isBoundary) {
+          points.push([x, y]);
+        }
       }
     }
   }
   
-  if (edgePoints.length < 50) return null;
-  
-  // Find convex hull using Graham scan
-  const hull = convexHull(edgePoints);
-  if (hull.length < 4) return null;
-  
-  // Simplify hull to 4 corners using Douglas-Peucker or find extreme points
-  const corners = findFourCorners(hull, w, h);
-  
-  return corners;
+  return points;
 }
 
 /**
- * Simple convex hull using Graham scan
+ * Find the 4 corners of a quadrilateral from boundary points
+ * Uses the approach of finding points closest to diagonal lines from image corners
  */
-function convexHull(points: number[][]): number[][] {
-  if (points.length < 3) return points;
+function findQuadCorners(points: number[][], w: number, h: number): number[][] | null {
+  if (points.length < 20) return null;
   
-  // Find the bottom-most point (or left most in case of tie)
-  let start = 0;
-  for (let i = 1; i < points.length; i++) {
-    if (points[i][1] > points[start][1] || 
-        (points[i][1] === points[start][1] && points[i][0] < points[start][0])) {
-      start = i;
+  // Find extreme points using sum and difference of coordinates
+  // This works well for finding corners of a tilted rectangle
+  
+  let minSum = Infinity, maxSum = -Infinity;
+  let minDiff = Infinity, maxDiff = -Infinity;
+  let tlPoint: number[] = points[0];
+  let brPoint: number[] = points[0];
+  let trPoint: number[] = points[0];
+  let blPoint: number[] = points[0];
+  
+  for (const p of points) {
+    const sum = p[0] + p[1];
+    const diff = p[0] - p[1];
+    
+    // Top-left has minimum sum (x + y)
+    if (sum < minSum) {
+      minSum = sum;
+      tlPoint = p;
+    }
+    // Bottom-right has maximum sum (x + y)
+    if (sum > maxSum) {
+      maxSum = sum;
+      brPoint = p;
+    }
+    // Top-right has maximum difference (x - y)
+    if (diff > maxDiff) {
+      maxDiff = diff;
+      trPoint = p;
+    }
+    // Bottom-left has minimum difference (x - y)
+    if (diff < minDiff) {
+      minDiff = diff;
+      blPoint = p;
     }
   }
   
-  const pivot = points[start];
+  // Verify we got 4 distinct corners
+  const corners = [tlPoint, trPoint, brPoint, blPoint];
   
-  // Sort points by polar angle
-  const sorted = points.slice().sort((a, b) => {
-    const angleA = Math.atan2(a[1] - pivot[1], a[0] - pivot[0]);
-    const angleB = Math.atan2(b[1] - pivot[1], b[0] - pivot[0]);
-    if (angleA !== angleB) return angleA - angleB;
-    const distA = (a[0] - pivot[0]) ** 2 + (a[1] - pivot[1]) ** 2;
-    const distB = (b[0] - pivot[0]) ** 2 + (b[1] - pivot[1]) ** 2;
-    return distA - distB;
-  });
-  
-  const hull: number[][] = [];
-  for (const p of sorted) {
-    while (hull.length >= 2 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) {
-      hull.pop();
-    }
-    hull.push(p);
+  // Check minimum area (at least 5% of image)
+  const area = polygonArea(corners);
+  if (area < w * h * 0.05) {
+    return null;
   }
   
-  return hull;
-}
-
-function cross(o: number[], a: number[], b: number[]): number {
-  return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-}
-
-/**
- * Find four corners from hull points
- */
-function findFourCorners(hull: number[][], w: number, h: number): number[][] {
-  // Find points closest to each image corner
-  const imageCorners = [
-    [0, 0],         // top-left
-    [w, 0],         // top-right
-    [w, h],         // bottom-right
-    [0, h],         // bottom-left
-  ];
-  
-  const corners: number[][] = [];
-  
-  for (const target of imageCorners) {
-    let closest = hull[0];
-    let minDist = Infinity;
-    
-    for (const p of hull) {
-      const dist = (p[0] - target[0]) ** 2 + (p[1] - target[1]) ** 2;
-      if (dist < minDist) {
-        minDist = dist;
-        closest = p;
-      }
+  // Check that corners are reasonably spread
+  const minDist = Math.min(w, h) * 0.1;
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    const dist = Math.sqrt(
+      (corners[i][0] - corners[j][0]) ** 2 + 
+      (corners[i][1] - corners[j][1]) ** 2
+    );
+    if (dist < minDist) {
+      return null;
     }
-    
-    corners.push([...closest]);
   }
   
   return corners;
 }
 
+function polygonArea(points: number[][]): number {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i][0] * points[j][1];
+    area -= points[j][0] * points[i][1];
+  }
+  return Math.abs(area / 2);
+}
+
 /**
- * Apply perspective transform - maps irregular quadrilateral to rectangle
- * Uses bilinear interpolation for proper perspective correction
+ * Apply perspective transform - maps quadrilateral to rectangle
  */
 function perspectiveTransform(
   srcCanvas: HTMLCanvasElement,
@@ -218,24 +220,20 @@ function perspectiveTransform(
   // For each destination pixel, find corresponding source pixel
   for (let dy = 0; dy < outputHeight; dy++) {
     for (let dx = 0; dx < outputWidth; dx++) {
-      // Normalized coordinates in destination (0 to 1)
+      // Normalized coordinates (0 to 1)
       const u = dx / (outputWidth - 1);
       const v = dy / (outputHeight - 1);
       
       // Bilinear interpolation to find source coordinates
-      // Top edge: interpolate between TL and TR
       const topX = tl[0] + u * (tr[0] - tl[0]);
       const topY = tl[1] + u * (tr[1] - tl[1]);
-      
-      // Bottom edge: interpolate between BL and BR
       const bottomX = bl[0] + u * (br[0] - bl[0]);
       const bottomY = bl[1] + u * (br[1] - bl[1]);
       
-      // Final source coordinates
       const sx = topX + v * (bottomX - topX);
       const sy = topY + v * (bottomY - topY);
       
-      // Bilinear sample from source
+      // Bilinear sampling from source
       const x0 = Math.floor(sx);
       const y0 = Math.floor(sy);
       const x1 = Math.min(x0 + 1, srcW - 1);
@@ -269,28 +267,7 @@ function perspectiveTransform(
 }
 
 /**
- * Upscale canvas using bicubic-like interpolation
- */
-function upscaleCanvas(
-  canvas: HTMLCanvasElement,
-  scale: number = 1.5
-): HTMLCanvasElement {
-  const outputCanvas = document.createElement("canvas");
-  outputCanvas.width = Math.round(canvas.width * scale);
-  outputCanvas.height = Math.round(canvas.height * scale);
-  const ctx = outputCanvas.getContext("2d");
-  if (!ctx) return canvas;
-  
-  // Enable image smoothing for better quality
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(canvas, 0, 0, outputCanvas.width, outputCanvas.height);
-  
-  return outputCanvas;
-}
-
-/**
- * Detect document edges and apply perspective transform
+ * Detect document and apply perspective correction
  */
 export async function detectAndCropDocument(
   imageElement: HTMLImageElement | HTMLCanvasElement,
@@ -310,8 +287,8 @@ export async function detectAndCropDocument(
     ctx.drawImage(imageElement, 0, 0);
   }
   
-  // Work on a smaller version for speed
-  const maxDim = 600;
+  // Work on smaller version for speed
+  const maxDim = 500;
   const scale = Math.min(1, maxDim / Math.max(srcCanvas.width, srcCanvas.height));
   
   const processCanvas = document.createElement("canvas");
@@ -321,15 +298,35 @@ export async function detectAndCropDocument(
   if (!processCtx) return null;
   processCtx.drawImage(srcCanvas, 0, 0, processCanvas.width, processCanvas.height);
   
-  // Apply blur to reduce noise
-  let imageData = processCtx.getImageData(0, 0, processCanvas.width, processCanvas.height);
-  imageData = gaussianBlur(imageData, 1);
+  const imageData = processCtx.getImageData(0, 0, processCanvas.width, processCanvas.height);
+  const w = processCanvas.width;
+  const h = processCanvas.height;
   
-  // Edge detection
-  const edges = sobelEdgeDetection(imageData);
+  // Step 1: Threshold to find bright regions (paper is usually bright)
+  let mask = thresholdBrightness(imageData, 120);
   
-  // Find quadrilateral
-  const corners = findLargestQuad(edges, processCanvas.width, processCanvas.height);
+  // Step 2: Clean up mask with morphological operations
+  mask = dilateMask(mask, w, h, 2);
+  mask = erodeMask(mask, w, h, 3);
+  mask = dilateMask(mask, w, h, 2);
+  
+  // Step 3: Find boundary points of bright region
+  const boundaryPoints = findBoundaryPoints(mask, w, h);
+  
+  if (boundaryPoints.length < 20) {
+    // Try with lower threshold
+    mask = thresholdBrightness(imageData, 100);
+    mask = dilateMask(mask, w, h, 2);
+    mask = erodeMask(mask, w, h, 3);
+    const retryPoints = findBoundaryPoints(mask, w, h);
+    if (retryPoints.length < 20) {
+      return null;
+    }
+    boundaryPoints.push(...retryPoints);
+  }
+  
+  // Step 4: Find 4 corners
+  const corners = findQuadCorners(boundaryPoints, w, h);
   
   if (!corners) {
     return null;
@@ -341,11 +338,8 @@ export async function detectAndCropDocument(
     Math.round(c[1] / scale),
   ]);
   
-  // Apply perspective transform to get rectangular output
-  let result = perspectiveTransform(srcCanvas, originalCorners, outputWidth, outputHeight);
-  
-  // Upscale for better quality
-  result = upscaleCanvas(result, 1.2);
+  // Step 5: Apply perspective transform
+  const result = perspectiveTransform(srcCanvas, originalCorners, outputWidth, outputHeight);
   
   return result;
 }
@@ -368,7 +362,7 @@ export function sharpenImage(
   const src = srcData.data;
   const dst = dstData.data;
   
-  // Enhanced sharpening kernel
+  // Sharpening kernel
   const kernel = [-1, -1, -1, -1, 9, -1, -1, -1, -1];
   
   for (let y = 1; y < h - 1; y++) {
@@ -443,7 +437,7 @@ export function applyDocumentFilter(
 }
 
 /**
- * Process a document image with all enhancements
+ * Process a document with all enhancements
  */
 export async function processDocument(
   imageElement: HTMLImageElement | HTMLCanvasElement,
