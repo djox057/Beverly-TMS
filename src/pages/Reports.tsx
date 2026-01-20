@@ -248,7 +248,7 @@ const EditableNoteField = ({
   );
 };
 const Reports = () => {
-  const { profile, hasRole } = useAuthContext();
+  const { profile, hasRole, roles } = useAuthContext();
   const navigate = useNavigate();
 
   // Use consolidated filter hook
@@ -3350,7 +3350,7 @@ const Reports = () => {
                                           }}
                                         >
                                           {truck.driverId && hasDriverProblem(truck.driverId) && 
-                                            !(hasRole("dispatch") || hasRole("afterhours")) && (
+                                            !(roles.includes("dispatch") || roles.includes("afterhours")) && (
                                             <Popover>
                                               <PopoverTrigger asChild>
                                                 <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
