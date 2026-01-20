@@ -604,9 +604,15 @@ const Reports = () => {
 
   // Helper to determine if we should show Going to Delivery button
   const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
-    // Never show "Going to Delivery" - having BOL already implies going to delivery
-    // User should just click "Arrived at Delivery" directly
-    return false;
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    const goingToDeliveryClicked = !!stop?.going_to_at;
+    
+    // Don't show if already clicked going to, or already has POD
+    if (goingToDeliveryClicked || hasPOD) return false;
+    
+    // Show if has BOL (picked up, now going to delivery)
+    return hasBOL;
   };
 
   // Helper to determine if we should show At Delivery button
@@ -2322,26 +2328,28 @@ const Reports = () => {
 
           if (allSortedOrders.length === 0) return;
 
+          // Current order = last added (most recent created_at) load with BOL but no POD
           let currentOrder: any = undefined;
-          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-          const lastOrderHasBOL = lastOrder?.order_files?.some((f: any) => f.file_category === "BOL");
-
-          if (lastOrderHasBOL) {
-            currentOrder = lastOrder;
-          } else if (allSortedOrders.length >= 2) {
-            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-            const previousHasPOD = previousOrder?.order_files?.some((f: any) => f.file_category === "POD");
-
-            if (previousHasPOD) {
-              currentOrder = lastOrder;
-            } else {
-              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                order.order_files?.some((file: any) => file.file_category === "BOL")
-              );
-              currentOrder = lastWithBOL || lastOrder;
-            }
+          
+          // Find loads with BOL but no POD (in-progress), sorted by created_at descending
+          const inProgressLoads = allSortedOrders.filter((order: any) => {
+            const hasBOL = order.order_files?.some((f: any) => f.file_category === "BOL");
+            const hasPOD = order.order_files?.some((f: any) => f.file_category === "POD");
+            return hasBOL && !hasPOD;
+          });
+          
+          if (inProgressLoads.length > 0) {
+            // Get the most recently added in-progress load
+            const lastAddedWithBOL = inProgressLoads.sort((a: any, b: any) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )[0];
+            currentOrder = lastAddedWithBOL;
           } else {
-            currentOrder = lastOrder;
+            // Fall back to first order without POD
+            const firstWithoutPOD = allSortedOrders.find((order: any) => 
+              !order.order_files?.some((f: any) => f.file_category === "POD")
+            );
+            currentOrder = firstWithoutPOD || allSortedOrders[allSortedOrders.length - 1];
           }
 
           if (!currentOrder) return;
@@ -3006,31 +3014,28 @@ const Reports = () => {
                                               return aDate - bDate;
                                             }) || [];
 
+                                        // Current order = last added (most recent created_at) load with BOL but no POD
                                         let currentOrder: any = undefined;
                                         if (allSortedOrders.length > 0) {
-                                          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                          const lastOrderHasBOL = lastOrder.order_files?.some(
-                                            (file: any) => file.file_category === "BOL",
-                                          );
-
-                                          if (lastOrderHasBOL) {
-                                            currentOrder = lastOrder;
-                                          } else if (allSortedOrders.length >= 2) {
-                                            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                            const previousHasPOD = previousOrder.order_files?.some(
-                                              (file: any) => file.file_category === "POD",
-                                            );
-
-                                            if (previousHasPOD) {
-                                              currentOrder = lastOrder;
-                                            } else {
-                                              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                                                order.order_files?.some((file: any) => file.file_category === "BOL"),
-                                              );
-                                              currentOrder = lastWithBOL || lastOrder;
-                                            }
+                                          // Find loads with BOL but no POD (in-progress), sorted by created_at descending
+                                          const inProgressLoads = allSortedOrders.filter((order: any) => {
+                                            const hasBOL = order.order_files?.some((f: any) => f.file_category === "BOL");
+                                            const hasPOD = order.order_files?.some((f: any) => f.file_category === "POD");
+                                            return hasBOL && !hasPOD;
+                                          });
+                                          
+                                          if (inProgressLoads.length > 0) {
+                                            // Get the most recently added in-progress load
+                                            const lastAddedWithBOL = inProgressLoads.sort((a: any, b: any) => 
+                                              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                                            )[0];
+                                            currentOrder = lastAddedWithBOL;
                                           } else {
-                                            currentOrder = lastOrder;
+                                            // Fall back to first order without POD
+                                            const firstWithoutPOD = allSortedOrders.find((order: any) => 
+                                              !order.order_files?.some((f: any) => f.file_category === "POD")
+                                            );
+                                            currentOrder = firstWithoutPOD || allSortedOrders[allSortedOrders.length - 1];
                                           }
                                         }
 
@@ -3192,27 +3197,28 @@ const Reports = () => {
                                     return aDate - bDate;
                                   }) || [];
                                 
+                                // Current order = last added (most recent created_at) load with BOL but no POD
                                 let currentOrder: typeof allSortedOrders[0] | undefined = undefined;
                                 if (allSortedOrders.length > 0) {
-                                  const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                  const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
+                                  // Find loads with BOL but no POD (in-progress), sorted by created_at descending
+                                  const inProgressLoads = allSortedOrders.filter((order) => {
+                                    const hasBOL = order.order_files?.some((f: any) => f.file_category === "BOL");
+                                    const hasPOD = order.order_files?.some((f: any) => f.file_category === "POD");
+                                    return hasBOL && !hasPOD;
+                                  });
                                   
-                                  if (lastOrderHasBOL) {
-                                    currentOrder = lastOrder;
-                                  } else if (allSortedOrders.length >= 2) {
-                                    const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                    const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-                                    
-                                    if (previousHasPOD) {
-                                      currentOrder = lastOrder;
-                                    } else {
-                                      const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                                        order.order_files?.some((file: any) => file.file_category === "BOL")
-                                      );
-                                      currentOrder = lastWithBOL || lastOrder;
-                                    }
+                                  if (inProgressLoads.length > 0) {
+                                    // Get the most recently added in-progress load
+                                    const lastAddedWithBOL = inProgressLoads.sort((a, b) => 
+                                      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                                    )[0];
+                                    currentOrder = lastAddedWithBOL;
                                   } else {
-                                    currentOrder = lastOrder;
+                                    // Fall back to first order without POD
+                                    const firstWithoutPOD = allSortedOrders.find((order) => 
+                                      !order.order_files?.some((f: any) => f.file_category === "POD")
+                                    );
+                                    currentOrder = firstWithoutPOD || allSortedOrders[allSortedOrders.length - 1];
                                   }
                                 }
 
