@@ -1,6 +1,7 @@
 import React from "react";
 import { DateRange } from "react-day-picker";
 import { formatDateNoTimezone } from "@/lib/utils";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1953,7 +1954,7 @@ const Analytics = () => {
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => navigateToEditOrder(order.id)}
                           >
-                            <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                            <TableCell className="font-medium">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</TableCell>
                             <TableCell>{order.brokerLoadNumber}</TableCell>
                             <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                             <TableCell>
@@ -2018,7 +2019,7 @@ const Analytics = () => {
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => navigateToEditOrder(order.id)}
                             >
-                              <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                              <TableCell className="font-medium">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</TableCell>
                               <TableCell>{order.brokerLoadNumber}</TableCell>
                               <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                               <TableCell>
@@ -2087,7 +2088,7 @@ const Analytics = () => {
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => navigateToEditOrder(order.id)}
                             >
-                              <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                              <TableCell className="font-medium">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</TableCell>
                               <TableCell>{order.brokerLoadNumber}</TableCell>
                               <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                               <TableCell>
