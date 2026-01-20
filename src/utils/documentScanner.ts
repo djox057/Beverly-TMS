@@ -1,100 +1,186 @@
 /**
  * Document Scanner Utilities
- * Uses OpenCV.js for edge detection, perspective correction, and image enhancement
+ * Canvas-based edge detection, perspective correction, and image enhancement
+ * No external dependencies - pure JavaScript implementation
  */
-
-let cv: any = null;
-let cvLoadingPromise: Promise<any> | null = null;
 
 /**
- * Initialize OpenCV.js (lazy loaded on first use)
+ * Simple edge detection using Sobel operator
  */
-export async function initOpenCV(): Promise<any> {
-  if (cv) return cv;
+function sobelEdgeDetection(imageData: ImageData): Uint8ClampedArray {
+  const w = imageData.width;
+  const h = imageData.height;
+  const src = imageData.data;
   
-  if (cvLoadingPromise) {
-    return cvLoadingPromise;
+  // Convert to grayscale
+  const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const idx = i * 4;
+    gray[i] = 0.299 * src[idx] + 0.587 * src[idx + 1] + 0.114 * src[idx + 2];
   }
   
-  cvLoadingPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://docs.opencv.org/4.9.0/opencv.js";
-    script.async = true;
-    
-    script.onload = () => {
-      // Wait for cv to be ready
-      const checkReady = () => {
-        if ((window as any).cv && (window as any).cv.Mat) {
-          cv = (window as any).cv;
-          resolve(cv);
-        } else if ((window as any).cv) {
-          // cv exists but not fully loaded, check onRuntimeInitialized
-          (window as any).cv.onRuntimeInitialized = () => {
-            cv = (window as any).cv;
-            resolve(cv);
-          };
-        } else {
-          setTimeout(checkReady, 50);
+  // Sobel kernels
+  const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+  const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+  
+  const edges = new Uint8ClampedArray(w * h);
+  
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      let gx = 0, gy = 0;
+      let ki = 0;
+      
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const idx = (y + ky) * w + (x + kx);
+          gx += gray[idx] * sobelX[ki];
+          gy += gray[idx] * sobelY[ki];
+          ki++;
         }
-      };
-      checkReady();
-    };
-    
-    script.onerror = () => {
-      cvLoadingPromise = null;
-      reject(new Error("Failed to load OpenCV.js"));
-    };
-    
-    document.head.appendChild(script);
-  });
-  
-  return cvLoadingPromise;
-}
-
-/**
- * Order corners in consistent order: top-left, top-right, bottom-right, bottom-left
- */
-function orderCorners(points: number[][]): number[][] {
-  // Sort by y-coordinate to get top and bottom pairs
-  const sorted = [...points].sort((a, b) => a[1] - b[1]);
-  const topTwo = sorted.slice(0, 2);
-  const bottomTwo = sorted.slice(2, 4);
-  
-  // Sort each pair by x-coordinate
-  topTwo.sort((a, b) => a[0] - b[0]);
-  bottomTwo.sort((a, b) => a[0] - b[0]);
-  
-  return [
-    topTwo[0],     // top-left
-    topTwo[1],     // top-right
-    bottomTwo[1],  // bottom-right
-    bottomTwo[0],  // bottom-left
-  ];
-}
-
-/**
- * Extract corner points from a contour Mat
- */
-function extractPoints(contour: any): number[][] {
-  const points: number[][] = [];
-  for (let i = 0; i < contour.rows; i++) {
-    points.push([contour.data32S[i * 2], contour.data32S[i * 2 + 1]]);
+      }
+      
+      edges[y * w + x] = Math.min(255, Math.sqrt(gx * gx + gy * gy));
+    }
   }
-  return points;
+  
+  return edges;
+}
+
+/**
+ * Calculate polygon area
+ */
+function polygonArea(points: number[][]): number {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i][0] * points[j][1];
+    area -= points[j][0] * points[i][1];
+  }
+  return Math.abs(area / 2);
+}
+
+/**
+ * Find document corners using edge detection
+ */
+function findDocumentCorners(canvas: HTMLCanvasElement): number[][] | null {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  
+  const w = canvas.width;
+  const h = canvas.height;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  
+  // Get edges
+  const edges = sobelEdgeDetection(imageData);
+  
+  // Threshold edges
+  const threshold = 50;
+  const edgePoints: number[][] = [];
+  const step = 3;
+  
+  for (let y = step; y < h - step; y += step) {
+    for (let x = step; x < w - step; x += step) {
+      if (edges[y * w + x] > threshold) {
+        edgePoints.push([x, y]);
+      }
+    }
+  }
+  
+  if (edgePoints.length < 100) {
+    return null;
+  }
+  
+  // Find extreme points (approximate corners)
+  let tl = edgePoints[0], tr = edgePoints[0], br = edgePoints[0], bl = edgePoints[0];
+  let tlScore = tl[0] + tl[1];
+  let trScore = tr[0] - tr[1];
+  let brScore = br[0] + br[1];
+  let blScore = bl[0] - bl[1];
+  
+  for (const p of edgePoints) {
+    const sumScore = p[0] + p[1];
+    const diffScore = p[0] - p[1];
+    
+    if (sumScore < tlScore) { tlScore = sumScore; tl = p; }
+    if (diffScore > trScore) { trScore = diffScore; tr = p; }
+    if (sumScore > brScore) { brScore = sumScore; br = p; }
+    if (diffScore < blScore) { blScore = diffScore; bl = p; }
+  }
+  
+  // Validate corners form a reasonable quadrilateral
+  const corners = [tl, tr, br, bl];
+  const minArea = w * h * 0.1;
+  const area = polygonArea(corners);
+  
+  if (area < minArea) {
+    return null;
+  }
+  
+  return corners;
+}
+
+/**
+ * Apply perspective transform using bilinear interpolation
+ */
+function applyPerspectiveTransform(
+  srcCanvas: HTMLCanvasElement,
+  srcCorners: number[][],
+  outputWidth: number,
+  outputHeight: number
+): HTMLCanvasElement {
+  const outputCanvas = document.createElement("canvas");
+  outputCanvas.width = outputWidth;
+  outputCanvas.height = outputHeight;
+  const ctx = outputCanvas.getContext("2d");
+  if (!ctx) return srcCanvas;
+  
+  const srcCtx = srcCanvas.getContext("2d");
+  if (!srcCtx) return srcCanvas;
+  
+  const srcData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+  const dstData = ctx.createImageData(outputWidth, outputHeight);
+  
+  // Bilinear interpolation for perspective transform
+  for (let dy = 0; dy < outputHeight; dy++) {
+    for (let dx = 0; dx < outputWidth; dx++) {
+      const u = dx / outputWidth;
+      const v = dy / outputHeight;
+      
+      // Interpolate source coordinates
+      const topX = srcCorners[0][0] + u * (srcCorners[1][0] - srcCorners[0][0]);
+      const topY = srcCorners[0][1] + u * (srcCorners[1][1] - srcCorners[0][1]);
+      const bottomX = srcCorners[3][0] + u * (srcCorners[2][0] - srcCorners[3][0]);
+      const bottomY = srcCorners[3][1] + u * (srcCorners[2][1] - srcCorners[3][1]);
+      
+      const sx = Math.round(topX + v * (bottomX - topX));
+      const sy = Math.round(topY + v * (bottomY - topY));
+      
+      if (sx >= 0 && sx < srcCanvas.width && sy >= 0 && sy < srcCanvas.height) {
+        const srcIdx = (sy * srcCanvas.width + sx) * 4;
+        const dstIdx = (dy * outputWidth + dx) * 4;
+        
+        dstData.data[dstIdx] = srcData.data[srcIdx];
+        dstData.data[dstIdx + 1] = srcData.data[srcIdx + 1];
+        dstData.data[dstIdx + 2] = srcData.data[srcIdx + 2];
+        dstData.data[dstIdx + 3] = srcData.data[srcIdx + 3];
+      }
+    }
+  }
+  
+  ctx.putImageData(dstData, 0, 0);
+  return outputCanvas;
 }
 
 /**
  * Detect document edges and apply perspective transform
- * Returns a cropped and straightened canvas, or null if no document found
  */
 export async function detectAndCropDocument(
   imageElement: HTMLImageElement | HTMLCanvasElement,
   outputWidth: number = 850,
   outputHeight: number = 1100
 ): Promise<HTMLCanvasElement | null> {
-  const cvInstance = await initOpenCV();
-  
-  // Create source canvas if needed
+  // Create source canvas
   let srcCanvas: HTMLCanvasElement;
   if (imageElement instanceof HTMLCanvasElement) {
     srcCanvas = imageElement;
@@ -107,157 +193,42 @@ export async function detectAndCropDocument(
     ctx.drawImage(imageElement, 0, 0);
   }
   
-  // Load image into OpenCV Mat
-  const srcMat = cvInstance.imread(srcCanvas);
+  // Resize for faster processing
+  const maxDim = 800;
+  const scale = Math.min(1, maxDim / Math.max(srcCanvas.width, srcCanvas.height));
   
-  // Store original for final warp
-  const originalMat = srcMat.clone();
+  let processingCanvas: HTMLCanvasElement;
+  if (scale < 1) {
+    processingCanvas = document.createElement("canvas");
+    processingCanvas.width = Math.round(srcCanvas.width * scale);
+    processingCanvas.height = Math.round(srcCanvas.height * scale);
+    const ctx = processingCanvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(srcCanvas, 0, 0, processingCanvas.width, processingCanvas.height);
+    }
+  } else {
+    processingCanvas = srcCanvas;
+  }
   
-  try {
-    // Resize for faster processing if image is large
-    const maxDim = 1000;
-    const scale = Math.min(1, maxDim / Math.max(srcMat.cols, srcMat.rows));
-    const scaledMat = new cvInstance.Mat();
-    
-    if (scale < 1) {
-      cvInstance.resize(srcMat, scaledMat, new cvInstance.Size(
-        Math.round(srcMat.cols * scale),
-        Math.round(srcMat.rows * scale)
-      ));
-    } else {
-      srcMat.copyTo(scaledMat);
-    }
-    
-    // Convert to grayscale
-    const grayMat = new cvInstance.Mat();
-    cvInstance.cvtColor(scaledMat, grayMat, cvInstance.COLOR_RGBA2GRAY);
-    
-    // Apply Gaussian blur to reduce noise
-    const blurredMat = new cvInstance.Mat();
-    cvInstance.GaussianBlur(grayMat, blurredMat, new cvInstance.Size(5, 5), 0);
-    
-    // Edge detection with Canny
-    const cannyMat = new cvInstance.Mat();
-    cvInstance.Canny(blurredMat, cannyMat, 50, 150);
-    
-    // Dilate to connect edges
-    const dilatedMat = new cvInstance.Mat();
-    const kernel = cvInstance.Mat.ones(3, 3, cvInstance.CV_8U);
-    cvInstance.dilate(cannyMat, dilatedMat, kernel);
-    
-    // Find contours
-    const contours = new cvInstance.MatVector();
-    const hierarchy = new cvInstance.Mat();
-    cvInstance.findContours(
-      dilatedMat, 
-      contours, 
-      hierarchy, 
-      cvInstance.RETR_LIST, 
-      cvInstance.CHAIN_APPROX_SIMPLE
-    );
-    
-    // Find the largest 4-point contour (document)
-    let bestContour: any = null;
-    let maxArea = (scaledMat.cols * scaledMat.rows) * 0.1; // At least 10% of image
-    
-    for (let i = 0; i < contours.size(); i++) {
-      const contour = contours.get(i);
-      const area = cvInstance.contourArea(contour);
-      
-      if (area < maxArea) continue;
-      
-      const peri = cvInstance.arcLength(contour, true);
-      const approx = new cvInstance.Mat();
-      cvInstance.approxPolyDP(contour, approx, 0.02 * peri, true);
-      
-      if (approx.rows === 4 && area > maxArea) {
-        maxArea = area;
-        if (bestContour) bestContour.delete();
-        bestContour = approx;
-      } else {
-        approx.delete();
-      }
-    }
-    
-    // Cleanup intermediate mats
-    scaledMat.delete();
-    grayMat.delete();
-    blurredMat.delete();
-    cannyMat.delete();
-    dilatedMat.delete();
-    kernel.delete();
-    contours.delete();
-    hierarchy.delete();
-    
-    if (!bestContour) {
-      srcMat.delete();
-      originalMat.delete();
-      return null;
-    }
-    
-    // Extract and order corners (scale back to original size)
-    const scaledPoints = extractPoints(bestContour);
-    const originalPoints = scaledPoints.map(p => [
-      Math.round(p[0] / scale),
-      Math.round(p[1] / scale)
-    ]);
-    const orderedCorners = orderCorners(originalPoints);
-    bestContour.delete();
-    
-    // Create source and destination point arrays for perspective transform
-    const srcCoords = cvInstance.matFromArray(4, 1, cvInstance.CV_32FC2, [
-      orderedCorners[0][0], orderedCorners[0][1],
-      orderedCorners[1][0], orderedCorners[1][1],
-      orderedCorners[2][0], orderedCorners[2][1],
-      orderedCorners[3][0], orderedCorners[3][1],
-    ]);
-    
-    const dstCoords = cvInstance.matFromArray(4, 1, cvInstance.CV_32FC2, [
-      0, 0,
-      outputWidth, 0,
-      outputWidth, outputHeight,
-      0, outputHeight,
-    ]);
-    
-    // Get perspective transform matrix
-    const M = cvInstance.getPerspectiveTransform(srcCoords, dstCoords);
-    
-    // Apply perspective transform
-    const dstMat = new cvInstance.Mat();
-    cvInstance.warpPerspective(
-      originalMat, 
-      dstMat, 
-      M, 
-      new cvInstance.Size(outputWidth, outputHeight)
-    );
-    
-    // Output to canvas
-    const outputCanvas = document.createElement("canvas");
-    outputCanvas.width = outputWidth;
-    outputCanvas.height = outputHeight;
-    cvInstance.imshow(outputCanvas, dstMat);
-    
-    // Cleanup
-    srcMat.delete();
-    originalMat.delete();
-    srcCoords.delete();
-    dstCoords.delete();
-    M.delete();
-    dstMat.delete();
-    
-    return outputCanvas;
-  } catch (error) {
-    console.error("Document detection error:", error);
-    srcMat.delete();
-    originalMat.delete();
+  // Find document corners
+  const corners = findDocumentCorners(processingCanvas);
+  
+  if (!corners) {
     return null;
   }
+  
+  // Scale corners back to original size
+  const originalCorners = corners.map(c => [
+    Math.round(c[0] / scale),
+    Math.round(c[1] / scale),
+  ]);
+  
+  // Apply perspective transform
+  return applyPerspectiveTransform(srcCanvas, originalCorners, outputWidth, outputHeight);
 }
 
 /**
- * Apply sharpening to canvas using convolution (Unsharp Mask)
- * @param canvas - The canvas to sharpen
- * @param intensity - Sharpening intensity (0-1)
+ * Apply sharpening using convolution kernel
  */
 export function sharpenImage(
   canvas: HTMLCanvasElement,
@@ -274,13 +245,12 @@ export function sharpenImage(
   const src = srcData.data;
   const dst = dstData.data;
   
-  // Sharpening kernel (Laplacian-based)
+  // Sharpening kernel
   const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
   
-  // Apply convolution
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
-      for (let c = 0; c < 3; c++) { // R, G, B channels
+      for (let c = 0; c < 3; c++) {
         let sum = 0;
         let ki = 0;
         
@@ -293,45 +263,38 @@ export function sharpenImage(
         
         const dstIdx = (y * w + x) * 4 + c;
         const srcIdx = (y * w + x) * 4 + c;
-        
-        // Blend sharpened with original based on intensity
         const sharpened = sum * intensity + src[srcIdx] * (1 - intensity);
         dst[dstIdx] = Math.min(255, Math.max(0, Math.round(sharpened)));
       }
-      // Copy alpha channel
-      const alphaIdx = (y * w + x) * 4 + 3;
-      dst[alphaIdx] = src[alphaIdx];
+      dst[(y * w + x) * 4 + 3] = src[(y * w + x) * 4 + 3];
     }
   }
   
-  // Copy edge pixels (not processed by convolution)
+  // Copy edge pixels
   for (let x = 0; x < w; x++) {
     for (let c = 0; c < 4; c++) {
-      dst[x * 4 + c] = src[x * 4 + c]; // Top row
-      dst[((h - 1) * w + x) * 4 + c] = src[((h - 1) * w + x) * 4 + c]; // Bottom row
+      dst[x * 4 + c] = src[x * 4 + c];
+      dst[((h - 1) * w + x) * 4 + c] = src[((h - 1) * w + x) * 4 + c];
     }
   }
   for (let y = 0; y < h; y++) {
     for (let c = 0; c < 4; c++) {
-      dst[(y * w) * 4 + c] = src[(y * w) * 4 + c]; // Left column
-      dst[(y * w + w - 1) * 4 + c] = src[(y * w + w - 1) * 4 + c]; // Right column
+      dst[(y * w) * 4 + c] = src[(y * w) * 4 + c];
+      dst[(y * w + w - 1) * 4 + c] = src[(y * w + w - 1) * 4 + c];
     }
   }
   
-  // Create output canvas
   const outputCanvas = document.createElement("canvas");
   outputCanvas.width = w;
   outputCanvas.height = h;
   const outCtx = outputCanvas.getContext("2d");
-  if (outCtx) {
-    outCtx.putImageData(dstData, 0, 0);
-  }
+  if (outCtx) outCtx.putImageData(dstData, 0, 0);
   
   return outputCanvas;
 }
 
 /**
- * Apply adaptive thresholding for a "scanned document" look
+ * Apply brightness/contrast/grayscale filters
  */
 export function applyDocumentFilter(
   canvas: HTMLCanvasElement,
@@ -345,7 +308,6 @@ export function applyDocumentFilter(
   const ctx = outputCanvas.getContext("2d");
   if (!ctx) return canvas;
   
-  // Build filter string
   const filters: string[] = [];
   if (brightness !== 100) filters.push(`brightness(${brightness}%)`);
   if (contrast !== 100) filters.push(`contrast(${contrast}%)`);
@@ -386,7 +348,6 @@ export async function processDocument(
     if (cropped) {
       canvas = cropped;
     } else {
-      // Fall back to original image
       canvas = document.createElement("canvas");
       if (imageElement instanceof HTMLCanvasElement) {
         canvas.width = imageElement.width;
@@ -399,7 +360,6 @@ export async function processDocument(
       if (ctx) ctx.drawImage(imageElement, 0, 0);
     }
   } else {
-    // Just copy the image to canvas
     canvas = document.createElement("canvas");
     if (imageElement instanceof HTMLCanvasElement) {
       canvas.width = imageElement.width;
@@ -412,12 +372,12 @@ export async function processDocument(
     if (ctx) ctx.drawImage(imageElement, 0, 0);
   }
   
-  // Step 2: Apply sharpening if requested
+  // Step 2: Apply sharpening
   if (sharpness > 0) {
     canvas = sharpenImage(canvas, sharpness / 100);
   }
   
-  // Step 3: Apply brightness/contrast/grayscale filters
+  // Step 3: Apply filters
   if (brightness !== 100 || contrast !== 100 || grayscale) {
     canvas = applyDocumentFilter(canvas, brightness, contrast, grayscale);
   }
