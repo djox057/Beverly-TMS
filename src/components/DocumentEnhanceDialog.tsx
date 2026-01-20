@@ -31,8 +31,6 @@ export const DocumentEnhanceDialog = ({
   fileName,
 }: DocumentEnhanceDialogProps) => {
   const { toast } = useToast();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const croppedCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -60,7 +58,6 @@ export const DocumentEnhanceDialog = ({
     setGrayscale(false);
     croppedCanvasRef.current = null;
 
-    // Check if it's a PDF
     const isPdfFile = fileName.toLowerCase().endsWith(".pdf") || fileUrl.includes(".pdf");
     setIsPdf(isPdfFile);
 
@@ -70,7 +67,6 @@ export const DocumentEnhanceDialog = ({
       return;
     }
 
-    // Load the image
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -105,7 +101,7 @@ export const DocumentEnhanceDialog = ({
 
     try {
       const canvas = await processDocument(sourceImage, {
-        autoCrop: false, // Already cropped if applicable
+        autoCrop: false,
         brightness,
         contrast,
         sharpness,
@@ -135,14 +131,12 @@ export const DocumentEnhanceDialog = ({
     setIsProcessing(true);
 
     try {
-      // Detect and crop document
       const croppedCanvas = await detectAndCropDocument(originalImageRef.current);
       
       if (croppedCanvas) {
         croppedCanvasRef.current = croppedCanvas;
         setAutoCropped(true);
         
-        // Apply current enhancements to cropped image
         const enhancedCanvas = await processDocument(croppedCanvas, {
           brightness,
           contrast,
@@ -195,7 +189,6 @@ export const DocumentEnhanceDialog = ({
     setIsProcessing(true);
 
     try {
-      // Process with all enhancements
       const finalCanvas = await processDocument(sourceImage, {
         brightness,
         contrast,
@@ -203,7 +196,6 @@ export const DocumentEnhanceDialog = ({
         grayscale,
       });
 
-      // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve, reject) => {
         finalCanvas.toBlob(
           (b) => {
@@ -215,7 +207,6 @@ export const DocumentEnhanceDialog = ({
         );
       });
 
-      // Create file with enhanced prefix
       const baseName = fileName.replace(/\.[^/.]+$/, "");
       const newFileName = `${baseName}_enhanced.jpg`;
       const file = new File([blob], newFileName, { type: "image/jpeg" });
@@ -241,7 +232,7 @@ export const DocumentEnhanceDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5" />
@@ -265,7 +256,7 @@ export const DocumentEnhanceDialog = ({
                 PDF files cannot be enhanced directly.
               </p>
               <p className="text-sm text-muted-foreground">
-                To enhance a PDF, please convert it to an image first or use the camera scanner to capture a new image.
+                To enhance a PDF, please convert it to an image first.
               </p>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
@@ -274,22 +265,26 @@ export const DocumentEnhanceDialog = ({
           )}
 
           {!isLoading && !isPdf && previewUrl && (
-            <>
-              {/* Image Preview */}
-              <div className="rounded-lg overflow-hidden border bg-muted">
-                <img
-                  src={previewUrl}
-                  alt="Document preview"
-                  className="w-full h-auto max-h-[350px] object-contain"
-                />
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Image Preview - Left side, much taller */}
+              <div className="flex-1 min-w-0">
+                <div className="rounded-lg overflow-hidden border bg-muted h-[500px] md:h-[600px] flex items-center justify-center">
+                  <img
+                    src={previewUrl}
+                    alt="Document preview"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
               </div>
 
-              {/* Processing button */}
-              <div className="flex justify-center">
+              {/* Enhancements - Right side */}
+              <div className="w-full md:w-64 flex-shrink-0 space-y-4">
+                {/* Auto-crop button */}
                 <Button
                   variant="outline"
                   onClick={handleAutoCrop}
                   disabled={isProcessing}
+                  className="w-full"
                 >
                   {isProcessing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -298,91 +293,90 @@ export const DocumentEnhanceDialog = ({
                   )}
                   {autoCropped ? "Re-detect Edges" : "Detect & Crop"}
                 </Button>
-              </div>
 
-              {/* Enhancement controls */}
-              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Enhancements</Label>
-                  <Button variant="ghost" size="sm" onClick={handleReset}>
-                    <RotateCcw className="h-3 w-3 mr-1" />
-                    Reset
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs w-20">Brightness</Label>
-                    <Slider
-                      value={[brightness]}
-                      onValueChange={([v]) => setBrightness(v)}
-                      min={50}
-                      max={150}
-                      step={5}
-                      className="flex-1"
-                    />
-                    <span className="text-xs w-12 text-right">{brightness}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs w-20">Contrast</Label>
-                    <Slider
-                      value={[contrast]}
-                      onValueChange={([v]) => setContrast(v)}
-                      min={50}
-                      max={150}
-                      step={5}
-                      className="flex-1"
-                    />
-                    <span className="text-xs w-12 text-right">{contrast}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs w-20">Sharpness</Label>
-                    <Slider
-                      value={[sharpness]}
-                      onValueChange={([v]) => setSharpness(v)}
-                      min={0}
-                      max={100}
-                      step={10}
-                      className="flex-1"
-                    />
-                    <span className="text-xs w-12 text-right">{sharpness}%</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs w-20">Grayscale</Label>
-                    <Button
-                      variant={grayscale ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setGrayscale(!grayscale)}
-                    >
-                      {grayscale ? "On" : "Off"}
+                {/* Enhancement controls */}
+                <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Enhancements</Label>
+                    <Button variant="ghost" size="sm" onClick={handleReset}>
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Reset
                     </Button>
                   </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Brightness</Label>
+                        <span className="text-xs text-muted-foreground">{brightness}%</span>
+                      </div>
+                      <Slider
+                        value={[brightness]}
+                        onValueChange={([v]) => setBrightness(v)}
+                        min={50}
+                        max={150}
+                        step={5}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Contrast</Label>
+                        <span className="text-xs text-muted-foreground">{contrast}%</span>
+                      </div>
+                      <Slider
+                        value={[contrast]}
+                        onValueChange={([v]) => setContrast(v)}
+                        min={50}
+                        max={150}
+                        step={5}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Sharpness</Label>
+                        <span className="text-xs text-muted-foreground">{sharpness}%</span>
+                      </div>
+                      <Slider
+                        value={[sharpness]}
+                        onValueChange={([v]) => setSharpness(v)}
+                        min={0}
+                        max={100}
+                        step={10}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Grayscale</Label>
+                      <Button
+                        variant={grayscale ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setGrayscale(!grayscale)}
+                      >
+                        {grayscale ? "On" : "Off"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-col gap-2">
+                  <Button onClick={handleSave} disabled={isProcessing} className="w-full">
+                    {isProcessing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Save Enhanced
+                  </Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+                    Cancel
+                  </Button>
                 </div>
               </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={isProcessing}>
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
-                  Save Enhanced
-                </Button>
-              </div>
-            </>
+            </div>
           )}
-
-          {/* Hidden canvases for processing */}
-          <canvas ref={canvasRef} className="hidden" />
-          <canvas ref={previewCanvasRef} className="hidden" />
         </div>
       </DialogContent>
     </Dialog>
