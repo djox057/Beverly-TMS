@@ -304,7 +304,7 @@ const Orders = () => {
       const matchesTruckCompany =
         !truckCompanyFilter ||
         truckCompanyFilter === "all-truck-companies" ||
-        order.truckCompanyName === truckCompanyFilter;
+        order.driverCompanyName === truckCompanyFilter;
 
       // For dispatch users, respect the filter but default to their own loads
       const matchesBookedBy =
@@ -589,7 +589,7 @@ const Orders = () => {
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map((order) => order.bookedByCompanyName) || [])].filter(Boolean);
-  const uniqueTruckCompanies = [...new Set(orders?.map((order) => order.truckCompanyName) || [])].filter(Boolean);
+  const uniqueTruckCompanies = [...new Set(orders?.map((order) => order.driverCompanyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map((order) => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = [...new Set(orders?.map((order) => order.truckNumber) || [])]
     .filter(Boolean)
