@@ -142,26 +142,19 @@ export const generateInvoicePDF = async (
   
   onProgress?.({ current: 0, total: orders.length, phase: 'preparing', message: 'Preparing invoices...' });
 
-  // Group orders by driver's company (companyName), then by broker within each company
-  // This ensures invoices are organized by the company the driver belongs to
+  // Group orders by driver's company only (one invoice per order, not per broker)
+  // This ensures each load gets its own invoice PDF
   const companiesMap = orders.reduce((acc, order) => {
-    // Use driver's company (companyName) for folder organization, NOT bookedByCompanyName
+    // Use driver's company (companyName) for folder organization
     const driverCompany = order.companyName;
     if (!acc[driverCompany]) {
-      acc[driverCompany] = {};
+      acc[driverCompany] = [];
     }
-    if (!acc[driverCompany][order.brokerName]) {
-      acc[driverCompany][order.brokerName] = {
-        brokerName: order.brokerName,
-        companyName: driverCompany,
-        orders: []
-      };
-    }
-    acc[driverCompany][order.brokerName].orders.push(order);
+    acc[driverCompany].push(order);
     return acc;
-  }, {} as Record<string, Record<string, { brokerName: string; companyName: string; orders: Order[] }>>);
+  }, {} as Record<string, Order[]>);
 
-  console.log(`Grouped orders into ${Object.keys(companiesMap).length} companies (by driver company) with invoices`);
+  console.log(`Grouped ${orders.length} orders into ${Object.keys(companiesMap).length} companies (one invoice per order)`);
 
   // Fetch broker MC numbers for all orders
   const brokerNames = [...new Set(orders.map(o => o.brokerName))];
@@ -178,17 +171,16 @@ export const generateInvoicePDF = async (
   const xlsxDataByCompany: Record<string, any[]> = {};
   const taskToCompanyMap: Map<number, string> = new Map();
 
-  // Generate PDF for each broker/company combination
-  for (const [companyName, brokerGroups] of Object.entries(companiesMap)) {
+  // Generate one PDF per order (organized by company folders)
+  for (const [companyName, companyOrders] of Object.entries(companiesMap)) {
     const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
     xlsxDataByCompany[sanitizedCompanyName] = [];
 
-    for (const group of Object.values(brokerGroups)) {
+    for (const order of companyOrders) {
       const doc = new jsPDF();
       
       // Header - Use bookedByCompanyName for display, but companyName (driver's company) for invoice suffix
-      const firstOrderInGroup = group.orders[0];
-      const displayCompanyName = firstOrderInGroup.bookedByCompanyName || group.companyName;
+      const displayCompanyName = order.bookedByCompanyName || companyName;
       
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -202,21 +194,20 @@ export const generateInvoicePDF = async (
       doc.setFont('helvetica', 'bold');
       doc.text('Bill To:', 22, 48);
       doc.setFont('helvetica', 'normal');
-      doc.text(group.brokerName, 22, 55);
+      doc.text(order.brokerName, 22, 55);
       
       // Add broker address if available
-      const firstOrder = group.orders[0];
       let yPos = 61;
-      if (firstOrder.brokerAddress) {
+      if (order.brokerAddress) {
         // Split long address into multiple lines within the box
-        const addressLines = doc.splitTextToSize(firstOrder.brokerAddress, 95);
+        const addressLines = doc.splitTextToSize(order.brokerAddress, 95);
         for (let i = 0; i < Math.min(addressLines.length, 2); i++) {
           doc.text(addressLines[i], 22, yPos);
           yPos += 5;
         }
       }
-      if (firstOrder.brokerCity || firstOrder.brokerState || firstOrder.brokerZipCode) {
-        const cityStateZip = [firstOrder.brokerCity, firstOrder.brokerState, firstOrder.brokerZipCode]
+      if (order.brokerCity || order.brokerState || order.brokerZipCode) {
+        const cityStateZip = [order.brokerCity, order.brokerState, order.brokerZipCode]
           .filter(Boolean)
           .join(', ');
         if (cityStateZip) {
@@ -225,75 +216,61 @@ export const generateInvoicePDF = async (
       }
       
       // Invoice details table (right side)
-      const rawInvoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
+      const rawInvoiceNumber = order.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
       const invoiceNumber = formatInternalLoadNumber(rawInvoiceNumber, companyName);
       
       // Simple filename - just the load number with suffix
       const baseFilename = `${invoiceNumber}.pdf`;
       console.log(`Preparing invoice ${baseFilename} for company ${companyName}`);
     
-    doc.rect(130, 40, 30, 8);
-    doc.rect(160, 40, 30, 8);
-    doc.rect(130, 48, 30, 8);
-    doc.rect(160, 48, 30, 8);
-    doc.rect(130, 56, 30, 8);
-    doc.rect(160, 56, 30, 8);
-    doc.rect(130, 64, 30, 8);
-    doc.rect(160, 64, 30, 8);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice Date', 132, 46);
-    doc.text('Invoice #', 132, 54);
-    doc.text('Terms', 132, 62);
-    doc.text('Due Date', 132, 70);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(currentDate, 162, 46);
-    doc.text(invoiceNumber.toString(), 162, 54);
-    doc.text('NET 30', 162, 62);
-    
-    // Calculate due date (30 days from now)
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
-    doc.text(dueDate.toLocaleDateString(), 162, 70);
-    
-    // Main table headers
-    let yPosition = 90;
-    doc.setFont('helvetica', 'bold');
-    doc.rect(20, yPosition, 20, 8);
-    doc.rect(40, yPosition, 20, 8);
-    doc.rect(60, yPosition, 25, 8);
-    doc.rect(85, yPosition, 53, 8);
-    doc.rect(138, yPosition, 20, 8);
-    doc.rect(158, yPosition, 20, 8);
-    doc.rect(178, yPosition, 25, 8);
-    
-    doc.text('Date', 22, yPosition + 5);
-    doc.text('Truck #', 42, yPosition + 5);
-    doc.text('Load #', 62, yPosition + 5);
-    doc.text('Origin - Destination', 87, yPosition + 5);
-    doc.text('Qty', 140, yPosition + 5);
-    doc.text('Rate', 160, yPosition + 5);
-    doc.text('Amount', 180, yPosition + 5);
-    
-    // Table rows
-    doc.setFont('helvetica', 'normal');
-    yPosition += 8;
-    let freightTotal = 0;
-    let detentionTotal = 0;
-    let layoverTotal = 0;
-    let extraStopTotal = 0;
-    let lumperTotal = 0;
-    let tonuTotal = 0;
-    let otherChargesTotal = 0;
-    let otherAdditionalsTotal = 0;
-    let lateFeeTotal = 0;
-    
-    // Collect reasons for display
-    const otherChargesReasons: string[] = [];
-    const otherAdditionalsReasons: string[] = [];
-    
-    group.orders.forEach((order) => {
+      doc.rect(130, 40, 30, 8);
+      doc.rect(160, 40, 30, 8);
+      doc.rect(130, 48, 30, 8);
+      doc.rect(160, 48, 30, 8);
+      doc.rect(130, 56, 30, 8);
+      doc.rect(160, 56, 30, 8);
+      doc.rect(130, 64, 30, 8);
+      doc.rect(160, 64, 30, 8);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Invoice Date', 132, 46);
+      doc.text('Invoice #', 132, 54);
+      doc.text('Terms', 132, 62);
+      doc.text('Due Date', 132, 70);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.text(currentDate, 162, 46);
+      doc.text(invoiceNumber.toString(), 162, 54);
+      doc.text('NET 30', 162, 62);
+      
+      // Calculate due date (30 days from now)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      doc.text(dueDate.toLocaleDateString(), 162, 70);
+      
+      // Main table headers
+      let yPosition = 90;
+      doc.setFont('helvetica', 'bold');
+      doc.rect(20, yPosition, 20, 8);
+      doc.rect(40, yPosition, 20, 8);
+      doc.rect(60, yPosition, 25, 8);
+      doc.rect(85, yPosition, 53, 8);
+      doc.rect(138, yPosition, 20, 8);
+      doc.rect(158, yPosition, 20, 8);
+      doc.rect(178, yPosition, 25, 8);
+      
+      doc.text('Date', 22, yPosition + 5);
+      doc.text('Truck #', 42, yPosition + 5);
+      doc.text('Load #', 62, yPosition + 5);
+      doc.text('Origin - Destination', 87, yPosition + 5);
+      doc.text('Qty', 140, yPosition + 5);
+      doc.text('Rate', 160, yPosition + 5);
+      doc.text('Amount', 180, yPosition + 5);
+      
+      // Table row for this single order
+      doc.setFont('helvetica', 'normal');
+      yPosition += 8;
+      
       const pickupDate = formatDateNoTimezone(order.pickupDate.split(' - ')[0]);
       
       // Build origin-destination text with all pickups and deliveries
@@ -342,179 +319,168 @@ export const generateInvoicePDF = async (
       doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 160, yPosition + textYOffset + 3);
       doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 180, yPosition + textYOffset + 3);
       
-      freightTotal += order.freightAmount;
-      detentionTotal += order.detention || 0;
-      layoverTotal += order.layover || 0;
-      extraStopTotal += order.extraStop || 0;
-      lumperTotal += order.lumper || 0;
-      tonuTotal += order.tonu || 0;
-      otherChargesTotal += order.otherCharges || 0;
-      otherAdditionalsTotal += order.otherAdditionals || 0;
-      lateFeeTotal += order.lateFee || 0;
-      
-      // Collect reasons
-      if (order.otherCharges && order.otherCharges > 0 && order.otherChargesReason) {
-        otherChargesReasons.push(order.otherChargesReason);
-      }
-      if (order.otherAdditionals && order.otherAdditionals > 0 && order.otherAdditionalsReason) {
-        otherAdditionalsReasons.push(order.otherAdditionalsReason);
-      }
-      
       yPosition += calculatedHeight;
-    });
-    
-    // Freight Income and additional fees
-    doc.rect(138, yPosition, 40, 8);
-    doc.rect(178, yPosition, 25, 8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Freight Income', 140, yPosition + 5);
-    doc.text(formatCurrency(freightTotal), 180, yPosition + 5);
-    yPosition += 8;
-    
-    // Additional fees sections...
-    if (detentionTotal > 0) {
+      
+      // Totals for this single order
+      const freightTotal = order.freightAmount;
+      const detentionTotal = order.detention || 0;
+      const layoverTotal = order.layover || 0;
+      const extraStopTotal = order.extraStop || 0;
+      const lumperTotal = order.lumper || 0;
+      const tonuTotal = order.tonu || 0;
+      const otherChargesTotal = order.otherCharges || 0;
+      const otherAdditionalsTotal = order.otherAdditionals || 0;
+      const lateFeeTotal = order.lateFee || 0;
+      
+      // Freight Income and additional fees
       doc.rect(138, yPosition, 40, 8);
       doc.rect(178, yPosition, 25, 8);
-      doc.text('Detention', 140, yPosition + 5);
-      doc.text(formatCurrency(detentionTotal), 180, yPosition + 5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Freight Income', 140, yPosition + 5);
+      doc.text(formatCurrency(freightTotal), 180, yPosition + 5);
       yPosition += 8;
-    }
-    
-    if (layoverTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
+      
+      // Additional fees sections...
+      if (detentionTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('Detention', 140, yPosition + 5);
+        doc.text(formatCurrency(detentionTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (layoverTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('Layover', 140, yPosition + 5);
+        doc.text(formatCurrency(layoverTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (extraStopTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('Extra Stop', 140, yPosition + 5);
+        doc.text(formatCurrency(extraStopTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (lumperTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('Lumper', 140, yPosition + 5);
+        doc.text(formatCurrency(lumperTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (tonuTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('TONU', 140, yPosition + 5);
+        doc.text(formatCurrency(tonuTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (otherChargesTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        const otherChargesLabel = order.otherChargesReason 
+          ? `${order.otherChargesReason.substring(0, 25)}` 
+          : 'Other Charges';
+        doc.text(otherChargesLabel, 140, yPosition + 5);
+        doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (otherAdditionalsTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        const otherAddLabel = order.otherAdditionalsReason 
+          ? `${order.otherAdditionalsReason.substring(0, 25)}` 
+          : 'Other Additionals';
+        doc.text(otherAddLabel, 140, yPosition + 5);
+        doc.text(formatCurrency(otherAdditionalsTotal), 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      if (lateFeeTotal > 0) {
+        doc.rect(138, yPosition, 40, 8);
+        doc.rect(178, yPosition, 25, 8);
+        doc.text('Late Fee', 140, yPosition + 5);
+        doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 180, yPosition + 5);
+        yPosition += 8;
+      }
+      
+      // Total
+      const finalTotal = order.totalFreightAmount;
+      doc.rect(158, yPosition, 20, 8);
       doc.rect(178, yPosition, 25, 8);
-      doc.text('Layover', 140, yPosition + 5);
-      doc.text(formatCurrency(layoverTotal), 180, yPosition + 5);
+      doc.text('TOTAL:', 160, yPosition + 5);
+      doc.text(formatCurrency(finalTotal), 180, yPosition + 5);
+      
+      // Notice section
+      yPosition += 30;
+      doc.setTextColor(255, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text('NOTICE OF ASSIGMENT', 105, yPosition, { align: 'center' });
+      
+      yPosition += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.text('This invoice is assigned to, owned by and only payable to:', 105, yPosition, { align: 'center' });
+      
       yPosition += 8;
-    }
-    
-    if (extraStopTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      doc.text('Extra Stop', 140, yPosition + 5);
-      doc.text(formatCurrency(extraStopTotal), 180, yPosition + 5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Capital Depot INC', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('606 Potter Road', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('Des Plaines IL 60016', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('847-470-1687', 105, yPosition, { align: 'center' });
+      
       yPosition += 8;
-    }
-    
-    if (lumperTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      doc.text('Lumper', 140, yPosition + 5);
-      doc.text(formatCurrency(lumperTotal), 180, yPosition + 5);
-      yPosition += 8;
-    }
-    
-    if (tonuTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      doc.text('TONU', 140, yPosition + 5);
-      doc.text(formatCurrency(tonuTotal), 180, yPosition + 5);
-      yPosition += 8;
-    }
-    
-    if (otherChargesTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      const otherChargesLabel = otherChargesReasons.length > 0 
-        ? `${otherChargesReasons.join(', ').substring(0, 25)}` 
-        : 'Other Charges';
-      doc.text(otherChargesLabel, 140, yPosition + 5);
-      doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
-      yPosition += 8;
-    }
-    
-    if (otherAdditionalsTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      const otherAddLabel = otherAdditionalsReasons.length > 0 
-        ? `${otherAdditionalsReasons.join(', ').substring(0, 25)}` 
-        : 'Other Additionals';
-      doc.text(otherAddLabel, 140, yPosition + 5);
-      doc.text(formatCurrency(otherAdditionalsTotal), 180, yPosition + 5);
-      yPosition += 8;
-    }
-    
-    if (lateFeeTotal > 0) {
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
-      doc.text('Late Fee', 140, yPosition + 5);
-      doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 180, yPosition + 5);
-      yPosition += 8;
-    }
-    
-    // Total
-    const finalTotal = group.orders.reduce((sum, order) => sum + order.totalFreightAmount, 0);
-    doc.rect(158, yPosition, 20, 8);
-    doc.rect(178, yPosition, 25, 8);
-    doc.text('TOTAL:', 160, yPosition + 5);
-    doc.text(formatCurrency(finalTotal), 180, yPosition + 5);
-    
-    // Notice section
-    yPosition += 30;
-    doc.setTextColor(255, 0, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.text('NOTICE OF ASSIGMENT', 105, yPosition, { align: 'center' });
-    
-    yPosition += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.text('This invoice is assigned to, owned by and only payable to:', 105, yPosition, { align: 'center' });
-    
-    yPosition += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Capital Depot INC', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('606 Potter Road', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('Des Plaines IL 60016', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('847-470-1687', 105, yPosition, { align: 'center' });
-    
-    yPosition += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.text('ACH Payments to be sent to:', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('Account name: Capital Depot INC', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('Routing Number: 071000013', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('Account Number: 522702898', 105, yPosition, { align: 'center' });
-    yPosition += 5;
-    doc.text('Remittance address: AR@capitaldepot.com', 105, yPosition, { align: 'center' });
-    
-    // Footer
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(8);
-    doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
-    doc.text('Page 1 Of 1', 190, 280);
-    
-      // Get PDF bytes and collect RC/POD files
+      doc.setFont('helvetica', 'normal');
+      doc.text('ACH Payments to be sent to:', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('Account name: Capital Depot INC', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('Routing Number: 071000013', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('Account Number: 522702898', 105, yPosition, { align: 'center' });
+      yPosition += 5;
+      doc.text('Remittance address: AR@capitaldepot.com', 105, yPosition, { align: 'center' });
+      
+      // Footer
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(8);
+      doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
+      doc.text('Page 1 Of 1', 190, 280);
+      
+      // Get PDF bytes and collect RC/POD files for this order
       const invoicePdfBytes = doc.output('arraybuffer');
-      const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
-      const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
+      const rcFiles = order.rcFiles || [];
+      const podFiles = order.podFiles || [];
       
       // Add merge task (don't await here - we'll process in batches)
       const taskIndex = mergeTasks.length;
       taskToCompanyMap.set(taskIndex, sanitizedCompanyName);
       mergeTasks.push({
         invoicePdfBytes,
-        rcFiles: allRcFiles,
-        podFiles: allPodFiles,
+        rcFiles,
+        podFiles,
         baseFilename,
         companyFolder: sanitizedCompanyName
       });
 
       // Add order data to company's XLSX data
-      group.orders.forEach(order => {
-        // Use the driver's company (order.companyName) for the invoice suffix, not bookedByCompanyName
-        const driverCompanyName = order.companyName;
-        xlsxDataByCompany[sanitizedCompanyName].push({
-          'ClientNo': brokerMcMap.get(order.brokerName) || '',
-          'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, driverCompanyName),
-          'Debtor Debtor Name': order.brokerName,
-          'Pono': order.brokerLoadNumber,
-          'InvDate': currentDate,
-          'InvAmt': `$${order.totalFreightAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        });
+      const driverCompanyName = order.companyName;
+      xlsxDataByCompany[sanitizedCompanyName].push({
+        'ClientNo': brokerMcMap.get(order.brokerName) || '',
+        'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, driverCompanyName),
+        'Debtor Debtor Name': order.brokerName,
+        'Pono': order.brokerLoadNumber,
+        'InvDate': currentDate,
+        'InvAmt': `$${order.totalFreightAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       });
     }
   }
