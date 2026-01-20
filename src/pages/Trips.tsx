@@ -25,7 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
@@ -425,6 +426,8 @@ const Trips = () => {
   const [searchFilter, setSearchFilter] = useState(() => {
     return localStorage.getItem("trips_searchFilter") || "";
   });
+  const [loadNumberSearch, setLoadNumberSearch] = useState("");
+  const [invoicedDateFilter, setInvoicedDateFilter] = useState<Date | undefined>(undefined);
   const itemsPerPage = 50;
 
   const queryClient = useQueryClient();
@@ -901,12 +904,36 @@ const Trips = () => {
         order.truckNumber?.toLowerCase().includes(searchLower) ||
         order.driverName?.toLowerCase().includes(searchLower);
 
+      // Filter by internal load number or broker load number
+      const loadSearchLower = loadNumberSearch.toLowerCase().trim();
+      const formattedInternalLoad = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+      const matchesLoadNumber = !loadSearchLower ||
+        formattedInternalLoad.toLowerCase().includes(loadSearchLower) ||
+        order.internalLoadNumber?.toString().includes(loadSearchLower) ||
+        order.brokerLoadNumber?.toLowerCase().includes(loadSearchLower) ||
+        order.loadNumber?.toLowerCase().includes(loadSearchLower);
+
+      // Filter by invoiced date
+      let matchesInvoicedDate = true;
+      if (invoicedDateFilter) {
+        if (!order.invoicedAt) {
+          matchesInvoicedDate = false;
+        } else {
+          const invoicedDate = new Date(order.invoicedAt);
+          const filterDate = invoicedDateFilter;
+          matchesInvoicedDate = 
+            invoicedDate.getFullYear() === filterDate.getFullYear() &&
+            invoicedDate.getMonth() === filterDate.getMonth() &&
+            invoicedDate.getDate() === filterDate.getDate();
+        }
+      }
+
       // Exclude orders with both freight amount and driver pay equal to 0
       const hasValue =
         (order.totalFreightAmountNoLumper && order.totalFreightAmountNoLumper !== 0) ||
         (order.totalDriverPay && order.totalDriverPay !== 0);
 
-      return matchesSearch && hasValue;
+      return matchesSearch && matchesLoadNumber && matchesInvoicedDate && hasValue;
     }) || [];
 
   // Pagination - paginate individual orders first
@@ -3906,17 +3933,55 @@ const Trips = () => {
           <CardTitle>Filter</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative max-w-md">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Filter by truck # or driver name..."
-              value={searchFilter}
-              onChange={(e) => {
-                setSearchFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="pl-8"
-            />
+          <div className="flex flex-wrap gap-4">
+            <div className="relative w-full max-w-[200px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Truck # / Driver..."
+                value={searchFilter}
+                onChange={(e) => {
+                  setSearchFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-8"
+              />
+            </div>
+            <div className="relative w-full max-w-[200px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Internal# / Broker Load#..."
+                value={loadNumberSearch}
+                onChange={(e) => {
+                  setLoadNumberSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full max-w-[220px]">
+              <DatePicker
+                date={invoicedDateFilter}
+                onDateChange={(date) => {
+                  setInvoicedDateFilter(date);
+                  setCurrentPage(1);
+                }}
+                placeholder="Invoiced date..."
+                className="w-full"
+              />
+              {invoicedDateFilter && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => {
+                    setInvoicedDateFilter(undefined);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
