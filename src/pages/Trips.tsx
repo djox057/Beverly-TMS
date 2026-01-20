@@ -913,18 +913,27 @@ const Trips = () => {
         order.brokerLoadNumber?.toLowerCase().includes(loadSearchLower) ||
         order.loadNumber?.toLowerCase().includes(loadSearchLower);
 
-      // Filter by invoiced date
+      // Filter by invoiced date - use invoicedAt if available, otherwise fall back to deliveryDate
       let matchesInvoicedDate = true;
       if (invoicedDateFilter) {
-        if (!order.invoicedAt) {
+        // Use invoicedAt if available, otherwise use deliveryDate as fallback
+        const dateToCheck = order.invoicedAt || order.deliveryDate;
+        if (!dateToCheck) {
           matchesInvoicedDate = false;
         } else {
-          const invoicedDate = new Date(order.invoicedAt);
-          const filterDate = invoicedDateFilter;
-          matchesInvoicedDate = 
-            invoicedDate.getFullYear() === filterDate.getFullYear() &&
-            invoicedDate.getMonth() === filterDate.getMonth() &&
-            invoicedDate.getDate() === filterDate.getDate();
+          // Parse the date without timezone conversion
+          const normalizedStr = String(dateToCheck).replace(" ", "T");
+          const datePart = normalizedStr.split("T")[0];
+          if (!datePart) {
+            matchesInvoicedDate = false;
+          } else {
+            const [year, month, day] = datePart.split("-").map(Number);
+            const filterDate = invoicedDateFilter;
+            matchesInvoicedDate = 
+              year === filterDate.getFullYear() &&
+              month === filterDate.getMonth() + 1 &&
+              day === filterDate.getDate();
+          }
         }
       }
 
