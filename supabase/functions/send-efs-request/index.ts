@@ -34,6 +34,7 @@ const getEfsEmail = (companyName: string | null): string => {
   const normalized = companyName.toUpperCase();
   if (normalized.includes("BEVERLY FREIGHT")) return "efs@beverlyfreight.net";
   if (normalized.includes("BF PRIME UNITED")) return "efs@bfprimeunited.net";
+  if (normalized.includes("UNITED ENTERPRISE")) return "efs@unitedenterprisesolutions.net";
   if (normalized.includes("BG PRIME")) return "efs@bgprime.net";
   if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
   if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
