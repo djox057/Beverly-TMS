@@ -72,6 +72,7 @@ import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 import { OrderAdditionalsManager } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
+import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -287,9 +288,61 @@ const EditOrder = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerCategory, setScannerCategory] = useState<"POD" | "ADDITIONAL">("POD");
 
+  // Document enhance state (for existing files)
+  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
+  const [enhanceFileUrl, setEnhanceFileUrl] = useState("");
+  const [enhanceFileName, setEnhanceFileName] = useState("");
+  const [enhanceFileCategory, setEnhanceFileCategory] = useState<"POD" | "ADDITIONAL">("POD");
+
   const openScanner = (category: "POD" | "ADDITIONAL") => {
     setScannerCategory(category);
     setScannerOpen(true);
+  };
+
+  const openEnhanceDialog = async (file: { file_path: string; file_name: string; file_category: string }) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("order-files")
+        .createSignedUrl(file.file_path, 3600);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load file: " + error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+      if (signedUrl) {
+        setEnhanceFileUrl(signedUrl);
+        setEnhanceFileName(file.file_name);
+        setEnhanceFileCategory(file.file_category as "POD" | "ADDITIONAL");
+        setEnhanceDialogOpen(true);
+      }
+    } catch (err) {
+      console.error("Error loading file for enhancement:", err);
+      toast({
+        title: "Error",
+        description: "Failed to load file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEnhanceSave = (file: File) => {
+    // Add the enhanced file to the appropriate file list
+    const dt = new DataTransfer();
+    if (enhanceFileCategory === "POD") {
+      if (podFiles) Array.from(podFiles).forEach((f) => dt.items.add(f));
+      dt.items.add(file);
+      setPodFiles(dt.files);
+    } else {
+      if (additionalFiles) Array.from(additionalFiles).forEach((f) => dt.items.add(f));
+      dt.items.add(file);
+      setAdditionalFiles(dt.files);
+    }
   };
 
   const handleScanCapture = (file: File) => {
@@ -3919,13 +3972,13 @@ const EditOrder = () => {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={() => openScanner(file.file_category as "POD" | "ADDITIONAL")}
+                                  onClick={() => openEnhanceDialog(file)}
                                 >
                                   <ScanLine className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Scan new document</p>
+                                <p>Enhance document</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -4378,6 +4431,15 @@ const EditOrder = () => {
         onOpenChange={setScannerOpen}
         onCapture={handleScanCapture}
         category={scannerCategory}
+      />
+
+      {/* Document Enhance Dialog */}
+      <DocumentEnhanceDialog
+        open={enhanceDialogOpen}
+        onOpenChange={setEnhanceDialogOpen}
+        onSave={handleEnhanceSave}
+        fileUrl={enhanceFileUrl}
+        fileName={enhanceFileName}
       />
     </div>
   );
