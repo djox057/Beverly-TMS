@@ -232,7 +232,7 @@ export const DocumentEnhanceDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[1170px] max-h-[95vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1520px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5" />

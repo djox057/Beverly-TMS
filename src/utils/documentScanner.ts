@@ -79,26 +79,82 @@ function erodeMask(mask: Uint8Array, w: number, h: number, radius: number = 2): 
 }
 
 /**
+ * Find the largest connected component in the mask
+ */
+function findLargestComponent(mask: Uint8Array, w: number, h: number): Uint8Array {
+  const visited = new Uint8Array(mask.length);
+  const components: { start: number; pixels: number[] }[] = [];
+  
+  // Find all connected components
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] > 0 && visited[i] === 0) {
+      const pixels: number[] = [];
+      const stack = [i];
+      
+      while (stack.length > 0) {
+        const p = stack.pop()!;
+        if (visited[p] > 0) continue;
+        visited[p] = 1;
+        pixels.push(p);
+        
+        const x = p % w;
+        const y = Math.floor(p / w);
+        
+        // Check 4-connected neighbors
+        if (x > 0 && mask[p - 1] > 0 && visited[p - 1] === 0) stack.push(p - 1);
+        if (x < w - 1 && mask[p + 1] > 0 && visited[p + 1] === 0) stack.push(p + 1);
+        if (y > 0 && mask[p - w] > 0 && visited[p - w] === 0) stack.push(p - w);
+        if (y < h - 1 && mask[p + w] > 0 && visited[p + w] === 0) stack.push(p + w);
+      }
+      
+      components.push({ start: i, pixels });
+    }
+  }
+  
+  if (components.length === 0) return mask;
+  
+  // Find largest
+  let largest = components[0];
+  for (const comp of components) {
+    if (comp.pixels.length > largest.pixels.length) {
+      largest = comp;
+    }
+  }
+  
+  // Create mask with only largest component
+  const result = new Uint8Array(mask.length);
+  for (const p of largest.pixels) {
+    result[p] = 255;
+  }
+  
+  return result;
+}
+
+/**
  * Find boundary points of the bright region
  */
 function findBoundaryPoints(mask: Uint8Array, w: number, h: number): number[][] {
   const points: number[][] = [];
   
-  // Only check every few pixels for performance
-  const step = 2;
+  // Sample points along edges for performance
+  const step = 1;
   
-  for (let y = step; y < h - step; y += step) {
-    for (let x = step; x < w - step; x += step) {
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
       if (mask[y * w + x] > 0) {
         // Check if this is a boundary pixel (has a dark neighbor)
         let isBoundary = false;
-        for (let dy = -1; dy <= 1 && !isBoundary; dy++) {
-          for (let dx = -1; dx <= 1 && !isBoundary; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = x + dx;
-            const ny = y + dy;
-            if (mask[ny * w + nx] === 0) {
-              isBoundary = true;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+          isBoundary = true;
+        } else {
+          for (let dy = -1; dy <= 1 && !isBoundary; dy++) {
+            for (let dx = -1; dx <= 1 && !isBoundary; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              const nx = x + dx;
+              const ny = y + dy;
+              if (mask[ny * w + nx] === 0) {
+                isBoundary = true;
+              }
             }
           }
         }
@@ -270,9 +326,7 @@ function perspectiveTransform(
  * Detect document and apply perspective correction
  */
 export async function detectAndCropDocument(
-  imageElement: HTMLImageElement | HTMLCanvasElement,
-  outputWidth: number = 850,
-  outputHeight: number = 1100
+  imageElement: HTMLImageElement | HTMLCanvasElement
 ): Promise<HTMLCanvasElement | null> {
   // Create source canvas
   let srcCanvas: HTMLCanvasElement;
@@ -288,7 +342,7 @@ export async function detectAndCropDocument(
   }
   
   // Work on smaller version for speed
-  const maxDim = 500;
+  const maxDim = 600;
   const scale = Math.min(1, maxDim / Math.max(srcCanvas.width, srcCanvas.height));
   
   const processCanvas = document.createElement("canvas");
@@ -303,43 +357,81 @@ export async function detectAndCropDocument(
   const h = processCanvas.height;
   
   // Step 1: Threshold to find bright regions (paper is usually bright)
-  let mask = thresholdBrightness(imageData, 120);
+  let mask = thresholdBrightness(imageData, 140);
   
   // Step 2: Clean up mask with morphological operations
-  mask = dilateMask(mask, w, h, 2);
-  mask = erodeMask(mask, w, h, 3);
-  mask = dilateMask(mask, w, h, 2);
+  mask = erodeMask(mask, w, h, 2);
+  mask = dilateMask(mask, w, h, 4);
+  mask = erodeMask(mask, w, h, 2);
   
-  // Step 3: Find boundary points of bright region
+  // Step 3: Keep only the largest connected component (the paper)
+  mask = findLargestComponent(mask, w, h);
+  
+  // Step 4: Find boundary points of bright region
   const boundaryPoints = findBoundaryPoints(mask, w, h);
   
-  if (boundaryPoints.length < 20) {
+  if (boundaryPoints.length < 50) {
     // Try with lower threshold
     mask = thresholdBrightness(imageData, 100);
-    mask = dilateMask(mask, w, h, 2);
-    mask = erodeMask(mask, w, h, 3);
+    mask = erodeMask(mask, w, h, 2);
+    mask = dilateMask(mask, w, h, 4);
+    mask = findLargestComponent(mask, w, h);
     const retryPoints = findBoundaryPoints(mask, w, h);
-    if (retryPoints.length < 20) {
+    if (retryPoints.length < 50) {
+      console.log("Not enough boundary points found");
       return null;
     }
+    boundaryPoints.length = 0;
     boundaryPoints.push(...retryPoints);
   }
   
-  // Step 4: Find 4 corners
+  // Step 5: Find 4 corners
   const corners = findQuadCorners(boundaryPoints, w, h);
   
   if (!corners) {
+    console.log("Could not find 4 corners");
     return null;
   }
   
   // Scale corners back to original size
   const originalCorners = corners.map(c => [
-    Math.round(c[0] / scale),
-    Math.round(c[1] / scale),
+    c[0] / scale,
+    c[1] / scale,
   ]);
   
-  // Step 5: Apply perspective transform
-  const result = perspectiveTransform(srcCanvas, originalCorners, outputWidth, outputHeight);
+  // Calculate output dimensions based on detected document
+  const topWidth = Math.sqrt(
+    Math.pow(originalCorners[1][0] - originalCorners[0][0], 2) +
+    Math.pow(originalCorners[1][1] - originalCorners[0][1], 2)
+  );
+  const bottomWidth = Math.sqrt(
+    Math.pow(originalCorners[2][0] - originalCorners[3][0], 2) +
+    Math.pow(originalCorners[2][1] - originalCorners[3][1], 2)
+  );
+  const leftHeight = Math.sqrt(
+    Math.pow(originalCorners[3][0] - originalCorners[0][0], 2) +
+    Math.pow(originalCorners[3][1] - originalCorners[0][1], 2)
+  );
+  const rightHeight = Math.sqrt(
+    Math.pow(originalCorners[2][0] - originalCorners[1][0], 2) +
+    Math.pow(originalCorners[2][1] - originalCorners[1][1], 2)
+  );
+  
+  const outputWidth = Math.round(Math.max(topWidth, bottomWidth));
+  const outputHeight = Math.round(Math.max(leftHeight, rightHeight));
+  
+  // Ensure minimum quality
+  const minDim = 800;
+  let finalWidth = outputWidth;
+  let finalHeight = outputHeight;
+  if (finalWidth < minDim || finalHeight < minDim) {
+    const upscale = minDim / Math.min(finalWidth, finalHeight);
+    finalWidth = Math.round(finalWidth * upscale);
+    finalHeight = Math.round(finalHeight * upscale);
+  }
+  
+  // Step 6: Apply perspective transform
+  const result = perspectiveTransform(srcCanvas, originalCorners, finalWidth, finalHeight);
   
   return result;
 }
