@@ -3988,7 +3988,7 @@ const Trips = () => {
                         <Fragment key={`week-${week.weekStart}`}>
                           {/* Weekly Summary Row - Now appears FIRST */}
                           <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
-                            <TableCell colSpan={canMoveLoads ? 9 : 8} className="py-3">
+                            <TableCell colSpan={canMoveLoads ? 8 : 7} className="py-3">
                               <div className="flex items-center gap-4">
                                 <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
                                 <div className="flex items-center gap-2">
