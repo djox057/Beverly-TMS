@@ -1482,17 +1482,34 @@ const Reports = () => {
         }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
-    const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
-      if (!currentOrder?.id) return true; // Safety check
+    const getPreviousLoadDeliveryStatus = (orderToCheck: any): boolean => {
+      if (!orderToCheck?.id) return true; // Safety check
       
-      const currentIndex = ordersWithDates.findIndex((o) => o.id === currentOrder.id);
+      const currentIndex = ordersWithDates.findIndex((o) => o.id === orderToCheck.id);
       if (currentIndex <= 0) return true; // First load or not found, no previous
 
+      // Check if ANY order before this one is still in-progress (has BOL but no POD)
+      // If there's an in-progress load, this pickup is not ready (no cyan)
+      for (let i = 0; i < currentIndex; i++) {
+        const priorOrder = ordersWithDates[i];
+        if (!priorOrder || priorOrder.canceled) continue;
+        
+        const hasBOL = priorOrder.order_files?.some((file: any) => file.file_category === "BOL");
+        const hasPOD = priorOrder.order_files?.some((file: any) => file.file_category === "POD");
+        
+        // If any prior order has BOL but no POD, it's still in-progress
+        if (hasBOL && !hasPOD) {
+          return false; // Not ready for pickup - prior load still in progress
+        }
+      }
+      
+      // All prior orders are either complete (have POD) or not started (no BOL)
+      // Check if the immediately previous order has POD for cyan
       const previousOrder = ordersWithDates[currentIndex - 1];
       if (!previousOrder) return true;
       
       const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-      return !!hasPOD; // Dark green if POD exists
+      return !!hasPOD;
     };
 
     // Find the first pickup date for this truck
