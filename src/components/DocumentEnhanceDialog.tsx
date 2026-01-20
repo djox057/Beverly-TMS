@@ -6,12 +6,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Check, Loader2, Wand2, Crop, Sparkles } from "lucide-react";
+import { RotateCcw, Check, Loader2, Wand2, Crop } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import {
-  initOpenCV,
   detectAndCropDocument,
   processDocument,
 } from "@/utils/documentScanner";
@@ -39,7 +38,6 @@ export const DocumentEnhanceDialog = ({
 
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isOpenCVLoading, setIsOpenCVLoading] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -135,18 +133,8 @@ export const DocumentEnhanceDialog = ({
     if (!originalImageRef.current) return;
 
     setIsProcessing(true);
-    setIsOpenCVLoading(true);
 
     try {
-      // Initialize OpenCV (lazy load)
-      toast({
-        title: "Loading OpenCV",
-        description: "This may take a few seconds on first use...",
-      });
-      
-      await initOpenCV();
-      setIsOpenCVLoading(false);
-
       // Detect and crop document
       const croppedCanvas = await detectAndCropDocument(originalImageRef.current);
       
@@ -184,21 +172,7 @@ export const DocumentEnhanceDialog = ({
       });
     } finally {
       setIsProcessing(false);
-      setIsOpenCVLoading(false);
     }
-  };
-
-  const handleQuickEnhance = async () => {
-    // Apply optimal settings for document scanning
-    setBrightness(110);
-    setContrast(120);
-    setSharpness(50);
-    setGrayscale(false);
-    
-    toast({
-      title: "Quick Enhance Applied",
-      description: "Optimized settings for document clarity",
-    });
   };
 
   const handleReset = () => {
@@ -310,28 +284,19 @@ export const DocumentEnhanceDialog = ({
                 />
               </div>
 
-              {/* Processing buttons */}
-              <div className="flex flex-wrap justify-center gap-2">
+              {/* Processing button */}
+              <div className="flex justify-center">
                 <Button
                   variant="outline"
                   onClick={handleAutoCrop}
                   disabled={isProcessing}
                 >
-                  {isProcessing && isOpenCVLoading ? (
+                  {isProcessing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Crop className="h-4 w-4 mr-2" />
                   )}
                   {autoCropped ? "Re-detect Edges" : "Detect & Crop"}
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={handleQuickEnhance}
-                  disabled={isProcessing}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Quick Enhance
                 </Button>
               </div>
 
