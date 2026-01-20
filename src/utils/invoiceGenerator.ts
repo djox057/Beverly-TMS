@@ -83,11 +83,11 @@ interface Order {
   pickup_drops?: PickupDrop[];
 }
 
-// Helper to add timeout to promises
-const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+// Helper to add timeout to promises - returns null on timeout
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T | null> => {
   return Promise.race([
     promise,
-    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+    new Promise<T | null>(resolve => setTimeout(() => resolve(null), ms))
   ]);
 };
 
@@ -512,25 +512,55 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
   // Process merge tasks in parallel batches of 5
   const BATCH_SIZE = 5;
   const TIMEOUT_MS = 30000; // 30 second timeout per merge
-  const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[] }>> = {};
+  const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[]; success: boolean }>> = {};
+  const failedInvoices: string[] = [];
+  let successCount = 0;
   
   // Initialize company arrays
   for (const companyFolder of Object.keys(xlsxDataByCompany)) {
     invoicesByCompany[companyFolder] = [];
   }
 
+  // Process ALL batches until completion
+  let batchNumber = 0;
+  const totalBatches = Math.ceil(mergeTasks.length / BATCH_SIZE);
+  
   for (let i = 0; i < mergeTasks.length; i += BATCH_SIZE) {
+    batchNumber++;
     const batch = mergeTasks.slice(i, i + BATCH_SIZE);
-    console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(mergeTasks.length / BATCH_SIZE)} (${batch.length} invoices)`);
+    console.log(`Processing batch ${batchNumber} of ${totalBatches} (${batch.length} invoices, total processed: ${i}/${mergeTasks.length})`);
     
-    // Process batch in parallel with timeout
-    const batchPromises = batch.map(task => 
-      withTimeout(
-        processMergeTask(task),
-        TIMEOUT_MS,
-        { filename: task.baseFilename, pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)) }
-      )
-    );
+    // Process batch in parallel with timeout - track success/failure
+    const batchPromises = batch.map(async (task, batchIdx) => {
+      try {
+        const result = await withTimeout(
+          processMergeTask(task),
+          TIMEOUT_MS
+        );
+        
+        if (result === null) {
+          console.warn(`Timeout processing invoice: ${task.baseFilename}`);
+          failedInvoices.push(task.baseFilename);
+          // Return fallback with just the invoice PDF
+          return { 
+            filename: task.baseFilename, 
+            pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
+            success: false
+          };
+        }
+        
+        successCount++;
+        return { ...result, success: true };
+      } catch (error) {
+        console.error(`Error processing invoice ${task.baseFilename}:`, error);
+        failedInvoices.push(task.baseFilename);
+        return { 
+          filename: task.baseFilename, 
+          pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
+          success: false
+        };
+      }
+    });
     
     const batchResults = await Promise.all(batchPromises);
     
@@ -543,10 +573,20 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       }
     });
     
+    console.log(`Batch ${batchNumber} complete. Success so far: ${successCount}/${i + batch.length}`);
+    
     // Small delay between batches to prevent rate limiting
     if (i + BATCH_SIZE < mergeTasks.length) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+  }
+
+  console.log(`All batches processed. Success: ${successCount}/${mergeTasks.length}, Failed: ${failedInvoices.length}`);
+  
+  // Report failures if any
+  if (failedInvoices.length > 0) {
+    console.error(`Failed to fully process ${failedInvoices.length} invoices:`, failedInvoices);
+    // Note: We still continue to create the ZIP with fallback PDFs
   }
 
   console.log(`All invoices processed. Creating ZIP file...`);
@@ -613,10 +653,17 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     
     console.log('ZIP file downloaded successfully');
     
+    // Throw error if any invoices failed so caller can show toast
+    if (failedInvoices.length > 0) {
+      const errorMsg = `${failedInvoices.length} invoice(s) failed to merge with attachments: ${failedInvoices.slice(0, 5).join(', ')}${failedInvoices.length > 5 ? '...' : ''}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     // Return the IDs of all orders that were processed
     return orders.map(order => order.id);
   } catch (error) {
     console.error('Error creating ZIP file:', error);
-    return [];
+    throw error; // Re-throw so caller can handle and show toast
   }
 };
