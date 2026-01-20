@@ -1683,9 +1683,10 @@ const Trips = () => {
       });
 
       // Deductions section (rows 32-43 for BF Prime Drivers)
-      // Fixed deductions at the start
+      // Fixed deductions at the start - date should be week end date
+      const endDateFormatted = format(weekEndDate, "M/d");
       const deductions = [
-        { row: 32, description: "Cargo Insurance", amount: 250.0 },
+        { row: 32, description: "Cargo Insurance", amount: 285.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
         { row: 34, description: "ELD", amount: 50.0 },
         { row: 35, description: "Pre-Pass", amount: 20.0 },
@@ -1697,6 +1698,9 @@ const Trips = () => {
         const descCell = worksheet.getCell(`B${row}`);
         descCell.value = description;
         descCell.font = { bold: true, size: 16 };
+
+        // Set week end date in column I for fixed deductions
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
 
         if (amount !== undefined) {
           const amtCell = worksheet.getCell(`J${row}`);
