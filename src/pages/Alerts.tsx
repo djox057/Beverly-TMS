@@ -297,6 +297,9 @@ export default function Alerts() {
         dot_inspection_date: formData.get('dot_inspection_date') as string || null,
         plate_expiration_date: formData.get('plate_expiration_date') as string || null,
         insurance_expiration_date: formData.get('insurance_expiration_date') as string || null,
+        oil_change_date: formData.get('oil_change_date') as string || null,
+        tires_swap_date: formData.get('tires_swap_date') as string || null,
+        maintenance_check_date: formData.get('maintenance_check_date') as string || null,
       };
 
       const { error } = await supabase
@@ -949,6 +952,18 @@ export default function Alerts() {
                 <div>
                   <Label htmlFor="insurance_expiration_date">Insurance Expiration Date</Label>
                   <Input id="insurance_expiration_date" name="insurance_expiration_date" type="date" defaultValue={editingTruck.insurance_expiration_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="oil_change_date">Oil Change Date</Label>
+                  <Input id="oil_change_date" name="oil_change_date" type="date" defaultValue={editingTruck.oil_change_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="tires_swap_date">Tires Swap Date</Label>
+                  <Input id="tires_swap_date" name="tires_swap_date" type="date" defaultValue={editingTruck.tires_swap_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="maintenance_check_date">Maintenance Check Date</Label>
+                  <Input id="maintenance_check_date" name="maintenance_check_date" type="date" defaultValue={editingTruck.maintenance_check_date || ""} />
                 </div>
               </div>
               <TruckFilesManager truckId={editingTruck.id} />
