@@ -58,6 +58,23 @@ const getExpirationStatus = (date: string | null) => {
   }
 };
 
+// Maintenance date status: red if ≤7 days, yellow if ≤30 days
+const getMaintenanceStatus = (date: string | null) => {
+  if (!date) return { color: "text-muted-foreground", label: "N/A" };
+  
+  const maintenanceDate = new Date(date);
+  const now = new Date();
+  const daysUntil = Math.ceil((maintenanceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysUntil <= 7) {
+    return { color: "text-red-500 font-semibold", label: formatDate(date) };
+  } else if (daysUntil <= 30) {
+    return { color: "text-yellow-500 font-semibold", label: formatDate(date) };
+  } else {
+    return { color: "", label: formatDate(date) };
+  }
+};
+
 // Chicago-time based calculation for random drug test date
 const getDrugTestStatus = (date: string | null) => {
   if (!date) return { variant: "secondary" as const, label: "No Date" };
@@ -529,6 +546,9 @@ export default function Alerts() {
                       >
                         Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
                       </TableHead>
+                      <TableHead>Oil Change</TableHead>
+                      <TableHead>Tires Swap</TableHead>
+                      <TableHead>Maintenance Check</TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -572,6 +592,21 @@ export default function Alerts() {
                                </Badge>
                              )}
                            </div>
+                         </TableCell>
+                         <TableCell>
+                           <span className={getMaintenanceStatus(truck.oil_change_date).color}>
+                             {getMaintenanceStatus(truck.oil_change_date).label}
+                           </span>
+                         </TableCell>
+                         <TableCell>
+                           <span className={getMaintenanceStatus(truck.tires_swap_date).color}>
+                             {getMaintenanceStatus(truck.tires_swap_date).label}
+                           </span>
+                         </TableCell>
+                         <TableCell>
+                           <span className={getMaintenanceStatus(truck.maintenance_check_date).color}>
+                             {getMaintenanceStatus(truck.maintenance_check_date).label}
+                           </span>
                          </TableCell>
                        </TableRow>
                      ))}
