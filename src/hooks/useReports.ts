@@ -1834,6 +1834,10 @@ export const useReports = (options?: UseReportsOptions) => {
               trailerId: truck.trailer_id || null,
               dispatcherEmail: dispatcherInfo?.email || null,
               dispatcherName: dispatcherInfo?.full_name || null,
+              // Maintenance tracking dates
+              oil_change_date: truck.oil_change_date || null,
+              tires_swap_date: truck.tires_swap_date || null,
+              maintenance_check_date: truck.maintenance_check_date || null,
             };
           }) || [];
 
