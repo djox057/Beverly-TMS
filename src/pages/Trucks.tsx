@@ -35,6 +35,9 @@ interface TruckFormData {
   dot_inspection_date: string;
   plate_expiration_date: string;
   insurance_expiration_date: string;
+  oil_change_date: string;
+  tires_swap_date: string;
+  maintenance_check_date: string;
 }
 
 interface TerminationNote {
@@ -72,7 +75,10 @@ const Trucks = () => {
     ipass: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
-    insurance_expiration_date: ""
+    insurance_expiration_date: "",
+    oil_change_date: "",
+    tires_swap_date: "",
+    maintenance_check_date: ""
   });
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
@@ -154,7 +160,10 @@ const Trucks = () => {
       ipass: "",
       dot_inspection_date: "",
       plate_expiration_date: "",
-      insurance_expiration_date: ""
+      insurance_expiration_date: "",
+      oil_change_date: "",
+      tires_swap_date: "",
+      maintenance_check_date: ""
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
@@ -188,7 +197,10 @@ const Trucks = () => {
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        oil_change_date: formData.oil_change_date || null,
+        tires_swap_date: formData.tires_swap_date || null,
+        maintenance_check_date: formData.maintenance_check_date || null
       });
       if (error) throw error;
 
@@ -260,7 +272,10 @@ const Trucks = () => {
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        oil_change_date: formData.oil_change_date || null,
+        tires_swap_date: formData.tires_swap_date || null,
+        maintenance_check_date: formData.maintenance_check_date || null
       }).eq('id', editingTruck.id);
       if (error) throw error;
 
@@ -380,7 +395,10 @@ const Trucks = () => {
       ipass: truck.ipass || "",
       dot_inspection_date: truck.dot_inspection_date || "",
       plate_expiration_date: truck.plate_expiration_date || "",
-      insurance_expiration_date: truck.insurance_expiration_date || ""
+      insurance_expiration_date: truck.insurance_expiration_date || "",
+      oil_change_date: truck.oil_change_date || "",
+      tires_swap_date: truck.tires_swap_date || "",
+      maintenance_check_date: truck.maintenance_check_date || ""
     });
     
     // Fetch termination notes if truck is inactive
@@ -654,6 +672,30 @@ const Trucks = () => {
                   <Input id="insurance_expiration_date" type="date" value={formData.insurance_expiration_date} onChange={e => setFormData({
                   ...formData,
                   insurance_expiration_date: e.target.value
+                })} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="oil_change_date">Oil Change Date</Label>
+                  <Input id="oil_change_date" type="date" value={formData.oil_change_date} onChange={e => setFormData({
+                  ...formData,
+                  oil_change_date: e.target.value
+                })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tires_swap_date">Tires Swap Date</Label>
+                  <Input id="tires_swap_date" type="date" value={formData.tires_swap_date} onChange={e => setFormData({
+                  ...formData,
+                  tires_swap_date: e.target.value
+                })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maintenance_check_date">Maintenance Check Date</Label>
+                  <Input id="maintenance_check_date" type="date" value={formData.maintenance_check_date} onChange={e => setFormData({
+                  ...formData,
+                  maintenance_check_date: e.target.value
                 })} />
                 </div>
               </div>
@@ -1042,6 +1084,30 @@ const Trucks = () => {
                     <Input id="edit_insurance_expiration_date" type="date" value={formData.insurance_expiration_date} onChange={e => setFormData({
                     ...formData,
                     insurance_expiration_date: e.target.value
+                  })} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_oil_change_date">Oil Change Date</Label>
+                    <Input id="edit_oil_change_date" type="date" value={formData.oil_change_date} onChange={e => setFormData({
+                    ...formData,
+                    oil_change_date: e.target.value
+                  })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_tires_swap_date">Tires Swap Date</Label>
+                    <Input id="edit_tires_swap_date" type="date" value={formData.tires_swap_date} onChange={e => setFormData({
+                    ...formData,
+                    tires_swap_date: e.target.value
+                  })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_maintenance_check_date">Maintenance Check Date</Label>
+                    <Input id="edit_maintenance_check_date" type="date" value={formData.maintenance_check_date} onChange={e => setFormData({
+                    ...formData,
+                    maintenance_check_date: e.target.value
                   })} />
                   </div>
                 </div>
