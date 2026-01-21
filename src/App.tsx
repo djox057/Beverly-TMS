@@ -33,6 +33,7 @@ import FuelReports from "./pages/FuelReports";
 import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
+import Billboard from "./pages/Billboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -213,6 +214,11 @@ const AppContent = () => {
         <Route path="/problems" element={
           <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
             <Layout><Problems /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/billboard" element={
+          <ProtectedRoute>
+            <Billboard />
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
