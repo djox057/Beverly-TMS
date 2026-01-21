@@ -1201,13 +1201,15 @@ const Orders = () => {
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">RC</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">POD</TableHead>
                     <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">Actions</TableHead>
-                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">Paid</TableHead>
+                    {!hasRole('dispatch') && !hasRole('afterhours') && (
+                      <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">Paid</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={hasRole('dispatch') || hasRole('afterhours') ? 20 : 21} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow>
@@ -1778,18 +1780,20 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="w-20 text-center">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={order.paid === true}
-                                onCheckedChange={() => {
-                                  setPendingPaidOrder({ id: order.id, currentPaid: order.paid === true });
-                                  setPaidConfirmDialogOpen(true);
-                                }}
-                                aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
-                              />
-                            </div>
-                          </TableCell>
+                          {!hasRole('dispatch') && !hasRole('afterhours') && (
+                            <TableCell className="w-20 text-center">
+                              <div className="flex justify-center">
+                                <Checkbox
+                                  checked={order.paid === true}
+                                  onCheckedChange={() => {
+                                    setPendingPaidOrder({ id: order.id, currentPaid: order.paid === true });
+                                    setPaidConfirmDialogOpen(true);
+                                  }}
+                                  aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                                />
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })
