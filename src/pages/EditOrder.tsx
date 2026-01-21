@@ -226,6 +226,9 @@ const EditOrder = () => {
   const [showChangeNoteDialog, setShowChangeNoteDialog] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<string[]>([]);
   const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null);
+  
+  // Queued submit state: triggers a re-render so performSave sees updated additionals state
+  const [queuedSubmit, setQueuedSubmit] = useState<{ changeNote?: string } | null>(null);
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -463,6 +466,53 @@ const EditOrder = () => {
     };
     fetchProfiles();
   }, []);
+
+  // Handle queued submit after additionals state updates
+  // This effect runs in a new render where the additionals state is updated
+  useEffect(() => {
+    if (!queuedSubmit) return;
+    
+    const { changeNote } = queuedSubmit;
+    setQueuedSubmit(null); // Clear immediately to prevent loops
+    
+    // Now run the actual submit logic with updated state
+    const runQueuedSubmit = async () => {
+      // Check if revised RC is required (additionals added except lumper)
+      if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
+        toast({
+          title: "Revised Rate Confirmation Required",
+          description: "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // If there's a change note, we already have it, just save
+      if (changeNote !== undefined) {
+        setIsSubmitting(true);
+        await performSave(changeNote);
+        setPendingChanges([]);
+        setPendingSubmitEvent(null);
+        return;
+      }
+
+      // Detect changes
+      const changes = detectChanges();
+      
+      // If there are changes, show dialog to require user note
+      if (changes.length > 0) {
+        setPendingChanges(changes);
+        setShowChangeNoteDialog(true);
+        return;
+      }
+
+      // No changes detected, proceed with save
+      setIsSubmitting(true);
+      await performSave();
+    };
+    
+    runQueuedSubmit();
+  }, [queuedSubmit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Memoize loadOrderData to prevent infinite loops
   const loadOrderData = useCallback(async () => {
@@ -2564,11 +2614,15 @@ const EditOrder = () => {
 
     // Auto-add pending additional charges if user filled in values but didn't click Add
     const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-    // Give React a split-second to apply state updates before we validate / diff / save.
+    
     if (didAutoAddAdditional) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // If we auto-added an additional, queue the submit for the next render
+      // so that performSave reads the updated state values
+      setQueuedSubmit({ changeNote: undefined });
+      return;
     }
 
+    // No auto-add happened, continue with immediate submit
     // Check if revised RC is required (additionals added except lumper)
     if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
       toast({
@@ -2598,11 +2652,17 @@ const EditOrder = () => {
   const handleChangeNoteConfirm = async (note: string) => {
     setShowChangeNoteDialog(false);
 
+    // Auto-add pending additional charges if user filled in values but didn't click Add
     const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
+    
     if (didAutoAddAdditional) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // If we auto-added an additional, queue the submit for the next render
+      // so that performSave reads the updated state values
+      setQueuedSubmit({ changeNote: note });
+      return;
     }
 
+    // No auto-add happened, continue with immediate save
     setIsSubmitting(true);
     await performSave(note);
     setPendingChanges([]);
