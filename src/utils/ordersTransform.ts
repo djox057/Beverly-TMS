@@ -40,7 +40,8 @@ export function transformOrders(allOrders: any[]) {
       toNum(order.late_fee_driver || order.lateFeeDriver) -
       toNum(order.no_tracking_fee_driver || order.noTrackingFeeDriver) -
       toNum(order.wrong_address_fee_driver || order.wrongAddressFeeDriver) +
-      toNum(order.other_charges_driver || order.otherChargesDriver);
+      toNum(order.other_charges_driver || order.otherChargesDriver) +
+      toNum(order.other_additionals_driver || order.otherAdditionalsDriver);
 
     // Calculate total freight amount - check freight_amount, freightAmount, AND freight
     // Use toNum() to handle "null" strings from CSV cached data
