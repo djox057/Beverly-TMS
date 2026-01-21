@@ -160,49 +160,49 @@ const Billboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-8">
+    <div className="min-h-screen bg-background flex flex-col p-7">
       {/* Header - Week Label */}
-      <div className="text-center mb-4">
-        <p className="text-2xl text-muted-foreground font-medium">This Week: {weekRangeLabel}</p>
+      <div className="text-center mb-3">
+        <p className="text-xl text-muted-foreground font-medium">This Week: {weekRangeLabel}</p>
       </div>
 
       {/* Average RPM - Big number at top */}
-      <div className="text-center py-8 border-b border-border">
-        <p className="text-3xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
-        <p className="text-[12rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
+      <div className="text-center py-7 border-b border-border">
+        <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
+        <p className="text-[10.5rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
       </div>
 
       {/* Top 5 Dispatchers */}
-      <div className="flex-1 flex flex-col justify-center mt-8">
-        <h2 className="text-3xl text-center text-muted-foreground uppercase tracking-widest mb-8">
+      <div className="flex-1 flex flex-col justify-center mt-7">
+        <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">
           Top 5 Dispatchers by Gross
         </h2>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {top5Dispatchers.map((dispatcher, index) => (
             <div
               key={dispatcher.name}
-              className="flex items-center justify-between px-12 py-6 bg-card rounded-lg border border-border"
+              className="flex items-center justify-between px-10 py-5 bg-card rounded-lg border border-border"
             >
               {/* Rank + Name */}
-              <div className="flex items-center gap-6">
-                <span className="text-6xl font-bold text-muted-foreground w-16 text-center">
+              <div className="flex items-center gap-5">
+                <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
                   {index + 1}
                 </span>
-                <span className="text-5xl font-semibold text-foreground">
+                <span className="text-4xl font-semibold text-foreground">
                   {dispatcher.displayName}
                 </span>
               </div>
 
               {/* Gross + RPM */}
-              <div className="flex items-center gap-16">
+              <div className="flex items-center gap-14">
                 <div className="text-right">
-                  <p className="text-lg text-muted-foreground uppercase tracking-wide">Gross</p>
-                  <p className="text-5xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                  <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                  <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg text-muted-foreground uppercase tracking-wide">RPM</p>
-                  <p className="text-5xl font-bold text-accent-foreground">{formatRPM(dispatcher.ratePerMile)}</p>
+                  <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                  <p className="text-4xl font-bold text-accent-foreground">{formatRPM(dispatcher.ratePerMile)}</p>
                 </div>
               </div>
             </div>
@@ -212,22 +212,22 @@ const Billboard = () => {
           {Array.from({ length: Math.max(0, 5 - top5Dispatchers.length) }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="flex items-center justify-between px-12 py-6 bg-card/50 rounded-lg border border-border opacity-30"
+              className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
             >
-              <div className="flex items-center gap-6">
-                <span className="text-6xl font-bold text-muted-foreground w-16 text-center">
+              <div className="flex items-center gap-5">
+                <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
                   {top5Dispatchers.length + i + 1}
                 </span>
-                <span className="text-5xl font-semibold text-muted-foreground">—</span>
+                <span className="text-4xl font-semibold text-muted-foreground">—</span>
               </div>
-              <div className="flex items-center gap-16">
+              <div className="flex items-center gap-14">
                 <div className="text-right">
-                  <p className="text-lg text-muted-foreground uppercase tracking-wide">Gross</p>
-                  <p className="text-5xl font-bold text-muted-foreground">—</p>
+                  <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                  <p className="text-4xl font-bold text-muted-foreground">—</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg text-muted-foreground uppercase tracking-wide">RPM</p>
-                  <p className="text-5xl font-bold text-muted-foreground">—</p>
+                  <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                  <p className="text-4xl font-bold text-muted-foreground">—</p>
                 </div>
               </div>
             </div>
