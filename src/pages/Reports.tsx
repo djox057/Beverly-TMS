@@ -52,6 +52,7 @@ import { useReports } from "@/hooks/useReports";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
+import wrenchIcon from "@/assets/wrench-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
@@ -97,6 +98,7 @@ import {
   parseOrdersWithDates,
   getPreviousLoadDeliveryStatus,
   getStatusColors,
+  getMaintenanceIconStatus,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
@@ -3293,6 +3295,33 @@ const Reports = () => {
                                           <div className="flex items-center gap-1 font-bold text-black">
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                                            {(() => {
+                                              const maintenanceStatus = getMaintenanceIconStatus(truck);
+                                              if (maintenanceStatus.show) {
+                                                return (
+                                                  <TooltipProvider>
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <img 
+                                                          src={wrenchIcon} 
+                                                          alt="Maintenance" 
+                                                          className="h-3 w-3"
+                                                          style={{ 
+                                                            filter: maintenanceStatus.color === 'red' 
+                                                              ? 'invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)' 
+                                                              : 'invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)'
+                                                          }}
+                                                        />
+                                                      </TooltipTrigger>
+                                                      <TooltipContent>
+                                                        <p className="text-xs">{maintenanceStatus.tooltip}</p>
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                  </TooltipProvider>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
                                             {truck.twoWeekBlockDate && (
                                               <Popover>
                                                 <PopoverTrigger asChild>

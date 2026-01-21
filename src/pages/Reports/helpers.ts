@@ -388,3 +388,37 @@ export const getStatusColors = (status: string) => {
       };
   }
 };
+
+// Helper to get maintenance icon status for trucks
+export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: string; tooltip: string } => {
+  const dates = [
+    { name: "Oil Change", date: truck.oil_change_date },
+    { name: "Tires Swap", date: truck.tires_swap_date },
+    { name: "Maintenance Check", date: truck.maintenance_check_date },
+  ];
+  
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  let minDays = Infinity;
+  const dueSoon: string[] = [];
+  
+  for (const { name, date } of dates) {
+    if (!date) continue;
+    const maintenanceDate = new Date(date);
+    maintenanceDate.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((maintenanceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil <= 30) {
+      minDays = Math.min(minDays, daysUntil);
+      dueSoon.push(`${name}: ${daysUntil <= 0 ? 'Overdue' : `${daysUntil} days`}`);
+    }
+  }
+  
+  if (dueSoon.length === 0) {
+    return { show: false, color: "", tooltip: "" };
+  }
+  
+  const color = minDays <= 7 ? "red" : "yellow";
+  return { show: true, color, tooltip: dueSoon.join(", ") };
+};
