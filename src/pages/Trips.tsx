@@ -418,7 +418,8 @@ const getStatusBadge = (status: string) => {
 
 const Trips = () => {
   const navigate = useNavigate();
-  const { roles } = useAuth();
+  const { roles, getPrimaryRole } = useAuth();
+  const primaryRole = getPrimaryRole();
 
   const { data: orders, isLoading } = useOrders();
 
@@ -432,8 +433,11 @@ const Trips = () => {
 
   const queryClient = useQueryClient();
 
-  // Check if user can move loads between weeks (managers, admins, accounting)
-  const canMoveLoads = roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false;
+  // Check if user can move loads between weeks (managers, admins, accounting) - dispatch cannot
+  const canMoveLoads = primaryRole !== 'dispatch' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
+  
+  // Check if user can see paid columns - dispatch cannot
+  const canSeePaidColumn = primaryRole !== 'dispatch';
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({
@@ -4032,14 +4036,14 @@ const Trips = () => {
                   
                   <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver Pay</TableHead>
                   <TableHead className="w-[100px] min-w-[100px] max-w-[100px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Freight Amt</TableHead>
-                  <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">Paid</TableHead>
+                  {canSeePaidColumn && <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">Paid</TableHead>}
                   <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canMoveLoads ? 14 : 13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : (canSeePaidColumn ? 13 : 12)} className="text-center py-8 text-muted-foreground">
                       No trips found
                     </TableCell>
                   </TableRow>
@@ -4069,19 +4073,21 @@ const Trips = () => {
                             <TableCell colSpan={canMoveLoads ? 8 : 7} className="py-3">
                               <div className="flex items-center gap-4">
                                 <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id={`paid-${week.weekStart}`}
-                                    checked={weekIsPaid}
-                                    onCheckedChange={() => handlePaidToggle(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
-                                  />
-                                  <label
-                                    htmlFor={`paid-${week.weekStart}`}
-                                    className={`text-sm cursor-pointer ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
-                                  >
-                                    {weekIsPaid ? "Paid" : "Paid"}
-                                  </label>
-                                </div>
+                                {canSeePaidColumn && (
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id={`paid-${week.weekStart}`}
+                                      checked={weekIsPaid}
+                                      onCheckedChange={() => handlePaidToggle(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
+                                    />
+                                    <label
+                                      htmlFor={`paid-${week.weekStart}`}
+                                      className={`text-sm cursor-pointer ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+                                    >
+                                      {weekIsPaid ? "Paid" : "Paid"}
+                                    </label>
+                                  </div>
+                                )}
                                 {canMoveLoads && (
                                   <span className="text-xs text-muted-foreground ml-2">
                                     <ArrowLeftRight className="h-3 w-3 inline mr-1" />
@@ -4102,16 +4108,18 @@ const Trips = () => {
                               {formatCurrency(weekTotal.freightAmount)}
                             </div>
                           </TableCell>
-                          <TableCell className="py-3"></TableCell>
+                          {canSeePaidColumn && <TableCell className="py-3"></TableCell>}
                           <TableCell className="py-3">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
-                              title="Export week to Excel"
-                            >
-                              <FileDown className="h-4 w-4" />
-                            </Button>
+                            {canSeePaidColumn && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
+                                title="Export week to Excel"
+                              >
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
 
@@ -4139,7 +4147,7 @@ const Trips = () => {
                               {/* Drop indicator row - visible when dragging over */}
                               {snapshot.isDraggingOver && (
                                 <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
-                                  <TableCell colSpan={canMoveLoads ? 15 : 14} className="py-4 text-center">
+                                  <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} className="py-4 text-center">
                                     <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
                                       <ArrowLeftRight className="h-4 w-4" />
                                       Drop here to move load to this week
@@ -4153,7 +4161,7 @@ const Trips = () => {
                                 {...provided.droppableProps}
                                 className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
                               >
-                                <td colSpan={canMoveLoads ? 15 : 14} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
+                                <td colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
                               </tr>
                               {week.orders.map((order, orderIndex) => {
                           // Background color rules - Based on total freight vs freight amount
@@ -4310,15 +4318,17 @@ const Trips = () => {
                                   {formatCurrency(order.totalFreightAmountNoLumper)}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center">
-                                  <Checkbox
-                                    checked={order.paid === true}
-                                    onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
-                                    aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
-                                  />
-                                </div>
-                              </TableCell>
+                              {canSeePaidColumn && (
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      checked={order.paid === true}
+                                      onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
+                                      aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                                    />
+                                  </div>
+                                </TableCell>
+                              )}
                               <TableCell>
                                 <div className="flex items-center gap-1">
                                   <Button
