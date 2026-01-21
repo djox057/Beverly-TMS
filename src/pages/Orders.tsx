@@ -326,9 +326,15 @@ const Orders = () => {
         } else if (missingDocsFilter === "missing-bol") {
           matchesMissingDocs = order.bolFiles?.length === 0;
         } else if (missingDocsFilter === "missing-pod") {
-          matchesMissingDocs = order.podFiles?.length === 0;
+          // For multi-drop loads, check if all deliveries have PODs
+          const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+          const podCount = order.podFiles?.length || 0;
+          matchesMissingDocs = podCount < deliveryCount;
         } else if (missingDocsFilter === "complete") {
-          matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
+          // Complete means RC exists AND all deliveries have PODs
+          const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+          const podCount = order.podFiles?.length || 0;
+          matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && podCount >= deliveryCount;
         } else if (missingDocsFilter === "canceled") {
           matchesMissingDocs = order.canceled === true;
         } else if (missingDocsFilter === "pending-payment") {
@@ -1659,53 +1665,65 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-24 text-center">
                             <div className="flex gap-1 flex-wrap justify-center">
-                              {order.podFiles && order.podFiles.length > 0 ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={async () => {
-                                    const file = order.podFiles[0];
-                                    const { data, error } = await supabase.storage
-                                      .from("order-files")
-                                      .createSignedUrl(file.file_path, 3600);
+                              {(() => {
+                                const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+                                const podCount = order.podFiles?.length || 0;
+                                const isComplete = podCount >= deliveryCount;
+                                
+                                if (podCount > 0) {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className={`text-xs ${!isComplete ? 'border-warning text-warning' : ''}`}
+                                      onClick={async () => {
+                                        const file = order.podFiles[0];
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
 
-                                    if (error) {
-                                      toast.error(`Failed to load file: ${error.message}`);
-                                      return;
-                                    }
-
-                                    const signedUrl = data?.signedUrl;
-                                    if (signedUrl) {
-                                      try {
-                                        const response = await fetch(signedUrl);
-                                        if (!response.ok) throw new Error("Failed to fetch file");
-
-                                        const blob = await response.blob();
-                                        const blobUrl = URL.createObjectURL(blob);
-
-                                        const newWindow = window.open(blobUrl, "_blank");
-                                        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-
-                                        if (!newWindow) {
-                                          toast.error("Please allow popups for this site");
+                                        if (error) {
+                                          toast.error(`Failed to load file: ${error.message}`);
+                                          return;
                                         }
-                                      } catch (err) {
-                                        console.error("Error opening file:", err);
-                                        toast.error("Failed to open file");
-                                      }
-                                    }
-                                  }}
-                                >
-                                  {order.podFiles[0].file_name.length > 8
-                                    ? order.podFiles[0].file_name.substring(0, 8) + "..."
-                                    : order.podFiles[0].file_name}
-                                </Button>
-                              ) : (
-                                <Badge variant="destructive" className="text-xs">
-                                  Missing
-                                </Badge>
-                              )}
+
+                                        const signedUrl = data?.signedUrl;
+                                        if (signedUrl) {
+                                          try {
+                                            const response = await fetch(signedUrl);
+                                            if (!response.ok) throw new Error("Failed to fetch file");
+
+                                            const blob = await response.blob();
+                                            const blobUrl = URL.createObjectURL(blob);
+
+                                            const newWindow = window.open(blobUrl, "_blank");
+                                            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+                                            if (!newWindow) {
+                                              toast.error("Please allow popups for this site");
+                                            }
+                                          } catch (err) {
+                                            console.error("Error opening file:", err);
+                                            toast.error("Failed to open file");
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      {deliveryCount > 1 ? `POD ${podCount}/${deliveryCount}` : (
+                                        order.podFiles[0].file_name.length > 8
+                                          ? order.podFiles[0].file_name.substring(0, 8) + "..."
+                                          : order.podFiles[0].file_name
+                                      )}
+                                    </Button>
+                                  );
+                                } else {
+                                  return (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {deliveryCount > 1 ? `Missing 0/${deliveryCount}` : 'Missing'}
+                                    </Badge>
+                                  );
+                                }
+                              })()}
                             </div>
                           </TableCell>
                           <TableCell className="w-32 text-center">
