@@ -128,7 +128,7 @@ export default function Alerts() {
   const [driversSearch, setDriversSearch] = useState("");
   
   // Column filters
-  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance";
+  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
   type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
@@ -144,6 +144,15 @@ export default function Alerts() {
     return expirationDate <= sixtyDaysFromNow;
   };
 
+  // Helper to check if a maintenance date needs attention (within 30 days - yellow or red)
+  const needsMaintenanceAttention = (date: string | null) => {
+    if (!date) return false;
+    const maintenanceDate = new Date(date);
+    const now = new Date();
+    const daysUntil = Math.ceil((maintenanceDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntil <= 30;
+  };
+
   // Filter data based on search and column filter
   const filteredTrucks = trucks.filter((truck) => {
     const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
@@ -156,6 +165,9 @@ export default function Alerts() {
       case "dot": return isExpiring(truck.dot_inspection_date);
       case "plate": return isExpiring(truck.plate_expiration_date);
       case "insurance": return isExpiring(truck.insurance_expiration_date);
+      case "oil_change": return needsMaintenanceAttention(truck.oil_change_date);
+      case "tires_swap": return needsMaintenanceAttention(truck.tires_swap_date);
+      case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
       default: return true;
     }
   });
@@ -546,9 +558,24 @@ export default function Alerts() {
                       >
                         Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
                       </TableHead>
-                      <TableHead>Oil Change</TableHead>
-                      <TableHead>Tires Swap</TableHead>
-                      <TableHead>Maintenance Check</TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Oil Change {truckColumnFilter === "oil_change" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Tires Swap {truckColumnFilter === "tires_swap" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_check" ? "all" : "maintenance_check")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
