@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useImperativeHandle, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,10 @@ export interface AdditionalItem {
   companyAmount: string;
   driverAmount: string;
   isEditing?: boolean;
+}
+
+export interface OrderAdditionalsManagerRef {
+  commitPendingAdditional: () => void;
 }
 
 interface OrderAdditionalsManagerProps {
@@ -90,7 +94,7 @@ interface OrderAdditionalsManagerProps {
   isLocked: boolean;
 }
 
-export const OrderAdditionalsManager = ({
+export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, OrderAdditionalsManagerProps>(({
   detention,
   setDetention,
   detentionDriver,
@@ -133,7 +137,7 @@ export const OrderAdditionalsManager = ({
   setOtherAdditionalsReason,
   onTonuChange,
   isLocked,
-}: OrderAdditionalsManagerProps) => {
+}, ref) => {
   const [typeOpen, setTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
@@ -210,6 +214,20 @@ export const OrderAdditionalsManager = ({
   const availableTypes = useMemo(() => {
     return ADDITIONAL_TYPES.filter(t => !usedTypes.includes(t.value));
   }, [usedTypes]);
+
+  // Expose commitPendingAdditional to parent via ref
+  useImperativeHandle(ref, () => ({
+    commitPendingAdditional: () => {
+      // If there's a selected type with values, add it
+      if (selectedType && (newCompanyAmount || newDriverAmount)) {
+        // Skip if reason is required but missing
+        if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
+          return;
+        }
+        handleAddAdditional();
+      }
+    }
+  }));
 
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+") {
@@ -572,4 +590,4 @@ export const OrderAdditionalsManager = ({
       )}
     </div>
   );
-};
+});
