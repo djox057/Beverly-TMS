@@ -2087,6 +2087,29 @@ const EditOrder = () => {
     );
   }, [originalSnapshot, buildCurrentSnapshot, trucks, drivers, trailers, brokers, companies, profile]);
 
+  // Navigate back to the referring page
+  const navigateBack = useCallback(() => {
+    const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+    
+    if (returnToReports) {
+      localStorage.removeItem("returnToReports");
+      navigate("/reports");
+    } else if (returnToTrips) {
+      localStorage.removeItem("returnToTrips");
+      navigate("/trips");
+    } else if (returnToAnalytics) {
+      localStorage.removeItem("returnToAnalytics");
+      navigate("/analytics");
+    } else if (shouldReturnToYardLoads) {
+      localStorage.removeItem("returnToYardLoads");
+      navigate("/yard-loads");
+    } else {
+      localStorage.removeItem("returnToOrders");
+      navigate("/orders");
+    }
+    window.scrollTo(0, 0);
+  }, [navigate, returnToReports, returnToTrips, returnToAnalytics]);
+
   // Actually perform the save with optional user note
   const performSave = async (changeNote?: string) => {
     try {
@@ -2476,7 +2499,8 @@ const EditOrder = () => {
         setDateChangeNotes(updatedDateChangeNotes);
       }
 
-      // Stay on page - real-time subscription will update the orders cache automatically
+      // Navigate back to the referring page
+      navigateBack();
     } catch (error) {
       console.error("Error updating order:", error);
       toast({
@@ -2676,32 +2700,7 @@ const EditOrder = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
-                  const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
-                  if (returnToReports) {
-                    localStorage.removeItem("returnToReports");
-                    navigate("/reports");
-                    window.scrollTo(0, 0);
-                  } else if (returnToTrips) {
-                    localStorage.removeItem("returnToTrips");
-                    navigate("/trips");
-                    window.scrollTo(0, 0);
-                  } else if (returnToAnalytics) {
-                    localStorage.removeItem("returnToAnalytics");
-                    navigate("/analytics");
-                    window.scrollTo(0, 0);
-                  } else if (shouldReturnToYardLoads) {
-                    localStorage.removeItem("returnToYardLoads");
-                    navigate("/yard-loads");
-                    window.scrollTo(0, 0);
-                  } else if (shouldReturnToOrders) {
-                    navigate("/orders");
-                    window.scrollTo(0, 0);
-                  } else {
-                    navigate("/orders");
-                  }
-                }}
+                onClick={navigateBack}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {returnToReports
