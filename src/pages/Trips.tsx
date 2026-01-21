@@ -418,10 +418,24 @@ const getStatusBadge = (status: string) => {
 
 const Trips = () => {
   const navigate = useNavigate();
-  const { roles, getPrimaryRole } = useAuth();
+  const { roles, getPrimaryRole, profile, hasRole } = useAuth();
   const primaryRole = getPrimaryRole();
 
-  const { data: orders, isLoading } = useOrders();
+  // For dispatch users, filter to only show their booked orders and orders for drivers assigned to them
+  const isDispatchOnly =
+    hasRole("dispatch") &&
+    !hasRole("afterhours") &&
+    !hasRole("admin") &&
+    !hasRole("manager") &&
+    !hasRole("accounting") &&
+    !hasRole("supervisor") &&
+    !hasRole("safety");
+
+  const orderFilterOptions = isDispatchOnly 
+    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
+    : { bookedBy: null, dispatcherUserId: null };
+
+  const { data: orders, isLoading } = useOrders(orderFilterOptions);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilter, setSearchFilter] = useState(() => {
