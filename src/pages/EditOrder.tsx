@@ -70,7 +70,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes, combineNotes, appendUserNote } from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
-import { OrderAdditionalsManager } from "@/components/OrderAdditionalsManager";
+import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
 interface PickupDrop {
@@ -294,6 +294,8 @@ const EditOrder = () => {
   const [enhanceFileName, setEnhanceFileName] = useState("");
   const [enhanceFileCategory, setEnhanceFileCategory] = useState<"POD" | "ADDITIONAL">("POD");
 
+  // Ref for OrderAdditionalsManager
+  const additionalsManagerRef = useRef<OrderAdditionalsManagerRef>(null);
   const openScanner = (category: "POD" | "ADDITIONAL") => {
     setScannerCategory(category);
     setScannerOpen(true);
@@ -2278,6 +2280,19 @@ const EditOrder = () => {
         },
       ];
 
+      // If uploading revised RC, delete all existing RC files first
+      if (rcFiles && rcFiles.length > 0) {
+        const existingRcFiles = existingFiles.filter((f) => f.file_category === "RC");
+        for (const file of existingRcFiles) {
+          // Delete from storage
+          await supabase.storage.from("order-files").remove([file.file_path]);
+          // Delete from database
+          await supabase.from("order_files").delete().eq("id", file.id);
+        }
+        // Update local state to remove deleted RC files
+        setExistingFiles((prev) => prev.filter((f) => f.file_category !== "RC"));
+      }
+
       // Track which file categories were newly uploaded for auto-setting checkout times
       const chicagoTime = toZonedTime(new Date(), "America/Chicago");
       const checkoutTimestamp = chicagoTime.toISOString();
@@ -2546,6 +2561,9 @@ const EditOrder = () => {
       console.log("Form submission already in progress, ignoring duplicate submission");
       return;
     }
+
+    // Auto-add pending additional charges if user filled in values but didn't click Add
+    additionalsManagerRef.current?.commitPendingAdditional();
 
     // Check if revised RC is required (additionals added except lumper)
     if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
@@ -3157,6 +3175,7 @@ const EditOrder = () => {
 
                 {/* New unified additionals manager */}
                 <OrderAdditionalsManager
+                  ref={additionalsManagerRef}
                   detention={detention}
                   setDetention={setDetention}
                   detentionDriver={detentionDriver}
