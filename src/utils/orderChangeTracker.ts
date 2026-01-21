@@ -151,12 +151,17 @@ const formatMiles = (value: number | null | undefined): string => {
 const formatDate = (datetime: string | null | undefined): string => {
   if (!datetime) return "N/A";
   try {
-    const date = new Date(datetime);
-    return date.toLocaleDateString('en-US', { 
-      month: '2-digit', 
-      day: '2-digit', 
-      year: 'numeric' 
-    });
+    // Parse date directly from string without timezone conversion
+    // Handle both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats
+    const cleanStr = datetime.replace(/Z$|[+-]\d{2}:\d{2}$/, '').trim();
+    const datePart = cleanStr.includes('T') 
+      ? cleanStr.split('T')[0] 
+      : cleanStr.split(' ')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    
+    if (!year || !month || !day) return datetime;
+    
+    return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
   } catch {
     return datetime;
   }
