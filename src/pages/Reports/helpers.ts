@@ -411,7 +411,7 @@ export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: st
     
     if (daysUntil <= 30) {
       minDays = Math.min(minDays, daysUntil);
-      dueSoon.push(`${name}: ${daysUntil <= 0 ? 'Overdue' : `${daysUntil} days`}`);
+      dueSoon.push(`${name}: ${daysUntil <= 0 ? 'Overdue' : `${daysUntil} days left`}`);
     }
   }
   
