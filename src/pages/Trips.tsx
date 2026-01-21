@@ -447,11 +447,11 @@ const Trips = () => {
 
   const queryClient = useQueryClient();
 
-  // Check if user can move loads between weeks (managers, admins, accounting) - dispatch cannot
-  const canMoveLoads = primaryRole !== 'dispatch' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
+  // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
+  const canMoveLoads = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
   
-  // Check if user can see paid columns - dispatch cannot
-  const canSeePaidColumn = primaryRole !== 'dispatch';
+  // Check if user can see paid columns - dispatch/supervisor cannot
+  const canSeePaidColumn = primaryRole !== 'dispatch' && primaryRole !== 'supervisor';
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({
