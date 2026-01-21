@@ -1201,7 +1201,7 @@ const Orders = () => {
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">RC</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">POD</TableHead>
                     <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">Actions</TableHead>
-                    {!hasRole('dispatch') && !hasRole('afterhours') && (
+                    {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && (
                       <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">Paid</TableHead>
                     )}
                   </TableRow>
@@ -1209,7 +1209,7 @@ const Orders = () => {
                 <TableBody>
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={hasRole('dispatch') || hasRole('afterhours') ? 20 : 21} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={primaryRole === 'dispatch' || primaryRole === 'afterhours' ? 20 : 21} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow>
@@ -1780,7 +1780,7 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          {!hasRole('dispatch') && !hasRole('afterhours') && (
+                          {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && (
                             <TableCell className="w-20 text-center">
                               <div className="flex justify-center">
                                 <Checkbox
