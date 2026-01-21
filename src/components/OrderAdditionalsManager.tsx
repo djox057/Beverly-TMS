@@ -1,4 +1,5 @@
 import { useState, useMemo, useImperativeHandle, forwardRef } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -224,7 +225,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
         if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
           return;
         }
-        handleAddAdditional();
+        // Use flushSync to ensure state updates are applied synchronously
+        flushSync(() => {
+          handleAddAdditional();
+        });
       }
     }
   }));
