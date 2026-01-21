@@ -384,6 +384,7 @@ const Reports = () => {
     // Real-time subscription handles cache updates - no invalidation needed
   });
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const lastZoomedLoadCloseTime = useRef<number>(0);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
   const [expandedDispatcherMap, setExpandedDispatcherMap] = useState<string | null>(null);
@@ -1902,7 +1903,10 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
                             const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
@@ -1958,7 +1962,10 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
                             const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
@@ -2072,7 +2079,10 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
                             const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
@@ -2130,7 +2140,10 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
                             const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
@@ -4630,8 +4643,13 @@ const Reports = () => {
       />
 
       {/* Load Zoom Dialog */}
-      <Dialog open={!!zoomedLoad} onOpenChange={(open) => !open && setZoomedLoad(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!zoomedLoad} onOpenChange={(open) => {
+        if (!open) {
+          lastZoomedLoadCloseTime.current = Date.now();
+          setZoomedLoad(null);
+        }
+      }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-4 flex-wrap">
               <div className="space-y-1">
