@@ -45,7 +45,11 @@ export interface AdditionalItem {
 }
 
 export interface OrderAdditionalsManagerRef {
-  commitPendingAdditional: () => void;
+  /**
+   * Attempts to add the currently-entered (but not yet added) additional.
+   * Returns true if an additional was actually added.
+   */
+  commitPendingAdditional: () => boolean;
 }
 
 interface OrderAdditionalsManagerProps {
@@ -219,18 +223,21 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   // Expose commitPendingAdditional to parent via ref
   useImperativeHandle(ref, () => ({
     commitPendingAdditional: () => {
-      // If there's a selected type with values, add it
-      if (selectedType && (newCompanyAmount || newDriverAmount)) {
-        // Skip if reason is required but missing
-        if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
-          return;
-        }
-        // Use flushSync to ensure state updates are applied synchronously
-        flushSync(() => {
-          handleAddAdditional();
-        });
+      // Mirror the Add button behavior: do nothing if not enough info.
+      if (!selectedType) return false;
+      if (!newCompanyAmount && !newDriverAmount) return false;
+      if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
+        return false;
       }
-    }
+
+      let didAdd = false;
+      // Force React to apply the parent state updates immediately so the submit handler
+      // can read the new values.
+      flushSync(() => {
+        didAdd = handleAddAdditional();
+      });
+      return didAdd;
+    },
   }));
 
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -239,12 +246,12 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     }
   };
 
-  const handleAddAdditional = () => {
-    if (!selectedType || isLocked) return;
+  const handleAddAdditional = (): boolean => {
+    if (!selectedType || isLocked) return false;
     
     // Require reason for other_charges and other_additionals
     if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
-      return;
+      return false;
     }
     
     const handlers = getTypeHandlers(selectedType);
@@ -266,6 +273,8 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     setNewDriverAmount("");
     setNewReason("");
     setTypeOpen(false);
+
+    return true;
   };
 
   const handleRemoveAdditional = (type: AdditionalType) => {
