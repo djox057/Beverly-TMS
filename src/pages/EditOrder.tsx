@@ -2563,7 +2563,11 @@ const EditOrder = () => {
     }
 
     // Auto-add pending additional charges if user filled in values but didn't click Add
-    additionalsManagerRef.current?.commitPendingAdditional();
+    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
+    // Give React a split-second to apply state updates before we validate / diff / save.
+    if (didAutoAddAdditional) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
     // Check if revised RC is required (additionals added except lumper)
     if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
@@ -2593,6 +2597,12 @@ const EditOrder = () => {
 
   const handleChangeNoteConfirm = async (note: string) => {
     setShowChangeNoteDialog(false);
+
+    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
+    if (didAutoAddAdditional) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
     setIsSubmitting(true);
     await performSave(note);
     setPendingChanges([]);
