@@ -3295,33 +3295,6 @@ const Reports = () => {
                                           <div className="flex items-center gap-1 font-bold text-black">
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
-                                            {(() => {
-                                              const maintenanceStatus = getMaintenanceIconStatus(truck);
-                                              if (maintenanceStatus.show) {
-                                                return (
-                                                  <TooltipProvider>
-                                                    <Tooltip>
-                                                      <TooltipTrigger asChild>
-                                                        <img 
-                                                          src={wrenchIcon} 
-                                                          alt="Maintenance" 
-                                                          className="h-3 w-3"
-                                                          style={{ 
-                                                            filter: maintenanceStatus.color === 'red' 
-                                                              ? 'invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)' 
-                                                              : 'invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)'
-                                                          }}
-                                                        />
-                                                      </TooltipTrigger>
-                                                      <TooltipContent>
-                                                        <p className="text-xs">{maintenanceStatus.tooltip}</p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  </TooltipProvider>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
                                             {truck.twoWeekBlockDate && (
                                               <Popover>
                                                 <PopoverTrigger asChild>
@@ -3425,7 +3398,32 @@ const Reports = () => {
                                               </PopoverContent>
                                             </Popover>
                                           )}
-                                                                                              <span>{truck.driver}</span>
+                                          <span>{truck.driver}</span>
+                                          {(() => {
+                                            const maintenanceStatus = getMaintenanceIconStatus(truck);
+                                            if (maintenanceStatus.show) {
+                                              return (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <img 
+                                                      src={wrenchIcon} 
+                                                      alt="Maintenance" 
+                                                      className="h-3.5 w-3.5"
+                                                      style={{ 
+                                                        filter: maintenanceStatus.color === 'red' 
+                                                          ? 'invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)' 
+                                                          : 'invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)'
+                                                      }}
+                                                    />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p className="text-xs">{maintenanceStatus.tooltip}</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                           {hasLumperMissingRC(truck.driverId) && (
                                             <Tooltip>
                                               <TooltipTrigger asChild>
