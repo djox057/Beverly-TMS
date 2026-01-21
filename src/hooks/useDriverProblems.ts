@@ -140,14 +140,14 @@ export function useDriverProblems() {
     },
   });
 
-  // Get problem for a specific driver
+  // Get active (unresolved) problem for a specific driver
   const getProblemForDriver = (driverId: string) => {
-    return problems.find((p) => p.driver_id === driverId);
+    return problems.find((p) => p.driver_id === driverId && !p.resolved_at);
   };
 
-  // Check if driver has a problem
+  // Check if driver has an active (unresolved) problem
   const hasDriverProblem = (driverId: string) => {
-    return problems.some((p) => p.driver_id === driverId);
+    return problems.some((p) => p.driver_id === driverId && !p.resolved_at);
   };
 
   return {
