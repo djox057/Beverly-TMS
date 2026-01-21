@@ -3115,12 +3115,15 @@ export type Database = {
           ipass: string | null
           is_active: boolean
           left_by_driver_id: string | null
+          maintenance_check_date: string | null
           miles_away: number | null
           model: string | null
           needs_recovery: boolean | null
+          oil_change_date: string | null
           plate_expiration_date: string | null
           status: string | null
           termination_date: string | null
+          tires_swap_date: string | null
           trailer_id: string | null
           truck_number: string
           truck_type: string | null
@@ -3140,12 +3143,15 @@ export type Database = {
           ipass?: string | null
           is_active?: boolean
           left_by_driver_id?: string | null
+          maintenance_check_date?: string | null
           miles_away?: number | null
           model?: string | null
           needs_recovery?: boolean | null
+          oil_change_date?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
+          tires_swap_date?: string | null
           trailer_id?: string | null
           truck_number: string
           truck_type?: string | null
@@ -3165,12 +3171,15 @@ export type Database = {
           ipass?: string | null
           is_active?: boolean
           left_by_driver_id?: string | null
+          maintenance_check_date?: string | null
           miles_away?: number | null
           model?: string | null
           needs_recovery?: boolean | null
+          oil_change_date?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
+          tires_swap_date?: string | null
           trailer_id?: string | null
           truck_number?: string
           truck_type?: string | null
