@@ -2190,6 +2190,36 @@ export const useReports = (options?: UseReportsOptions) => {
           .select("dispatcher_id, inactive_trucks")
           .eq("is_active", false);
 
+        // Build a map of driver IDs to their original off-duty dispatcher names
+        // This is used to show "Disp: [name]" under driver names in active dispatcher sections
+        const driverToOffDutyDispatcher = new Map<string, string>();
+        
+        if (offDutyStatuses && offDutyStatuses.length > 0) {
+          for (const offDutyStatus of offDutyStatuses) {
+            const inactiveDrivers = (offDutyStatus.inactive_trucks as any[]) || [];
+            const offDutyDispatcherInfo = dispatchersByUserId.get(offDutyStatus.dispatcher_id);
+            if (!offDutyDispatcherInfo) continue;
+            
+            const offDutyDispatcherName = offDutyDispatcherInfo.full_name || offDutyDispatcherInfo.email || "Unknown";
+            
+            // Map each driver to their off-duty dispatcher
+            for (const driver of inactiveDrivers) {
+              if (driver.id) {
+                driverToOffDutyDispatcher.set(driver.id, offDutyDispatcherName);
+              }
+            }
+          }
+        }
+        
+        // Update existing trucks in active dispatcher groups with off-duty dispatcher info
+        for (const group of dispatcherMap.values()) {
+          for (const truck of group.trucks) {
+            if (truck.driverId && driverToOffDutyDispatcher.has(truck.driverId)) {
+              (truck as any).originalDispatcherName = driverToOffDutyDispatcher.get(truck.driverId);
+            }
+          }
+        }
+
         // Create off-duty dispatcher groups with their stored driver data
         const offDutyGroups: typeof dispatcherMap extends Map<string, infer V> ? V[] : never[] = [];
         
@@ -2207,7 +2237,35 @@ export const useReports = (options?: UseReportsOptions) => {
             // Store the dispatcher_id for use in the inner scope
             const offDutyDispatcherId = offDutyStatus.dispatcher_id;
             
-            // Create truck-like objects from the stored driver data
+            // Fetch real driver data for off-duty drivers to get Home, Company, HOS, etc.
+            const driverIds = inactiveDrivers.map((d: any) => d.id).filter(Boolean);
+            const { data: realDriverData } = driverIds.length > 0 
+              ? await supabase
+                  .from("drivers")
+                  .select("id, name, phone, email, home_city, home_state, company_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated")
+                  .in("id", driverIds)
+              : { data: [] };
+            
+            // Create a map of real driver data
+            const realDriverMap = new Map((realDriverData || []).map(d => [d.id, d]));
+            
+            // Get company names for off-duty drivers
+            const companyIds = [...new Set((realDriverData || []).map(d => d.company_id).filter(Boolean))];
+            const { data: companiesData } = companyIds.length > 0
+              ? await supabase.from("companies").select("id, name").in("id", companyIds)
+              : { data: [] };
+            const companyMap = new Map((companiesData || []).map(c => [c.id, c.name]));
+            
+            // Get truck data for off-duty drivers to get miles_away
+            const { data: trucksForOffDuty } = driverIds.length > 0
+              ? await supabase
+                  .from("trucks")
+                  .select("id, truck_number, driver1_id, miles_away")
+                  .in("driver1_id", driverIds)
+              : { data: [] };
+            const truckByDriverId = new Map((trucksForOffDuty || []).map(t => [t.driver1_id, t]));
+            
+            // Create truck-like objects from the stored driver data with real data enrichment
             const offDutyTrucks = inactiveDrivers.map((driver: any) => {
               // Find the driver's orders
               const driverOrders = ordersByDriver.get(driver.id) || [];
@@ -2324,38 +2382,59 @@ export const useReports = (options?: UseReportsOptions) => {
                 }
               }
               
+              // Get real driver data for enrichment
+              const realDriver = realDriverMap.get(driver.id);
+              const truckData = truckByDriverId.get(driver.id);
+              const driverCompanyName = realDriver?.company_id ? companyMap.get(realDriver.company_id) || null : null;
+              
+              // Build home string from real driver data
+              const homeCity = realDriver?.home_city;
+              const homeState = realDriver?.home_state;
+              const homeString = homeCity && homeState
+                ? `${homeCity}, ${homeState}`
+                : homeCity || homeState || "—";
+              
+              // Build HOS data from real driver data
+              const driveMinutes = realDriver?.hos_drive_minutes || 0;
+              const shiftMinutes = realDriver?.hos_shift_minutes || 0;
+              const breakMinutes = realDriver?.hos_break_minutes || 0;
+              const cycleMinutes = realDriver?.hos_cycle_minutes || 0;
+              
+              const formatHosTime = (minutes: number) => 
+                `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}h`;
+              
               return {
-                id: driver.truck?.id || `driver-${driver.id}`,
+                id: truckData?.id || driver.truck?.id || `driver-${driver.id}`,
                 orderId: currentOrder?.id || null,
-                truckNumber: driver.truck?.truck_number || null,
-                companyName: null,
+                truckNumber: truckData?.truck_number || driver.truck?.truck_number || null,
+                companyName: driverCompanyName,
                 driver: driver.name,
                 driver1Name: driver.name,
                 driverId: driver.id,
-                driverPhone: driver.phone || null,
-                driverEmail: driver.email || null,
+                driverPhone: realDriver?.phone || driver.phone || null,
+                driverEmail: realDriver?.email || driver.email || null,
                 driver2Id: null,
                 driver2Name: null,
                 driver2Phone: null,
                 driver2Email: null,
                 trailerNumber: null,
-                home: "—",
+                home: homeString,
                 dispatcher: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
                 dispatcherId: offDutyDispatcherId,
-                originalDispatcherName: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
+                // Don't set originalDispatcherName for off-duty section - it's for active sections only
                 status: truckStatus,
                 pickup: formatStopInfo(currentOrder?.pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
                 delivery: formatStopInfo(currentOrder?.deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
                 awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
-                driveHours: "0:00h",
-                shiftHours: "0:00h",
-                cycleHours: "0:00h",
-                driveMinutes: 0,
-                shiftMinutes: 0,
-                breakMinutes: 0,
-                cycleMinutes: 0,
-                hosStatus: null,
-                hosLastUpdated: null,
+                driveHours: formatHosTime(driveMinutes),
+                shiftHours: formatHosTime(shiftMinutes),
+                cycleHours: formatHosTime(cycleMinutes),
+                driveMinutes,
+                shiftMinutes,
+                breakMinutes,
+                cycleMinutes,
+                hosStatus: realDriver?.hos_status || null,
+                hosLastUpdated: realDriver?.hos_last_updated || null,
                 twoWeekBlockDate: null,
                 randomDrugTestDate: null,
                 note: "",
@@ -2367,7 +2446,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 totalOrdersCount: driverOrders.length || 0,
                 hasMultipleOrders: (driverOrders.length || 0) > 1,
                 lost_day_notes: [],
-                milesAway: 0,
+                milesAway: truckData?.miles_away || 0,
                 totalMiles: currentOrder?.loaded_miles || 0,
                 goingYard: false,
                 isOffDutyDriver: true,
