@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { DateRange } from "react-day-picker";
-import { cn, toTitleCase } from "@/lib/utils";
+import { cn, toTitleCase, formatZipCode } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
@@ -552,7 +552,7 @@ const NewOrder = () => {
             updated.address = parsed.address || value;
             updated.city = parsed.city ? toTitleCase(parsed.city) : undefined;
             updated.state = parsed.state || undefined;
-            updated.zipCode = parsed.zipCode || undefined;
+            updated.zipCode = parsed.zipCode ? formatZipCode(parsed.zipCode) : undefined;
           }
 
           // Auto-update datetime when relevant fields change
@@ -580,7 +580,7 @@ const NewOrder = () => {
             address: parsed.address || item.address,
             city: parsed.city ? toTitleCase(parsed.city) : undefined,
             state: parsed.state || undefined,
-            zipCode: parsed.zipCode || undefined,
+            zipCode: parsed.zipCode ? formatZipCode(parsed.zipCode) : undefined,
           };
         }
         return item;
@@ -912,7 +912,7 @@ const NewOrder = () => {
               address: pickup.address || "",
               city: pickup.city ? toTitleCase(pickup.city) : "",
               state: pickup.state || "",
-              zipCode: pickup.zip || "",
+              zipCode: pickup.zip ? formatZipCode(pickup.zip) : "",
               datetime: pickup.date || "",
               dateRange: pickupDateRange,
               startTime: pickup.startTime || "",
@@ -932,7 +932,7 @@ const NewOrder = () => {
               address: delivery.address || "",
               city: delivery.city ? toTitleCase(delivery.city) : "",
               state: delivery.state || "",
-              zipCode: delivery.zip || "",
+              zipCode: delivery.zip ? formatZipCode(delivery.zip) : "",
               datetime: delivery.date || "",
               dateRange: deliveryDateRange,
               startTime: delivery.startTime || "",
@@ -2651,9 +2651,9 @@ const NewOrder = () => {
                                       placeholder="12345"
                                       value={item.zipCode || ""}
                                       onChange={(e) => {
-                                        // Only allow numbers and limit to 10 characters (for 12345-6789 format)
-                                        const value = e.target.value.replace(/[^\d-]/g, "").slice(0, 10);
-                                        updatePickupDrop(item.id, "zipCode", value);
+                                        // Format zip code with dash after 5th digit if needed
+                                        const formatted = formatZipCode(e.target.value);
+                                        updatePickupDrop(item.id, "zipCode", formatted);
                                       }}
                                       maxLength={10}
                                     />

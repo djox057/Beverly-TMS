@@ -61,3 +61,20 @@ export function formatPhoneNumber(value: string): string {
   if (truncated.length <= 6) return `(${truncated.slice(0, 3)}) ${truncated.slice(3)}`;
   return `(${truncated.slice(0, 3)}) ${truncated.slice(3, 6)}-${truncated.slice(6)}`;
 }
+
+/**
+ * Format a ZIP code to add a dash after the 5th digit if more than 5 digits.
+ * Examples: "12345" → "12345", "123456" → "12345-6", "123456789" → "12345-6789"
+ */
+export function formatZipCode(value: string): string {
+  // Remove all non-alphanumeric characters (including existing dashes)
+  const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');
+  
+  // If 5 or fewer characters, return as-is
+  if (cleaned.length <= 5) {
+    return cleaned;
+  }
+  
+  // Add dash after 5th character
+  return `${cleaned.slice(0, 5)}-${cleaned.slice(5)}`;
+}
