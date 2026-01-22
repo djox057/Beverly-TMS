@@ -113,7 +113,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const [showAlreadyAssignedWarning, setShowAlreadyAssignedWarning] = useState(false);
   const [alreadyAssignedInfo, setAlreadyAssignedInfo] = useState<{
     truckDriverName?: string;
-    trailerDriverName?: string;
+    trailerTruckNumber?: string;
     truckNumber?: string;
     trailerNumber?: string;
   } | null>(null);
@@ -305,13 +305,13 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   // Check if truck/trailer is already assigned to another driver
   const checkAlreadyAssigned = async (): Promise<{
     truckDriverName?: string;
-    trailerDriverName?: string;
+    trailerTruckNumber?: string;
     truckNumber?: string;
     trailerNumber?: string;
   } | null> => {
     const result: {
       truckDriverName?: string;
-      trailerDriverName?: string;
+      trailerTruckNumber?: string;
       truckNumber?: string;
       trailerNumber?: string;
     } = {};
@@ -336,35 +336,26 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       }
     }
 
-    // Check if the selected trailer is assigned to another truck (with a different driver)
+    // Check if the selected trailer is assigned to another truck
     if (formData.trailer_id && formData.trailer_id !== origTrailerId) {
       const { data: trucksWithTrailer } = await supabase
         .from("trucks")
-        .select("id, truck_number, driver1_id, trailer_id")
+        .select("id, truck_number, trailer_id")
         .eq("trailer_id", formData.trailer_id)
         .neq("id", formData.truck_id || "")
         .limit(1);
 
       if (trucksWithTrailer && trucksWithTrailer.length > 0) {
         const truckWithTrailer = trucksWithTrailer[0];
-        if (truckWithTrailer.driver1_id && truckWithTrailer.driver1_id !== editingDriver?.id) {
-          const { data: driverData } = await supabase
-            .from("drivers")
-            .select("name")
-            .eq("id", truckWithTrailer.driver1_id)
-            .single();
-          if (driverData) {
-            // Get trailer number
-            const { data: trailerData } = await supabase
-              .from("trailers")
-              .select("trailer_number")
-              .eq("id", formData.trailer_id)
-              .single();
-            result.trailerDriverName = driverData.name || "Unknown Driver";
-            result.trailerNumber = trailerData?.trailer_number || "Unknown";
-            hasConflict = true;
-          }
-        }
+        // Get trailer number
+        const { data: trailerData } = await supabase
+          .from("trailers")
+          .select("trailer_number")
+          .eq("id", formData.trailer_id)
+          .single();
+        result.trailerTruckNumber = truckWithTrailer.truck_number || "Unknown";
+        result.trailerNumber = trailerData?.trailer_number || "Unknown";
+        hasConflict = true;
       }
     }
 
@@ -1277,10 +1268,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <span className="font-semibold">{alreadyAssignedInfo.truckDriverName}</span>.
                   </p>
                 )}
-                {alreadyAssignedInfo?.trailerDriverName && (
+                {alreadyAssignedInfo?.trailerTruckNumber && (
                   <p>
-                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently assigned to{" "}
-                    <span className="font-semibold">{alreadyAssignedInfo.trailerDriverName}</span>.
+                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently connected to truck{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.trailerTruckNumber}</span>.
                   </p>
                 )}
                 <p className="mt-2">Are you sure you want to proceed with this assignment?</p>
