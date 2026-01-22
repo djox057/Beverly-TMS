@@ -14,7 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, CheckCircle2, Play, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, Play, RefreshCw, AlertCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +125,20 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   } | null>(null);
 
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || "");
+
+  // Check if selected trailer is already connected to another truck
+  const getTrailerConflictTruckNumber = (): string | null => {
+    if (!formData.trailer_id) return null;
+    
+    // Find if any truck (other than the currently selected truck) has this trailer
+    const conflictingTruck = allTrucks?.find(
+      (truck) => truck.trailer_id === formData.trailer_id && truck.id !== formData.truck_id
+    );
+    
+    return conflictingTruck?.truck_number || null;
+  };
+
+  const trailerConflictTruckNumber = getTrailerConflictTruckNumber();
 
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
@@ -824,7 +844,21 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     />
                   </div>
                   <div className="space-y-2 col-span-5">
-                    <Label>Trailer Number</Label>
+                    <div className="flex items-center gap-1">
+                      <Label>Trailer Number</Label>
+                      {trailerConflictTruckNumber && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertCircle className="h-4 w-4 text-destructive cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>This trailer is currently connected to truck {trailerConflictTruckNumber}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                     <Combobox
                       options={(availableTrailers || []).map((t) => ({ value: t.id, label: t.trailer_number }))}
                       value={formData.trailer_id}
