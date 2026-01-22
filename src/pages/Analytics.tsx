@@ -178,7 +178,7 @@ const Analytics = () => {
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
   const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<
-    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpm" | "weeksCount"
+    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpmCompany" | "rpmDriver" | "weeksCount"
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
@@ -1478,7 +1478,8 @@ const Analytics = () => {
           avgDriverPay: 0,
           medianFreight: 0,
           medianDriverPay: 0,
-          rpm: 0,
+          rpmCompany: 0,
+          rpmDriver: 0,
           weeksCount: 0,
         };
       }
@@ -1495,7 +1496,8 @@ const Analytics = () => {
         avgDriverPay: totalDriverPay / includedWeeks.length,
         medianFreight: calculateMedian(weeklyFreights),
         medianDriverPay: calculateMedian(weeklyDriverPays),
-        rpm: totalMiles > 0 ? totalFreight / totalMiles : 0,
+        rpmCompany: totalMiles > 0 ? totalFreight / totalMiles : 0,
+        rpmDriver: totalMiles > 0 ? totalDriverPay / totalMiles : 0,
         weeksCount: includedWeeks.length,
       };
     });
@@ -1948,10 +1950,16 @@ const Analytics = () => {
                           Median Weekly Driver Pay {grossRankingsSortBy === "medianDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleGrossRankingsSort("rpm")}
+                          className="text-right w-[7%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("rpmCompany")}
                         >
-                          RPM {grossRankingsSortBy === "rpm" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          RPM Co {grossRankingsSortBy === "rpmCompany" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[7%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("rpmDriver")}
+                        >
+                          RPM Dr {grossRankingsSortBy === "rpmDriver" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
                           className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
@@ -1965,7 +1973,7 @@ const Analytics = () => {
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow>
@@ -1997,7 +2005,8 @@ const Analytics = () => {
                                 maximumFractionDigits: 2,
                               })}
                             </TableCell>
-                            <TableCell className="text-right">${driver.rpm.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{driver.weeksCount}</TableCell>
                             <TableCell>
                               <DriverNoticeDialog
