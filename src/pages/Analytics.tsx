@@ -178,7 +178,7 @@ const Analytics = () => {
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
   const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<
-    "avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "medianFreight" | "medianDriverPay" | "medianMiles" | "rpmCompany" | "rpmDriver" | "weeksCount"
+    "avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "medianMiles" | "rpmCompany" | "rpmDriver" | "weeksCount"
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
@@ -2027,18 +2027,6 @@ const Analytics = () => {
                           Avg Cut {grossRankingsSortBy === "avgCut" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleGrossRankingsSort("medianFreight")}
-                        >
-                          Med Freight {grossRankingsSortBy === "medianFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
-                        </TableHead>
-                        <TableHead 
-                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleGrossRankingsSort("medianDriverPay")}
-                        >
-                          Med Driver Pay {grossRankingsSortBy === "medianDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
-                        </TableHead>
-                        <TableHead 
                           className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("medianMiles")}
                         >
@@ -2119,18 +2107,6 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 ${driver.avgCut.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                ${driver.medianFreight.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                ${driver.medianDriverPay.toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })}
