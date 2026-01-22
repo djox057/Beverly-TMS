@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
@@ -174,6 +174,13 @@ const Analytics = () => {
     return map;
   }, [dispatcherNotes]);
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
+  
+  // Driver Gross Rankings state
+  const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
+  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<
+    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpm"
+  >("avgFreight");
+  const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
     Record<string, { totalTrucks: number; daysCount: number }>
   >({});
@@ -1393,6 +1400,130 @@ const Analytics = () => {
     }
   };
 
+  // Handle sorting for Driver Gross Rankings
+  const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
+    if (grossRankingsSortBy === column) {
+      setGrossRankingsSortDir(prev => prev === "desc" ? "asc" : "desc");
+    } else {
+      setGrossRankingsSortBy(column);
+      setGrossRankingsSortDir("desc");
+    }
+  };
+
+  // Helper function to calculate median
+  const calculateMedian = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+  };
+
+  // Calculate Driver Gross Rankings - weekly averages from 2nd week to 2nd-to-last week
+  const driverGrossRankings = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+
+    // Group orders by driver and by week (Tuesday-Monday)
+    const driverWeeklyData: Record<string, Record<string, { freight: number; driverPay: number; miles: number }>> = {};
+
+    (orders || []).forEach((order) => {
+      // Exclude canceled orders without TONU
+      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
+        return;
+      }
+
+      const driverName = order.driverName;
+      if (!driverName || driverName === "N/A") return;
+
+      // Get delivery date for week calculation
+      const deliveryDateStr = order.deliveryDate || order.deliveryDatetime;
+      if (!deliveryDateStr || deliveryDateStr === "N/A" || deliveryDateStr === "Invalid Date") return;
+
+      // Parse the date
+      const dateStr = deliveryDateStr.split("T")[0].split(" ")[0];
+      const [year, month, day] = dateStr.split("-").map(Number);
+      if (!year || !month || !day) return;
+      
+      const deliveryDate = new Date(year, month - 1, day);
+      
+      // Get week start (Tuesday) using date-fns
+      const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // 2 = Tuesday
+      const weekKey = format(weekStart, "yyyy-MM-dd");
+
+      if (!driverWeeklyData[driverName]) {
+        driverWeeklyData[driverName] = {};
+      }
+
+      if (!driverWeeklyData[driverName][weekKey]) {
+        driverWeeklyData[driverName][weekKey] = { freight: 0, driverPay: 0, miles: 0 };
+      }
+
+      driverWeeklyData[driverName][weekKey].freight += Number(order.totalFreightAmountNoLumper) || 0;
+      driverWeeklyData[driverName][weekKey].driverPay += Number(order.totalDriverPay) || 0;
+      driverWeeklyData[driverName][weekKey].miles += Number(order.mileage) || 0;
+    });
+
+    // Calculate stats for each driver
+    const rankings = Object.entries(driverWeeklyData).map(([driverName, weeklyData]) => {
+      const weekKeys = Object.keys(weeklyData).sort();
+      
+      // Exclude first and last week (need at least 3 weeks of data)
+      const includedWeeks = weekKeys.length >= 3 ? weekKeys.slice(1, -1) : weekKeys;
+      
+      if (includedWeeks.length === 0) {
+        return {
+          name: driverName,
+          avgFreight: 0,
+          avgDriverPay: 0,
+          medianFreight: 0,
+          medianDriverPay: 0,
+          rpm: 0,
+          weeksCount: 0,
+        };
+      }
+
+      const weeklyFreights = includedWeeks.map(wk => weeklyData[wk].freight);
+      const weeklyDriverPays = includedWeeks.map(wk => weeklyData[wk].driverPay);
+      const totalFreight = weeklyFreights.reduce((sum, v) => sum + v, 0);
+      const totalDriverPay = weeklyDriverPays.reduce((sum, v) => sum + v, 0);
+      const totalMiles = includedWeeks.reduce((sum, wk) => sum + weeklyData[wk].miles, 0);
+
+      return {
+        name: driverName,
+        avgFreight: totalFreight / includedWeeks.length,
+        avgDriverPay: totalDriverPay / includedWeeks.length,
+        medianFreight: calculateMedian(weeklyFreights),
+        medianDriverPay: calculateMedian(weeklyDriverPays),
+        rpm: totalMiles > 0 ? totalFreight / totalMiles : 0,
+        weeksCount: includedWeeks.length,
+      };
+    });
+
+    return rankings;
+  }, [orders]);
+
+  // Filter and sort Driver Gross Rankings
+  const filteredAndSortedRankings = useMemo(() => {
+    return driverGrossRankings
+      .filter((driver) => {
+        // Only show active drivers
+        if (!activeDriverNames.has(driver.name)) return false;
+        // Only show drivers with at least 1 qualifying week
+        if (driver.weeksCount === 0) return false;
+        // Apply search filter
+        if (grossRankingsSearch && !driver.name.toLowerCase().includes(grossRankingsSearch.toLowerCase())) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const aValue = a[grossRankingsSortBy];
+        const bValue = b[grossRankingsSortBy];
+        return grossRankingsSortDir === "desc" ? bValue - aValue : aValue - bValue;
+      });
+  }, [driverGrossRankings, activeDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir]);
+
   // Filter loads booked today with rate <= 2.00
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1502,7 +1633,9 @@ const Analytics = () => {
         <Tabs defaultValue="performance" className="w-full">
           <TabsList>
             <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
-            <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger>
+            <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>
+            {/* Hidden: Driver Performance tab - keeping code for future use */}
+            {/* <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger> */}
             <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
             {canViewSalaries && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
           </TabsList>
@@ -1760,7 +1893,124 @@ const Analytics = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="driver-performance" className="space-y-6">
+          <TabsContent value="driver-gross-rankings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4">
+                  <CardTitle>Driver Gross Rankings</CardTitle>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Input
+                      placeholder="Search driver name..."
+                      value={grossRankingsSearch}
+                      onChange={(e) => setGrossRankingsSearch(e.target.value)}
+                      className="w-64"
+                    />
+                    {grossRankingsSearch && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGrossRankingsSearch("")}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[15%]">Driver Name</TableHead>
+                        <TableHead 
+                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("avgFreight")}
+                        >
+                          Avg Weekly Freight {grossRankingsSortBy === "avgFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("avgDriverPay")}
+                        >
+                          Avg Weekly Driver Pay {grossRankingsSortBy === "avgDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("medianFreight")}
+                        >
+                          Median Weekly Freight {grossRankingsSortBy === "medianFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("medianDriverPay")}
+                        >
+                          Median Weekly Driver Pay {grossRankingsSortBy === "medianDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("rpm")}
+                        >
+                          RPM {grossRankingsSortBy === "rpm" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead className="w-[21%]">Notice</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAndSortedRankings.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            No data available
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAndSortedRankings.map((driver, index) => (
+                          <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
+                            <TableCell className="font-medium">{driver.name}</TableCell>
+                            <TableCell className="text-right">
+                              ${driver.avgFreight.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              ${driver.avgDriverPay.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              ${driver.medianFreight.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              ${driver.medianDriverPay.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">${driver.rpm.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <DriverNoticeDialog
+                                driverName={driver.name}
+                                initialNotice={driverTiers[driver.name]?.notice || ""}
+                                onSave={handleNoticeSave}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Hidden: Driver Performance tab - keeping code for future use */}
+          <TabsContent value="driver-performance" className="space-y-6 hidden">
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-4">
