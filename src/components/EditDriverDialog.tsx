@@ -362,12 +362,45 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     return hasConflict ? result : null;
   };
 
+  // Check trailer assignment immediately when selected
+  const handleTrailerChange = async (trailerId: string) => {
+    setFormData({ ...formData, trailer_id: trailerId });
+    
+    if (!trailerId) return;
+    
+    const { trailerId: origTrailerId } = originalAssignmentRef.current;
+    if (trailerId === origTrailerId) return;
+    
+    // Check if this trailer is assigned to another truck
+    const { data: trucksWithTrailer } = await supabase
+      .from("trucks")
+      .select("id, truck_number")
+      .eq("trailer_id", trailerId)
+      .neq("id", formData.truck_id || "")
+      .limit(1);
+
+    if (trucksWithTrailer && trucksWithTrailer.length > 0) {
+      const truckWithTrailer = trucksWithTrailer[0];
+      const { data: trailerData } = await supabase
+        .from("trailers")
+        .select("trailer_number")
+        .eq("id", trailerId)
+        .single();
+      
+      setAlreadyAssignedInfo({
+        trailerTruckNumber: truckWithTrailer.truck_number || "Unknown",
+        trailerNumber: trailerData?.trailer_number || "Unknown",
+      });
+      setShowAlreadyAssignedWarning(true);
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // First check for already assigned equipment
+    // First check for already assigned equipment (truck check only, trailer already checked on selection)
     const alreadyAssigned = await checkAlreadyAssigned();
-    if (alreadyAssigned) {
+    if (alreadyAssigned?.truckDriverName) {
       setAlreadyAssignedInfo(alreadyAssigned);
       setShowAlreadyAssignedWarning(true);
       return;
@@ -819,7 +852,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Combobox
                       options={(availableTrailers || []).map((t) => ({ value: t.id, label: t.trailer_number }))}
                       value={formData.trailer_id}
-                      onValueChange={(v) => setFormData({ ...formData, trailer_id: v })}
+                      onValueChange={handleTrailerChange}
                       placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
                       emptyText="No available trailers"
                     />
