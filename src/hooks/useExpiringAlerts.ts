@@ -27,7 +27,11 @@ export const useExpiringTrucks = () => {
         const plateDate = truck.plate_expiration_date ? new Date(truck.plate_expiration_date) : null;
         const insuranceDate = truck.insurance_expiration_date ? new Date(truck.insurance_expiration_date) : null;
         
+        // Include truck if it has any maintenance date set (oil change, tires swap, maintenance check)
+        const hasMaintenanceDate = truck.oil_change_date || truck.tires_swap_date || truck.maintenance_check_date;
+        
         return (
+          hasMaintenanceDate ||
           (dotDate && dotDate <= twoMonthsFromNow) ||
           (plateDate && plateDate <= twoMonthsFromNow) ||
           (insuranceDate && insuranceDate <= twoMonthsFromNow)
