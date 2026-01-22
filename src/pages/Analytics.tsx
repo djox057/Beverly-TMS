@@ -2065,7 +2065,7 @@ const Analytics = () => {
                           return (
                             <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
                               <TableCell className="font-medium">
-                                {driver.isTeam ? (
+                                {driver.isTeam && driver.teamNames.length > 1 ? (
                                   <Popover>
                                     <PopoverTrigger asChild>
                                       <button className="text-left hover:underline cursor-pointer text-primary font-medium">
@@ -2081,7 +2081,7 @@ const Analytics = () => {
                                     </PopoverContent>
                                   </Popover>
                                 ) : (
-                                  driver.name
+                                  driver.teamNames.length === 1 ? driver.teamNames[0] : driver.name
                                 )}
                               </TableCell>
                               <TableCell className="text-right">
