@@ -43,18 +43,20 @@ const formatDate = (date: string | null) => {
 };
 
 const getExpirationStatus = (date: string | null) => {
-  if (!date) return { variant: "secondary" as const, label: "No Date" };
+  if (!date) return { variant: "secondary" as const, label: "No Date", className: "" };
   
   const expirationDate = new Date(date);
   const now = new Date();
   const daysUntilExpiration = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
   if (daysUntilExpiration < 0) {
-    return { variant: "destructive" as const, label: "Expired" };
+    return { variant: "destructive" as const, label: "Expired", className: "text-red-500 font-semibold" };
   } else if (daysUntilExpiration <= 30) {
-    return { variant: "destructive" as const, label: `${daysUntilExpiration} days` };
+    return { variant: "destructive" as const, label: `${daysUntilExpiration} days`, className: "text-red-500 font-semibold" };
+  } else if (daysUntilExpiration <= 60) {
+    return { variant: "outline" as const, label: `${daysUntilExpiration} days`, className: "text-yellow-500 font-semibold" };
   } else {
-    return { variant: "default" as const, label: `${daysUntilExpiration} days` };
+    return { variant: "default" as const, label: `${daysUntilExpiration} days`, className: "" };
   }
 };
 
@@ -595,7 +597,9 @@ export default function Alerts() {
                          <TableCell>{truck.company?.name || "N/A"}</TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(truck.dot_inspection_date)}
+                             <span className={getExpirationStatus(truck.dot_inspection_date).className}>
+                               {formatDate(truck.dot_inspection_date)}
+                             </span>
                              {truck.dot_inspection_date && (
                                <Badge variant={getExpirationStatus(truck.dot_inspection_date).variant}>
                                  {getExpirationStatus(truck.dot_inspection_date).label}
@@ -605,7 +609,9 @@ export default function Alerts() {
                          </TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(truck.plate_expiration_date)}
+                             <span className={getExpirationStatus(truck.plate_expiration_date).className}>
+                               {formatDate(truck.plate_expiration_date)}
+                             </span>
                              {truck.plate_expiration_date && (
                                <Badge variant={getExpirationStatus(truck.plate_expiration_date).variant}>
                                  {getExpirationStatus(truck.plate_expiration_date).label}
@@ -615,7 +621,9 @@ export default function Alerts() {
                          </TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(truck.insurance_expiration_date)}
+                             <span className={getExpirationStatus(truck.insurance_expiration_date).className}>
+                               {formatDate(truck.insurance_expiration_date)}
+                             </span>
                              {truck.insurance_expiration_date && (
                                <Badge variant={getExpirationStatus(truck.insurance_expiration_date).variant}>
                                  {getExpirationStatus(truck.insurance_expiration_date).label}
@@ -722,7 +730,9 @@ export default function Alerts() {
                          <TableCell>{trailer.trailer_type || "N/A"}</TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(trailer.dot_inspection_date)}
+                             <span className={getExpirationStatus(trailer.dot_inspection_date).className}>
+                               {formatDate(trailer.dot_inspection_date)}
+                             </span>
                              {trailer.dot_inspection_date && (
                                <Badge variant={getExpirationStatus(trailer.dot_inspection_date).variant}>
                                  {getExpirationStatus(trailer.dot_inspection_date).label}
@@ -732,7 +742,9 @@ export default function Alerts() {
                          </TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(trailer.plate_expiration_date)}
+                             <span className={getExpirationStatus(trailer.plate_expiration_date).className}>
+                               {formatDate(trailer.plate_expiration_date)}
+                             </span>
                              {trailer.plate_expiration_date && (
                                <Badge variant={getExpirationStatus(trailer.plate_expiration_date).variant}>
                                  {getExpirationStatus(trailer.plate_expiration_date).label}
@@ -742,7 +754,9 @@ export default function Alerts() {
                          </TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
-                             {formatDate(trailer.insurance_expiration_date)}
+                             <span className={getExpirationStatus(trailer.insurance_expiration_date).className}>
+                               {formatDate(trailer.insurance_expiration_date)}
+                             </span>
                              {trailer.insurance_expiration_date && (
                                <Badge variant={getExpirationStatus(trailer.insurance_expiration_date).variant}>
                                  {getExpirationStatus(trailer.insurance_expiration_date).label}
