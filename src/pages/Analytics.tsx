@@ -1424,8 +1424,9 @@ const Analytics = () => {
   const driverGrossRankings = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
-    // Group orders by driver and by week (Tuesday-Monday)
+    // Group orders by driver and by week (Tuesday-Monday), also track truck numbers
     const driverWeeklyData: Record<string, Record<string, { freight: number; driverPay: number; miles: number }>> = {};
+    const driverTrucks: Record<string, Set<string>> = {};
 
     (orders || []).forEach((order) => {
       // Exclude canceled orders without TONU
@@ -1435,6 +1436,15 @@ const Analytics = () => {
 
       const driverName = order.driverName;
       if (!driverName || driverName === "N/A") return;
+
+      // Track truck numbers for this driver
+      const truckNumber = order.truckNumber;
+      if (truckNumber && truckNumber !== "N/A") {
+        if (!driverTrucks[driverName]) {
+          driverTrucks[driverName] = new Set();
+        }
+        driverTrucks[driverName].add(truckNumber);
+      }
 
       // Get delivery date for week calculation
       const deliveryDateStr = order.deliveryDate || order.deliveryDatetime;
@@ -1474,6 +1484,7 @@ const Analytics = () => {
       if (includedWeeks.length === 0) {
         return {
           name: driverName,
+          trucks: Array.from(driverTrucks[driverName] || []),
           avgFreight: 0,
           avgDriverPay: 0,
           medianFreight: 0,
@@ -1492,6 +1503,7 @@ const Analytics = () => {
 
       return {
         name: driverName,
+        trucks: Array.from(driverTrucks[driverName] || []),
         avgFreight: totalFreight / includedWeeks.length,
         avgDriverPay: totalDriverPay / includedWeeks.length,
         medianFreight: calculateMedian(weeklyFreights),
@@ -1511,18 +1523,24 @@ const Analytics = () => {
       .filter((driver) => {
         // Only show active drivers
         if (!activeDriverNames.has(driver.name)) return false;
-        // Only show drivers with at least 1 qualifying week
-        if (driver.weeksCount === 0) return false;
-        // Apply search filter
-        if (grossRankingsSearch && !driver.name.toLowerCase().includes(grossRankingsSearch.toLowerCase())) {
-          return false;
+        // Only show drivers with at least 3 qualifying weeks
+        if (driver.weeksCount < 3) return false;
+        // Apply search filter (by name or truck number)
+        if (grossRankingsSearch) {
+          const searchLower = grossRankingsSearch.toLowerCase();
+          const matchesName = driver.name.toLowerCase().includes(searchLower);
+          const matchesTruck = driver.trucks.some(t => t.toLowerCase().includes(searchLower));
+          if (!matchesName && !matchesTruck) return false;
         }
         return true;
       })
       .sort((a, b) => {
         const aValue = a[grossRankingsSortBy];
         const bValue = b[grossRankingsSortBy];
-        return grossRankingsSortDir === "desc" ? bValue - aValue : aValue - bValue;
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return grossRankingsSortDir === "desc" ? bValue - aValue : aValue - bValue;
+        }
+        return 0;
       });
   }, [driverGrossRankings, activeDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir]);
 
