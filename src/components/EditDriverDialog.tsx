@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,20 +126,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || "");
 
-  // Check if selected trailer is already connected to another truck
-  const getTrailerConflictTruckNumber = (): string | null => {
-    if (!formData.trailer_id) return null;
-    
-    // Find if any truck (other than the currently selected truck) has this trailer
-    const conflictingTruck = allTrucks?.find(
-      (truck) => truck.trailer_id === formData.trailer_id && truck.id !== formData.truck_id
-    );
-    
-    return conflictingTruck?.truck_number || null;
-  };
-
-  const trailerConflictTruckNumber = getTrailerConflictTruckNumber();
-
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
     last_name: "",
@@ -178,6 +164,18 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     is_company_driver: false,
     cents_per_mile: "",
   });
+
+  // Check if selected trailer is already connected to another truck
+  const trailerConflictTruckNumber = useMemo(() => {
+    if (!formData.trailer_id) return null;
+    
+    // Find if any truck (other than the currently selected truck) has this trailer
+    const conflictingTruck = allTrucks?.find(
+      (truck) => truck.trailer_id === formData.trailer_id && truck.id !== formData.truck_id
+    );
+    
+    return conflictingTruck?.truck_number || null;
+  }, [formData.trailer_id, formData.truck_id, allTrucks]);
 
   // Get available trucks (excluding ones assigned to other drivers)
   const editingDriverTruckId = editingDriver
