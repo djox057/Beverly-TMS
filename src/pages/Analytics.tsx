@@ -1424,6 +1424,14 @@ const Analytics = () => {
   const driverGrossRankings = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
+    // Build a map from driver name to current truck number from drivers data
+    const driverNameToCurrentTruck: Record<string, string> = {};
+    (drivers || []).forEach((driver) => {
+      if (driver.name && driver.truck_info?.truck_number) {
+        driverNameToCurrentTruck[driver.name.trim()] = driver.truck_info.truck_number;
+      }
+    });
+
     // Group orders by driver and by week (Tuesday-Monday), also track truck numbers and team status
     const driverWeeklyData: Record<string, Record<string, { freight: number; driverPay: number; miles: number }>> = {};
     const driverTrucks: Record<string, Set<string>> = {};
@@ -1538,6 +1546,7 @@ const Analytics = () => {
       return {
         name: driverName,
         trucks: Array.from(driverTrucks[driverName] || []),
+        currentTruck: driverNameToCurrentTruck[driverName] || null,
         isTeam,
         teamNames,
         avgFreight,
@@ -1554,7 +1563,7 @@ const Analytics = () => {
     });
 
     return rankings;
-  }, [orders]);
+  }, [orders, drivers]);
 
   // State for expanded team driver rows
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -2068,7 +2077,7 @@ const Analytics = () => {
                           return (
                             <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
                               <TableCell className="font-medium">
-                                {driver.trucks.length > 0 ? driver.trucks[driver.trucks.length - 1] : "-"}
+                                {driver.currentTruck || (driver.trucks.length > 0 ? driver.trucks[driver.trucks.length - 1] : "-")}
                               </TableCell>
                               <TableCell className="font-medium">
                                 {driver.isTeam && driver.teamNames.length > 1 ? (
