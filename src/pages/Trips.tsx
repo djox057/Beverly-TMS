@@ -4510,8 +4510,8 @@ const Trips = () => {
                                       </PopoverContent>
                                     </Popover>
                                   )}
-                                  {/* Missing POD icon */}
-                                  {(!order.podFiles || order.podFiles.length === 0) && (
+                                  {/* Missing POD icon - hide for canceled loads */}
+                                  {!order.canceled && (!order.podFiles || order.podFiles.length === 0) && (
                                     <Popover>
                                       <PopoverTrigger asChild>
                                         <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
