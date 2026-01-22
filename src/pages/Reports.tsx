@@ -53,6 +53,7 @@ import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
+import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
@@ -3330,11 +3331,16 @@ const Reports = () => {
                                                 return (
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                      <span className="inline-flex">
-                                                        <AlertCircle 
-                                                          className={`h-3 w-3 ${dotStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`}
-                                                        />
-                                                      </span>
+                                                      <img 
+                                                        src={dotInspectionIcon}
+                                                        alt="DOT Inspection"
+                                                        className="h-4 w-4"
+                                                        style={{
+                                                          filter: dotStatus.color === 'red' 
+                                                            ? 'brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)'
+                                                            : 'brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)',
+                                                        }}
+                                                      />
                                                     </TooltipTrigger>
                                                     <TooltipContent>
                                                       <p className="text-xs">{dotStatus.tooltip}</p>
