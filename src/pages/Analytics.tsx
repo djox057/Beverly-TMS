@@ -1517,10 +1517,17 @@ const Analytics = () => {
     return rankings;
   }, [orders]);
 
+  // Build set of recovery driver names for filtering
+  const recoveryDriverNames = useMemo(() => {
+    return new Set((drivers || []).filter(d => d.is_recovery).map(d => d.name));
+  }, [drivers]);
+
   // Filter and sort Driver Gross Rankings
   const filteredAndSortedRankings = useMemo(() => {
     return driverGrossRankings
       .filter((driver) => {
+        // Exclude recovery drivers
+        if (recoveryDriverNames.has(driver.name)) return false;
         // Only show active drivers
         if (!activeDriverNames.has(driver.name)) return false;
         // Only show drivers with at least 3 qualifying weeks
@@ -1542,7 +1549,7 @@ const Analytics = () => {
         }
         return 0;
       });
-  }, [driverGrossRankings, activeDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir]);
+  }, [driverGrossRankings, activeDriverNames, recoveryDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir]);
 
   // Filter loads booked today with rate <= 2.00
   const today = new Date();
