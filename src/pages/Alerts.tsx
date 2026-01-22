@@ -128,7 +128,7 @@ export default function Alerts() {
   const [driversSearch, setDriversSearch] = useState("");
   
   // Column filters
-  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check" | "maintenance_only";
+  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
   type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
@@ -168,11 +168,6 @@ export default function Alerts() {
       case "oil_change": return needsMaintenanceAttention(truck.oil_change_date);
       case "tires_swap": return needsMaintenanceAttention(truck.tires_swap_date);
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
-      case "maintenance_only": return (
-        needsMaintenanceAttention(truck.oil_change_date) ||
-        needsMaintenanceAttention(truck.tires_swap_date) ||
-        needsMaintenanceAttention(truck.maintenance_check_date)
-      );
       default: return true;
     }
   });
@@ -583,12 +578,6 @@ export default function Alerts() {
                         className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}
-                      </TableHead>
-                      <TableHead 
-                        onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_only" ? "all" : "maintenance_only")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_only" ? "bg-primary/10 text-primary font-semibold" : ""}`}
-                      >
-                        🔧 Maint. Only {truckColumnFilter === "maintenance_only" && "✓"}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
