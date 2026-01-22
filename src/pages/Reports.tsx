@@ -2953,7 +2953,7 @@ const Reports = () => {
                     (_, i) => addDays(startDate, i),
                   );
                   return (
-                    <div key={group.dispatcherId} className="bg-card">
+                    <div key={group.dispatcherId} className={`bg-card ${(group as any).isOffDuty ? 'opacity-50' : ''}`}>
                       {/* Google Sheets-style table */}
                       <div className="w-full">
                         <table
@@ -2966,10 +2966,10 @@ const Reports = () => {
                         >
                           <thead>
                             {/* Date Range Selector Row with Dispatcher Name */}
-                            <tr className="bg-muted/50 sticky top-0 z-20">
+                            <tr className={`sticky top-0 z-20 ${(group as any).isOffDuty ? 'bg-gray-300' : 'bg-muted/50'}`}>
                               <th
                                 colSpan={3}
-                                className="border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold text-foreground bg-muted/50"
+                                className={`border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold ${(group as any).isOffDuty ? 'text-gray-500 bg-gray-300' : 'text-foreground bg-muted/50'}`}
                                 style={{
                                   fontSize: "0.825rem",
                                 }}
@@ -2990,6 +2990,9 @@ const Reports = () => {
                                   </button>
                                   <span>
                                     {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                    {(group as any).isOffDuty && (
+                                      <span className="ml-2 text-xs font-normal italic">(Off Duty)</span>
+                                    )}
                                   </span>
                                   {group.ext && (
                                     <span className="text-xs font-normal text-muted-foreground">
@@ -3395,50 +3398,51 @@ const Reports = () => {
                                           }
                                         }}
                                       >
-                                        <div
-                                          className="flex items-center gap-2"
-                                          onClick={(e) => {
-                                            // Also allow clicking on the driver name text
-                                            if (
-                                              shouldShowDrugTestUI &&
-                                              truck.driverId &&
-                                              e.target === e.currentTarget
-                                            ) {
-                                              console.log("Opening drug test dialog for:", {
-                                                driverId: truck.driverId,
-                                                driverName: truck.driver,
-                                                truckId: truck.id,
-                                                truckNumber: truck.truckNumber,
-                                              });
-                                              dialogs.setDrugTestDialog({
-                                                driverId: truck.driverId,
-                                                driverName: truck.driver,
-                                                truckId: truck.id,
-                                              });
-                                            }
-                                          }}
-                                        >
-                                          {truck.driverId && hasDriverProblem(truck.driverId) && 
-                                            !(roles.includes("dispatch") || roles.includes("afterhours")) && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                  <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
-                                                </button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto max-w-xs p-3">
-                                                <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
-                                                <p className="text-xs whitespace-pre-wrap">
-                                                  {getProblemForDriver(truck.driverId)?.reason}
-                                                </p>
-                                                <p className="text-[10px] text-muted-foreground mt-2">
-                                                  {getProblemForDriver(truck.driverId)?.created_at && 
-                                                    new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
-                                                </p>
-                                              </PopoverContent>
-                                            </Popover>
-                                          )}
-                                          <span>{truck.driver}</span>
+                                        <div className="flex flex-col">
+                                          <div
+                                            className="flex items-center gap-2"
+                                            onClick={(e) => {
+                                              // Also allow clicking on the driver name text
+                                              if (
+                                                shouldShowDrugTestUI &&
+                                                truck.driverId &&
+                                                e.target === e.currentTarget
+                                              ) {
+                                                console.log("Opening drug test dialog for:", {
+                                                  driverId: truck.driverId,
+                                                  driverName: truck.driver,
+                                                  truckId: truck.id,
+                                                  truckNumber: truck.truckNumber,
+                                                });
+                                                dialogs.setDrugTestDialog({
+                                                  driverId: truck.driverId,
+                                                  driverName: truck.driver,
+                                                  truckId: truck.id,
+                                                });
+                                              }
+                                            }}
+                                          >
+                                            {truck.driverId && hasDriverProblem(truck.driverId) && 
+                                              !(roles.includes("dispatch") || roles.includes("afterhours")) && (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                                    <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto max-w-xs p-3">
+                                                  <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
+                                                  <p className="text-xs whitespace-pre-wrap">
+                                                    {getProblemForDriver(truck.driverId)?.reason}
+                                                  </p>
+                                                  <p className="text-[10px] text-muted-foreground mt-2">
+                                                    {getProblemForDriver(truck.driverId)?.created_at && 
+                                                      new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                  </p>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
+                                            <span>{truck.driver}</span>
                                           {(() => {
                                             const maintenanceStatus = getMaintenanceIconStatus(truck);
                                             if (maintenanceStatus.show) {
@@ -3871,6 +3875,13 @@ const Reports = () => {
                                                 </div>
                                               </PopoverContent>
                                             </Popover>
+                                          )}
+                                          </div>
+                                          {/* Show original dispatcher name for off-duty dispatcher drivers */}
+                                          {(truck as any).originalDispatcherName && (
+                                            <div className="text-[9px] text-muted-foreground italic mt-0.5">
+                                              Disp: {(truck as any).originalDispatcherName}
+                                            </div>
                                           )}
                                         </div>
                                       </td>
