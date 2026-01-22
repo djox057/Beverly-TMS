@@ -2067,8 +2067,8 @@ const Analytics = () => {
                         filteredAndSortedRankings.map((driver, index) => {
                           return (
                             <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
-                              <TableCell className="font-medium text-muted-foreground">
-                                {driver.trucks.length > 0 ? driver.trucks.join(", ") : "-"}
+                              <TableCell className="font-medium">
+                                {driver.trucks.length > 0 ? driver.trucks[driver.trucks.length - 1] : "-"}
                               </TableCell>
                               <TableCell className="font-medium">
                                 {driver.isTeam && driver.teamNames.length > 1 ? (
