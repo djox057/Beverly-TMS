@@ -237,6 +237,7 @@ const EditOrder = () => {
   const [yardOriginalMiles, setYardOriginalMiles] = useState("");
   const [yardRecoveryMiles, setYardRecoveryMiles] = useState("");
   const [yardMilesLoading, setYardMilesLoading] = useState(false);
+  const [yardReason, setYardReason] = useState("");
 
   // Partial load state
   const [isPartial, setIsPartial] = useState(false);
@@ -2743,11 +2744,26 @@ const EditOrder = () => {
         recovery_miles: recoveryMilesCalc,
       };
       
-      console.log("Updating order with:", updateData);
+      // Append yard reason to user notes
+      const timestamp = new Date().toLocaleString();
+      const yardNoteEntry = `[${timestamp}] Left at Yard: ${yardReason.trim()}`;
+      const updatedUserNotes = userNotes 
+        ? `${userNotes}\n${yardNoteEntry}`
+        : yardNoteEntry;
+      
+      // Include notes update in the same operation
+      const fullUpdateData = {
+        ...updateData,
+        notes: systemNotes 
+          ? `${updatedUserNotes}\n---\n${systemNotes}` 
+          : updatedUserNotes,
+      };
+      
+      console.log("Updating order with:", fullUpdateData);
 
       const { error } = await supabase
         .from("orders")
-        .update(updateData)
+        .update(fullUpdateData)
         .eq("id", id);
 
       if (error) throw error;
@@ -2758,6 +2774,7 @@ const EditOrder = () => {
       });
 
       setYardDialogOpen(false);
+      setYardReason("");
       localStorage.setItem("returnToYardLoads", "true");
       navigate("/yard-loads");
     } catch (error) {
@@ -4485,11 +4502,31 @@ const EditOrder = () => {
                 Leave empty to auto-calculate based on miles driven to terminal
               </p>
             </div>
+
+            {/* Reason for leaving at yard - MANDATORY */}
+            <div className="space-y-2">
+              <Label htmlFor="yardReasonInput">Reason for Leaving at Yard <span className="text-destructive">*</span></Label>
+              <Textarea
+                id="yardReasonInput"
+                placeholder="Enter the reason why the trailer was left at the yard..."
+                value={yardReason}
+                onChange={(e) => setYardReason(e.target.value)}
+                className="min-h-[80px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                This note will be added to the user notes for this order.
+              </p>
+            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setYardDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleLeftAtYard}>Confirm Left at Yard</Button>
+            <Button 
+              onClick={handleLeftAtYard} 
+              disabled={!yardReason.trim()}
+            >
+              Confirm Left at Yard
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
