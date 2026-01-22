@@ -99,6 +99,7 @@ import {
   getPreviousLoadDeliveryStatus,
   getStatusColors,
   getMaintenanceIconStatus,
+  getDotInspectionIconStatus,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
@@ -3323,6 +3324,26 @@ const Reports = () => {
                                                 </PopoverContent>
                                               </Popover>
                                             )}
+                                            {(() => {
+                                              const dotStatus = getDotInspectionIconStatus(truck);
+                                              if (dotStatus.show) {
+                                                return (
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <span className="inline-flex">
+                                                        <AlertCircle 
+                                                          className={`h-3 w-3 ${dotStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`}
+                                                        />
+                                                      </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p className="text-xs">{dotStatus.tooltip}</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
                                           </div>
                                           {truck.companyName && (
                                             <div className="text-[9px] leading-tight font-semibold text-black opacity-60">

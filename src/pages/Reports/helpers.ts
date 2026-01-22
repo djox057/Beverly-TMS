@@ -422,3 +422,38 @@ export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: st
   const color = minDays <= 7 ? "red" : "yellow";
   return { show: true, color, tooltip: dueSoon.join(", ") };
 };
+
+// Helper to get DOT inspection icon status for trucks and trailers
+export const getDotInspectionIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  const dates = [
+    { name: "Truck DOT", date: truck.dot_inspection_date },
+    { name: "Trailer DOT", date: truck.trailer_dot_inspection_date },
+  ];
+  
+  let minDays = Infinity;
+  const dueSoon: string[] = [];
+  
+  for (const { name, date } of dates) {
+    if (!date) continue;
+    const dotDate = new Date(date);
+    dotDate.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((dotDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // 2 months = ~60 days
+    if (daysUntil <= 60) {
+      minDays = Math.min(minDays, daysUntil);
+      dueSoon.push(`${name}: ${daysUntil <= 0 ? 'Expired' : `${daysUntil} days left`}`);
+    }
+  }
+  
+  if (dueSoon.length === 0) {
+    return { show: false, color: null, tooltip: "" };
+  }
+  
+  // Red if 30 days or less, yellow if 31-60 days
+  const color: 'red' | 'yellow' = minDays <= 30 ? "red" : "yellow";
+  return { show: true, color, tooltip: dueSoon.join(", ") };
+};
