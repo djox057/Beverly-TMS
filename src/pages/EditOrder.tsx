@@ -2768,6 +2768,18 @@ const EditOrder = () => {
 
       if (error) throw error;
 
+      // Unassign trailer from truck when leaving at yard
+      if (originalTruckId) {
+        const { error: truckError } = await supabase
+          .from("trucks")
+          .update({ trailer_id: null })
+          .eq("id", originalTruckId);
+
+        if (truckError) {
+          console.error("Error unassigning trailer from truck:", truckError);
+        }
+      }
+
       toast({
         title: "Success",
         description: `Load marked as left at yard. Original miles: ${originalMilesCalc}, Miles to complete: ${recoveryMilesCalc}`,
