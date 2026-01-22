@@ -2163,6 +2163,8 @@ export const useReports = (options?: UseReportsOptions) => {
             office: string | null;
             ext: string | null;
             trucks: typeof allReports;
+            isOffDuty?: boolean;
+            originalDispatcherName?: string;
           }
         >();
 
@@ -2176,22 +2178,231 @@ export const useReports = (options?: UseReportsOptions) => {
               office: dispatcherInfo?.office || null,
               ext: dispatcherInfo?.ext || null,
               trucks: [],
+              isOffDuty: false,
             });
           }
           dispatcherMap.get(report.dispatcherId)!.trucks.push(report);
         }
 
-        // Convert Map to array
-        const groupedData = Array.from(dispatcherMap.values());
+        // Fetch off-duty dispatchers to show their trucks in a separate section
+        const { data: offDutyStatuses } = await supabase
+          .from("dispatcher_status")
+          .select("dispatcher_id, inactive_trucks")
+          .eq("is_active", false);
+
+        // Create off-duty dispatcher groups with their stored driver data
+        const offDutyGroups: typeof dispatcherMap extends Map<string, infer V> ? V[] : never[] = [];
+        
+        if (offDutyStatuses && offDutyStatuses.length > 0) {
+          for (const offDutyStatus of offDutyStatuses) {
+            const inactiveDrivers = (offDutyStatus.inactive_trucks as any[]) || [];
+            if (inactiveDrivers.length === 0) continue;
+            
+            const offDutyDispatcherInfo = dispatchersByUserId.get(offDutyStatus.dispatcher_id);
+            if (!offDutyDispatcherInfo) continue;
+            
+            // Skip if this office doesn't match the filter
+            if (filterOffice && offDutyDispatcherInfo.office !== filterOffice) continue;
+            
+            // Store the dispatcher_id for use in the inner scope
+            const offDutyDispatcherId = offDutyStatus.dispatcher_id;
+            
+            // Create truck-like objects from the stored driver data
+            const offDutyTrucks = inactiveDrivers.map((driver: any) => {
+              // Find the driver's orders
+              const driverOrders = ordersByDriver.get(driver.id) || [];
+              
+              // Build allOrdersWithStops similar to regular trucks
+              const allOrdersWithStops = driverOrders
+                .filter((order: any) => !order.canceled)
+                .map((order: any) => {
+                  const orderPickupDrops = order.pickup_drops || [];
+                  const pickupStops = orderPickupDrops.filter((pd: any) => pd.type === "pickup");
+                  const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
+                  const pickupStop = pickupStops[0];
+                  const deliveryStop = deliveryStops[deliveryStops.length - 1];
+                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+                  
+                  return {
+                    id: order.id,
+                    order,
+                    status: order.status,
+                    canceled: order.canceled,
+                    notes: order.notes,
+                    pickup_datetime: order.pickup_datetime,
+                    pickup_end_datetime: order.pickup_end_datetime,
+                    delivery_datetime: order.delivery_datetime,
+                    delivery_end_datetime: order.delivery_end_datetime,
+                    updated_at: order.updated_at,
+                    loaded_miles: order.loaded_miles,
+                    order_files: order.order_files,
+                    pickupStop,
+                    deliveryStop,
+                    pickupStops,
+                    deliveryStops,
+                    isActive: !hasPOD && (order.status === 'pending' || order.status === 'in_transit'),
+                    isRecentCompleted: hasPOD || order.status === 'delivered',
+                    documentStatus: hasPOD ? 'complete' : hasBOL ? 'partial' : 'missing',
+                    documentColors: { pod: hasPOD, bol: hasBOL },
+                    loadDetails: {
+                      loadNumber: order.internal_load_number || "—",
+                      companyName: null,
+                      brokerLoadNumber: order.broker_load_number || "—",
+                      pickupInfo: pickupStop ? { address: pickupStop.address || "—", city: pickupStop.city || "—", state: pickupStop.state || "—", zipCode: pickupStop.zip_code || "", datetime: pickupStop.datetime || order.pickup_datetime || "—", endDatetime: order.pickup_end_datetime || "—" } : null,
+                      deliveryInfo: deliveryStop ? { address: deliveryStop.address || "—", city: deliveryStop.city || "—", state: deliveryStop.state || "—", zipCode: deliveryStop.zip_code || "", datetime: deliveryStop.datetime || order.delivery_datetime || "—", endDatetime: order.delivery_end_datetime || "—" } : null,
+                      allPickupStops: pickupStops.map((stop: any) => ({ address: stop.address || "—", city: stop.city || "—", state: stop.state || "—", zipCode: stop.zip_code || "", datetime: stop.datetime || order.pickup_datetime || "—", endDatetime: order.pickup_end_datetime || "—" })),
+                      allDeliveryStops: deliveryStops.map((stop: any) => ({ address: stop.address || "—", city: stop.city || "—", state: stop.state || "—", zipCode: stop.zip_code || "", datetime: stop.datetime || order.delivery_datetime || "—", endDatetime: order.delivery_end_datetime || "—" })),
+                      documents: (order.order_files || []).map((file: any) => ({ category: file.file_category })),
+                      notes: order.notes || "—",
+                    },
+                  };
+                }) || [];
+              
+              // Determine current order
+              let currentOrder: typeof allOrdersWithStops[0] | null = null;
+              const allSortedOrders = allOrdersWithStops
+                .filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+                .sort((a, b) => {
+                  const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+                  const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+                  return aPickup - bPickup;
+                });
+              
+              if (allSortedOrders.length > 0) {
+                const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+                if (lastOrderHasBOL) {
+                  currentOrder = lastOrder;
+                } else if (allSortedOrders.length >= 2) {
+                  const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  if (previousHasPOD) {
+                    currentOrder = lastOrder;
+                  } else {
+                    const lastWithBOL = [...allSortedOrders].reverse().find(order =>
+                      order.order_files?.some((file: any) => file.file_category === 'BOL')
+                    );
+                    currentOrder = lastWithBOL || lastOrder;
+                  }
+                } else {
+                  currentOrder = lastOrder;
+                }
+              }
+              
+              // Format pickup/delivery info
+              const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
+                if (!stop) return { id: null, location: "—", date: "—", time: "—" };
+                let location = "—";
+                const parts = [];
+                if (stop.address) parts.push(stop.address);
+                if (stop.city) parts.push(stop.city);
+                if (stop.state) parts.push(stop.state);
+                if (parts.length > 0) {
+                  location = parts.join(", ");
+                  if (location.length > 30) location = location.substring(0, 30) + "...";
+                }
+                let date = "—";
+                let time = "—";
+                const datetimeToUse = orderStartTime || stop.datetime;
+                if (datetimeToUse) {
+                  const parsed = parseSimpleDateTime(datetimeToUse);
+                  date = parsed.dateString;
+                  time = parsed.timeString;
+                }
+                return { id: stop.id, location, date, time };
+              };
+              
+              // Determine status
+              let truckStatus = "Available";
+              if (currentOrder) {
+                switch (currentOrder.status) {
+                  case "pending": truckStatus = "Loading"; break;
+                  case "in_transit": truckStatus = "In Transit"; break;
+                  case "delivered": truckStatus = "Available"; break;
+                  default: truckStatus = "Available";
+                }
+              }
+              
+              return {
+                id: driver.truck?.id || `driver-${driver.id}`,
+                orderId: currentOrder?.id || null,
+                truckNumber: driver.truck?.truck_number || null,
+                companyName: null,
+                driver: driver.name,
+                driver1Name: driver.name,
+                driverId: driver.id,
+                driverPhone: driver.phone || null,
+                driverEmail: driver.email || null,
+                driver2Id: null,
+                driver2Name: null,
+                driver2Phone: null,
+                driver2Email: null,
+                trailerNumber: null,
+                home: "—",
+                dispatcher: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
+                dispatcherId: offDutyDispatcherId,
+                originalDispatcherName: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
+                status: truckStatus,
+                pickup: formatStopInfo(currentOrder?.pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
+                delivery: formatStopInfo(currentOrder?.deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
+                awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+                driveHours: "0:00h",
+                shiftHours: "0:00h",
+                cycleHours: "0:00h",
+                driveMinutes: 0,
+                shiftMinutes: 0,
+                breakMinutes: 0,
+                cycleMinutes: 0,
+                hosStatus: null,
+                hosLastUpdated: null,
+                twoWeekBlockDate: null,
+                randomDrugTestDate: null,
+                note: "",
+                lastEdit: new Date().toLocaleTimeString(),
+                editDate: new Date().toLocaleDateString(),
+                allOrders: allOrdersWithStops,
+                activeOrders: allOrdersWithStops.filter(o => o.isActive),
+                activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
+                totalOrdersCount: driverOrders.length || 0,
+                hasMultipleOrders: (driverOrders.length || 0) > 1,
+                lost_day_notes: [],
+                milesAway: 0,
+                totalMiles: currentOrder?.loaded_miles || 0,
+                goingYard: false,
+                isOffDutyDriver: true,
+              };
+            });
+            
+            if (offDutyTrucks.length > 0) {
+              offDutyGroups.push({
+                dispatcher: offDutyDispatcherInfo.full_name || offDutyDispatcherInfo.email || "Unknown",
+                dispatcherId: `off-duty-${offDutyDispatcherId}`,
+                office: offDutyDispatcherInfo.office || null,
+                ext: offDutyDispatcherInfo.ext || null,
+                trucks: offDutyTrucks,
+                isOffDuty: true,
+                originalDispatcherName: offDutyDispatcherInfo.full_name || offDutyDispatcherInfo.email || "Unknown",
+              });
+            }
+          }
+        }
+
+        // Convert Map to array and add off-duty groups
+        const groupedData = [...Array.from(dispatcherMap.values()), ...offDutyGroups];
 
         // Get current user to sort their dispatcher section first
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
-        // Sort so current user's dispatcher appears first
+        // Sort so current user's dispatcher appears first, off-duty dispatchers last
         if (user) {
           groupedData.sort((a, b) => {
+            // Off-duty dispatchers always go to the end
+            if (a.isOffDuty && !b.isOffDuty) return 1;
+            if (!a.isOffDuty && b.isOffDuty) return -1;
+            
             const aIsCurrentUser = a.dispatcherId === user.id;
             const bIsCurrentUser = b.dispatcherId === user.id;
 
