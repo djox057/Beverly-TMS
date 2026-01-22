@@ -105,8 +105,13 @@ For EACH location extract:
 - address: Street address only (remove dock/gate instructions)
 - city: City name
 - state: 2-letter state code
-- zip: ZIP code (5 or 9 digits)
+- zip: FULL ZIP code - extract ALL digits (5-digit: "12345" or 9-digit: "123456789"). Do NOT truncate 9-digit zips to 5 digits. If zip appears as "300831531", keep all 9 digits.
 - date: Convert to YYYY-MM-DD format (see DATE PARSING RULES below)
+- startTime: Format as HH:MM (24-hour)
+- endTime: Format as HH:MM (24-hour)
+- puNumber: Pickup/appointment number, BOL#, or Bill of Lading number
+- poNumber: Purchase order number
+- shipper: Company name at this location
 - startTime: Format as HH:MM (24-hour)
 - endTime: Format as HH:MM (24-hour)
 - puNumber: Pickup/appointment number, BOL#, or Bill of Lading number
@@ -164,7 +169,7 @@ For single pickup/delivery:
     "address": "string",
     "city": "string",
     "state": "XX",
-    "zip": "12345",
+    "zip": "300831531",
     "date": "2025-12-10",
     "startTime": "HH:MM",
     "endTime": "HH:MM",
@@ -176,7 +181,7 @@ For single pickup/delivery:
     "address": "string",
     "city": "string",
     "state": "XX",
-    "zip": "12345",
+    "zip": "187072141",
     "date": "2025-12-11",
     "startTime": "HH:MM",
     "endTime": "HH:MM",
