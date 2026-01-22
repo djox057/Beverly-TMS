@@ -641,8 +641,8 @@ export default function YardLoads() {
                   <TableHead className="w-20">Load #</TableHead>
                   <TableHead className="w-28">Broker Load #</TableHead>
                   <TableHead className="w-36">Delivery City</TableHead>
-                  <TableHead className="w-24">Delivery Time</TableHead>
                   <TableHead className="w-28">Delivery Date</TableHead>
+                  <TableHead className="w-24">Delivery Time</TableHead>
                   <TableHead className="w-24">Miles</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
                   <TableHead className="w-28">Freight Amount</TableHead>
@@ -679,10 +679,10 @@ export default function YardLoads() {
                         <TableCell>
                           <span className="line-clamp-2">{order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}</span>
                         </TableCell>
+                        <TableCell>{formatDateNoTimezone(order.deliveryDate)}</TableCell>
                         <TableCell>
                           {order.deliveryDate ? order.deliveryDate.substring(11, 16) : '-'}
                         </TableCell>
-                        <TableCell>{formatDateNoTimezone(order.deliveryDate)}</TableCell>
                         <TableCell>
                           {order.terminalToDeliveryMiles?.toLocaleString() || '0'}
                         </TableCell>
