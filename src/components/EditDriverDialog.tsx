@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ import { DriverFilesManager } from "@/components/DriverFilesManager";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
@@ -165,17 +165,36 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     cents_per_mile: "",
   });
 
-  // Check if selected trailer is already connected to another truck
-  const trailerConflictTruckNumber = useMemo(() => {
-    if (!formData.trailer_id) return null;
-    
-    // Find if any truck (other than the currently selected truck) has this trailer
-    const conflictingTruck = allTrucks?.find(
-      (truck) => truck.trailer_id === formData.trailer_id && truck.id !== formData.truck_id
-    );
-    
-    return conflictingTruck?.truck_number || null;
-  }, [formData.trailer_id, formData.truck_id, allTrucks]);
+  // Check if selected trailer is already connected to another truck - query database directly
+  const { data: trailerConflictData } = useQuery({
+    queryKey: ['trailer-conflict-check', formData.trailer_id, formData.truck_id],
+    queryFn: async () => {
+      if (!formData.trailer_id) return null;
+      
+      let query = supabase
+        .from("trucks")
+        .select("id, truck_number")
+        .eq("trailer_id", formData.trailer_id);
+      
+      // Exclude current truck if one is selected
+      if (formData.truck_id) {
+        query = query.neq("id", formData.truck_id);
+      }
+      
+      const { data, error } = await query.maybeSingle();
+      
+      if (error) {
+        console.error("Error checking trailer conflict:", error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!formData.trailer_id,
+    staleTime: 5000, // Re-fetch after 5 seconds
+  });
+  
+  const trailerConflictTruckNumber = trailerConflictData?.truck_number || null;
 
   // Get available trucks (excluding ones assigned to other drivers)
   const editingDriverTruckId = editingDriver
