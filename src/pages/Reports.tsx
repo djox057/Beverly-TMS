@@ -3877,8 +3877,8 @@ const Reports = () => {
                                             </Popover>
                                           )}
                                           </div>
-                                          {/* Show original dispatcher name for off-duty dispatcher drivers */}
-                                          {(truck as any).originalDispatcherName && (
+                                          {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
+                                          {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
                                             <div className="text-[9px] text-muted-foreground italic mt-0.5">
                                               Disp: {(truck as any).originalDispatcherName}
                                             </div>
