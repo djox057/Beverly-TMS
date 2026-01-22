@@ -178,7 +178,7 @@ const Analytics = () => {
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
   const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<
-    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpm"
+    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpm" | "weeksCount"
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
@@ -1953,13 +1953,19 @@ const Analytics = () => {
                         >
                           RPM {grossRankingsSortBy === "rpm" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
-                        <TableHead className="w-[21%]">Notice</TableHead>
+                        <TableHead 
+                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("weeksCount")}
+                        >
+                          Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead className="w-[17%]">Notice</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow>
@@ -1992,6 +1998,7 @@ const Analytics = () => {
                               })}
                             </TableCell>
                             <TableCell className="text-right">${driver.rpm.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{driver.weeksCount}</TableCell>
                             <TableCell>
                               <DriverNoticeDialog
                                 driverName={driver.name}
