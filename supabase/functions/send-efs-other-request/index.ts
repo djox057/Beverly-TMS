@@ -164,10 +164,6 @@ Purpose: ${purpose}`;
     if (isFuelRequest && city && state) {
       emailBody += `
 Location: ${city}, ${state}`;
-      if (quantity && quantity > 0) {
-        emailBody += `
-Quantity: ${quantity} gallons`;
-      }
     }
 
     // Determine sender email based on company
