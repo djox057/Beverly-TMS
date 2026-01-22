@@ -14,13 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, CheckCircle2, Play, RefreshCw, AlertCircle } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Loader2, CheckCircle2, Play, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +26,7 @@ import { DriverFilesManager } from "@/components/DriverFilesManager";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
@@ -164,37 +158,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     is_company_driver: false,
     cents_per_mile: "",
   });
-
-  // Check if selected trailer is already connected to another truck - query database directly
-  const { data: trailerConflictData } = useQuery({
-    queryKey: ['trailer-conflict-check', formData.trailer_id, formData.truck_id],
-    queryFn: async () => {
-      if (!formData.trailer_id) return null;
-      
-      let query = supabase
-        .from("trucks")
-        .select("id, truck_number")
-        .eq("trailer_id", formData.trailer_id);
-      
-      // Exclude current truck if one is selected
-      if (formData.truck_id) {
-        query = query.neq("id", formData.truck_id);
-      }
-      
-      const { data, error } = await query.maybeSingle();
-      
-      if (error) {
-        console.error("Error checking trailer conflict:", error);
-        return null;
-      }
-      
-      return data;
-    },
-    enabled: !!formData.trailer_id,
-    staleTime: 5000, // Re-fetch after 5 seconds
-  });
-  
-  const trailerConflictTruckNumber = trailerConflictData?.truck_number || null;
 
   // Get available trucks (excluding ones assigned to other drivers)
   const editingDriverTruckId = editingDriver
@@ -861,21 +824,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     />
                   </div>
                   <div className="space-y-2 col-span-5">
-                    <div className="flex items-center gap-1">
-                      <Label>Trailer Number</Label>
-                      {trailerConflictTruckNumber && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertCircle className="h-4 w-4 text-destructive cursor-pointer" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>This trailer is currently connected to truck {trailerConflictTruckNumber}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
+                    <Label>Trailer Number</Label>
                     <Combobox
                       options={(availableTrailers || []).map((t) => ({ value: t.id, label: t.trailer_number }))}
                       value={formData.trailer_id}

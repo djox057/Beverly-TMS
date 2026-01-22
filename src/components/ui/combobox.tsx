@@ -19,7 +19,6 @@ import {
 interface Option {
   value: string;
   label: string;
-  data?: unknown;
 }
 
 interface ComboboxProps {
@@ -31,8 +30,6 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
-  renderSelected?: (option: Option) => React.ReactNode;
-  renderOption?: (option: Option, isSelected: boolean) => React.ReactNode;
 }
 
 export function Combobox({
@@ -44,8 +41,6 @@ export function Combobox({
   emptyText = "No results found.",
   className,
   disabled,
-  renderSelected,
-  renderOption,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -61,11 +56,7 @@ export function Combobox({
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
-          <span className="flex min-w-0 flex-1 items-center gap-1 truncate text-left">
-            {selectedOption
-              ? (renderSelected ? renderSelected(selectedOption) : selectedOption.label)
-              : placeholder}
-          </span>
+          {selectedOption ? selectedOption.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -90,9 +81,7 @@ export function Combobox({
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <div className="flex w-full min-w-0 items-center justify-between gap-2">
-                    {renderOption ? renderOption(option, value === option.value) : option.label}
-                  </div>
+                  {option.label}
                 </CommandItem>
               ))}
             </CommandGroup>
