@@ -1436,8 +1436,10 @@ const Analytics = () => {
         return;
       }
 
-      const driverName = order.driverName;
-      if (!driverName || driverName === "N/A") return;
+      const rawDriverName = order.driverName;
+      if (!rawDriverName || rawDriverName === "N/A") return;
+      // Normalize driver name to avoid duplicates from whitespace differences
+      const driverName = rawDriverName.trim();
 
       // Check if this is a team order (has driver2)
       const hasDriver2 = order.driver2Id || order.driver2Name;
@@ -1989,7 +1991,8 @@ const Analytics = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[12%]">Driver Name</TableHead>
+                        <TableHead className="w-[6%]">Truck#</TableHead>
+                        <TableHead className="w-[10%]">Driver Name</TableHead>
                         <TableHead 
                           className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("avgFreight")}
@@ -2056,7 +2059,7 @@ const Analytics = () => {
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow>
@@ -2064,6 +2067,9 @@ const Analytics = () => {
                         filteredAndSortedRankings.map((driver, index) => {
                           return (
                             <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
+                              <TableCell className="font-medium text-muted-foreground">
+                                {driver.trucks.length > 0 ? driver.trucks.join(", ") : "-"}
+                              </TableCell>
                               <TableCell className="font-medium">
                                 {driver.isTeam && driver.teamNames.length > 1 ? (
                                   <Popover>
