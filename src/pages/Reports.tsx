@@ -3883,6 +3883,12 @@ const Reports = () => {
                                               Disp: {(truck as any).originalDispatcherName}
                                             </div>
                                           )}
+                                          {/* Show current dispatcher name for drivers in off-duty sections */}
+                                          {(truck as any).currentDispatcherName && (group as any).isOffDuty && (
+                                            <div className="text-[9px] text-muted-foreground italic mt-0.5">
+                                              Disp: {(truck as any).currentDispatcherName}
+                                            </div>
+                                          )}
                                         </div>
                                       </td>
                                       <td

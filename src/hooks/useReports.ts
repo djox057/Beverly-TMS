@@ -2242,7 +2242,7 @@ export const useReports = (options?: UseReportsOptions) => {
             const { data: realDriverData } = driverIds.length > 0 
               ? await supabase
                   .from("drivers")
-                  .select("id, name, phone, email, home_city, home_state, company_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated")
+                  .select("id, name, phone, email, home_city, home_state, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated")
                   .in("id", driverIds)
               : { data: [] };
             
@@ -2421,7 +2421,11 @@ export const useReports = (options?: UseReportsOptions) => {
                 home: homeString,
                 dispatcher: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
                 dispatcherId: offDutyDispatcherId,
-                // Don't set originalDispatcherName for off-duty section - it's for active sections only
+                // Get current dispatcher name for drivers in off-duty section
+                currentDispatcherName: realDriver?.dispatcher_id 
+                  ? (dispatchersByUserId.get(realDriver.dispatcher_id)?.full_name || 
+                     dispatchersByUserId.get(realDriver.dispatcher_id)?.email || null)
+                  : null,
                 status: truckStatus,
                 pickup: formatStopInfo(currentOrder?.pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
                 delivery: formatStopInfo(currentOrder?.deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
