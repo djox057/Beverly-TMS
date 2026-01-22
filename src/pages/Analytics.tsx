@@ -178,7 +178,7 @@ const Analytics = () => {
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
   const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<
-    "avgFreight" | "avgDriverPay" | "medianFreight" | "medianDriverPay" | "rpmCompany" | "rpmDriver" | "weeksCount"
+    "avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "medianFreight" | "medianDriverPay" | "medianMiles" | "rpmCompany" | "rpmDriver" | "weeksCount"
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
@@ -1485,10 +1485,14 @@ const Analytics = () => {
         return {
           name: driverName,
           trucks: Array.from(driverTrucks[driverName] || []),
+          isTeam: driverName.includes(" & "),
           avgFreight: 0,
           avgDriverPay: 0,
+          avgMiles: 0,
+          avgCut: 0,
           medianFreight: 0,
           medianDriverPay: 0,
+          medianMiles: 0,
           rpmCompany: 0,
           rpmDriver: 0,
           weeksCount: 0,
@@ -1497,17 +1501,26 @@ const Analytics = () => {
 
       const weeklyFreights = includedWeeks.map(wk => weeklyData[wk].freight);
       const weeklyDriverPays = includedWeeks.map(wk => weeklyData[wk].driverPay);
+      const weeklyMiles = includedWeeks.map(wk => weeklyData[wk].miles);
       const totalFreight = weeklyFreights.reduce((sum, v) => sum + v, 0);
       const totalDriverPay = weeklyDriverPays.reduce((sum, v) => sum + v, 0);
-      const totalMiles = includedWeeks.reduce((sum, wk) => sum + weeklyData[wk].miles, 0);
+      const totalMiles = weeklyMiles.reduce((sum, v) => sum + v, 0);
+
+      const avgFreight = totalFreight / includedWeeks.length;
+      const avgDriverPay = totalDriverPay / includedWeeks.length;
+      const avgMiles = totalMiles / includedWeeks.length;
 
       return {
         name: driverName,
         trucks: Array.from(driverTrucks[driverName] || []),
-        avgFreight: totalFreight / includedWeeks.length,
-        avgDriverPay: totalDriverPay / includedWeeks.length,
+        isTeam: driverName.includes(" & "),
+        avgFreight,
+        avgDriverPay,
+        avgMiles,
+        avgCut: avgFreight - avgDriverPay,
         medianFreight: calculateMedian(weeklyFreights),
         medianDriverPay: calculateMedian(weeklyDriverPays),
+        medianMiles: calculateMedian(weeklyMiles),
         rpmCompany: totalMiles > 0 ? totalFreight / totalMiles : 0,
         rpmDriver: totalMiles > 0 ? totalDriverPay / totalMiles : 0,
         weeksCount: includedWeeks.length,
@@ -1516,6 +1529,9 @@ const Analytics = () => {
 
     return rankings;
   }, [orders]);
+
+  // State for expanded team driver rows
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
   // Build set of recovery driver names for filtering
   const recoveryDriverNames = useMemo(() => {
@@ -1927,7 +1943,7 @@ const Analytics = () => {
                   <CardTitle>Driver Gross Rankings</CardTitle>
                   <div className="flex flex-wrap gap-2 items-center">
                     <Input
-                      placeholder="Search driver name..."
+                      placeholder="Search driver or truck..."
                       value={grossRankingsSearch}
                       onChange={(e) => setGrossRankingsSearch(e.target.value)}
                       className="w-64"
@@ -1949,99 +1965,159 @@ const Analytics = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[15%]">Driver Name</TableHead>
+                        <TableHead className="w-[12%]">Driver Name</TableHead>
                         <TableHead 
-                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("avgFreight")}
                         >
-                          Avg Weekly Freight {grossRankingsSortBy === "avgFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          Avg Freight {grossRankingsSortBy === "avgFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("avgDriverPay")}
                         >
-                          Avg Weekly Driver Pay {grossRankingsSortBy === "avgDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          Avg Driver Pay {grossRankingsSortBy === "avgDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("avgMiles")}
+                        >
+                          Avg Miles {grossRankingsSortBy === "avgMiles" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("avgCut")}
+                        >
+                          Avg Cut {grossRankingsSortBy === "avgCut" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("medianFreight")}
                         >
-                          Median Weekly Freight {grossRankingsSortBy === "medianFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          Med Freight {grossRankingsSortBy === "medianFreight" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[14%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[10%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("medianDriverPay")}
                         >
-                          Median Weekly Driver Pay {grossRankingsSortBy === "medianDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          Med Driver Pay {grossRankingsSortBy === "medianDriverPay" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[7%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGrossRankingsSort("medianMiles")}
+                        >
+                          Med Miles {grossRankingsSortBy === "medianMiles" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead 
+                          className="text-right w-[5%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("rpmCompany")}
                         >
                           RPM Co {grossRankingsSortBy === "rpmCompany" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[7%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[5%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("rpmDriver")}
                         >
                           RPM Dr {grossRankingsSortBy === "rpmDriver" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead 
-                          className="text-right w-[8%] cursor-pointer hover:bg-muted/50"
+                          className="text-right w-[5%] cursor-pointer hover:bg-muted/50"
                           onClick={() => handleGrossRankingsSort("weeksCount")}
                         >
                           Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
-                        <TableHead className="w-[17%]">Notice</TableHead>
+                        <TableHead className="w-[9%]">Notice</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredAndSortedRankings.map((driver, index) => (
-                          <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
-                            <TableCell className="font-medium">{driver.name}</TableCell>
-                            <TableCell className="text-right">
-                              ${driver.avgFreight.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              ${driver.avgDriverPay.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              ${driver.medianFreight.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              ${driver.medianDriverPay.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{driver.weeksCount}</TableCell>
-                            <TableCell>
-                              <DriverNoticeDialog
-                                driverName={driver.name}
-                                initialNotice={driverTiers[driver.name]?.notice || ""}
-                                onSave={handleNoticeSave}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        filteredAndSortedRankings.map((driver, index) => {
+                          const isExpanded = expandedTeams.has(driver.name);
+                          const teamNames = driver.isTeam ? driver.name.split(" & ") : [];
+                          
+                          return (
+                            <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
+                              <TableCell className="font-medium">
+                                {driver.isTeam ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button className="text-left hover:underline cursor-pointer text-primary font-medium">
+                                        Team
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-3">
+                                      <div className="space-y-1">
+                                        {teamNames.map((name, i) => (
+                                          <div key={i} className="text-sm">{name.trim()}</div>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  driver.name
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                ${driver.avgFreight.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                ${driver.avgDriverPay.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {driver.avgMiles.toLocaleString(undefined, {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                ${driver.avgCut.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                ${driver.medianFreight.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                ${driver.medianDriverPay.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {driver.medianMiles.toLocaleString(undefined, {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">{driver.weeksCount}</TableCell>
+                              <TableCell>
+                                <DriverNoticeDialog
+                                  driverName={driver.name}
+                                  initialNotice={driverTiers[driver.name]?.notice || ""}
+                                  onSave={handleNoticeSave}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
