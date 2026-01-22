@@ -1424,9 +1424,11 @@ const Analytics = () => {
   const driverGrossRankings = useMemo(() => {
     if (!orders || orders.length === 0) return [];
 
-    // Group orders by driver and by week (Tuesday-Monday), also track truck numbers
+    // Group orders by driver and by week (Tuesday-Monday), also track truck numbers and team status
     const driverWeeklyData: Record<string, Record<string, { freight: number; driverPay: number; miles: number }>> = {};
     const driverTrucks: Record<string, Set<string>> = {};
+    const driverIsTeam: Record<string, boolean> = {}; // Track if driver has any team orders
+    const driverTeammates: Record<string, Set<string>> = {}; // Track teammate names
 
     (orders || []).forEach((order) => {
       // Exclude canceled orders without TONU
@@ -1436,6 +1438,19 @@ const Analytics = () => {
 
       const driverName = order.driverName;
       if (!driverName || driverName === "N/A") return;
+
+      // Check if this is a team order (has driver2)
+      const hasDriver2 = order.driver2Id || order.driver2Name;
+      if (hasDriver2) {
+        driverIsTeam[driverName] = true;
+        // Track the teammate names for the popover
+        if (!driverTeammates[driverName]) {
+          driverTeammates[driverName] = new Set();
+        }
+        // Add both driver names
+        if (order.driver1Name) driverTeammates[driverName].add(order.driver1Name);
+        if (order.driver2Name) driverTeammates[driverName].add(order.driver2Name);
+      }
 
       // Track truck numbers for this driver
       const truckNumber = order.truckNumber;
@@ -1481,11 +1496,19 @@ const Analytics = () => {
       // Exclude first and last week (need at least 3 weeks of data)
       const includedWeeks = weekKeys.length >= 3 ? weekKeys.slice(1, -1) : weekKeys;
       
+      const isTeam = driverIsTeam[driverName] || driverName.includes(" & ");
+      const teamNames = isTeam 
+        ? Array.from(driverTeammates[driverName] || []).length > 0
+          ? Array.from(driverTeammates[driverName])
+          : driverName.split(" & ").map(n => n.trim())
+        : [];
+      
       if (includedWeeks.length === 0) {
         return {
           name: driverName,
           trucks: Array.from(driverTrucks[driverName] || []),
-          isTeam: driverName.includes(" & "),
+          isTeam,
+          teamNames,
           avgFreight: 0,
           avgDriverPay: 0,
           avgMiles: 0,
@@ -1513,7 +1536,8 @@ const Analytics = () => {
       return {
         name: driverName,
         trucks: Array.from(driverTrucks[driverName] || []),
-        isTeam: driverName.includes(" & "),
+        isTeam,
+        teamNames,
         avgFreight,
         avgDriverPay,
         avgMiles,
@@ -2038,9 +2062,6 @@ const Analytics = () => {
                         </TableRow>
                       ) : (
                         filteredAndSortedRankings.map((driver, index) => {
-                          const isExpanded = expandedTeams.has(driver.name);
-                          const teamNames = driver.isTeam ? driver.name.split(" & ") : [];
-                          
                           return (
                             <TableRow key={driver.name} className={index === filteredAndSortedRankings.length - 1 ? "border-b" : ""}>
                               <TableCell className="font-medium">
@@ -2053,8 +2074,8 @@ const Analytics = () => {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-3">
                                       <div className="space-y-1">
-                                        {teamNames.map((name, i) => (
-                                          <div key={i} className="text-sm">{name.trim()}</div>
+                                        {driver.teamNames.map((name, i) => (
+                                          <div key={i} className="text-sm">{name}</div>
                                         ))}
                                       </div>
                                     </PopoverContent>
