@@ -371,27 +371,33 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     const { trailerId: origTrailerId } = originalAssignmentRef.current;
     if (trailerId === origTrailerId) return;
     
-    // Check if this trailer is assigned to another truck
+    // Get the current truck this driver is assigned to (use selectedTruckId as source of truth)
+    const currentTruckId = selectedTruckId || formData.truck_id || "";
+    
+    // Check if this trailer is assigned to ANY truck (excluding current driver's truck)
     const { data: trucksWithTrailer } = await supabase
       .from("trucks")
       .select("id, truck_number")
       .eq("trailer_id", trailerId)
-      .neq("id", formData.truck_id || "")
       .limit(1);
 
+    // Show warning if trailer is on a different truck
     if (trucksWithTrailer && trucksWithTrailer.length > 0) {
       const truckWithTrailer = trucksWithTrailer[0];
-      const { data: trailerData } = await supabase
-        .from("trailers")
-        .select("trailer_number")
-        .eq("id", trailerId)
-        .single();
-      
-      setAlreadyAssignedInfo({
-        trailerTruckNumber: truckWithTrailer.truck_number || "Unknown",
-        trailerNumber: trailerData?.trailer_number || "Unknown",
-      });
-      setShowAlreadyAssignedWarning(true);
+      // Only warn if it's a different truck than current driver's truck
+      if (truckWithTrailer.id !== currentTruckId) {
+        const { data: trailerData } = await supabase
+          .from("trailers")
+          .select("trailer_number")
+          .eq("id", trailerId)
+          .maybeSingle();
+        
+        setAlreadyAssignedInfo({
+          trailerTruckNumber: truckWithTrailer.truck_number || "Unknown",
+          trailerNumber: trailerData?.trailer_number || "Unknown",
+        });
+        setShowAlreadyAssignedWarning(true);
+      }
     }
   };
 
