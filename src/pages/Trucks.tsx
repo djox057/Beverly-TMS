@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
+import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
 
 interface TruckFormData {
@@ -66,6 +67,10 @@ const Trucks = () => {
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
   const [terminationNotes, setTerminationNotes] = useState<TerminationNote[]>([]);
+  const [showReasonDialog, setShowReasonDialog] = useState(false);
+  const [reasonChangeType, setReasonChangeType] = useState<"driver" | "trailer" | "both">("driver");
+  const [pendingReason, setPendingReason] = useState<string>("");
+  const originalAssignmentRef = useRef<{ driver_id: string; driver2_id: string; trailer_id: string } | null>(null);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
@@ -239,8 +244,58 @@ const Trucks = () => {
       setIsSubmitting(false);
     }
   };
-  const handleEditTruck = async (e: React.FormEvent) => {
+  // Check if assignment change needs a reason
+  const checkAssignmentChangeNeedsReason = (): "driver" | "trailer" | "both" | null => {
+    if (!originalAssignmentRef.current) return null;
+    
+    const orig = originalAssignmentRef.current;
+    
+    // Check if driver1 or driver2 changed (only if original had a value)
+    const driver1Changed = orig.driver_id && orig.driver_id !== formData.driver_id;
+    const driver2Changed = orig.driver2_id && orig.driver2_id !== formData.driver2_id;
+    const driverChanged = driver1Changed || driver2Changed;
+    
+    // Check if trailer changed (only if original had a value)
+    const trailerChanged = orig.trailer_id && orig.trailer_id !== formData.trailer_id;
+    
+    if (driverChanged && trailerChanged) return "both";
+    if (driverChanged) return "driver";
+    if (trailerChanged) return "trailer";
+    return null;
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const changeType = checkAssignmentChangeNeedsReason();
+    if (changeType) {
+      setReasonChangeType(changeType);
+      setShowReasonDialog(true);
+    } else {
+      handleEditTruckWithReason("");
+    }
+  };
+
+  const handleReasonConfirm = (reason: string) => {
+    setPendingReason(reason);
+    setShowReasonDialog(false);
+    handleEditTruckWithReason(reason);
+  };
+
+  const handleReasonCancel = () => {
+    setShowReasonDialog(false);
+    // Reset form data to original values
+    if (originalAssignmentRef.current) {
+      setFormData(prev => ({
+        ...prev,
+        driver_id: originalAssignmentRef.current!.driver_id,
+        driver2_id: originalAssignmentRef.current!.driver2_id,
+        trailer_id: originalAssignmentRef.current!.trailer_id
+      }));
+    }
+  };
+
+  const handleEditTruckWithReason = async (reason: string) => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
@@ -279,6 +334,28 @@ const Trucks = () => {
       }).eq('id', editingTruck.id);
       if (error) throw error;
 
+      // Log assignment history if there was a change
+      if (originalAssignmentRef.current && reason) {
+        const orig = originalAssignmentRef.current;
+        const driverChanged = (orig.driver_id && orig.driver_id !== formData.driver_id) ||
+                             (orig.driver2_id && orig.driver2_id !== formData.driver2_id);
+        const trailerChanged = orig.trailer_id && orig.trailer_id !== formData.trailer_id;
+        
+        let changeType = 'assignment_change';
+        if (driverChanged && !trailerChanged) changeType = 'driver_assignment';
+        if (trailerChanged && !driverChanged) changeType = 'trailer_assignment';
+        
+        await supabase.from('assignment_history').insert({
+          truck_id: editingTruck.id,
+          trailer_id: formData.trailer_id || null,
+          driver1_id: formData.driver_id || null,
+          driver2_id: formData.driver2_id || null,
+          change_type: changeType,
+          reason: reason,
+          changed_by: user?.id
+        });
+      }
+
       // Now safely remove drivers from any other trucks (excluding current truck)
       if (formData.driver_id) {
         await supabase.from('trucks')
@@ -305,6 +382,7 @@ const Trucks = () => {
       resetForm();
       setIsEditDialogOpen(false);
       setEditingTruck(null);
+      originalAssignmentRef.current = null;
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
@@ -315,6 +393,9 @@ const Trucks = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Keep old handleEditTruck for the form onSubmit wrapper
+  const handleEditTruck = handleFormSubmit;
   const handleDeleteTruck = async (truckId: string) => {
     try {
       // Get truck data to save to history
@@ -400,6 +481,13 @@ const Trucks = () => {
       tires_swap_date: truck.tires_swap_date || "",
       maintenance_check_date: truck.maintenance_check_date || ""
     });
+    
+    // Store original assignments for comparison
+    originalAssignmentRef.current = {
+      driver_id: truck.driver1_id || "",
+      driver2_id: truck.driver2_id || "",
+      trailer_id: truck.trailer_id || ""
+    };
     
     // Fetch termination notes if truck is inactive
     if (truck.is_active === false) {
@@ -1234,6 +1322,15 @@ const Trucks = () => {
         entityName={historyTruckName}
         open={isHistoryDialogOpen}
         onOpenChange={setIsHistoryDialogOpen}
+      />
+
+      {/* Assignment Reason Dialog */}
+      <AssignmentReasonDialog
+        open={showReasonDialog}
+        onOpenChange={setShowReasonDialog}
+        changeType={reasonChangeType}
+        onConfirm={handleReasonConfirm}
+        onCancel={handleReasonCancel}
       />
     </div>;
 };

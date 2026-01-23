@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 interface AssignmentReasonDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  changeType: "truck" | "trailer" | "both";
+  changeType: "truck" | "trailer" | "both" | "driver";
   onConfirm: (reason: string) => void;
   onCancel: () => void;
 }
@@ -37,6 +37,8 @@ export function AssignmentReasonDialog({
         return "Reason for Trailer Change";
       case "both":
         return "Reason for Truck & Trailer Change";
+      case "driver":
+        return "Reason for Driver Change";
     }
   };
 
@@ -48,6 +50,8 @@ export function AssignmentReasonDialog({
         return "Please provide a reason for changing the trailer assignment.";
       case "both":
         return "Please provide a reason for changing the truck and trailer assignment.";
+      case "driver":
+        return "Please provide a reason for changing the driver assignment.";
     }
   };
 
