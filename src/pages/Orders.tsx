@@ -48,7 +48,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
-import { generateInvoicePDF, InvoiceProgress } from "@/utils/invoiceGenerator";
+import { generateInvoicePDF, InvoiceProgress, InvoiceWarning } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
@@ -208,6 +208,8 @@ const Orders = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [invoiceProgress, setInvoiceProgress] = useState<InvoiceProgress | null>(null);
+  const [invoiceWarnings, setInvoiceWarnings] = useState<InvoiceWarning[]>([]);
+  const [invoiceWarningDialogOpen, setInvoiceWarningDialogOpen] = useState(false);
   const [lumperMissingDataDialog, setLumperMissingDataDialog] = useState<{
     orderId: string;
     driverId: string;
@@ -707,14 +709,20 @@ const Orders = () => {
     try {
       setInvoiceProgress({ current: 0, total: ordersToInvoice.length, phase: 'preparing', message: 'Preparing invoices...' });
       
-      const processedOrderIds = await generateInvoicePDF(ordersToInvoice, (progress) => {
+      const result = await generateInvoicePDF(ordersToInvoice, (progress) => {
         setInvoiceProgress(progress);
       });
 
       setInvoiceProgress(null);
 
+      // Show warnings dialog if there are any
+      if (result.warnings.length > 0) {
+        setInvoiceWarnings(result.warnings);
+        setInvoiceWarningDialogOpen(true);
+      }
+
       // Update invoiced status for all orders that were successfully processed
-      if (processedOrderIds.length > 0) {
+      if (result.orderIds.length > 0) {
         const { error } = await supabase
           .from("orders")
           .update({
@@ -722,13 +730,13 @@ const Orders = () => {
             locked: true,
             invoiced_at: new Date().toISOString(),
           })
-          .in("id", processedOrderIds);
+          .in("id", result.orderIds);
         if (error) {
           console.error("Error updating invoice status:", error);
           toast.error("Failed to update invoice status");
         } else {
-          console.log(`Successfully updated ${processedOrderIds.length} orders as invoiced`);
-          toast.success(`${processedOrderIds.length} orders marked as invoiced`);
+          console.log(`Successfully updated ${result.orderIds.length} orders as invoiced`);
+          toast.success(`${result.orderIds.length} orders marked as invoiced`);
           // Real-time subscription will update the cache
         }
       }
@@ -2121,6 +2129,43 @@ const Orders = () => {
           driverName={lumperMissingDataDialog?.driverName || ""}
           filterOrderId={lumperMissingDataDialog?.orderId}
         />
+        {/* Invoice Warnings Dialog */}
+        <Dialog open={invoiceWarningDialogOpen} onOpenChange={setInvoiceWarningDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-destructive flex items-center gap-2">
+                <XCircle className="h-5 w-5" />
+                Invoice File Attachment Issues
+              </DialogTitle>
+              <DialogDescription>
+                The following files could not be merged inline and were embedded as attachments instead.
+                Open the PDF in Adobe Acrobat and look for the Attachments panel (paperclip icon) to access them.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 mt-4">
+              {invoiceWarnings.map((warning, idx) => (
+                <div key={idx} className="border rounded-lg p-3 bg-muted/50">
+                  <div className="font-medium text-sm mb-2">Invoice: {warning.invoice}</div>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    {warning.files.map((file, fileIdx) => (
+                      <li key={fileIdx} className="flex items-center gap-2">
+                        <span className="text-xs font-medium bg-secondary px-1.5 py-0.5 rounded">
+                          {file.type}
+                        </span>
+                        <span className="truncate">{file.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setInvoiceWarningDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
