@@ -895,14 +895,18 @@ export const useReports = (options?: UseReportsOptions) => {
     let unlockedOrdersRaw: any[] = [];
     
     if (cachedOrdersData && Array.isArray(cachedOrdersData) && cachedOrdersData.length > 0) {
-      // Use cached orders from useOrders - filter to only unlocked orders
+      // Use cached orders from useOrders - convert from camelCase back to snake_case
       console.log(`[useReports] ♻️ REUSING ${cachedOrdersData.length} orders from useOrders cache!`);
+      
+      // Import reverseTransformOrders dynamically to convert camelCase to snake_case
+      const { reverseTransformOrders } = await import("@/utils/ordersTransform");
+      const rawFormatOrders = reverseTransformOrders(cachedOrdersData);
       
       // Filter for reports criteria (90 days, unlocked, active status)
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       
-      unlockedOrdersRaw = cachedOrdersData.filter((order: any) => {
+      unlockedOrdersRaw = rawFormatOrders.filter((order: any) => {
         if (order.locked) return false; // Only unlocked orders from this source
         
         const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
@@ -916,7 +920,7 @@ export const useReports = (options?: UseReportsOptions) => {
       
       const totalPickupDropsFromCache = unlockedOrdersRaw.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0);
       console.log(
-        `[useReports] ♻️ Using ${unlockedOrdersRaw.length} UNLOCKED orders with ${totalPickupDropsFromCache} pickup_drops from CACHE${
+        `[useReports] ♻️ Using ${unlockedOrdersRaw.length} UNLOCKED orders with ${totalPickupDropsFromCache} pickup_drops from CACHE (converted to raw format)${
           filterOffice ? ` (will filter for ${filterOffice})` : ""
         }`,
       );

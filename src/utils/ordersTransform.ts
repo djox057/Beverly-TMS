@@ -364,3 +364,173 @@ export function transformOrders(allOrders: any[]) {
 
   return transformed;
 }
+
+// Reverse transform: Convert camelCase transformed orders back to snake_case for hooks that expect raw DB format
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function reverseTransformOrders(transformedOrders: any[]) {
+  return (transformedOrders || []).map((order: any) => ({
+    // Basic fields
+    id: order.id,
+    created_at: order.createdAt,
+    updated_at: order.updatedAt,
+    load_number: order.loadNumber,
+    internal_load_number: order.internalLoadNumber,
+    broker_load_number: order.brokerLoadNumber,
+    status: order.status,
+    locked: order.locked,
+    canceled: order.canceled,
+    invoiced: order.invoiced,
+    paid: order.paid,
+    is_recovery: order.isRecovery,
+
+    // Truck and equipment
+    truck_id: order.truckId,
+    trailer_id: order.trailerId,
+    deleted_truck_number: order.truckNumber,
+    deleted_trailer_number: order.trailerNumber,
+
+    // Driver info
+    driver1_id: order.driver1Id,
+    driver2_id: order.driver2Id,
+    deleted_driver1_name: order.driver1Name,
+    deleted_driver2_name: order.driver2Name,
+
+    // Broker info
+    broker_id: order.brokerId,
+
+    // Company info
+    company_id: order.companyId,
+    booked_by: order.bookedBy,
+    booked_by_company_id: order.bookedByCompanyId,
+
+    // Pickup/Delivery datetime
+    pickup_datetime: order.pickupDatetime,
+    pickup_end_datetime: order.pickupEndDatetime,
+    delivery_datetime: order.deliveryDatetime,
+    delivery_end_datetime: order.deliveryEndDatetime,
+    date_change_notes: order.dateChangeNotes,
+
+    // Financial fields - broker amounts
+    freight_amount: order.freightAmount,
+    detention: order.detention,
+    layover: order.layover,
+    tonu: order.tonu,
+    extra_stop: order.extraStop,
+    lumper: order.lumper,
+    late_fee: order.lateFee,
+    no_tracking_fee: order.noTrackingFee,
+    wrong_address_fee: order.wrongAddressFee,
+    escort_fee: order.escortFee,
+    escort_fee_broker_paid: order.escortFeeBrokerPaid,
+    other_charges: order.otherCharges,
+    other_charges_reason: order.otherChargesReason,
+    other_additionals: order.otherAdditionals,
+    other_additionals_reason: order.otherAdditionalsReason,
+
+    // Financial fields - driver amounts
+    driver_price: order.driverPrice,
+    detention_driver: order.detentionDriver,
+    layover_driver: order.layoverDriver,
+    tonu_driver: order.tonuDriver,
+    extra_stop_driver: order.extraStopDriver,
+    lumper_driver: order.lumperDriver,
+    late_fee_driver: order.lateFeeDriver,
+    no_tracking_fee_driver: order.noTrackingFeeDriver,
+    wrong_address_fee_driver: order.wrongAddressFeeDriver,
+    other_charges_driver: order.otherChargesDriver,
+    other_additionals_driver: order.otherAdditionalsDriver,
+
+    // Mileage fields
+    loaded_miles: order.loadedMiles,
+    dh_miles: order.dhMiles,
+    additional_miles: order.additionalMiles,
+
+    // Recovery fields
+    recovery_date: order.recoveryDate,
+    recovery_miles: order.recoveryMiles,
+    recovery_freight_amount: order.recoveryFreightAmount,
+    recovery_driver_price: order.recoveryDriverPrice,
+
+    // Original values
+    original_miles: order.originalMiles,
+    original_freight_amount: order.originalFreightAmount,
+    original_driver_price: order.originalDriverPrice,
+    original_loaded_miles: order.originalLoadedMiles,
+    original_dh_miles: order.originalDhMiles,
+    original_detention: order.originalDetention,
+    original_detention_driver: order.originalDetentionDriver,
+    original_layover: order.originalLayover,
+    original_layover_driver: order.originalLayoverDriver,
+    original_tonu: order.originalTonu,
+    original_tonu_driver: order.originalTonuDriver,
+    original_extra_stop: order.originalExtraStop,
+    original_extra_stop_driver: order.originalExtraStopDriver,
+    original_lumper: order.originalLumper,
+    original_lumper_driver: order.originalLumperDriver,
+    original_late_fee: order.originalLateFee,
+    original_late_fee_driver: order.originalLateFeeDriver,
+    original_no_tracking_fee: order.originalNoTrackingFee,
+    original_no_tracking_fee_driver: order.originalNoTrackingFeeDriver,
+    original_wrong_address_fee: order.originalWrongAddressFee,
+    original_wrong_address_fee_driver: order.originalWrongAddressFeeDriver,
+    original_escort_fee: order.originalEscortFee,
+    original_escort_fee_broker_paid: order.originalEscortFeeBrokerPaid,
+    original_other_charges: order.originalOtherCharges,
+    original_other_charges_driver: order.originalOtherChargesDriver,
+    original_notes: order.originalNotes,
+    original_truck_id: order.originalTruckId,
+    original_trailer_id: order.originalTrailerId,
+    original_driver1_id: order.originalDriver1Id,
+    original_driver2_id: order.originalDriver2Id,
+
+    // Other fields
+    notes: order.notes,
+    commodity: order.commodity,
+    weight: order.weight,
+    po_number: order.poNumber,
+    pu_number: order.puNumber,
+    reference_number: order.referenceNumber,
+
+    // Nested objects - reconstruct for compatibility
+    truck: order.trucks ? {
+      truck_number: order.trucks.truck_number,
+      company: order.trucks.company,
+    } : null,
+    trailer: order.trailers ? {
+      trailer_number: order.trailers.trailer_number,
+    } : null,
+    driver1: order.drivers ? {
+      name: order.drivers.name,
+    } : null,
+    driver2: order.driver2 ? {
+      name: order.driver2.name,
+    } : null,
+    broker: order.brokers ? {
+      name: order.brokers.name,
+      address: order.brokers.address,
+      mc_number: order.brokers.mc_number,
+    } : null,
+    company: order.company,
+    booked_by_company: order.booked_by_company,
+    original_driver1: order.original_driver1,
+    original_driver2: order.original_driver2,
+    original_truck: order.original_truck,
+    original_trailer: order.original_trailer,
+
+    // Arrays - already in snake_case
+    pickup_drops: order.pickup_drops,
+    order_files: order.order_files,
+    order_transfers: order.order_transfers,
+    recovery_history: order.recoveryHistory?.map((rh: any) => ({
+      id: rh.id,
+      recovery_driver1_id: rh.recoveryDriver1Id,
+      recovery_driver2_id: rh.recoveryDriver2Id,
+      recovery_truck_id: rh.recoveryTruckId,
+      recovery_trailer_id: rh.recoveryTrailerId,
+      recovery_driver1: rh.recoveryDriver1,
+      recovery_driver2: rh.recoveryDriver2,
+      recovery_truck: rh.recoveryTruck,
+      recovery_trailer: rh.recoveryTrailer,
+    })) || [],
+  }));
+}
