@@ -29,6 +29,58 @@ const downloadWithTimeout = async (
   }
 };
 
+// Download helper that retries by listing the folder and matching on file_name.
+// This makes the merge more resilient when a stale/incorrect file_path is sent.
+const downloadOrderFileWithFallback = async (
+  supabase: any,
+  filePath: string,
+  fileName: string,
+  timeoutMs = 10000
+): Promise<{ data: Blob | null; error: any; resolvedPath: string }> => {
+  // 1) First attempt: use provided path
+  const first = await downloadWithTimeout(supabase, filePath, timeoutMs);
+  if (first.data && !first.error) {
+    return { ...first, resolvedPath: filePath };
+  }
+
+  console.warn(`Primary download failed for ${filePath}, attempting fallback by folder listing...`);
+
+  // 2) Fallback attempt: list folder and find by file name suffix
+  try {
+    const parts = (filePath || '').split('/').filter(Boolean);
+    if (parts.length < 2) {
+      return { data: null, error: first.error, resolvedPath: filePath };
+    }
+
+    const folder = `${parts[0]}/${parts[1]}`; // e.g. <orderId>/RC
+    const { data: listed, error: listError } = await supabase.storage
+      .from('order-files')
+      .list(folder, { limit: 200, sortBy: { column: 'name', order: 'desc' } });
+
+    if (listError || !listed) {
+      console.error(`List error for folder ${folder}:`, listError);
+      return { data: null, error: first.error ?? listError, resolvedPath: filePath };
+    }
+
+    // Try exact match first, then suffix match
+    const match = listed.find((o: any) => o?.name === fileName) 
+      || listed.find((o: any) => (o?.name || '').endsWith(fileName));
+    
+    if (!match?.name) {
+      console.error(`No storage object matched file_name=${fileName} in folder ${folder}. Available: ${listed.map((o: any) => o?.name).join(', ')}`);
+      return { data: null, error: first.error, resolvedPath: filePath };
+    }
+
+    const fallbackPath = `${folder}/${match.name}`;
+    console.log(`Retrying download using folder match: ${fallbackPath} (original: ${filePath})`);
+    const second = await downloadWithTimeout(supabase, fallbackPath, timeoutMs);
+    return { data: second.data, error: second.error, resolvedPath: fallbackPath };
+  } catch (e) {
+    console.error(`Fallback download failed for ${fileName}:`, e);
+    return { data: null, error: first.error ?? e, resolvedPath: filePath };
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -48,7 +100,7 @@ serve(async (req) => {
     }
 
     const totalFiles = (rcFiles?.length || 0) + (podFiles?.length || 0);
-    console.log(`Starting PDF merge: invoice + ${totalFiles} files`)
+    console.log(`Starting PDF merge: invoice + ${totalFiles} files (RC: ${rcFiles?.length || 0}, POD: ${podFiles?.length || 0})`)
 
     // Create Supabase client
     const supabase = createClient(
@@ -92,13 +144,29 @@ serve(async (req) => {
       return hasImageExtension || hasImageType
     }
 
+    // Track exactly what was included vs skipped
+    const includedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; resolved_path: string }> = [];
+    const skippedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; file_path: string; reason: string }> = [];
+
     // Helper function to add file to PDF (handles both PDFs and images)
-    const addFileToPdf = async (file: any, fileType: string): Promise<boolean> => {
+    const addFileToPdf = async (file: any, fileType: 'RC' | 'POD'): Promise<boolean> => {
       try {
-        const { data: fileData, error } = await downloadWithTimeout(supabase, file.file_path);
+        console.log(`Processing ${fileType} file: ${file.file_name} at path: ${file.file_path}`);
+        
+        const { data: fileData, error, resolvedPath } = await downloadOrderFileWithFallback(
+          supabase,
+          file.file_path,
+          file.file_name
+        );
 
         if (error || !fileData) {
           console.error(`Error downloading ${fileType} file ${file.file_name}:`, error)
+          skippedFiles.push({
+            file_type: fileType,
+            file_name: file.file_name,
+            file_path: file.file_path,
+            reason: error?.message || error?.name || 'download_failed',
+          });
           return false
         }
 
@@ -131,26 +199,41 @@ serve(async (req) => {
             width: scaledWidth,
             height: scaledHeight,
           })
+          console.log(`Added image ${file.file_name} as PDF page`);
         } else {
           // Handle PDF files
           const filePdf = await PDFDocument.load(fileBytes)
           const pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
           
           pages.forEach((page) => mainPdf.addPage(page))
+          console.log(`Added ${pages.length} page(s) from PDF ${file.file_name}`);
         }
+
+        includedFiles.push({
+          file_type: fileType,
+          file_name: file.file_name,
+          resolved_path: resolvedPath,
+        });
         
         return true
       } catch (error) {
         console.error(`Error processing ${fileType} file ${file.file_name}:`, error)
+        skippedFiles.push({
+          file_type: fileType,
+          file_name: file.file_name,
+          file_path: file.file_path,
+          reason: error instanceof Error ? error.message : 'processing_failed',
+        });
         return false
       }
     }
 
-    // Process files with concurrency limit
+    // Process files
     let successCount = 0;
 
     // Add RC files
     if (rcFiles && rcFiles.length > 0) {
+      console.log(`Processing ${rcFiles.length} RC file(s)...`);
       for (const rcFile of rcFiles) {
         const success = await addFileToPdf(rcFile, 'RC');
         if (success) successCount++;
@@ -159,6 +242,7 @@ serve(async (req) => {
 
     // Add POD files
     if (podFiles && podFiles.length > 0) {
+      console.log(`Processing ${podFiles.length} POD file(s)...`);
       for (const podFile of podFiles) {
         const success = await addFileToPdf(podFile, 'POD');
         if (success) successCount++;
@@ -169,10 +253,19 @@ serve(async (req) => {
     const mergedPdfBytes = await mainPdf.save()
     console.log(`PDF merge completed: ${successCount}/${totalFiles} files added`)
     
+    if (includedFiles.length > 0) {
+      console.log(`Included files:`, includedFiles.map(f => `${f.file_type}: ${f.file_name}`));
+    }
+    if (skippedFiles.length > 0) {
+      console.warn(`Skipped ${skippedFiles.length} attachment(s):`, skippedFiles)
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
-        pdfBytes: Array.from(new Uint8Array(mergedPdfBytes))
+        pdfBytes: Array.from(new Uint8Array(mergedPdfBytes)),
+        includedFiles,
+        skippedFiles,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
