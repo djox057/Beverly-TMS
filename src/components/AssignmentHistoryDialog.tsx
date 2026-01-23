@@ -103,7 +103,7 @@ export const AssignmentHistoryDialog = ({
   };
 
   const isTruckChange = (changeType: string) => {
-    return changeType === 'trailer_assignment' || changeType === 'truck_assignment' || changeType === 'truck_update';
+    return changeType === 'truck_assignment' || changeType === 'truck_update' || changeType === 'driver_assignment';
   };
 
   const trailerHistory = history?.filter(entry => 
