@@ -15,20 +15,21 @@ const Billboard = () => {
   // Fetch profiles to resolve booked_by to display names and office
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("full_name, user_id, office");
+      const { data: profiles } = await supabase.from("profiles").select("full_name, user_id, office");
 
       if (profiles) {
-        const profileMap = profiles.reduce((acc, p) => {
-          if (p.full_name) {
-            acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
-          }
-          if (p.user_id) {
-            acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
-          }
-          return acc;
-        }, {} as Record<string, { full_name: string; user_id: string; office: string | null }>);
+        const profileMap = profiles.reduce(
+          (acc, p) => {
+            if (p.full_name) {
+              acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
+            }
+            if (p.user_id) {
+              acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
+            }
+            return acc;
+          },
+          {} as Record<string, { full_name: string; user_id: string; office: string | null }>,
+        );
         setDispatcherProfiles(profileMap);
       }
     };
@@ -147,7 +148,8 @@ const Billboard = () => {
 
   // Calculate dispatcher stats from this week's orders
   const dispatcherStats = useMemo(() => {
-    const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number; userId?: string }> = {};
+    const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number; userId?: string }> =
+      {};
 
     thisWeekOrders.forEach((order) => {
       const dispatcher = order.bookedBy || "Unknown";
@@ -233,9 +235,9 @@ const Billboard = () => {
       case "gross10":
         return { list: top10ByGross, title: "Top 10 Dispatchers by Gross", startRank: 6 };
       case "rpm5":
-        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM", startRank: 1 };
+        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM(5+ trucks)", startRank: 1 };
       case "rpm10":
-        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM", startRank: 6 };
+        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM(5+ trucks)", startRank: 6 };
     }
   };
 
@@ -269,9 +271,7 @@ const Billboard = () => {
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           }`}
         >
-          <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">
-            {currentTitle}
-          </h2>
+          <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">{currentTitle}</h2>
 
           <div className="space-y-3">
             {currentList.map((dispatcher, index) => (
@@ -281,13 +281,13 @@ const Billboard = () => {
               >
                 {/* Rank + Name + Office */}
                 <div className="flex items-center gap-5">
-                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                    {startRank + index}
-                  </span>
+                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{startRank + index}</span>
                   <span className="text-4xl font-semibold text-foreground">
                     {dispatcher.displayName}
                     {dispatcher.office && (
-                      <span className="text-2xl text-muted-foreground ml-2">~{dispatcher.office === "Čačak" ? "ČAČAK" : dispatcher.office}</span>
+                      <span className="text-2xl text-muted-foreground ml-2">
+                        ~{dispatcher.office === "Čačak" ? "ČAČAK" : dispatcher.office}
+                      </span>
                     )}
                   </span>
                 </div>
@@ -300,7 +300,9 @@ const Billboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                    <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{formatRPM(dispatcher.ratePerMile)}</p>
+                    <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatRPM(dispatcher.ratePerMile)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -310,28 +312,26 @@ const Billboard = () => {
             {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => {
               const emptyRank = startRank + currentList.length + i;
               return (
-              <div
-                key={`empty-${i}`}
-                className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
-              >
-                <div className="flex items-center gap-5">
-                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                    {emptyRank}
-                  </span>
-                  <span className="text-4xl font-semibold text-muted-foreground">—</span>
-                </div>
-                <div className="flex items-center gap-14">
-                  <div className="text-right">
-                    <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                    <p className="text-4xl font-bold text-muted-foreground">—</p>
+                <div
+                  key={`empty-${i}`}
+                  className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
+                >
+                  <div className="flex items-center gap-5">
+                    <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{emptyRank}</span>
+                    <span className="text-4xl font-semibold text-muted-foreground">—</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                    <p className="text-4xl font-bold text-muted-foreground">—</p>
+                  <div className="flex items-center gap-14">
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                      <p className="text-4xl font-bold text-muted-foreground">—</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                      <p className="text-4xl font-bold text-muted-foreground">—</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
+              );
             })}
           </div>
         </div>
