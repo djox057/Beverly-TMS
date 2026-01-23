@@ -4176,7 +4176,7 @@ const Trips = () => {
                       return (
                         <TableRow 
                           key={`history-${entry.id}-${idx}`}
-                          className={`h-16 ${idx % 2 === 0 ? "bg-background" : "bg-muted/50"}`}
+                          className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
                         >
                           {canMoveLoads && <TableCell></TableCell>}
                           <TableCell className="text-xs font-medium">
@@ -4192,6 +4192,10 @@ const Trips = () => {
                         </TableRow>
                       );
                     })}
+                    {/* Separator row */}
+                    <TableRow className="h-1 bg-yellow-300 dark:bg-yellow-700">
+                      <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} className="p-0" />
+                    </TableRow>
                   </>
                 )}
                 {groupedByWeek.length === 0 ? (
