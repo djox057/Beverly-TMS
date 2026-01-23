@@ -31,7 +31,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { formatPhoneNumber } from "@/lib/utils";
-import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
+import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
 
 interface DriverFormData {
   first_name: string;
@@ -108,7 +108,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   // Assignment reason dialog state
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both">("truck");
-  const [assignmentConflicts, setAssignmentConflicts] = useState<AssignmentConflict[]>([]);
+  
+  // Already assigned warning dialog state
+  const [showAlreadyAssignedWarning, setShowAlreadyAssignedWarning] = useState(false);
+  const [alreadyAssignedInfo, setAlreadyAssignedInfo] = useState<{
+    truckDriverName?: string;
+    trailerDriverName?: string;
+    truckNumber?: string;
+    trailerNumber?: string;
+  } | null>(null);
 
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || "");
 
@@ -294,9 +302,20 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     return null;
   };
 
-  // Check if truck/trailer is already assigned to another driver - returns conflicts for dialog
-  const checkAssignmentConflicts = async (): Promise<AssignmentConflict[]> => {
-    const conflicts: AssignmentConflict[] = [];
+  // Check if truck/trailer is already assigned to another driver
+  const checkAlreadyAssigned = async (): Promise<{
+    truckDriverName?: string;
+    trailerDriverName?: string;
+    truckNumber?: string;
+    trailerNumber?: string;
+  } | null> => {
+    const result: {
+      truckDriverName?: string;
+      trailerDriverName?: string;
+      truckNumber?: string;
+      trailerNumber?: string;
+    } = {};
+    let hasConflict = false;
     const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
 
     // Check if the selected truck is assigned to another driver
@@ -310,11 +329,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           .eq("id", selectedTruck.driver1_id)
           .single();
         if (driverData) {
-          conflicts.push({
-            type: "truck" as const,
-            name: selectedTruck.truck_number,
-            currentTruck: driverData.name || "Unknown Driver"
-          });
+          result.truckDriverName = driverData.name || "Unknown Driver";
+          result.truckNumber = selectedTruck.truck_number;
+          hasConflict = true;
         }
       }
     }
@@ -343,45 +360,60 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
               .select("trailer_number")
               .eq("id", formData.trailer_id)
               .single();
-            conflicts.push({
-              type: "trailer",
-              name: trailerData?.trailer_number || "Unknown",
-              currentTruck: driverData.name || "Unknown Driver"
-            });
+            result.trailerDriverName = driverData.name || "Unknown Driver";
+            result.trailerNumber = trailerData?.trailer_number || "Unknown";
+            hasConflict = true;
           }
         }
       }
     }
 
-    return conflicts;
+    return hasConflict ? result : null;
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check for conflicts and reason requirement together
-    const conflicts = await checkAssignmentConflicts();
-    const reasonNeeded = checkAssignmentChangeNeedsReason();
+    // First check for already assigned equipment
+    const alreadyAssigned = await checkAlreadyAssigned();
+    if (alreadyAssigned) {
+      setAlreadyAssignedInfo(alreadyAssigned);
+      setShowAlreadyAssignedWarning(true);
+      return;
+    }
     
-    if (reasonNeeded || conflicts.length > 0) {
-      setPendingReasonType(reasonNeeded || "truck");
-      setAssignmentConflicts(conflicts);
+    proceedWithSubmit();
+  };
+
+  const proceedWithSubmit = () => {
+    const reasonNeeded = checkAssignmentChangeNeedsReason();
+    if (reasonNeeded) {
+      setPendingReasonType(reasonNeeded);
       setShowReasonDialog(true);
     } else {
-      // No reason needed and no conflicts, proceed directly
+      // No reason needed, proceed directly
       handleEditDriverWithReason(null);
     }
   };
 
+  const handleAlreadyAssignedConfirm = () => {
+    setShowAlreadyAssignedWarning(false);
+    setAlreadyAssignedInfo(null);
+    proceedWithSubmit();
+  };
+
+  const handleAlreadyAssignedCancel = () => {
+    setShowAlreadyAssignedWarning(false);
+    setAlreadyAssignedInfo(null);
+  };
+
   const handleReasonConfirm = (reason: string) => {
     setShowReasonDialog(false);
-    setAssignmentConflicts([]);
-    handleEditDriverWithReason(reason || null);
+    handleEditDriverWithReason(reason);
   };
 
   const handleReasonCancel = () => {
     setShowReasonDialog(false);
-    setAssignmentConflicts([]);
   };
 
   const handleEditDriverWithReason = async (reason: string | null) => {
@@ -1240,6 +1272,36 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         </DialogContent>
       </Dialog>
 
+      {/* Already Assigned Warning Dialog */}
+      <AlertDialog open={showAlreadyAssignedWarning} onOpenChange={setShowAlreadyAssignedWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Equipment Already Assigned</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {alreadyAssignedInfo?.truckDriverName && (
+                  <p>
+                    Truck <span className="font-semibold">{alreadyAssignedInfo.truckNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.truckDriverName}</span>.
+                  </p>
+                )}
+                {alreadyAssignedInfo?.trailerDriverName && (
+                  <p>
+                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.trailerDriverName}</span>.
+                  </p>
+                )}
+                <p className="mt-2">Are you sure you want to proceed with this assignment?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleAlreadyAssignedCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAlreadyAssignedConfirm}>Yes, Proceed</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Assignment Reason Dialog */}
       <AssignmentReasonDialog
         open={showReasonDialog}
@@ -1247,7 +1309,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         changeType={pendingReasonType}
         onConfirm={handleReasonConfirm}
         onCancel={handleReasonCancel}
-        conflicts={assignmentConflicts}
       />
     </>
   );

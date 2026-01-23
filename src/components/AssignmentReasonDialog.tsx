@@ -14,9 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export interface AssignmentConflict {
-  type: "driver" | "trailer" | "truck";
-  name: string; // Driver name, trailer number, or truck number
-  currentTruck: string; // Truck number or driver name it's currently assigned to
+  type: "driver" | "trailer";
+  name: string; // Driver name or trailer number
+  currentTruck: string; // Truck number it's currently assigned to
 }
 
 interface AssignmentReasonDialogProps {
@@ -102,9 +102,8 @@ export function AssignmentReasonDialog({
             <p className="text-sm font-semibold text-destructive">Warning: Assignment Conflicts</p>
             {conflicts.map((conflict, idx) => (
               <p key={idx} className="text-sm text-destructive">
-                {conflict.type === "driver" ? "Driver" : conflict.type === "trailer" ? "Trailer" : "Truck"}{" "}
-                <span className="font-semibold">{conflict.name}</span> is currently assigned to{" "}
-                {conflict.type === "truck" ? "" : "truck "}
+                {conflict.type === "driver" ? "Driver" : "Trailer"}{" "}
+                <span className="font-semibold">{conflict.name}</span> is currently assigned to truck{" "}
                 <span className="font-semibold">{conflict.currentTruck}</span>
               </p>
             ))}
