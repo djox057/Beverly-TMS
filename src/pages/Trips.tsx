@@ -1029,12 +1029,11 @@ const Trips = () => {
     const filtered = assignmentHistory
       .filter(entry => {
         if (filterInfo.filterType === 'driver') {
-          return entry.change_type === 'truck_assignment' || 
-                 entry.change_type === 'trailer_assignment' ||
-                 entry.change_type === 'assignment_change';
+          // Only show truck changes for driver filter
+          return entry.change_type === 'truck_assignment';
         } else {
-          return entry.change_type === 'driver_assignment' ||
-                 entry.change_type === 'assignment_change';
+          // Only show driver changes for truck filter
+          return entry.change_type === 'driver_assignment';
         }
       })
       .slice(0, 50);
@@ -4232,29 +4231,29 @@ const Trips = () => {
                         </TableRow>
 
                         {/* Assignment History Rows for this week */}
-                        {historyEntriesByWeek[week.weekStart]?.map((entry, idx) => {
+                        {historyEntriesByWeek[week.weekStart]?.map((entry, idx, arr) => {
                           let changeDescription = "";
                           if (filterInfo.filterType === 'driver') {
-                            if (entry.change_type === 'truck_assignment') {
-                              changeDescription = entry.truck_number 
-                                ? `Truck changed to ${entry.truck_number}` 
-                                : "Truck removed";
-                            } else if (entry.change_type === 'trailer_assignment') {
-                              changeDescription = entry.trailer_number 
-                                ? `Trailer changed to ${entry.trailer_number}` 
-                                : "Trailer removed";
-                            } else if (entry.change_type === 'assignment_change') {
-                              const parts: string[] = [];
-                              if (entry.truck_number) parts.push(`Truck: ${entry.truck_number}`);
-                              if (entry.trailer_number) parts.push(`Trailer: ${entry.trailer_number}`);
-                              changeDescription = parts.length > 0 ? parts.join(', ') : "Assignment changed";
+                            // Show truck changes - find previous truck from next entry (older)
+                            const prevEntry = arr[idx + 1];
+                            const prevTruck = prevEntry?.truck_number;
+                            if (entry.truck_number) {
+                              changeDescription = prevTruck 
+                                ? `Switched to truck ${entry.truck_number} from ${prevTruck}`
+                                : `Switched to truck ${entry.truck_number}`;
+                            } else {
+                              changeDescription = "Truck removed";
                             }
                           } else {
+                            // Show driver changes - find previous driver from next entry (older)
+                            const prevEntry = arr[idx + 1];
+                            const prevDriver = prevEntry?.driver1_name;
                             if (entry.driver1_name) {
-                              changeDescription = `Driver changed to ${entry.driver1_name}`;
-                              if (entry.driver2_name) {
-                                changeDescription += ` / ${entry.driver2_name}`;
-                              }
+                              let driverText = entry.driver1_name;
+                              if (entry.driver2_name) driverText += ` / ${entry.driver2_name}`;
+                              changeDescription = prevDriver 
+                                ? `Switched to ${driverText} from ${prevDriver}`
+                                : `Switched to ${driverText}`;
                             } else {
                               changeDescription = "Driver removed";
                             }
