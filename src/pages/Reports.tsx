@@ -325,8 +325,13 @@ const Reports = () => {
   // Note: Drug test notes are now added directly to truck notes when status changes
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
-  // Offices list
-  const offices = ["ČAČAK", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+  // Offices list - values must match database enum values
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+  
+  // Display names for offices (uppercase for UI consistency)
+  const getOfficeDisplayName = (office: string) => {
+    return office === "Čačak" ? "ČAČAK" : office;
+  };
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
@@ -2873,7 +2878,7 @@ const Reports = () => {
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
                   <TabsTrigger key={office} value={office}>
-                    {office}
+                    {getOfficeDisplayName(office)}
                   </TabsTrigger>
                 ))}
               </TabsList>
