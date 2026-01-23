@@ -1,60 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { PDFDocument } from 'https://esm.sh/pdf-lib@1.17.1'
-import createQpdfModule from 'https://esm.sh/@neslinesli93/qpdf-wasm@0.3.0'
+import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Lazily-loaded QPDF WASM module (used only when pdf-lib cannot parse a PDF)
-let qpdfModulePromise: Promise<any> | null = null;
-const getQpdf = async (): Promise<any> => {
-  if (!qpdfModulePromise) {
-    qpdfModulePromise = createQpdfModule({
-      // Ensure the wasm file can be resolved when running in Supabase Edge Runtime.
-      locateFile: (file: string) => {
-        // Use a CDN URL to avoid depending on local FS paths inside the edge bundle.
-        // Emscripten will fetch this URL at runtime.
-        if (file.endsWith('.wasm')) return `https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/${file}`;
-        return `https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/${file}`;
-      },
-    });
-  }
-  return await qpdfModulePromise;
-};
-
-// Attempt to decrypt/repair PDFs that pdf-lib can't parse (encrypted flags, odd structure, etc.)
-const repairPdfWithQpdf = async (input: Uint8Array): Promise<Uint8Array | null> => {
-  try {
-    const qpdf = await getQpdf();
-    const id = crypto.randomUUID();
-    const inPath = `/in-${id}.pdf`;
-    const outPath = `/out-${id}.pdf`;
-    qpdf.FS.writeFile(inPath, input);
-
-    // qpdf CLI argument order differs across examples; try both.
-    try {
-      qpdf.callMain([inPath, '--decrypt', outPath]);
-    } catch (_e1) {
-      qpdf.callMain(['--decrypt', inPath, outPath]);
-    }
-
-    const out = qpdf.FS.readFile(outPath);
-    try {
-      qpdf.FS.unlink(inPath);
-      qpdf.FS.unlink(outPath);
-    } catch {
-      // ignore cleanup errors
-    }
-
-    return out instanceof Uint8Array ? out : new Uint8Array(out);
-  } catch (e) {
-    console.error('QPDF repair failed:', e);
-    return null;
-  }
-};
 
 // Helper to download with timeout
 const downloadWithTimeout = async (
@@ -199,6 +150,15 @@ serve(async (req) => {
     const includedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; resolved_path: string }> = [];
     const skippedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; file_path: string; reason: string }> = [];
 
+    // Font cache (used for fallback notice pages)
+    let helveticaFont: any | null = null;
+    const getHelvetica = async () => {
+      if (!helveticaFont) {
+        helveticaFont = await mainPdf.embedFont(StandardFonts.Helvetica);
+      }
+      return helveticaFont;
+    };
+
     // Helper function to add file to PDF (handles both PDFs and images)
     const addFileToPdf = async (file: any, fileType: 'RC' | 'POD'): Promise<boolean> => {
       try {
@@ -254,13 +214,14 @@ serve(async (req) => {
           console.log(`Added image ${file.file_name} as PDF page`);
         } else {
           // Handle PDF files
-          // Some PDFs are flagged as encrypted or have structures pdf-lib can't parse.
-          // Try pdf-lib first; if it fails (or page tree is invalid), repair with QPDF and retry.
+          // Some PDFs have structures pdf-lib can't parse (broken page trees, etc.).
+          // If we can't merge pages, we fall back to embedding the original PDF as an attachment
+          // and add a visible notice page so the invoice still "includes" the document.
           let filePdf: PDFDocument | null = null;
           try {
             filePdf = await PDFDocument.load(fileBytesU8, { ignoreEncryption: true })
           } catch (e) {
-            console.warn(`pdf-lib load failed for ${file.file_name}, attempting QPDF repair...`, e)
+            console.warn(`pdf-lib load failed for ${file.file_name}; will try attachment fallback.`, e)
           }
 
           let pages: any[] | null = null;
@@ -268,24 +229,67 @@ serve(async (req) => {
             try {
               pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
             } catch (e) {
-              console.warn(`pdf-lib page extraction failed for ${file.file_name}, attempting QPDF repair...`, e)
+              console.warn(`pdf-lib page extraction failed for ${file.file_name}; will try attachment fallback.`, e)
               pages = null;
             }
           }
 
-          if (!pages) {
-            const repaired = await repairPdfWithQpdf(fileBytesU8)
-            if (!repaired) {
-              throw new Error('qpdf_repair_failed')
-            }
-            const repairedPdf = await PDFDocument.load(repaired, { ignoreEncryption: true })
-            pages = await mainPdf.copyPages(repairedPdf, repairedPdf.getPageIndices())
-            console.log(`Added ${pages.length} page(s) from repaired PDF ${file.file_name}`);
-          } else {
+          if (pages && pages.length > 0) {
             console.log(`Added ${pages.length} page(s) from PDF ${file.file_name}`);
-          }
+            pages.forEach((page) => mainPdf.addPage(page))
+          } else {
+            // Attachment fallback
+            try {
+              // Embed the raw PDF as an attachment (does not require parsing page structure)
+              // @ts-expect-error - pdf-lib attach typing may differ across builds
+              mainPdf.attach(fileBytesU8, file.file_name, {
+                mimeType: file.content_type || 'application/pdf',
+                description: `${fileType} attachment (embedded; could not be merged as pages)`,
+              });
 
-          pages.forEach((page) => mainPdf.addPage(page))
+              const noticePage = mainPdf.addPage();
+              const font = await getHelvetica();
+              const margin = 40;
+
+              noticePage.drawText('Attachment included (embedded file)', {
+                x: margin,
+                y: noticePage.getHeight() - margin - 20,
+                size: 16,
+                font,
+                color: rgb(0.1, 0.1, 0.1),
+              });
+              noticePage.drawText(`Type: ${fileType}`, {
+                x: margin,
+                y: noticePage.getHeight() - margin - 50,
+                size: 12,
+                font,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+              noticePage.drawText(`File: ${file.file_name}`, {
+                x: margin,
+                y: noticePage.getHeight() - margin - 70,
+                size: 12,
+                font,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+              noticePage.drawText(
+                'This PDF could not be merged page-by-page due to its internal structure.\nIt has been embedded as an attachment in this invoice PDF.',
+                {
+                  x: margin,
+                  y: noticePage.getHeight() - margin - 110,
+                  size: 11,
+                  font,
+                  color: rgb(0.25, 0.25, 0.25),
+                  lineHeight: 14,
+                }
+              );
+
+              console.log(`Embedded PDF as attachment (fallback): ${file.file_name}`);
+            } catch (e) {
+              console.error(`Attachment fallback failed for ${file.file_name}:`, e)
+              throw new Error('attachment_fallback_failed')
+            }
+          }
         }
 
         includedFiles.push({
