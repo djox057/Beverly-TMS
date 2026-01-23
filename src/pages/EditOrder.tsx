@@ -57,6 +57,7 @@ import { useTrailers } from "@/hooks/useTrailers";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
+import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -2361,20 +2362,17 @@ const EditOrder = () => {
 
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            // Sanitize filename: replace special characters with safe alternatives
-            const sanitizedFileName = file.name
-              .replace(/[–—]/g, "-") // Replace en-dash and em-dash with regular hyphen
-              .replace(/[^\w\s.-]/g, "") // Remove any non-word, non-space, non-dot, non-hyphen characters
-              .replace(/\s+/g, "_"); // Replace spaces with underscores
-            const fileName = `${id}/${category}/${Date.now()}_${sanitizedFileName}`;
-            const { error: uploadError } = await supabase.storage.from("order-files").upload(fileName, file);
-            if (uploadError) throw uploadError;
+            const filePath = await uploadOrderFilePreserveName({
+              orderId: id,
+              folder: category,
+              file,
+            });
 
             // Save file metadata
             const { error: fileError } = await supabase.from("order_files").insert({
               order_id: id,
               file_name: file.name,
-              file_path: fileName,
+              file_path: filePath,
               file_size: file.size,
               content_type: file.type,
               file_category: category,

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 
 export interface LumperMissingRevisedRC {
   id: string;
@@ -91,23 +92,19 @@ export function useLumperMissingRevisedRC() {
 
       if (fetchError) throw fetchError;
 
-      const fileExt = file.name.split(".").pop();
-      const driverId = order?.driver1_id || "unknown";
       // Save to order-files storage with additional category path
-      const storagePath = `${orderId}/additional/${Date.now()}_lumper-revised-rc.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("order-files")
-        .upload(storagePath, file);
-
-      if (uploadError) throw uploadError;
+      const storagePath = await uploadOrderFilePreserveName({
+        orderId,
+        folder: "additional",
+        file,
+      });
 
       // Save to order_files table with "additional" category
       const { error: fileRecordError } = await supabase
         .from("order_files")
         .insert({
           order_id: orderId,
-          file_name: `lumper-revised-rc.${fileExt}`,
+          file_name: file.name,
           file_path: storagePath,
           file_size: file.size,
           content_type: file.type,
