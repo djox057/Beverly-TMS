@@ -8,6 +8,9 @@ const Billboard = () => {
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { full_name: string; user_id: string }>
   >({});
+  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>({});
+  const [activeView, setActiveView] = useState<"gross" | "rpm">("gross");
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch profiles to resolve booked_by to display names
   useEffect(() => {
@@ -50,6 +53,54 @@ const Billboard = () => {
 
   const { weekStart, weekEnd } = getWeekBounds();
 
+  // Fetch average truck counts for dispatchers this week
+  useEffect(() => {
+    const fetchTruckCounts = async () => {
+      const startStr = weekStart.toISOString().split("T")[0];
+      const endStr = weekEnd.toISOString().split("T")[0];
+
+      const { data } = await supabase
+        .from("dispatcher_daily_driver_counts")
+        .select("dispatcher_id, driver_count")
+        .gte("date", startStr)
+        .lte("date", endStr);
+
+      if (data) {
+        // Calculate average truck count per dispatcher for this week
+        const counts: Record<string, { total: number; days: number }> = {};
+        data.forEach((row) => {
+          if (!counts[row.dispatcher_id]) {
+            counts[row.dispatcher_id] = { total: 0, days: 0 };
+          }
+          counts[row.dispatcher_id].total += row.driver_count;
+          counts[row.dispatcher_id].days += 1;
+        });
+
+        const avgCounts: Record<string, number> = {};
+        Object.entries(counts).forEach(([userId, stats]) => {
+          avgCounts[userId] = stats.days > 0 ? stats.total / stats.days : 0;
+        });
+        setDispatcherTruckCounts(avgCounts);
+      }
+    };
+    fetchTruckCounts();
+  }, [weekStart, weekEnd]);
+
+  // Rotate views every 15 seconds with smooth transition
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setActiveView((prev) => (prev === "gross" ? "rpm" : "gross"));
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 50);
+      }, 500); // Wait for fade out
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Filter orders to this week only (using pickup date like Analytics weekly filter)
   const thisWeekOrders = useMemo(() => {
     if (!orders) return [];
@@ -91,7 +142,7 @@ const Billboard = () => {
 
   // Calculate dispatcher stats from this week's orders
   const dispatcherStats = useMemo(() => {
-    const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number }> = {};
+    const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number; userId?: string }> = {};
 
     thisWeekOrders.forEach((order) => {
       const dispatcher = order.bookedBy || "Unknown";
@@ -106,25 +157,37 @@ const Billboard = () => {
     return Object.entries(analytics)
       .map(([name, stats]) => {
         const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
-        // Resolve display name from profiles
+        // Resolve display name and user_id from profiles
         const profile = dispatcherProfiles[name];
         const displayName = profile?.full_name || name;
+        const userId = profile?.user_id;
+        const avgTrucks = userId ? dispatcherTruckCounts[userId] || 0 : 0;
 
         return {
           name,
           displayName,
+          userId,
           totalFreight: stats.totalFreight,
           totalMiles: stats.totalMiles,
           ratePerMile,
           orderCount: stats.orderCount,
+          avgTrucks,
         };
       })
-      .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
-      .sort((a, b) => b.totalFreight - a.totalFreight);
-  }, [thisWeekOrders, dispatcherProfiles]);
+      .filter((d) => d.name !== "Unknown" && d.orderCount > 0);
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts]);
 
-  // Get top 5 dispatchers
-  const top5Dispatchers = dispatcherStats.slice(0, 5);
+  // Top 5 by Gross
+  const top5ByGross = useMemo(() => {
+    return [...dispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight).slice(0, 5);
+  }, [dispatcherStats]);
+
+  // Top 5 by RPM (prefer dispatchers with >= 4.8 avg trucks, fallback to all)
+  const top5ByRPM = useMemo(() => {
+    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8);
+    const list = qualified.length > 0 ? qualified : [...dispatcherStats];
+    return list.sort((a, b) => b.ratePerMile - a.ratePerMile).slice(0, 5);
+  }, [dispatcherStats]);
 
   // Calculate overall RPM for this week
   const overallRPM = useMemo(() => {
@@ -151,6 +214,9 @@ const Billboard = () => {
   // Week date range string
   const weekRangeLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
+  const currentList = activeView === "gross" ? top5ByGross : top5ByRPM;
+  const currentTitle = activeView === "gross" ? "Top 5 Dispatchers by Gross" : "Top 5 Dispatchers by RPM";
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -172,66 +238,86 @@ const Billboard = () => {
         <p className="text-[10.5rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
       </div>
 
-      {/* Top 5 Dispatchers */}
+      {/* Rotating Leaderboard */}
       <div className="flex-1 flex flex-col justify-center mt-7">
-        <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">
-          Top 5 Dispatchers by Gross
-        </h2>
+        <div
+          className={`transition-all duration-500 ease-in-out ${
+            isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
+          }`}
+        >
+          <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">
+            {currentTitle}
+          </h2>
 
-        <div className="space-y-3">
-          {top5Dispatchers.map((dispatcher, index) => (
-            <div
-              key={dispatcher.name}
-              className="flex items-center justify-between px-10 py-5 bg-card rounded-lg border border-border"
-            >
-              {/* Rank + Name */}
-              <div className="flex items-center gap-5">
-                <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                  {index + 1}
-                </span>
-                <span className="text-4xl font-semibold text-foreground">
-                  {dispatcher.displayName}
-                </span>
-              </div>
+          <div className="space-y-3">
+            {currentList.map((dispatcher, index) => (
+              <div
+                key={dispatcher.name}
+                className="flex items-center justify-between px-10 py-5 bg-card rounded-lg border border-border"
+              >
+                {/* Rank + Name */}
+                <div className="flex items-center gap-5">
+                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
+                    {index + 1}
+                  </span>
+                  <span className="text-4xl font-semibold text-foreground">
+                    {dispatcher.displayName}
+                  </span>
+                </div>
 
-              {/* Gross + RPM */}
-              <div className="flex items-center gap-14">
-                <div className="text-right">
-                  <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                  <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                  <p className="text-4xl font-bold text-accent-foreground">{formatRPM(dispatcher.ratePerMile)}</p>
+                {/* Gross + RPM */}
+                <div className="flex items-center gap-14">
+                  <div className="text-right">
+                    <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                    <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                    <p className="text-4xl font-bold text-accent-foreground">{formatRPM(dispatcher.ratePerMile)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* If less than 5 dispatchers, fill empty slots */}
-          {Array.from({ length: Math.max(0, 5 - top5Dispatchers.length) }).map((_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
-            >
-              <div className="flex items-center gap-5">
-                <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                  {top5Dispatchers.length + i + 1}
-                </span>
-                <span className="text-4xl font-semibold text-muted-foreground">—</span>
-              </div>
-              <div className="flex items-center gap-14">
-                <div className="text-right">
-                  <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                  <p className="text-4xl font-bold text-muted-foreground">—</p>
+            {/* If less than 5 dispatchers, fill empty slots */}
+            {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
+              >
+                <div className="flex items-center gap-5">
+                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
+                    {currentList.length + i + 1}
+                  </span>
+                  <span className="text-4xl font-semibold text-muted-foreground">—</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                  <p className="text-4xl font-bold text-muted-foreground">—</p>
+                <div className="flex items-center gap-14">
+                  <div className="text-right">
+                    <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                    <p className="text-4xl font-bold text-muted-foreground">—</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                    <p className="text-4xl font-bold text-muted-foreground">—</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* View indicator dots */}
+        <div className="flex justify-center gap-3 mt-8">
+          <div
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              activeView === "gross" ? "bg-primary scale-125" : "bg-muted-foreground/30"
+            }`}
+          />
+          <div
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              activeView === "rpm" ? "bg-primary scale-125" : "bg-muted-foreground/30"
+            }`}
+          />
         </div>
       </div>
     </div>
