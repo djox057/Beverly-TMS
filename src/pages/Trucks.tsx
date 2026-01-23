@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
-import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
+import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
 
 interface TruckFormData {
@@ -70,6 +70,7 @@ const Trucks = () => {
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [reasonChangeType, setReasonChangeType] = useState<"driver" | "trailer" | "both">("driver");
   const [pendingReason, setPendingReason] = useState<string>("");
+  const [assignmentConflicts, setAssignmentConflicts] = useState<Array<{ type: "driver" | "trailer"; name: string; currentTruck: string }>>([]);
   const originalAssignmentRef = useRef<{ driver_id: string; driver2_id: string; trailer_id: string } | null>(null);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
@@ -264,12 +265,80 @@ const Trucks = () => {
     return null;
   };
 
+  // Check for conflicts with existing truck assignments
+  const checkAssignmentConflicts = (): AssignmentConflict[] => {
+    if (!editingTruck) return [];
+    const conflicts: AssignmentConflict[] = [];
+    
+    // Check driver1 conflict
+    if (formData.driver_id) {
+      const conflictTruck = trucks?.find(t => 
+        t.id !== editingTruck.id && 
+        (t.driver1_id === formData.driver_id || t.driver2_id === formData.driver_id)
+      );
+      if (conflictTruck) {
+        const driver = drivers?.find(d => d.id === formData.driver_id);
+        conflicts.push({
+          type: "driver",
+          name: driver?.name || "Unknown",
+          currentTruck: conflictTruck.truck_number
+        });
+      }
+    }
+    
+    // Check driver2 conflict
+    if (formData.driver2_id) {
+      const conflictTruck = trucks?.find(t => 
+        t.id !== editingTruck.id && 
+        (t.driver1_id === formData.driver2_id || t.driver2_id === formData.driver2_id)
+      );
+      if (conflictTruck) {
+        const driver = drivers?.find(d => d.id === formData.driver2_id);
+        // Only add if not already added for driver1
+        const alreadyAdded = conflicts.some(c => c.name === driver?.name);
+        if (!alreadyAdded) {
+          conflicts.push({
+            type: "driver",
+            name: driver?.name || "Unknown",
+            currentTruck: conflictTruck.truck_number
+          });
+        }
+      }
+    }
+    
+    // Check trailer conflict
+    if (formData.trailer_id) {
+      const conflictTruck = trucks?.find(t => 
+        t.id !== editingTruck.id && 
+        t.trailer_id === formData.trailer_id
+      );
+      if (conflictTruck) {
+        const trailer = trailers?.find(tr => tr.id === formData.trailer_id);
+        conflicts.push({
+          type: "trailer",
+          name: trailer?.trailer_number || "Unknown",
+          currentTruck: conflictTruck.truck_number
+        });
+      }
+    }
+    
+    return conflicts;
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     const changeType = checkAssignmentChangeNeedsReason();
+    const conflicts = checkAssignmentConflicts();
+    
     if (changeType) {
       setReasonChangeType(changeType);
+      setAssignmentConflicts(conflicts);
+      setShowReasonDialog(true);
+    } else if (conflicts.length > 0) {
+      // Even if no reason needed, show dialog for conflicts
+      setReasonChangeType("driver"); // Default type
+      setAssignmentConflicts(conflicts);
       setShowReasonDialog(true);
     } else {
       handleEditTruckWithReason("");
@@ -1331,6 +1400,7 @@ const Trucks = () => {
         changeType={reasonChangeType}
         onConfirm={handleReasonConfirm}
         onCancel={handleReasonCancel}
+        conflicts={assignmentConflicts}
       />
     </div>;
 };
