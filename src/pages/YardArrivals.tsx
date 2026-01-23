@@ -22,13 +22,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search } from "lucide-react";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
@@ -102,6 +102,9 @@ export default function YardArrivals() {
   
   // Fetch all drivers for edit dialog
   const { data: allDrivers } = useDrivers();
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
@@ -208,10 +211,41 @@ export default function YardArrivals() {
     refetchOnWindowFocus: true,
   });
 
-  const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
-  const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
-  const recoveryActions = yardActions?.filter((a) => a.action_type === "recovery") || [];
-  const safetyActions = yardActions?.filter((a) => a.action_type === "safety") || [];
+  // Filter function for search
+  const filterBySearch = (action: YardAction) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    const truckNumber = action.truck?.truck_number?.toLowerCase() || "";
+    const driverName = action.driver?.name?.toLowerCase() || 
+      `${action.driver?.first_name || ""} ${action.driver?.last_name || ""}`.toLowerCase();
+    return truckNumber.includes(query) || driverName.includes(query);
+  };
+
+  const filterTwoWeekBySearch = (driver: TwoWeekNoticeDriver) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    const truckNumber = driver.truck?.truck_number?.toLowerCase() || "";
+    const driverName = driver.name?.toLowerCase() || 
+      `${driver.first_name || ""} ${driver.last_name || ""}`.toLowerCase();
+    return truckNumber.includes(query) || driverName.includes(query);
+  };
+
+  const maintenanceActions = useMemo(() => 
+    (yardActions?.filter((a) => a.action_type === "maintenance") || []).filter(filterBySearch),
+    [yardActions, searchQuery]
+  );
+  const returnTruckActions = useMemo(() => 
+    (yardActions?.filter((a) => a.action_type === "return_truck") || []).filter(filterBySearch),
+    [yardActions, searchQuery]
+  );
+  const recoveryActions = useMemo(() => 
+    (yardActions?.filter((a) => a.action_type === "recovery") || []).filter(filterBySearch),
+    [yardActions, searchQuery]
+  );
+  const safetyActions = useMemo(() => 
+    (yardActions?.filter((a) => a.action_type === "safety") || []).filter(filterBySearch),
+    [yardActions, searchQuery]
+  );
 
   // Group actions by date
   const groupByDate = (actions: YardAction[]) => {
@@ -253,7 +287,11 @@ export default function YardArrivals() {
   const groupedReturnTruck = groupByDate(returnTruckActions);
   const groupedRecovery = groupByDate(recoveryActions);
   const groupedSafety = groupByDate(safetyActions);
-  const groupedTwoWeekNotice = groupTwoWeekNoticeByDate(twoWeekNoticeDrivers || []);
+  const filteredTwoWeekNoticeDrivers = useMemo(() => 
+    (twoWeekNoticeDrivers || []).filter(filterTwoWeekBySearch),
+    [twoWeekNoticeDrivers, searchQuery]
+  );
+  const groupedTwoWeekNotice = groupTwoWeekNoticeByDate(filteredTwoWeekNoticeDrivers);
 
   const handleCancelAction = async () => {
     if (!actionToCancel) return;
@@ -592,8 +630,19 @@ export default function YardArrivals() {
 
   return (
     <div className="max-w-[1800px] mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Yard Arrivals</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold whitespace-nowrap">Yard Arrivals</h1>
+        <div className="flex-1 flex justify-center max-w-xl">
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search by truck# or driver name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 text-lg w-full"
+            />
+          </div>
+        </div>
         <CompletedDriversDialog />
       </div>
 
