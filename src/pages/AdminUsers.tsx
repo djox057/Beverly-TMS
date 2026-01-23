@@ -559,7 +559,7 @@ const AdminUsers = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Office</SelectItem>
-                    <SelectItem value="Čačak">Čačak</SelectItem>
+                    <SelectItem value="Čačak">ČAČAK</SelectItem>
                     <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
                     <SelectItem value="BEOGRAD">Beograd</SelectItem>
                     <SelectItem value="Recovery">Recovery</SelectItem>

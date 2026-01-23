@@ -287,7 +287,7 @@ const Billboard = () => {
                   <span className="text-4xl font-semibold text-foreground">
                     {dispatcher.displayName}
                     {dispatcher.office && (
-                      <span className="text-2xl text-muted-foreground ml-2">~{dispatcher.office}</span>
+                      <span className="text-2xl text-muted-foreground ml-2">~{dispatcher.office === "Čačak" ? "ČAČAK" : dispatcher.office}</span>
                     )}
                   </span>
                 </div>

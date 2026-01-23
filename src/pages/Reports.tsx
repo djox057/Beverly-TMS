@@ -326,7 +326,7 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+  const offices = ["ČAČAK", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {

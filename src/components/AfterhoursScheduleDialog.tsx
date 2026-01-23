@@ -41,7 +41,7 @@ interface AfterhoursScheduleDialogProps {
 // Office configuration: slots per office
 const OFFICE_CONFIG = {
   kragujevac: { label: "Kragujevac (KG)", slots: 3 },
-  cacak: { label: "Čačak (CA)", slots: 2 },
+  cacak: { label: "ČAČAK (CA)", slots: 2 },
   beograd: { label: "Beograd (BG)", slots: 2 },
 } as const;
 
