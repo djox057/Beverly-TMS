@@ -241,7 +241,7 @@ serve(async (req) => {
             // Attachment fallback
             try {
               // Embed the raw PDF as an attachment (does not require parsing page structure)
-              mainPdf.attach(fileBytesU8, file.file_name, {
+              ;(mainPdf as any).attach(fileBytesU8, file.file_name, {
                 mimeType: file.content_type || 'application/pdf',
                 description: `${fileType} attachment (embedded; could not be merged as pages)`,
               });
