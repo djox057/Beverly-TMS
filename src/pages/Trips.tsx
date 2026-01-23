@@ -1031,17 +1031,14 @@ const Trips = () => {
     return assignmentHistory
       .filter(entry => {
         if (filterInfo.filterType === 'driver') {
-          // Show truck and trailer assignments for the driver
-          return entry.change_type === 'truck_assigned' || 
-                 entry.change_type === 'truck_removed' ||
-                 entry.change_type === 'trailer_assigned' || 
-                 entry.change_type === 'trailer_removed';
+          // When filtering by driver, show their truck/trailer assignment changes
+          return entry.change_type === 'truck_assignment' || 
+                 entry.change_type === 'trailer_assignment' ||
+                 entry.change_type === 'assignment_change'; // Legacy combined entries
         } else {
-          // Show driver changes for the truck
-          return entry.change_type === 'driver_assigned' || 
-                 entry.change_type === 'driver_removed' ||
-                 entry.change_type === 'driver1_changed' ||
-                 entry.change_type === 'driver2_changed';
+          // When filtering by truck, show driver assignment changes
+          return entry.change_type === 'driver_assignment' ||
+                 entry.change_type === 'assignment_change'; // Legacy combined entries
         }
       })
       .slice(0, 20); // Limit to 20 most recent entries
@@ -4152,14 +4149,20 @@ const Trips = () => {
                       let changeDescription = "";
                       if (filterInfo.filterType === 'driver') {
                         // Show truck/trailer changes for driver
-                        if (entry.change_type === 'truck_assigned' || entry.change_type === 'truck_removed') {
+                        if (entry.change_type === 'truck_assignment') {
                           changeDescription = entry.truck_number 
                             ? `Truck changed to ${entry.truck_number}` 
                             : "Truck removed";
-                        } else if (entry.change_type === 'trailer_assigned' || entry.change_type === 'trailer_removed') {
+                        } else if (entry.change_type === 'trailer_assignment') {
                           changeDescription = entry.trailer_number 
                             ? `Trailer changed to ${entry.trailer_number}` 
                             : "Trailer removed";
+                        } else if (entry.change_type === 'assignment_change') {
+                          // Legacy combined entries - show both if present
+                          const parts = [];
+                          if (entry.truck_number) parts.push(`Truck: ${entry.truck_number}`);
+                          if (entry.trailer_number) parts.push(`Trailer: ${entry.trailer_number}`);
+                          changeDescription = parts.length > 0 ? parts.join(', ') : "Assignment changed";
                         }
                       } else {
                         // Show driver changes for truck
