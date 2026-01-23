@@ -1,11 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { PDFDocument } from 'https://esm.sh/pdf-lib@1.17.1'
+import createQpdfModule from 'https://esm.sh/@neslinesli93/qpdf-wasm@0.0.9'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Lazily-loaded QPDF WASM module (used only when pdf-lib cannot parse a PDF)
+let qpdfModulePromise: Promise<any> | null = null;
+const getQpdf = async (): Promise<any> => {
+  if (!qpdfModulePromise) {
+    qpdfModulePromise = createQpdfModule({
+      // Ensure the wasm file can be resolved when running in Supabase Edge Runtime.
+      locateFile: (file: string) => {
+        if (file.endsWith('.wasm')) {
+          return `https://esm.sh/@neslinesli93/qpdf-wasm@0.0.9/dist/${file}`;
+        }
+        return file;
+      },
+    });
+  }
+  return await qpdfModulePromise;
+};
+
+// Attempt to decrypt/repair PDFs that pdf-lib can't parse (encrypted flags, odd structure, etc.)
+const repairPdfWithQpdf = async (input: Uint8Array): Promise<Uint8Array | null> => {
+  try {
+    const qpdf = await getQpdf();
+    const id = crypto.randomUUID();
+    const inPath = `/in-${id}.pdf`;
+    const outPath = `/out-${id}.pdf`;
+    qpdf.FS.writeFile(inPath, input);
+
+    // qpdf CLI argument order differs across examples; try both.
+    try {
+      qpdf.callMain([inPath, '--decrypt', outPath]);
+    } catch (_e1) {
+      qpdf.callMain(['--decrypt', inPath, outPath]);
+    }
+
+    const out = qpdf.FS.readFile(outPath);
+    try {
+      qpdf.FS.unlink(inPath);
+      qpdf.FS.unlink(outPath);
+    } catch {
+      // ignore cleanup errors
+    }
+
+    return out instanceof Uint8Array ? out : new Uint8Array(out);
+  } catch (e) {
+    console.error('QPDF repair failed:', e);
+    return null;
+  }
+};
 
 // Helper to download with timeout
 const downloadWithTimeout = async (
@@ -173,6 +222,7 @@ serve(async (req) => {
         }
 
         const fileBytes = await fileData.arrayBuffer()
+        const fileBytesU8 = new Uint8Array(fileBytes)
         
         if (isImageFile(file.file_name, file.content_type)) {
           // Handle image files - convert to PDF page
@@ -204,12 +254,38 @@ serve(async (req) => {
           console.log(`Added image ${file.file_name} as PDF page`);
         } else {
           // Handle PDF files
-           // Some uploaded PDFs are flagged as encrypted; allow loading anyway.
-           const filePdf = await PDFDocument.load(fileBytes, { ignoreEncryption: true })
-          const pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
-          
+          // Some PDFs are flagged as encrypted or have structures pdf-lib can't parse.
+          // Try pdf-lib first; if it fails (or page tree is invalid), repair with QPDF and retry.
+          let filePdf: PDFDocument | null = null;
+          try {
+            filePdf = await PDFDocument.load(fileBytesU8, { ignoreEncryption: true })
+          } catch (e) {
+            console.warn(`pdf-lib load failed for ${file.file_name}, attempting QPDF repair...`, e)
+          }
+
+          let pages: any[] | null = null;
+          if (filePdf) {
+            try {
+              pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
+            } catch (e) {
+              console.warn(`pdf-lib page extraction failed for ${file.file_name}, attempting QPDF repair...`, e)
+              pages = null;
+            }
+          }
+
+          if (!pages) {
+            const repaired = await repairPdfWithQpdf(fileBytesU8)
+            if (!repaired) {
+              throw new Error('qpdf_repair_failed')
+            }
+            const repairedPdf = await PDFDocument.load(repaired, { ignoreEncryption: true })
+            pages = await mainPdf.copyPages(repairedPdf, repairedPdf.getPageIndices())
+            console.log(`Added ${pages.length} page(s) from repaired PDF ${file.file_name}`);
+          } else {
+            console.log(`Added ${pages.length} page(s) from PDF ${file.file_name}`);
+          }
+
           pages.forEach((page) => mainPdf.addPage(page))
-          console.log(`Added ${pages.length} page(s) from PDF ${file.file_name}`);
         }
 
         includedFiles.push({
