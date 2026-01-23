@@ -1229,6 +1229,19 @@ export const useReports = (options?: UseReportsOptions) => {
     
     console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)${filterOffice ? ` for ${filterOffice}` : ""}`);
 
+    // BIDIRECTIONAL CACHE: If we fetched from DB (not cache), populate useOrders cache
+    // This allows /orders page to load instantly if /reports was loaded first
+    if (!cachedOrdersData || cachedOrdersData.length === 0) {
+      try {
+        const { transformOrders } = await import("@/utils/ordersTransform");
+        const transformedForOrdersCache = transformOrders(allOrders);
+        queryClient.setQueryData(["orders", null, null], transformedForOrdersCache);
+        console.log(`[useReports] 💾 Populated useOrders cache with ${transformedForOrdersCache.length} orders (camelCase format)`);
+      } catch (cacheError) {
+        console.warn('[useReports] ⚠️ Could not populate useOrders cache:', cacheError);
+      }
+    }
+
     // PERF: Index orders by driver once (instead of filtering allOrders for every truck/driver)
     // - ordersByDriver: includes current + original + transfer drivers (used for truck rows)
     // - ordersByDriverCurrent: current assignment only (used for unassigned driver rows, to preserve existing behavior)
