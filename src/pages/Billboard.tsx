@@ -300,7 +300,7 @@ const Billboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                    <p className="text-4xl font-bold text-accent-foreground">{formatRPM(dispatcher.ratePerMile)}</p>
+                    <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{formatRPM(dispatcher.ratePerMile)}</p>
                   </div>
                 </div>
               </div>
