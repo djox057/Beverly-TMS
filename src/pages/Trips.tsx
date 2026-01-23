@@ -42,6 +42,7 @@ import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { useAssignmentHistory, AssignmentHistoryEntry } from "@/hooks/useAssignmentHistory";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -962,6 +963,89 @@ const Trips = () => {
 
       return matchesSearch && matchesLoadNumber && matchesInvoicedDate && hasValue;
     }) || [];
+
+  // Determine if filtering by truck number or driver name for assignment history
+  const filterInfo = useMemo(() => {
+    const searchLower = searchFilter.toLowerCase().trim();
+    if (!searchLower || filteredOrders.length === 0) {
+      return { filterType: null as 'truck' | 'driver' | null, entityId: null as string | null, companyName: null as string | null };
+    }
+    
+    // Check if the search matches a truck number
+    const matchedByTruck = filteredOrders.find(order => 
+      order.truckNumber?.toLowerCase().includes(searchLower)
+    );
+    
+    // Check if the search matches a driver name
+    const matchedByDriver = filteredOrders.find(order => 
+      order.driverName?.toLowerCase().includes(searchLower)
+    );
+    
+    // Determine filter type - prefer exact match, prioritize truck if both match
+    if (matchedByTruck && matchedByTruck.truckNumber?.toLowerCase() === searchLower) {
+      return { 
+        filterType: 'truck' as const, 
+        entityId: matchedByTruck.truckId, 
+        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName 
+      };
+    }
+    if (matchedByDriver && matchedByDriver.driverName?.toLowerCase() === searchLower) {
+      return { 
+        filterType: 'driver' as const, 
+        entityId: matchedByDriver.driver1Id, 
+        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName 
+      };
+    }
+    
+    // Fallback to partial match
+    if (matchedByTruck) {
+      return { 
+        filterType: 'truck' as const, 
+        entityId: matchedByTruck.truckId, 
+        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName 
+      };
+    }
+    if (matchedByDriver) {
+      return { 
+        filterType: 'driver' as const, 
+        entityId: matchedByDriver.driver1Id, 
+        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName 
+      };
+    }
+    
+    return { filterType: null, entityId: null, companyName: null };
+  }, [searchFilter, filteredOrders]);
+
+  // Fetch assignment history based on filter type
+  const { data: assignmentHistory = [] } = useAssignmentHistory(
+    filterInfo.filterType === 'truck' ? 'truck' : 'driver',
+    filterInfo.entityId
+  );
+
+  // Filter and format history entries based on filter type
+  const relevantHistoryEntries = useMemo(() => {
+    if (!filterInfo.filterType || assignmentHistory.length === 0) return [];
+    
+    // When filtering by driver, show truck/trailer changes
+    // When filtering by truck, show driver changes
+    return assignmentHistory
+      .filter(entry => {
+        if (filterInfo.filterType === 'driver') {
+          // Show truck and trailer assignments for the driver
+          return entry.change_type === 'truck_assigned' || 
+                 entry.change_type === 'truck_removed' ||
+                 entry.change_type === 'trailer_assigned' || 
+                 entry.change_type === 'trailer_removed';
+        } else {
+          // Show driver changes for the truck
+          return entry.change_type === 'driver_assigned' || 
+                 entry.change_type === 'driver_removed' ||
+                 entry.change_type === 'driver1_changed' ||
+                 entry.change_type === 'driver2_changed';
+        }
+      })
+      .slice(0, 20); // Limit to 20 most recent entries
+  }, [filterInfo.filterType, assignmentHistory]);
 
   // Pagination - paginate individual orders first
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -4017,6 +4101,11 @@ const Trips = () => {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">
             Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
+            {filterInfo.companyName && searchFilter && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                — {filterInfo.companyName}
+              </span>
+            )}
           </CardTitle>
           <Button
             variant="outline"
@@ -4055,6 +4144,60 @@ const Trips = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {/* Assignment History Rows - shown when filtering by truck or driver */}
+                {relevantHistoryEntries.length > 0 && (
+                  <>
+                    {relevantHistoryEntries.map((entry, idx) => {
+                      // Format the change description
+                      let changeDescription = "";
+                      if (filterInfo.filterType === 'driver') {
+                        // Show truck/trailer changes for driver
+                        if (entry.change_type === 'truck_assigned' || entry.change_type === 'truck_removed') {
+                          changeDescription = entry.truck_number 
+                            ? `Truck changed to ${entry.truck_number}` 
+                            : "Truck removed";
+                        } else if (entry.change_type === 'trailer_assigned' || entry.change_type === 'trailer_removed') {
+                          changeDescription = entry.trailer_number 
+                            ? `Trailer changed to ${entry.trailer_number}` 
+                            : "Trailer removed";
+                        }
+                      } else {
+                        // Show driver changes for truck
+                        if (entry.driver1_name) {
+                          changeDescription = `Driver changed to ${entry.driver1_name}`;
+                          if (entry.driver2_name) {
+                            changeDescription += ` / ${entry.driver2_name}`;
+                          }
+                        } else {
+                          changeDescription = "Driver removed";
+                        }
+                      }
+                      
+                      return (
+                        <TableRow 
+                          key={`history-${entry.id}-${idx}`}
+                          className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
+                        >
+                          {canMoveLoads && <TableCell></TableCell>}
+                          <TableCell className="text-xs font-medium">
+                            {format(new Date(entry.changed_at), "MM/dd/yyyy")}
+                          </TableCell>
+                          <TableCell colSpan={4} className="text-xs">
+                            {changeDescription}
+                          </TableCell>
+                          <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-xs text-muted-foreground">
+                            {entry.reason || "—"}
+                          </TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Separator row */}
+                    <TableRow className="h-1 bg-yellow-300 dark:bg-yellow-700">
+                      <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} className="p-0" />
+                    </TableRow>
+                  </>
+                )}
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : (canSeePaidColumn ? 13 : 12)} className="text-center py-8 text-muted-foreground">
