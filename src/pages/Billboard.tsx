@@ -9,7 +9,7 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
-  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10">("gross5");
+  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10">("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch profiles to resolve booked_by to display names and office
@@ -89,7 +89,7 @@ const Billboard = () => {
 
   // Rotate views every 15 seconds with smooth transition (4 views)
   useEffect(() => {
-    const viewOrder: Array<"gross5" | "gross10" | "rpm5" | "rpm10"> = ["gross5", "gross10", "rpm5", "rpm10"];
+    const viewOrder: Array<"gross5" | "gross10" | "rpm5" | "rpm10"> = ["rpm5", "rpm10", "gross5", "gross10"];
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
@@ -338,7 +338,7 @@ const Billboard = () => {
 
         {/* View indicator dots (4 dots now) */}
         <div className="flex justify-center gap-3 mt-8">
-          {(["gross5", "gross10", "rpm5", "rpm10"] as const).map((view) => (
+          {(["rpm5", "rpm10", "gross5", "gross10"] as const).map((view) => (
             <div
               key={view}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
