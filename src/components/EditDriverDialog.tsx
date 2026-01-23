@@ -541,22 +541,30 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
       }
 
-      // Insert assignment history with reason if there was a change
-      if (reason && (truckChanged || trailerChanged)) {
-        const { data: userData } = await supabase.auth.getUser();
-        let changeType = "assignment_change";
-        if (truckChanged && !trailerChanged) {
-          changeType = "driver_assignment";
-        } else if (!truckChanged && trailerChanged) {
-          changeType = "trailer_assignment";
-        }
-
+      // Insert assignment history for any assignment change
+      const { data: userData } = await supabase.auth.getUser();
+      
+      // Log truck change separately if truck changed
+      if (truckChanged) {
         await supabase.from("assignment_history").insert({
-          truck_id: formData.truck_id || origTruckId || null,
+          truck_id: formData.truck_id || null,
           trailer_id: formData.trailer_id || origTrailerId || null,
           driver1_id: editingDriver.id,
           driver2_id: null,
-          change_type: changeType,
+          change_type: "truck_assignment",
+          changed_by: userData?.user?.id || null,
+          reason: reason,
+        });
+      }
+      
+      // Log trailer change separately if trailer changed
+      if (trailerChanged) {
+        await supabase.from("assignment_history").insert({
+          truck_id: formData.truck_id || origTruckId || null,
+          trailer_id: formData.trailer_id || null,
+          driver1_id: editingDriver.id,
+          driver2_id: null,
+          change_type: "trailer_assignment",
           changed_by: userData?.user?.id || null,
           reason: reason,
         });
