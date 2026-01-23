@@ -100,7 +100,20 @@ interface MergeTask {
   companyFolder: string;
 }
 
-const processMergeTask = async (task: MergeTask): Promise<{ filename: string; pdfBytes: number[] }> => {
+interface SkippedFile {
+  file_type: 'RC' | 'POD';
+  file_name: string;
+  file_path: string;
+  reason: string;
+}
+
+interface MergeTaskResult {
+  filename: string;
+  pdfBytes: number[];
+  skippedFiles?: SkippedFile[];
+}
+
+const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
   const { invoicePdfBytes, rcFiles, podFiles, baseFilename } = task;
   
   if (rcFiles.length > 0 || podFiles.length > 0) {
@@ -114,7 +127,11 @@ const processMergeTask = async (task: MergeTask): Promise<{ filename: string; pd
       });
       
       if (!mergeError && mergeResult?.pdfBytes) {
-        return { filename: baseFilename, pdfBytes: mergeResult.pdfBytes };
+        return { 
+          filename: baseFilename, 
+          pdfBytes: mergeResult.pdfBytes,
+          skippedFiles: mergeResult.skippedFiles || []
+        };
       }
     } catch (error) {
       console.error(`Error merging ${baseFilename}:`, error);
@@ -122,7 +139,7 @@ const processMergeTask = async (task: MergeTask): Promise<{ filename: string; pd
   }
   
   // Fallback to just the invoice
-  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)) };
+  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [] };
 };
 
 export interface InvoiceProgress {
@@ -494,6 +511,7 @@ export const generateInvoicePDF = async (
   const TIMEOUT_MS = 30000; // 30 second timeout per merge
   const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[]; success: boolean }>> = {};
   const failedInvoices: string[] = [];
+  const invoicesWithSkippedFiles: Array<{ invoice: string; skippedFiles: SkippedFile[] }> = [];
   let successCount = 0;
   let processedCount = 0;
   
@@ -526,8 +544,17 @@ export const generateInvoicePDF = async (
           return { 
             filename: task.baseFilename, 
             pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
-            success: false
+            success: false,
+            skippedFiles: [] as SkippedFile[]
           };
+        }
+        
+        // Track skipped files per invoice
+        if (result.skippedFiles && result.skippedFiles.length > 0) {
+          invoicesWithSkippedFiles.push({
+            invoice: task.baseFilename,
+            skippedFiles: result.skippedFiles
+          });
         }
         
         successCount++;
@@ -538,7 +565,8 @@ export const generateInvoicePDF = async (
         return { 
           filename: task.baseFilename, 
           pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
-          success: false
+          success: false,
+          skippedFiles: [] as SkippedFile[]
         };
       }
     });
@@ -550,7 +578,11 @@ export const generateInvoicePDF = async (
       const taskIndex = i + idx;
       const companyFolder = taskToCompanyMap.get(taskIndex);
       if (companyFolder && invoicesByCompany[companyFolder]) {
-        invoicesByCompany[companyFolder].push(result);
+        invoicesByCompany[companyFolder].push({
+          filename: result.filename,
+          pdfBytes: result.pdfBytes,
+          success: result.success
+        });
       }
     });
     
@@ -577,6 +609,11 @@ export const generateInvoicePDF = async (
   if (failedInvoices.length > 0) {
     console.error(`Failed to fully process ${failedInvoices.length} invoices:`, failedInvoices);
     // Note: We still continue to create the ZIP with fallback PDFs
+  }
+  
+  // Report skipped files if any
+  if (invoicesWithSkippedFiles.length > 0) {
+    console.warn(`${invoicesWithSkippedFiles.length} invoice(s) had files that could not be attached:`, invoicesWithSkippedFiles);
   }
 
   onProgress?.({ current: mergeTasks.length, total: mergeTasks.length, phase: 'finalizing', message: 'Creating ZIP file...' });
@@ -644,11 +681,25 @@ export const generateInvoicePDF = async (
     
     console.log('ZIP file downloaded successfully');
     
-    // Throw error if any invoices failed so caller can show toast
+    // Build error message for failed invoices and skipped files
+    const errorMessages: string[] = [];
+    
     if (failedInvoices.length > 0) {
-      const errorMsg = `${failedInvoices.length} invoice(s) failed to merge with attachments: ${failedInvoices.slice(0, 5).join(', ')}${failedInvoices.length > 5 ? '...' : ''}`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
+      errorMessages.push(`${failedInvoices.length} invoice(s) failed to process: ${failedInvoices.slice(0, 3).join(', ')}${failedInvoices.length > 3 ? '...' : ''}`);
+    }
+    
+    if (invoicesWithSkippedFiles.length > 0) {
+      const skippedDetails = invoicesWithSkippedFiles.slice(0, 5).map(item => {
+        const fileList = item.skippedFiles.map(f => `${f.file_type}: ${f.file_name}`).join(', ');
+        return `${item.invoice.replace('.pdf', '')}: [${fileList}]`;
+      });
+      errorMessages.push(`Files could not be attached to ${invoicesWithSkippedFiles.length} invoice(s): ${skippedDetails.join('; ')}${invoicesWithSkippedFiles.length > 5 ? '...' : ''}`);
+    }
+    
+    if (errorMessages.length > 0) {
+      const fullErrorMsg = errorMessages.join('\n\n');
+      console.error(fullErrorMsg);
+      throw new Error(fullErrorMsg);
     }
     
     // Return the IDs of all orders that were processed
