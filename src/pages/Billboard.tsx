@@ -6,29 +6,29 @@ import { Loader2 } from "lucide-react";
 const Billboard = () => {
   const { data: orders, isLoading } = useOrders();
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
-    Record<string, { full_name: string; user_id: string }>
+    Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
-  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>({});
-  const [activeView, setActiveView] = useState<"gross" | "rpm">("gross");
+  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
+  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10">("gross5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Fetch profiles to resolve booked_by to display names
+  // Fetch profiles to resolve booked_by to display names and office
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("full_name, user_id");
+        .select("full_name, user_id, office");
 
       if (profiles) {
         const profileMap = profiles.reduce((acc, p) => {
           if (p.full_name) {
-            acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id };
+            acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
           }
           if (p.user_id) {
-            acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id };
+            acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
           }
           return acc;
-        }, {} as Record<string, { full_name: string; user_id: string }>);
+        }, {} as Record<string, { full_name: string; user_id: string; office: string | null }>);
         setDispatcherProfiles(profileMap);
       }
     };
@@ -86,12 +86,17 @@ const Billboard = () => {
     fetchTruckCounts();
   }, [weekStart, weekEnd]);
 
-  // Rotate views every 15 seconds with smooth transition
+  // Rotate views every 15 seconds with smooth transition (4 views)
   useEffect(() => {
+    const viewOrder: Array<"gross5" | "gross10" | "rpm5" | "rpm10"> = ["gross5", "gross10", "rpm5", "rpm10"];
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
-        setActiveView((prev) => (prev === "gross" ? "rpm" : "gross"));
+        setActiveView((prev) => {
+          const currentIndex = viewOrder.indexOf(prev);
+          const nextIndex = (currentIndex + 1) % viewOrder.length;
+          return viewOrder[nextIndex];
+        });
         setTimeout(() => {
           setIsTransitioning(false);
         }, 50);
@@ -157,16 +162,18 @@ const Billboard = () => {
     return Object.entries(analytics)
       .map(([name, stats]) => {
         const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
-        // Resolve display name and user_id from profiles
+        // Resolve display name, user_id, and office from profiles
         const profile = dispatcherProfiles[name];
         const displayName = profile?.full_name || name;
         const userId = profile?.user_id;
-        const avgTrucks = userId ? dispatcherTruckCounts[userId] || 0 : 0;
+        const office = profile?.office || null;
+        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
 
         return {
           name,
           displayName,
           userId,
+          office,
           totalFreight: stats.totalFreight,
           totalMiles: stats.totalMiles,
           ratePerMile,
@@ -177,17 +184,22 @@ const Billboard = () => {
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0);
   }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts]);
 
-  // Top 5 by Gross
-  const top5ByGross = useMemo(() => {
-    return [...dispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight).slice(0, 5);
+  // Sorted lists for Gross and RPM
+  const sortedByGross = useMemo(() => {
+    return [...dispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
   }, [dispatcherStats]);
 
-  // Top 5 by RPM (prefer dispatchers with >= 4.8 avg trucks, fallback to all)
-  const top5ByRPM = useMemo(() => {
+  const sortedByRPM = useMemo(() => {
     const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8);
     const list = qualified.length > 0 ? qualified : [...dispatcherStats];
-    return list.sort((a, b) => b.ratePerMile - a.ratePerMile).slice(0, 5);
+    return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [dispatcherStats]);
+
+  // Top 5 and 6-10 slices
+  const top5ByGross = sortedByGross.slice(0, 5);
+  const top10ByGross = sortedByGross.slice(5, 10);
+  const top5ByRPM = sortedByRPM.slice(0, 5);
+  const top10ByRPM = sortedByRPM.slice(5, 10);
 
   // Calculate overall RPM for this week
   const overallRPM = useMemo(() => {
@@ -214,8 +226,20 @@ const Billboard = () => {
   // Week date range string
   const weekRangeLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-  const currentList = activeView === "gross" ? top5ByGross : top5ByRPM;
-  const currentTitle = activeView === "gross" ? "Top 5 Dispatchers by Gross" : "Top 5 Dispatchers by RPM";
+  const getCurrentListAndTitle = () => {
+    switch (activeView) {
+      case "gross5":
+        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross", startRank: 1 };
+      case "gross10":
+        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross", startRank: 6 };
+      case "rpm5":
+        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM", startRank: 1 };
+      case "rpm10":
+        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM", startRank: 6 };
+    }
+  };
+
+  const { list: currentList, title: currentTitle, startRank } = getCurrentListAndTitle();
 
   if (isLoading) {
     return (
@@ -255,13 +279,16 @@ const Billboard = () => {
                 key={dispatcher.name}
                 className="flex items-center justify-between px-10 py-5 bg-card rounded-lg border border-border"
               >
-                {/* Rank + Name */}
+                {/* Rank + Name + Office */}
                 <div className="flex items-center gap-5">
                   <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                    {index + 1}
+                    {startRank + index}
                   </span>
                   <span className="text-4xl font-semibold text-foreground">
                     {dispatcher.displayName}
+                    {dispatcher.office && (
+                      <span className="text-2xl text-muted-foreground ml-2">~{dispatcher.office}</span>
+                    )}
                   </span>
                 </div>
 
@@ -280,14 +307,16 @@ const Billboard = () => {
             ))}
 
             {/* If less than 5 dispatchers, fill empty slots */}
-            {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => {
+              const emptyRank = startRank + currentList.length + i;
+              return (
               <div
                 key={`empty-${i}`}
                 className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
               >
                 <div className="flex items-center gap-5">
                   <span className="text-5xl font-bold text-muted-foreground w-14 text-center">
-                    {currentList.length + i + 1}
+                    {emptyRank}
                   </span>
                   <span className="text-4xl font-semibold text-muted-foreground">—</span>
                 </div>
@@ -302,22 +331,21 @@ const Billboard = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
 
-        {/* View indicator dots */}
+        {/* View indicator dots (4 dots now) */}
         <div className="flex justify-center gap-3 mt-8">
-          <div
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-              activeView === "gross" ? "bg-primary scale-125" : "bg-muted-foreground/30"
-            }`}
-          />
-          <div
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-              activeView === "rpm" ? "bg-primary scale-125" : "bg-muted-foreground/30"
-            }`}
-          />
+          {(["gross5", "gross10", "rpm5", "rpm10"] as const).map((view) => (
+            <div
+              key={view}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                activeView === view ? "bg-primary scale-125" : "bg-muted-foreground/30"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </div>
