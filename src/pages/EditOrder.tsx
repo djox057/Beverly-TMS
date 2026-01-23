@@ -1842,26 +1842,108 @@ const EditOrder = () => {
   // Handler for editing existing transfers
   const handleEditTransferSave = async (data: EditTransferData) => {
     try {
-      const updateData: any = {
-        transfer_city: data.transferCity,
-        transfer_state: data.transferState,
-        transfer_address: data.transferAddress || null,
-        transfer_datetime: data.transferDatetime,
-      };
+      // Check if this is a legacy transfer (stored in order fields, not order_transfers table)
+      const isLegacyOriginal = data.id.startsWith("legacy-original-");
+      const isLegacyTransfer1 = data.id.startsWith("legacy-transfer1-");
 
-      // Only update these fields if they were changed
-      if (data.truckId !== undefined) updateData.truck_id = data.truckId || null;
-      if (data.trailerId !== undefined) updateData.trailer_id = data.trailerId || null;
-      if (data.driverId !== undefined) updateData.driver1_id = data.driverId || null;
-      if (data.miles !== undefined) updateData.miles = data.miles;
-      if (data.driverPrice !== undefined) updateData.driver_price = data.driverPrice;
+      if (isLegacyOriginal) {
+        // Update legacy original driver fields on the order
+        const updateData: any = {
+          original_miles: data.miles || null,
+          original_driver_price: data.driverPrice || null,
+        };
 
-      const { error } = await supabase
-        .from("order_transfers")
-        .update(updateData)
-        .eq("id", data.id);
+        // If driver/truck/trailer IDs provided, update them and store names for lookup
+        if (data.driverId) {
+          updateData.original_driver1_id = data.driverId;
+          // Store the driver name as well for deleted_driver1_name backup
+          const driver = drivers?.find(d => d.id === data.driverId);
+          if (driver) {
+            setOriginalDriverName(driver.name || "");
+          }
+        }
+        if (data.truckId) {
+          updateData.original_truck_id = data.truckId;
+          const truckObj = trucks?.find(t => t.id === data.truckId);
+          if (truckObj) {
+            setOriginalTruckNumber(truckObj.truck_number || "");
+          }
+        }
+        if (data.trailerId) {
+          updateData.original_trailer_id = data.trailerId;
+          const trailerObj = trailers?.find(t => t.id === data.trailerId);
+          if (trailerObj) {
+            setOriginalTrailerNumber(trailerObj.trailer_number || "");
+          }
+        }
 
-      if (error) throw error;
+        const { error } = await supabase
+          .from("orders")
+          .update(updateData)
+          .eq("id", id);
+
+        if (error) throw error;
+
+        // Update local state
+        if (data.miles !== undefined) setOriginalMiles(data.miles.toString());
+        if (data.driverPrice !== undefined) setOriginalDriverPrice(data.driverPrice.toString());
+      } else if (isLegacyTransfer1) {
+        // Update legacy transfer #1 fields (these are the current driver/truck on the order)
+        const updateData: any = {
+          recovery_miles: data.miles || null,
+          recovery_driver_price: data.driverPrice || null,
+        };
+
+        if (data.driverId) {
+          updateData.driver1_id = data.driverId;
+          setDriver1(data.driverId);
+        }
+        if (data.truckId) {
+          updateData.truck_id = data.truckId;
+          setTruck(data.truckId);
+        }
+        if (data.trailerId) {
+          updateData.trailer_id = data.trailerId;
+          setTrailerId(data.trailerId);
+          const trailerObj = trailers?.find(t => t.id === data.trailerId);
+          if (trailerObj) {
+            setTrailer(trailerObj.trailer_number || "");
+          }
+        }
+
+        const { error } = await supabase
+          .from("orders")
+          .update(updateData)
+          .eq("id", id);
+
+        if (error) throw error;
+
+        // Update local state
+        if (data.miles !== undefined) setRecoveryMiles(data.miles.toString());
+        if (data.driverPrice !== undefined) setRecoveryDriverPrice(data.driverPrice.toString());
+      } else {
+        // Normal order_transfers table update
+        const updateData: any = {
+          transfer_city: data.transferCity,
+          transfer_state: data.transferState,
+          transfer_address: data.transferAddress || null,
+          transfer_datetime: data.transferDatetime,
+        };
+
+        // Only update these fields if they were changed
+        if (data.truckId !== undefined) updateData.truck_id = data.truckId || null;
+        if (data.trailerId !== undefined) updateData.trailer_id = data.trailerId || null;
+        if (data.driverId !== undefined) updateData.driver1_id = data.driverId || null;
+        if (data.miles !== undefined) updateData.miles = data.miles;
+        if (data.driverPrice !== undefined) updateData.driver_price = data.driverPrice;
+
+        const { error } = await supabase
+          .from("order_transfers")
+          .update(updateData)
+          .eq("id", data.id);
+
+        if (error) throw error;
+      }
 
       toast({
         title: "Success",
@@ -3660,8 +3742,40 @@ const EditOrder = () => {
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {/* Legacy Original Assignment */}
-                      <div className="space-y-3 p-3 bg-background/50 rounded-lg border">
-                        <h4 className="font-semibold text-sm">Original</h4>
+                      <div className="space-y-3 p-3 bg-background/50 rounded-lg border relative">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm">Original</h4>
+                          {!isLocked && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => {
+                                setEditingTransfer({
+                                  id: `legacy-original-${id}`,
+                                  sequenceNumber: 0,
+                                  driverId: undefined,
+                                  driverName: originalDriverName,
+                                  truckId: undefined,
+                                  truckNumber: originalTruckNumber,
+                                  trailerId: undefined,
+                                  trailerNumber: originalTrailerNumber,
+                                  miles: parseFloat(originalMiles) || 0,
+                                  driverPrice: parseFloat(originalDriverPrice) || 0,
+                                  transferCity: "",
+                                  transferState: "",
+                                  transferAddress: "",
+                                  transferDatetime: "",
+                                  isLegacy: true,
+                                });
+                                setEditTransferDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                         <div className="space-y-2 text-sm">
                           <div>
                             <span className="text-muted-foreground">Driver:</span>{" "}
@@ -3687,8 +3801,40 @@ const EditOrder = () => {
                       </div>
 
                       {/* Legacy Transfer #1 */}
-                      <div className="space-y-3 p-3 bg-background/50 rounded-lg border">
-                        <h4 className="font-semibold text-sm">Transfer #1</h4>
+                      <div className="space-y-3 p-3 bg-background/50 rounded-lg border relative">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm">Transfer #1</h4>
+                          {!isLocked && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => {
+                                setEditingTransfer({
+                                  id: `legacy-transfer1-${id}`,
+                                  sequenceNumber: 1,
+                                  driverId: driver1,
+                                  driverName: drivers?.find((d) => d.id === driver1)?.name,
+                                  truckId: truck,
+                                  truckNumber: trucks?.find((t) => t.id === truck)?.truck_number,
+                                  trailerId: trailerId,
+                                  trailerNumber: trailer,
+                                  miles: parseFloat(recoveryMiles) || 0,
+                                  driverPrice: parseFloat(recoveryDriverPrice) || 0,
+                                  transferCity: "",
+                                  transferState: "",
+                                  transferAddress: "",
+                                  transferDatetime: "",
+                                  isLegacy: true,
+                                });
+                                setEditTransferDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                         <div className="space-y-2 text-sm">
                           <div>
                             <span className="text-muted-foreground">Driver:</span>{" "}
