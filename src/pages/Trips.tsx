@@ -1029,11 +1029,13 @@ const Trips = () => {
     const filtered = assignmentHistory
       .filter(entry => {
         if (filterInfo.filterType === 'driver') {
-          // Only show truck changes for driver filter
-          return entry.change_type === 'truck_assignment';
+          // Show truck changes for driver filter (assignment_change has truck info)
+          return entry.change_type === 'truck_assignment' || 
+                 (entry.change_type === 'assignment_change' && entry.truck_id);
         } else {
-          // Only show driver changes for truck filter
-          return entry.change_type === 'driver_assignment';
+          // Show driver changes for truck filter
+          return entry.change_type === 'driver_assignment' ||
+                 (entry.change_type === 'assignment_change' && entry.driver1_id);
         }
       })
       .slice(0, 50);
