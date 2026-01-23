@@ -78,6 +78,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
 import { useReportsFilters } from "./Reports/useReportsFilters";
 import { useDebounce } from "@/hooks/useDebounce";
+import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import {
   getCompanyBackgroundColor,
   getChicagoToday,
@@ -756,23 +757,17 @@ const Reports = () => {
       // Upload all files
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i];
-        // Sanitize filename: replace special characters with safe alternatives
-        const sanitizedFileName = file.name
-          .replace(/[–—]/g, "-") // Replace en-dash and em-dash with regular hyphen
-          .replace(/[^\w\s.-]/g, "") // Remove any non-word, non-space, non-dot, non-hyphen characters
-          .replace(/\s+/g, "_"); // Replace spaces with underscores
-        const fileName = `${zoomedLoad.orderId}/${uploadDocType}/${Date.now()}_${sanitizedFileName}`;
-
-        // Upload file to storage
-        const { error: uploadError } = await supabase.storage.from("order-files").upload(fileName, file);
-
-        if (uploadError) throw uploadError;
+        const filePath = await uploadOrderFilePreserveName({
+          orderId: zoomedLoad.orderId,
+          folder: uploadDocType,
+          file,
+        });
 
         // Insert into order_files table
         const { error: fileError } = await supabase.from("order_files").insert({
           order_id: zoomedLoad.orderId,
           file_name: file.name,
-          file_path: fileName,
+          file_path: filePath,
           file_size: file.size,
           content_type: file.type,
           file_category: uploadDocType,
