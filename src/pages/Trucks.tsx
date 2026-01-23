@@ -70,7 +70,7 @@ const Trucks = () => {
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [reasonChangeType, setReasonChangeType] = useState<"driver" | "trailer" | "both">("driver");
   const [pendingReason, setPendingReason] = useState<string>("");
-  const [assignmentConflicts, setAssignmentConflicts] = useState<Array<{ type: "driver" | "trailer"; name: string; currentTruck: string }>>([]);
+  const [assignmentConflicts, setAssignmentConflicts] = useState<AssignmentConflict[]>([]);
   const originalAssignmentRef = useRef<{ driver_id: string; driver2_id: string; trailer_id: string } | null>(null);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
