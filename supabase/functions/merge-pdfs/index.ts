@@ -128,7 +128,9 @@ serve(async (req) => {
     }
 
     // Create main PDF document from invoice
-    const mainPdf = await PDFDocument.load(pdfBytes)
+    // Some PDFs (especially from scanners/portals) are flagged as encrypted.
+    // We still want to merge them when possible.
+    const mainPdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
     console.log('Loaded main invoice PDF')
 
     // Helper function to check if file is an image
@@ -202,7 +204,8 @@ serve(async (req) => {
           console.log(`Added image ${file.file_name} as PDF page`);
         } else {
           // Handle PDF files
-          const filePdf = await PDFDocument.load(fileBytes)
+           // Some uploaded PDFs are flagged as encrypted; allow loading anyway.
+           const filePdf = await PDFDocument.load(fileBytes, { ignoreEncryption: true })
           const pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
           
           pages.forEach((page) => mainPdf.addPage(page))
