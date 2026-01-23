@@ -107,10 +107,18 @@ interface SkippedFile {
   reason: string;
 }
 
+interface IncludedFile {
+  file_type: 'RC' | 'POD';
+  file_name: string;
+  resolved_path: string;
+  fallback?: boolean;
+}
+
 interface MergeTaskResult {
   filename: string;
   pdfBytes: number[];
   skippedFiles?: SkippedFile[];
+  fallbackFiles?: IncludedFile[];
 }
 
 const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
@@ -127,10 +135,14 @@ const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
       });
       
       if (!mergeError && mergeResult?.pdfBytes) {
+        // Extract files that used the fallback (attachment) path
+        const fallbackFiles = (mergeResult.includedFiles || []).filter((f: IncludedFile) => f.fallback === true);
+        
         return { 
           filename: baseFilename, 
           pdfBytes: mergeResult.pdfBytes,
-          skippedFiles: mergeResult.skippedFiles || []
+          skippedFiles: mergeResult.skippedFiles || [],
+          fallbackFiles
         };
       }
     } catch (error) {
@@ -139,7 +151,7 @@ const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
   }
   
   // Fallback to just the invoice
-  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [] };
+  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [], fallbackFiles: [] };
 };
 
 export interface InvoiceProgress {
@@ -512,6 +524,7 @@ export const generateInvoicePDF = async (
   const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[]; success: boolean }>> = {};
   const failedInvoices: string[] = [];
   const invoicesWithSkippedFiles: Array<{ invoice: string; skippedFiles: SkippedFile[] }> = [];
+  const invoicesWithFallbackFiles: Array<{ invoice: string; fallbackFiles: IncludedFile[] }> = [];
   let successCount = 0;
   let processedCount = 0;
   
@@ -545,7 +558,8 @@ export const generateInvoicePDF = async (
             filename: task.baseFilename, 
             pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
             success: false,
-            skippedFiles: [] as SkippedFile[]
+            skippedFiles: [] as SkippedFile[],
+            fallbackFiles: [] as IncludedFile[]
           };
         }
         
@@ -554,6 +568,14 @@ export const generateInvoicePDF = async (
           invoicesWithSkippedFiles.push({
             invoice: task.baseFilename,
             skippedFiles: result.skippedFiles
+          });
+        }
+        
+        // Track fallback files (embedded as attachment instead of inline merge)
+        if (result.fallbackFiles && result.fallbackFiles.length > 0) {
+          invoicesWithFallbackFiles.push({
+            invoice: task.baseFilename,
+            fallbackFiles: result.fallbackFiles
           });
         }
         
@@ -566,7 +588,8 @@ export const generateInvoicePDF = async (
           filename: task.baseFilename, 
           pdfBytes: Array.from(new Uint8Array(task.invoicePdfBytes)),
           success: false,
-          skippedFiles: [] as SkippedFile[]
+          skippedFiles: [] as SkippedFile[],
+          fallbackFiles: [] as IncludedFile[]
         };
       }
     });
@@ -608,12 +631,16 @@ export const generateInvoicePDF = async (
   // Report failures if any
   if (failedInvoices.length > 0) {
     console.error(`Failed to fully process ${failedInvoices.length} invoices:`, failedInvoices);
-    // Note: We still continue to create the ZIP with fallback PDFs
   }
   
   // Report skipped files if any
   if (invoicesWithSkippedFiles.length > 0) {
     console.warn(`${invoicesWithSkippedFiles.length} invoice(s) had files that could not be attached:`, invoicesWithSkippedFiles);
+  }
+  
+  // Report fallback files if any
+  if (invoicesWithFallbackFiles.length > 0) {
+    console.warn(`${invoicesWithFallbackFiles.length} invoice(s) had files embedded as attachments (not inline):`, invoicesWithFallbackFiles);
   }
 
   onProgress?.({ current: mergeTasks.length, total: mergeTasks.length, phase: 'finalizing', message: 'Creating ZIP file...' });
@@ -681,7 +708,7 @@ export const generateInvoicePDF = async (
     
     console.log('ZIP file downloaded successfully');
     
-    // Build error message for failed invoices and skipped files
+    // Build error message for failed invoices, skipped files, and fallback files
     const errorMessages: string[] = [];
     
     if (failedInvoices.length > 0) {
@@ -694,6 +721,15 @@ export const generateInvoicePDF = async (
         return `${item.invoice.replace('.pdf', '')}: [${fileList}]`;
       });
       errorMessages.push(`Files could not be attached to ${invoicesWithSkippedFiles.length} invoice(s): ${skippedDetails.join('; ')}${invoicesWithSkippedFiles.length > 5 ? '...' : ''}`);
+    }
+    
+    // Report fallback files (embedded as attachment, not merged inline)
+    if (invoicesWithFallbackFiles.length > 0) {
+      const fallbackDetails = invoicesWithFallbackFiles.slice(0, 5).map(item => {
+        const fileList = item.fallbackFiles.map(f => `${f.file_type}: ${f.file_name}`).join(', ');
+        return `${item.invoice.replace('.pdf', '')}: [${fileList}]`;
+      });
+      errorMessages.push(`Files embedded as attachments (not inline) in ${invoicesWithFallbackFiles.length} invoice(s): ${fallbackDetails.join('; ')}${invoicesWithFallbackFiles.length > 5 ? '...' : ''}`);
     }
     
     if (errorMessages.length > 0) {
