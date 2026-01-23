@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { PDFDocument } from 'https://esm.sh/pdf-lib@1.17.1'
-import createQpdfModule from 'https://esm.sh/@neslinesli93/qpdf-wasm@0.0.9'
+import createQpdfModule from 'https://esm.sh/@neslinesli93/qpdf-wasm@0.3.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,10 +15,10 @@ const getQpdf = async (): Promise<any> => {
     qpdfModulePromise = createQpdfModule({
       // Ensure the wasm file can be resolved when running in Supabase Edge Runtime.
       locateFile: (file: string) => {
-        if (file.endsWith('.wasm')) {
-          return `https://esm.sh/@neslinesli93/qpdf-wasm@0.0.9/dist/${file}`;
-        }
-        return file;
+        // Use a CDN URL to avoid depending on local FS paths inside the edge bundle.
+        // Emscripten will fetch this URL at runtime.
+        if (file.endsWith('.wasm')) return `https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/${file}`;
+        return `https://unpkg.com/@neslinesli93/qpdf-wasm@0.3.0/dist/${file}`;
       },
     });
   }
