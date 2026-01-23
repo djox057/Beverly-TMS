@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Database, CheckCircle, XCircle, Info } from "lucide-react";
+import { Upload, Database, CheckCircle, XCircle, Info, RefreshCw, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Papa from "papaparse";
@@ -32,6 +32,7 @@ export default function DataManagement() {
     order_files: null
   });
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { data: cacheStats } = useQuery({
     queryKey: ['cache-stats'],
@@ -156,6 +157,54 @@ export default function DataManagement() {
     return `${hours} hours ago`;
   };
 
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await supabase.functions.invoke('sync-archived-orders', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Sync failed");
+      }
+
+      const result = response.data;
+      
+      if (result.success) {
+        // Clear local cache so it fetches fresh data
+        await clearCache();
+        
+        // Invalidate queries
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.invalidateQueries({ queryKey: ['reports'] });
+        queryClient.invalidateQueries({ queryKey: ['cache-stats'] });
+
+        toast({
+          title: "Sync Completed",
+          description: `Synced ${result.counts.orders.toLocaleString()} orders, ${result.counts.pickup_drops.toLocaleString()} pickup/drops, ${result.counts.order_files.toLocaleString()} files in ${(result.duration_ms / 1000).toFixed(1)}s`,
+        });
+      } else {
+        throw new Error(result.error || "Sync failed");
+      }
+    } catch (error) {
+      console.error("Sync failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: error instanceof Error ? error.message : "Failed to sync archived orders",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -165,11 +214,42 @@ export default function DataManagement() {
         </p>
       </div>
 
+      {/* Automatic Sync Card */}
+      <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 text-green-600" />
+            Automatic Sync
+          </CardTitle>
+          <CardDescription>
+            Locked orders are automatically synced daily at 8:00 AM UTC. You can also trigger a manual sync.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={handleSyncNow} 
+            disabled={isSyncing}
+            className="w-full md:w-auto"
+          >
+            {isSyncing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sync Now
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Company-Wide Cache:</strong> When you import CSV files here, they are uploaded to company storage and become available to all users automatically.
-          Export locked orders from Supabase using: <code className="bg-muted px-1 rounded">SELECT * FROM orders WHERE locked = true ORDER BY created_at;</code>
+          <strong>Company-Wide Cache:</strong> Archived orders sync automatically at 8 AM UTC daily. Use the manual CSV import below only for initial setup or troubleshooting.
         </AlertDescription>
       </Alert>
 
