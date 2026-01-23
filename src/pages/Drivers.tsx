@@ -50,7 +50,7 @@ import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
-import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
+import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
@@ -127,6 +127,7 @@ const Drivers = () => {
   // Assignment reason dialog state
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both" | null>(null);
+  const [assignmentConflicts, setAssignmentConflicts] = useState<AssignmentConflict[]>([]);
   const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({ truckId: null, trailerId: null });
   
   const itemsPerPage = 100;
@@ -586,13 +587,52 @@ const Drivers = () => {
     return null;
   };
 
+  // Check if selected truck/trailer is already assigned to another driver/truck
+  const checkAssignmentConflicts = (): AssignmentConflict[] => {
+    if (!editingDriver) return [];
+    const conflicts: AssignmentConflict[] = [];
+    
+    // Check truck conflict - if selected truck already has a different driver
+    if (formData.truck_id) {
+      const selectedTruck = trucks?.find(t => t.id === formData.truck_id);
+      if (selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver.id) {
+        const currentDriver = drivers?.find(d => d.id === selectedTruck.driver1_id);
+        conflicts.push({
+          type: "driver",
+          name: selectedTruck.truck_number,
+          currentTruck: currentDriver?.name || "another driver"
+        });
+      }
+    }
+    
+    // Check trailer conflict - if selected trailer is on another truck
+    if (formData.trailer_id) {
+      const conflictTruck = trucks?.find(t => 
+        t.trailer_id === formData.trailer_id && t.id !== formData.truck_id
+      );
+      if (conflictTruck) {
+        const trailer = trailers?.find(tr => tr.id === formData.trailer_id);
+        conflicts.push({
+          type: "trailer",
+          name: trailer?.trailer_number || "Unknown",
+          currentTruck: conflictTruck.truck_number
+        });
+      }
+    }
+    
+    return conflicts;
+  };
+
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Check if reason is needed for assignment change
     const reasonNeeded = checkAssignmentChangeNeedsReason();
-    if (reasonNeeded) {
-      setPendingReasonType(reasonNeeded);
+    const conflicts = checkAssignmentConflicts();
+    
+    if (reasonNeeded || conflicts.length > 0) {
+      setPendingReasonType(reasonNeeded || "truck");
+      setAssignmentConflicts(conflicts);
       setShowReasonDialog(true);
     } else {
       // No reason needed, proceed directly
@@ -2326,13 +2366,13 @@ const Drivers = () => {
                   <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_truck">Truck Number</Label>
                     <Combobox
-                      options={(availableTrucks || []).map((truck) => ({
+                      options={(trucks?.filter(t => t.is_active !== false) || []).map((truck) => ({
                         value: truck.id,
                         label: truck.truck_number,
                       }))}
                       value={formData.truck_id}
                       onValueChange={(value) => {
-                        const selectedTruck = availableTrucks?.find((truck) => truck.id === value);
+                        const selectedTruck = trucks?.find((truck) => truck.id === value);
                         setFormData({
                           ...formData,
                           truck_id: value,
@@ -2341,13 +2381,13 @@ const Drivers = () => {
                         setSelectedTruckId(value);
                       }}
                       placeholder="Select truck..."
-                      emptyText="No available trucks"
+                      emptyText="No trucks found"
                     />
                   </div>
                   <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_trailer">Trailer Number</Label>
                     <Combobox
-                      options={(availableTrailers || []).map((trailer) => ({
+                      options={(trailers || []).map((trailer) => ({
                         value: trailer.id,
                         label: trailer.trailer_number,
                       }))}
@@ -2359,7 +2399,7 @@ const Drivers = () => {
                         })
                       }
                       placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
-                      emptyText="No available trailers"
+                      emptyText="No trailers found"
                     />
                   </div>
                   <div className="col-span-2">
@@ -2997,16 +3037,22 @@ const Drivers = () => {
         open={showReasonDialog}
         onOpenChange={(open) => {
           setShowReasonDialog(open);
-          if (!open) setPendingReasonType(null);
+          if (!open) {
+            setPendingReasonType(null);
+            setAssignmentConflicts([]);
+          }
         }}
         changeType={pendingReasonType || "truck"}
+        conflicts={assignmentConflicts}
         onConfirm={(reason) => {
           setShowReasonDialog(false);
+          setAssignmentConflicts([]);
           handleEditDriverWithReason(reason);
         }}
         onCancel={() => {
           setShowReasonDialog(false);
           setPendingReasonType(null);
+          setAssignmentConflicts([]);
         }}
       />
     </div>

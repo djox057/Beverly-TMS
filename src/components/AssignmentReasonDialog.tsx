@@ -102,9 +102,17 @@ export function AssignmentReasonDialog({
             <p className="text-sm font-semibold text-destructive">Warning: Assignment Conflicts</p>
             {conflicts.map((conflict, idx) => (
               <p key={idx} className="text-sm text-destructive">
-                {conflict.type === "driver" ? "Driver" : "Trailer"}{" "}
-                <span className="font-semibold">{conflict.name}</span> is currently assigned to truck{" "}
-                <span className="font-semibold">{conflict.currentTruck}</span>
+                {conflict.type === "driver" ? (
+                  <>
+                    Truck <span className="font-semibold">{conflict.name}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{conflict.currentTruck}</span>
+                  </>
+                ) : (
+                  <>
+                    Trailer <span className="font-semibold">{conflict.name}</span> is currently assigned to truck{" "}
+                    <span className="font-semibold">{conflict.currentTruck}</span>
+                  </>
+                )}
               </p>
             ))}
             <div className="flex items-center space-x-2 pt-2">
@@ -117,7 +125,7 @@ export function AssignmentReasonDialog({
                 htmlFor="conflict-acknowledge"
                 className="text-sm font-medium text-destructive cursor-pointer"
               >
-                I understand this will reassign from the other truck
+                I understand this will reassign from the current assignment
               </label>
             </div>
           </div>
