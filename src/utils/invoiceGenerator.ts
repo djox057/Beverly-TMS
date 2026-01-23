@@ -161,11 +161,22 @@ export interface InvoiceProgress {
   message: string;
 }
 
+export interface InvoiceWarning {
+  invoice: string;
+  files: Array<{ type: 'RC' | 'POD'; name: string }>;
+  reason: 'skipped' | 'fallback';
+}
+
+export interface InvoiceGenerationResult {
+  orderIds: string[];
+  warnings: InvoiceWarning[];
+}
+
 export const generateInvoicePDF = async (
   orders: Order[],
   onProgress?: (progress: InvoiceProgress) => void
-): Promise<string[]> => {
-  if (!orders.length) return [];
+): Promise<InvoiceGenerationResult> => {
+  if (!orders.length) return { orderIds: [], warnings: [] };
 
   console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
   
@@ -708,40 +719,35 @@ export const generateInvoicePDF = async (
     
     console.log('ZIP file downloaded successfully');
     
-    // Build error message for failed invoices, skipped files, and fallback files
-    const errorMessages: string[] = [];
+    // Build warnings for the caller to display
+    const warnings: InvoiceWarning[] = [];
     
-    if (failedInvoices.length > 0) {
-      errorMessages.push(`${failedInvoices.length} invoice(s) failed to process: ${failedInvoices.slice(0, 3).join(', ')}${failedInvoices.length > 3 ? '...' : ''}`);
-    }
-    
-    if (invoicesWithSkippedFiles.length > 0) {
-      const skippedDetails = invoicesWithSkippedFiles.slice(0, 5).map(item => {
-        const fileList = item.skippedFiles.map(f => `${f.file_type}: ${f.file_name}`).join(', ');
-        return `${item.invoice.replace('.pdf', '')}: [${fileList}]`;
+    // Add skipped files warnings
+    for (const item of invoicesWithSkippedFiles) {
+      warnings.push({
+        invoice: item.invoice.replace('.pdf', ''),
+        files: item.skippedFiles.map(f => ({ type: f.file_type, name: f.file_name })),
+        reason: 'skipped'
       });
-      errorMessages.push(`Files could not be attached to ${invoicesWithSkippedFiles.length} invoice(s): ${skippedDetails.join('; ')}${invoicesWithSkippedFiles.length > 5 ? '...' : ''}`);
     }
     
-    // Report fallback files (embedded as attachment, not merged inline)
-    if (invoicesWithFallbackFiles.length > 0) {
-      const fallbackDetails = invoicesWithFallbackFiles.slice(0, 5).map(item => {
-        const fileList = item.fallbackFiles.map(f => `${f.file_type}: ${f.file_name}`).join(', ');
-        return `${item.invoice.replace('.pdf', '')}: [${fileList}]`;
+    // Add fallback files warnings
+    for (const item of invoicesWithFallbackFiles) {
+      warnings.push({
+        invoice: item.invoice.replace('.pdf', ''),
+        files: item.fallbackFiles.map(f => ({ type: f.file_type, name: f.file_name })),
+        reason: 'fallback'
       });
-      errorMessages.push(`Files embedded as attachments (not inline) in ${invoicesWithFallbackFiles.length} invoice(s): ${fallbackDetails.join('; ')}${invoicesWithFallbackFiles.length > 5 ? '...' : ''}`);
     }
     
-    if (errorMessages.length > 0) {
-      const fullErrorMsg = errorMessages.join('\n\n');
-      console.error(fullErrorMsg);
-      throw new Error(fullErrorMsg);
+    if (warnings.length > 0) {
+      console.warn(`Invoice generation completed with ${warnings.length} warning(s):`, warnings);
     }
     
-    // Return the IDs of all orders that were processed
-    return orders.map(order => order.id);
+    // Return the IDs of all orders that were processed and any warnings
+    return { orderIds: orders.map(order => order.id), warnings };
   } catch (error) {
     console.error('Error creating ZIP file:', error);
-    throw error; // Re-throw so caller can handle and show toast
+    throw error; // Re-throw so caller can handle
   }
 };
