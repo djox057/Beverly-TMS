@@ -957,6 +957,10 @@ export const useReports = (options?: UseReportsOptions) => {
             driver1_id,
             driver2_id,
             truck_id,
+            trailer_id,
+            broker_id,
+            company_id,
+            booked_by_company_id,
             is_recovery,
             locked,
             mileage,
@@ -964,6 +968,10 @@ export const useReports = (options?: UseReportsOptions) => {
             dh_miles,
             original_driver1_id,
             original_driver2_id,
+            deleted_truck_number,
+            deleted_trailer_number,
+            deleted_driver1_name,
+            deleted_driver2_name,
             freight_amount,
             driver_price,
             detention,
@@ -1019,6 +1027,50 @@ export const useReports = (options?: UseReportsOptions) => {
               transfer_state,
               transfer_address,
               transfer_datetime
+            ),
+            broker:brokers (
+              id,
+              name,
+              mc_number,
+              address
+            ),
+            company:companies!orders_company_id_fkey (
+              id,
+              name
+            ),
+            booked_by_company:companies!orders_booked_by_company_id_fkey (
+              id,
+              name
+            ),
+            truck:trucks!orders_truck_id_fkey (
+              id,
+              truck_number,
+              company:companies (
+                id,
+                name
+              )
+            ),
+            trailer:trailers!orders_trailer_id_fkey (
+              id,
+              trailer_number
+            ),
+            driver1:drivers!orders_driver1_id_fkey (
+              id,
+              name,
+              company_id,
+              company:companies (
+                id,
+                name
+              )
+            ),
+            driver2:drivers!orders_driver2_id_fkey (
+              id,
+              name,
+              company_id,
+              company:companies (
+                id,
+                name
+              )
             )
           `)
           .eq("locked", false)
