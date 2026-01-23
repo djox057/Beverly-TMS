@@ -30,6 +30,7 @@ interface EditTransferDialogProps {
     transferState?: string;
     transferAddress?: string;
     transferDatetime?: string;
+    isLegacy?: boolean;
   };
 }
 
@@ -44,6 +45,7 @@ export interface EditTransferData {
   transferState: string;
   transferAddress?: string;
   transferDatetime: string;
+  isLegacy?: boolean;
 }
 
 export function EditTransferDialog({
@@ -115,19 +117,23 @@ export function EditTransferDialog({
   const handleSave = () => {
     setError("");
 
-    if (!transferCity || !transferState) {
-      setError("Please enter transfer location (city and state)");
-      return;
-    }
+    // For legacy transfers, location is optional
+    // For modern transfers, location is required
+    if (!transfer.isLegacy) {
+      if (!transferCity || !transferState) {
+        setError("Please enter transfer location (city and state)");
+        return;
+      }
 
-    if (!transferDatetime) {
-      setError("Please select transfer date and time");
-      return;
+      if (!transferDatetime) {
+        setError("Please select transfer date and time");
+        return;
+      }
     }
 
     // Save as ISO string with Z suffix (naive Chicago wall-time stored as UTC literal)
     // This matches the convention used elsewhere in the app
-    const isoDatetime = transferDatetime.replace("T", " ") + ":00";
+    const isoDatetime = transferDatetime ? transferDatetime.replace("T", " ") + ":00" : "";
 
     onSave({
       id: transfer.id,
@@ -140,6 +146,7 @@ export function EditTransferDialog({
       transferState,
       transferAddress: transferAddress || undefined,
       transferDatetime: isoDatetime,
+      isLegacy: transfer.isLegacy,
     });
 
     onOpenChange(false);
@@ -231,55 +238,57 @@ export function EditTransferDialog({
             </div>
           </div>
 
-          {/* Transfer Location Section */}
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-lg">
-                {transfer.sequenceNumber === 0 ? "Delivery Point (Handoff Location)" : "Pickup Point (Handoff Location)"}
-              </h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {transfer.sequenceNumber === 0 
-                ? "Where did this driver hand off the load to the next driver?"
-                : "Where did this driver pick up the load from the previous driver?"}
-            </p>
-            <div className="grid grid-cols-[1fr_80px_1.5fr] gap-4">
-              <div>
-                <Label>City *</Label>
-                <Input
-                  value={transferCity}
-                  onChange={(e) => setTransferCity(e.target.value)}
-                  placeholder="e.g. Chicago"
-                />
+          {/* Transfer Location Section - only show for non-legacy transfers */}
+          {!transfer.isLegacy && (
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-lg">
+                  {transfer.sequenceNumber === 0 ? "Delivery Point (Handoff Location)" : "Pickup Point (Handoff Location)"}
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {transfer.sequenceNumber === 0 
+                  ? "Where did this driver hand off the load to the next driver?"
+                  : "Where did this driver pick up the load from the previous driver?"}
+              </p>
+              <div className="grid grid-cols-[1fr_80px_1.5fr] gap-4">
+                <div>
+                  <Label>City *</Label>
+                  <Input
+                    value={transferCity}
+                    onChange={(e) => setTransferCity(e.target.value)}
+                    placeholder="e.g. Chicago"
+                  />
+                </div>
+                <div>
+                  <Label>State *</Label>
+                  <Input
+                    value={transferState}
+                    onChange={(e) => setTransferState(e.target.value.toUpperCase())}
+                    placeholder="IL"
+                    maxLength={2}
+                  />
+                </div>
+                <div>
+                  <Label>Date & Time *</Label>
+                  <Input
+                    type="datetime-local"
+                    value={transferDatetime}
+                    onChange={(e) => setTransferDatetime(e.target.value)}
+                  />
+                </div>
               </div>
               <div>
-                <Label>State *</Label>
+                <Label>Full Address (optional)</Label>
                 <Input
-                  value={transferState}
-                  onChange={(e) => setTransferState(e.target.value.toUpperCase())}
-                  placeholder="IL"
-                  maxLength={2}
-                />
-              </div>
-              <div>
-                <Label>Date & Time *</Label>
-                <Input
-                  type="datetime-local"
-                  value={transferDatetime}
-                  onChange={(e) => setTransferDatetime(e.target.value)}
+                  value={transferAddress}
+                  onChange={(e) => setTransferAddress(e.target.value)}
+                  placeholder="e.g. 123 Main St, Chicago, IL 60601"
                 />
               </div>
             </div>
-            <div>
-              <Label>Full Address (optional)</Label>
-              <Input
-                value={transferAddress}
-                onChange={(e) => setTransferAddress(e.target.value)}
-                placeholder="e.g. 123 Main St, Chicago, IL 60601"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter>
