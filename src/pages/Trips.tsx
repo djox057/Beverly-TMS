@@ -1022,26 +1022,34 @@ const Trips = () => {
     filterInfo.entityId
   );
 
-  // Filter and format history entries based on filter type
-  const relevantHistoryEntries = useMemo(() => {
-    if (!filterInfo.filterType || assignmentHistory.length === 0) return [];
+  // Filter and format history entries based on filter type, grouped by week
+  const historyEntriesByWeek = useMemo(() => {
+    if (!filterInfo.filterType || assignmentHistory.length === 0) return {};
     
-    // When filtering by driver, show truck/trailer changes
-    // When filtering by truck, show driver changes
-    return assignmentHistory
+    const filtered = assignmentHistory
       .filter(entry => {
         if (filterInfo.filterType === 'driver') {
-          // When filtering by driver, show their truck/trailer assignment changes
           return entry.change_type === 'truck_assignment' || 
                  entry.change_type === 'trailer_assignment' ||
-                 entry.change_type === 'assignment_change'; // Legacy combined entries
+                 entry.change_type === 'assignment_change';
         } else {
-          // When filtering by truck, show driver assignment changes
           return entry.change_type === 'driver_assignment' ||
-                 entry.change_type === 'assignment_change'; // Legacy combined entries
+                 entry.change_type === 'assignment_change';
         }
       })
-      .slice(0, 20); // Limit to 20 most recent entries
+      .slice(0, 50);
+    
+    // Group by week (Tuesday start)
+    const byWeek: { [weekKey: string]: typeof filtered } = {};
+    filtered.forEach(entry => {
+      const entryDate = new Date(entry.changed_at);
+      const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
+      const weekKey = format(weekStart, "yyyy-MM-dd");
+      if (!byWeek[weekKey]) byWeek[weekKey] = [];
+      byWeek[weekKey].push(entry);
+    });
+    
+    return byWeek;
   }, [filterInfo.filterType, assignmentHistory]);
 
   // Pagination - paginate individual orders first
@@ -4141,66 +4149,6 @@ const Trips = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Assignment History Rows - shown when filtering by truck or driver */}
-                {relevantHistoryEntries.length > 0 && (
-                  <>
-                    {relevantHistoryEntries.map((entry, idx) => {
-                      // Format the change description
-                      let changeDescription = "";
-                      if (filterInfo.filterType === 'driver') {
-                        // Show truck/trailer changes for driver
-                        if (entry.change_type === 'truck_assignment') {
-                          changeDescription = entry.truck_number 
-                            ? `Truck changed to ${entry.truck_number}` 
-                            : "Truck removed";
-                        } else if (entry.change_type === 'trailer_assignment') {
-                          changeDescription = entry.trailer_number 
-                            ? `Trailer changed to ${entry.trailer_number}` 
-                            : "Trailer removed";
-                        } else if (entry.change_type === 'assignment_change') {
-                          // Legacy combined entries - show both if present
-                          const parts = [];
-                          if (entry.truck_number) parts.push(`Truck: ${entry.truck_number}`);
-                          if (entry.trailer_number) parts.push(`Trailer: ${entry.trailer_number}`);
-                          changeDescription = parts.length > 0 ? parts.join(', ') : "Assignment changed";
-                        }
-                      } else {
-                        // Show driver changes for truck
-                        if (entry.driver1_name) {
-                          changeDescription = `Driver changed to ${entry.driver1_name}`;
-                          if (entry.driver2_name) {
-                            changeDescription += ` / ${entry.driver2_name}`;
-                          }
-                        } else {
-                          changeDescription = "Driver removed";
-                        }
-                      }
-                      
-                      return (
-                        <TableRow 
-                          key={`history-${entry.id}-${idx}`}
-                          className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
-                        >
-                          {canMoveLoads && <TableCell></TableCell>}
-                          <TableCell className="text-xs font-medium">
-                            {format(new Date(entry.changed_at), "MM/dd/yyyy")}
-                          </TableCell>
-                          <TableCell colSpan={4} className="text-xs">
-                            {changeDescription}
-                          </TableCell>
-                          <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-xs text-muted-foreground">
-                            {entry.reason || "—"}
-                          </TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {/* Separator row */}
-                    <TableRow className="h-1 bg-yellow-300 dark:bg-yellow-700">
-                      <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} className="p-0" />
-                    </TableRow>
-                  </>
-                )}
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : (canSeePaidColumn ? 13 : 12)} className="text-center py-8 text-muted-foreground">
@@ -4282,6 +4230,55 @@ const Trips = () => {
                             )}
                           </TableCell>
                         </TableRow>
+
+                        {/* Assignment History Rows for this week */}
+                        {historyEntriesByWeek[week.weekStart]?.map((entry, idx) => {
+                          let changeDescription = "";
+                          if (filterInfo.filterType === 'driver') {
+                            if (entry.change_type === 'truck_assignment') {
+                              changeDescription = entry.truck_number 
+                                ? `Truck changed to ${entry.truck_number}` 
+                                : "Truck removed";
+                            } else if (entry.change_type === 'trailer_assignment') {
+                              changeDescription = entry.trailer_number 
+                                ? `Trailer changed to ${entry.trailer_number}` 
+                                : "Trailer removed";
+                            } else if (entry.change_type === 'assignment_change') {
+                              const parts: string[] = [];
+                              if (entry.truck_number) parts.push(`Truck: ${entry.truck_number}`);
+                              if (entry.trailer_number) parts.push(`Trailer: ${entry.trailer_number}`);
+                              changeDescription = parts.length > 0 ? parts.join(', ') : "Assignment changed";
+                            }
+                          } else {
+                            if (entry.driver1_name) {
+                              changeDescription = `Driver changed to ${entry.driver1_name}`;
+                              if (entry.driver2_name) {
+                                changeDescription += ` / ${entry.driver2_name}`;
+                              }
+                            } else {
+                              changeDescription = "Driver removed";
+                            }
+                          }
+                          
+                          return (
+                            <TableRow 
+                              key={`history-${week.weekStart}-${entry.id}-${idx}`}
+                              className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
+                            >
+                              {canMoveLoads && <TableCell></TableCell>}
+                              <TableCell className="text-sm font-semibold">
+                                {format(new Date(entry.changed_at), "MM/dd/yyyy")}
+                              </TableCell>
+                              <TableCell colSpan={4} className="text-sm font-medium">
+                                {changeDescription}
+                              </TableCell>
+                              <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
+                                {entry.reason || "—"}
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          );
+                        })}
 
                         {/* Drop zone indicator - shown when dragging over this week */}
                         <Droppable 
