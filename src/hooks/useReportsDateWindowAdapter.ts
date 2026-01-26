@@ -201,29 +201,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
-  // Get unique dispatcher IDs from the drivers we're loading
+  // Get unique dispatcher IDs from the drivers we're loading - use stable string for queryKey
   const dispatcherIdsFromDrivers = useMemo(() => {
     if (!drivers) return [];
     const ids = new Set<string>();
     for (const d of drivers) {
       if (d.dispatcher_id) ids.add(d.dispatcher_id);
     }
-    return Array.from(ids);
+    return Array.from(ids).sort();
   }, [drivers]);
 
+  // Create a stable string key to prevent React Query re-renders
+  const dispatcherIdsKey = dispatcherIdsFromDrivers.join(",");
+
   const { data: dispatchers } = useQuery({
-    queryKey: ["adapter-dispatchers", dispatcherIdsFromDrivers],
+    queryKey: ["adapter-dispatchers", dispatcherIdsKey],
     queryFn: async () => {
-      if (dispatcherIdsFromDrivers.length === 0) return [];
+      if (!dispatcherIdsKey) return [];
+      const ids = dispatcherIdsKey.split(",");
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, email, office, ext")
-        .in("user_id", dispatcherIdsFromDrivers);
+        .in("user_id", ids);
       if (error) throw error;
       return data || [];
     },
     staleTime: 60000,
-    enabled: scopeEnabled && dispatcherIdsFromDrivers.length > 0,
+    enabled: scopeEnabled && dispatcherIdsKey.length > 0,
   });
 
   const { data: companies } = useQuery({
