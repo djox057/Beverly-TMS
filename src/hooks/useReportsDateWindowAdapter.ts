@@ -302,7 +302,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [windowOrderIds]);
 
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
-  const { data: orderFiles } = useQuery({
+  const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
     queryKey: ["adapter-order-files", priorityOffice, orderIdsKey],
     queryFn: async () => {
       if (windowOrderIds.length === 0) return [];
@@ -352,6 +352,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) return [];
     if (!dateWindowHook.orders) return [];
     if (!trucks || !drivers || !dispatchers || !companies) return null;
+    
+    // Wait for order_files to load before transforming
+    // This prevents rendering with empty files during the query cascade
+    if (windowOrderIds.length > 0 && isOrderFilesLoading) return null;
 
     // Enrich orders with order_files before processing
     const orders = dateWindowHook.orders.map((order) => ({
@@ -680,6 +684,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     orderFilesMap,
     priorityOffice,
     dispatcherId,
+    isOrderFilesLoading,
+    windowOrderIds,
   ]);
 
   if (!USE_DATE_WINDOW_LOADING) {
@@ -689,7 +695,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   return {
     // Data from date-window with transformation
     data: transformedData,
-    isLoading: dateWindowHook.isLoading,
+    isLoading: dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading),
     isPending: dateWindowHook.isLoading,
     isError: !!dateWindowHook.error,
     error: dateWindowHook.error,
