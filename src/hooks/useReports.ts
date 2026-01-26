@@ -888,44 +888,12 @@ export const useReports = (options?: UseReportsOptions) => {
     });
     const driverIdsArray = Array.from(truckDriverIds);
 
-    // STEP 1: Check if useOrders has already loaded orders data in React Query cache
-    // This avoids duplicate database fetches when navigating between /orders and /reports
-    const cachedOrdersData = queryClient.getQueryData<any[]>(["orders", null, null]);
-    
+    // STEP 1: Always fetch orders independently - do NOT rely on useOrders cache
+    // The useOrders cache may be incomplete (only 100 orders) due to performance optimizations.
+    // Reports must always have the complete dataset to show all driver loads correctly.
     let unlockedOrdersRaw: any[] = [];
     
-    if (cachedOrdersData && Array.isArray(cachedOrdersData) && cachedOrdersData.length > 0) {
-      // Use cached orders from useOrders - convert from camelCase back to snake_case
-      console.log(`[useReports] ♻️ REUSING ${cachedOrdersData.length} orders from useOrders cache!`);
-      
-      // Import reverseTransformOrders dynamically to convert camelCase to snake_case
-      const { reverseTransformOrders } = await import("@/utils/ordersTransform");
-      const rawFormatOrders = reverseTransformOrders(cachedOrdersData);
-      
-      // Filter for reports criteria (90 days, unlocked, active status)
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      
-      unlockedOrdersRaw = rawFormatOrders.filter((order: any) => {
-        if (order.locked) return false; // Only unlocked orders from this source
-        
-        const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
-        return (
-          !order.delivery_datetime ||
-          (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgo) ||
-          order.status === 'in_transit' ||
-          order.status === 'pending'
-        );
-      });
-      
-      const totalPickupDropsFromCache = unlockedOrdersRaw.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0);
-      console.log(
-        `[useReports] ♻️ Using ${unlockedOrdersRaw.length} UNLOCKED orders with ${totalPickupDropsFromCache} pickup_drops from CACHE (converted to raw format)${
-          filterOffice ? ` (will filter for ${filterOffice})` : ""
-        }`,
-      );
-    } else {
-      // No cached data - fetch from database as before
+    // Fetch from database - always independent from useOrders cache
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -1108,7 +1076,6 @@ export const useReports = (options?: UseReportsOptions) => {
           filterOffice ? ` (filtered for ${filterOffice})` : ""
         }`,
       );
-    }
 
     // STEP 2: Load locked orders from storage bucket (avoids database egress)
     // Always load locked orders to ensure calendar displays complete history
@@ -1281,18 +1248,8 @@ export const useReports = (options?: UseReportsOptions) => {
     
     console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)${filterOffice ? ` for ${filterOffice}` : ""}`);
 
-    // BIDIRECTIONAL CACHE: If we fetched from DB (not cache), populate useOrders cache
-    // This allows /orders page to load instantly if /reports was loaded first
-    if (!cachedOrdersData || cachedOrdersData.length === 0) {
-      try {
-        const { transformOrders } = await import("@/utils/ordersTransform");
-        const transformedForOrdersCache = transformOrders(allOrders);
-        queryClient.setQueryData(["orders", null, null], transformedForOrdersCache);
-        console.log(`[useReports] 💾 Populated useOrders cache with ${transformedForOrdersCache.length} orders (camelCase format)`);
-      } catch (cacheError) {
-        console.warn('[useReports] ⚠️ Could not populate useOrders cache:', cacheError);
-      }
-    }
+    // NOTE: Bidirectional cache sharing removed - useOrders cache is now partial (100 orders only)
+    // Each page must independently fetch its complete dataset for correctness
 
     // PERF: Index orders by driver once (instead of filtering allOrders for every truck/driver)
     // - ordersByDriver: includes current + original + transfer drivers (used for truck rows)
