@@ -847,8 +847,15 @@ CHANGES INCORRECTLY APPLIED:
   - The audit said "Initial load: max 100 orders" but meant for DISPLAY
   - Data fetching must be complete, display can paginate
 
+FIX APPLIED (useReports cache dependency):
+1. Removed cache sharing mechanism at lines 891-927 that called:
+   queryClient.getQueryData(["orders", null, null])
+2. Removed bidirectional cache population at lines 1253-1264
+3. useReports now ALWAYS fetches its own independent dataset from database
+4. This ensures Reports page always shows correct driver loads regardless of useOrders state
+
 REMAINING TO FIX:
-1. Remove 100-order limit from useOrders
+1. Remove 100-order limit from useOrders (separate issue)
 2. Verify all orders load correctly
 3. Consider adding UI pagination for display only (optional)
 
