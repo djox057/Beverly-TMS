@@ -37,7 +37,14 @@ import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
+import { DispatcherAnalyticsAggregated } from "@/components/DispatcherAnalyticsAggregated";
 import crownImage from "@/assets/crown.png";
+
+// Feature flag for pre-aggregated analytics
+// Set to true to use new pre-calculated analytics (faster, DB-only)
+// Set to false to use old client-side calculations (includes archives)
+// Default to TRUE for better performance - users can switch back via UI toggle
+const USE_PREAGGREGATED_ANALYTICS = localStorage.getItem("USE_PREAGGREGATED_ANALYTICS") !== "false";
 
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -235,8 +242,16 @@ const Analytics = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // Don't use database-level filtering for dispatch users - let client-side filtering handle both full_name and user_id formats
-  const { data: orders, isLoading, error } = useOrders();
+  // Only load full orders when NOT using pre-aggregated analytics
+  // Pre-aggregated mode: No orders loaded on initial page load (faster, DB-only)
+  // Legacy mode: Full orders loaded for client-side calculations (includes archives)
+  // CRITICAL: Pass enabled: false to prevent fetching 11k+ orders in pre-aggregated mode
+  const { data: orders, isLoading, error } = useOrders({ 
+    enabled: !USE_PREAGGREGATED_ANALYTICS 
+  });
+  
+  // Feature flag state for UI toggle
+  const [usePreAggregated, setUsePreAggregated] = useState(USE_PREAGGREGATED_ANALYTICS);
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();
@@ -1719,6 +1734,39 @@ const Analytics = () => {
           </TabsList>
 
           <TabsContent value="performance" className="space-y-6">
+            {/* Feature flag toggle for admins */}
+            {(hasRole("admin") || hasRole("manager")) && (
+              <div className="flex items-center justify-end gap-2 text-sm">
+                <span className="text-muted-foreground">Mode:</span>
+                <Button
+                  variant={usePreAggregated ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    const newValue = !usePreAggregated;
+                    setUsePreAggregated(newValue);
+                    localStorage.setItem("USE_PREAGGREGATED_ANALYTICS", String(newValue));
+                    toast.success(newValue ? "Switched to pre-aggregated analytics (faster)" : "Switched to legacy analytics");
+                  }}
+                >
+                  {usePreAggregated ? "Pre-Aggregated (Fast)" : "Legacy (Full Data)"}
+                </Button>
+              </div>
+            )}
+
+            {/* Pre-aggregated analytics (new, fast, DB-only) */}
+            {usePreAggregated ? (
+              <DispatcherAnalyticsAggregated
+                filterType={filterType === "custom" ? "week" : filterType}
+                selectedWeek={selectedWeek}
+                selectedMonth={selectedMonth}
+                selectedOffices={selectedOffices}
+                onWeekChange={handleWeekChange}
+                onMonthChange={handleMonthChange}
+                dispatcherProfiles={dispatcherProfiles}
+                dispatcherTruckCounts={dispatcherTruckCounts}
+              />
+            ) : (
+            /* Legacy analytics (old, includes archives) */
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1969,6 +2017,7 @@ const Analytics = () => {
                 )}
               </CardContent>
             </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="driver-gross-rankings" className="space-y-6">

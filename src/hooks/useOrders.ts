@@ -166,16 +166,22 @@ async function enrichLockedOrdersWithLookups(
 interface UseOrdersOptions {
   bookedBy?: string | null;
   dispatcherUserId?: string | null;
+  /** Set to false to disable the query (prevents fetching) */
+  enabled?: boolean;
 }
 
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
+  
+  // Determine if query should be enabled (default true)
+  const isEnabled = options?.enabled !== false;
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates only when enabled
   useOrdersRealtime();
 
   const query = useQuery({
     queryKey: ["orders", options?.bookedBy, options?.dispatcherUserId],
+    enabled: isEnabled,
     queryFn: async () => {
       // PERFORMANCE: Load only 100 orders initially - user can paginate for more
       const initialBatchSize = 100;
