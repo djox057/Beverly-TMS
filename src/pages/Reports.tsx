@@ -344,9 +344,13 @@ const Reports = () => {
   // State for date-window navigation (used when USE_DATE_WINDOW_LOADING is true)
   const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
   
+  // Track active office tab state - defined early so it can be used in hook
+  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
+  
   // Reports.tsx must call exactly ONE reports hook consistently.
+  // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
-    priorityOffice: profile?.office || "Čačak",
+    priorityOffice: activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
@@ -408,7 +412,7 @@ const Reports = () => {
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
   const [expandedDispatcherMap, setExpandedDispatcherMap] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
+  // activeTab state is defined earlier (line 348) to be used in the reports hook
   const [visibleTrucks, setVisibleTrucks] = useState<{
     [dispatcherId: string]: number;
   }>({});
