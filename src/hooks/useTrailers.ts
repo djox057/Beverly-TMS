@@ -93,8 +93,8 @@ export const useTrailers = () => {
     },
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 30 * 1000, // 30 seconds - reduce refetch frequency
-    gcTime: 5 * 60 * 1000, // 5 minutes cache retention
+    staleTime: 30000, // 30 seconds - reduce refetch frequency
+    gcTime: 300000, // 5 minutes cache retention
     structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
 };
