@@ -452,10 +452,37 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       // Combine all orders
       const combinedOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
       
-      // Filter out canceled orders unless their pickup date is today (no timezone conversion)
+      // Filter out canceled orders unless:
+      // 1. Their pickup date is today AND
+      // 2. There is NO other non-canceled load for that driver with same or later pickup date
       const allOrders = combinedOrders.filter(order => {
         if (!order.canceled) return true;
-        return isPickupDateToday(order.pickup_datetime);
+        
+        // Must be pickup today to even consider showing
+        if (!isPickupDateToday(order.pickup_datetime)) return false;
+        
+        // Extract the date part (YYYY-MM-DD) from this canceled order's pickup
+        const canceledPickupDate = order.pickup_datetime?.substring(0, 10);
+        if (!canceledPickupDate) return false;
+        
+        // Check if there's another non-canceled order for this driver with same or later pickup date
+        const hasLaterOrSameDayLoad = combinedOrders.some(otherOrder => {
+          // Must be for the same driver
+          if (otherOrder.driver1_id !== order.driver1_id) return false;
+          // Must not be the same order
+          if (otherOrder.id === order.id) return false;
+          // Must not be canceled
+          if (otherOrder.canceled) return false;
+          // Must have a pickup datetime
+          if (!otherOrder.pickup_datetime) return false;
+          
+          // Compare date parts only (no timezone conversion)
+          const otherPickupDate = otherOrder.pickup_datetime.substring(0, 10);
+          return otherPickupDate >= canceledPickupDate;
+        });
+        
+        // Don't show canceled order if there's a non-canceled load with same or later pickup
+        return !hasLaterOrSameDayLoad;
       });
       
       console.log(`[useReportsDateWindow] Total orders for window: ${allOrders.length} (combined: ${combinedOrders.length}, after canceled filter: ${allOrders.length})`);

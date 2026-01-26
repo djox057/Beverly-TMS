@@ -18,8 +18,8 @@
 
 The **most recent canceled order** SHOULD display IF:
 
-- There is no newer non-canceled order after it (by created_at)
-- The canceled order's pickup is NOT before the previous load's delivery
+- The canceled order's pickup date is today (string comparison, no timezone conversion)
+- There is NO other non-canceled order for that driver with the same or later pickup date
 
 ### 2.3 Locked Orders from Archive
 
