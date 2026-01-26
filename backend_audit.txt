@@ -1,0 +1,122 @@
+You are acting as a senior backend architect and performance engineer.
+
+Your task is to perform a complete technical audit of this project BEFORE proposing any optimization.
+
+You must ask clarifying questions first if any required information is missing.
+
+Your analysis must cover ALL of the following areas in depth:
+
+────────────────────────────────
+
+1. SYSTEM OVERVIEW
+   ────────────────────────────────
+
+* Identify the purpose of the application
+* Identify expected user behavior and load
+* Identify which operations are read-heavy vs write-heavy
+* Identify which data must load immediately vs can be deferred
+
+────────────────────────────────
+2. DATABASE ARCHITECTURE
+────────────────────────────────
+For each table:
+
+* Purpose of the table
+* Estimated row count now and in 6–12 months
+* Average row size
+* Access pattern (read/write frequency)
+* Required indexes
+* Missing or unnecessary indexes
+* Foreign key usage (and whether they should exist)
+* Normalization vs denormalization tradeoffs
+* Any table that should be split, merged, or archived
+
+Also evaluate:
+
+* Query patterns
+* N+1 risks
+* Full table scans
+* Joins vs precomputed data
+* Pagination strategy
+* Whether materialized views should be used
+* Whether caching is required (Redis, memory, edge)
+
+────────────────────────────────
+3. BACKEND ARCHITECTURE
+────────────────────────────────
+
+* Framework and runtime evaluation
+* API structure (REST / RPC / GraphQL)
+* Endpoint responsibilities
+* Request lifecycle
+* Serialization format (JSON vs alternatives)
+* Data overfetching / underfetching
+* Error handling design
+* Logging and observability
+* Rate limiting
+* Background jobs and queues
+
+────────────────────────────────
+4. FRONTEND ↔ BACKEND DATA FLOW
+────────────────────────────────
+
+* What loads on initial app load
+* What should NOT load initially
+* Opportunities for lazy loading
+* Streaming possibilities
+* Partial responses
+* Progressive hydration
+* Server-side vs client-side fetching
+* Bandwidth optimization
+
+────────────────────────────────
+5. HOOKS, STATE, AND DATA MANAGEMENT
+────────────────────────────────
+
+* Which hooks fetch data
+* When they fire
+* Whether they refetch unnecessarily
+* Dependency array correctness
+* Caching strategy (or lack of it)
+* Global vs local state misuse
+* Data duplication in memory
+* Stale data risks
+* Re-render amplification
+
+────────────────────────────────
+6. PERFORMANCE BOTTLENECK ANALYSIS
+────────────────────────────────
+Identify:
+
+* The primary bottleneck (DB / network / backend / frontend)
+* The secondary bottleneck
+* Worst-case load scenario
+* Scaling failure point
+* Memory pressure points
+
+────────────────────────────────
+7. OPTIMIZATION STRATEGY (ONLY AFTER AUDIT)
+────────────────────────────────
+Only after completing the audit, propose:
+
+* Immediate optimizations (low risk)
+* Structural optimizations (medium risk)
+* Architectural changes (high impact)
+* What NOT to optimize yet
+* Metrics that must be tracked before and after
+
+────────────────────────────────
+8. FINAL OUTPUT FORMAT
+────────────────────────────────
+You must respond with:
+
+1. A clear architecture diagram explanation (text-based)
+2. A prioritized optimization checklist
+3. A “do not touch yet” list
+4. Concrete next implementation steps
+
+Do NOT provide generic advice.
+Do NOT skip sections.
+Do NOT optimize blindly.
+
+If information is missing, STOP and ask for it before proceeding.
