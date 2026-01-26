@@ -201,18 +201,29 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
+  // Get unique dispatcher IDs from the drivers we're loading
+  const dispatcherIdsFromDrivers = useMemo(() => {
+    if (!drivers) return [];
+    const ids = new Set<string>();
+    for (const d of drivers) {
+      if (d.dispatcher_id) ids.add(d.dispatcher_id);
+    }
+    return Array.from(ids);
+  }, [drivers]);
+
   const { data: dispatchers } = useQuery({
-    queryKey: ["adapter-dispatchers"],
+    queryKey: ["adapter-dispatchers", dispatcherIdsFromDrivers],
     queryFn: async () => {
+      if (dispatcherIdsFromDrivers.length === 0) return [];
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, email, office, ext")
-        .eq("user_id", dispatcherId);
+        .in("user_id", dispatcherIdsFromDrivers);
       if (error) throw error;
       return data || [];
     },
     staleTime: 60000,
-    enabled: USE_DATE_WINDOW_LOADING && !!dispatcherId,
+    enabled: scopeEnabled && dispatcherIdsFromDrivers.length > 0,
   });
 
   const { data: companies } = useQuery({
