@@ -430,6 +430,8 @@ const Reports = () => {
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
   const [lateTrucks, setLateTrucks] = useState<Set<string>>(new Set()); // Track late trucks by truck ID
   const [notifiedLateStops, setNotifiedLateStops] = useState<Set<string>>(new Set());
+  // Ref to track notified stops without causing re-renders (prevents infinite loop in late-check effect)
+  const notifiedLateStopsRef = useRef<Set<string>>(new Set());
   const [yardActionDialog, setYardActionDialog] = useState<{
     driverId: string;
     driverName: string;
@@ -2444,7 +2446,7 @@ const Reports = () => {
 
                 // Queue email notification for late pickup (send immediately when overdue)
                 const notifyKey = currentOrder.id;
-                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (!notifiedLateStopsRef.current.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "pickup",
@@ -2494,7 +2496,7 @@ const Reports = () => {
 
                 // Queue email notification for late delivery (send immediately when overdue)
                 const notifyKey = `${currentOrder.id}-delivery-${stop.id || 'main'}`;
-                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (!notifiedLateStopsRef.current.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "delivery",
@@ -2524,8 +2526,12 @@ const Reports = () => {
         setLateDeliveries(newLateDeliveries);
         setLateTrucks(newLateTrucks);
         
-        // Batch update notified keys
+        // Batch update notified keys (update ref first to avoid re-triggering effect)
         if (newNotifiedKeys.length > 0) {
+          // Update ref immediately (synchronous, no re-render)
+          newNotifiedKeys.forEach(key => notifiedLateStopsRef.current.add(key));
+          
+          // Also update state for any components that read it
           setNotifiedLateStops((prev) => {
             const updated = new Set(prev);
             newNotifiedKeys.forEach(key => updated.add(key));
@@ -2577,7 +2583,9 @@ const Reports = () => {
     // Re-run every 60 seconds
     const interval = setInterval(checkLateStops, 60 * 1000);
     return () => clearInterval(interval);
-  }, [groupedReports, notifiedLateStops, isFetchingBackground, updatePickupDropArrival]);
+    // NOTE: notifiedLateStops is intentionally excluded from deps to prevent infinite loop
+    // The effect uses functional setState to access latest value without retriggering
+  }, [groupedReports, isFetchingBackground, updatePickupDropArrival]);
 
 
   // Auto-switch to correct dispatcher page when filters find matches
