@@ -1,134 +1,121 @@
 
-# Fix: Reports Page Not Showing Order Files (RC/BOL/POD Missing)
+# Fix: Reports Page Order Files Not Displaying (RC/BOL/POD)
 
 ## Problem Summary
 
-The `/reports` page fails to display document status indicators (RC, BOL, POD) for many orders, even when files are correctly uploaded. The popup for order S113550459 shows upload buttons instead of green checkmarks despite having RC and BOL files in the database.
+The Reports page fails to display document indicators (RC, BOL, POD) for many orders, even when files exist in the database. This affects potentially all orders in the date window, not just specific ones.
 
-This affects **all orders** in the date window, not just one specific order.
+## Root Causes Identified
 
----
+### 1. Supabase 1000-Row Default Limit
+**File:** `src/hooks/useReportsDateWindow.ts`
 
-## Root Cause: Query Cascade Race Condition
-
-The adapter uses a cascade of dependent queries that creates a timing issue:
-
-```text
-Query Cascade:
-┌─────────────────────────────────────────────────────────────────────┐
-│ Step 1: dateWindowHook fetches orders                               │
-│         └─ Returns 188 orders for KRAGUJEVAC                        │
-├─────────────────────────────────────────────────────────────────────┤
-│ Step 2: windowOrderIds computed from orders                         │
-│         └─ Creates array of 188 order IDs                           │
-├─────────────────────────────────────────────────────────────────────┤
-│ Step 3: order_files query enabled and starts fetching               │
-│         └─ Will return 511 files                                    │
-├─────────────────────────────────────────────────────────────────────┤
-│ PROBLEM: transformedData runs BETWEEN Step 2 and Step 3 completing! │
-│          └─ orderFilesMap is EMPTY at this point                    │
-│          └─ All orders get: order_files: []                         │
-│          └─ UI renders with no document indicators                  │
-└─────────────────────────────────────────────────────────────────────┘
+The main orders query has no pagination and silently hits Supabase's default 1000-row limit:
+```
+[useReportsDateWindow] Fetched 1000 orders from database  ← EXACTLY 1000 = limit hit
 ```
 
-The `transformedData` useMemo has `orderFilesMap` in its dependencies, so it SHOULD re-run when files load. However, the initial render shows stale data, and the re-render may not propagate correctly to the UI.
+Orders beyond the first 1000 are simply not returned.
+
+### 2. Weak Query Key Hashing (Cache Collisions)
+**File:** `src/hooks/useReportsDateWindowAdapter.ts`
+
+The order_files query uses a hash that only considers:
+- Order count
+- First 5 IDs
+- Last 5 IDs
+
+When switching office tabs, if these values coincidentally match, React Query returns cached files for the **wrong office's orders**.
+
+### 3. Stale Closure in queryFn
+**File:** `src/hooks/useReportsDateWindowAdapter.ts`
+
+The queryFn captures `windowOrderIds` by closure. When the query re-runs, it may use outdated order IDs, causing a mismatch between fetched files and the orders being displayed.
 
 ---
 
 ## Solution
 
-Add a loading check to prevent `transformedData` from computing until `order_files` have been fetched.
+### Fix 1: Add Pagination to Orders Query
+**File:** `src/hooks/useReportsDateWindow.ts`
 
-### Technical Changes
+Replace single query with paginated fetching:
 
-**File: `src/hooks/useReportsDateWindowAdapter.ts`**
-
-#### 1. Track order_files loading state
-
-Update the useQuery to destructure `isLoading`:
-
-```typescript
-// Line 305 - Add isLoading to destructuring
-const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
-  queryKey: ["adapter-order-files", priorityOffice, orderIdsKey],
-  // ... rest unchanged
-});
+```text
+Changes:
+1. Add batch fetching with 1000-row batches
+2. Continue fetching until fewer than 1000 rows returned
+3. Combine all batches into final result
 ```
 
-#### 2. Add loading check in transformedData
+### Fix 2: Use Full Hash for Query Key
+**File:** `src/hooks/useReportsDateWindowAdapter.ts`
 
-Update the useMemo to wait for order_files:
+Replace weak hash with robust unique key:
 
-```typescript
-// Line 349 - Add check for order_files loading
-const transformedData = useMemo(() => {
-  if (!USE_DATE_WINDOW_LOADING) return null;
-  if (dateWindowHook.isLoading) return null;
-  if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) return [];
-  if (!dateWindowHook.orders) return [];
-  if (!trucks || !drivers || !dispatchers || !companies) return null;
-  
-  // NEW: Wait for order_files to load before transforming
-  // This prevents rendering with empty files during the query cascade
-  if (windowOrderIds.length > 0 && isOrderFilesLoading) return null;
-  
-  // ... rest of transformation unchanged
+```text
+Current (weak):
+"1000-id1,id2,id3,id4,id5-id996,id997,id998,id999,id1000"
+
+Fixed (strong):
+Hash of all order IDs using a proper hash function, or
+Include ALL order IDs in a JSON string (if count is reasonable)
 ```
 
-#### 3. Update dependencies and isLoading return value
+### Fix 3: Avoid Stale Closures in queryFn
+**File:** `src/hooks/useReportsDateWindowAdapter.ts`
 
-Add `isOrderFilesLoading` and `windowOrderIds` to the useMemo dependencies (line 670-683):
+Pass order IDs through the queryKey and extract them in queryFn:
 
-```typescript
-], [
-  dateWindowHook.orders,
-  dateWindowHook.driverIds,
-  dateWindowHook.isLoading,
-  trucks,
-  drivers,
-  dispatchers,
-  companies,
-  truckNotes,
-  lostDayNotes,
-  orderFilesMap,
-  priorityOffice,
-  dispatcherId,
-  isOrderFilesLoading,  // NEW
-  windowOrderIds,        // NEW (already computed, stable reference)
-]);
-```
+```text
+Option A: Pass IDs in queryKey
+- Store windowOrderIds in queryKey
+- Extract from context.queryKey in queryFn
 
-Update the returned `isLoading` to include order_files loading state (line 692):
-
-```typescript
-return {
-  data: transformedData,
-  isLoading: dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading),
-  // ... rest unchanged
-};
+Option B: Use queryKey as sole dependency
+- Stringify order IDs into the key
+- Parse back in queryFn
 ```
 
 ---
 
-## Why This Fixes the Issue
+## Implementation Details
 
-| Before Fix | After Fix |
-|------------|-----------|
-| transformedData runs immediately when orders load | Waits for order_files query to complete |
-| orderFilesMap is empty during first computation | orderFilesMap is populated before computation |
-| UI shows upload buttons (no files) | UI shows correct document status |
-| Requires page refresh to see files | Real-time update on initial load |
+### Step 1: Fix Pagination in useReportsDateWindow.ts
+
+Update `fetchOrdersForDateWindow` function to paginate:
+
+- Add batch loop with 1000-row limit per batch
+- Add `.range(offset, offset + 999)` to each batch query
+- Accumulate results until batch returns fewer than 1000 rows
+- Log total orders fetched across all batches
+
+### Step 2: Fix Query Key in useReportsDateWindowAdapter.ts
+
+Replace the weak `orderIdsKey` hash with a cryptographic hash:
+
+- Use a simple hash function that processes all order IDs
+- Alternatively, use `JSON.stringify(windowOrderIds.sort())` if order count is <2000
+
+### Step 3: Fix Closure Issue in useReportsDateWindowAdapter.ts
+
+Store `windowOrderIds` array directly in query key (as JSON string):
+
+- The queryKey becomes the single source of truth
+- queryFn parses the IDs from the queryKey
+- No external closure dependency
 
 ---
 
 ## Files to Modify
 
-1. **src/hooks/useReportsDateWindowAdapter.ts**
-   - Destructure `isLoading` from order_files query (line 305)
-   - Add loading check in transformedData useMemo (line 349)
-   - Add new dependencies to useMemo (line 680-683)
-   - Update returned isLoading to include order_files state (line 692)
+1. **src/hooks/useReportsDateWindow.ts**
+   - Add pagination to `fetchOrdersForDateWindow` (lines 79-179)
+   - Remove 500-row limit from gap-fill query or increase it (line 317)
+
+2. **src/hooks/useReportsDateWindowAdapter.ts**
+   - Replace weak `orderIdsKey` hash (lines 297-302)
+   - Fix closure issue in order_files queryFn (lines 305-333)
 
 ---
 
@@ -137,8 +124,8 @@ return {
 After the fix:
 1. Navigate to `/reports` page for KRAGUJEVAC office
 2. Find order S113550459 (Load #2207)
-3. Click on the order row to open the popup
-4. Verify RC and BOL show as green checkmarks (not upload buttons)
-5. Verify clicking RC or BOL opens the actual file
-6. Test with other offices to ensure no regression
-7. Verify loading spinner shows while data is being fetched
+3. Verify RC and BOL indicators show as green checkmarks
+4. Switch to Čačak tab and back to KRAGUJEVAC
+5. Verify document indicators still display correctly (no cache collision)
+6. Verify console shows more than 1000 orders fetched for large offices
+7. Test with Recovery tab to ensure no regression
