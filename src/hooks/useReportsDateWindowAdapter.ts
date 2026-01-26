@@ -303,7 +303,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
   const { data: orderFiles } = useQuery({
-    queryKey: ["adapter-order-files", orderIdsKey],
+    queryKey: ["adapter-order-files", priorityOffice, orderIdsKey],
     queryFn: async () => {
       if (windowOrderIds.length === 0) return [];
       
