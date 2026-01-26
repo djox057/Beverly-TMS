@@ -174,23 +174,6 @@ export function useOrdersWithProgress() {
   const query = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      // Check if we already have data in the orders cache from another page
-      const existingData = queryClient.getQueryData<any[]>(["orders"]);
-      if (existingData && existingData.length > 0) {
-        console.log(`[OrdersWithProgress] Reusing ${existingData.length} orders from existing cache`);
-        // Update progress based on existing data
-        const unlockedCount = existingData.filter(o => !o.locked).length;
-        const totalCount = await fetchUnlockedCount();
-        setProgress(prev => ({ 
-          ...prev, 
-          unlockedTotal: totalCount,
-          unlockedLoaded: unlockedCount,
-          lockedLoaded: existingData.length - unlockedCount,
-          isLoadingMore: unlockedCount < (totalCount || 0)
-        }));
-        return existingData;
-      }
-
       // Get total count first
       const totalCount = await fetchUnlockedCount();
       setProgress(prev => ({ ...prev, unlockedTotal: totalCount }));
