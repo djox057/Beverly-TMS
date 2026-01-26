@@ -43,7 +43,8 @@ import crownImage from "@/assets/crown.png";
 // Feature flag for pre-aggregated analytics
 // Set to true to use new pre-calculated analytics (faster, DB-only)
 // Set to false to use old client-side calculations (includes archives)
-const USE_PREAGGREGATED_ANALYTICS = localStorage.getItem("USE_PREAGGREGATED_ANALYTICS") === "true";
+// Default to TRUE for better performance - users can switch back via UI toggle
+const USE_PREAGGREGATED_ANALYTICS = localStorage.getItem("USE_PREAGGREGATED_ANALYTICS") !== "false";
 
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -244,7 +245,10 @@ const Analytics = () => {
   // Only load full orders when NOT using pre-aggregated analytics
   // Pre-aggregated mode: No orders loaded on initial page load (faster, DB-only)
   // Legacy mode: Full orders loaded for client-side calculations (includes archives)
-  const { data: orders, isLoading, error } = useOrders();
+  // CRITICAL: Pass enabled: false to prevent fetching 11k+ orders in pre-aggregated mode
+  const { data: orders, isLoading, error } = useOrders({ 
+    enabled: !USE_PREAGGREGATED_ANALYTICS 
+  });
   
   // Feature flag state for UI toggle
   const [usePreAggregated, setUsePreAggregated] = useState(USE_PREAGGREGATED_ANALYTICS);
