@@ -382,9 +382,60 @@ export function useOrdersWithProgress() {
         
         // Count what we have in cache
         const unlockedInCache = query.data.filter((o: any) => !o.locked).length;
-        const lockedInCache = query.data.filter((o: any) => o.locked).length;
+        let lockedInCache = query.data.filter((o: any) => o.locked).length;
         
         console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
+        
+        // If locked orders are missing from cache, load them now
+        // This handles the case where useOrders ran first but didn't include locked orders
+        if (lockedInCache === 0) {
+          console.log('[OrdersWithProgress] No locked orders in cache, loading them...');
+          
+          // Load locked orders from IndexedDB and DB
+          let lockedOrders = await getLockedOrders() || [];
+          
+          // Fetch missing locked orders from DB
+          const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
+          let allDbLockedOrders: any[] = [];
+          let offset = 0;
+          const batchSize = 1000;
+          
+          while (true) {
+            const { data: batch, error: batchError } = await supabase
+              .from("orders")
+              .select("*")
+              .eq("locked", true)
+              .order("updated_at", { ascending: false })
+              .range(offset, offset + batchSize - 1);
+            
+            if (batchError || !batch || batch.length === 0) break;
+            allDbLockedOrders = [...allDbLockedOrders, ...batch];
+            offset += batchSize;
+            if (batch.length < batchSize) break;
+          }
+
+          if (allDbLockedOrders.length > 0) {
+            const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
+            if (missingLockedOrders.length > 0) {
+              lockedOrders = [...lockedOrders, ...missingLockedOrders];
+            }
+          }
+
+          if (lockedOrders.length > 0) {
+            const enrichedLockedOrders = await enrichLockedOrders(lockedOrders);
+            lockedInCache = enrichedLockedOrders.length;
+            
+            // Merge locked orders into cache using queryClient from hook scope
+            const currentOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
+            const existingIds = new Set(currentOrders.map((o: any) => o.id));
+            const newLockedOrders = transformOrders(enrichedLockedOrders).filter((o: any) => !existingIds.has(o.id));
+            
+            if (newLockedOrders.length > 0) {
+              console.log(`[OrdersWithProgress] Adding ${newLockedOrders.length} locked orders to cache`);
+              queryClient.setQueryData<any[]>(["orders"], [...currentOrders, ...newLockedOrders]);
+            }
+          }
+        }
         
         // Initialize progress state
         setProgress({
@@ -402,7 +453,7 @@ export function useOrdersWithProgress() {
         }
       })();
     }
-  }, [query.data, query.isLoading, progress.unlockedTotal]); // Removed function deps to prevent loops
+  }, [query.data, query.isLoading, progress.unlockedTotal, queryClient, enrichLockedOrders]); // Added queryClient and enrichLockedOrders
 
   // Start background loading after initial load (when queryFn ran normally)
   useEffect(() => {
