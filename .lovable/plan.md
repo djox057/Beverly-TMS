@@ -1,131 +1,118 @@
 
-# Fix: Reports Page Order Files Not Displaying (RC/BOL/POD)
+# Fix: Analytics/Orders Page Cache Synchronization
 
 ## Problem Summary
 
-The Reports page fails to display document indicators (RC, BOL, POD) for many orders, even when files exist in the database. This affects potentially all orders in the date window, not just specific ones.
+Both `/orders` (useOrders) and `/analytics` (useOrdersWithProgress) share the same React Query cache key `["orders"]` with `staleTime: Infinity` and `refetchOnMount: false`. This creates a one-way sync issue:
 
-## Root Causes Identified
+- **Analytics first → Orders works**: useOrdersWithProgress loads all data with progress tracking, then useOrders reuses it
+- **Orders first → Analytics broken**: useOrders loads 100 orders, React Query caches it, useOrdersWithProgress never runs its queryFn because cache is fresh, so progress state never initializes
 
-### 1. Supabase 1000-Row Default Limit
-**File:** `src/hooks/useReportsDateWindow.ts`
+## Root Cause
 
-The main orders query has no pagination and silently hits Supabase's default 1000-row limit:
-```
-[useReportsDateWindow] Fetched 1000 orders from database  ← EXACTLY 1000 = limit hit
-```
+When React Query finds fresh cached data, it returns it immediately without calling queryFn. The `useOrdersWithProgress` hook depends on its queryFn running to:
+1. Call `fetchUnlockedCount()` to set `progress.unlockedTotal`
+2. Call `setProgress()` to initialize the loading state
 
-Orders beyond the first 1000 are simply not returned.
-
-### 2. Weak Query Key Hashing (Cache Collisions)
-**File:** `src/hooks/useReportsDateWindowAdapter.ts`
-
-The order_files query uses a hash that only considers:
-- Order count
-- First 5 IDs
-- Last 5 IDs
-
-When switching office tabs, if these values coincidentally match, React Query returns cached files for the **wrong office's orders**.
-
-### 3. Stale Closure in queryFn
-**File:** `src/hooks/useReportsDateWindowAdapter.ts`
-
-The queryFn captures `windowOrderIds` by closure. When the query re-runs, it may use outdated order IDs, causing a mismatch between fetched files and the orders being displayed.
-
----
+Without the queryFn running, `progress.unlockedTotal` stays `null`, and the background loading effect never triggers.
 
 ## Solution
 
-### Fix 1: Add Pagination to Orders Query
-**File:** `src/hooks/useReportsDateWindow.ts`
+Make useOrdersWithProgress detect when it receives pre-cached data and initialize its progress state accordingly, then trigger background loading to fetch remaining orders.
 
-Replace single query with paginated fetching:
+### Implementation Steps
 
-```text
-Changes:
-1. Add batch fetching with 1000-row batches
-2. Continue fetching until fewer than 1000 rows returned
-3. Combine all batches into final result
+1. **Add initialization effect in useOrdersWithProgress**
+   - When `query.data` exists but `progress.unlockedTotal === null`, this indicates we got cached data without running queryFn
+   - Fetch the unlocked count manually and initialize progress
+   - Determine if background loading is needed (cached unlocked count < total)
+
+2. **Check if background loading should start**
+   - Count unlocked orders in cached data
+   - If less than total, start background loading loop
+   - Use cursor-based pagination from the last unlocked order
+
+### Code Changes
+
+**File: `src/hooks/useOrdersWithProgress.ts`**
+
+Add a new `useEffect` after the query definition to handle cache-hit initialization:
+
+```typescript
+// Handle case where we got cached data from another page (e.g., /orders)
+// In this case, queryFn never ran, so progress state was never initialized
+useEffect(() => {
+  const initializeFromCache = async () => {
+    // Only run if we have data but never initialized progress
+    if (query.data && progress.unlockedTotal === null && !query.isLoading) {
+      console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
+      
+      // Fetch the total count
+      const totalCount = await fetchUnlockedCount();
+      
+      // Count what we have in cache
+      const unlockedInCache = query.data.filter(o => !o.locked).length;
+      const lockedInCache = query.data.filter(o => o.locked).length;
+      
+      console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
+      
+      // Initialize progress state
+      setProgress({
+        unlockedLoaded: unlockedInCache,
+        unlockedTotal: totalCount,
+        lockedLoaded: lockedInCache,
+        isLoadingMore: unlockedInCache < (totalCount || 0),
+        isComplete: unlockedInCache >= (totalCount || 0),
+      });
+      
+      // If we need more orders, trigger background loading
+      if (unlockedInCache < (totalCount || 0)) {
+        hasStartedBackgroundLoad.current = true;
+        setTimeout(() => loadMoreUnlocked(), 300);
+      }
+    }
+  };
+  
+  initializeFromCache();
+}, [query.data, query.isLoading, progress.unlockedTotal, fetchUnlockedCount, loadMoreUnlocked]);
 ```
 
-### Fix 2: Use Full Hash for Query Key
-**File:** `src/hooks/useReportsDateWindowAdapter.ts`
+### Why This Works
 
-Replace weak hash with robust unique key:
+1. **Detection**: The condition `query.data && progress.unlockedTotal === null && !query.isLoading` precisely identifies the "cache hit without queryFn execution" scenario
 
-```text
-Current (weak):
-"1000-id1,id2,id3,id4,id5-id996,id997,id998,id999,id1000"
+2. **State Sync**: By calling `fetchUnlockedCount()` and counting cached data, we reconstruct the progress state that would have been set during normal queryFn execution
 
-Fixed (strong):
-Hash of all order IDs using a proper hash function, or
-Include ALL order IDs in a JSON string (if count is reasonable)
-```
+3. **Background Loading**: If the cache only has 100 unlocked orders but there are 500+ total, we trigger the same background loading mechanism, seamlessly loading the rest
 
-### Fix 3: Avoid Stale Closures in queryFn
-**File:** `src/hooks/useReportsDateWindowAdapter.ts`
+4. **No Double Work**: 
+   - If Analytics runs first → queryFn initializes progress → this effect never triggers (progress.unlockedTotal !== null)
+   - If Orders runs first → cache hit → this effect initializes and loads remaining
 
-Pass order IDs through the queryKey and extract them in queryFn:
+### Acceptance Criteria
 
-```text
-Option A: Pass IDs in queryKey
-- Store windowOrderIds in queryKey
-- Extract from context.queryKey in queryFn
+1. Open fresh app, go to `/orders` first → loads 100 unlocked + locked orders
+2. Navigate to `/analytics` → should show progress indicator, automatically start loading remaining unlocked orders
+3. Progress should increment from 100 → 200 → ... → total unlocked count
+4. Once complete, analytics should show all orders
+5. Navigation back to `/orders` should still work with full dataset
 
-Option B: Use queryKey as sole dependency
-- Stringify order IDs into the key
-- Parse back in queryFn
-```
+### Testing Notes
 
----
+- Clear browser cache/IndexedDB before testing
+- Verify console logs show the cache detection message when going Orders→Analytics
+- Confirm background loading completes within reasonable time
+- Check that both pages show same final order count
 
-## Implementation Details
+## Technical Details
 
-### Step 1: Fix Pagination in useReportsDateWindow.ts
+**Affected Files:**
+- `src/hooks/useOrdersWithProgress.ts` (primary change)
 
-Update `fetchOrdersForDateWindow` function to paginate:
+**Dependencies:**
+- No new dependencies
+- Uses existing `fetchUnlockedCount` and `loadMoreUnlocked` callbacks
 
-- Add batch loop with 1000-row limit per batch
-- Add `.range(offset, offset + 999)` to each batch query
-- Accumulate results until batch returns fewer than 1000 rows
-- Log total orders fetched across all batches
-
-### Step 2: Fix Query Key in useReportsDateWindowAdapter.ts
-
-Replace the weak `orderIdsKey` hash with a cryptographic hash:
-
-- Use a simple hash function that processes all order IDs
-- Alternatively, use `JSON.stringify(windowOrderIds.sort())` if order count is <2000
-
-### Step 3: Fix Closure Issue in useReportsDateWindowAdapter.ts
-
-Store `windowOrderIds` array directly in query key (as JSON string):
-
-- The queryKey becomes the single source of truth
-- queryFn parses the IDs from the queryKey
-- No external closure dependency
-
----
-
-## Files to Modify
-
-1. **src/hooks/useReportsDateWindow.ts**
-   - Add pagination to `fetchOrdersForDateWindow` (lines 79-179)
-   - Remove 500-row limit from gap-fill query or increase it (line 317)
-
-2. **src/hooks/useReportsDateWindowAdapter.ts**
-   - Replace weak `orderIdsKey` hash (lines 297-302)
-   - Fix closure issue in order_files queryFn (lines 305-333)
-
----
-
-## Testing Checklist
-
-After the fix:
-1. Navigate to `/reports` page for KRAGUJEVAC office
-2. Find order S113550459 (Load #2207)
-3. Verify RC and BOL indicators show as green checkmarks
-4. Switch to Čačak tab and back to KRAGUJEVAC
-5. Verify document indicators still display correctly (no cache collision)
-6. Verify console shows more than 1000 orders fetched for large offices
-7. Test with Recovery tab to ensure no regression
+**Risk Assessment:**
+- Low risk - only adds initialization logic, doesn't modify existing query or cache behavior
+- The new effect has clear guards to prevent unnecessary execution
