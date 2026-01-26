@@ -363,7 +363,44 @@ export function useOrdersWithProgress() {
     }
   }, [queryClient, progress.isComplete]);
 
-  // Start background loading after initial load
+  // Handle case where we got cached data from another page (e.g., /orders)
+  // In this case, queryFn never ran, so progress state was never initialized
+  useEffect(() => {
+    const initializeFromCache = async () => {
+      // Only run if we have data but never initialized progress
+      if (query.data && progress.unlockedTotal === null && !query.isLoading) {
+        console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
+        
+        // Fetch the total count
+        const totalCount = await fetchUnlockedCount();
+        
+        // Count what we have in cache
+        const unlockedInCache = query.data.filter(o => !o.locked).length;
+        const lockedInCache = query.data.filter(o => o.locked).length;
+        
+        console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
+        
+        // Initialize progress state
+        setProgress({
+          unlockedLoaded: unlockedInCache,
+          unlockedTotal: totalCount,
+          lockedLoaded: lockedInCache,
+          isLoadingMore: unlockedInCache < (totalCount || 0),
+          isComplete: unlockedInCache >= (totalCount || 0),
+        });
+        
+        // If we need more orders, trigger background loading
+        if (unlockedInCache < (totalCount || 0)) {
+          hasStartedBackgroundLoad.current = true;
+          setTimeout(() => loadMoreUnlocked(), 300);
+        }
+      }
+    };
+    
+    initializeFromCache();
+  }, [query.data, query.isLoading, progress.unlockedTotal, fetchUnlockedCount, loadMoreUnlocked]);
+
+  // Start background loading after initial load (when queryFn ran normally)
   useEffect(() => {
     if (query.data && !hasStartedBackgroundLoad.current && progress.unlockedTotal !== null) {
       const unlockedInData = query.data.filter(o => !o.locked).length;
