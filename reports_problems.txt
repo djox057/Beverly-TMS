@@ -1,0 +1,402 @@
+================================================================================
+                         REPORTS PAGE (/reports) - PROBLEM ANALYSIS
+================================================================================
+Generated: 2026-01-26
+Context: 8F42B1C3-5D9E-4A7B-B2E1-9C3F4D5A6E7B
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1) What /reports is supposed to do
+2) How /reports works today (actual implementation)
+   2.1 Frontend entry point (Reports.tsx)
+   2.2 Feature-flag architecture (Date-window vs legacy)
+   2.3 Data sources (DB + archive)
+   2.4 Office scoping (which drivers are “in” an office)
+   2.5 Order loading pipeline (unlocked + locked + gap-fill)
+   2.6 order_files loading + mapping (RC/BOL/POD/ADDITIONAL)
+   2.7 How document indicators are rendered
+3) What the problem is
+4) Why this is STILL happening (most likely root causes)
+5) Proposals / Fix plan (ranked)
+6) Debug checklist (how to prove which root cause it is)
+7) Regression / test checklist
+
+================================================================================
+1) WHAT /reports IS SUPPOSED TO DO
+================================================================================
+
+The /reports page is an operations dashboard that shows:
+
+- A dispatcher-oriented “calendar-like” view
+- Each driver/truck row contains “current order” (pickup/delivery columns)
+- Historical/future orders appear across the calendar cells
+- “Document indicators” (RC, BOL, POD, Additionals) must reflect reality:
+  - If files exist in `order_files`, the indicators must show and be clickable.
+
+The spec states ALL relevant orders should be visible (including completed/POD)
+and “locked” is an egress optimization only (not a visibility filter).
+
+================================================================================
+2) HOW /reports WORKS TODAY (ACTUAL IMPLEMENTATION)
+================================================================================
+
+2.1 Frontend entry point (Reports.tsx)
+-------------------------------------
+
+File: src/pages/Reports.tsx
+
+Reports.tsx renders the UI and calls exactly ONE “reports hook”:
+
+  const activeHook = useReportsDateWindowAdapter({
+    priorityOffice: activeTab,
+    dispatcherId: profile?.user_id || null,
+    dispatcherProfileId: profile?.id || null,
+    selectedDate: selectedDateForWindow,
+  });
+
+That hook returns the pre-grouped data structure used by the UI.
+
+
+2.2 Feature-flag architecture (Date-window vs legacy)
+-----------------------------------------------------
+
+File: src/hooks/useReportsDateWindowAdapter.ts
+
+There is a feature flag:
+
+  export const USE_DATE_WINDOW_LOADING = true;
+
+When true:
+- /reports uses a “date-window loading” strategy to reduce DB load.
+- The adapter still instantiates the legacy hook for mutations only
+  (disableFetch=true), so that all “update” operations work the same.
+
+
+2.3 Data sources (DB + archive)
+------------------------------
+
+Primary tables used by date-window:
+- orders
+- pickup_drops (joined via orders.select pickup_drops)
+- order_transfers (joined via orders.select order_transfers)
+- order_files (loaded separately by adapter)
+- trucks, drivers, trailers, profiles (dispatchers), companies
+- truck_notes, lost_day_notes
+
+Archive/caching layer:
+- Locked orders are loaded from IndexedDB via src/utils/ordersCache
+  (populated from Supabase Storage bucket: archived-orders)
+- pickup_drops and order_transfers for locked orders are also loaded from cache
+
+
+2.4 Office scoping (which drivers are “in” an office)
+-----------------------------------------------------
+
+File: src/hooks/useReportsDateWindow.ts (fetchDriverIdsForOffice)
+
+The “office” filter works like this:
+1) Fetch profiles (dispatchers)
+2) Filter to dispatcher user_ids with profiles.office === priorityOffice
+3) Fetch active trucks joined to driver1’s dispatcher_id
+4) Include driver1_id (and driver2_id on those trucks)
+
+This matches legacy /reports behavior and avoids “driver office” ambiguity.
+
+
+2.5 Order loading pipeline (unlocked + locked + gap-fill)
+--------------------------------------------------------
+
+File: src/hooks/useReportsDateWindow.ts
+
+For a given office + selectedDate, it calculates a date window:
+- Initial window: selectedDate-2 days → selectedDate+3 days
+
+Then it loads three buckets of orders:
+
+1) UNLOCKED orders from DB
+   - fetchOrdersForDateWindow(driverIds, dateWindow)
+   - Includes pickup_drops + order_transfers
+   - Uses pagination via .range(offset, offset+999) in a loop
+     to avoid a 1000-row cap.
+
+2) LOCKED orders from archive cache
+   - fetchLockedOrdersForDateWindow(driverIds, dateWindow)
+   - Filters cached locked orders by driver and pickup/delivery date
+   - Attaches cached pickup_drops + cached order_transfers
+
+3) GAP-FILL locked orders from DB (recently locked, not yet in archive)
+   - fetchGapFillOrders(...)
+   - .eq(locked,true) + date window + driver constraints
+   - .limit(2000)
+
+Then it merges:
+- Deduplicate by id (DB version wins)
+- Applies canceled-order visibility rule
+
+
+2.6 order_files loading + mapping (RC/BOL/POD/ADDITIONAL)
+--------------------------------------------------------
+
+Key observation: /reports does NOT join order_files in the main orders query.
+Instead it loads order_files in the adapter.
+
+File: src/hooks/useReportsDateWindowAdapter.ts
+
+Steps:
+1) Compute windowOrderIds = dateWindowHook.orders.map(o => o.id)
+2) Fetch order_files metadata for all those IDs:
+
+   useQuery({
+     queryKey: ["adapter-order-files", priorityOffice, orderIdsHash, orderIdsForQuery],
+     queryFn: async ({ queryKey }) => {
+       const orderIds = JSON.parse(queryKey[3]);
+       // batches of 500 order IDs
+       for each batch:
+         supabase.from('order_files')
+           .select('id, order_id, file_category, file_name, file_path')
+           .in('order_id', batch)
+     }
+   })
+
+3) Build orderFilesMap: Map<order_id, order_files[]>
+4) Enrich each order:
+   order.order_files = orderFilesMap.get(order.id) || []
+
+5) Transform into the legacy “grouped” structure the UI expects.
+   - It creates per-driver “allOrders” arrays and assigns stops.
+   - It also constructs loadDetails.documents from order.order_files:
+     documents: (order.order_files || []).map(f => ({ category: f.file_category }))
+
+
+2.7 How document indicators are rendered
+----------------------------------------
+
+File: src/pages/Reports/helpers.ts
+
+The UI expects file_category values EXACTLY matching:
+  ["RC", "BOL", "POD", "ADDITIONAL"]
+
+Examples:
+- formatDocuments(documents) renders a string based on those categories.
+- Cell coloring and button visibility often rely on:
+    order.order_files?.some(file => file.file_category === "BOL")
+    order.order_files?.some(file => file.file_category === "POD")
+
+Therefore:
+- If order.order_files is empty OR missing specific rows,
+  the UI will behave as if documents do not exist.
+
+================================================================================
+3) WHAT THE PROBLEM IS
+================================================================================
+
+Symptom:
+- On /reports, SOME orders show missing RC/BOL/POD indicators (or show “None”)
+  even though the user can open /edit-order for the same order and see the files.
+
+This means, for those orders, the /reports in-memory “order.order_files” array is
+missing rows that DO exist in `order_files`.
+
+Important evidence:
+- The /edit-order page fetches the order with an orders → order_files join
+  (observed network request includes: select=...,order_files(*),... and returns 200)
+  so the database rows are there and accessible under current RLS.
+
+================================================================================
+4) WHY THIS IS STILL HAPPENING (MOST LIKELY ROOT CAUSES)
+================================================================================
+
+ROOT CAUSE A (VERY LIKELY): order_files query silently truncates at 1000 rows
+-----------------------------------------------------------------------------
+
+Even though we batch order IDs (500 per request), we DO NOT paginate the
+RESULT ROWS in each request.
+
+If a single batch returns >1000 rows from order_files, PostgREST can cap the
+response (commonly 1000 rows) unless an explicit range is used.
+
+What this looks like in the UI:
+- For some orders, their file rows are “beyond” the first 1000 rows returned.
+- Those orders end up with orderFilesMap.get(orderId) === undefined
+  → order.order_files = []
+  → indicators appear missing.
+
+Why it matches your symptom (“some orders”):
+- The truncation boundary depends on how many files exist in that ID batch.
+- Some batches might be under the cap, others over.
+- It will feel random depending on which orders fall into which batch.
+
+
+ROOT CAUSE B (LIKELY): Reports is not subscribed to order_files realtime updates
+-------------------------------------------------------------------------------
+
+There IS logic in src/hooks/useOrdersRealtime.ts to invalidate
+["adapter-order-files"] on order_files changes.
+
+BUT: /reports does not mount useOrdersRealtime (it’s mounted by /orders
+and /analytics). The /reports realtime channel in useReports.ts listens to:
+trucks, drivers, orders, pickup_drops, truck_notes, lost_day_notes
+— NOT order_files.
+
+So if you upload a POD/RC/BOL and then return to /reports quickly:
+- React Query may serve cached adapter-order-files results (staleTime 30s)
+- /reports may not refetch order_files immediately
+- Indicators stay missing until:
+  - a manual refresh, OR
+  - cache becomes stale, OR
+  - another event invalidates the query.
+
+This explains “I see the file in edit order but not in reports” especially
+right after uploads.
+
+
+ROOT CAUSE C (POSSIBLE): file_category normalization issues for legacy records
+----------------------------------------------------------------------------
+
+Reports helpers only recognize uppercase categories.
+If old rows have categories like "additional" or "Additional",
+formatDocuments() and the UI checks won’t match them.
+
+This is less likely if RC/BOL/POD are also missing, but it can still
+explain missing “Additionals” specifically.
+
+
+ROOT CAUSE D (LESS LIKELY): batch errors are swallowed
+-----------------------------------------------------
+
+In the adapter, if an order_files batch request errors, code does:
+  console.error(...) and continue;
+
+So one failed batch can produce missing documents with minimal disruption.
+
+================================================================================
+5) PROPOSALS / FIX PLAN (RANKED)
+================================================================================
+
+P1 (HIGH IMPACT): Add pagination + stable ordering to order_files fetch
+---------------------------------------------------------------------
+
+In src/hooks/useReportsDateWindowAdapter.ts, replace the current per-batch fetch
+with a paginated fetch that guarantees “all rows” are retrieved.
+
+Key requirements:
+1) Use a stable .order('id', { ascending: true }) (or created_at if indexed)
+   so pagination is deterministic.
+2) Use .range(offset, offset+999) loops until <1000 returned.
+3) Optionally reduce orderIds batch size (e.g., 200) to reduce the chance
+   of huge result sets per batch.
+
+Pseudo-code:
+
+  for each orderIdChunk:
+    let offset = 0
+    while (true):
+      const { data } = await supabase
+        .from('order_files')
+        .select('id, order_id, file_category, file_name, file_path')
+        .in('order_id', chunk)
+        .order('id', { ascending: true })
+        .range(offset, offset + 999)
+      push data
+      if data.length < 1000: break
+      offset += 1000
+
+Also add instrumentation:
+- If any page returns exactly 1000 rows, log a WARNING.
+
+
+P2 (HIGH IMPACT): Add order_files realtime invalidation for /reports
+-------------------------------------------------------------------
+
+Add a small hook inside useReportsDateWindowAdapter (or useReportsDateWindow)
+to subscribe to public.order_files changes and invalidate:
+  queryClient.invalidateQueries({ queryKey: ['adapter-order-files'] })
+
+This prevents “I uploaded POD but /reports still shows missing” without refresh.
+
+Important: scope invalidation:
+- You can invalidate only active queries to avoid unnecessary refetching.
+
+
+P3 (MEDIUM): Normalize file_category in the adapter mapping
+----------------------------------------------------------
+
+Defensive normalization in adapter:
+
+  documents: (order.order_files || []).map(f => ({
+    category: String(f.file_category || '').toUpperCase()
+  }))
+
+And similarly when checking hasBOL/hasPOD.
+
+This will make /reports robust to historical inconsistencies.
+
+
+P4 (MEDIUM): “On-demand truth” fallback for a single order
+----------------------------------------------------------
+
+There is already a hook:
+  useOrderFilesOnDemand(orderId)
+
+Use it when user opens the “zoomed load” / details popup.
+
+Even if the batch cache is wrong, the detail view would always show correct files.
+
+
+P5 (OPTIONAL / FUTURE): Denormalize document flags on orders
+------------------------------------------------------------
+
+If document status is critical, consider a server-side computed source of truth:
+- Trigger-maintained boolean flags on orders: has_rc, has_bol, has_pod
+- Or a view order_document_status with counts per order
+
+Then /reports can load booleans cheaply without fetching all file rows.
+
+================================================================================
+6) DEBUG CHECKLIST (HOW TO PROVE WHICH ROOT CAUSE IT IS)
+================================================================================
+
+For an affected order (missing docs in /reports but present in /edit-order):
+
+1) Confirm DB truth:
+   SQL:
+     select file_category, count(*)
+     from order_files
+     where order_id = '<ORDER_ID>'
+     group by file_category;
+
+2) Confirm what /reports loaded:
+   - Add a temporary console log in adapter after orderFilesMap construction:
+       console.log(orderId, orderFilesMap.get(orderId))
+   - If it’s undefined/empty → adapter fetch is missing rows.
+
+3) Detect truncation:
+   - Add log when any request returns exactly 1000 rows.
+   - If you see “exactly 1000” repeatedly, you’re hitting the cap.
+
+4) Detect stale cache (upload then go back to reports):
+   - Upload a POD from /edit-order
+   - Immediately open /reports and check if order shows POD
+   - If it updates only after ~30s or manual refresh → realtime invalidation missing.
+
+================================================================================
+7) REGRESSION / TEST CHECKLIST
+================================================================================
+
+After implementing P1/P2:
+
+1) Load /reports for KRAGUJEVAC and Čačak.
+2) Find a known order with RC/BOL in the window:
+   Example you referenced: Broker #S113550459 (Load #2207)
+3) Verify RC + BOL indicators appear immediately.
+4) Switch office tab and return; verify indicators remain correct.
+5) Upload a POD in /edit-order, then return to /reports:
+   - POD indicator should update without manual refresh.
+6) Verify no performance regression:
+   - order_files fetch time should remain reasonable (batching still used)
+   - UI remains responsive.
+
+================================================================================
+END
+================================================================================
