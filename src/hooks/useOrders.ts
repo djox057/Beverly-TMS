@@ -358,14 +358,30 @@ export const useOrders = (options?: UseOrdersOptions) => {
       try {
         const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
         
-        const { data: dbLockedOrders, error: dbLockedError } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("locked", true)
-          .order("updated_at", { ascending: false });
+        // Fetch ALL locked orders from DB - need to paginate to avoid 1000 row limit
+        let allDbLockedOrders: any[] = [];
+        let offset = 0;
+        const batchSize = 1000;
+        
+        while (true) {
+          const { data: batch, error: batchError } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("locked", true)
+            .order("updated_at", { ascending: false })
+            .range(offset, offset + batchSize - 1);
+          
+          if (batchError || !batch || batch.length === 0) break;
+          
+          allDbLockedOrders = [...allDbLockedOrders, ...batch];
+          offset += batchSize;
+          
+          // If we got less than batchSize, we've reached the end
+          if (batch.length < batchSize) break;
+        }
 
-        if (!dbLockedError && dbLockedOrders) {
-          const missingLockedOrders = dbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
+        if (allDbLockedOrders.length > 0) {
+          const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
           if (missingLockedOrders.length > 0) {
             console.log(`[useOrders] 🔄 Added ${missingLockedOrders.length} locked orders from DATABASE (missing from archive)`);
             lockedOrders = [...lockedOrders, ...missingLockedOrders];
