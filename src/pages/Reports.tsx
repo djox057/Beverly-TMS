@@ -49,6 +49,7 @@ import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
+import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING } from "@/hooks/useReportsDateWindowAdapter";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
@@ -340,6 +341,22 @@ const Reports = () => {
     }
     return "Čačak";
   };
+  // State for date-window navigation (used when USE_DATE_WINDOW_LOADING is true)
+  const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
+  
+  // Original useReports hook
+  const originalReportsHook = useReports({ priorityOffice: profile?.office || "Čačak" });
+  
+  // Date-window adapter hook (only active when feature flag is true)
+  const dateWindowAdapterHook = useReportsDateWindowAdapter({
+    priorityOffice: profile?.office || "Čačak",
+    dispatcherId: profile?.user_id || null,
+    selectedDate: selectedDateForWindow,
+  });
+  
+  // Select the active hook based on feature flag
+  const activeHook = USE_DATE_WINDOW_LOADING ? dateWindowAdapterHook : originalReportsHook;
+  
   const {
     data: rawGroupedReports,
     isLoading,
@@ -354,7 +371,7 @@ const Reports = () => {
     updateCheckInOutTimes,
     markGoingToPickup,
     markGoingToDelivery,
-  } = useReports({ priorityOffice: profile?.office || "Čačak" });
+  } = activeHook;
   
   // Use deferred value to prevent background data updates from blocking interactions
   const groupedReports = useDeferredValue(rawGroupedReports);
