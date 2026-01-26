@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
@@ -454,11 +454,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
       // Merge initial unlocked orders with deduplicated locked orders
       const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
 
-      // PERFORMANCE: Background loading removed per audit requirements
-      // Users must use explicit pagination to load additional orders
-      // This reduces payload size from ~100MB to <5MB initial load
-
       // Return initial merged data (unlocked + locked)
+      // Background loading will fetch remaining unlocked orders automatically
       return initialMergedOrders;
     },
     refetchOnWindowFocus: false,
@@ -467,6 +464,165 @@ export const useOrders = (options?: UseOrdersOptions) => {
     retry: 2,
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
+
+  // Background loading state
+  const isBackgroundLoadingRef = useRef(false);
+  const hasStartedBackgroundLoadRef = useRef(false);
+
+  // Function to load more unlocked orders using cursor-based pagination
+  const loadMoreUnlockedOrders = useCallback(async () => {
+    if (isBackgroundLoadingRef.current) return;
+    isBackgroundLoadingRef.current = true;
+
+    try {
+      // Get current orders from cache
+      const currentOrders = queryClient.getQueryData<any[]>(queryKey) || [];
+      const unlockedOrders = currentOrders.filter((o: any) => !o.locked);
+      
+      if (unlockedOrders.length === 0) {
+        isBackgroundLoadingRef.current = false;
+        return;
+      }
+
+      // Find cursor (oldest unlocked order's created_at)
+      const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
+      const cursor = lastUnlocked.createdAt || lastUnlocked.created_at;
+      
+      if (!cursor) {
+        isBackgroundLoadingRef.current = false;
+        return;
+      }
+
+      // Get dispatcher driver IDs if needed
+      let dispatcherDriverIds: string[] = [];
+      if (options?.dispatcherUserId) {
+        const { data: assignedDrivers } = await supabase
+          .from("drivers")
+          .select("id")
+          .eq("dispatcher_id", options.dispatcherUserId);
+        dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
+      }
+
+      // Fetch next batch of 100 unlocked orders
+      let nextQuery = supabase
+        .from("orders")
+        .select(`
+          *,
+          pickup_drops (
+            id, type, address, city, state, zip_code, datetime, end_datetime,
+            sequence_number, arrived_at, checked_out_at, going_to_at,
+            company_name, contact_name, contact_phone, special_instructions
+          ),
+          order_files (id, file_category, file_name, file_path),
+          order_transfers (
+            id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id,
+            miles, driver_price, manual_driver_name, manual_truck_number,
+            manual_trailer_number, transfer_date, transfer_city, transfer_state,
+            transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
+            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
+          ),
+          recovery_history (
+            id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
+            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
+            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
+            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
+            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
+          ),
+          broker:brokers (id, name, mc_number, address),
+          company:companies!orders_company_id_fkey (id, name),
+          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
+          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
+          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
+          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
+          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
+          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
+          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
+        `)
+        .eq("locked", false)
+        .lt("created_at", cursor)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      // Apply dispatcher filtering
+      if (options?.dispatcherUserId) {
+        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+          nextQuery = nextQuery.or(
+            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+          );
+        } else if (options?.bookedBy) {
+          nextQuery = nextQuery.eq("booked_by", options.bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          nextQuery = nextQuery.in("driver1_id", dispatcherDriverIds);
+        }
+      } else if (options?.bookedBy) {
+        nextQuery = nextQuery.eq("booked_by", options.bookedBy);
+      }
+
+      const { data: nextBatch, error } = await nextQuery;
+
+      if (error) {
+        console.error("[useOrders] Background load error:", error);
+        isBackgroundLoadingRef.current = false;
+        return;
+      }
+
+      if (!nextBatch || nextBatch.length === 0) {
+        console.log("[Orders] Background loading complete - no more orders");
+        isBackgroundLoadingRef.current = false;
+        return;
+      }
+
+      const newOrders = transformOrders(nextBatch);
+
+      // Merge into cache
+      queryClient.setQueryData<any[]>(queryKey, (old) => {
+        if (!old) return newOrders;
+        
+        const existingIds = new Set(old.map((o: any) => o.id));
+        const uniqueNewOrders = newOrders.filter((o: any) => !existingIds.has(o.id));
+        
+        // Keep locked orders at the end
+        const existingUnlocked = old.filter((o: any) => !o.locked);
+        const existingLocked = old.filter((o: any) => o.locked);
+        
+        return [...existingUnlocked, ...uniqueNewOrders, ...existingLocked];
+      });
+
+      console.log(`[Orders] Loaded ${newOrders.length} more unlocked orders`);
+      
+      isBackgroundLoadingRef.current = false;
+
+      // Continue loading if we got a full batch
+      if (nextBatch.length === 100) {
+        setTimeout(() => loadMoreUnlockedOrders(), 100);
+      } else {
+        console.log("[Orders] Background loading complete");
+      }
+    } catch (error) {
+      console.error("[useOrders] Background load exception:", error);
+      isBackgroundLoadingRef.current = false;
+    }
+  }, [queryClient, queryKey, options?.bookedBy, options?.dispatcherUserId]);
+
+  // Start background loading after initial data is available
+  useEffect(() => {
+    if (query.data && !query.isLoading && !hasStartedBackgroundLoadRef.current) {
+      const unlockedCount = query.data.filter((o: any) => !o.locked).length;
+      
+      // Only start background loading if we have exactly 100 unlocked orders
+      // (indicating there might be more)
+      if (unlockedCount >= 100) {
+        hasStartedBackgroundLoadRef.current = true;
+        console.log(`[Orders] Starting background load: ${unlockedCount} unlocked orders loaded initially`);
+        setTimeout(() => loadMoreUnlockedOrders(), 300);
+      }
+    }
+  }, [query.data, query.isLoading, loadMoreUnlockedOrders]);
 
   // Real-time subscriptions are handled by useOrdersRealtime hook
   // Cache updates happen via setQueryData, avoiding expensive full refetches
