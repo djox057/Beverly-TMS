@@ -461,6 +461,35 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
         const transferInfo = getTransferAwareStops(driverId, order, pickupStop, deliveryStop);
 
+        // Build loadDetails for popup compatibility (matches useReports.ts structure)
+        const loadDetails = {
+          loadNumber: order.internal_load_number || "—",
+          brokerLoadNumber: order.broker_load_number || "—",
+          companyName: driver.company_id ? companyMap.get(driver.company_id) : null,
+          pickupInfo: pickupStop
+            ? {
+                address: pickupStop.address || "—",
+                city: pickupStop.city || "—",
+                state: pickupStop.state || "—",
+                zipCode: pickupStop.zip_code || "",
+                datetime: pickupStop.datetime || order.pickup_datetime || "—",
+                endDatetime: order.pickup_end_datetime || "—",
+              }
+            : null,
+          deliveryInfo: deliveryStop
+            ? {
+                address: deliveryStop.address || "—",
+                city: deliveryStop.city || "—",
+                state: deliveryStop.state || "—",
+                zipCode: deliveryStop.zip_code || "",
+                datetime: deliveryStop.datetime || order.delivery_datetime || "—",
+                endDatetime: order.delivery_end_datetime || "—",
+              }
+            : null,
+          documents: (order.order_files || []).map((f: any) => ({ category: f.file_category })),
+          notes: order.notes || "",
+        };
+
         return {
           ...order,
           pickupStops,
@@ -472,6 +501,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           segmentLabel: transferInfo.segmentLabel,
           isTransferDriver: transferInfo.isTransferDriver,
           isActive: order.status === "pending" || order.status === "in_transit",
+          loadDetails,
         };
       });
 
