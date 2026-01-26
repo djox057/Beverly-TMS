@@ -53,6 +53,3 @@ verify_jwt = false
 
 [functions.sync-archived-orders]
 verify_jwt = false
-
-[functions.calculate-analytics]
-verify_jwt = false
