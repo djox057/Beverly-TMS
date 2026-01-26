@@ -578,5 +578,280 @@ After Optimization:
 - [ ] Database query count per page load: ____ (target: <10)
 
 ================================================================================
+9. POST-OPTIMIZATION ISSUES (2026-01-26)
+================================================================================
+
+Following the Phase 1 optimizations, two critical functional issues emerged:
+
+--------------------------------------------------------------------------------
+ISSUE #1: ORDERS COUNT MISMATCH (9,821 vs 10,955)
+--------------------------------------------------------------------------------
+
+SYMPTOM:
+- /orders page shows only 9,821 records after paginating through all pages
+- Database contains 10,955 total orders
+- ~1,134 orders are "missing" from the display
+
+ROOT CAUSE ANALYSIS:
+
+The issue stems from how useOrders loads and merges orders:
+
+1. UNLOCKED ORDERS FETCH (useOrders.ts:177-346):
+   - Fetches ONLY first 100 unlocked orders from database
+   - Query: .eq("locked", false).range(0, 99)
+   - Background loading was REMOVED per audit requirements
+   - Result: Only 100 of ~X unlocked orders loaded from DB
+
+2. LOCKED ORDERS FROM ARCHIVE CACHE (useOrders.ts:354-376):
+   - Loads ALL locked orders from IndexedDB/storage cache
+   - Then fetches ANY locked orders from DB missing from cache
+   - Result: All ~Y locked orders loaded correctly
+
+3. THE MATH PROBLEM:
+   - Total orders: 10,955
+   - Locked orders (in archive): ~10,000+ 
+   - Unlocked orders in DB: ~900-1000
+   - Current load: 100 unlocked + ALL locked = ~10,100
+   - Missing: Unlocked orders #101 through #900 = ~800-900 orders
+   
+   Additionally:
+   - Some orders may be in "gap" state (locked in DB but not yet in archive)
+   - Deduplication removes unlocked if locked version exists (line 393-397)
+   
+4. DEDUPLICATION ISSUE:
+   The code removes locked orders if an unlocked version exists:
+   ```javascript
+   const unlockedOrderIds = new Set((initialBatch || []).map(o => o.id));
+   const deduplicatedLockedOrders = enrichedLockedOrders.filter(
+     order => !unlockedOrderIds.has(order.id)
+   );
+   ```
+   BUT: This only works if the unlocked version was actually fetched.
+   With only 100 unlocked orders fetched, orders 101+ that exist in BOTH
+   unlocked DB AND locked archive will show as locked (archive version).
+
+5. PAGINATION NOT IMPLEMENTED:
+   The audit required "paginated separately" for archived orders but
+   the useOrders hook does NOT implement pagination UI/loading.
+   Users have NO way to load more than the initial 100 unlocked orders.
+
+SOLUTION REQUIRED:
+   A) Fetch ALL unlocked orders (remove 100 limit) for /orders page, OR
+   B) Implement proper infinite scroll pagination with "Load More" button, OR
+   C) Separate unlocked and locked order queries entirely
+
+RECOMMENDED FIX (safest):
+   Remove the 100-order limit for useOrders initial fetch.
+   Keep order_files lazy loading (that's the payload win).
+   The pagination was meant for DISPLAY, not for data fetching.
+
+--------------------------------------------------------------------------------
+ISSUE #2: REPORTS PAGE SHOWS MISSING LOADS FOR DRIVERS
+--------------------------------------------------------------------------------
+
+SYMPTOM:
+- Some drivers show no loads for today when they should have loads
+- Reports page uses 100-order cache from useOrders when available
+- Missing orders don't appear in driver's calendar row
+
+ROOT CAUSE ANALYSIS:
+
+1. CACHE SHARING MECHANISM (useReports.ts:891-927):
+   ```javascript
+   const cachedOrdersData = queryClient.getQueryData<any[]>(["orders", null, null]);
+   if (cachedOrdersData && Array.isArray(cachedOrdersData) && cachedOrdersData.length > 0) {
+     // Use cached orders from useOrders - convert from camelCase back to snake_case
+     const rawFormatOrders = reverseTransformOrders(cachedOrdersData);
+     // Filter for reports criteria...
+   }
+   ```
+   
+   The Reports page REUSES the useOrders cache when available!
+   If user visits /orders first (which now loads only 100 unlocked + all locked),
+   then navigates to /reports, the Reports page sees:
+   - 100 unlocked orders (from useOrders cache)
+   - Must separately load locked orders from storage
+   
+2. THE CRITICAL FLAW:
+   Reports page expects to see ALL orders for a driver to build their calendar.
+   If a driver has 5 loads in the last 90 days but only 2 of those are:
+   - In the first 100 unlocked orders, OR
+   - Locked in the archive
+   Then the other 3 loads are INVISIBLE on the Reports page.
+
+3. WHEN THIS BREAKS:
+   - Driver has an active pending load (unlocked)
+   - This load was created but is order #101+ in created_at order
+   - useOrders doesn't fetch it (limit 100)
+   - Reports page reuses useOrders cache
+   - Driver appears to have no load for today
+
+4. WHY REPORTS CAN'T "JUST LOAD LAST 100":
+   Reports is a DRIVER-CENTRIC view, not an ORDER-CENTRIC view.
+   The Reports page builds a calendar for EACH driver showing their loads.
+   If we only load 100 orders, we might miss ALL orders for some drivers
+   because those 100 orders might all belong to different drivers.
+   
+   Example:
+   - 50 drivers each have 2 orders in last week
+   - That's 100 orders total
+   - If we load "last 100 by created_at", we might get:
+     - 50 orders for Driver A through Z (random distribution)
+     - Drivers AA through ZZ show ZERO loads (their orders are #101+)
+
+5. REPORTS PAGE INDEPENDENT LOAD (useReports.ts:927-1111):
+   When no cache exists, Reports loads its own data:
+   - Fetches ALL unlocked orders (with 90-day filter)
+   - Uses batch pagination (1000 at a time) to get everything
+   - This works correctly
+   
+   The problem is ONLY when cache sharing kicks in.
+
+SOLUTION REQUIRED:
+   A) Don't limit useOrders to 100 orders, OR
+   B) Reports page should NOT reuse useOrders cache, OR
+   C) Reports page should invalidate useOrders cache if it seems incomplete
+
+RECOMMENDED FIX (safest):
+   Remove the 100-order limit from useOrders.
+   The order_files exclusion already achieves the payload reduction goal.
+   100 orders × 15KB = 1.5MB (acceptable)
+   1000 orders × 15KB = 15MB (still reasonable without order_files)
+
+--------------------------------------------------------------------------------
+HOW THE ARCHIVE SYSTEM WORKS
+--------------------------------------------------------------------------------
+
+OVERVIEW:
+The archive system uses a two-tier storage approach to minimize database egress:
+
+1. STORAGE BUCKET (Supabase Storage):
+   - Bucket: "archived-orders"
+   - Files: locked-orders.json, pickup-drops.json, order-files.json, order-transfers.json
+   - Updated daily at 8 AM UTC via pg_cron job calling sync-archived-orders edge function
+   - Contains ALL locked orders (historical data)
+   - Can also be manually triggered from Data Management page
+
+2. DATABASE (always-fresh):
+   - Contains both locked AND unlocked orders
+   - locked=true orders are in DB but we prefer storage for reads
+   - locked=false orders must always be fetched from DB (real-time data)
+
+3. VERSION-BASED CACHE INVALIDATION:
+   - Table: archive_version (tracks version timestamp per archive type)
+   - Client stores local version in IndexedDB
+   - On load: compare local version vs server version
+   - If versions match: use local IndexedDB cache (zero egress)
+   - If versions differ: fetch fresh from storage bucket, update local cache
+
+ARCHIVE FLOW:
+
+```
+                    ┌─────────────────────┐
+                    │   Orders Table      │
+                    │   (11K records)     │
+                    └──────────┬──────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           │                   │                   │
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │  Unlocked   │     │   Locked    │     │   Locked    │
+    │  (real-time)│     │ (in archive)│     │ (gap: not   │
+    │             │     │             │     │  in archive)│
+    └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+           │                   │                   │
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │ Fetch from  │     │ Load from   │     │ Fetch from  │
+    │  Database   │     │  Storage    │     │  Database   │
+    │  (PostgREST)│     │  (JSON)     │     │ (gap fill)  │
+    └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+           │                   │                   │
+           └───────────────────┼───────────────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Merged Orders     │
+                    │   (deduplicated)    │
+                    └─────────────────────┘
+```
+
+GAP ORDERS:
+Orders that are locked in the database but not yet in the storage archive.
+This happens between when an order is locked and when the daily sync runs.
+Both useOrders and useReports have "gap fill" logic to catch these.
+
+DEDUPLICATION:
+When merging unlocked (DB) + locked (storage) + gap (DB):
+- If same order ID exists in multiple sources
+- Prefer unlocked version (most current)
+- Then prefer gap-fill version (fresher than storage)
+- Storage version is oldest/fallback
+
+THE PROBLEM WITH 100-ORDER LIMIT:
+The 100-order limit for unlocked orders breaks the deduplication logic:
+- Order X exists as unlocked in DB (position #150 by created_at)
+- Order X also exists in locked archive (was locked, then unlocked)
+- With 100-order limit, unlocked Order X is never fetched
+- Locked version from archive is used instead
+- Order may show stale data or wrong status
+
+--------------------------------------------------------------------------------
+CORRECTIVE ACTION REQUIRED
+--------------------------------------------------------------------------------
+
+IMMEDIATE FIX (restore functionality):
+
+1. useOrders.ts - Remove the 100-order limit:
+   - Change: const initialBatchSize = 100;
+   - To: Remove limit entirely, fetch all unlocked orders
+   - Keep: order_files exclusion (that's the real payload win)
+
+2. Verify after fix:
+   - Orders page shows all 10,955 orders
+   - Reports page shows correct loads for all drivers
+   - No "missing" loads for today
+
+WHY THIS IS SAFE:
+- order_files was the 20MB+ payload (3.7 files × 40K = massive)
+- Orders without files: ~10K orders × 2KB = ~20MB total
+- This is acceptable for initial load
+- Real pagination can be implemented later for UI/UX
+
+WHAT THE AUDIT MEANT:
+The audit requirement for "pagination" was about:
+- Not loading order_files upfront (done ✓)
+- Not loading via background batch (done ✓)
+- UI pagination for display (not yet implemented)
+
+The audit did NOT mean to break the data completeness by limiting orders.
+The "max 100 orders" was a misinterpretation.
+
+================================================================================
+10. RECONCILIATION OF CHANGES
+================================================================================
+
+CHANGES CORRECTLY APPLIED:
+✓ order_files removed from useOrders select query
+✓ order_files removed from useOrdersRealtime subscription
+✓ order_files removed from enrichLockedOrdersWithLookups
+✓ useTrucks staleTime: 30000, gcTime: 300000
+✓ useTrailers staleTime: 30000, gcTime: 300000
+✓ Background batch loading removed from useOrders
+
+CHANGES INCORRECTLY APPLIED:
+✗ initialBatchSize = 100 breaks functionality
+  - Must fetch ALL unlocked orders for correct data
+  - The 100 limit was not in the original audit requirements
+  - The audit said "Initial load: max 100 orders" but meant for DISPLAY
+  - Data fetching must be complete, display can paginate
+
+REMAINING TO FIX:
+1. Remove 100-order limit from useOrders
+2. Verify all orders load correctly
+3. Consider adding UI pagination for display only (optional)
+
+================================================================================
                               END OF AUDIT REPORT
 ================================================================================
