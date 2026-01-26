@@ -59,7 +59,7 @@ async function enrichLockedOrdersWithLookups(
   // Fetch all lookup data from database in parallel with batching
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
-  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderTransfersData] = await Promise.all([
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData] = await Promise.all([
     batchFetch("trucks", "id, truck_number", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
     batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
@@ -78,7 +78,20 @@ async function enrichLockedOrdersWithLookups(
       );
       return { data: results.flatMap(r => r.data || []) };
     })(),
-    // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
+    // Fetch order_files metadata (id, file_category) for document indicators
+    (async () => {
+      if (orderIds.length === 0) return { data: [] };
+      const batches: string[][] = [];
+      for (let i = 0; i < orderIds.length; i += 50) {
+        batches.push(orderIds.slice(i, i + 50));
+      }
+      const results = await Promise.all(
+        batches.map(batch => 
+          supabase.from("order_files").select("id, order_id, file_category").in("order_id", batch)
+        )
+      );
+      return { data: results.flatMap(r => r.data || []) };
+    })(),
     // Fetch order_transfers from database for archived orders
     (async () => {
       if (orderIds.length === 0) return { data: [] };
@@ -102,15 +115,21 @@ async function enrichLockedOrdersWithLookups(
   const brokersMap = new Map((brokersData.data || []).map((b) => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
-
-  // Group pickup_drops and order_transfers from database by order_id
-  // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
+  // Group pickup_drops, order_files, and order_transfers from database by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
   (pickupDropsData.data || []).forEach((pd) => {
     if (!pickupDropsByOrder.has(pd.order_id)) {
       pickupDropsByOrder.set(pd.order_id, []);
     }
     pickupDropsByOrder.get(pd.order_id)!.push(pd);
+  });
+
+  const orderFilesByOrder = new Map<string, any[]>();
+  (orderFilesData.data || []).forEach((of) => {
+    if (!orderFilesByOrder.has(of.order_id)) {
+      orderFilesByOrder.set(of.order_id, []);
+    }
+    orderFilesByOrder.get(of.order_id)!.push(of);
   });
 
   const orderTransfersByOrder = new Map<string, any[]>();
@@ -123,7 +142,6 @@ async function enrichLockedOrdersWithLookups(
 
 
   // Attach lookup data to each order
-  // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
   const enriched = lockedOrders.map((order) => ({
     ...order,
     truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
@@ -138,7 +156,7 @@ async function enrichLockedOrdersWithLookups(
     company: order.company_id ? companiesMap.get(order.company_id) || null : null,
     booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
     pickup_drops: pickupDropsByOrder.get(order.id) || [],
-    order_files: [], // Empty - files loaded on-demand when order is expanded
+    order_files: orderFilesByOrder.get(order.id) || [],
     order_transfers: (orderTransfersByOrder.get(order.id) || []).sort((a, b) => a.sequence_number - b.sequence_number),
   }));
 
@@ -173,7 +191,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
         dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
       }
 
-      // Fetch first 100 UNLOCKED orders immediately with joins (no order_files - loaded on demand)
+      // Fetch first 100 UNLOCKED orders immediately with joins
+      // Include lightweight order_files for document indicators (RC/BOL/POD)
       let initialQuery = supabase
         .from("orders")
         .select(
@@ -196,6 +215,10 @@ export const useOrders = (options?: UseOrdersOptions) => {
             contact_name,
             contact_phone,
             special_instructions
+          ),
+          order_files (
+            id,
+            file_category
           ),
           order_transfers (
             id,
