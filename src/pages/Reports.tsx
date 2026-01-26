@@ -48,7 +48,7 @@ import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
-import { useReports } from "@/hooks/useReports";
+// NOTE: Reports must call exactly ONE reports hook. The adapter internally toggles legacy/date-window.
 import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING } from "@/hooks/useReportsDateWindowAdapter";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
@@ -344,19 +344,14 @@ const Reports = () => {
   // State for date-window navigation (used when USE_DATE_WINDOW_LOADING is true)
   const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
   
-  // Original useReports hook
-  const originalReportsHook = useReports({ priorityOffice: profile?.office || "Čačak" });
-  
-  // Date-window adapter hook (only active when feature flag is true)
-  const dateWindowAdapterHook = useReportsDateWindowAdapter({
+  // Reports.tsx must call exactly ONE reports hook consistently.
+  const activeHook = useReportsDateWindowAdapter({
     priorityOffice: profile?.office || "Čačak",
     dispatcherId: profile?.user_id || null,
+    dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
   });
-  
-  // Select the active hook based on feature flag
-  const activeHook = USE_DATE_WINDOW_LOADING ? dateWindowAdapterHook : originalReportsHook;
-  
+
   const {
     data: rawGroupedReports,
     isLoading,
@@ -2959,12 +2954,14 @@ const Reports = () => {
 
           {/* Only render the active tab content */}
           <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
-            {isLoading || !groupedReports || (activeOfficeReports.length === 0 && (!groupedReports.length || isFetchingBackground)) ? (
+            {isLoading || groupedReports == null ? (
               <LoadingSkeleton />
             ) : activeOfficeReports.length === 0 ? (
               <div className="p-4">
                 <div className="text-center py-12 text-muted-foreground">
-                  No trucks assigned to dispatchers in {activeTab}
+                  {USE_DATE_WINDOW_LOADING
+                    ? "No drivers assigned to your dispatcher (or you have no active loads in this window)."
+                    : `No trucks assigned to dispatchers in ${activeTab}`}
                 </div>
               </div>
             ) : (
