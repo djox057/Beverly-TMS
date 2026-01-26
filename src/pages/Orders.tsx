@@ -34,6 +34,7 @@ import {
   CalendarClock,
   CheckSquare,
   Square,
+  ChevronDown,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -43,7 +44,9 @@ import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useState, useEffect } from "react";
+import { useOrdersSearch } from "@/hooks/useOrdersSearch";
+import { useUnlockedOrdersPagination } from "@/hooks/useUnlockedOrdersPagination";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,6 +57,7 @@ import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   Dialog,
   DialogContent,
@@ -269,11 +273,51 @@ const Orders = () => {
 
   const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
 
+  // Server-side search hook - queries database directly when searching
+  const { searchResults, isSearching, searchOrders, clearSearch } = useOrdersSearch();
+  
+  // Pagination hook for unlocked orders - allows loading more without loading everything
+  const {
+    hasMore: hasMoreUnlocked,
+    isLoadingMore,
+    totalUnlockedCount,
+    loadedCount: loadedUnlockedCount,
+    loadMoreUnlockedOrders,
+    fetchTotalCount,
+    setInitialLoadedCount,
+  } = useUnlockedOrdersPagination(orderFilterOptions);
+
+  // Debounce search term for server-side search
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Trigger server-side search when debounced search term changes
+  useEffect(() => {
+    if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2) {
+      searchOrders(debouncedSearchTerm, orderFilterOptions);
+    } else {
+      clearSearch();
+    }
+  }, [debouncedSearchTerm, orderFilterOptions, searchOrders, clearSearch]);
+
+  // Fetch total unlocked count on mount
+  useEffect(() => {
+    fetchTotalCount();
+  }, [fetchTotalCount]);
+
+  // Update pagination state when orders load
+  useEffect(() => {
+    if (orders) {
+      const unlockedCount = orders.filter(o => !o.locked).length;
+      setInitialLoadedCount(unlockedCount);
+    }
+  }, [orders, setInitialLoadedCount]);
+
   console.log("🟦 [Orders Page] useOrders returned:", {
     ordersCount: orders?.length,
     isLoading,
     error,
     orderFilterOptions,
+    searchResultsCount: searchResults?.length,
   });
 
   // Log when orders data changes
@@ -287,22 +331,38 @@ const Orders = () => {
 
   const { data: companies } = useCompanies();
 
+  // When server-side search is active and has results, use those
+  // Otherwise, filter loaded orders locally
+  const dataSource = useMemo(() => {
+    // If searching and we have server results, prioritize those
+    if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2 && searchResults) {
+      return searchResults;
+    }
+    return orders || [];
+  }, [debouncedSearchTerm, searchResults, orders]);
+
   // Filter orders based on search term and filters
   const filteredOrders =
-    orders?.filter((order) => {
-      const searchLower = searchTerm.toLowerCase();
-      // Format internal load number with company suffix for search
-      const formattedInternalLoadNumber = order.internalLoadNumber 
-        ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName)
-        : "";
-      const matchesSearch =
-        (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-        formattedInternalLoadNumber.toLowerCase().includes(searchLower) ||
-        (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-        (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-        (order.driverName?.toLowerCase() || "").includes(searchLower) ||
-        (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
-        (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
+    dataSource?.filter((order) => {
+      // When using server-side search results, don't apply client-side search filter
+      const isServerSearch = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2 && searchResults;
+      
+      let matchesSearch = true;
+      if (!isServerSearch && searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        // Format internal load number with company suffix for search
+        const formattedInternalLoadNumber = order.internalLoadNumber 
+          ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName)
+          : "";
+        matchesSearch =
+          (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+          formattedInternalLoadNumber.toLowerCase().includes(searchLower) ||
+          (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+          (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+          (order.driverName?.toLowerCase() || "").includes(searchLower) ||
+          (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
+          (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
+      }
       const matchesCompany =
         !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
       const matchesTruckCompany =
@@ -984,9 +1044,13 @@ const Orders = () => {
                   {/* Column 1: Search - spans 2 rows on large screens */}
                   <div className="col-span-2 sm:col-span-1 lg:row-span-2 flex items-center">
                     <div className="relative w-full">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      {isSearching ? (
+                        <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      )}
                       <Input
-                        placeholder="Search loads..."
+                        placeholder="Search all loads..."
                         className="pl-10 w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -1911,6 +1975,43 @@ const Orders = () => {
                 </Pagination>
               </div>
             )}
+
+            {/* Load More Unlocked Orders */}
+            {hasMoreUnlocked && !isSearching && !debouncedSearchTerm && (
+              <div className="flex items-center justify-center gap-4 px-6 py-4 border-t bg-muted/30">
+                <div className="text-sm text-muted-foreground">
+                  {totalUnlockedCount !== null ? (
+                    <>
+                      Loaded {loadedUnlockedCount} of {totalUnlockedCount} unlocked orders
+                    </>
+                  ) : (
+                    <>More unlocked orders available</>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMoreUnlockedOrders}
+                  disabled={isLoadingMore}
+                  className="gap-2"
+                >
+                  {isLoadingMore ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Load More Unlocked Orders
+                </Button>
+              </div>
+            )}
+
+            {/* Server-side search indicator */}
+            {isSearching && (
+              <div className="flex items-center justify-center gap-2 px-6 py-4 border-t bg-muted/30">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Searching all orders...</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -2018,7 +2119,7 @@ const Orders = () => {
               {Object.keys(selectedByCompany).length > 0 && (
                 <div className="border-t pt-2 mt-2">
                   <p className="text-xs text-muted-foreground mb-1">By Company:</p>
-                  {Object.entries(selectedByCompany).map(([company, data]) => (
+                  {Object.entries(selectedByCompany).map(([company, data]: [string, { count: number; freight: number }]) => (
                     <div key={company} className="flex justify-between text-xs">
                       <span className="truncate max-w-[150px]">{company} ({data.count})</span>
                       <span>{formatCurrency(data.freight)}</span>
