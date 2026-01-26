@@ -154,6 +154,7 @@ export function useOrdersRealtime() {
     };
 
     // Create channel and subscribe
+    // NOTE: order_files removed from realtime - files are loaded on-demand when order is expanded
     const channel = supabase
       .channel("orders-realtime-global")
       .on(
@@ -164,11 +165,6 @@ export function useOrdersRealtime() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pickup_drops" },
-        handleRelatedTableChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_files" },
         handleRelatedTableChange
       )
       .on(

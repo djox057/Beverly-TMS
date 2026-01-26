@@ -59,7 +59,7 @@ async function enrichLockedOrdersWithLookups(
   // Fetch all lookup data from database in parallel with batching
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
-  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData] = await Promise.all([
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderTransfersData] = await Promise.all([
     batchFetch("trucks", "id, truck_number", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
     batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
@@ -78,20 +78,7 @@ async function enrichLockedOrdersWithLookups(
       );
       return { data: results.flatMap(r => r.data || []) };
     })(),
-    // Fetch order_files from database for archived orders (not from cache)
-    (async () => {
-      if (orderIds.length === 0) return { data: [] };
-      const batches: string[][] = [];
-      for (let i = 0; i < orderIds.length; i += 50) {
-        batches.push(orderIds.slice(i, i + 50));
-      }
-      const results = await Promise.all(
-        batches.map(batch => 
-          supabase.from("order_files").select("*").in("order_id", batch)
-        )
-      );
-      return { data: results.flatMap(r => r.data || []) };
-    })(),
+    // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
     // Fetch order_transfers from database for archived orders
     (async () => {
       if (orderIds.length === 0) return { data: [] };
@@ -116,21 +103,14 @@ async function enrichLockedOrdersWithLookups(
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
 
-  // Group pickup_drops, order_files, and order_transfers from database by order_id
+  // Group pickup_drops and order_transfers from database by order_id
+  // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
   const pickupDropsByOrder = new Map<string, any[]>();
   (pickupDropsData.data || []).forEach((pd) => {
     if (!pickupDropsByOrder.has(pd.order_id)) {
       pickupDropsByOrder.set(pd.order_id, []);
     }
     pickupDropsByOrder.get(pd.order_id)!.push(pd);
-  });
-
-  const orderFilesByOrder = new Map<string, any[]>();
-  (orderFilesData.data || []).forEach((of) => {
-    if (!orderFilesByOrder.has(of.order_id)) {
-      orderFilesByOrder.set(of.order_id, []);
-    }
-    orderFilesByOrder.get(of.order_id)!.push(of);
   });
 
   const orderTransfersByOrder = new Map<string, any[]>();
@@ -143,6 +123,7 @@ async function enrichLockedOrdersWithLookups(
 
 
   // Attach lookup data to each order
+  // NOTE: order_files removed from initial load - will be fetched on-demand when order is expanded
   const enriched = lockedOrders.map((order) => ({
     ...order,
     truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
@@ -157,7 +138,7 @@ async function enrichLockedOrdersWithLookups(
     company: order.company_id ? companiesMap.get(order.company_id) || null : null,
     booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
     pickup_drops: pickupDropsByOrder.get(order.id) || [],
-    order_files: orderFilesByOrder.get(order.id) || [],
+    order_files: [], // Empty - files loaded on-demand when order is expanded
     order_transfers: (orderTransfersByOrder.get(order.id) || []).sort((a, b) => a.sequence_number - b.sequence_number),
   }));
 
@@ -178,8 +159,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey: ["orders", options?.bookedBy, options?.dispatcherUserId],
     queryFn: async () => {
-      const initialBatchSize = 200;
-      const batchSize = 500;
+      // PERFORMANCE: Load only 100 orders initially - user can paginate for more
+      const initialBatchSize = 100;
 
       // If dispatcher user ID is provided, fetch driver IDs assigned to them
       let dispatcherDriverIds: string[] = [];
@@ -192,7 +173,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
         dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
       }
 
-      // Fetch first 500 UNLOCKED orders immediately with joins
+      // Fetch first 100 UNLOCKED orders immediately with joins (no order_files - loaded on demand)
       let initialQuery = supabase
         .from("orders")
         .select(
@@ -215,16 +196,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
             contact_name,
             contact_phone,
             special_instructions
-          ),
-          order_files (
-            id,
-            file_category,
-            file_name,
-            file_path,
-            file_size,
-            content_type,
-            uploaded_by,
-            created_at
           ),
           order_transfers (
             id,
@@ -435,257 +406,9 @@ export const useOrders = (options?: UseOrdersOptions) => {
       // Merge initial unlocked orders with deduplicated locked orders
       const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
 
-      // Continue loading remaining UNLOCKED orders in background
-      if (initialBatch && initialBatch.length === initialBatchSize) {
-
-        // Load in background but don't block initial render
-        (async () => {
-          try {
-            const backgroundOrders = [...initialBatch];
-            let offset = initialBatchSize;
-            let hasMore = true;
-            let batchCount = 1;
-
-            while (hasMore) {
-              let bgQuery = supabase
-                .from("orders")
-                .select(
-                  `
-                  *,
-                  pickup_drops (
-                    id,
-                    type,
-                    address,
-                    city,
-                    state,
-                    zip_code,
-                    datetime,
-                    end_datetime,
-                    sequence_number,
-                    arrived_at,
-                    checked_out_at,
-                    going_to_at,
-                    company_name,
-                    contact_name,
-                    contact_phone,
-                    special_instructions
-                  ),
-                  order_files (
-                    id,
-                    file_category,
-                    file_name,
-                    file_path,
-                    file_size,
-                    content_type,
-                    uploaded_by,
-                    created_at
-                  ),
-                  order_transfers (
-                    id,
-                    sequence_number,
-                    driver1_id,
-                    driver2_id,
-                    truck_id,
-                    trailer_id,
-                    miles,
-                    driver_price,
-                    manual_driver_name,
-                    manual_truck_number,
-                    manual_trailer_number,
-                    transfer_date,
-                    transfer_city,
-                    transfer_state,
-                    transfer_address,
-                    transfer_datetime,
-                    transfer_latitude,
-                    transfer_longitude,
-                    driver1:drivers!order_transfers_driver1_id_fkey (
-                      id,
-                      name
-                    ),
-                    driver2:drivers!order_transfers_driver2_id_fkey (
-                      id,
-                      name
-                    ),
-                    truck:trucks!order_transfers_truck_id_fkey (
-                      id,
-                      truck_number
-                    ),
-                    trailer:trailers!order_transfers_trailer_id_fkey (
-                      id,
-                      trailer_number
-                    )
-                  ),
-                  recovery_history (
-                    id,
-                    recovery_driver1_id,
-                    recovery_driver2_id,
-                    recovery_truck_id,
-                    recovery_trailer_id,
-                    recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
-                      id,
-                      name
-                    ),
-                    recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
-                      id,
-                      name
-                    ),
-                    recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
-                      id,
-                      truck_number
-                    ),
-                    recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
-                      id,
-                      trailer_number
-                    )
-                  ),
-                  broker:brokers (
-                    id,
-                    name,
-                    mc_number,
-                    address
-                  ),
-                  company:companies!orders_company_id_fkey (
-                    id,
-                    name
-                  ),
-                  booked_by_company:companies!orders_booked_by_company_id_fkey (
-                    id,
-                    name
-                  ),
-                  truck:trucks!orders_truck_id_fkey (
-                    id,
-                    truck_number,
-                    company:companies (
-                      id,
-                      name
-                    )
-                  ),
-                  trailer:trailers!orders_trailer_id_fkey (
-                    id,
-                    trailer_number
-                  ),
-                  driver1:drivers!orders_driver1_id_fkey (
-                    id,
-                    name,
-                    company_id,
-                    company:companies (
-                      id,
-                      name
-                    )
-                  ),
-                  driver2:drivers!orders_driver2_id_fkey (
-                    id,
-                    name,
-                    company_id,
-                    company:companies (
-                      id,
-                      name
-                    )
-                  ),
-                  original_driver1:drivers!orders_original_driver1_id_fkey (
-                    id,
-                    name
-                  ),
-                  original_driver2:drivers!orders_original_driver2_id_fkey (
-                    id,
-                    name
-                  ),
-                  original_truck:trucks!orders_original_truck_id_fkey (
-                    id,
-                    truck_number
-                  ),
-                  original_trailer:trailers!orders_original_trailer_id_fkey (
-                    id,
-                    trailer_number
-                  )
-                `,
-                )
-                .eq("locked", false)
-                .order("created_at", { ascending: false })
-                .range(offset, offset + batchSize - 1);
-
-              // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
-              if (options?.dispatcherUserId) {
-                // Dispatcher mode: filter by booked_by AND/OR assigned drivers
-                if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-                  bgQuery = bgQuery.or(
-                    `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-                  );
-                } else if (options?.bookedBy) {
-                  bgQuery = bgQuery.eq("booked_by", options.bookedBy);
-                } else if (dispatcherDriverIds.length > 0) {
-                  bgQuery = bgQuery.in("driver1_id", dispatcherDriverIds);
-                }
-              } else if (options?.bookedBy) {
-                bgQuery = bgQuery.eq("booked_by", options.bookedBy);
-              }
-
-              const { data: batch, error: batchError } = await bgQuery;
-
-              if (batchError) {
-                console.error(`[useOrders] ❌ Error loading batch ${batchCount}:`, batchError);
-                hasMore = false;
-                break;
-              }
-
-              if (!batch || batch.length === 0) {
-                hasMore = false;
-                break;
-              }
-
-              backgroundOrders.push(...batch);
-              offset += batchSize;
-              batchCount++;
-
-              if (batch.length < batchSize) {
-                hasMore = false;
-              }
-
-              // Deduplicate again with the new batch
-              const currentUnlockedIds = new Set(backgroundOrders.map(o => o.id));
-              const currentDeduplicatedLocked = enrichedLockedOrders.filter(
-                order => !currentUnlockedIds.has(order.id)
-              );
-              
-              // Sort locked orders by pickup_datetime descending
-              currentDeduplicatedLocked.sort((a, b) => {
-                const dateA = a.pickup_datetime || '';
-                const dateB = b.pickup_datetime || '';
-                return dateB.localeCompare(dateA);
-              });
-              
-              // Merge with deduplicated locked orders and update cache progressively
-              const mergedData = transformOrders([...backgroundOrders, ...currentDeduplicatedLocked]);
-
-              // IMPORTANT: background loading must NOT overwrite real-time updates.
-              // Prefer the existing cache entry for any order id that is already present.
-              queryClient.setQueryData(
-                ["orders", options?.bookedBy, options?.dispatcherUserId],
-                (current: any[] | undefined) => {
-                  if (!current || current.length === 0) return mergedData;
-
-                  const currentById = new Map(current.map((o) => [o.id, o]));
-                  const next = mergedData.map((incoming) => {
-                    const existing = currentById.get(incoming.id);
-                    if (existing) currentById.delete(incoming.id);
-                    return existing ?? incoming;
-                  });
-
-                  // Preserve any orders that arrived via realtime after the background query started
-                  if (currentById.size > 0) {
-                    return [...Array.from(currentById.values()), ...next];
-                  }
-
-                  return next;
-                },
-              );
-            }
-          } catch (error) {
-            console.error("[useOrders] Background loading error:", error);
-          }
-        })();
-      }
+      // PERFORMANCE: Background loading removed per audit requirements
+      // Users must use explicit pagination to load additional orders
+      // This reduces payload size from ~100MB to <5MB initial load
 
       // Return initial merged data (unlocked + locked)
       return initialMergedOrders;
