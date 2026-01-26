@@ -133,17 +133,26 @@ export function useOrdersRealtime() {
       updateAllOrdersCaches(orderId, transformedOrder);
     };
 
-    // Handle related table changes (pickup_drops, order_transfers)
+    // Handle related table changes (pickup_drops, order_transfers, order_files)
     const handleRelatedTableChange = async (
       payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
     ) => {
       const newRecord = payload.new as any;
       const oldRecord = payload.old as any;
       const orderId = newRecord?.order_id || oldRecord?.order_id;
+      const tableName = (payload as any).table || '';
 
       if (!orderId) return;
 
-      console.log(`[Realtime] Related table change for order:`, orderId);
+      console.log(`[Realtime] Related table change for order:`, orderId, `table:`, tableName);
+
+      // For order_files changes, also invalidate the Reports adapter cache
+      if (tableName === 'order_files') {
+        queryClient.invalidateQueries({ 
+          queryKey: ["adapter-order-files"],
+          refetchType: 'active'  // Only refetch currently mounted queries
+        });
+      }
 
       // Fetch the full updated order
       const fullOrder = await fetchSingleOrder(orderId);
