@@ -14,6 +14,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useMemo, useRef } from "react";
 import { format, addDays, subDays, startOfDay } from "date-fns";
 
+// Helper to check if a date string matches today (no timezone conversion)
+const isPickupDateToday = (pickupDatetime: string | null | undefined): boolean => {
+  if (!pickupDatetime) return false;
+  // Extract just the date part (YYYY-MM-DD) from the datetime string
+  const datePart = pickupDatetime.substring(0, 10);
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return datePart === todayStr;
+};
+
 // Types
 export interface DateWindow {
   startDate: Date;
@@ -440,9 +450,15 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       const gapFillOrders = await fetchGapFillOrders(driverIds, currentWindow, existingIds);
 
       // Combine all orders
-      const allOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
+      const combinedOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
       
-      console.log(`[useReportsDateWindow] Total orders for window: ${allOrders.length} (unlocked: ${unlockedOrders.length}, locked: ${deduplicatedLocked.length}, gap-fill: ${gapFillOrders.length})`);
+      // Filter out canceled orders unless their pickup date is today (no timezone conversion)
+      const allOrders = combinedOrders.filter(order => {
+        if (!order.canceled) return true;
+        return isPickupDateToday(order.pickup_datetime);
+      });
+      
+      console.log(`[useReportsDateWindow] Total orders for window: ${allOrders.length} (combined: ${combinedOrders.length}, after canceled filter: ${allOrders.length})`);
 
       // Mark this window as loaded
       loadedWindowsRef.current.add(windowKey);
