@@ -14,7 +14,7 @@ import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Se
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useOrders } from "@/hooks/useOrders";
+import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
@@ -236,7 +236,7 @@ const Analytics = () => {
     !hasRole("safety");
 
   // Don't use database-level filtering for dispatch users - let client-side filtering handle both full_name and user_id formats
-  const { data: orders, isLoading, error } = useOrders();
+  const { data: orders, isLoading, error, progress } = useOrdersWithProgress();
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();
@@ -1705,7 +1705,28 @@ const Analytics = () => {
     <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
+            {/* Orders loading progress indicator */}
+            {progress && !progress.isComplete && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  Loading orders: {progress.unlockedLoaded}
+                  {progress.unlockedTotal !== null && ` / ${progress.unlockedTotal}`} unlocked
+                  {progress.lockedLoaded > 0 && `, ${progress.lockedLoaded} locked`}
+                </span>
+              </div>
+            )}
+            {progress && progress.isComplete && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <span>
+                  {progress.unlockedLoaded} unlocked, {progress.lockedLoaded} locked orders loaded
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="performance" className="w-full">
