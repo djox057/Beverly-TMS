@@ -184,13 +184,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      // Check if we already have data in the orders cache from another page (e.g., Analytics)
-      const existingData = queryClient.getQueryData<any[]>(["orders"]);
-      if (!hasFilters && existingData && existingData.length > 0) {
-        console.log(`[useOrders] Reusing ${existingData.length} orders from existing cache`);
-        return existingData;
-      }
-
       // PERFORMANCE: Load only 100 orders initially - user can paginate for more
       const initialBatchSize = 100;
 
