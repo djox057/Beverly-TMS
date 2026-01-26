@@ -116,15 +116,19 @@ export function useAnalyticsAggregates(options: UseAnalyticsAggregatesOptions) {
         query = query.is("office", null);
       }
 
-      const { data, error } = await query.maybeSingle();
+      // FIX: Use .order().limit(1) instead of .maybeSingle() to handle potential duplicates gracefully
+      const { data, error } = await query
+        .order("last_calculated_at", { ascending: false })
+        .limit(1);
 
       if (error) {
         console.error("[useAnalyticsAggregates] Error fetching period totals:", error);
         throw error;
       }
 
-      console.log(`[useAnalyticsAggregates] Fetched totals:`, data);
-      return data as PeriodTotals | null;
+      const result = (data && data.length > 0) ? data[0] : null;
+      console.log(`[useAnalyticsAggregates] Fetched totals:`, result);
+      return result as PeriodTotals | null;
     },
     enabled,
     staleTime: 60 * 1000,

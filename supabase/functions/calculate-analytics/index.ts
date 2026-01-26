@@ -358,8 +358,12 @@ Deno.serve(async (req) => {
     }
 
     // Upsert period totals (global + per office)
+    // FIX: Filter out "Unknown" office to prevent duplicate null rows
+    const validOfficeAggregates = Object.entries(officeAggregates)
+      .filter(([office]) => office !== 'Unknown');
+
     const totalRows = [
-      // Global total (office = null)
+      // Global total (office = null) - includes all orders including "Unknown" office
       {
         period_type,
         period_start: periodStartStr,
@@ -376,12 +380,12 @@ Deno.serve(async (req) => {
         order_count: globalAggregate.order_count,
         last_calculated_at: new Date().toISOString()
       },
-      // Per-office totals
-      ...Object.entries(officeAggregates).map(([office, agg]) => ({
+      // Per-office totals (excluding "Unknown" which is already in global)
+      ...validOfficeAggregates.map(([office, agg]) => ({
         period_type,
         period_start: periodStartStr,
         period_end: periodEndStr,
-        office: office === 'Unknown' ? null : office,
+        office, // Never null here since we filtered out Unknown
         total_freight: agg.total_freight,
         total_driver_rate: agg.total_driver_rate,
         total_cut: agg.total_freight - agg.total_driver_rate,
