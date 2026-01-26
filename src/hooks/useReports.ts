@@ -201,11 +201,18 @@ const getTransferAwareStops = (
 
 interface UseReportsOptions {
   priorityOffice?: string | null;
+  /**
+   * When true, disables all React Query fetches but still returns mutations.
+   * Used by useReportsDateWindowAdapter to get mutations without triggering 
+   * legacy data loading when USE_DATE_WINDOW_LOADING is enabled.
+   */
+  disableFetch?: boolean;
 }
 
 export const useReports = (options?: UseReportsOptions) => {
   const queryClient = useQueryClient();
   const priorityOffice = options?.priorityOffice;
+  const disableFetch = options?.disableFetch ?? false;
 
   // Set up real-time subscriptions with debouncing
   // Only invalidate priority query for real-time updates to avoid triggering expensive full reloads
@@ -2561,34 +2568,35 @@ export const useReports = (options?: UseReportsOptions) => {
   const priorityQuery = useQuery({
     queryKey: ["reports", "priority", priorityOffice],
     queryFn: () => queryWithTimeout(() => fetchReportsData(priorityOffice || null)),
+    enabled: !disableFetch, // Disabled when used for mutations-only
     retry: 2,
     retryDelay: 1000,
     staleTime: 300000,
     gcTime: 600000,
     refetchOnWindowFocus: false,
-    refetchInterval: 30000,
+    refetchInterval: disableFetch ? false : 30000,
   });
 
   // Background query - loads ALL data after priority is ready
   const backgroundQuery = useQuery({
     queryKey: ["reports", "full"],
     queryFn: () => queryWithTimeout(() => fetchReportsData(null)),
-    enabled: priorityQuery.isSuccess, // Only start after priority loads
+    enabled: !disableFetch && priorityQuery.isSuccess, // Only start after priority loads, disabled when mutations-only
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 300000,
     gcTime: 600000,
     refetchOnWindowFocus: false,
-    refetchInterval: 60000, // Slower refresh for background
+    refetchInterval: disableFetch ? false : 60000, // Slower refresh for background
   });
 
   // Merge: use background data if available, otherwise priority data
   // Keep priority data as-is while background loads - don't swap mid-interaction
-  const mergedData = backgroundQuery.data ?? priorityQuery.data;
+  const mergedData = disableFetch ? null : (backgroundQuery.data ?? priorityQuery.data);
   
   const reportsQuery = {
     data: mergedData,
-    isLoading: priorityQuery.isLoading, // Only show loading for priority
+    isLoading: disableFetch ? false : priorityQuery.isLoading, // Only show loading for priority
     isPending: priorityQuery.isPending,
     isError: priorityQuery.isError && backgroundQuery.isError,
     error: priorityQuery.error ?? backgroundQuery.error,

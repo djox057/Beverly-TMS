@@ -154,10 +154,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const { priorityOffice, dispatcherId, selectedDate } = options;
   const queryClient = useQueryClient();
 
-  // Get date-window data
+  // Get date-window data (pass priorityOffice to match legacy useReports behavior)
   const dateWindowHook = useReportsDateWindow({
     dispatcherId,
     selectedDate,
+    priorityOffice,
   });
 
   // Fetch additional data needed for transformation
@@ -486,7 +487,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Get mutations from original useReports hook
   // We re-use the mutations as they operate directly on the database
-  const originalReportsHook = useReports({ priorityOffice });
+  // IMPORTANT: Pass disableFetch=true to prevent legacy queries from running
+  const originalReportsHook = useReports({ priorityOffice, disableFetch: true });
 
   return {
     // Data from date-window with transformation

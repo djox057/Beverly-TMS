@@ -23,6 +23,8 @@ export interface DateWindow {
 export interface ReportsDateWindowOptions {
   dispatcherId: string | null;
   selectedDate: Date;
+  /** Office to filter dispatchers by (e.g., "Čačak"). Used to match legacy useReports behavior. */
+  priorityOffice?: string | null;
 }
 
 // Helper to format date for Supabase queries
@@ -319,25 +321,79 @@ const fetchGapFillOrders = async (
 };
 
 /**
- * Fetch driver IDs for a dispatcher
+ * Fetch driver IDs for an office (matches legacy useReports behavior)
+ * 
+ * CORRECT MAPPING: The source of truth is:
+ * 1. Get all dispatchers in the specified office
+ * 2. Fetch trucks with their driver1 relationship
+ * 3. Filter trucks where driver1.dispatcher_id is in the office's dispatcher list
+ * 4. Return all driver IDs from those filtered trucks
+ * 
+ * This matches useReports.ts lines 844-886 exactly.
  */
-const fetchDriverIdsForDispatcher = async (dispatcherId: string): Promise<string[]> => {
-  console.log(`[useReportsDateWindow] Fetching drivers for dispatcher: ${dispatcherId}`);
+const fetchDriverIdsForOffice = async (priorityOffice: string | null): Promise<{ driverIds: string[], dispatcherIds: string[] }> => {
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Fetching drivers for office: ${priorityOffice || 'ALL'}`);
   
-  const { data: drivers, error } = await supabase
-    .from("drivers")
-    .select("id")
-    .eq("dispatcher_id", dispatcherId)
+  // Step 1: Get all dispatchers in this office
+  const { data: dispatchers, error: dispatchersError } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, office");
+
+  if (dispatchersError) {
+    console.error('[useReportsDateWindow] Error fetching dispatchers:', dispatchersError);
+    throw dispatchersError;
+  }
+
+  // Get dispatcher IDs for the office
+  const filterDispatcherIds = priorityOffice
+    ? (dispatchers || []).filter(d => d.office === priorityOffice).map(d => d.user_id).filter(Boolean) as string[]
+    : (dispatchers || []).map(d => d.user_id).filter(Boolean) as string[];
+  
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Office=${priorityOffice || 'ALL'}, Dispatchers in office=${filterDispatcherIds.length}`);
+
+  if (filterDispatcherIds.length === 0) {
+    return { driverIds: [], dispatcherIds: [] };
+  }
+
+  // Step 2: Fetch trucks with their driver1 relationship
+  const { data: trucks, error } = await supabase
+    .from("trucks")
+    .select(`
+      id,
+      driver1_id,
+      driver2_id,
+      driver1:drivers!trucks_driver1_id_fkey(id, dispatcher_id)
+    `)
     .eq("is_active", true);
 
   if (error) {
-    console.error('[useReportsDateWindow] Error fetching drivers:', error);
+    console.error('[useReportsDateWindow] Error fetching trucks with drivers:', error);
     throw error;
   }
 
-  const driverIds = (drivers || []).map(d => d.id);
-  console.log(`[useReportsDateWindow] Found ${driverIds.length} drivers for dispatcher`);
-  return driverIds;
+  // Step 3: Filter trucks where driver1's dispatcher_id is in the office dispatcher list
+  // Collect unique driver IDs from those trucks
+  const driverIdsSet = new Set<string>();
+  
+  for (const truck of trucks || []) {
+    const driver1 = truck.driver1 as any;
+    // Check if driver's dispatcher is in this office
+    if (driver1?.dispatcher_id && filterDispatcherIds.includes(driver1.dispatcher_id) && driver1?.id) {
+      driverIdsSet.add(driver1.id);
+    }
+    // Also include driver2 if exists on matching trucks
+    if (driver1?.dispatcher_id && filterDispatcherIds.includes(driver1.dispatcher_id) && truck.driver2_id) {
+      driverIdsSet.add(truck.driver2_id);
+    }
+  }
+
+  const driverIds = Array.from(driverIdsSet);
+  
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Table=trucks→drivers, Filter=driver1.dispatcher_id IN office dispatchers`);
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Total trucks checked=${trucks?.length || 0}, Matching drivers=${driverIds.length}`);
+  console.log(`[useReportsDateWindow] ✅ Found ${driverIds.length} drivers for office via truck→driver→dispatcher path`);
+  
+  return { driverIds, dispatcherIds: filterDispatcherIds };
 };
 
 /**
@@ -345,7 +401,7 @@ const fetchDriverIdsForDispatcher = async (dispatcherId: string): Promise<string
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate } = options;
+  const { dispatcherId, selectedDate, priorityOffice } = options;
   
   // Track loaded windows for accumulative caching
   const loadedWindowsRef = useRef<Set<string>>(new Set());
@@ -359,17 +415,13 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
 
   // Fetch data for the current date window
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['reports-date-window', dispatcherId, windowKey],
+    queryKey: ['reports-date-window', priorityOffice, windowKey],
     queryFn: async () => {
-      if (!dispatcherId) {
-        console.log('[useReportsDateWindow] No dispatcher ID, returning empty');
-        return { orders: [], driverIds: [] };
-      }
-
-      // Step 1: Get driver IDs for this dispatcher
-      const driverIds = await fetchDriverIdsForDispatcher(dispatcherId);
+      // Step 1: Get driver IDs for this office (matches legacy useReports behavior)
+      const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(priorityOffice || null);
       if (driverIds.length === 0) {
-        return { orders: [], driverIds: [] };
+        console.log('[useReportsDateWindow] No drivers found for office, returning empty');
+        return { orders: [], driverIds: [], dispatcherIds: [] };
       }
 
       // Step 2: Fetch unlocked orders from database
