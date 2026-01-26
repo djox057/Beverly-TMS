@@ -2578,9 +2578,10 @@ const Reports = () => {
     // Re-run every 60 seconds
     const interval = setInterval(checkLateStops, 60 * 1000);
     return () => clearInterval(interval);
+    // NOTE: updatePickupDropArrival is intentionally excluded - it's a mutation with unstable reference
     // NOTE: notifiedLateStops is intentionally excluded from deps to prevent infinite loop
     // The effect uses functional setState to access latest value without retriggering
-  }, [groupedReports, isFetchingBackground, updatePickupDropArrival]);
+  }, [groupedReports, isFetchingBackground]);
 
 
   // Auto-switch to correct dispatcher page when filters find matches
