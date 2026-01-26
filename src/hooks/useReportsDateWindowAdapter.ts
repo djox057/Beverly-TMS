@@ -172,7 +172,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && driverIdsForScope.length > 0;
 
   const { data: trucks } = useQuery({
-    queryKey: ["adapter-trucks"],
+    queryKey: ["adapter-trucks", priorityOffice],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
@@ -212,7 +212,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: drivers } = useQuery({
-    queryKey: ["adapter-drivers"],
+    queryKey: ["adapter-drivers", priorityOffice],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("drivers")
@@ -267,7 +267,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: truckNotes } = useQuery({
-    queryKey: ["adapter-truck-notes"],
+    queryKey: ["adapter-truck-notes", priorityOffice],
     queryFn: async () => {
       const { data, error } = await supabase.from("truck_notes").select("*").in("driver_id", driverIdsForScope);
       if (error) throw error;
@@ -278,7 +278,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: lostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes"],
+    queryKey: ["adapter-lost-day-notes", priorityOffice],
     queryFn: async () => {
       const { data, error } = await supabase.from("lost_day_notes").select("*").in("driver_id", driverIdsForScope);
       if (error) throw error;
