@@ -589,7 +589,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         orderId: currentOrder?.id || null,
         truckNumber: truck?.truck_number || null,
         companyName,
-        driver: driver.name,
+        driver: driver2 ? "Team" : driver.name,
         driver1Name: driver.name,
         driverId: driver.id,
         driverPhone: driver.phone || null,
