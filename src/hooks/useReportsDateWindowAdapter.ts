@@ -649,6 +649,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       groupedData = groupedData.filter((g) => g.office === priorityOffice);
     }
 
+    // Sort dispatchers: current user first, off-duty dispatchers last
+    if (dispatcherId) {
+      groupedData.sort((a, b) => {
+        // Off-duty dispatchers always go to the end
+        if (a.isOffDuty && !b.isOffDuty) return 1;
+        if (!a.isOffDuty && b.isOffDuty) return -1;
+
+        // Current user's dispatcher appears first
+        const aIsCurrentUser = a.dispatcherId === dispatcherId;
+        const bIsCurrentUser = b.dispatcherId === dispatcherId;
+
+        if (aIsCurrentUser && !bIsCurrentUser) return -1;
+        if (!aIsCurrentUser && bIsCurrentUser) return 1;
+        return 0;
+      });
+    }
+
     return groupedData;
   }, [
     dateWindowHook.orders,
@@ -662,6 +679,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     lostDayNotes,
     orderFilesMap,
     priorityOffice,
+    dispatcherId,
   ]);
 
   if (!USE_DATE_WINDOW_LOADING) {
