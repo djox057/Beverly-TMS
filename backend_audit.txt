@@ -860,5 +860,127 @@ REMAINING TO FIX:
 3. Consider adding UI pagination for display only (optional)
 
 ================================================================================
+11. DATE-WINDOW BASED LOADING ARCHITECTURE (NEW)
+================================================================================
+
+PROBLEM STATEMENT:
+The current Reports page loads ALL orders from the past 90 days, regardless of
+which dates the user is viewing. This causes:
+- "Holes" in past driver loads (data not fetched for older dates)
+- Excessive data loading (most data is never viewed)
+- Slow initial load times
+- Memory pressure from large datasets
+
+SOLUTION: DATE-WINDOW BASED LOADING
+
+The new useReportsDateWindow hook (src/hooks/useReportsDateWindow.ts) implements
+efficient date-window based loading:
+
+1. INITIAL LOAD (when opening Reports page)
+   - Current date selected: 2026-01-26
+   - Load orders where pickup_date OR delivery_date is between:
+     * 2026-01-24 (2 days before) → 2026-01-29 (3 days after)
+   - This creates a 6-day window that covers:
+     * Recent past (completed loads)
+     * Today (active loads)
+     * Near future (upcoming loads)
+
+2. CALENDAR NAVIGATION
+   When user navigates to different dates:
+   - Past date: Load window (selected_date - 1 day) to selected_date
+   - Future date: Load window selected_date to (selected_date + 1 day)
+   - Data is fetched lazily per date window
+   - No preloading of all historical orders
+
+3. DRIVER SCOPING (Database-Level Filtering)
+   Reports must load orders ONLY for drivers assigned to the dispatcher:
+   - Step 1: Fetch driver IDs for dispatcher from drivers table
+   - Step 2: Query orders with driver1_id.in.(driverIds) OR driver2_id.in.(driverIds)
+   - Step 3: Filter at database level, NOT in JavaScript
+   This replaces the old approach of fetching ALL trucks, then filtering in JS.
+
+4. ACCUMULATIVE CACHING
+   - All visited date windows are kept in React Query cache
+   - Navigating back to a previously viewed date uses cached data
+   - Cache key: ['reports-date-window', dispatcherId, windowKey]
+   - Stale time: 60 seconds
+   - GC time: 5 minutes
+
+5. ARCHIVE INTEGRATION
+   The date-window logic works across all data sources:
+   
+   a) UNLOCKED ORDERS (Database)
+      - Fetched directly from orders table
+      - Filtered by driverIds AND date window at query level
+   
+   b) LOCKED ORDERS (Storage Bucket)
+      - Loaded from archived-orders storage bucket
+      - Filtered client-side by driverIds AND date window
+      - Uses pre-indexed Maps for O(1) lookups
+   
+   c) GAP-FILL ORDERS (Database)
+      - Fetches recently locked orders not yet in archive
+      - Deduplicates against existing order IDs
+      - Ensures no data gaps between archive and live
+
+6. ORDER FILES ON-DEMAND
+   - order_files are NOT loaded with date-window fetch
+   - Separate hook: useOrderFilesOnDemand(orderId)
+   - Files only fetched when user expands/clicks specific order
+   - Prevents 20MB+ payload bloat
+
+QUERY STRUCTURE:
+
+```sql
+-- Database query for date window
+SELECT orders.*, pickup_drops.*, order_transfers.*
+FROM orders
+LEFT JOIN pickup_drops ON pickup_drops.order_id = orders.id
+LEFT JOIN order_transfers ON order_transfers.order_id = orders.id
+WHERE (orders.driver1_id IN (:driverIds) OR orders.driver2_id IN (:driverIds))
+  AND (
+    orders.pickup_datetime >= :startDate AND orders.pickup_datetime <= :endDate
+    OR
+    orders.delivery_datetime >= :startDate AND orders.delivery_datetime <= :endDate
+  )
+```
+
+PERFORMANCE COMPARISON:
+
+Current (useReports):
+- Loads: 90 days of ALL orders
+- Query size: ~10,000 orders
+- Payload: ~20-30MB with order_files
+- Initial load: 3-5 seconds
+
+New (useReportsDateWindow):
+- Loads: 6-day window, dispatcher's drivers only
+- Query size: ~50-200 orders per window
+- Payload: ~200KB-1MB without order_files
+- Initial load: <500ms expected
+
+INTEGRATION STATUS:
+
+✅ COMPLETED:
+- useReportsDateWindow hook created
+- Date window calculation logic
+- Database-level driver filtering
+- Archive storage integration
+- Gap-fill order fetching
+- Accumulative caching
+- On-demand order files hook
+
+⏳ PENDING (requires Reports.tsx refactor):
+- Replace useReports with useReportsDateWindow
+- Pass selectedDate from calendar state to hook
+- Update calendar navigation to trigger new fetches
+- Preserve all mutations (note updates, status changes, etc.)
+- Migrate report grouping/processing logic
+
+The new hook is a drop-in replacement for the DATA FETCHING portion of useReports.
+The processing logic (grouping by dispatcher, formatting, mutations) must be
+migrated or kept in a wrapper layer.
+
+================================================================================
                               END OF AUDIT REPORT
 ================================================================================
