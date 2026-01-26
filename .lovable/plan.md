@@ -1,83 +1,119 @@
 
-# Fix: Reports Page Not Loading Data for Different Offices
+# Fix: Order Files Not Displaying in Reports (RC/BOL/POD Missing)
 
-## Problem Identified
+## Problem Summary
 
-When users switch between office tabs (e.g., Čačak → KRAGUJEVAC → BEOGRAD), the Reports page continues showing data from their original office. This happens because the adapter's React Query cache keys are not scoped by office.
+When document files (RC, BOL, POD) are uploaded, they correctly appear in the Orders page but NOT in the Reports page. This affects **253+ orders** with files in the current date window.
+
+**Example:** Load S113550459 has an RC file uploaded on Jan 23 and a BOL file uploaded 30 minutes ago at 21:24, but the Reports page shows no document indicators.
+
+---
 
 ## Root Cause
 
-In `src/hooks/useReportsDateWindowAdapter.ts`, the child queries that fetch supporting data (trucks, drivers, truck notes, lost day notes) use **static query keys** that don't include the `priorityOffice` parameter:
+The Reports page uses a separate data architecture from the Orders page:
 
 ```text
-Current (Broken):
-├── ["adapter-trucks"]           ← Same key for ALL offices
-├── ["adapter-drivers"]          ← Same key for ALL offices
-├── ["adapter-truck-notes"]      ← Same key for ALL offices
-└── ["adapter-lost-day-notes"]   ← Same key for ALL offices
+Orders Page:                          Reports Page:
+┌─────────────────────┐               ┌─────────────────────────────┐
+│ useOrders           │               │ useReportsDateWindowAdapter │
+│ Query: ["orders"]   │               │ Query: ["adapter-order-files"]
+│ Real-time: YES      │◄──────────────│ Real-time: NO               │
+└─────────────────────┘               └─────────────────────────────┘
+        ▲                                        ▲
+        │                                        │
+┌───────┴────────────────────────────────────────┴───────┐
+│                  order_files table                      │
+│                 (Supabase Realtime)                     │
+└────────────────────────────────────────────────────────┘
 ```
 
-When the user switches tabs:
-1. `useReportsDateWindow` correctly refetches (its key includes `priorityOffice`)
-2. It returns new `driverIds` for the new office
-3. **BUT** the adapter queries return stale cached data because their keys didn't change
+**The Issue:**
+1. `useOrdersRealtime.ts` listens to `order_files` changes
+2. It updates ALL caches with keys starting with `["orders"]`
+3. BUT it does NOT update `["adapter-order-files"]` used by Reports
+4. The adapter's staleTime is 30 seconds, but the query key hash doesn't change when files are added
+5. Result: Reports shows stale file data until page refresh
+
+---
 
 ## Solution
 
-Add `priorityOffice` to all adapter query keys so React Query treats each office as a separate cache entry:
+Extend `useOrdersRealtime.ts` to also invalidate the Reports adapter's order_files cache when files are uploaded.
 
-```text
-Fixed:
-├── ["adapter-trucks", "Čačak"]
-├── ["adapter-drivers", "Čačak"]
-├── ["adapter-truck-notes", "Čačak"]
-└── ["adapter-lost-day-notes", "Čačak"]
+### Technical Changes
+
+**File: `src/hooks/useOrdersRealtime.ts`**
+
+Update `handleRelatedTableChange` function to additionally invalidate the adapter order_files cache:
+
+```typescript
+const handleRelatedTableChange = async (
+  payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
+) => {
+  const newRecord = payload.new as any;
+  const oldRecord = payload.old as any;
+  const orderId = newRecord?.order_id || oldRecord?.order_id;
+  const tableName = (payload as any).table || '';
+
+  if (!orderId) return;
+
+  console.log(`[Realtime] Related table change for order:`, orderId, `table:`, tableName);
+
+  // For order_files changes, also invalidate the adapter cache
+  if (tableName === 'order_files') {
+    // Invalidate all adapter-order-files queries so Reports refreshes
+    queryClient.invalidateQueries({ 
+      queryKey: ["adapter-order-files"],
+      refetchType: 'active'  // Only refetch currently mounted queries
+    });
+  }
+
+  // Continue with existing order cache update logic
+  const fullOrder = await fetchSingleOrder(orderId);
+  if (!fullOrder) return;
+
+  const transformedOrder = transformOrder(fullOrder);
+  updateAllOrdersCaches(orderId, transformedOrder);
+};
 ```
 
 ---
 
-## Technical Changes
+## Why This Fix Works
 
-### File: `src/hooks/useReportsDateWindowAdapter.ts`
-
-**1. Update trucks query key (line 175)**
-- Change from: `queryKey: ["adapter-trucks"]`
-- Change to: `queryKey: ["adapter-trucks", priorityOffice]`
-
-**2. Update drivers query key (line 215)**
-- Change from: `queryKey: ["adapter-drivers"]`
-- Change to: `queryKey: ["adapter-drivers", priorityOffice]`
-
-**3. Update truck notes query key (line 270)**
-- Change from: `queryKey: ["adapter-truck-notes"]`
-- Change to: `queryKey: ["adapter-truck-notes", priorityOffice]`
-
-**4. Update lost day notes query key (line 280)**
-- Change from: `queryKey: ["adapter-lost-day-notes"]`
-- Change to: `queryKey: ["adapter-lost-day-notes", priorityOffice]`
+| Event | Before Fix | After Fix |
+|-------|-----------|-----------|
+| User uploads BOL | Orders page updates via setQueryData | Same |
+| | Reports page shows stale data | Reports invalidates + refetches |
+| | Requires page refresh | Real-time update |
 
 ---
 
-## Why This Happens
+## Alternative Considered
 
-React Query uses the query key as a cache identifier. Without the office in the key:
+**Option B: Share order_files data between Orders and Reports**
+- Would require significant refactoring of the adapter architecture
+- Risk of breaking existing functionality
+- More complex to implement and maintain
 
-| User Action | Expected | Actual (Bug) |
-|-------------|----------|--------------|
-| Loads Čačak tab | Fetch Čačak drivers | ✅ Fetches correctly |
-| Switches to KRAGUJEVAC | Fetch KRAGUJEVAC drivers | ❌ Returns cached Čačak data |
-| Switches to BEOGRAD | Fetch BEOGRAD drivers | ❌ Returns cached Čačak data |
+**Chosen: Option A (Invalidation)** - Minimal code change, targeted fix, maintains existing architecture.
 
-With the fix, each office tab triggers fresh queries with unique cache entries.
+---
+
+## Files to Modify
+
+1. **src/hooks/useOrdersRealtime.ts**
+   - Add table name detection in `handleRelatedTableChange`
+   - Add cache invalidation for `["adapter-order-files"]` when `order_files` table changes
 
 ---
 
 ## Testing Checklist
 
-After the fix:
-1. Log in as a dispatcher assigned to Čačak office
-2. Verify Čačak data loads correctly on initial page load
-3. Switch to KRAGUJEVAC tab → should see KRAGUJEVAC dispatchers/drivers
-4. Switch to BEOGRAD tab → should see BEOGRAD dispatchers/drivers
-5. Switch to Recovery tab → should see Recovery dispatchers/drivers
-6. Switch back to Čačak → should show Čačak data (now from cache)
+1. Open Reports page for an office
+2. In another tab, upload a BOL file for an order visible in Reports
+3. Switch back to Reports - document indicator should update within seconds
+4. Verify RC, BOL, POD indicators all update correctly
+5. Verify existing Orders page real-time updates still work
+6. Verify no performance degradation (uses refetchType: 'active')
