@@ -20,6 +20,7 @@ export const USE_DATE_WINDOW_LOADING = true;
 interface UseReportsDateWindowAdapterOptions {
   priorityOffice?: string | null;
   dispatcherId: string | null;
+  dispatcherProfileId?: string | null;
   selectedDate: Date;
 }
 
@@ -151,45 +152,67 @@ const getTransferAwareStops = (driverId: string, order: any, originalPickupStop:
  * to match the shape expected by Reports.tsx
  */
 export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapterOptions) => {
-  const { priorityOffice, dispatcherId, selectedDate } = options;
+  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate } = options;
   const queryClient = useQueryClient();
 
-  // Get date-window data (pass priorityOffice to match legacy useReports behavior)
+  // Get date-window data (disabled when feature flag is OFF)
   const dateWindowHook = useReportsDateWindow({
-    dispatcherId,
+    dispatcherId: USE_DATE_WINDOW_LOADING ? dispatcherId : null,
+    dispatcherProfileId,
     selectedDate,
     priorityOffice,
   });
 
+  // Legacy hook (for fallback when feature flag is OFF). When feature flag is ON,
+  // we still call this hook, but in mutation-only mode (disableFetch=true).
+  const legacyReportsHook = useReports({ priorityOffice, disableFetch: USE_DATE_WINDOW_LOADING });
+
   // Fetch additional data needed for transformation
+  const driverIdsForScope = dateWindowHook.driverIds || [];
+  const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && driverIdsForScope.length > 0;
+
   const { data: trucks } = useQuery({
     queryKey: ["adapter-trucks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("trucks").select("*").eq("is_active", true);
+      const { data, error } = await supabase
+        .from("trucks")
+        .select("*")
+        .eq("is_active", true)
+        .or(`driver1_id.in.(${driverIdsForScope.join(",")}),driver2_id.in.(${driverIdsForScope.join(",")})`);
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
+    enabled: scopeEnabled,
   });
 
   const { data: drivers } = useQuery({
     queryKey: ["adapter-drivers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("drivers").select("*").eq("is_active", true);
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("is_active", true)
+        .in("id", driverIdsForScope);
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
+    enabled: scopeEnabled,
   });
 
   const { data: dispatchers } = useQuery({
     queryKey: ["adapter-dispatchers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("user_id, full_name, email, office, ext");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, office, ext")
+        .eq("user_id", dispatcherId);
       if (error) throw error;
       return data || [];
     },
     staleTime: 60000,
+    enabled: USE_DATE_WINDOW_LOADING && !!dispatcherId,
   });
 
   const { data: companies } = useQuery({
@@ -200,33 +223,38 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return data || [];
     },
     staleTime: 60000,
+    enabled: scopeEnabled,
   });
 
   const { data: truckNotes } = useQuery({
     queryKey: ["adapter-truck-notes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("truck_notes").select("*");
+      const { data, error } = await supabase.from("truck_notes").select("*").in("driver_id", driverIdsForScope);
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
+    enabled: scopeEnabled,
   });
 
   const { data: lostDayNotes } = useQuery({
     queryKey: ["adapter-lost-day-notes"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("lost_day_notes").select("*");
+      const { data, error } = await supabase.from("lost_day_notes").select("*").in("driver_id", driverIdsForScope);
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
+    enabled: scopeEnabled,
   });
 
   // Transform date-window orders into the expected Reports shape
   const transformedData = useMemo(() => {
-    if (!dateWindowHook.orders || !trucks || !drivers || !dispatchers || !companies) {
-      return null;
-    }
+    if (!USE_DATE_WINDOW_LOADING) return null;
+    if (dateWindowHook.isLoading) return null;
+    if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) return [];
+    if (!dateWindowHook.orders) return [];
+    if (!trucks || !drivers || !dispatchers || !companies) return null;
 
     const orders = dateWindowHook.orders;
     const driverIds = dateWindowHook.driverIds;
@@ -476,6 +504,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [
     dateWindowHook.orders,
     dateWindowHook.driverIds,
+    dateWindowHook.isLoading,
     trucks,
     drivers,
     dispatchers,
@@ -485,10 +514,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     priorityOffice,
   ]);
 
-  // Get mutations from original useReports hook
-  // We re-use the mutations as they operate directly on the database
-  // IMPORTANT: Pass disableFetch=true to prevent legacy queries from running
-  const originalReportsHook = useReports({ priorityOffice, disableFetch: true });
+  if (!USE_DATE_WINDOW_LOADING) {
+    return legacyReportsHook;
+  }
 
   return {
     // Data from date-window with transformation
@@ -506,16 +534,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     prefetchAdjacentWindows: dateWindowHook.prefetchAdjacentWindows,
     loadedWindowCount: dateWindowHook.loadedWindowCount,
 
-    // Re-export all mutations from original hook
-    updateTruckStatus: originalReportsHook.updateTruckStatus,
-    updateTruckMilesAway: originalReportsHook.updateTruckMilesAway,
-    updateTruckNote: originalReportsHook.updateTruckNote,
-    updatePickupDrop: originalReportsHook.updatePickupDrop,
-    updateLostDayNote: originalReportsHook.updateLostDayNote,
-    updatePickupDropArrival: originalReportsHook.updatePickupDropArrival,
-    updateCheckInOutTimes: originalReportsHook.updateCheckInOutTimes,
-    markGoingToPickup: originalReportsHook.markGoingToPickup,
-    markGoingToDelivery: originalReportsHook.markGoingToDelivery,
+    // Re-export mutations (works even with legacy disableFetch=true)
+    updateTruckStatus: legacyReportsHook.updateTruckStatus,
+    updateTruckMilesAway: legacyReportsHook.updateTruckMilesAway,
+    updateTruckNote: legacyReportsHook.updateTruckNote,
+    updatePickupDrop: legacyReportsHook.updatePickupDrop,
+    updateLostDayNote: legacyReportsHook.updateLostDayNote,
+    updatePickupDropArrival: legacyReportsHook.updatePickupDropArrival,
+    updateCheckInOutTimes: legacyReportsHook.updateCheckInOutTimes,
+    markGoingToPickup: legacyReportsHook.markGoingToPickup,
+    markGoingToDelivery: legacyReportsHook.markGoingToDelivery,
   };
 };
 
