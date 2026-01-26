@@ -7,12 +7,13 @@
  * It also re-exports mutations from useReports.ts to maintain full functionality.
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportsDateWindow, useOrderFilesOnDemand } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // Feature flag - set to true to use date-window based loading
 export const USE_DATE_WINDOW_LOADING = true;
@@ -316,6 +317,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [windowOrderIds]);
 
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
+  // P1: Paginate result rows with stable ordering to avoid PostgREST 1000-row cap
   const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
     queryKey: ["adapter-order-files", priorityOffice, orderIdsHash, orderIdsForQuery],
     queryFn: async ({ queryKey }) => {
@@ -325,30 +327,100 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       
       if (orderIds.length === 0) return [];
       
-      // Fetch in batches if needed (Supabase has limits)
-      const batchSize = 500;
+      // Fetch in batches of order IDs, AND paginate result rows per batch
+      const ORDER_ID_BATCH_SIZE = 300; // Smaller batch to reduce result rows per request
+      const RESULT_PAGE_SIZE = 1000;
       const allFiles: any[] = [];
+      let truncationWarnings = 0;
       
-      for (let i = 0; i < orderIds.length; i += batchSize) {
-        const batch = orderIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("order_files")
-          .select("id, order_id, file_category, file_name, file_path")
-          .in("order_id", batch);
+      for (let i = 0; i < orderIds.length; i += ORDER_ID_BATCH_SIZE) {
+        const batch = orderIds.slice(i, i + ORDER_ID_BATCH_SIZE);
         
-        if (error) {
-          console.error("[adapter] Error fetching order_files batch:", error);
-          continue;
+        // Paginate result rows for this batch
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("order_files")
+            .select("id, order_id, file_category, file_name, file_path")
+            .in("order_id", batch)
+            .order("id", { ascending: true }) // Stable ordering for pagination
+            .range(offset, offset + RESULT_PAGE_SIZE - 1);
+          
+          if (error) {
+            console.error("[adapter] Error fetching order_files batch:", error);
+            break;
+          }
+          
+          if (data) {
+            allFiles.push(...data);
+            
+            // P1: Warn if we hit exactly the page size (strong signal of truncation)
+            if (data.length === RESULT_PAGE_SIZE) {
+              truncationWarnings++;
+              console.warn(
+                `[adapter] order_files batch returned exactly ${RESULT_PAGE_SIZE} rows - paginating to fetch more (batch ${Math.floor(i / ORDER_ID_BATCH_SIZE) + 1}, page ${Math.floor(offset / RESULT_PAGE_SIZE) + 1})`
+              );
+            }
+            
+            // Continue if we got a full page
+            hasMore = data.length === RESULT_PAGE_SIZE;
+            offset += RESULT_PAGE_SIZE;
+          } else {
+            hasMore = false;
+          }
         }
-        if (data) allFiles.push(...data);
       }
       
+      if (truncationWarnings > 0) {
+        console.log(`[adapter] Successfully paginated through ${truncationWarnings} truncated batches`);
+      }
       console.log(`[adapter] Fetched ${allFiles.length} order_files for ${orderIds.length} orders`);
       return allFiles;
     },
     staleTime: 30000,
     enabled: scopeEnabled && windowOrderIds.length > 0,
   });
+
+  // P2: Subscribe to order_files realtime changes to invalidate adapter cache
+  const orderFilesChannelRef = useRef<RealtimeChannel | null>(null);
+  
+  useEffect(() => {
+    if (!scopeEnabled) return;
+    
+    // Subscribe to order_files changes
+    const channel = supabase
+      .channel("adapter-order-files-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_files" },
+        (payload) => {
+          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+          console.log(`[adapter] order_files realtime: ${payload.eventType} for order ${orderId}`);
+          
+          // Invalidate adapter-order-files queries (only active ones to avoid refetch storms)
+          queryClient.invalidateQueries({
+            queryKey: ["adapter-order-files"],
+            refetchType: "active",
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("[adapter] Subscribed to order_files realtime");
+        }
+      });
+    
+    orderFilesChannelRef.current = channel;
+    
+    return () => {
+      if (orderFilesChannelRef.current) {
+        supabase.removeChannel(orderFilesChannelRef.current);
+        orderFilesChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, queryClient]);
 
   // Build order_files lookup map
   const orderFilesMap = useMemo(() => {
@@ -545,7 +617,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
                 endDatetime: order.delivery_end_datetime || "—",
               }
             : null,
-          documents: (order.order_files || []).map((f: any) => ({ category: f.file_category })),
+          // P3: Normalize file_category to uppercase for legacy records
+          documents: (order.order_files || []).map((f: any) => ({
+            category: String(f.file_category || "").toUpperCase(),
+          })),
           notes: order.notes || "",
         };
 
