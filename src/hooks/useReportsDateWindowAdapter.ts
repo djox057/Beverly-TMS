@@ -1,9 +1,9 @@
 /**
  * useReportsDateWindowAdapter - Adapter layer for useReportsDateWindow
- * 
+ *
  * This adapter transforms the output of useReportsDateWindow to match
  * the expected shape of the existing useReports hook, ensuring UI compatibility.
- * 
+ *
  * It also re-exports mutations from useReports.ts to maintain full functionality.
  */
 
@@ -15,7 +15,7 @@ import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 // Feature flag - set to true to use date-window based loading
-export const USE_DATE_WINDOW_LOADING = false;
+export const USE_DATE_WINDOW_LOADING = true;
 
 interface UseReportsDateWindowAdapterOptions {
   priorityOffice?: string | null;
@@ -27,14 +27,9 @@ interface UseReportsDateWindowAdapterOptions {
  * Helper to get transfer-aware stops for a driver
  * Copied from useReports.ts to maintain consistency
  */
-const getTransferAwareStops = (
-  driverId: string,
-  order: any,
-  originalPickupStop: any,
-  originalDeliveryStop: any
-) => {
+const getTransferAwareStops = (driverId: string, order: any, originalPickupStop: any, originalDeliveryStop: any) => {
   const transfers = order.order_transfers || [];
-  
+
   if (transfers.length === 0) {
     return {
       effectivePickupStop: originalPickupStop,
@@ -45,18 +40,17 @@ const getTransferAwareStops = (
     };
   }
 
-  const sortedTransfers = [...transfers].sort((a: any, b: any) => 
-    (a.sequence_number || 0) - (b.sequence_number || 0)
-  );
+  const sortedTransfers = [...transfers].sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0));
 
   const isActualOriginalDriver = order.original_driver1_id === driverId || order.original_driver2_id === driverId;
-  
+
   if (isActualOriginalDriver) {
-    const originalDriverTransfer = sortedTransfers.find((t: any) => 
-      (t.driver1_id === driverId || t.driver2_id === driverId) && 
-      (t.sequence_number === 0 || t.sequence_number === undefined || t.sequence_number === null)
+    const originalDriverTransfer = sortedTransfers.find(
+      (t: any) =>
+        (t.driver1_id === driverId || t.driver2_id === driverId) &&
+        (t.sequence_number === 0 || t.sequence_number === undefined || t.sequence_number === null),
     );
-    
+
     if (originalDriverTransfer?.transfer_city) {
       return {
         effectivePickupStop: originalPickupStop,
@@ -72,7 +66,7 @@ const getTransferAwareStops = (
         },
       };
     }
-    
+
     const firstTransfer = sortedTransfers[0];
     if (firstTransfer?.transfer_city) {
       return {
@@ -89,7 +83,7 @@ const getTransferAwareStops = (
         },
       };
     }
-    
+
     return {
       effectivePickupStop: originalPickupStop,
       effectiveDeliveryStop: originalDeliveryStop,
@@ -99,39 +93,38 @@ const getTransferAwareStops = (
     };
   }
 
-  const driverTransfer = sortedTransfers.find((t: any) => 
-    t.driver1_id === driverId || t.driver2_id === driverId
-  );
+  const driverTransfer = sortedTransfers.find((t: any) => t.driver1_id === driverId || t.driver2_id === driverId);
 
   if (driverTransfer) {
     const seqNum = driverTransfer.sequence_number || 1;
-    const previousTransfer = sortedTransfers.find((t: any) => 
-      (t.sequence_number || 0) === seqNum - 1
-    );
-    const nextTransfer = sortedTransfers.find((t: any) => 
-      (t.sequence_number || 0) > seqNum
-    );
+    const previousTransfer = sortedTransfers.find((t: any) => (t.sequence_number || 0) === seqNum - 1);
+    const nextTransfer = sortedTransfers.find((t: any) => (t.sequence_number || 0) > seqNum);
 
     const pickupSource =
-      (previousTransfer?.transfer_city || previousTransfer?.transfer_state)
+      previousTransfer?.transfer_city || previousTransfer?.transfer_state
         ? previousTransfer
-        : (driverTransfer.transfer_city || driverTransfer.transfer_state)
+        : driverTransfer.transfer_city || driverTransfer.transfer_state
           ? driverTransfer
           : undefined;
 
-    const pickupInfo = pickupSource ? {
-      city: pickupSource.transfer_city,
-      state: pickupSource.transfer_state || "",
-      address: pickupSource.transfer_address,
-      datetime: driverTransfer.transfer_datetime || pickupSource.transfer_datetime,
-    } : undefined;
+    const pickupInfo = pickupSource
+      ? {
+          city: pickupSource.transfer_city,
+          state: pickupSource.transfer_state || "",
+          address: pickupSource.transfer_address,
+          datetime: driverTransfer.transfer_datetime || pickupSource.transfer_datetime,
+        }
+      : undefined;
 
-    const deliveryInfo = (nextTransfer?.transfer_city || nextTransfer?.transfer_state) ? {
-      city: nextTransfer.transfer_city,
-      state: nextTransfer.transfer_state || "",
-      address: nextTransfer.transfer_address,
-      datetime: nextTransfer.transfer_datetime,
-    } : undefined;
+    const deliveryInfo =
+      nextTransfer?.transfer_city || nextTransfer?.transfer_state
+        ? {
+            city: nextTransfer.transfer_city,
+            state: nextTransfer.transfer_state || "",
+            address: nextTransfer.transfer_address,
+            datetime: nextTransfer.transfer_datetime,
+          }
+        : undefined;
 
     return {
       effectivePickupStop: pickupInfo ? null : originalPickupStop,
@@ -169,12 +162,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Fetch additional data needed for transformation
   const { data: trucks } = useQuery({
-    queryKey: ['adapter-trucks'],
+    queryKey: ["adapter-trucks"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trucks")
-        .select("*")
-        .eq("is_active", true);
+      const { data, error } = await supabase.from("trucks").select("*").eq("is_active", true);
       if (error) throw error;
       return data || [];
     },
@@ -182,12 +172,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: drivers } = useQuery({
-    queryKey: ['adapter-drivers'],
+    queryKey: ["adapter-drivers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("*")
-        .eq("is_active", true);
+      const { data, error } = await supabase.from("drivers").select("*").eq("is_active", true);
       if (error) throw error;
       return data || [];
     },
@@ -195,11 +182,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: dispatchers } = useQuery({
-    queryKey: ['adapter-dispatchers'],
+    queryKey: ["adapter-dispatchers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email, office, ext");
+      const { data, error } = await supabase.from("profiles").select("user_id, full_name, email, office, ext");
       if (error) throw error;
       return data || [];
     },
@@ -207,11 +192,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: companies } = useQuery({
-    queryKey: ['adapter-companies'],
+    queryKey: ["adapter-companies"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("id, name");
+      const { data, error } = await supabase.from("companies").select("id, name");
       if (error) throw error;
       return data || [];
     },
@@ -219,11 +202,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: truckNotes } = useQuery({
-    queryKey: ['adapter-truck-notes'],
+    queryKey: ["adapter-truck-notes"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("truck_notes")
-        .select("*");
+      const { data, error } = await supabase.from("truck_notes").select("*");
       if (error) throw error;
       return data || [];
     },
@@ -231,11 +212,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: lostDayNotes } = useQuery({
-    queryKey: ['adapter-lost-day-notes'],
+    queryKey: ["adapter-lost-day-notes"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("lost_day_notes")
-        .select("*");
+      const { data, error } = await supabase.from("lost_day_notes").select("*");
       if (error) throw error;
       return data || [];
     },
@@ -252,14 +231,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const driverIds = dateWindowHook.driverIds;
 
     // Build lookup maps
-    const truckMap = new Map(trucks.map(t => [t.id, t]));
-    const driverMap = new Map(drivers.map(d => [d.id, d]));
-    const companyMap = new Map(companies.map(c => [c.id, c.name]));
-    const dispatcherMap = new Map(dispatchers.map(d => [d.user_id, d]));
-    const truckByDriverId = new Map(trucks.filter(t => t.driver1_id).map(t => [t.driver1_id, t]));
-    const notesByDriverId = new Map((truckNotes || []).map(n => [n.driver_id, n]));
+    const truckMap = new Map(trucks.map((t) => [t.id, t]));
+    const driverMap = new Map(drivers.map((d) => [d.id, d]));
+    const companyMap = new Map(companies.map((c) => [c.id, c.name]));
+    const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
+    const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
+    const notesByDriverId = new Map((truckNotes || []).map((n) => [n.driver_id, n]));
     const lostNotesByDriverId = new Map<string, any[]>();
-    for (const note of (lostDayNotes || [])) {
+    for (const note of lostDayNotes || []) {
       const existing = lostNotesByDriverId.get(note.driver_id) || [];
       existing.push(note);
       lostNotesByDriverId.set(note.driver_id, existing);
@@ -281,13 +260,17 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         ordersByDriverId.set(order.driver2_id, existing);
       }
       // Add to transfer drivers
-      for (const transfer of (order.order_transfers || [])) {
+      for (const transfer of order.order_transfers || []) {
         if (transfer.driver1_id && !ordersByDriverId.get(transfer.driver1_id)?.includes(order)) {
           const existing = ordersByDriverId.get(transfer.driver1_id) || [];
           existing.push(order);
           ordersByDriverId.set(transfer.driver1_id, existing);
         }
-        if (transfer.driver2_id && transfer.driver2_id !== transfer.driver1_id && !ordersByDriverId.get(transfer.driver2_id)?.includes(order)) {
+        if (
+          transfer.driver2_id &&
+          transfer.driver2_id !== transfer.driver1_id &&
+          !ordersByDriverId.get(transfer.driver2_id)?.includes(order)
+        ) {
           const existing = ordersByDriverId.get(transfer.driver2_id) || [];
           existing.push(order);
           ordersByDriverId.set(transfer.driver2_id, existing);
@@ -329,7 +312,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       if (!dispatcherInfo) continue;
 
       const dispatcherId = driver.dispatcher_id!;
-      
+
       // Get or create dispatcher group
       if (!dispatcherGroups.has(dispatcherId)) {
         dispatcherGroups.set(dispatcherId, {
@@ -360,12 +343,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       let currentOrder = sortedOrders[0] || null;
 
       // Build allOrders array with pickup/delivery stops
-      const allOrdersWithStops = sortedOrders.map(order => {
+      const allOrdersWithStops = sortedOrders.map((order) => {
         const pickupStops = (order.pickup_drops || [])
-          .filter((pd: any) => pd.type === 'pickup')
+          .filter((pd: any) => pd.type === "pickup")
           .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0));
         const deliveryStops = (order.pickup_drops || [])
-          .filter((pd: any) => pd.type === 'delivery')
+          .filter((pd: any) => pd.type === "delivery")
           .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0));
 
         const pickupStop = pickupStops[0] || null;
@@ -383,7 +366,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           transferDeliveryInfo: transferInfo.transferDeliveryInfo,
           segmentLabel: transferInfo.segmentLabel,
           isTransferDriver: transferInfo.isTransferDriver,
-          isActive: order.status === 'pending' || order.status === 'in_transit',
+          isActive: order.status === "pending" || order.status === "in_transit",
         };
       });
 
@@ -391,24 +374,32 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       let truckStatus = "Available";
       if (currentOrder) {
         switch (currentOrder.status) {
-          case "pending": truckStatus = "Loading"; break;
-          case "in_transit": truckStatus = "In Transit"; break;
-          case "delivered": truckStatus = "Available"; break;
-          default: truckStatus = "Available";
+          case "pending":
+            truckStatus = "Loading";
+            break;
+          case "in_transit":
+            truckStatus = "In Transit";
+            break;
+          case "delivered":
+            truckStatus = "Available";
+            break;
+          default:
+            truckStatus = "Available";
         }
       }
 
       // Build home string
-      const homeString = driver.home_city && driver.home_state
-        ? `${driver.home_city}, ${driver.home_state}`
-        : driver.home_city || driver.home_state || "—";
+      const homeString =
+        driver.home_city && driver.home_state
+          ? `${driver.home_city}, ${driver.home_state}`
+          : driver.home_city || driver.home_state || "—";
 
       // HOS data
       const driveMinutes = driver.hos_drive_minutes || 0;
       const shiftMinutes = driver.hos_shift_minutes || 0;
       const breakMinutes = driver.hos_break_minutes || 0;
       const cycleMinutes = driver.hos_cycle_minutes || 0;
-      const formatHosTime = (minutes: number) => 
+      const formatHosTime = (minutes: number) =>
         `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}h`;
 
       // Current order stops
@@ -437,7 +428,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         status: truckStatus,
         pickup: formatStopInfo(currentPickup, currentOrder?.pickup_datetime),
         delivery: formatStopInfo(currentDelivery, currentOrder?.delivery_datetime),
-        awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+        awayDays: currentOrder
+          ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+          : 0,
         driveHours: formatHosTime(driveMinutes),
         shiftHours: formatHosTime(shiftMinutes),
         cycleHours: formatHosTime(cycleMinutes),
@@ -453,8 +446,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         lastEdit: note?.updated_at ? new Date(note.updated_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
         editDate: note?.updated_at ? new Date(note.updated_at).toLocaleDateString() : new Date().toLocaleDateString(),
         allOrders: allOrdersWithStops,
-        activeOrders: allOrdersWithStops.filter(o => o.isActive),
-        activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
+        activeOrders: allOrdersWithStops.filter((o) => o.isActive),
+        activeOrdersCount: allOrdersWithStops.filter((o) => o.isActive).length,
         totalOrdersCount: driverOrders.length,
         hasMultipleOrders: driverOrders.length > 1,
         lost_day_notes: driverLostNotes,
@@ -473,13 +466,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     // Convert to array and filter by office if needed
     let groupedData = Array.from(dispatcherGroups.values());
-    
+
     if (priorityOffice) {
-      groupedData = groupedData.filter(g => g.office === priorityOffice);
+      groupedData = groupedData.filter((g) => g.office === priorityOffice);
     }
 
     return groupedData;
-  }, [dateWindowHook.orders, dateWindowHook.driverIds, trucks, drivers, dispatchers, companies, truckNotes, lostDayNotes, priorityOffice]);
+  }, [
+    dateWindowHook.orders,
+    dateWindowHook.driverIds,
+    trucks,
+    drivers,
+    dispatchers,
+    companies,
+    truckNotes,
+    lostDayNotes,
+    priorityOffice,
+  ]);
 
   // Get mutations from original useReports hook
   // We re-use the mutations as they operate directly on the database
@@ -495,12 +498,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isSuccess: !dateWindowHook.isLoading && !dateWindowHook.error,
     isFetchingBackground: false,
     refetch: dateWindowHook.refetch,
-    
+
     // Date window specific
     dateWindow: dateWindowHook.dateWindow,
     prefetchAdjacentWindows: dateWindowHook.prefetchAdjacentWindows,
     loadedWindowCount: dateWindowHook.loadedWindowCount,
-    
+
     // Re-export all mutations from original hook
     updateTruckStatus: originalReportsHook.updateTruckStatus,
     updateTruckMilesAway: originalReportsHook.updateTruckMilesAway,
