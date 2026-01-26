@@ -263,6 +263,63 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
+  // Get order IDs from date window for order_files fetch
+  const windowOrderIds = useMemo(() => {
+    if (!dateWindowHook.orders || dateWindowHook.orders.length === 0) return [];
+    return dateWindowHook.orders.map((o) => o.id);
+  }, [dateWindowHook.orders]);
+
+  // Create stable key for order_files query
+  const orderIdsKey = useMemo(() => {
+    if (windowOrderIds.length === 0) return "";
+    // Hash to keep query key stable and reasonably sized
+    return `${windowOrderIds.length}-${windowOrderIds.slice(0, 5).join(",")}-${windowOrderIds.slice(-5).join(",")}`;
+  }, [windowOrderIds]);
+
+  // Fetch order_files for all orders in the date window (minimal fields for coloring)
+  const { data: orderFiles } = useQuery({
+    queryKey: ["adapter-order-files", orderIdsKey],
+    queryFn: async () => {
+      if (windowOrderIds.length === 0) return [];
+      
+      // Fetch in batches if needed (Supabase has limits)
+      const batchSize = 500;
+      const allFiles: any[] = [];
+      
+      for (let i = 0; i < windowOrderIds.length; i += batchSize) {
+        const batch = windowOrderIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("order_files")
+          .select("id, order_id, file_category, file_name, file_path")
+          .in("order_id", batch);
+        
+        if (error) {
+          console.error("[adapter] Error fetching order_files batch:", error);
+          continue;
+        }
+        if (data) allFiles.push(...data);
+      }
+      
+      console.log(`[adapter] Fetched ${allFiles.length} order_files for ${windowOrderIds.length} orders`);
+      return allFiles;
+    },
+    staleTime: 30000,
+    enabled: scopeEnabled && windowOrderIds.length > 0,
+  });
+
+  // Build order_files lookup map
+  const orderFilesMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    if (!orderFiles) return map;
+    for (const file of orderFiles) {
+      if (!file.order_id) continue;
+      const existing = map.get(file.order_id) || [];
+      existing.push(file);
+      map.set(file.order_id, existing);
+    }
+    return map;
+  }, [orderFiles]);
+
   // Transform date-window orders into the expected Reports shape
   const transformedData = useMemo(() => {
     if (!USE_DATE_WINDOW_LOADING) return null;
@@ -271,7 +328,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!dateWindowHook.orders) return [];
     if (!trucks || !drivers || !dispatchers || !companies) return null;
 
-    const orders = dateWindowHook.orders;
+    // Enrich orders with order_files before processing
+    const orders = dateWindowHook.orders.map((order) => ({
+      ...order,
+      order_files: orderFilesMap.get(order.id) || [],
+    }));
     const driverIds = dateWindowHook.driverIds;
 
     // Build lookup maps
@@ -526,6 +587,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     companies,
     truckNotes,
     lostDayNotes,
+    orderFilesMap,
     priorityOffice,
   ]);
 
