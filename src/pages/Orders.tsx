@@ -1266,7 +1266,7 @@ const Orders = () => {
                                 return acc;
                               }, {} as Record<string, { count: number; freight: number }>);
                               
-                              return Object.entries(byCompany)
+                              return (Object.entries(byCompany) as [string, { count: number; freight: number }][])
                                 .sort((a, b) => b[1].freight - a[1].freight)
                                 .map(([company, data]) => (
                                   <div key={company} className="flex justify-between items-center text-sm">
