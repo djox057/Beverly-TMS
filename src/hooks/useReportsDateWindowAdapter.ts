@@ -186,6 +186,31 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
+  // Get all trailer IDs from trucks to fetch trailer numbers
+  const trailerIdsFromTrucks = useMemo(() => {
+    if (!trucks) return [];
+    const ids = new Set<string>();
+    for (const t of trucks) {
+      if (t.trailer_id) ids.add(t.trailer_id);
+    }
+    return Array.from(ids);
+  }, [trucks]);
+
+  const { data: trailers } = useQuery({
+    queryKey: ["adapter-trailers", trailerIdsFromTrucks.join(",")],
+    queryFn: async () => {
+      if (trailerIdsFromTrucks.length === 0) return [];
+      const { data, error } = await supabase
+        .from("trailers")
+        .select("id, trailer_number")
+        .in("id", trailerIdsFromTrucks);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30000,
+    enabled: scopeEnabled && trailerIdsFromTrucks.length > 0,
+  });
+
   const { data: drivers } = useQuery({
     queryKey: ["adapter-drivers"],
     queryFn: async () => {
@@ -340,6 +365,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const driverMap = new Map(drivers.map((d) => [d.id, d]));
     const companyMap = new Map(companies.map((c) => [c.id, c.name]));
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, t.trailer_number]));
     const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
     const notesByDriverId = new Map((truckNotes || []).map((n) => [n.driver_id, n]));
     const lostNotesByDriverId = new Map<string, any[]>();
@@ -409,9 +435,20 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Build dispatcher groups
     const dispatcherGroups = new Map<string, any>();
 
+    // Build a set of driver2 IDs to skip (they'll be shown as part of the team on driver1's row)
+    const driver2IdsToSkip = new Set<string>();
+    for (const truck of trucks) {
+      if (truck.driver1_id && truck.driver2_id) {
+        driver2IdsToSkip.add(truck.driver2_id);
+      }
+    }
+
     for (const driverId of driverIds) {
       const driver = driverMap.get(driverId);
       if (!driver) continue;
+
+      // Skip driver2s - they are shown on the same row as driver1 (team)
+      if (driver2IdsToSkip.has(driverId)) continue;
 
       const dispatcherInfo = driver.dispatcher_id ? dispatcherMap.get(driver.dispatcher_id) : null;
       if (!dispatcherInfo) continue;
@@ -541,6 +578,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       const currentPickup = currentOrder?.pickupStop || null;
       const currentDelivery = currentOrder?.deliveryStop || null;
 
+      // Get driver2 info if this is a team truck
+      const driver2 = truck?.driver2_id ? driverMap.get(truck.driver2_id) : null;
+      
+      // Get trailer number from lookup
+      const trailerNumber = truck?.trailer_id ? trailerMap.get(truck.trailer_id) : null;
+
       group.trucks.push({
         id: truck?.id || `driver-${driverId}`,
         orderId: currentOrder?.id || null,
@@ -551,11 +594,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driverId: driver.id,
         driverPhone: driver.phone || null,
         driverEmail: driver.email || null,
-        driver2Id: null,
-        driver2Name: null,
-        driver2Phone: null,
-        driver2Email: null,
-        trailerNumber: truck?.trailer_id || null,
+        driver2Id: driver2?.id || null,
+        driver2Name: driver2?.name || null,
+        driver2Phone: driver2?.phone || null,
+        driver2Email: driver2?.email || null,
+        trailerNumber: trailerNumber || null,
         home: homeString,
         dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
         dispatcherId,
