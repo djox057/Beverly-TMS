@@ -363,20 +363,26 @@ export function useOrdersWithProgress() {
     }
   }, [queryClient, progress.isComplete]);
 
+  // Ref to track if cache initialization has been attempted
+  const hasInitializedFromCache = useRef(false);
+
   // Handle case where we got cached data from another page (e.g., /orders)
   // In this case, queryFn never ran, so progress state was never initialized
   useEffect(() => {
-    const initializeFromCache = async () => {
-      // Only run if we have data but never initialized progress
-      if (query.data && progress.unlockedTotal === null && !query.isLoading) {
-        console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
-        
+    // Only run once, when we have data but never initialized progress
+    if (query.data && progress.unlockedTotal === null && !query.isLoading && !hasInitializedFromCache.current) {
+      hasInitializedFromCache.current = true;
+      
+      console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
+      
+      // Use IIFE to handle async logic
+      (async () => {
         // Fetch the total count
         const totalCount = await fetchUnlockedCount();
         
         // Count what we have in cache
-        const unlockedInCache = query.data.filter(o => !o.locked).length;
-        const lockedInCache = query.data.filter(o => o.locked).length;
+        const unlockedInCache = query.data.filter((o: any) => !o.locked).length;
+        const lockedInCache = query.data.filter((o: any) => o.locked).length;
         
         console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
         
@@ -394,11 +400,9 @@ export function useOrdersWithProgress() {
           hasStartedBackgroundLoad.current = true;
           setTimeout(() => loadMoreUnlocked(), 300);
         }
-      }
-    };
-    
-    initializeFromCache();
-  }, [query.data, query.isLoading, progress.unlockedTotal, fetchUnlockedCount, loadMoreUnlocked]);
+      })();
+    }
+  }, [query.data, query.isLoading, progress.unlockedTotal]); // Removed function deps to prevent loops
 
   // Start background loading after initial load (when queryFn ran normally)
   useEffect(() => {
