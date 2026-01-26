@@ -87,7 +87,7 @@ async function enrichLockedOrdersWithLookups(
       }
       const results = await Promise.all(
         batches.map(batch => 
-          supabase.from("order_files").select("id, order_id, file_category, file_name").in("order_id", batch)
+          supabase.from("order_files").select("id, order_id, file_category, file_name, file_path").in("order_id", batch)
         )
       );
       return { data: results.flatMap(r => r.data || []) };
@@ -219,7 +219,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
           order_files (
             id,
             file_category,
-            file_name
+            file_name,
+            file_path
           ),
           order_transfers (
             id,
