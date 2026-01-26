@@ -170,10 +170,27 @@ export function useOrdersWithProgress() {
     }));
   }, []);
 
-  // Main query for initial load
+  // Main query for initial load - use SAME base key as useOrders for cache sharing
   const query = useQuery({
-    queryKey: ["orders-analytics"],
+    queryKey: ["orders"],
     queryFn: async () => {
+      // Check if we already have data in the orders cache from another page
+      const existingData = queryClient.getQueryData<any[]>(["orders"]);
+      if (existingData && existingData.length > 0) {
+        console.log(`[OrdersWithProgress] Reusing ${existingData.length} orders from existing cache`);
+        // Update progress based on existing data
+        const unlockedCount = existingData.filter(o => !o.locked).length;
+        const totalCount = await fetchUnlockedCount();
+        setProgress(prev => ({ 
+          ...prev, 
+          unlockedTotal: totalCount,
+          unlockedLoaded: unlockedCount,
+          lockedLoaded: existingData.length - unlockedCount,
+          isLoadingMore: unlockedCount < (totalCount || 0)
+        }));
+        return existingData;
+      }
+
       // Get total count first
       const totalCount = await fetchUnlockedCount();
       setProgress(prev => ({ ...prev, unlockedTotal: totalCount }));
@@ -278,7 +295,7 @@ export function useOrdersWithProgress() {
     setProgress(prev => ({ ...prev, isLoadingMore: true }));
 
     try {
-      const currentOrders = queryClient.getQueryData<any[]>(["orders-analytics"]) || [];
+      const currentOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
       const unlockedOrders = currentOrders.filter(o => !o.locked);
       const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
       
@@ -331,7 +348,7 @@ export function useOrdersWithProgress() {
       const hasMore = newOrders.length === PAGE_SIZE;
 
       // Merge new orders into cache
-      queryClient.setQueryData<any[]>(["orders-analytics"], (old) => {
+      queryClient.setQueryData<any[]>(["orders"], (old) => {
         if (!old) return newOrders;
         const existingIds = new Set(old.map(o => o.id));
         const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
@@ -340,7 +357,7 @@ export function useOrdersWithProgress() {
         return [...existingUnlocked, ...uniqueNewOrders, ...lockedOrders];
       });
 
-      const updatedOrders = queryClient.getQueryData<any[]>(["orders-analytics"]) || [];
+      const updatedOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
       const newUnlockedCount = updatedOrders.filter(o => !o.locked).length;
 
       setProgress(prev => ({
