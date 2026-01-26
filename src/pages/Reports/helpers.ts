@@ -187,10 +187,22 @@ export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null =
   return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
 };
 
+// Helper to check if a date string matches today (no timezone conversion)
+const isDateToday = (dateStr: string | null | undefined): boolean => {
+  if (!dateStr) return false;
+  // Extract just the date part (YYYY-MM-DD) from the datetime string
+  const datePart = dateStr.substring(0, 10);
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return datePart === todayStr;
+};
+
 // Helper to get pickup cell color based on status and previous load
 export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean, latePickups?: Set<string>) => {
-  // Show destructive styling for canceled orders
-  if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+  // Show destructive styling for canceled orders only if pickup date is today
+  if (order.canceled && isDateToday(order.pickup_datetime)) {
+    return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+  }
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
@@ -210,8 +222,10 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
 
 // Helper to get delivery cell color based on status
 export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeliveries: Set<string>) => {
-  // Show destructive styling for canceled orders
-  if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+  // Show destructive styling for canceled orders only if pickup date is today
+  if (order.canceled && isDateToday(order.pickup_datetime)) {
+    return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+  }
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
