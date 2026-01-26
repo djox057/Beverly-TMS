@@ -294,25 +294,43 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return dateWindowHook.orders.map((o) => o.id);
   }, [dateWindowHook.orders]);
 
-  // Create stable key for order_files query
-  const orderIdsKey = useMemo(() => {
+  // Create a robust hash of all order IDs to prevent cache collisions between offices
+  // Uses a simple but effective string hash function
+  const orderIdsHash = useMemo(() => {
     if (windowOrderIds.length === 0) return "";
-    // Hash to keep query key stable and reasonably sized
-    return `${windowOrderIds.length}-${windowOrderIds.slice(0, 5).join(",")}-${windowOrderIds.slice(-5).join(",")}`;
+    // Sort IDs to ensure consistent hashing regardless of order
+    const sortedIds = [...windowOrderIds].sort();
+    const str = sortedIds.join(",");
+    // Simple hash: djb2 algorithm
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return `${windowOrderIds.length}-${Math.abs(hash).toString(36)}`;
+  }, [windowOrderIds]);
+
+  // Store order IDs as JSON in query key to avoid stale closure issues
+  const orderIdsForQuery = useMemo(() => {
+    return JSON.stringify(windowOrderIds);
   }, [windowOrderIds]);
 
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
   const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
-    queryKey: ["adapter-order-files", priorityOffice, orderIdsKey],
-    queryFn: async () => {
-      if (windowOrderIds.length === 0) return [];
+    queryKey: ["adapter-order-files", priorityOffice, orderIdsHash, orderIdsForQuery],
+    queryFn: async ({ queryKey }) => {
+      // Extract order IDs from query key to avoid stale closure
+      const orderIdsJson = queryKey[3] as string;
+      const orderIds: string[] = orderIdsJson ? JSON.parse(orderIdsJson) : [];
+      
+      if (orderIds.length === 0) return [];
       
       // Fetch in batches if needed (Supabase has limits)
       const batchSize = 500;
       const allFiles: any[] = [];
       
-      for (let i = 0; i < windowOrderIds.length; i += batchSize) {
-        const batch = windowOrderIds.slice(i, i + batchSize);
+      for (let i = 0; i < orderIds.length; i += batchSize) {
+        const batch = orderIds.slice(i, i + batchSize);
         const { data, error } = await supabase
           .from("order_files")
           .select("id, order_id, file_category, file_name, file_path")
@@ -325,7 +343,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         if (data) allFiles.push(...data);
       }
       
-      console.log(`[adapter] Fetched ${allFiles.length} order_files for ${windowOrderIds.length} orders`);
+      console.log(`[adapter] Fetched ${allFiles.length} order_files for ${orderIds.length} orders`);
       return allFiles;
     },
     staleTime: 30000,

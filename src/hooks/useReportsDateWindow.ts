@@ -90,92 +90,111 @@ const fetchOrdersForDateWindow = async (
   
   console.log(`[useReportsDateWindow] Fetching orders for ${driverIds.length} drivers, window: ${startDateStr} to ${endDateStr}`);
 
-  // Build query with date window filter
-  // Orders are included if pickup_date OR delivery_date falls within the window
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select(`
-      id,
-      load_number,
-      internal_load_number,
-      broker_load_number,
-      status,
-      notes,
-      date_change_notes,
-      created_at,
-      updated_at,
-      pickup_datetime,
-      pickup_end_datetime,
-      delivery_datetime,
-      delivery_end_datetime,
-      canceled,
-      driver1_id,
-      driver2_id,
-      truck_id,
-      trailer_id,
-      broker_id,
-      company_id,
-      booked_by_company_id,
-      is_recovery,
-      locked,
-      mileage,
-      loaded_miles,
-      dh_miles,
-      original_driver1_id,
-      original_driver2_id,
-      freight_amount,
-      driver_price,
-      detention,
-      detention_driver,
-      layover,
-      layover_driver,
-      tonu,
-      tonu_driver,
-      extra_stop,
-      extra_stop_driver,
-      lumper,
-      lumper_driver,
-      booked_by,
-      pickup_drops (
+  // Paginate to avoid Supabase's default 1000-row limit
+  const BATCH_SIZE = 1000;
+  let allOrders: any[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data: batch, error } = await supabase
+      .from("orders")
+      .select(`
         id,
-        type,
-        address,
-        city,
-        state,
-        zip_code,
-        datetime,
-        end_datetime,
-        sequence_number,
-        arrived_at,
-        checked_out_at,
-        going_to_at
-      ),
-      order_transfers (
-        id,
-        sequence_number,
+        load_number,
+        internal_load_number,
+        broker_load_number,
+        status,
+        notes,
+        date_change_notes,
+        created_at,
+        updated_at,
+        pickup_datetime,
+        pickup_end_datetime,
+        delivery_datetime,
+        delivery_end_datetime,
+        canceled,
         driver1_id,
         driver2_id,
         truck_id,
         trailer_id,
-        miles,
+        broker_id,
+        company_id,
+        booked_by_company_id,
+        is_recovery,
+        locked,
+        mileage,
+        loaded_miles,
+        dh_miles,
+        original_driver1_id,
+        original_driver2_id,
+        freight_amount,
         driver_price,
-        transfer_city,
-        transfer_state,
-        transfer_address,
-        transfer_datetime
-      )
-    `)
-    .or(`driver1_id.in.(${driverIds.join(',')}),driver2_id.in.(${driverIds.join(',')})`)
-    .or(`pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59,delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59`)
-    .order("pickup_datetime", { ascending: false });
+        detention,
+        detention_driver,
+        layover,
+        layover_driver,
+        tonu,
+        tonu_driver,
+        extra_stop,
+        extra_stop_driver,
+        lumper,
+        lumper_driver,
+        booked_by,
+        pickup_drops (
+          id,
+          type,
+          address,
+          city,
+          state,
+          zip_code,
+          datetime,
+          end_datetime,
+          sequence_number,
+          arrived_at,
+          checked_out_at,
+          going_to_at
+        ),
+        order_transfers (
+          id,
+          sequence_number,
+          driver1_id,
+          driver2_id,
+          truck_id,
+          trailer_id,
+          miles,
+          driver_price,
+          transfer_city,
+          transfer_state,
+          transfer_address,
+          transfer_datetime
+        )
+      `)
+      .or(`driver1_id.in.(${driverIds.join(',')}),driver2_id.in.(${driverIds.join(',')})`)
+      .or(`pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59,delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59`)
+      .order("pickup_datetime", { ascending: false })
+      .range(offset, offset + BATCH_SIZE - 1);
 
-  if (error) {
-    console.error('[useReportsDateWindow] Error fetching orders:', error);
-    throw error;
+    if (error) {
+      console.error('[useReportsDateWindow] Error fetching orders batch:', error);
+      throw error;
+    }
+
+    if (batch) {
+      allOrders = allOrders.concat(batch);
+    }
+
+    // If we got fewer than BATCH_SIZE, we've fetched everything
+    hasMore = batch?.length === BATCH_SIZE;
+    offset += BATCH_SIZE;
+    
+    if (hasMore) {
+      console.log(`[useReportsDateWindow] Fetched batch, total so far: ${allOrders.length}, fetching more...`);
+    }
   }
 
-  console.log(`[useReportsDateWindow] Fetched ${orders?.length || 0} orders from database`);
-  return orders || [];
+  console.log(`[useReportsDateWindow] Fetched ${allOrders.length} orders from database (paginated)`);
+  return allOrders;
 };
 
 /**
@@ -314,7 +333,7 @@ const fetchGapFillOrders = async (
       .eq("canceled", false)
       .or(`driver1_id.in.(${driverIds.join(',')}),driver2_id.in.(${driverIds.join(',')})`)
       .or(`pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59,delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59`)
-      .limit(500);
+      .limit(2000);
 
     if (error) {
       console.error('[useReportsDateWindow] Error fetching gap-fill orders:', error);
