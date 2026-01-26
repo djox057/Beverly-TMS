@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -14,7 +14,7 @@ interface PaginationState {
 
 /**
  * Hook to handle cursor-based pagination for unlocked orders.
- * Allows loading more unlocked orders without loading everything into memory.
+ * Supports both manual "Load More" and automatic background loading.
  */
 export function useUnlockedOrdersPagination(options?: {
   bookedBy?: string | null;
@@ -27,6 +27,11 @@ export function useUnlockedOrdersPagination(options?: {
     totalUnlockedCount: null,
     loadedCount: 0,
   });
+  
+  // Use ref to track loading state to prevent race conditions
+  const isLoadingRef = useRef(false);
+  // Track the last cursor to prevent duplicate loads
+  const lastCursorRef = useRef<string | null>(null);
 
   // Fetch total count of unlocked orders (for UI display)
   const fetchTotalCount = useCallback(async () => {
@@ -64,6 +69,7 @@ export function useUnlockedOrdersPagination(options?: {
       setPaginationState(prev => ({
         ...prev,
         totalUnlockedCount: count,
+        hasMore: prev.loadedCount < (count || 0),
       }));
       
       return count;
@@ -74,9 +80,13 @@ export function useUnlockedOrdersPagination(options?: {
   }, [options?.bookedBy, options?.dispatcherUserId]);
 
   // Load more unlocked orders using cursor-based pagination
-  const loadMoreUnlockedOrders = useCallback(async () => {
-    if (paginationState.isLoadingMore) return;
+  const loadMoreUnlockedOrders = useCallback(async (): Promise<boolean> => {
+    // Prevent concurrent loads using ref
+    if (isLoadingRef.current) {
+      return paginationState.hasMore;
+    }
 
+    isLoadingRef.current = true;
     setPaginationState(prev => ({ ...prev, isLoadingMore: true }));
 
     try {
@@ -93,8 +103,19 @@ export function useUnlockedOrdersPagination(options?: {
       
       if (!lastUnlocked) {
         setPaginationState(prev => ({ ...prev, isLoadingMore: false, hasMore: false }));
-        return;
+        isLoadingRef.current = false;
+        return false;
       }
+
+      // Prevent duplicate loads with same cursor
+      const cursor = lastUnlocked.createdAt || lastUnlocked.created_at;
+      if (cursor === lastCursorRef.current) {
+        console.log("[useUnlockedOrdersPagination] Skipping duplicate cursor:", cursor);
+        setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+        isLoadingRef.current = false;
+        return paginationState.hasMore;
+      }
+      lastCursorRef.current = cursor;
 
       // Get dispatcher driver IDs if needed
       let dispatcherDriverIds: string[] = [];
@@ -108,7 +129,6 @@ export function useUnlockedOrdersPagination(options?: {
       }
 
       // Fetch next page of unlocked orders using cursor
-      // Cursor: orders with created_at < lastOrder.created_at (older orders)
       let query = supabase
         .from("orders")
         .select(`
@@ -149,7 +169,7 @@ export function useUnlockedOrdersPagination(options?: {
           original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
         `)
         .eq("locked", false)
-        .lt("created_at", lastUnlocked.createdAt) // Cursor: older than last loaded
+        .lt("created_at", cursor) // Cursor: older than last loaded
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
 
@@ -195,7 +215,13 @@ export function useUnlockedOrdersPagination(options?: {
         }
       );
 
-      const newLoadedCount = paginationState.loadedCount + newOrders.length;
+      // Get updated count after merge
+      const updatedOrders = queryClient.getQueryData<any[]>([
+        "orders",
+        options?.bookedBy,
+        options?.dispatcherUserId,
+      ]) || [];
+      const newLoadedCount = updatedOrders.filter(o => !o.locked).length;
       
       setPaginationState(prev => ({
         ...prev,
@@ -204,19 +230,24 @@ export function useUnlockedOrdersPagination(options?: {
         loadedCount: newLoadedCount,
       }));
 
-      console.log(`[useUnlockedOrdersPagination] Loaded ${newOrders.length} more unlocked orders`);
+      console.log(`[useUnlockedOrdersPagination] Loaded ${newOrders.length} more (total: ${newLoadedCount})`);
+      
+      isLoadingRef.current = false;
+      return hasMore;
     } catch (error) {
       console.error("[useUnlockedOrdersPagination] Error loading more:", error);
       setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+      isLoadingRef.current = false;
+      return false;
     }
-  }, [options?.bookedBy, options?.dispatcherUserId, paginationState.isLoadingMore, paginationState.loadedCount, queryClient]);
+  }, [options?.bookedBy, options?.dispatcherUserId, queryClient, paginationState.hasMore]);
 
   // Update loaded count when initial data is available
   const setInitialLoadedCount = useCallback((count: number) => {
     setPaginationState(prev => ({
       ...prev,
       loadedCount: count,
-      hasMore: count >= PAGE_SIZE,
+      hasMore: prev.totalUnlockedCount !== null ? count < prev.totalUnlockedCount : count >= PAGE_SIZE,
     }));
   }, []);
 
