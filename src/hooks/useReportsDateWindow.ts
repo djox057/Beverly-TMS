@@ -22,6 +22,7 @@ export interface DateWindow {
 
 export interface ReportsDateWindowOptions {
   dispatcherId: string | null;
+  dispatcherProfileId?: string | null;
   selectedDate: Date;
   /** Office to filter dispatchers by (e.g., "Čačak"). Used to match legacy useReports behavior. */
   priorityOffice?: string | null;
