@@ -451,16 +451,6 @@ async function fetchSingleOrder(orderId: string) {
           contact_phone,
           special_instructions
         ),
-        order_files (
-          id,
-          file_category,
-          file_name,
-          file_path,
-          file_size,
-          content_type,
-          uploaded_by,
-          created_at
-        ),
         order_transfers (
           id,
           sequence_number,

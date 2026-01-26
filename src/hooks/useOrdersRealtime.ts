@@ -26,7 +26,6 @@ export function useOrdersRealtime() {
           `
           *,
           pickup_drops (*),
-          order_files (*),
           order_transfers (
             *,
             driver1:drivers!order_transfers_driver1_id_fkey (id, name),
@@ -133,7 +132,7 @@ export function useOrdersRealtime() {
       updateAllOrdersCaches(orderId, transformedOrder);
     };
 
-    // Handle related table changes (pickup_drops, order_files, order_transfers)
+    // Handle related table changes (pickup_drops, order_transfers)
     const handleRelatedTableChange = async (
       payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
     ) => {
@@ -154,7 +153,7 @@ export function useOrdersRealtime() {
     };
 
     // Create channel and subscribe
-    // NOTE: order_files removed from realtime - files are loaded on-demand when order is expanded
+    // Create channel and subscribe (orders, pickup_drops, order_transfers only)
     const channel = supabase
       .channel("orders-realtime-global")
       .on(
