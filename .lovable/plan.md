@@ -1,119 +1,144 @@
 
-# Fix: Order Files Not Displaying in Reports (RC/BOL/POD Missing)
+# Fix: Reports Page Not Showing Order Files (RC/BOL/POD Missing)
 
 ## Problem Summary
 
-When document files (RC, BOL, POD) are uploaded, they correctly appear in the Orders page but NOT in the Reports page. This affects **253+ orders** with files in the current date window.
+The `/reports` page fails to display document status indicators (RC, BOL, POD) for many orders, even when files are correctly uploaded. The popup for order S113550459 shows upload buttons instead of green checkmarks despite having RC and BOL files in the database.
 
-**Example:** Load S113550459 has an RC file uploaded on Jan 23 and a BOL file uploaded 30 minutes ago at 21:24, but the Reports page shows no document indicators.
+This affects **all orders** in the date window, not just one specific order.
 
 ---
 
-## Root Cause
+## Root Cause: Query Cascade Race Condition
 
-The Reports page uses a separate data architecture from the Orders page:
+The adapter uses a cascade of dependent queries that creates a timing issue:
 
 ```text
-Orders Page:                          Reports Page:
-┌─────────────────────┐               ┌─────────────────────────────┐
-│ useOrders           │               │ useReportsDateWindowAdapter │
-│ Query: ["orders"]   │               │ Query: ["adapter-order-files"]
-│ Real-time: YES      │◄──────────────│ Real-time: NO               │
-└─────────────────────┘               └─────────────────────────────┘
-        ▲                                        ▲
-        │                                        │
-┌───────┴────────────────────────────────────────┴───────┐
-│                  order_files table                      │
-│                 (Supabase Realtime)                     │
-└────────────────────────────────────────────────────────┘
+Query Cascade:
+┌─────────────────────────────────────────────────────────────────────┐
+│ Step 1: dateWindowHook fetches orders                               │
+│         └─ Returns 188 orders for KRAGUJEVAC                        │
+├─────────────────────────────────────────────────────────────────────┤
+│ Step 2: windowOrderIds computed from orders                         │
+│         └─ Creates array of 188 order IDs                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Step 3: order_files query enabled and starts fetching               │
+│         └─ Will return 511 files                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│ PROBLEM: transformedData runs BETWEEN Step 2 and Step 3 completing! │
+│          └─ orderFilesMap is EMPTY at this point                    │
+│          └─ All orders get: order_files: []                         │
+│          └─ UI renders with no document indicators                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**The Issue:**
-1. `useOrdersRealtime.ts` listens to `order_files` changes
-2. It updates ALL caches with keys starting with `["orders"]`
-3. BUT it does NOT update `["adapter-order-files"]` used by Reports
-4. The adapter's staleTime is 30 seconds, but the query key hash doesn't change when files are added
-5. Result: Reports shows stale file data until page refresh
+The `transformedData` useMemo has `orderFilesMap` in its dependencies, so it SHOULD re-run when files load. However, the initial render shows stale data, and the re-render may not propagate correctly to the UI.
 
 ---
 
 ## Solution
 
-Extend `useOrdersRealtime.ts` to also invalidate the Reports adapter's order_files cache when files are uploaded.
+Add a loading check to prevent `transformedData` from computing until `order_files` have been fetched.
 
 ### Technical Changes
 
-**File: `src/hooks/useOrdersRealtime.ts`**
+**File: `src/hooks/useReportsDateWindowAdapter.ts`**
 
-Update `handleRelatedTableChange` function to additionally invalidate the adapter order_files cache:
+#### 1. Track order_files loading state
+
+Update the useQuery to destructure `isLoading`:
 
 ```typescript
-const handleRelatedTableChange = async (
-  payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-) => {
-  const newRecord = payload.new as any;
-  const oldRecord = payload.old as any;
-  const orderId = newRecord?.order_id || oldRecord?.order_id;
-  const tableName = (payload as any).table || '';
+// Line 305 - Add isLoading to destructuring
+const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
+  queryKey: ["adapter-order-files", priorityOffice, orderIdsKey],
+  // ... rest unchanged
+});
+```
 
-  if (!orderId) return;
+#### 2. Add loading check in transformedData
 
-  console.log(`[Realtime] Related table change for order:`, orderId, `table:`, tableName);
+Update the useMemo to wait for order_files:
 
-  // For order_files changes, also invalidate the adapter cache
-  if (tableName === 'order_files') {
-    // Invalidate all adapter-order-files queries so Reports refreshes
-    queryClient.invalidateQueries({ 
-      queryKey: ["adapter-order-files"],
-      refetchType: 'active'  // Only refetch currently mounted queries
-    });
-  }
+```typescript
+// Line 349 - Add check for order_files loading
+const transformedData = useMemo(() => {
+  if (!USE_DATE_WINDOW_LOADING) return null;
+  if (dateWindowHook.isLoading) return null;
+  if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) return [];
+  if (!dateWindowHook.orders) return [];
+  if (!trucks || !drivers || !dispatchers || !companies) return null;
+  
+  // NEW: Wait for order_files to load before transforming
+  // This prevents rendering with empty files during the query cascade
+  if (windowOrderIds.length > 0 && isOrderFilesLoading) return null;
+  
+  // ... rest of transformation unchanged
+```
 
-  // Continue with existing order cache update logic
-  const fullOrder = await fetchSingleOrder(orderId);
-  if (!fullOrder) return;
+#### 3. Update dependencies and isLoading return value
 
-  const transformedOrder = transformOrder(fullOrder);
-  updateAllOrdersCaches(orderId, transformedOrder);
+Add `isOrderFilesLoading` and `windowOrderIds` to the useMemo dependencies (line 670-683):
+
+```typescript
+], [
+  dateWindowHook.orders,
+  dateWindowHook.driverIds,
+  dateWindowHook.isLoading,
+  trucks,
+  drivers,
+  dispatchers,
+  companies,
+  truckNotes,
+  lostDayNotes,
+  orderFilesMap,
+  priorityOffice,
+  dispatcherId,
+  isOrderFilesLoading,  // NEW
+  windowOrderIds,        // NEW (already computed, stable reference)
+]);
+```
+
+Update the returned `isLoading` to include order_files loading state (line 692):
+
+```typescript
+return {
+  data: transformedData,
+  isLoading: dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading),
+  // ... rest unchanged
 };
 ```
 
 ---
 
-## Why This Fix Works
+## Why This Fixes the Issue
 
-| Event | Before Fix | After Fix |
-|-------|-----------|-----------|
-| User uploads BOL | Orders page updates via setQueryData | Same |
-| | Reports page shows stale data | Reports invalidates + refetches |
-| | Requires page refresh | Real-time update |
-
----
-
-## Alternative Considered
-
-**Option B: Share order_files data between Orders and Reports**
-- Would require significant refactoring of the adapter architecture
-- Risk of breaking existing functionality
-- More complex to implement and maintain
-
-**Chosen: Option A (Invalidation)** - Minimal code change, targeted fix, maintains existing architecture.
+| Before Fix | After Fix |
+|------------|-----------|
+| transformedData runs immediately when orders load | Waits for order_files query to complete |
+| orderFilesMap is empty during first computation | orderFilesMap is populated before computation |
+| UI shows upload buttons (no files) | UI shows correct document status |
+| Requires page refresh to see files | Real-time update on initial load |
 
 ---
 
 ## Files to Modify
 
-1. **src/hooks/useOrdersRealtime.ts**
-   - Add table name detection in `handleRelatedTableChange`
-   - Add cache invalidation for `["adapter-order-files"]` when `order_files` table changes
+1. **src/hooks/useReportsDateWindowAdapter.ts**
+   - Destructure `isLoading` from order_files query (line 305)
+   - Add loading check in transformedData useMemo (line 349)
+   - Add new dependencies to useMemo (line 680-683)
+   - Update returned isLoading to include order_files state (line 692)
 
 ---
 
 ## Testing Checklist
 
-1. Open Reports page for an office
-2. In another tab, upload a BOL file for an order visible in Reports
-3. Switch back to Reports - document indicator should update within seconds
-4. Verify RC, BOL, POD indicators all update correctly
-5. Verify existing Orders page real-time updates still work
-6. Verify no performance degradation (uses refetchType: 'active')
+After the fix:
+1. Navigate to `/reports` page for KRAGUJEVAC office
+2. Find order S113550459 (Load #2207)
+3. Click on the order row to open the popup
+4. Verify RC and BOL show as green checkmarks (not upload buttons)
+5. Verify clicking RC or BOL opens the actual file
+6. Test with other offices to ensure no regression
+7. Verify loading spinner shows while data is being fetched
