@@ -18,7 +18,7 @@ export function useOrdersRealtime() {
     if (isSubscribedRef.current) return;
     isSubscribedRef.current = true;
 
-    // Helper to fetch a single order with all joins
+    // Helper to fetch a single order with all joins including order_files for document indicators
     const fetchSingleOrder = async (orderId: string) => {
       const { data, error } = await supabase
         .from("orders")
@@ -26,6 +26,7 @@ export function useOrdersRealtime() {
           `
           *,
           pickup_drops (*),
+          order_files (id, file_category, file_name, file_path),
           order_transfers (
             *,
             driver1:drivers!order_transfers_driver1_id_fkey (id, name),
@@ -153,7 +154,7 @@ export function useOrdersRealtime() {
     };
 
     // Create channel and subscribe
-    // Create channel and subscribe (orders, pickup_drops, order_transfers only)
+    // Create channel and subscribe (orders, pickup_drops, order_transfers, order_files)
     const channel = supabase
       .channel("orders-realtime-global")
       .on(
@@ -169,6 +170,11 @@ export function useOrdersRealtime() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_transfers" },
+        handleRelatedTableChange
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_files" },
         handleRelatedTableChange
       )
       .subscribe((status) => {
