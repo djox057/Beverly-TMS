@@ -80,6 +80,7 @@ export function transformOrders(allOrders: any[]) {
     const rcFiles = orderFiles.filter((f: any) => f.file_category === "RC");
     const podFiles = orderFiles.filter((f: any) => f.file_category === "POD");
     const bolFiles = orderFiles.filter((f: any) => f.file_category === "BOL");
+    const additionalFiles = orderFiles.filter((f: any) => f.file_category === "ADDITIONAL");
 
     // Transform to camelCase with computed fields, flattening joined data
     return {
@@ -359,6 +360,7 @@ export function transformOrders(allOrders: any[]) {
       rcFiles,
       podFiles,
       bolFiles,
+      additionalFiles,
     };
   });
 

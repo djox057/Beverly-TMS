@@ -80,6 +80,7 @@ interface Order {
   mileage: number;
   rcFiles?: OrderFile[];
   podFiles?: OrderFile[];
+  additionalFiles?: OrderFile[];
   pickup_drops?: PickupDrop[];
 }
 
@@ -96,19 +97,20 @@ interface MergeTask {
   invoicePdfBytes: ArrayBuffer;
   rcFiles: OrderFile[];
   podFiles: OrderFile[];
+  additionalFiles: OrderFile[];
   baseFilename: string;
   companyFolder: string;
 }
 
 interface SkippedFile {
-  file_type: 'RC' | 'POD';
+  file_type: 'RC' | 'POD' | 'ADDITIONAL';
   file_name: string;
   file_path: string;
   reason: string;
 }
 
 interface IncludedFile {
-  file_type: 'RC' | 'POD';
+  file_type: 'RC' | 'POD' | 'ADDITIONAL';
   file_name: string;
   resolved_path: string;
   fallback?: boolean;
@@ -122,15 +124,16 @@ interface MergeTaskResult {
 }
 
 const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
-  const { invoicePdfBytes, rcFiles, podFiles, baseFilename } = task;
+  const { invoicePdfBytes, rcFiles, podFiles, additionalFiles, baseFilename } = task;
   
-  if (rcFiles.length > 0 || podFiles.length > 0) {
+  if (rcFiles.length > 0 || podFiles.length > 0 || additionalFiles.length > 0) {
     try {
       const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
         body: {
           invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
           rcFiles,
-          podFiles
+          podFiles,
+          additionalFiles
         }
       });
       
@@ -163,7 +166,7 @@ export interface InvoiceProgress {
 
 export interface InvoiceWarning {
   invoice: string;
-  files: Array<{ type: 'RC' | 'POD'; name: string }>;
+  files: Array<{ type: 'RC' | 'POD' | 'ADDITIONAL'; name: string }>;
   reason: 'skipped' | 'fallback';
 }
 
@@ -496,10 +499,11 @@ export const generateInvoicePDF = async (
       doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
       doc.text('Page 1 Of 1', 190, 280);
       
-      // Get PDF bytes and collect RC/POD files for this order
+      // Get PDF bytes and collect RC/POD/Additional files for this order
       const invoicePdfBytes = doc.output('arraybuffer');
       const rcFiles = order.rcFiles || [];
       const podFiles = order.podFiles || [];
+      const additionalFiles = order.additionalFiles || [];
       
       // Add merge task (don't await here - we'll process in batches)
       const taskIndex = mergeTasks.length;
@@ -508,6 +512,7 @@ export const generateInvoicePDF = async (
         invoicePdfBytes,
         rcFiles,
         podFiles,
+        additionalFiles,
         baseFilename,
         companyFolder: sanitizedCompanyName
       });

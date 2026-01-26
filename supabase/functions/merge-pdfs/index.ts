@@ -83,7 +83,7 @@ serve(async (req) => {
   }
 
   try {
-    const { invoicePdfBytes, rcFiles, podFiles } = await req.json()
+    const { invoicePdfBytes, rcFiles, podFiles, additionalFiles } = await req.json()
     
     if (!invoicePdfBytes) {
       return new Response(
@@ -92,8 +92,8 @@ serve(async (req) => {
       )
     }
 
-    const totalFiles = (rcFiles?.length || 0) + (podFiles?.length || 0);
-    console.log(`Starting PDF merge: invoice + ${totalFiles} files (RC: ${rcFiles?.length || 0}, POD: ${podFiles?.length || 0})`)
+    const totalFiles = (rcFiles?.length || 0) + (podFiles?.length || 0) + (additionalFiles?.length || 0);
+    console.log(`Starting PDF merge: invoice + ${totalFiles} files (RC: ${rcFiles?.length || 0}, POD: ${podFiles?.length || 0}, Additional: ${additionalFiles?.length || 0})`)
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -126,8 +126,8 @@ serve(async (req) => {
       return hasImageExtension || hasImageType
     }
 
-    const includedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; resolved_path: string; fallback?: boolean }> = [];
-    const skippedFiles: Array<{ file_type: 'RC' | 'POD'; file_name: string; file_path: string; reason: string }> = [];
+    const includedFiles: Array<{ file_type: 'RC' | 'POD' | 'ADDITIONAL'; file_name: string; resolved_path: string; fallback?: boolean }> = [];
+    const skippedFiles: Array<{ file_type: 'RC' | 'POD' | 'ADDITIONAL'; file_name: string; file_path: string; reason: string }> = [];
 
     let helveticaFont: any | null = null;
     const getHelvetica = async () => {
@@ -137,7 +137,7 @@ serve(async (req) => {
       return helveticaFont;
     };
 
-    const addFileToPdf = async (file: any, fileType: 'RC' | 'POD'): Promise<boolean> => {
+    const addFileToPdf = async (file: any, fileType: 'RC' | 'POD' | 'ADDITIONAL'): Promise<boolean> => {
       try {
         console.log(`Processing ${fileType} file: ${file.file_name} at path: ${file.file_path}`);
         
@@ -314,6 +314,14 @@ serve(async (req) => {
       console.log(`Processing ${podFiles.length} POD file(s)...`);
       for (const podFile of podFiles) {
         const success = await addFileToPdf(podFile, 'POD');
+        if (success) successCount++;
+      }
+    }
+
+    if (additionalFiles && additionalFiles.length > 0) {
+      console.log(`Processing ${additionalFiles.length} Additional file(s)...`);
+      for (const additionalFile of additionalFiles) {
+        const success = await addFileToPdf(additionalFile, 'ADDITIONAL');
         if (success) successCount++;
       }
     }
