@@ -278,7 +278,6 @@ const Orders = () => {
   
   // Pagination hook for unlocked orders - allows loading more without loading everything
   const {
-    hasMore: hasMoreUnlocked,
     isLoadingMore,
     totalUnlockedCount,
     loadedCount: loadedUnlockedCount,
@@ -290,19 +289,36 @@ const Orders = () => {
   // Debounce search term for server-side search
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Trigger server-side search when debounced search term changes
+  // Track previous search term to avoid unnecessary searches
+  const [lastSearchedTerm, setLastSearchedTerm] = useState<string>("");
+
+  // Trigger server-side search ONLY when debounced search term actually changes
   useEffect(() => {
-    if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2) {
-      searchOrders(debouncedSearchTerm, orderFilterOptions);
-    } else {
+    const trimmedTerm = debouncedSearchTerm?.trim() || "";
+    
+    // Only search if the term actually changed
+    if (trimmedTerm === lastSearchedTerm) {
+      return;
+    }
+    
+    if (trimmedTerm.length >= 2) {
+      setLastSearchedTerm(trimmedTerm);
+      searchOrders(trimmedTerm, orderFilterOptions);
+    } else if (lastSearchedTerm) {
+      // Clear search only if we had a previous search
+      setLastSearchedTerm("");
       clearSearch();
     }
-  }, [debouncedSearchTerm, orderFilterOptions, searchOrders, clearSearch]);
+  }, [debouncedSearchTerm]); // Intentionally not including orderFilterOptions to prevent re-search on every render
 
-  // Fetch total unlocked count on mount
+  // Fetch total unlocked count on mount (once)
+  const [hasFetchedCount, setHasFetchedCount] = useState(false);
   useEffect(() => {
-    fetchTotalCount();
-  }, [fetchTotalCount]);
+    if (!hasFetchedCount) {
+      fetchTotalCount();
+      setHasFetchedCount(true);
+    }
+  }, [hasFetchedCount, fetchTotalCount]);
 
   // Update pagination state when orders load
   useEffect(() => {
@@ -311,6 +327,49 @@ const Orders = () => {
       setInitialLoadedCount(unlockedCount);
     }
   }, [orders, setInitialLoadedCount]);
+
+  // Background loading: automatically load remaining unlocked orders in batches
+  const [backgroundLoadingStarted, setBackgroundLoadingStarted] = useState(false);
+  const [backgroundLoadingComplete, setBackgroundLoadingComplete] = useState(false);
+  
+  useEffect(() => {
+    // Start background loading after initial data is loaded
+    if (
+      orders && 
+      orders.length > 0 && 
+      !backgroundLoadingStarted && 
+      !backgroundLoadingComplete &&
+      !isLoading &&
+      totalUnlockedCount !== null &&
+      loadedUnlockedCount < totalUnlockedCount
+    ) {
+      setBackgroundLoadingStarted(true);
+      
+      // Load remaining orders in background batches
+      const loadRemainingInBackground = async () => {
+        console.log(`[Orders] Starting background load: ${loadedUnlockedCount} of ${totalUnlockedCount}`);
+        let hasMore = true;
+        let attempts = 0;
+        const maxAttempts = 50; // Safety limit
+        
+        while (hasMore && attempts < maxAttempts) {
+          attempts++;
+          // loadMoreUnlockedOrders returns whether there are more to load
+          hasMore = await loadMoreUnlockedOrders();
+          
+          if (hasMore) {
+            // Small delay between batches to not overwhelm the browser
+            await new Promise(resolve => setTimeout(resolve, 150));
+          }
+        }
+        
+        console.log(`[Orders] Background loading complete after ${attempts} batches`);
+        setBackgroundLoadingComplete(true);
+      };
+      
+      loadRemainingInBackground();
+    }
+  }, [orders, isLoading, backgroundLoadingStarted, backgroundLoadingComplete, totalUnlockedCount, loadedUnlockedCount, loadMoreUnlockedOrders]);
 
   console.log("🟦 [Orders Page] useOrders returned:", {
     ordersCount: orders?.length,
@@ -1976,32 +2035,13 @@ const Orders = () => {
               </div>
             )}
 
-            {/* Load More Unlocked Orders */}
-            {hasMoreUnlocked && !isSearching && !debouncedSearchTerm && (
+            {/* Background Loading Progress */}
+            {!backgroundLoadingComplete && totalUnlockedCount !== null && loadedUnlockedCount < totalUnlockedCount && !isSearching && !debouncedSearchTerm && (
               <div className="flex items-center justify-center gap-4 px-6 py-4 border-t bg-muted/30">
-                <div className="text-sm text-muted-foreground">
-                  {totalUnlockedCount !== null ? (
-                    <>
-                      Loaded {loadedUnlockedCount} of {totalUnlockedCount} unlocked orders
-                    </>
-                  ) : (
-                    <>More unlocked orders available</>
-                  )}
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading orders: {loadedUnlockedCount} of {totalUnlockedCount} unlocked orders
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadMoreUnlockedOrders}
-                  disabled={isLoadingMore}
-                  className="gap-2"
-                >
-                  {isLoadingMore ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Load More Unlocked Orders
-                </Button>
               </div>
             )}
 
