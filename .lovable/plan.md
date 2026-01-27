@@ -1,118 +1,169 @@
 
-
-# Fix Reports Page Maintenance and DOT Alert Icons
+# Fix Instant Truck Notes Updates on Reports Page
 
 ## Problem Summary
-The Reports page is no longer displaying maintenance and DOT inspection alert icons (oil change, tires swap, maintenance check, truck DOT, trailer DOT) that used to appear in the legacy system.
+When a user edits a truck note on the Reports page:
+- The change appears in Note History immediately
+- But the note text in the main Reports table does NOT update until page refresh
+- Other users also don't see the change instantly (realtime exists but has latency)
 
-## Root Causes Identified
+## Root Cause Analysis
 
-### Issue 1: Property Name Mismatch (snake_case vs camelCase)
-The adapter in `useReportsDateWindowAdapter.ts` maps truck maintenance dates to **camelCase** properties:
-```typescript
-oilChangeDate: truck?.oil_change_date,
-maintenanceCheckDate: truck?.maintenance_check_date,
-dotInspectionDate: truck?.dot_inspection_date,
+The data flow currently works like this:
+
+```text
+User edits note
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ updateTruckNote mutation (in useReports.ts)                  │
+│                                                              │
+│  onMutate (optimistic update):                               │
+│    ✅ Updates ["reports", "priority"]    ← LEGACY keys       │
+│    ✅ Updates ["reports", "full"]        ← LEGACY keys       │
+│    ❌ Does NOT update adapter cache                          │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Database write → Supabase Realtime                           │
+│                                                              │
+│  100-500ms delay before realtime event fires                 │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Realtime subscription (in useReportsDateWindowAdapter.ts)    │
+│                                                              │
+│  ✅ Patches ["adapter-truck-notes", priorityOffice]          │
+│  (But delayed - not instant for editing user)                │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-But the helper functions in `helpers.ts` expect **snake_case** properties:
-```typescript
-// getMaintenanceIconStatus looks for:
-truck.oil_change_date
-truck.tires_swap_date
-truck.maintenance_check_date
-
-// getDotInspectionIconStatus looks for:
-truck.dot_inspection_date
-truck.trailer_dot_inspection_date
-```
-
-### Issue 2: Missing Fields
-The adapter is completely missing:
-- `tires_swap_date` - not mapped at all
-- `trailer_dot_inspection_date` - not mapped at all
-
-### Issue 3: Trailers Query Missing DOT Date
-The trailers query only selects `id` and `trailer_number`:
-```typescript
-.select("id, trailer_number")
-```
-It should also fetch `dot_inspection_date` so the trailer DOT alert can be displayed.
+The adapter uses `["adapter-truck-notes", priorityOffice]` for its data, but the mutation's optimistic update only targets the legacy query keys.
 
 ## Solution
 
-### Step 1: Update Trailers Query
-Modify the trailers query to include `dot_inspection_date`:
-```typescript
-.select("id, trailer_number, dot_inspection_date")
+Modify the `updateTruckNote` mutation in `useReports.ts` to ALSO optimistically update the adapter's truck notes cache.
+
+### Changes Required
+
+**File: `src/hooks/useReports.ts`**
+
+In the `updateTruckNote` mutation's `onMutate` handler:
+
+1. **Cancel adapter queries** to prevent race conditions:
+   ```typescript
+   await queryClient.cancelQueries({ queryKey: ["adapter-truck-notes"] });
+   ```
+
+2. **Snapshot adapter cache** for rollback:
+   ```typescript
+   const previousAdapterNotes = queryClient.getQueriesData({ 
+     queryKey: ["adapter-truck-notes"] 
+   });
+   ```
+
+3. **Optimistically update adapter cache** by patching the note directly:
+   ```typescript
+   queryClient.setQueriesData(
+     { queryKey: ["adapter-truck-notes"] },
+     (oldNotes: any[] | undefined) => {
+       if (!oldNotes) return oldNotes;
+       const existingIndex = oldNotes.findIndex((n) => n.driver_id === driverId);
+       if (existingIndex >= 0) {
+         const updated = [...oldNotes];
+         updated[existingIndex] = {
+           ...updated[existingIndex],
+           note,
+           updated_at: new Date().toISOString(),
+         };
+         return updated;
+       }
+       // If no existing note for this driver, add a new entry
+       return [...oldNotes, {
+         id: `temp-${driverId}`,
+         driver_id: driverId,
+         truck_id: truckId?.startsWith('driver-') ? null : truckId,
+         note,
+         updated_at: new Date().toISOString(),
+       }];
+     }
+   );
+   ```
+
+4. **Rollback adapter cache on error**:
+   ```typescript
+   // In onError handler
+   if (context?.previousAdapterNotes) {
+     context.previousAdapterNotes.forEach(([queryKey, data]: [any, any]) => {
+       queryClient.setQueryData(queryKey, data);
+     });
+   }
+   ```
+
+### Data Flow After Fix
+
+```text
+User edits note
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ updateTruckNote mutation                                     │
+│                                                              │
+│  onMutate (optimistic update):                               │
+│    ✅ Updates ["reports", "priority"]                        │
+│    ✅ Updates ["reports", "full"]                            │
+│    ✅ Updates ["adapter-truck-notes", *]  ← NEW              │
+│                                                              │
+│  UI updates INSTANTLY for editing user                       │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Database write → Supabase Realtime                           │
+│                                                              │
+│  Broadcasts to ALL connected users                           │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Realtime subscription                                        │
+│                                                              │
+│  ✅ Patches ["adapter-truck-notes", priorityOffice]          │
+│  (Updates UI for OTHER users viewing the page)               │
+└──────────────────────────────────────────────────────────────┘
 ```
-
-### Step 2: Update trailerMap
-Change the trailerMap from `Map<string, string>` to `Map<string, object>` to store the full trailer info needed (number + DOT date).
-
-### Step 3: Fix Truck Object Property Names
-Update the truck object construction to use **snake_case** property names matching what the helpers expect:
-```typescript
-// Maintenance dates (snake_case to match helpers)
-oil_change_date: truck?.oil_change_date || null,
-tires_swap_date: truck?.tires_swap_date || null,
-maintenance_check_date: truck?.maintenance_check_date || null,
-// DOT inspection dates (snake_case to match helpers)
-dot_inspection_date: truck?.dot_inspection_date || null,
-trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
-```
-
-## Files to Modify
-
-### `src/hooks/useReportsDateWindowAdapter.ts`
-
-1. **Trailers query** (line 206): Add `dot_inspection_date` to the select
-2. **trailerMap** (line 462): Change to store full trailer object instead of just the number
-3. **Truck object construction** (lines 735-738): 
-   - Change to snake_case property names
-   - Add missing `tires_swap_date`
-   - Add `trailer_dot_inspection_date` from trailerInfo
-4. **Update trailerNumber assignment** (line 682): Adjust to use trailerInfo object
 
 ## Technical Details
 
-### Current vs Fixed Data Flow:
+### Why setQueriesData (plural)?
 
-```text
-Current (BROKEN):
-┌──────────────┐     ┌──────────────────────┐     ┌────────────────────┐
-│ trucks table │ ──> │ oilChangeDate (CC)   │ ──> │ Helpers expect     │
-│              │     │ dotInspectionDate    │     │ oil_change_date ❌ │
-│              │     │ (missing tires_swap) │     │ (no match!)        │
-└──────────────┘     └──────────────────────┘     └────────────────────┘
+The adapter query key includes `priorityOffice`, so different office tabs have different cache entries:
+- `["adapter-truck-notes", "East"]`
+- `["adapter-truck-notes", "West"]`
+- etc.
 
-┌────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│ trailers table │ ──> │ only trailer_number │ ──> │ Helpers expect      │
-│                │     │ (no DOT date!)      │     │ trailer_dot_date ❌ │
-└────────────────┘     └─────────────────────┘     └─────────────────────┘
+Using `setQueriesData` with `{ queryKey: ["adapter-truck-notes"] }` will update ALL matching caches, ensuring the note updates regardless of which office tab is active.
 
-Fixed:
-┌──────────────┐     ┌────────────────────────┐     ┌────────────────────┐
-│ trucks table │ ──> │ oil_change_date (SC)   │ ──> │ Helpers expect     │
-│              │     │ tires_swap_date        │     │ oil_change_date ✅ │
-│              │     │ maintenance_check_date │     │ (matches!)         │
-│              │     │ dot_inspection_date    │     │                    │
-└──────────────┘     └────────────────────────┘     └────────────────────┘
+### Edge Cases Handled
 
-┌────────────────┐     ┌─────────────────────────┐     ┌─────────────────────┐
-│ trailers table │ ──> │ trailer_number +        │ ──> │ Helpers expect      │
-│                │     │ dot_inspection_date ──> │     │ trailer_dot_date ✅ │
-└────────────────┘     │ trailer_dot_inspection  │     └─────────────────────┘
-                       └─────────────────────────┘
-```
+1. **Driver without existing note**: The update creates a temporary entry in the cache
+2. **Driver without truck (unassigned)**: The `truckId` check handles `driver-{id}` format
+3. **Error rollback**: All caches are restored if the mutation fails
+4. **Race with realtime**: Realtime may overwrite the optimistic update, but with the same data (idempotent)
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/hooks/useReports.ts` | Modify `updateTruckNote` mutation's `onMutate` and `onError` handlers |
 
 ## Testing Checklist
-1. Verify oil change icon (wrench) appears in yellow when due within 30 days
-2. Verify oil change icon appears in red when due within 7 days
-3. Verify tires swap date triggers wrench icon
-4. Verify maintenance check date triggers wrench icon
-5. Verify truck DOT inspection icon appears in yellow (60 days) / red (30 days)
-6. Verify trailer DOT inspection icon appears correctly
-7. Verify tooltips show correct information for each alert
-8. Verify drivers without trucks still display correctly (no alerts expected)
 
+1. Edit a truck note - verify it updates instantly in the main table
+2. Open Note History - verify it shows the new note
+3. Have another user viewing the same page - verify their UI updates within 1 second
+4. Edit a note for a driver without a truck - verify it still works
+5. Simulate network error - verify the note reverts to previous value
+6. Switch office tabs and edit notes - verify correct cache is updated
