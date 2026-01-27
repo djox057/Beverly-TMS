@@ -417,11 +417,33 @@ const fetchDriverIdsForOffice = async (priorityOffice: string | null): Promise<{
     }
   }
 
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Table=trucks→drivers, Filter=driver1.dispatcher_id IN office dispatchers`);
+  console.log(`[useReportsDateWindow] 🔍 DEBUG: Total trucks checked=${trucks?.length || 0}, Truck-based drivers=${driverIdsSet.size}`);
+
+  // Step 4: NEW - Fetch active drivers directly by dispatcher_id (includes unassigned drivers)
+  // This matches legacy useReports.ts behavior where ALL active drivers for an office's dispatchers are included
+  const { data: directDrivers, error: directDriversError } = await supabase
+    .from("drivers")
+    .select("id")
+    .eq("is_active", true)
+    .in("dispatcher_id", filterDispatcherIds);
+
+  if (directDriversError) {
+    console.error('[useReportsDateWindow] Error fetching direct drivers:', directDriversError);
+    // Don't throw - still return truck-based drivers
+  } else {
+    // Add all active drivers for these dispatchers (includes drivers without trucks)
+    for (const driver of directDrivers || []) {
+      if (driver.id) {
+        driverIdsSet.add(driver.id);
+      }
+    }
+    console.log(`[useReportsDateWindow] 🔍 DEBUG: Direct dispatcher-based drivers found=${directDrivers?.length || 0}`);
+  }
+
   const driverIds = Array.from(driverIdsSet);
   
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Table=trucks→drivers, Filter=driver1.dispatcher_id IN office dispatchers`);
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Total trucks checked=${trucks?.length || 0}, Matching drivers=${driverIds.length}`);
-  console.log(`[useReportsDateWindow] ✅ Found ${driverIds.length} drivers for office via truck→driver→dispatcher path`);
+  console.log(`[useReportsDateWindow] ✅ Found ${driverIds.length} total drivers for office (truck-based + unassigned)`);
   
   return { driverIds, dispatcherIds: filterDispatcherIds };
 };
