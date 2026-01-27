@@ -1070,6 +1070,41 @@ const Trips = () => {
     enabled: !!filterInfo.filterType && !!filterInfo.entityId,
   });
 
+  // Fetch termination notes for terminated drivers
+  const terminatedDriverIds = terminatedDrivers.map(d => d.id);
+  const { data: terminationNotes = [] } = useQuery({
+    queryKey: ["termination-notes-for-trips", terminatedDriverIds],
+    queryFn: async () => {
+      if (terminatedDriverIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from("driver_termination_notes")
+        .select("id, driver_id, note")
+        .in("driver_id", terminatedDriverIds)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching termination notes:", error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: terminatedDriverIds.length > 0,
+  });
+
+  // Create a map of driver_id to their most recent termination note
+  const terminationNotesByDriverId = useMemo(() => {
+    const map: Record<string, string> = {};
+    terminationNotes.forEach(note => {
+      // Only keep the first (most recent) note per driver
+      if (!map[note.driver_id]) {
+        map[note.driver_id] = note.note;
+      }
+    });
+    return map;
+  }, [terminationNotes]);
+
   // Filter and format history entries based on filter type, grouped by week
   // HARDENED: Includes trailer_assignment for visibility, uses deterministic filtering
   const historyEntriesByWeek = useMemo(() => {
@@ -1227,6 +1262,8 @@ const Trips = () => {
         const terminationAsItems = weekTerminations.map((driver) => {
           const datePart = extractDatePart(driver.termination_date);
           const driverName = driver.name || `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
+          // Get termination note for this driver, fallback to generic message
+          const terminationNote = terminationNotesByDriverId[driver.id] || 'Driver has been terminated';
           
           return {
             _isTerminationEntry: true,
@@ -1236,6 +1273,7 @@ const Trips = () => {
             _terminationDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
             _terminationDriverName: driverName,
             _terminationDescription: `Driver Terminated: ${driverName}`,
+            _terminationNote: terminationNote,
             // For sorting purposes - treat as the date
             deliveryDate: datePart,
           };
@@ -1298,7 +1336,7 @@ const Trips = () => {
       });
     
     return weekGroups;
-  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, terminationsByWeek, filterInfo.filterType]);
+  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, terminationsByWeek, filterInfo.filterType, terminationNotesByDriverId]);
 
   // Handle drag end for moving loads between weeks
   const handleDragEnd = useCallback((result: DropResult) => {
@@ -4478,7 +4516,7 @@ const Trips = () => {
                                   {order._terminationDescription}
                                 </TableCell>
                                 <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm text-red-600 dark:text-red-400">
-                                  Driver has been terminated
+                                  {order._terminationNote}
                                 </TableCell>
                                 <TableCell></TableCell>
                               </TableRow>
