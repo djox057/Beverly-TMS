@@ -460,15 +460,21 @@ export const useReports = (options?: UseReportsOptions) => {
       queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
       queryClient.setQueryData(["reports", "full"], updateNoteInData);
 
-      // Optimistically update adapter truck notes cache (all office tabs)
+      // Optimistically update adapter truck notes cache
+      // Use predicate to match ALL office-scoped keys: ["adapter-truck-notes", <any office>]
       if (effectiveDriverId) {
-        queryClient.setQueriesData(
-          { queryKey: ["adapter-truck-notes"] },
-          (oldNotes: any[] | undefined) => {
-            if (!oldNotes) return oldNotes;
-            const existingIndex = oldNotes.findIndex((n: any) => n.driver_id === effectiveDriverId);
+        queryClient.setQueriesData<any[]>(
+          { 
+            predicate: (query) => {
+              const key = query.queryKey;
+              return Array.isArray(key) && key[0] === "adapter-truck-notes";
+            }
+          },
+          (oldNotes) => {
+            if (!oldNotes || !Array.isArray(oldNotes)) return oldNotes;
+            const existingIndex = oldNotes.findIndex((n) => n.driver_id === effectiveDriverId);
             if (existingIndex >= 0) {
-              // Update existing note
+              // Update existing note in place
               const updated = [...oldNotes];
               updated[existingIndex] = {
                 ...updated[existingIndex],
@@ -477,7 +483,7 @@ export const useReports = (options?: UseReportsOptions) => {
               };
               return updated;
             }
-            // No existing note for this driver - add a new entry
+            // No existing note for this driver - append new entry
             return [...oldNotes, {
               id: `temp-${effectiveDriverId}`,
               driver_id: effectiveDriverId,
@@ -487,6 +493,9 @@ export const useReports = (options?: UseReportsOptions) => {
             }];
           }
         );
+      } else {
+        // effectiveDriverId is missing - log error and skip optimistic update
+        console.error("[updateTruckNote] Cannot optimistically update: missing effectiveDriverId", { truckId, driverId });
       }
 
       return { previousPriority, previousFull, previousAdapterNotes };
