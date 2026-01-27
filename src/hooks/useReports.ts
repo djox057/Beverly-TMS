@@ -472,16 +472,19 @@ export const useReports = (options?: UseReportsOptions) => {
           },
           (oldNotes) => {
             if (!oldNotes || !Array.isArray(oldNotes)) return oldNotes;
-            const existingIndex = oldNotes.findIndex((n) => n.driver_id === effectiveDriverId);
-            if (existingIndex >= 0) {
-              // Update existing note in place
-              const updated = [...oldNotes];
-              updated[existingIndex] = {
-                ...updated[existingIndex],
-                note,
-                updated_at: nowIso,
-              };
-              return updated;
+            // Some drivers have duplicate rows in truck_notes; update ALL rows for this driver
+            // so the UI cannot "snap back" to an older duplicate.
+            const hasAny = oldNotes.some((n) => n?.driver_id === effectiveDriverId);
+            if (hasAny) {
+              return oldNotes.map((n) =>
+                n?.driver_id === effectiveDriverId
+                  ? {
+                      ...n,
+                      note,
+                      updated_at: nowIso,
+                    }
+                  : n,
+              );
             }
             // No existing note for this driver - append new entry
             return [...oldNotes, {
