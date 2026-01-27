@@ -1,169 +1,142 @@
 
-# Fix Instant Truck Notes Updates on Reports Page
+# Paid Status for Archived Loads - Always Fresh from Database
 
-## Problem Summary
-When a user edits a truck note on the Reports page:
-- The change appears in Note History immediately
-- But the note text in the main Reports table does NOT update until page refresh
-- Other users also don't see the change instantly (realtime exists but has latency)
+## Problem
 
-## Root Cause Analysis
+When archived (locked) orders are displayed on `/orders` and `/trips` pages, the `paid` status is read from the IndexedDB cache. However, the `paid` column can be updated even when orders are locked (per existing permission logic). This creates a data conflict:
 
-The data flow currently works like this:
+- **Archive cache**: Contains stale `paid` value from when the order was archived
+- **Live database**: Contains the current, authoritative `paid` value
 
-```text
-User edits note
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ updateTruckNote mutation (in useReports.ts)                  │
-│                                                              │
-│  onMutate (optimistic update):                               │
-│    ✅ Updates ["reports", "priority"]    ← LEGACY keys       │
-│    ✅ Updates ["reports", "full"]        ← LEGACY keys       │
-│    ❌ Does NOT update adapter cache                          │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ Database write → Supabase Realtime                           │
-│                                                              │
-│  100-500ms delay before realtime event fires                 │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ Realtime subscription (in useReportsDateWindowAdapter.ts)    │
-│                                                              │
-│  ✅ Patches ["adapter-truck-notes", priorityOffice]          │
-│  (But delayed - not instant for editing user)                │
-└──────────────────────────────────────────────────────────────┘
+**User impact**: A load may show as "unpaid" in the UI when it has already been marked "paid" in the database (or vice versa).
+
+## Solution Overview
+
+Fetch the **live `paid` status** from the database for all locked orders and merge it with archived data, ensuring the database value always wins. This is a minimal, targeted query that only fetches 2 columns (`id` and `paid`) for locked orders.
+
+## Technical Design
+
+### Lightweight Paid Status Fetch
+
+Create a dedicated fetch that runs alongside the archive loading:
+
+```sql
+SELECT id, paid FROM orders WHERE locked = true
 ```
 
-The adapter uses `["adapter-truck-notes", priorityOffice]` for its data, but the mutation's optimistic update only targets the legacy query keys.
+This query is:
+- **Fast**: Only 2 columns (id + paid boolean)
+- **Low bandwidth**: ~50 bytes per order (~500KB for 10,000 locked orders)
+- **Parallel**: Runs alongside existing data fetching
 
-## Solution
+### Merge Strategy
 
-Modify the `updateTruckNote` mutation in `useReports.ts` to ALSO optimistically update the adapter's truck notes cache.
+When transforming locked orders for display:
+1. Fetch live `paid` status for all locked order IDs
+2. Create a Map: `orderId -> paidStatus`
+3. During transformation, **override** the cached `paid` value with the database value
 
-### Changes Required
+**Conflict resolution**: Database `paid` value **always wins**.
 
-**File: `src/hooks/useReports.ts`**
+### Pages Affected
 
-In the `updateTruckNote` mutation's `onMutate` handler:
+| Page | Impact |
+|------|--------|
+| `/orders` | Paid column in table, "pending-payment" and "billed" filters |
+| `/trips` | Paid checkbox per load, week-level paid status |
+| `/reports` | Not affected - uses different data flow |
+| `/analytics` | Not affected - uses different data flow |
 
-1. **Cancel adapter queries** to prevent race conditions:
-   ```typescript
-   await queryClient.cancelQueries({ queryKey: ["adapter-truck-notes"] });
-   ```
+## Implementation Details
 
-2. **Snapshot adapter cache** for rollback:
-   ```typescript
-   const previousAdapterNotes = queryClient.getQueriesData({ 
-     queryKey: ["adapter-truck-notes"] 
-   });
-   ```
+### 1. Modify `enrichLockedOrdersWithLookups` in `src/hooks/useOrders.ts`
 
-3. **Optimistically update adapter cache** by patching the note directly:
-   ```typescript
-   queryClient.setQueriesData(
-     { queryKey: ["adapter-truck-notes"] },
-     (oldNotes: any[] | undefined) => {
-       if (!oldNotes) return oldNotes;
-       const existingIndex = oldNotes.findIndex((n) => n.driver_id === driverId);
-       if (existingIndex >= 0) {
-         const updated = [...oldNotes];
-         updated[existingIndex] = {
-           ...updated[existingIndex],
-           note,
-           updated_at: new Date().toISOString(),
-         };
-         return updated;
-       }
-       // If no existing note for this driver, add a new entry
-       return [...oldNotes, {
-         id: `temp-${driverId}`,
-         driver_id: driverId,
-         truck_id: truckId?.startsWith('driver-') ? null : truckId,
-         note,
-         updated_at: new Date().toISOString(),
-       }];
-     }
-   );
-   ```
+Add a parallel fetch for live paid status and merge it into the enriched orders:
 
-4. **Rollback adapter cache on error**:
-   ```typescript
-   // In onError handler
-   if (context?.previousAdapterNotes) {
-     context.previousAdapterNotes.forEach(([queryKey, data]: [any, any]) => {
-       queryClient.setQueryData(queryKey, data);
-     });
-   }
-   ```
-
-### Data Flow After Fix
-
-```text
-User edits note
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ updateTruckNote mutation                                     │
-│                                                              │
-│  onMutate (optimistic update):                               │
-│    ✅ Updates ["reports", "priority"]                        │
-│    ✅ Updates ["reports", "full"]                            │
-│    ✅ Updates ["adapter-truck-notes", *]  ← NEW              │
-│                                                              │
-│  UI updates INSTANTLY for editing user                       │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ Database write → Supabase Realtime                           │
-│                                                              │
-│  Broadcasts to ALL connected users                           │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ Realtime subscription                                        │
-│                                                              │
-│  ✅ Patches ["adapter-truck-notes", priorityOffice]          │
-│  (Updates UI for OTHER users viewing the page)               │
-└──────────────────────────────────────────────────────────────┘
+```typescript
+// Fetch live paid status from database for all locked orders
+const fetchLivePaidStatus = async (orderIds: string[]): Promise<Map<string, boolean>> => {
+  if (orderIds.length === 0) return new Map();
+  
+  const paidMap = new Map<string, boolean>();
+  const batchSize = 1000;
+  
+  for (let i = 0; i < orderIds.length; i += batchSize) {
+    const batch = orderIds.slice(i, i + batchSize);
+    const { data } = await supabase
+      .from("orders")
+      .select("id, paid")
+      .in("id", batch);
+    
+    (data || []).forEach((row: any) => {
+      paidMap.set(row.id, row.paid === true);
+    });
+  }
+  
+  return paidMap;
+};
 ```
 
-## Technical Details
+### 2. Integration in `enrichLockedOrdersWithLookups`
 
-### Why setQueriesData (plural)?
+Add the paid status fetch to the parallel fetch block and merge during enrichment:
 
-The adapter query key includes `priorityOffice`, so different office tabs have different cache entries:
-- `["adapter-truck-notes", "East"]`
-- `["adapter-truck-notes", "West"]`
-- etc.
+```typescript
+// In the Promise.all block, add:
+const livePaidStatusPromise = fetchLivePaidStatus(orderIds);
 
-Using `setQueriesData` with `{ queryKey: ["adapter-truck-notes"] }` will update ALL matching caches, ensuring the note updates regardless of which office tab is active.
+// After all fetches complete:
+const livePaidStatus = await livePaidStatusPromise;
 
-### Edge Cases Handled
+// In the enrichment loop:
+const enriched = lockedOrders.map((order) => ({
+  ...order,
+  // ... existing enrichment
+  // Override paid with live database value (always wins)
+  paid: livePaidStatus.has(order.id) ? livePaidStatus.get(order.id) : order.paid,
+}));
+```
 
-1. **Driver without existing note**: The update creates a temporary entry in the cache
-2. **Driver without truck (unassigned)**: The `truckId` check handles `driver-{id}` format
-3. **Error rollback**: All caches are restored if the mutation fails
-4. **Race with realtime**: Realtime may overwrite the optimistic update, but with the same data (idempotent)
+### 3. Handle Real-time Updates
+
+When the `paid` status is toggled on `/orders` or `/trips`:
+- The mutation already updates the database
+- The real-time subscription already invalidates the cache
+- No additional changes needed for real-time sync
+
+## Performance Analysis
+
+| Metric | Value |
+|--------|-------|
+| Query complexity | O(1) - simple indexed select |
+| Data transferred | ~50 bytes × N orders |
+| Additional queries | 1 per batch (1000 orders each) |
+| Latency impact | Minimal - runs in parallel |
+
+For 10,000 locked orders:
+- ~10 batched queries (1000 each)
+- ~500KB total data
+- Runs in parallel with existing lookups
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/hooks/useReports.ts` | Modify `updateTruckNote` mutation's `onMutate` and `onError` handlers |
+1. **`src/hooks/useOrders.ts`**
+   - Add `fetchLivePaidStatus` helper function
+   - Integrate into `enrichLockedOrdersWithLookups` function
+   - Ensure paid status is fetched in parallel with other enrichments
+   - Override `paid` property during enrichment
 
-## Testing Checklist
+## Edge Cases
 
-1. Edit a truck note - verify it updates instantly in the main table
-2. Open Note History - verify it shows the new note
-3. Have another user viewing the same page - verify their UI updates within 1 second
-4. Edit a note for a driver without a truck - verify it still works
-5. Simulate network error - verify the note reverts to previous value
-6. Switch office tabs and edit notes - verify correct cache is updated
+1. **Order becomes unlocked**: Unlocked orders already fetch fresh data from DB - no issue
+2. **Order locked after page load**: Real-time subscription handles updates
+3. **Paid status toggled while viewing**: React Query cache update via `setQueryData` handles this
+4. **Network failure on paid fetch**: Falls back to cached value (graceful degradation)
+
+## Testing Scenarios
+
+1. Lock an order with `paid = false`
+2. Using SQL, update `paid = true` for that order
+3. Refresh `/orders` page
+4. Verify the order shows as "paid" (checked checkbox)
+5. Repeat test on `/trips` page
