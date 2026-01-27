@@ -1118,24 +1118,81 @@ const Trips = () => {
     });
 
     // Sort weeks by date (newest first)
-    return Object.keys(groups)
+    const weekGroups = Object.keys(groups)
       .sort((a, b) => b.localeCompare(a))
-      .map((weekKey) => ({
-        weekStart: weekKey,
-        orders: groups[weekKey].sort((a, b) => {
-          // Extract dates without timezone for sorting
-          const getDateValue = (dateStr: string | null | undefined): number => {
+      .map((weekKey) => {
+        // Get history entries for this week
+        const weekHistoryEntries = historyEntriesByWeek[weekKey] || [];
+        
+        // Convert history entries to a sortable format with a _isHistoryEntry flag
+        const historyAsItems = weekHistoryEntries.map((entry, idx, arr) => {
+          // Parse date without timezone - extract just the date part
+          const changedAtStr = entry.changed_at;
+          const datePart = changedAtStr?.split('T')[0] || changedAtStr?.split(' ')[0] || '';
+          
+          // Build change description
+          let changeDescription = "";
+          if (filterInfo.filterType === 'driver') {
+            const prevEntry = arr[idx + 1];
+            const prevTruck = prevEntry?.truck_number;
+            if (entry.truck_number) {
+              changeDescription = prevTruck 
+                ? `Switched to truck ${entry.truck_number} from ${prevTruck}`
+                : `Switched to truck ${entry.truck_number}`;
+            } else {
+              changeDescription = "Truck removed";
+            }
+          } else {
+            const prevEntry = arr[idx + 1];
+            const prevDriver = prevEntry?.driver1_name;
+            if (entry.driver1_name) {
+              let driverText = entry.driver1_name;
+              if (entry.driver2_name) driverText += ` / ${entry.driver2_name}`;
+              changeDescription = prevDriver 
+                ? `Switched to ${driverText} from ${prevDriver}`
+                : `Switched to ${driverText}`;
+            } else {
+              changeDescription = "Driver removed";
+            }
+          }
+          
+          return {
+            _isHistoryEntry: true,
+            _historyId: entry.id,
+            _historyDate: datePart,
+            _historyDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
+            _changeDescription: changeDescription,
+            _reason: entry.reason,
+            // For sorting purposes - treat as midnight on that date
+            deliveryDate: datePart,
+          };
+        });
+        
+        // Merge orders and history entries
+        const allItems = [...groups[weekKey], ...historyAsItems];
+        
+        // Sort by delivery date (newest first), history entries use their date
+        allItems.sort((a, b) => {
+          const getDateValue = (item: any): number => {
+            const dateStr = item.deliveryDate || item.pickupDate;
             if (!dateStr) return 0;
             const normalizedStr = String(dateStr).replace(" ", "T");
             const datePart = normalizedStr.split("T")[0];
             return datePart ? new Date(datePart + "T12:00:00").getTime() : 0;
           };
-          const dateA = getDateValue(a.deliveryDate) || getDateValue(a.pickupDate);
-          const dateB = getDateValue(b.deliveryDate) || getDateValue(b.pickupDate);
+          const dateA = getDateValue(a);
+          const dateB = getDateValue(b);
           return dateB - dateA; // Newest first
-        }),
-      }));
-  }, [paginatedOrders, weekOverrides]);
+        });
+        
+        return {
+          weekStart: weekKey,
+          orders: allItems,
+        };
+      });
+    
+    return weekGroups;
+  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, filterInfo.filterType]);
 
   // Handle drag end for moving loads between weeks
   const handleDragEnd = useCallback((result: DropResult) => {
@@ -4159,8 +4216,10 @@ const Trips = () => {
                   </TableRow>
                 ) : (
                   groupedByWeek.map((week, weekIndex) => {
-                    const weekTotal = week.orders.reduce(
-                      (acc, order) => ({
+                    // Filter out history entries for totals calculation
+                    const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry);
+                    const weekTotal = actualOrders.reduce(
+                      (acc: any, order: any) => ({
                         miles: acc.miles + (Number(order.mileage) || 0),
                         driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
                         freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
@@ -4171,9 +4230,10 @@ const Trips = () => {
                       const weekStartDate = new Date(week.weekStart + "T12:00:00");
                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
-                      // Get truck/driver info from first order for paid status
-                      const weekTruckNumber = week.orders[0]?.truckNumber || "";
-                      const weekDriverName = week.orders[0]?.driverName || "";
+                      // Get truck/driver info from first actual order (not history entry) for paid status
+                      const firstActualOrder = actualOrders[0];
+                      const weekTruckNumber = firstActualOrder?.truckNumber || "";
+                      const weekDriverName = firstActualOrder?.driverName || "";
                       const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
 
                       return (
@@ -4188,7 +4248,7 @@ const Trips = () => {
                                     <Checkbox
                                       id={`paid-${week.weekStart}`}
                                       checked={weekIsPaid}
-                                      onCheckedChange={() => handlePaidToggle(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
+                                      onCheckedChange={() => handlePaidToggle(weekTruckNumber, firstActualOrder?.truckId || "", weekDriverName, week.weekStart, actualOrders)}
                                     />
                                     <label
                                       htmlFor={`paid-${week.weekStart}`}
@@ -4224,7 +4284,7 @@ const Trips = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
+                                onClick={() => exportWeekToExcel({ ...week, orders: actualOrders }, weekStartDate, weekEndDate)}
                                 title="Export week to Excel"
                               >
                                 <FileDown className="h-4 w-4" />
@@ -4233,54 +4293,6 @@ const Trips = () => {
                           </TableCell>
                         </TableRow>
 
-                        {/* Assignment History Rows for this week */}
-                        {historyEntriesByWeek[week.weekStart]?.map((entry, idx, arr) => {
-                          let changeDescription = "";
-                          if (filterInfo.filterType === 'driver') {
-                            // Show truck changes - find previous truck from next entry (older)
-                            const prevEntry = arr[idx + 1];
-                            const prevTruck = prevEntry?.truck_number;
-                            if (entry.truck_number) {
-                              changeDescription = prevTruck 
-                                ? `Switched to truck ${entry.truck_number} from ${prevTruck}`
-                                : `Switched to truck ${entry.truck_number}`;
-                            } else {
-                              changeDescription = "Truck removed";
-                            }
-                          } else {
-                            // Show driver changes - find previous driver from next entry (older)
-                            const prevEntry = arr[idx + 1];
-                            const prevDriver = prevEntry?.driver1_name;
-                            if (entry.driver1_name) {
-                              let driverText = entry.driver1_name;
-                              if (entry.driver2_name) driverText += ` / ${entry.driver2_name}`;
-                              changeDescription = prevDriver 
-                                ? `Switched to ${driverText} from ${prevDriver}`
-                                : `Switched to ${driverText}`;
-                            } else {
-                              changeDescription = "Driver removed";
-                            }
-                          }
-                          
-                          return (
-                            <TableRow 
-                              key={`history-${week.weekStart}-${entry.id}-${idx}`}
-                              className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
-                            >
-                              {canMoveLoads && <TableCell></TableCell>}
-                              <TableCell className="text-sm font-semibold">
-                                {format(new Date(entry.changed_at), "MM/dd/yyyy")}
-                              </TableCell>
-                              <TableCell colSpan={4} className="text-sm font-medium">
-                                {changeDescription}
-                              </TableCell>
-                              <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
-                                {entry.reason || "—"}
-                              </TableCell>
-                              <TableCell></TableCell>
-                            </TableRow>
-                          );
-                        })}
 
                         {/* Drop zone indicator - shown when dragging over this week */}
                         <Droppable 
@@ -4323,6 +4335,28 @@ const Trips = () => {
                                 <td colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
                               </tr>
                               {week.orders.map((order, orderIndex) => {
+                          // Check if this is a history entry (merged in during grouping)
+                          if (order._isHistoryEntry) {
+                            return (
+                              <TableRow 
+                                key={`history-${week.weekStart}-${order._historyId}`}
+                                className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
+                              >
+                                {canMoveLoads && <TableCell></TableCell>}
+                                <TableCell className="text-sm font-semibold">
+                                  {order._historyDateDisplay}
+                                </TableCell>
+                                <TableCell colSpan={4} className="text-sm font-medium">
+                                  {order._changeDescription}
+                                </TableCell>
+                                <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
+                                  {order._reason || "—"}
+                                </TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            );
+                          }
+                          
                           // Background color rules - Based on total freight vs freight amount
                           const isRecovery = order.isRecovery;
                           const freightAmount = Number(order.freightAmount) || 0;
