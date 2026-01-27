@@ -58,6 +58,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -2920,7 +2921,7 @@ const EditOrder = () => {
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
               <div className="text-lg font-medium flex items-center gap-2 justify-end">
-                {internalLoadNumber}
+                {formatInternalLoadNumber(internalLoadNumber, drivers?.find(d => d.id === driver1)?.company?.name)}
                 {isPartial && (
                   <TooltipProvider>
                     <Tooltip>

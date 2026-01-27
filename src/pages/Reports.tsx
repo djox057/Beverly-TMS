@@ -4811,7 +4811,7 @@ const Reports = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="text-lg font-semibold">
-                    Load #{zoomedLoad?.loadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
+                    Load #{zoomedLoad?.internalLoadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
                   </div>
                   <div className="text-sm text-muted-foreground font-normal flex flex-wrap items-start gap-x-6 gap-y-1">
                     <div className="flex flex-col leading-tight">
