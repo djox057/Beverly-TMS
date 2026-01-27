@@ -2282,11 +2282,25 @@ const Reports = () => {
                 if (!matchesTruck && !matchesDriver) return false;
               }
 
-              // Check load number filter
+              // Check load number filter (searches both internal and broker load numbers)
               if (debouncedLoadNumberFilter) {
-                const hasMatchingLoad = truck.allOrders?.some((order: any) =>
-                  String(order.broker_load_number || '').toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase()),
-                );
+                const searchTerm = debouncedLoadNumberFilter.toLowerCase();
+                const hasMatchingLoad = truck.allOrders?.some((order: any) => {
+                  // Check broker load number
+                  const brokerMatch = String(order.broker_load_number || '').toLowerCase().includes(searchTerm);
+                  if (brokerMatch) return true;
+                  
+                  // Check internal load number with suffix (e.g., "123-BFP")
+                  const internalLoadNumber = order.internal_load_number;
+                  const companyName = order.company?.name || order.driver1?.company?.name;
+                  if (internalLoadNumber) {
+                    const formattedInternal = formatInternalLoadNumber(internalLoadNumber, companyName).toLowerCase();
+                    if (formattedInternal.includes(searchTerm)) return true;
+                    // Also check raw internal number
+                    if (String(internalLoadNumber).toLowerCase().includes(searchTerm)) return true;
+                  }
+                  return false;
+                });
                 if (!hasMatchingLoad) return false;
               }
               return true;
@@ -2874,7 +2888,7 @@ const Reports = () => {
                 className="max-w-[180px]"
               />
               <Input
-                placeholder="Load # (Broker load)"
+                placeholder="Load #"
                 value={loadNumberFilter}
                 onChange={(e) => setLoadNumberFilter(e.target.value)}
                 className="max-w-[200px]"
