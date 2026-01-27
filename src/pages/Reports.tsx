@@ -2602,12 +2602,18 @@ const Reports = () => {
   }, [groupedReports, isFetchingBackground]);
 
 
+  // Ref to prevent concurrent office searches
+  const isSearchingOfficeRef = useRef(false);
+
   // Auto-switch to correct office when load number filter finds matches in another office
   // Since the adapter only loads data for priorityOffice, we need to search the database
   // to find which office has the matching load number
   useEffect(() => {
     if (!debouncedLoadNumberFilter) return;
-    if (isFetchingBackground) return;
+    // Note: Removed isFetchingBackground guard - search is independent of adapter loading
+    
+    // Prevent concurrent searches
+    if (isSearchingOfficeRef.current) return;
     
     // Check if current tab has any matches first
     const currentTabReports = filterReportsByOffice(activeTab);
@@ -2617,17 +2623,16 @@ const Reports = () => {
       const searchTerm = debouncedLoadNumberFilter.toLowerCase().trim();
       if (!searchTerm) return;
       
+      isSearchingOfficeRef.current = true;
+      
       try {
-        // Search by broker_load_number first
+        // Step 1: Search by broker_load_number - get driver's dispatcher_id
         let { data: ordersWithBrokerMatch } = await supabase
           .from("orders")
           .select(`
             id,
             driver1_id,
-            drivers!orders_driver1_id_fkey(
-              dispatcher_id,
-              profiles:dispatcher_id(office)
-            )
+            drivers!orders_driver1_id_fkey(dispatcher_id)
           `)
           .ilike("broker_load_number", `%${searchTerm}%`)
           .neq("status", "locked")
@@ -2636,10 +2641,22 @@ const Reports = () => {
         
         if (ordersWithBrokerMatch && ordersWithBrokerMatch.length > 0) {
           const order = ordersWithBrokerMatch[0] as any;
-          const office = order.drivers?.profiles?.office;
-          if (office && offices.includes(office) && office !== activeTab) {
-            setActiveTab(office);
-            return;
+          const dispatcherId = order.drivers?.dispatcher_id;
+          
+          if (dispatcherId) {
+            // Step 2: Get office from profiles using dispatcher_id -> user_id
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("office")
+              .eq("user_id", dispatcherId)
+              .maybeSingle();
+            
+            const office = profileData?.office;
+            if (office && offices.includes(office) && office !== activeTab) {
+              setActiveTab(office);
+              isSearchingOfficeRef.current = false;
+              return;
+            }
           }
         }
         
@@ -2653,10 +2670,7 @@ const Reports = () => {
             .select(`
               id,
               driver1_id,
-              drivers!orders_driver1_id_fkey(
-                dispatcher_id,
-                profiles:dispatcher_id(office)
-              )
+              drivers!orders_driver1_id_fkey(dispatcher_id)
             `)
             .eq("internal_load_number", internalNum)
             .neq("status", "locked")
@@ -2665,20 +2679,34 @@ const Reports = () => {
           
           if (ordersWithInternalMatch && ordersWithInternalMatch.length > 0) {
             const order = ordersWithInternalMatch[0] as any;
-            const office = order.drivers?.profiles?.office;
-            if (office && offices.includes(office) && office !== activeTab) {
-              setActiveTab(office);
-              return;
+            const dispatcherId = order.drivers?.dispatcher_id;
+            
+            if (dispatcherId) {
+              // Get office from profiles using dispatcher_id -> user_id
+              const { data: profileData } = await supabase
+                .from("profiles")
+                .select("office")
+                .eq("user_id", dispatcherId)
+                .maybeSingle();
+              
+              const office = profileData?.office;
+              if (office && offices.includes(office) && office !== activeTab) {
+                setActiveTab(office);
+                isSearchingOfficeRef.current = false;
+                return;
+              }
             }
           }
         }
       } catch (error) {
         console.error("[Reports] Error searching for load in other offices:", error);
+      } finally {
+        isSearchingOfficeRef.current = false;
       }
     };
     
     searchLoadNumber();
-  }, [debouncedLoadNumberFilter, activeTab, isFetchingBackground, filterReportsByOffice]);
+  }, [debouncedLoadNumberFilter, activeTab, filterReportsByOffice]);
 
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
