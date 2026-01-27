@@ -2708,6 +2708,118 @@ const Reports = () => {
     searchLoadNumber();
   }, [debouncedLoadNumberFilter, activeTab, filterReportsByOffice]);
 
+  // Auto-switch to correct office when Truck/Driver filter finds matches in another office
+  useEffect(() => {
+    if (!debouncedTruckDriverFilter) return;
+    if (isSearchingOfficeRef.current) return;
+    
+    // Check if current tab has any matches first
+    const currentTabReports = filterReportsByOffice(activeTab);
+    if (currentTabReports.length > 0) return;
+    
+    const searchTruckDriver = async () => {
+      const searchTerm = debouncedTruckDriverFilter.toLowerCase().trim();
+      if (!searchTerm) return;
+      
+      isSearchingOfficeRef.current = true;
+      
+      try {
+        // Search by truck_number first
+        const { data: trucksMatch } = await supabase
+          .from("trucks")
+          .select("dispatcher_id")
+          .ilike("truck_number", `%${searchTerm}%`)
+          .not("dispatcher_id", "is", null)
+          .limit(1);
+        
+        if (trucksMatch && trucksMatch.length > 0 && trucksMatch[0].dispatcher_id) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("office")
+            .eq("user_id", trucksMatch[0].dispatcher_id)
+            .maybeSingle();
+          
+          if (profileData?.office && offices.includes(profileData.office) && profileData.office !== activeTab) {
+            setActiveTab(profileData.office);
+            isSearchingOfficeRef.current = false;
+            return;
+          }
+        }
+        
+        // Search by driver name
+        const { data: driversMatch } = await supabase
+          .from("drivers")
+          .select("dispatcher_id")
+          .ilike("name", `%${searchTerm}%`)
+          .not("dispatcher_id", "is", null)
+          .eq("is_active", true)
+          .limit(1);
+        
+        if (driversMatch && driversMatch.length > 0 && driversMatch[0].dispatcher_id) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("office")
+            .eq("user_id", driversMatch[0].dispatcher_id)
+            .maybeSingle();
+          
+          if (profileData?.office && offices.includes(profileData.office) && profileData.office !== activeTab) {
+            setActiveTab(profileData.office);
+            isSearchingOfficeRef.current = false;
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("[Reports] Error searching for truck/driver in other offices:", error);
+      } finally {
+        isSearchingOfficeRef.current = false;
+      }
+    };
+    
+    searchTruckDriver();
+  }, [debouncedTruckDriverFilter, activeTab, filterReportsByOffice]);
+
+  // Auto-switch to correct office when Dispatcher name filter finds matches in another office
+  useEffect(() => {
+    if (!debouncedDispatchNameFilter) return;
+    if (isSearchingOfficeRef.current) return;
+    
+    // Check if current tab has any matches first
+    const currentTabReports = filterReportsByOffice(activeTab);
+    if (currentTabReports.length > 0) return;
+    
+    const searchDispatcher = async () => {
+      const searchTerm = debouncedDispatchNameFilter.toLowerCase().trim();
+      if (!searchTerm) return;
+      
+      isSearchingOfficeRef.current = true;
+      
+      try {
+        // Search by dispatcher full_name in profiles
+        const { data: profilesMatch } = await supabase
+          .from("profiles")
+          .select("office")
+          .ilike("full_name", `%${searchTerm}%`)
+          .not("office", "is", null)
+          .limit(1);
+        
+        if (profilesMatch && profilesMatch.length > 0 && profilesMatch[0].office) {
+          const office = profilesMatch[0].office;
+          if (offices.includes(office) && office !== activeTab) {
+            setActiveTab(office);
+            isSearchingOfficeRef.current = false;
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("[Reports] Error searching for dispatcher in other offices:", error);
+      } finally {
+        isSearchingOfficeRef.current = false;
+      }
+    };
+    
+    searchDispatcher();
+  }, [debouncedDispatchNameFilter, activeTab, filterReportsByOffice]);
+
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
     const reports = filterReportsByOffice(activeTab);
