@@ -421,19 +421,27 @@ export const useReports = (options?: UseReportsOptions) => {
       }
     },
     onMutate: async ({ truckId, note, driverId }) => {
-      // Cancel any outgoing refetches for both query keys
+      // Cancel any outgoing refetches for all relevant query keys
       await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
       await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
+      await queryClient.cancelQueries({ queryKey: ["adapter-truck-notes"] });
 
-      // Snapshot previous values for both queries
+      // Snapshot previous values for all queries
       const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
       const previousFull = queryClient.getQueryData(["reports", "full"]);
+      const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-truck-notes"] });
 
       const now = new Date();
       const lastEdit = now.toLocaleTimeString();
       const editDate = now.toLocaleDateString();
+      const nowIso = now.toISOString();
 
-      // Helper to update note in data structure
+      // Determine the actual driverId for adapter cache update
+      const isUnassignedDriver = truckId.startsWith('driver-');
+      const effectiveDriverId = driverId || (isUnassignedDriver ? truckId.replace('driver-', '') : undefined);
+      const actualTruckId = isUnassignedDriver ? null : truckId;
+
+      // Helper to update note in legacy data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
@@ -448,14 +456,43 @@ export const useReports = (options?: UseReportsOptions) => {
         }));
       };
 
-      // Optimistically update both query caches immediately
+      // Optimistically update legacy query caches immediately
       queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
       queryClient.setQueryData(["reports", "full"], updateNoteInData);
 
-      return { previousPriority, previousFull };
+      // Optimistically update adapter truck notes cache (all office tabs)
+      if (effectiveDriverId) {
+        queryClient.setQueriesData(
+          { queryKey: ["adapter-truck-notes"] },
+          (oldNotes: any[] | undefined) => {
+            if (!oldNotes) return oldNotes;
+            const existingIndex = oldNotes.findIndex((n: any) => n.driver_id === effectiveDriverId);
+            if (existingIndex >= 0) {
+              // Update existing note
+              const updated = [...oldNotes];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                note,
+                updated_at: nowIso,
+              };
+              return updated;
+            }
+            // No existing note for this driver - add a new entry
+            return [...oldNotes, {
+              id: `temp-${effectiveDriverId}`,
+              driver_id: effectiveDriverId,
+              truck_id: actualTruckId,
+              note,
+              updated_at: nowIso,
+            }];
+          }
+        );
+      }
+
+      return { previousPriority, previousFull, previousAdapterNotes };
     },
     onError: (err, variables, context) => {
-      // Rollback both caches on error
+      // Rollback all caches on error
       if (context?.previousPriority) {
         context.previousPriority.forEach(([queryKey, data]: [any, any]) => {
           queryClient.setQueryData(queryKey, data);
@@ -463,6 +500,11 @@ export const useReports = (options?: UseReportsOptions) => {
       }
       if (context?.previousFull) {
         queryClient.setQueryData(["reports", "full"], context.previousFull);
+      }
+      if (context?.previousAdapterNotes) {
+        context.previousAdapterNotes.forEach(([queryKey, data]: [any, any]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
   });
