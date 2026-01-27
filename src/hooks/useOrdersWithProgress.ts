@@ -31,6 +31,7 @@ export function useOrdersWithProgress() {
   
   const isLoadingRef = useRef(false);
   const hasStartedBackgroundLoad = useRef(false);
+  const isCompleteRef = useRef(false);
 
   // Subscribe to real-time updates
   useOrdersRealtime();
@@ -273,7 +274,8 @@ export function useOrdersWithProgress() {
 
   // Background loading for remaining unlocked orders
   const loadMoreUnlocked = useCallback(async () => {
-    if (isLoadingRef.current || progress.isComplete) return;
+    // Use refs to avoid stale closure issues with setTimeout recursion
+    if (isLoadingRef.current || isCompleteRef.current) return;
     isLoadingRef.current = true;
     setProgress(prev => ({ ...prev, isLoadingMore: true }));
 
@@ -283,6 +285,7 @@ export function useOrdersWithProgress() {
       const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
       
       if (!lastUnlocked) {
+        isCompleteRef.current = true;
         setProgress(prev => ({ ...prev, isLoadingMore: false, isComplete: true }));
         isLoadingRef.current = false;
         return;
@@ -343,6 +346,7 @@ export function useOrdersWithProgress() {
       const updatedOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
       const newUnlockedCount = updatedOrders.filter(o => !o.locked).length;
 
+      isCompleteRef.current = !hasMore;
       setProgress(prev => ({
         ...prev,
         unlockedLoaded: newUnlockedCount,
@@ -361,7 +365,7 @@ export function useOrdersWithProgress() {
       setProgress(prev => ({ ...prev, isLoadingMore: false }));
       isLoadingRef.current = false;
     }
-  }, [queryClient, progress.isComplete]);
+  }, [queryClient]); // Removed progress.isComplete - using ref instead
 
   // Ref to track if cache initialization has been attempted
   const hasInitializedFromCache = useRef(false);
