@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
+
 // Helper function to enrich locked orders with lookup data and fetch pickup_drops/order_files from database
 async function enrichLockedOrdersWithLookups(
   lockedOrders: any[],
@@ -234,10 +235,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
     ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
     : ["orders"];
 
+  // Store total unlocked count for background loading verification
+  const totalUnlockedCountRef = useRef<number | null>(null);
+
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      // PERFORMANCE: Load only 100 orders initially - user can paginate for more
+      // PERFORMANCE: Load only 100 orders initially - background loading completes the rest
       const initialBatchSize = 100;
 
       // If dispatcher user ID is provided, fetch driver IDs assigned to them
@@ -251,8 +255,33 @@ export const useOrders = (options?: UseOrdersOptions) => {
         dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
       }
 
+      // CRITICAL: Fetch the TOTAL count of unlocked orders FIRST
+      // This is the source of truth for how many we need to load
+      let countQuery = supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("locked", false);
+      
+      // Apply same filters to count query
+      if (options?.dispatcherUserId) {
+        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.or(
+            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+          );
+        } else if (options?.bookedBy) {
+          countQuery = countQuery.eq("booked_by", options.bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+        }
+      } else if (options?.bookedBy) {
+        countQuery = countQuery.eq("booked_by", options.bookedBy);
+      }
+
+      const { count: totalUnlockedCount } = await countQuery;
+      totalUnlockedCountRef.current = totalUnlockedCount;
+      console.log(`[useOrders] Total unlocked orders in DB: ${totalUnlockedCount}`);
+
       // Fetch first 100 UNLOCKED orders immediately with joins
-      // Include lightweight order_files for document indicators (RC/BOL/POD)
       let initialQuery = supabase
         .from("orders")
         .select(
@@ -435,6 +464,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
         throw initialError;
       }
 
+      console.log(`[useOrders] Initial batch: ${initialBatch?.length || 0} unlocked orders`);
+
       // Load LOCKED orders from cache only (no DB fetch for performance)
       let lockedOrders = await getLockedOrders() || [];
       
@@ -521,10 +552,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
   // Background loading state
   const isBackgroundLoadingRef = useRef(false);
   const hasStartedBackgroundLoadRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   // Function to load more unlocked orders using cursor-based pagination
   const loadMoreUnlockedOrders = useCallback(async () => {
-    if (isBackgroundLoadingRef.current) return;
+    if (isBackgroundLoadingRef.current || !isMountedRef.current) return;
     isBackgroundLoadingRef.current = true;
 
     try {
@@ -625,7 +657,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
       }
 
       if (!nextBatch || nextBatch.length === 0) {
-        console.log("[Orders] Background loading complete - no more orders");
+        console.log("[useOrders] Background loading complete - no more orders");
         isBackgroundLoadingRef.current = false;
         return;
       }
@@ -633,28 +665,37 @@ export const useOrders = (options?: UseOrdersOptions) => {
       const newOrders = transformOrders(nextBatch);
 
       // Merge into cache
-      queryClient.setQueryData<any[]>(queryKey, (old) => {
-        if (!old) return newOrders;
-        
-        const existingIds = new Set(old.map((o: any) => o.id));
-        const uniqueNewOrders = newOrders.filter((o: any) => !existingIds.has(o.id));
-        
-        // Keep locked orders at the end
-        const existingUnlocked = old.filter((o: any) => !o.locked);
-        const existingLocked = old.filter((o: any) => o.locked);
-        
-        return [...existingUnlocked, ...uniqueNewOrders, ...existingLocked];
-      });
+      if (isMountedRef.current) {
+        queryClient.setQueryData<any[]>(queryKey, (old) => {
+          if (!old) return newOrders;
+          
+          const existingIds = new Set(old.map((o: any) => o.id));
+          const uniqueNewOrders = newOrders.filter((o: any) => !existingIds.has(o.id));
+          
+          // Keep locked orders at the end
+          const existingUnlocked = old.filter((o: any) => !o.locked);
+          const existingLocked = old.filter((o: any) => o.locked);
+          
+          return [...existingUnlocked, ...uniqueNewOrders, ...existingLocked];
+        });
+      }
 
-      console.log(`[Orders] Loaded ${newOrders.length} more unlocked orders`);
+      // Count current unlocked orders after merge
+      const updatedOrders = queryClient.getQueryData<any[]>(queryKey) || [];
+      const currentUnlockedCount = updatedOrders.filter((o: any) => !o.locked).length;
+      console.log(`[useOrders] Loaded ${newOrders.length} more unlocked (total: ${currentUnlockedCount}/${totalUnlockedCountRef.current})`);
       
       isBackgroundLoadingRef.current = false;
 
-      // Continue loading if we got a full batch
-      if (nextBatch.length === 100) {
+      // CRITICAL: Continue loading until we have ALL unlocked orders
+      // Check against the known total, not just batch size
+      const needsMore = nextBatch.length === 100 || 
+        (totalUnlockedCountRef.current !== null && currentUnlockedCount < totalUnlockedCountRef.current);
+      
+      if (needsMore && isMountedRef.current) {
         setTimeout(() => loadMoreUnlockedOrders(), 100);
       } else {
-        console.log("[Orders] Background loading complete");
+        console.log(`[useOrders] ✅ Background loading COMPLETE: ${currentUnlockedCount} unlocked orders loaded`);
       }
     } catch (error) {
       console.error("[useOrders] Background load exception:", error);
@@ -663,18 +704,33 @@ export const useOrders = (options?: UseOrdersOptions) => {
   }, [queryClient, queryKey, options?.bookedBy, options?.dispatcherUserId]);
 
   // Start background loading after initial data is available
+  // CRITICAL: Use the total count to determine if we need more, not just the batch size
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (query.data && !query.isLoading && !hasStartedBackgroundLoadRef.current) {
       const unlockedCount = query.data.filter((o: any) => !o.locked).length;
+      const totalNeeded = totalUnlockedCountRef.current;
       
-      // Only start background loading if we have exactly 100 unlocked orders
-      // (indicating there might be more)
-      if (unlockedCount >= 100) {
+      // Start background loading if we don't have all unlocked orders
+      // Even if initial batch < 100, we still need to verify we have them all
+      if (totalNeeded !== null && unlockedCount < totalNeeded) {
         hasStartedBackgroundLoadRef.current = true;
-        console.log(`[Orders] Starting background load: ${unlockedCount} unlocked orders loaded initially`);
+        console.log(`[useOrders] Starting background load: ${unlockedCount}/${totalNeeded} unlocked orders`);
         setTimeout(() => loadMoreUnlockedOrders(), 300);
+      } else if (unlockedCount >= 100) {
+        // Fallback: if we couldn't get total count but have a full batch, try loading more
+        hasStartedBackgroundLoadRef.current = true;
+        console.log(`[useOrders] Starting background load (full batch detected): ${unlockedCount} unlocked orders`);
+        setTimeout(() => loadMoreUnlockedOrders(), 300);
+      } else {
+        console.log(`[useOrders] ✅ All ${unlockedCount} unlocked orders loaded (total: ${totalNeeded})`);
       }
     }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [query.data, query.isLoading, loadMoreUnlockedOrders]);
 
   // Real-time subscriptions are handled by useOrdersRealtime hook

@@ -17,7 +17,9 @@ interface LoadingProgress {
 
 /**
  * Hook for Analytics page that loads ALL orders with progress tracking.
- * Shows loading indicator for how many unlocked orders have been loaded.
+ * CRITICAL: This hook MUST load 100% of unlocked orders from the database.
+ * No limits, no pagination shortcuts, no date windows.
+ * Correctness > Performance.
  */
 export function useOrdersWithProgress() {
   const queryClient = useQueryClient();
@@ -32,16 +34,20 @@ export function useOrdersWithProgress() {
   const isLoadingRef = useRef(false);
   const hasStartedBackgroundLoad = useRef(false);
   const isCompleteRef = useRef(false);
+  const isMountedRef = useRef(true);
+  // Store the total count to verify completion
+  const totalUnlockedCountRef = useRef<number | null>(null);
 
   // Subscribe to real-time updates
   useOrdersRealtime();
 
-  // Fetch total count of unlocked orders
+  // Fetch total count of unlocked orders - this is the source of truth
   const fetchUnlockedCount = useCallback(async () => {
     const { count } = await supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .eq("locked", false);
+    totalUnlockedCountRef.current = count;
     return count;
   }, []);
 
@@ -175,8 +181,9 @@ export function useOrdersWithProgress() {
   const query = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      // Get total count first
+      // CRITICAL: Get total count first - this is the source of truth
       const totalCount = await fetchUnlockedCount();
+      console.log(`[OrdersWithProgress] Total unlocked in DB: ${totalCount}`);
       setProgress(prev => ({ ...prev, unlockedTotal: totalCount }));
 
       // Fetch first batch of unlocked orders
@@ -216,6 +223,8 @@ export function useOrdersWithProgress() {
 
       if (error) throw error;
 
+      console.log(`[OrdersWithProgress] Initial batch: ${initialBatch?.length || 0} unlocked orders`);
+      
       setProgress(prev => ({ 
         ...prev, 
         unlockedLoaded: initialBatch?.length || 0,
@@ -273,9 +282,10 @@ export function useOrdersWithProgress() {
   });
 
   // Background loading for remaining unlocked orders
+  // CRITICAL: This MUST continue until ALL unlocked orders are loaded
   const loadMoreUnlocked = useCallback(async () => {
     // Use refs to avoid stale closure issues with setTimeout recursion
-    if (isLoadingRef.current || isCompleteRef.current) return;
+    if (isLoadingRef.current || isCompleteRef.current || !isMountedRef.current) return;
     isLoadingRef.current = true;
     setProgress(prev => ({ ...prev, isLoadingMore: true }));
 
@@ -331,46 +341,62 @@ export function useOrdersWithProgress() {
       if (error) throw error;
 
       const newOrders = transformOrders(data || []);
-      const hasMore = newOrders.length === PAGE_SIZE;
 
       // Merge new orders into cache
-      queryClient.setQueryData<any[]>(["orders"], (old) => {
-        if (!old) return newOrders;
-        const existingIds = new Set(old.map(o => o.id));
-        const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
-        const lockedOrders = old.filter(o => o.locked);
-        const existingUnlocked = old.filter(o => !o.locked);
-        return [...existingUnlocked, ...uniqueNewOrders, ...lockedOrders];
-      });
+      if (isMountedRef.current) {
+        queryClient.setQueryData<any[]>(["orders"], (old) => {
+          if (!old) return newOrders;
+          const existingIds = new Set(old.map(o => o.id));
+          const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
+          const lockedOrders = old.filter(o => o.locked);
+          const existingUnlocked = old.filter(o => !o.locked);
+          return [...existingUnlocked, ...uniqueNewOrders, ...lockedOrders];
+        });
+      }
 
       const updatedOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
       const newUnlockedCount = updatedOrders.filter(o => !o.locked).length;
+      const totalNeeded = totalUnlockedCountRef.current;
+
+      // CRITICAL: Determine if we need more based on:
+      // 1. We got a full batch (might have more)
+      // 2. OR we haven't reached the total count yet
+      const hasMoreFromBatch = newOrders.length === PAGE_SIZE;
+      const needsMoreFromTotal = totalNeeded !== null && newUnlockedCount < totalNeeded;
+      const hasMore = hasMoreFromBatch || needsMoreFromTotal;
+
+      console.log(`[OrdersWithProgress] Loaded ${newOrders.length} more (total: ${newUnlockedCount}/${totalNeeded})`);
 
       isCompleteRef.current = !hasMore;
-      setProgress(prev => ({
-        ...prev,
-        unlockedLoaded: newUnlockedCount,
-        isLoadingMore: hasMore,
-        isComplete: !hasMore,
-      }));
+      
+      if (isMountedRef.current) {
+        setProgress(prev => ({
+          ...prev,
+          unlockedLoaded: newUnlockedCount,
+          isLoadingMore: hasMore,
+          isComplete: !hasMore,
+        }));
+      }
 
       isLoadingRef.current = false;
 
       // Continue loading if there's more
-      if (hasMore) {
+      if (hasMore && isMountedRef.current) {
         setTimeout(() => loadMoreUnlocked(), 150);
+      } else {
+        console.log(`[OrdersWithProgress] ✅ Loading COMPLETE: ${newUnlockedCount} unlocked orders`);
       }
     } catch (error) {
       console.error("[useOrdersWithProgress] Error loading more:", error);
-      setProgress(prev => ({ ...prev, isLoadingMore: false }));
+      if (isMountedRef.current) {
+        setProgress(prev => ({ ...prev, isLoadingMore: false }));
+      }
       isLoadingRef.current = false;
     }
-  }, [queryClient]); // Removed progress.isComplete - using ref instead
+  }, [queryClient]);
 
   // Ref to track if cache initialization has been attempted
   const hasInitializedFromCache = useRef(false);
-  // Ref to track mount status for async operations
-  const isMountedRef = useRef(true);
 
   // Handle case where we got cached data from another page (e.g., /orders)
   // In this case, queryFn never ran, so progress state was never initialized
@@ -451,7 +477,7 @@ export function useOrdersWithProgress() {
           
           if (!isMountedRef.current) return;
           
-          // Update completion ref
+          // Update completion ref - CRITICAL: use totalCount from ref
           isCompleteRef.current = unlockedInCache >= (totalCount || 0);
           
           // Initialize progress state
@@ -463,12 +489,15 @@ export function useOrdersWithProgress() {
             isComplete: unlockedInCache >= (totalCount || 0),
           });
           
-          // If we need more orders, trigger background loading
+          // CRITICAL: If we need more orders, trigger background loading
           if (unlockedInCache < (totalCount || 0) && isMountedRef.current) {
             hasStartedBackgroundLoad.current = true;
+            console.log(`[OrdersWithProgress] Need to load more: ${unlockedInCache}/${totalCount}`);
             setTimeout(() => {
               if (isMountedRef.current) loadMoreUnlocked();
             }, 300);
+          } else {
+            console.log(`[OrdersWithProgress] ✅ All ${unlockedInCache} unlocked orders already loaded`);
           }
         } catch (error) {
           console.error('[OrdersWithProgress] Error during cache initialization:', error);
@@ -479,23 +508,28 @@ export function useOrdersWithProgress() {
     return () => {
       isMountedRef.current = false;
     };
-  }, [query.data, query.isLoading, progress.unlockedTotal]); // Removed unstable deps - use refs instead
+  }, [query.data, query.isLoading, progress.unlockedTotal, enrichLockedOrders, fetchUnlockedCount, loadMoreUnlocked, queryClient]);
 
   // Start background loading after initial load (when queryFn ran normally)
   useEffect(() => {
     if (query.data && !hasStartedBackgroundLoad.current && progress.unlockedTotal !== null) {
       const unlockedInData = query.data.filter(o => !o.locked).length;
-      if (unlockedInData < progress.unlockedTotal) {
+      const totalNeeded = progress.unlockedTotal;
+      
+      // CRITICAL: Check if we have ALL unlocked orders
+      if (unlockedInData < totalNeeded) {
         hasStartedBackgroundLoad.current = true;
+        console.log(`[OrdersWithProgress] Starting background load: ${unlockedInData}/${totalNeeded}`);
         setTimeout(() => {
           if (isMountedRef.current) loadMoreUnlocked();
         }, 300);
       } else {
         isCompleteRef.current = true;
+        console.log(`[OrdersWithProgress] ✅ All ${unlockedInData} unlocked orders loaded`);
         setProgress(prev => ({ ...prev, isComplete: true, isLoadingMore: false }));
       }
     }
-  }, [query.data, progress.unlockedTotal]); // Removed loadMoreUnlocked from deps - it's stable via ref
+  }, [query.data, progress.unlockedTotal, loadMoreUnlocked]);
 
   return {
     ...query,
