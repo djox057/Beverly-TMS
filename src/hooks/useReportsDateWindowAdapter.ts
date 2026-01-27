@@ -270,7 +270,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const { data: truckNotes } = useQuery({
     queryKey: ["adapter-truck-notes", priorityOffice],
     queryFn: async () => {
-      const { data, error } = await supabase.from("truck_notes").select("*").in("driver_id", driverIdsForScope);
+      // Order by updated_at DESC so when there are duplicates, the most recent comes first
+      const { data, error } = await supabase
+        .from("truck_notes")
+        .select("*")
+        .in("driver_id", driverIdsForScope)
+        .order("updated_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -559,7 +564,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
     const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
     const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
-    const notesByDriverId = new Map((truckNotes || []).map((n) => [n.driver_id, n]));
+    // Build map keeping only the FIRST (most recent) note per driver since results are sorted by updated_at DESC
+    const notesByDriverId = new Map<string, any>();
+    for (const n of truckNotes || []) {
+      if (n.driver_id && !notesByDriverId.has(n.driver_id)) {
+        notesByDriverId.set(n.driver_id, n);
+      }
+    }
     const lostNotesByDriverId = new Map<string, any[]>();
     for (const note of lostDayNotes || []) {
       const existing = lostNotesByDriverId.get(note.driver_id) || [];
