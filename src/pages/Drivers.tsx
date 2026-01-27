@@ -786,6 +786,7 @@ const Drivers = () => {
       }
 
       // Insert assignment history with reason if there was a change
+      // HARDENED: Include old_ values for accurate "from → to" display
       if (reason && (truckChanged || trailerChanged)) {
         const { data: userData } = await supabase.auth.getUser();
         let changeType = "assignment_change";
@@ -800,6 +801,11 @@ const Drivers = () => {
           trailer_id: formData.trailer_id || origTrailerId || null,
           driver1_id: editingDriver.id,
           driver2_id: null,
+          // HARDENED: Include old values for deterministic display
+          old_truck_id: origTruckId || null,
+          old_trailer_id: origTrailerId || null,
+          old_driver1_id: editingDriver.id,
+          old_driver2_id: null,
           change_type: changeType,
           changed_by: userData?.user?.id || null,
           reason: reason,

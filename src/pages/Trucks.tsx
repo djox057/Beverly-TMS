@@ -404,6 +404,8 @@ const Trucks = () => {
       if (error) throw error;
 
       // Log assignment history if there was a change
+      // HARDENED: Include old_ values for accurate "from → to" display
+      // Note: DB trigger also captures changes as safety net, but app code provides reason
       if (originalAssignmentRef.current && reason) {
         const orig = originalAssignmentRef.current;
         const driverChanged = (orig.driver_id && orig.driver_id !== formData.driver_id) ||
@@ -419,6 +421,11 @@ const Trucks = () => {
           trailer_id: formData.trailer_id || null,
           driver1_id: formData.driver_id || null,
           driver2_id: formData.driver2_id || null,
+          // HARDENED: Include old values for deterministic display
+          old_truck_id: editingTruck.id, // Same truck, different assignments
+          old_trailer_id: orig.trailer_id || null,
+          old_driver1_id: orig.driver_id || null,
+          old_driver2_id: orig.driver2_id || null,
           change_type: changeType,
           reason: reason,
           changed_by: user?.id
