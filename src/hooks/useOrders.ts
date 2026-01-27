@@ -59,7 +59,29 @@ async function enrichLockedOrdersWithLookups(
   // Fetch all lookup data from database in parallel with batching
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
-  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData] = await Promise.all([
+  // Helper to fetch live paid status from database (always authoritative for locked orders)
+  const fetchLivePaidStatus = async (): Promise<Map<string, boolean>> => {
+    if (orderIds.length === 0) return new Map();
+    
+    const paidMap = new Map<string, boolean>();
+    const batchSize = 1000;
+    
+    for (let i = 0; i < orderIds.length; i += batchSize) {
+      const batch = orderIds.slice(i, i + batchSize);
+      const { data } = await supabase
+        .from("orders")
+        .select("id, paid")
+        .in("id", batch);
+      
+      (data || []).forEach((row: any) => {
+        paidMap.set(row.id, row.paid === true);
+      });
+    }
+    
+    return paidMap;
+  };
+  
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData, livePaidStatus] = await Promise.all([
     batchFetch("trucks", "id, truck_number", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
     batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
@@ -106,6 +128,8 @@ async function enrichLockedOrdersWithLookups(
       );
       return { data: results.flatMap(r => r.data || []) };
     })(),
+    // Fetch live paid status from database (always authoritative, overrides cached value)
+    fetchLivePaidStatus(),
   ]);
 
   // Create lookup maps
@@ -142,8 +166,11 @@ async function enrichLockedOrdersWithLookups(
 
 
   // Attach lookup data to each order
+  // IMPORTANT: Override paid status with live database value (always wins over cached)
   const enriched = lockedOrders.map((order) => ({
     ...order,
+    // Override paid with live database value if available (database always wins)
+    paid: livePaidStatus.has(order.id) ? livePaidStatus.get(order.id) : order.paid,
     truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
     trailer: order.trailer_id ? trailersMap.get(order.trailer_id) || null : null,
     driver1: order.driver1_id ? driversMap.get(order.driver1_id) || null : null,
