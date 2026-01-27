@@ -42,7 +42,7 @@ import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
-import { useAssignmentHistory, AssignmentHistoryEntry } from "@/hooks/useAssignmentHistory";
+import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -1023,28 +1023,31 @@ const Trips = () => {
   );
 
   // Filter and format history entries based on filter type, grouped by week
+  // HARDENED: Includes trailer_assignment for visibility, uses deterministic filtering
   const historyEntriesByWeek = useMemo(() => {
     if (!filterInfo.filterType || assignmentHistory.length === 0) return {};
     
     const filtered = assignmentHistory
       .filter(entry => {
-        if (filterInfo.filterType === 'driver') {
-          // Show truck changes for driver filter - driver_assignment means driver was assigned to a truck
-          // assignment_change captures combined truck/trailer changes
-          return entry.change_type === 'driver_assignment' || 
-                 entry.change_type === 'assignment_change';
-        } else {
-          // Show driver changes for truck filter - driver_assignment means a driver was assigned to this truck
-          return entry.change_type === 'driver_assignment' ||
-                 entry.change_type === 'assignment_change';
-        }
-      })
-      .slice(0, 50);
+        // Include all relevant change types:
+        // - driver_assignment: driver was assigned/unassigned
+        // - trailer_assignment: trailer was changed (now included for visibility)
+        // - assignment_change: both driver and trailer changed together
+        return entry.change_type === 'driver_assignment' || 
+               entry.change_type === 'trailer_assignment' ||
+               entry.change_type === 'assignment_change';
+      });
+    // Note: No .slice() here - the RPC now has a default limit of 100
     
-    // Group by week (Tuesday start)
+    // Group by week (Tuesday start) using normalized date parsing
     const byWeek: { [weekKey: string]: typeof filtered } = {};
     filtered.forEach(entry => {
-      const entryDate = new Date(entry.changed_at);
+      // HARDENED: Use extractDatePart for consistent timezone-neutral parsing
+      const datePart = extractDatePart(entry.changed_at);
+      if (!datePart) return;
+      
+      // Create date at noon to avoid DST issues
+      const entryDate = new Date(datePart + 'T12:00:00');
       const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
       const weekKey = format(weekStart, "yyyy-MM-dd");
       if (!byWeek[weekKey]) byWeek[weekKey] = [];
@@ -1124,46 +1127,28 @@ const Trips = () => {
         // Get history entries for this week
         const weekHistoryEntries = historyEntriesByWeek[weekKey] || [];
         
-        // Convert history entries to a sortable format with a _isHistoryEntry flag
-        const historyAsItems = weekHistoryEntries.map((entry, idx, arr) => {
-          // Parse date without timezone - extract just the date part
-          const changedAtStr = entry.changed_at;
-          const datePart = changedAtStr?.split('T')[0] || changedAtStr?.split(' ')[0] || '';
+        // HARDENED: Convert history entries using deterministic buildChangeDescription
+        // Uses before/after values from DB instead of comparing array positions
+        const historyAsItems = weekHistoryEntries.map((entry) => {
+          // HARDENED: Use extractDatePart for consistent timezone-neutral parsing
+          const datePart = extractDatePart(entry.changed_at);
           
-          // Build change description
-          let changeDescription = "";
-          if (filterInfo.filterType === 'driver') {
-            const prevEntry = arr[idx + 1];
-            const prevTruck = prevEntry?.truck_number;
-            if (entry.truck_number) {
-              changeDescription = prevTruck 
-                ? `Switched to truck ${entry.truck_number} from ${prevTruck}`
-                : `Switched to truck ${entry.truck_number}`;
-            } else {
-              changeDescription = "Truck removed";
-            }
-          } else {
-            const prevEntry = arr[idx + 1];
-            const prevDriver = prevEntry?.driver1_name;
-            if (entry.driver1_name) {
-              let driverText = entry.driver1_name;
-              if (entry.driver2_name) driverText += ` / ${entry.driver2_name}`;
-              changeDescription = prevDriver 
-                ? `Switched to ${driverText} from ${prevDriver}`
-                : `Switched to ${driverText}`;
-            } else {
-              changeDescription = "Driver removed";
-            }
-          }
+          // HARDENED: Use deterministic buildChangeDescription with before/after values
+          const changeDescription = buildChangeDescription(
+            entry, 
+            filterInfo.filterType || 'driver'
+          );
           
           return {
             _isHistoryEntry: true,
+            // HARDENED: Use stable unique ID from database (not index-based)
             _historyId: entry.id,
             _historyDate: datePart,
             _historyDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
             _changeDescription: changeDescription,
             _reason: entry.reason,
-            // For sorting purposes - treat as midnight on that date
+            _changedAt: entry.changed_at, // Store full timestamp for secondary sorting
+            // For sorting purposes - treat as the date
             deliveryDate: datePart,
           };
         });
@@ -1171,8 +1156,12 @@ const Trips = () => {
         // Merge orders and history entries
         const allItems = [...groups[weekKey], ...historyAsItems];
         
-        // Sort by delivery date (newest first), history entries use their date
+        // HARDENED: Sort by date (newest first) with secondary sort for stability
+        // - Primary: Date (descending)
+        // - Secondary: Timestamp precision for same-day items (for history entries)
+        // - Tertiary: ID for absolute stability
         allItems.sort((a, b) => {
+          // Primary sort: by date
           const getDateValue = (item: any): number => {
             const dateStr = item.deliveryDate || item.pickupDate;
             if (!dateStr) return 0;
@@ -1182,7 +1171,32 @@ const Trips = () => {
           };
           const dateA = getDateValue(a);
           const dateB = getDateValue(b);
-          return dateB - dateA; // Newest first
+          
+          if (dateA !== dateB) {
+            return dateB - dateA; // Newest first
+          }
+          
+          // Secondary sort: For items on the same day, use full timestamp if available
+          const getTimestamp = (item: any): number => {
+            if (item._isHistoryEntry && item._changedAt) {
+              return new Date(item._changedAt).getTime();
+            }
+            // For orders, use delivery datetime with time component
+            const dt = item.deliveryDatetime || item.deliveryDate;
+            if (dt) return new Date(String(dt).replace(" ", "T")).getTime();
+            return 0;
+          };
+          const tsA = getTimestamp(a);
+          const tsB = getTimestamp(b);
+          
+          if (tsA !== tsB) {
+            return tsB - tsA; // Newest first
+          }
+          
+          // Tertiary sort: By ID for absolute stability
+          const idA = a._historyId || a.id || a.virtualId || '';
+          const idB = b._historyId || b.id || b.virtualId || '';
+          return idB.localeCompare(idA);
         });
         
         return {

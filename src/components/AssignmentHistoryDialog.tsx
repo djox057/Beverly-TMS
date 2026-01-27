@@ -1,9 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAssignmentHistory } from "@/hooks/useAssignmentHistory";
+import { useAssignmentHistory, AssignmentHistoryEntry } from "@/hooks/useAssignmentHistory";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 
 interface AssignmentHistoryDialogProps {
   entityType: 'truck' | 'trailer' | 'driver';
@@ -72,26 +72,84 @@ export const AssignmentHistoryDialog = ({
     return changeType.replace(/_/g, ' ');
   };
 
-  const formatChangeDescription = (entry: any, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
-    const parts = [];
+  /**
+   * HARDENED: Format change description using explicit before/after values
+   * This is deterministic and doesn't rely on array position comparisons
+   */
+  const formatChangeDescription = (entry: AssignmentHistoryEntry, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
+    const changes: React.ReactNode[] = [];
     
     if (showType === 'trailer' || showType === 'all') {
-      parts.push(`Trailer: ${entry.trailer_number || 'None'}`);
-    }
-    if (showType === 'truck') {
-      parts.push(`Truck: ${entry.truck_number || 'None'}`);
-    }
-    if (showType === 'driver' || showType === 'all') {
-      parts.push(`Driver 1: ${entry.driver1_name || 'None'}`);
-      if (entry.driver2_name || entry.driver2_id) {
-        parts.push(`Driver 2: ${entry.driver2_name || 'None'}`);
+      const oldTrailer = entry.old_trailer_number;
+      const newTrailer = entry.trailer_number;
+      
+      if (oldTrailer !== newTrailer || oldTrailer || newTrailer) {
+        changes.push(
+          <div key="trailer" className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">Trailer:</span>
+            <span className="text-muted-foreground">{oldTrailer || 'None'}</span>
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+            <span className="font-semibold">{newTrailer || 'None'}</span>
+          </div>
+        );
       }
     }
-    if (showType === 'all') {
-      parts.unshift(`Truck: ${entry.truck_number || 'None'}`);
+    
+    if (showType === 'truck' || showType === 'all') {
+      const oldTruck = entry.old_truck_number;
+      const newTruck = entry.truck_number;
+      
+      if (oldTruck !== newTruck || oldTruck || newTruck) {
+        changes.push(
+          <div key="truck" className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">Truck:</span>
+            <span className="text-muted-foreground">{oldTruck || 'None'}</span>
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+            <span className="font-semibold">{newTruck || 'None'}</span>
+          </div>
+        );
+      }
+    }
+    
+    if (showType === 'driver' || showType === 'all') {
+      // Build driver text with both drivers
+      const buildDriverText = (d1: string | null, d2: string | null) => {
+        if (!d1 && !d2) return 'None';
+        if (d1 && d2) return `${d1} / ${d2}`;
+        return d1 || d2 || 'None';
+      };
+      
+      const oldDriver = buildDriverText(entry.old_driver1_name, entry.old_driver2_name);
+      const newDriver = buildDriverText(entry.driver1_name, entry.driver2_name);
+      
+      if (oldDriver !== newDriver) {
+        changes.push(
+          <div key="driver" className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">Driver:</span>
+            <span className="text-muted-foreground">{oldDriver}</span>
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+            <span className="font-semibold">{newDriver}</span>
+          </div>
+        );
+      }
+    }
+    
+    // Fallback for entries without old_ values (legacy data)
+    if (changes.length === 0) {
+      const parts = [];
+      if (showType === 'trailer' || showType === 'all') {
+        parts.push(`Trailer: ${entry.trailer_number || 'None'}`);
+      }
+      if (showType === 'truck' || showType === 'all') {
+        parts.push(`Truck: ${entry.truck_number || 'None'}`);
+      }
+      if (showType === 'driver' || showType === 'all') {
+        parts.push(`Driver: ${entry.driver1_name || 'None'}${entry.driver2_name ? ` / ${entry.driver2_name}` : ''}`);
+      }
+      return <div className="text-sm">{parts.join(' • ')}</div>;
     }
 
-    return parts.join(' • ');
+    return <div className="space-y-1">{changes}</div>;
   };
 
   const isTrailerChange = (changeType: string) => {
@@ -140,7 +198,7 @@ export const AssignmentHistoryDialog = ({
                   <div className="font-semibold text-sm mb-1 text-primary">
                     {getChangeTypeLabel(entry.change_type, showType)}
                   </div>
-                  <div className="font-medium text-sm mb-2">
+                  <div className="text-sm mb-2">
                     {formatChangeDescription(entry, showType)}
                   </div>
                   {entry.reason && (

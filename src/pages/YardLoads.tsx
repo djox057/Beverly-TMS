@@ -371,10 +371,13 @@ export default function YardLoads() {
         }
 
         // Record this trailer change in assignment_history
+        // HARDENED: Include old_ values for accurate display
         const { data: userData } = await supabase.auth.getUser();
         await supabase.from('assignment_history').insert({
           truck_id: currentTruckId,
           trailer_id: previousTrailerId,
+          old_truck_id: currentTruckId,
+          old_trailer_id: order.trailerId || null, // The trailer we're reverting FROM
           change_type: 'trailer_assignment',
           changed_by: userData?.user?.id || null,
         });
@@ -451,10 +454,12 @@ export default function YardLoads() {
         }
 
         // Record the trailer change AFTER updating - store what we changed TO
-        // along with previous_trailer_id in a note or separate field
+        // HARDENED: Include old_ values for accurate display
         await supabase.from('assignment_history').insert({
           truck_id: data.transferTruckId,
           trailer_id: yardLoadTrailerId || null, // The NEW trailer (what we changed TO)
+          old_truck_id: data.transferTruckId,
+          old_trailer_id: previousTrailerId, // The OLD trailer (what we changed FROM)
           change_type: 'trailer_assignment',
           changed_by: userData?.user?.id || null,
         });

@@ -239,6 +239,10 @@ export type Database = {
           driver1_id: string | null
           driver2_id: string | null
           id: string
+          old_driver1_id: string | null
+          old_driver2_id: string | null
+          old_trailer_id: string | null
+          old_truck_id: string | null
           reason: string | null
           trailer_id: string | null
           truck_id: string | null
@@ -251,6 +255,10 @@ export type Database = {
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          old_driver1_id?: string | null
+          old_driver2_id?: string | null
+          old_trailer_id?: string | null
+          old_truck_id?: string | null
           reason?: string | null
           trailer_id?: string | null
           truck_id?: string | null
@@ -263,6 +271,10 @@ export type Database = {
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          old_driver1_id?: string | null
+          old_driver2_id?: string | null
+          old_trailer_id?: string | null
+          old_truck_id?: string | null
           reason?: string | null
           trailer_id?: string | null
           truck_id?: string | null
@@ -280,6 +292,34 @@ export type Database = {
             columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_old_driver1_id_fkey"
+            columns: ["old_driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_old_driver2_id_fkey"
+            columns: ["old_driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_old_trailer_id_fkey"
+            columns: ["old_trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_old_truck_id_fkey"
+            columns: ["old_truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
             referencedColumns: ["id"]
           },
           {
@@ -3470,25 +3510,59 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
-      get_assignment_history: {
-        Args: { p_entity_id: string; p_entity_type: string }
-        Returns: {
-          change_type: string
-          changed_at: string
-          changed_by: string
-          changed_by_name: string
-          driver1_id: string
-          driver1_name: string
-          driver2_id: string
-          driver2_name: string
-          id: string
-          reason: string
-          trailer_id: string
-          trailer_number: string
-          truck_id: string
-          truck_number: string
-        }[]
-      }
+      get_assignment_history:
+        | {
+            Args: { p_entity_id: string; p_entity_type: string }
+            Returns: {
+              change_type: string
+              changed_at: string
+              changed_by: string
+              changed_by_name: string
+              driver1_id: string
+              driver1_name: string
+              driver2_id: string
+              driver2_name: string
+              id: string
+              reason: string
+              trailer_id: string
+              trailer_number: string
+              truck_id: string
+              truck_number: string
+            }[]
+          }
+        | {
+            Args: {
+              p_entity_id: string
+              p_entity_type: string
+              p_from_date?: string
+              p_limit?: number
+              p_to_date?: string
+            }
+            Returns: {
+              change_type: string
+              changed_at: string
+              changed_by: string
+              changed_by_name: string
+              driver1_id: string
+              driver1_name: string
+              driver2_id: string
+              driver2_name: string
+              id: string
+              old_driver1_id: string
+              old_driver1_name: string
+              old_driver2_id: string
+              old_driver2_name: string
+              old_trailer_id: string
+              old_trailer_number: string
+              old_truck_id: string
+              old_truck_number: string
+              reason: string
+              trailer_id: string
+              trailer_number: string
+              truck_id: string
+              truck_number: string
+            }[]
+          }
       get_latest_truck_locations: {
         Args: never
         Returns: {

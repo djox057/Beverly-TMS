@@ -542,6 +542,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       }
 
       // Insert assignment history for any assignment change
+      // HARDENED: Include old_ values for accurate "from → to" display
       const { data: userData } = await supabase.auth.getUser();
       
       // Log truck change separately if truck changed
@@ -551,6 +552,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           trailer_id: formData.trailer_id || origTrailerId || null,
           driver1_id: editingDriver.id,
           driver2_id: null,
+          // HARDENED: Include old values
+          old_truck_id: origTruckId || null,
+          old_trailer_id: origTrailerId || null,
+          old_driver1_id: editingDriver.id,
+          old_driver2_id: null,
           change_type: "truck_assignment",
           changed_by: userData?.user?.id || null,
           reason: reason,
@@ -564,6 +570,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           trailer_id: formData.trailer_id || null,
           driver1_id: editingDriver.id,
           driver2_id: null,
+          // HARDENED: Include old values
+          old_truck_id: origTruckId || null,
+          old_trailer_id: origTrailerId || null,
+          old_driver1_id: editingDriver.id,
+          old_driver2_id: null,
           change_type: "trailer_assignment",
           changed_by: userData?.user?.id || null,
           reason: reason,
