@@ -203,7 +203,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       if (trailerIdsFromTrucks.length === 0) return [];
       const { data, error } = await supabase
         .from("trailers")
-        .select("id, trailer_number")
+        .select("id, trailer_number, dot_inspection_date")
         .in("id", trailerIdsFromTrucks);
       if (error) throw error;
       return data || [];
@@ -459,7 +459,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const driverMap = new Map(drivers.map((d) => [d.id, d]));
     const companyMap = new Map(companies.map((c) => [c.id, c.name]));
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
-    const trailerMap = new Map((trailers || []).map((t) => [t.id, t.trailer_number]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
     const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
     const notesByDriverId = new Map((truckNotes || []).map((n) => [n.driver_id, n]));
     const lostNotesByDriverId = new Map<string, any[]>();
@@ -678,8 +678,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       // Get driver2 info if this is a team truck
       const driver2 = truck?.driver2_id ? driverMap.get(truck.driver2_id) : null;
       
-      // Get trailer number from lookup
-      const trailerNumber = truck?.trailer_id ? trailerMap.get(truck.trailer_id) : null;
+      // Get trailer info from lookup (includes number and DOT date)
+      const trailerInfo = truck?.trailer_id ? trailerMap.get(truck.trailer_id) : null;
 
       group.trucks.push({
         id: truck?.id || `driver-${driverId}`,
@@ -695,7 +695,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driver2Name: driver2?.name || null,
         driver2Phone: driver2?.phone || null,
         driver2Email: driver2?.email || null,
-        trailerNumber: trailerNumber || null,
+        trailerNumber: trailerInfo?.trailer_number || null,
         home: homeString,
         dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
         dispatcherId,
@@ -733,9 +733,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         isOffDutyDriver: false,
         // Additional fields for compatibility
         hireDate: driver.hire_date,
-        oilChangeDate: truck?.oil_change_date,
-        maintenanceCheckDate: truck?.maintenance_check_date,
-        dotInspectionDate: truck?.dot_inspection_date,
+        // Maintenance dates (snake_case to match helper functions in helpers.ts)
+        oil_change_date: truck?.oil_change_date || null,
+        tires_swap_date: truck?.tires_swap_date || null,
+        maintenance_check_date: truck?.maintenance_check_date || null,
+        // DOT inspection dates (snake_case to match helper functions)
+        dot_inspection_date: truck?.dot_inspection_date || null,
+        trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
       });
     }
 
