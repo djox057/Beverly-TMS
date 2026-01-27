@@ -61,23 +61,49 @@ async function enrichLockedOrdersWithLookups(
   
   // Helper to fetch live paid status from database (always authoritative for locked orders)
   const fetchLivePaidStatus = async (): Promise<Map<string, boolean>> => {
-    if (orderIds.length === 0) return new Map();
-    
     const paidMap = new Map<string, boolean>();
-    const batchSize = 1000;
-    
-    for (let i = 0; i < orderIds.length; i += batchSize) {
-      const batch = orderIds.slice(i, i + batchSize);
-      const { data } = await supabase
-        .from("orders")
-        .select("id, paid")
-        .in("id", batch);
-      
-      (data || []).forEach((row: any) => {
-        paidMap.set(row.id, row.paid === true);
-      });
+    if (orderIds.length === 0) return paidMap;
+
+    try {
+      // IMPORTANT: Large `id=in.(...)` filters can exceed URL limits and return 400.
+      // For large locked datasets, fetch all locked (archived) paid statuses via pagination.
+      if (orderIds.length > 2000) {
+        const pageSize = 1000;
+        let offset = 0;
+
+        while (true) {
+          const { data, error } = await supabase
+            .from("orders")
+            .select("id, paid")
+            .eq("locked", true)
+            .range(offset, offset + pageSize - 1);
+
+          if (error || !data || data.length === 0) break;
+          data.forEach((row: any) => paidMap.set(row.id, row.paid === true));
+
+          if (data.length < pageSize) break;
+          offset += pageSize;
+        }
+
+        return paidMap;
+      }
+
+      // For smaller sets, only fetch what we need, but keep batches small to avoid URL limits.
+      const batchSize = 200;
+      for (let i = 0; i < orderIds.length; i += batchSize) {
+        const batch = orderIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("orders")
+          .select("id, paid")
+          .in("id", batch);
+
+        if (error || !data) continue;
+        data.forEach((row: any) => paidMap.set(row.id, row.paid === true));
+      }
+    } catch (error) {
+      console.warn("[useOrders] Could not fetch live paid status:", error);
     }
-    
+
     return paidMap;
   };
   
