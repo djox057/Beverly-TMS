@@ -334,6 +334,7 @@ const Analytics = () => {
   }, [profile, hasRole]);
 
   // Fetch dispatcher driver counts for the selected date range
+  // Uses pagination to bypass Supabase's 1000 row limit
   useEffect(() => {
     const fetchDriverCounts = async () => {
       try {
@@ -349,29 +350,43 @@ const Analytics = () => {
           toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
         }
 
-        // Use direct query with type assertion to bypass type checking
-        const { data, error } = await supabase
-          .from("dispatcher_daily_driver_counts" as any)
-          .select("*")
-          .gte("date", fromDate)
-          .lte("date", toDate);
+        // Paginated fetch to bypass 1000 row limit
+        const allRecords: any[] = [];
+        let offset = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        if (error) {
-          console.error("Error fetching driver counts:", error);
-          return;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("dispatcher_daily_driver_counts" as any)
+            .select("*")
+            .gte("date", fromDate)
+            .lte("date", toDate)
+            .range(offset, offset + batchSize - 1);
+
+          if (error) {
+            console.error("Error fetching driver counts:", error);
+            return;
+          }
+
+          if (data && Array.isArray(data)) {
+            allRecords.push(...data);
+            hasMore = data.length === batchSize;
+            offset += batchSize;
+          } else {
+            hasMore = false;
+          }
         }
 
         // Aggregate counts by dispatcher
         const countsMap: Record<string, { totalTrucks: number; daysCount: number }> = {};
-        if (data && Array.isArray(data)) {
-          data.forEach((record: any) => {
-            if (!countsMap[record.dispatcher_id]) {
-              countsMap[record.dispatcher_id] = { totalTrucks: 0, daysCount: 0 };
-            }
-            countsMap[record.dispatcher_id].totalTrucks += record.driver_count;
-            countsMap[record.dispatcher_id].daysCount += 1;
-          });
-        }
+        allRecords.forEach((record: any) => {
+          if (!countsMap[record.dispatcher_id]) {
+            countsMap[record.dispatcher_id] = { totalTrucks: 0, daysCount: 0 };
+          }
+          countsMap[record.dispatcher_id].totalTrucks += record.driver_count;
+          countsMap[record.dispatcher_id].daysCount += 1;
+        });
 
         setDispatcherTruckCounts(countsMap);
       } catch (error) {
