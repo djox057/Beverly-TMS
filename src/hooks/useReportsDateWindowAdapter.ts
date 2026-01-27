@@ -564,11 +564,25 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
     const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
     const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
-    // Build map keeping only the FIRST (most recent) note per driver since results are sorted by updated_at DESC
+    // Build map selecting the newest note per driver.
+    // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
+    // (especially after realtime patching). Always pick the max(updated_at) record.
     const notesByDriverId = new Map<string, any>();
     for (const n of truckNotes || []) {
-      if (n.driver_id && !notesByDriverId.has(n.driver_id)) {
-        notesByDriverId.set(n.driver_id, n);
+      const driverId = n?.driver_id as string | undefined;
+      if (!driverId) continue;
+
+      const existing = notesByDriverId.get(driverId);
+      if (!existing) {
+        notesByDriverId.set(driverId, n);
+        continue;
+      }
+
+      const existingTs = existing?.updated_at ? Date.parse(existing.updated_at) : 0;
+      const nextTs = n?.updated_at ? Date.parse(n.updated_at) : 0;
+
+      if (nextTs > existingTs) {
+        notesByDriverId.set(driverId, n);
       }
     }
     const lostNotesByDriverId = new Map<string, any[]>();
