@@ -385,6 +385,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // P2: Subscribe to order_files realtime changes to invalidate adapter cache
   const orderFilesChannelRef = useRef<RealtimeChannel | null>(null);
+  const truckNotesChannelRef = useRef<RealtimeChannel | null>(null);
   
   useEffect(() => {
     if (!scopeEnabled) return;
@@ -421,6 +422,78 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       }
     };
   }, [scopeEnabled, queryClient]);
+
+  // Subscribe to truck_notes realtime changes with DIRECT cache update (no refetch)
+  useEffect(() => {
+    if (!scopeEnabled) return;
+    
+    const channel = supabase
+      .channel("adapter-truck-notes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "truck_notes" },
+        (payload) => {
+          const eventType = payload.eventType;
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const noteId = newRecord?.id || oldRecord?.id;
+          const driverId = newRecord?.driver_id || oldRecord?.driver_id;
+          
+          console.log(`[adapter] truck_notes realtime: ${eventType} for driver ${driverId}`);
+          
+          // Direct cache update using setQueryData (no refetch)
+          queryClient.setQueryData(
+            ["adapter-truck-notes", priorityOffice],
+            (oldNotes: any[] | undefined) => {
+              if (!oldNotes) return oldNotes;
+              
+              if (eventType === "DELETE") {
+                // Remove the deleted note from cache
+                return oldNotes.filter((n) => n.id !== noteId);
+              }
+              
+              if (eventType === "INSERT") {
+                // Add the new note to cache (if driver is in scope)
+                if (driverIdsForScope.includes(driverId)) {
+                  return [...oldNotes, newRecord];
+                }
+                return oldNotes;
+              }
+              
+              if (eventType === "UPDATE") {
+                // Update the specific note in cache
+                const existingIndex = oldNotes.findIndex((n) => n.id === noteId);
+                if (existingIndex >= 0) {
+                  const updated = [...oldNotes];
+                  updated[existingIndex] = newRecord;
+                  return updated;
+                }
+                // If not found but driver is in scope, add it
+                if (driverIdsForScope.includes(driverId)) {
+                  return [...oldNotes, newRecord];
+                }
+              }
+              
+              return oldNotes;
+            }
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("[adapter] Subscribed to truck_notes realtime");
+        }
+      });
+    
+    truckNotesChannelRef.current = channel;
+    
+    return () => {
+      if (truckNotesChannelRef.current) {
+        supabase.removeChannel(truckNotesChannelRef.current);
+        truckNotesChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, queryClient, priorityOffice, driverIdsForScope]);
 
   // Build order_files lookup map
   const orderFilesMap = useMemo(() => {
