@@ -79,6 +79,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
 import { useReportsFilters } from "./Reports/useReportsFilters";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import {
   getCompanyBackgroundColor,
@@ -374,6 +375,17 @@ const Reports = () => {
   
   // Use deferred value to prevent background data updates from blocking interactions
   const groupedReports = useDeferredValue(rawGroupedReports);
+  
+  // Auto-switch office based on filter inputs (shared engine for all 3 filters)
+  const { ambiguousMatch } = useAutoSwitchOffice({
+    truckDriverFilter,
+    dispatchNameFilter,
+    loadNumberFilter,
+    activeTab,
+    setActiveTab,
+    offices,
+    groupedReports,
+  });
   
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
@@ -2601,224 +2613,7 @@ const Reports = () => {
     // The effect uses functional setState to access latest value without retriggering
   }, [groupedReports, isFetchingBackground]);
 
-
-  // Ref to prevent concurrent office searches
-  const isSearchingOfficeRef = useRef(false);
-
-  // Auto-switch to correct office when load number filter finds matches in another office
-  // Since the adapter only loads data for priorityOffice, we need to search the database
-  // to find which office has the matching load number
-  useEffect(() => {
-    if (!debouncedLoadNumberFilter) return;
-    // Note: Removed isFetchingBackground guard - search is independent of adapter loading
-    
-    // Prevent concurrent searches
-    if (isSearchingOfficeRef.current) return;
-    
-    // Check if current tab has any matches first
-    const currentTabReports = filterReportsByOffice(activeTab);
-    if (currentTabReports.length > 0) return; // Stay on current tab if matches exist
-    
-    const searchLoadNumber = async () => {
-      const searchTerm = debouncedLoadNumberFilter.toLowerCase().trim();
-      if (!searchTerm) return;
-      
-      isSearchingOfficeRef.current = true;
-      
-      try {
-        // Step 1: Search by broker_load_number - get driver's dispatcher_id
-        let { data: ordersWithBrokerMatch } = await supabase
-          .from("orders")
-          .select(`
-            id,
-            driver1_id,
-            drivers!orders_driver1_id_fkey(dispatcher_id)
-          `)
-          .ilike("broker_load_number", `%${searchTerm}%`)
-          .neq("status", "locked")
-          .eq("canceled", false)
-          .limit(1);
-        
-        if (ordersWithBrokerMatch && ordersWithBrokerMatch.length > 0) {
-          const order = ordersWithBrokerMatch[0] as any;
-          const dispatcherId = order.drivers?.dispatcher_id;
-          
-          if (dispatcherId) {
-            // Step 2: Get office from profiles using dispatcher_id -> user_id
-            const { data: profileData } = await supabase
-              .from("profiles")
-              .select("office")
-              .eq("user_id", dispatcherId)
-              .maybeSingle();
-            
-            const office = profileData?.office;
-            if (office && offices.includes(office) && office !== activeTab) {
-              setActiveTab(office);
-              isSearchingOfficeRef.current = false;
-              return;
-            }
-          }
-        }
-        
-        // Search by internal_load_number (strip suffix if present)
-        const numericPart = searchTerm.split("-")[0];
-        const internalNum = parseInt(numericPart, 10);
-        
-        if (!isNaN(internalNum)) {
-          const { data: ordersWithInternalMatch } = await supabase
-            .from("orders")
-            .select(`
-              id,
-              driver1_id,
-              drivers!orders_driver1_id_fkey(dispatcher_id)
-            `)
-            .eq("internal_load_number", internalNum)
-            .neq("status", "locked")
-            .eq("canceled", false)
-            .limit(1);
-          
-          if (ordersWithInternalMatch && ordersWithInternalMatch.length > 0) {
-            const order = ordersWithInternalMatch[0] as any;
-            const dispatcherId = order.drivers?.dispatcher_id;
-            
-            if (dispatcherId) {
-              // Get office from profiles using dispatcher_id -> user_id
-              const { data: profileData } = await supabase
-                .from("profiles")
-                .select("office")
-                .eq("user_id", dispatcherId)
-                .maybeSingle();
-              
-              const office = profileData?.office;
-              if (office && offices.includes(office) && office !== activeTab) {
-                setActiveTab(office);
-                isSearchingOfficeRef.current = false;
-                return;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[Reports] Error searching for load in other offices:", error);
-      } finally {
-        isSearchingOfficeRef.current = false;
-      }
-    };
-    
-    searchLoadNumber();
-  }, [debouncedLoadNumberFilter, activeTab, filterReportsByOffice]);
-
-  // Auto-switch to correct office when Truck/Driver filter finds matches in another office
-  useEffect(() => {
-    if (!debouncedTruckDriverFilter) return;
-    if (isSearchingOfficeRef.current) return;
-    
-    // Check if current tab has any matches first
-    const currentTabReports = filterReportsByOffice(activeTab);
-    if (currentTabReports.length > 0) return;
-    
-    const searchTruckDriver = async () => {
-      const searchTerm = debouncedTruckDriverFilter.toLowerCase().trim();
-      if (!searchTerm) return;
-      
-      isSearchingOfficeRef.current = true;
-      
-      try {
-        // Search by truck_number first
-        const { data: trucksMatch } = await supabase
-          .from("trucks")
-          .select("dispatcher_id")
-          .ilike("truck_number", `%${searchTerm}%`)
-          .not("dispatcher_id", "is", null)
-          .limit(1);
-        
-        if (trucksMatch && trucksMatch.length > 0 && trucksMatch[0].dispatcher_id) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("office")
-            .eq("user_id", trucksMatch[0].dispatcher_id)
-            .maybeSingle();
-          
-          if (profileData?.office && offices.includes(profileData.office) && profileData.office !== activeTab) {
-            setActiveTab(profileData.office);
-            isSearchingOfficeRef.current = false;
-            return;
-          }
-        }
-        
-        // Search by driver name
-        const { data: driversMatch } = await supabase
-          .from("drivers")
-          .select("dispatcher_id")
-          .ilike("name", `%${searchTerm}%`)
-          .not("dispatcher_id", "is", null)
-          .eq("is_active", true)
-          .limit(1);
-        
-        if (driversMatch && driversMatch.length > 0 && driversMatch[0].dispatcher_id) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("office")
-            .eq("user_id", driversMatch[0].dispatcher_id)
-            .maybeSingle();
-          
-          if (profileData?.office && offices.includes(profileData.office) && profileData.office !== activeTab) {
-            setActiveTab(profileData.office);
-            isSearchingOfficeRef.current = false;
-            return;
-          }
-        }
-      } catch (error) {
-        console.error("[Reports] Error searching for truck/driver in other offices:", error);
-      } finally {
-        isSearchingOfficeRef.current = false;
-      }
-    };
-    
-    searchTruckDriver();
-  }, [debouncedTruckDriverFilter, activeTab, filterReportsByOffice]);
-
-  // Auto-switch to correct office when Dispatcher name filter finds matches in another office
-  useEffect(() => {
-    if (!debouncedDispatchNameFilter) return;
-    if (isSearchingOfficeRef.current) return;
-    
-    // Check if current tab has any matches first
-    const currentTabReports = filterReportsByOffice(activeTab);
-    if (currentTabReports.length > 0) return;
-    
-    const searchDispatcher = async () => {
-      const searchTerm = debouncedDispatchNameFilter.toLowerCase().trim();
-      if (!searchTerm) return;
-      
-      isSearchingOfficeRef.current = true;
-      
-      try {
-        // Search by dispatcher full_name in profiles
-        const { data: profilesMatch } = await supabase
-          .from("profiles")
-          .select("office")
-          .ilike("full_name", `%${searchTerm}%`)
-          .not("office", "is", null)
-          .limit(1);
-        
-        if (profilesMatch && profilesMatch.length > 0 && profilesMatch[0].office) {
-          const office = profilesMatch[0].office;
-          if (offices.includes(office) && office !== activeTab) {
-            setActiveTab(office);
-            isSearchingOfficeRef.current = false;
-            return;
-          }
-        }
-      } catch (error) {
-        console.error("[Reports] Error searching for dispatcher in other offices:", error);
-      } finally {
-        isSearchingOfficeRef.current = false;
-      }
-    };
-    
-    searchDispatcher();
-  }, [debouncedDispatchNameFilter, activeTab, filterReportsByOffice]);
+  // Auto-switch logic is now handled by useAutoSwitchOffice hook
 
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
@@ -3057,25 +2852,61 @@ const Reports = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
             {/* Filters Section */}
-            <div className="flex gap-2 mb-2">
-              <Input
-                placeholder="Truck # / Driver name"
-                value={truckDriverFilter}
-                onChange={(e) => setTruckDriverFilter(e.target.value)}
-                className="max-w-[200px]"
-              />
-              <Input
-                placeholder="Dispatch name"
-                value={dispatchNameFilter}
-                onChange={(e) => setDispatchNameFilter(e.target.value)}
-                className="max-w-[180px]"
-              />
-              <Input
-                placeholder="Load #"
-                value={loadNumberFilter}
-                onChange={(e) => setLoadNumberFilter(e.target.value)}
-                className="max-w-[200px]"
-              />
+            <div className="flex gap-2 mb-2 items-center">
+              <div className="relative">
+                <Input
+                  placeholder="Truck # / Driver name"
+                  value={truckDriverFilter}
+                  onChange={(e) => setTruckDriverFilter(e.target.value)}
+                  className={cn("max-w-[200px]", ambiguousMatch?.filter === "truck" && "border-amber-500")}
+                />
+                {ambiguousMatch?.filter === "truck" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  placeholder="Dispatch name"
+                  value={dispatchNameFilter}
+                  onChange={(e) => setDispatchNameFilter(e.target.value)}
+                  className={cn("max-w-[180px]", ambiguousMatch?.filter === "dispatch" && "border-amber-500")}
+                />
+                {ambiguousMatch?.filter === "dispatch" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  placeholder="Load #"
+                  value={loadNumberFilter}
+                  onChange={(e) => setLoadNumberFilter(e.target.value)}
+                  className={cn("max-w-[200px]", ambiguousMatch?.filter === "load" && "border-amber-500")}
+                />
+                {ambiguousMatch?.filter === "load" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
                 <Button
                   variant="ghost"
