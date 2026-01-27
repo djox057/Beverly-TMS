@@ -1,124 +1,126 @@
 
-# Fix Auto-Switch Office Logic on /reports Page
+
+# Fix Reports Page to Display Drivers Without Trucks
 
 ## Problem Summary
-When a user searches for a load number (like "420294") while on a tab that doesn't have that load, the page should automatically switch to the correct office tab. This functionality stopped working after the backend was changed to use the date-window adapter.
+The `/reports` page is not displaying active drivers who don't have a truck assigned. For example, driver "Raymond Ortiz" (ID: `380bfdf3-744c-4be3-a61a-8514849b5c35`) is:
+- Active (`is_active: true`)
+- Has a dispatcher assigned (`dispatcher_id: 069b0875-5702-4da8-b476-e4c315463626`)
+- But has NO truck assigned (not in the `trucks` table as `driver1_id` or `driver2_id`)
 
-## Root Causes Identified
+The legacy `useReports.ts` hook (lines 1934-1936) explicitly handled this by fetching all active drivers and identifying "unassigned drivers" who aren't linked to any truck. This logic was omitted during the migration to the date-window architecture.
 
-### 1. Background Fetch Blocking (Primary Issue)
-The auto-switch `useEffect` has an early return when `isFetchingBackground` is true:
-```typescript
-if (isFetchingBackground) return;
-```
-When switching between tabs, the adapter fetches data for the new office, keeping `isFetchingBackground` true. This blocks the database lookup from ever executing.
+## Root Cause
+In `src/hooks/useReportsDateWindow.ts`, the function `fetchDriverIdsForOffice` (lines 364-427) only collects driver IDs via the truck-centric path:
+1. Get dispatchers in the office
+2. Fetch active trucks with their `driver1` relationship
+3. Filter trucks where `driver1.dispatcher_id` is in the office
+4. Return only those driver IDs
 
-### 2. Supabase Join Syntax Error
-The nested relationship syntax is incorrect:
-```typescript
-drivers!orders_driver1_id_fkey(
-  dispatcher_id,
-  profiles:dispatcher_id(office)  // ← Incorrect syntax
-)
-```
-The `profiles:dispatcher_id` syntax attempts to follow a FK relationship, but the actual foreign key from `drivers.dispatcher_id` references `profiles.user_id`, not `profiles.id`. This likely returns `null` for the office.
-
-### 3. Condition Logic Flaw
-The check `if (currentTabReports.length > 0) return` is checking if ANY reports exist on the current tab, but since the search filter is already applied in `filterReportsByOffice`, this actually checks if any matching loads exist on the current tab - which is correct, but the timing with `isFetchingBackground` causes issues.
+This completely misses active drivers with a matching `dispatcher_id` who are not currently assigned to any truck.
 
 ## Solution
 
-### Step 1: Fix the Background Fetch Blocking
-Remove or modify the `isFetchingBackground` guard to allow searches to proceed even during background fetches. The search is a separate database query that doesn't depend on the adapter's data.
+### Step 1: Update `fetchDriverIdsForOffice` in `useReportsDateWindow.ts`
+Extend the function to also fetch active drivers directly by their `dispatcher_id`, not just through truck assignments.
 
-```typescript
-// Before
-useEffect(() => {
-  if (!debouncedLoadNumberFilter) return;
-  if (isFetchingBackground) return;  // ← Remove this blocker
-  ...
-});
-
-// After
-useEffect(() => {
-  if (!debouncedLoadNumberFilter) return;
-  // Remove isFetchingBackground check - search is independent
-  ...
-});
+```text
+                          ┌────────────────────┐
+                          │  fetchDriverIds    │
+                          │    ForOffice       │
+                          └────────────────────┘
+                                   │
+                    ┌──────────────┴──────────────┐
+                    ▼                              ▼
+         ┌──────────────────┐           ┌──────────────────┐
+         │  Path A: Trucks  │           │  Path B: Drivers │
+         │  (existing)      │           │  (NEW)           │
+         └──────────────────┘           └──────────────────┘
+                    │                              │
+         Get driver IDs from          Get driver IDs directly
+         active trucks where          from drivers table where
+         driver1.dispatcher_id        dispatcher_id matches
+         matches office               office dispatcher list
+                    │                              │
+                    └──────────────┬───────────────┘
+                                   ▼
+                          ┌────────────────────┐
+                          │ Merge + Deduplicate│
+                          │    driver IDs      │
+                          └────────────────────┘
 ```
 
-### Step 2: Fix the Supabase Query Syntax
-Replace the broken nested join with a simpler, working query that manually joins to get the office:
+Changes to make:
+- After the existing truck-based driver ID collection, add a second query to fetch active drivers directly by `dispatcher_id`
+- Use `supabase.from("drivers").select("id").eq("is_active", true).in("dispatcher_id", filterDispatcherIds)`
+- Merge both sets of driver IDs (truck-based + direct) into one unique set
 
-```typescript
-// Before (broken)
-.select(`
-  id,
-  driver1_id,
-  drivers!orders_driver1_id_fkey(
-    dispatcher_id,
-    profiles:dispatcher_id(office)
-  )
-`)
+### Step 2: Update Adapter to Handle Drivers Without Trucks
+In `src/hooks/useReportsDateWindowAdapter.ts`, the transformation logic already partially handles this (line 685: `id: truck?.id || 'driver-${driverId}'`), but there are additional changes needed:
 
-// After (fixed)
-.select(`
-  id,
-  driver1_id,
-  drivers!orders_driver1_id_fkey(dispatcher_id)
-`)
-// Then fetch office in a separate query
-```
+- When fetching trucks (line 175-188), the query filters by driver IDs in scope, which will now include unassigned drivers
+- For unassigned drivers, `truckByDriverId.get(driverId)` returns `undefined`, which is already handled
+- Ensure the adapter correctly generates report entries for drivers without trucks (no truck number, but driver info is displayed)
 
-Or use a direct SQL approach via RPC if needed:
-```sql
-SELECT p.office 
-FROM orders o
-JOIN drivers d ON o.driver1_id = d.id
-JOIN profiles p ON d.dispatcher_id = p.user_id
-WHERE o.broker_load_number ILIKE '%searchTerm%'
-  AND o.status != 'locked'
-  AND o.canceled = false
-LIMIT 1
-```
-
-### Step 3: Add Debounce Protection
-Add a flag to prevent multiple simultaneous searches:
-
-```typescript
-const isSearchingRef = useRef(false);
-
-useEffect(() => {
-  if (!debouncedLoadNumberFilter) return;
-  if (isSearchingRef.current) return;
-  
-  const searchLoadNumber = async () => {
-    isSearchingRef.current = true;
-    try {
-      // ... search logic
-    } finally {
-      isSearchingRef.current = false;
-    }
-  };
-  
-  searchLoadNumber();
-}, [debouncedLoadNumberFilter, activeTab]);
-```
+### Step 3: Update Adapter Trucks Query
+The adapter fetches trucks filtered by `driverIdsForScope` (line 182). This works correctly since unassigned drivers simply won't have matching trucks, and the code already handles `truck` being undefined (line 687: `truckNumber: truck?.truck_number || null`).
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/pages/Reports.tsx` | Fix the auto-switch useEffect (lines 2605-2681): remove isFetchingBackground guard, fix Supabase query syntax, add search debounce protection |
+### 1. `src/hooks/useReportsDateWindow.ts`
+**Location**: `fetchDriverIdsForOffice` function (lines 364-427)
 
-## Testing Plan
-1. Navigate to /reports
-2. Select "Recovery" tab (or any tab without load 420294)
-3. Enter "420294" in the Load # search field
-4. Verify the page automatically switches to "ČAČAK" tab
-5. Verify the matching load is displayed
+**Changes**:
+- Add a second query after the truck-based collection to fetch active drivers directly by dispatcher_id
+- Merge the results into the final `driverIds` array
 
-## Technical Notes
-- The fix maintains the existing search behavior for internal load numbers with suffixes
-- The database lookup remains independent of the date-window adapter's cache
-- Real-time subscriptions continue to work normally after the switch
+### 2. `src/hooks/useReportsDateWindowAdapter.ts`
+**Location**: Adapter trucks query and transformation logic
+
+**Changes**:
+- Update the adapter's drivers query to not filter by `driverIdsForScope` since we now want ALL active drivers for the office dispatchers (or expand the scope appropriately)
+- Verify the transformation handles unassigned drivers correctly
+
+## Technical Details
+
+### Updated `fetchDriverIdsForOffice` Logic (pseudocode):
+
+```
+async function fetchDriverIdsForOffice(priorityOffice):
+  // Step 1: Get dispatchers in this office
+  dispatchers = await supabase.from("profiles").select(...)
+  filterDispatcherIds = dispatchers.filter(office matches).map(user_id)
+  
+  // Step 2: Fetch drivers from trucks (existing logic)
+  trucks = await supabase.from("trucks").select(... driver1 relation)
+  for each truck:
+    if driver1.dispatcher_id in filterDispatcherIds:
+      add driver1.id and driver2_id to driverIdsSet
+  
+  // Step 3: NEW - Fetch active drivers directly by dispatcher_id
+  unassignedDrivers = await supabase
+    .from("drivers")
+    .select("id")
+    .eq("is_active", true)
+    .in("dispatcher_id", filterDispatcherIds)
+  
+  for each driver in unassignedDrivers:
+    add driver.id to driverIdsSet  // Set handles deduplication
+  
+  return { driverIds: Array.from(driverIdsSet), dispatcherIds }
+```
+
+### Matching Legacy Behavior
+This approach directly matches `useReports.ts` lines 1913-1936:
+1. Legacy hook fetches all active drivers filtered by dispatcher_id (line 1924)
+2. Legacy hook identifies unassigned drivers (line 1936)
+3. Legacy hook creates report entries for unassigned drivers (lines 1946-2215)
+
+## Testing Checklist
+1. After the fix, verify Raymond Ortiz appears in the Reports page under his dispatcher
+2. Verify unassigned drivers show "—" for truck number but display driver name correctly
+3. Verify drivers assigned to trucks still display correctly
+4. Verify switching office tabs correctly shows/hides drivers based on their dispatcher's office
+5. Verify no duplicate entries for drivers (the Set deduplication handles this)
+6. Verify orders for unassigned drivers display correctly in the calendar view
+
