@@ -1022,6 +1022,54 @@ const Trips = () => {
     filterInfo.entityId
   );
 
+  // Fetch terminated drivers for showing in Trips as red rows
+  const { data: terminatedDrivers = [] } = useQuery({
+    queryKey: ["terminated-drivers-for-trips", filterInfo.filterType, filterInfo.entityId],
+    queryFn: async () => {
+      // Only fetch when filtering by driver or truck
+      if (!filterInfo.filterType || !filterInfo.entityId) return [];
+      
+      let query = supabase
+        .from("drivers")
+        .select(`
+          id,
+          name,
+          first_name,
+          last_name,
+          termination_date
+        `)
+        .eq("is_active", false)
+        .not("termination_date", "is", null);
+      
+      // If filtering by driver, only get that specific driver
+      if (filterInfo.filterType === 'driver') {
+        query = query.eq("id", filterInfo.entityId);
+      }
+      
+      const { data, error } = await query.order("termination_date", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching terminated drivers:", error);
+        return [];
+      }
+      
+      // If filtering by truck, we need to find drivers that were assigned to that truck
+      if (filterInfo.filterType === 'truck' && data) {
+        // Get drivers that were ever assigned to this truck from assignment history
+        const driverIdsFromHistory = assignmentHistory
+          .filter(h => h.driver1_id || h.driver2_id || h.old_driver1_id || h.old_driver2_id)
+          .flatMap(h => [h.driver1_id, h.driver2_id, h.old_driver1_id, h.old_driver2_id])
+          .filter(Boolean);
+        
+        const uniqueDriverIds = [...new Set(driverIdsFromHistory)];
+        return data.filter(d => uniqueDriverIds.includes(d.id));
+      }
+      
+      return data || [];
+    },
+    enabled: !!filterInfo.filterType && !!filterInfo.entityId,
+  });
+
   // Filter and format history entries based on filter type, grouped by week
   // HARDENED: Includes trailer_assignment for visibility, uses deterministic filtering
   const historyEntriesByWeek = useMemo(() => {
@@ -1056,6 +1104,27 @@ const Trips = () => {
     
     return byWeek;
   }, [filterInfo.filterType, assignmentHistory]);
+
+  // Group terminated drivers by week for display as red rows
+  const terminationsByWeek = useMemo(() => {
+    if (!filterInfo.filterType || terminatedDrivers.length === 0) return {};
+    
+    const byWeek: { [weekKey: string]: typeof terminatedDrivers } = {};
+    terminatedDrivers.forEach(driver => {
+      if (!driver.termination_date) return;
+      
+      const datePart = extractDatePart(driver.termination_date);
+      if (!datePart) return;
+      
+      const entryDate = new Date(datePart + 'T12:00:00');
+      const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
+      const weekKey = format(weekStart, "yyyy-MM-dd");
+      if (!byWeek[weekKey]) byWeek[weekKey] = [];
+      byWeek[weekKey].push(driver);
+    });
+    
+    return byWeek;
+  }, [filterInfo.filterType, terminatedDrivers]);
 
   // Pagination - paginate individual orders first
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
@@ -1153,8 +1222,27 @@ const Trips = () => {
           };
         });
         
-        // Merge orders and history entries
-        const allItems = [...groups[weekKey], ...historyAsItems];
+        // Get terminated drivers for this week and convert to red row items
+        const weekTerminations = terminationsByWeek[weekKey] || [];
+        const terminationAsItems = weekTerminations.map((driver) => {
+          const datePart = extractDatePart(driver.termination_date);
+          const driverName = driver.name || `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
+          
+          return {
+            _isTerminationEntry: true,
+            // Use stable unique ID from database
+            _terminationId: driver.id,
+            _terminationDate: datePart,
+            _terminationDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
+            _terminationDriverName: driverName,
+            _terminationDescription: `Driver Terminated: ${driverName}`,
+            // For sorting purposes - treat as the date
+            deliveryDate: datePart,
+          };
+        });
+        
+        // Merge orders, history entries, and termination entries
+        const allItems = [...groups[weekKey], ...historyAsItems, ...terminationAsItems];
         
         // HARDENED: Sort by date (newest first) with secondary sort for stability
         // - Primary: Date (descending)
@@ -1181,6 +1269,10 @@ const Trips = () => {
             if (item._isHistoryEntry && item._changedAt) {
               return new Date(item._changedAt).getTime();
             }
+            // For termination entries, use termination date (end of day)
+            if (item._isTerminationEntry && item._terminationDate) {
+              return new Date(item._terminationDate + 'T23:59:59').getTime();
+            }
             // For orders, use delivery datetime with time component
             const dt = item.deliveryDatetime || item.deliveryDate;
             if (dt) return new Date(String(dt).replace(" ", "T")).getTime();
@@ -1194,8 +1286,8 @@ const Trips = () => {
           }
           
           // Tertiary sort: By ID for absolute stability
-          const idA = a._historyId || a.id || a.virtualId || '';
-          const idB = b._historyId || b.id || b.virtualId || '';
+          const idA = a._historyId || a._terminationId || a.id || a.virtualId || '';
+          const idB = b._historyId || b._terminationId || b.id || b.virtualId || '';
           return idB.localeCompare(idA);
         });
         
@@ -1206,7 +1298,7 @@ const Trips = () => {
       });
     
     return weekGroups;
-  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, filterInfo.filterType]);
+  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, terminationsByWeek, filterInfo.filterType]);
 
   // Handle drag end for moving loads between weeks
   const handleDragEnd = useCallback((result: DropResult) => {
@@ -4230,8 +4322,8 @@ const Trips = () => {
                   </TableRow>
                 ) : (
                   groupedByWeek.map((week, weekIndex) => {
-                    // Filter out history entries for totals calculation
-                    const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry);
+                    // Filter out history and termination entries for totals calculation
+                    const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
                     const weekTotal = actualOrders.reduce(
                       (acc: any, order: any) => ({
                         miles: acc.miles + (Number(order.mileage) || 0),
@@ -4365,6 +4457,28 @@ const Trips = () => {
                                 </TableCell>
                                 <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
                                   {order._reason || "—"}
+                                </TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            );
+                          }
+                          
+                          // Check if this is a termination entry (driver terminated - red row)
+                          if (order._isTerminationEntry) {
+                            return (
+                              <TableRow 
+                                key={`termination-${week.weekStart}-${order._terminationId}`}
+                                className="bg-red-100 dark:bg-red-900/50 border-l-4 border-l-red-500"
+                              >
+                                {canMoveLoads && <TableCell></TableCell>}
+                                <TableCell className="text-sm font-semibold text-red-700 dark:text-red-300">
+                                  {order._terminationDateDisplay}
+                                </TableCell>
+                                <TableCell colSpan={4} className="text-sm font-medium text-red-700 dark:text-red-300">
+                                  {order._terminationDescription}
+                                </TableCell>
+                                <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm text-red-600 dark:text-red-400">
+                                  Driver has been terminated
                                 </TableCell>
                                 <TableCell></TableCell>
                               </TableRow>
