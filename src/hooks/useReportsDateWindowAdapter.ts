@@ -422,6 +422,104 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, [scopeEnabled, queryClient]);
 
+  // P3: Subscribe to truck_notes realtime changes and patch cache directly (no refetch)
+  const truckNotesChannelRef = useRef<RealtimeChannel | null>(null);
+  const driverIdsSetRef = useRef<Set<string>>(new Set());
+  
+  // Keep driver IDs in a ref to avoid stale closures in subscription callback
+  useEffect(() => {
+    driverIdsSetRef.current = new Set(driverIdsForScope);
+  }, [driverIdsForScope]);
+  
+  useEffect(() => {
+    if (!scopeEnabled || driverIdsForScope.length === 0) {
+      // Cleanup any existing channel when disabled
+      if (truckNotesChannelRef.current) {
+        supabase.removeChannel(truckNotesChannelRef.current);
+        truckNotesChannelRef.current = null;
+      }
+      return;
+    }
+    
+    // Avoid duplicate subscriptions
+    if (truckNotesChannelRef.current) return;
+    
+    const channelName = `adapter-truck-notes-realtime-${priorityOffice || 'default'}`;
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "truck_notes" },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const driverId = newRecord?.driver_id || oldRecord?.driver_id;
+          const eventType = payload.eventType;
+          
+          // Scope filtering: ignore events for drivers not in current scope
+          if (!driverId || !driverIdsSetRef.current.has(driverId)) {
+            console.log(`[adapter] truck_notes realtime: ${eventType} ignored - driver ${driverId} not in scope`);
+            return;
+          }
+          
+          console.log(`[adapter] truck_notes realtime: ${eventType} for driver ${driverId}`);
+          
+          // Patch the cache directly using setQueryData
+          queryClient.setQueryData(
+            ["adapter-truck-notes", priorityOffice],
+            (oldData: any[] | undefined) => {
+              if (!oldData) return oldData;
+              
+              if (eventType === "DELETE") {
+                // Remove note by id
+                return oldData.filter((note) => note.id !== oldRecord.id);
+              }
+              
+              if (eventType === "INSERT") {
+                // Append if not already present
+                const exists = oldData.some((note) => note.id === newRecord.id);
+                if (exists) {
+                  // Update instead (in case of race condition)
+                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+                }
+                return [...oldData, newRecord];
+              }
+              
+              if (eventType === "UPDATE") {
+                // Replace existing by id
+                const existingIndex = oldData.findIndex((note) => note.id === newRecord.id);
+                if (existingIndex >= 0) {
+                  const updated = [...oldData];
+                  updated[existingIndex] = newRecord;
+                  return updated;
+                }
+                // If not in cache yet, append it
+                return [...oldData, newRecord];
+              }
+              
+              return oldData;
+            }
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`[adapter] Subscribed to truck_notes realtime for office: ${priorityOffice}`);
+        }
+      });
+    
+    truckNotesChannelRef.current = channel;
+    
+    return () => {
+      if (truckNotesChannelRef.current) {
+        console.log(`[adapter] Unsubscribing from truck_notes realtime for office: ${priorityOffice}`);
+        supabase.removeChannel(truckNotesChannelRef.current);
+        truckNotesChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
+
   // Build order_files lookup map
   const orderFilesMap = useMemo(() => {
     const map = new Map<string, any[]>();
