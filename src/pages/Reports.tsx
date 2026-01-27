@@ -2602,40 +2602,83 @@ const Reports = () => {
   }, [groupedReports, isFetchingBackground]);
 
 
-  // Auto-switch to correct dispatcher page when filters find matches
-  // Skip during background fetch to avoid expensive operations
+  // Auto-switch to correct office when load number filter finds matches in another office
+  // Since the adapter only loads data for priorityOffice, we need to search the database
+  // to find which office has the matching load number
   useEffect(() => {
-    if (!groupedReports) return;
-    if (isFetchingBackground) return; // Skip during background data load
-
-    // Check if any filter is active
-    const hasActiveFilter = debouncedTruckDriverFilter || debouncedDispatchNameFilter || debouncedLoadNumberFilter;
-    if (!hasActiveFilter) return;
-
-    // Check if current tab has any matches
+    if (!debouncedLoadNumberFilter) return;
+    if (isFetchingBackground) return;
+    
+    // Check if current tab has any matches first
     const currentTabReports = filterReportsByOffice(activeTab);
     if (currentTabReports.length > 0) return; // Stay on current tab if matches exist
-
-    // Search across all offices for matches
-    for (const office of offices) {
-      if (office === activeTab) continue; // Already checked current tab
-
-      const officeReports = filterReportsByOffice(office);
-      if (officeReports.length > 0) {
-        // Found matches in another office, switch to it
-        setActiveTab(office);
-        break;
+    
+    const searchLoadNumber = async () => {
+      const searchTerm = debouncedLoadNumberFilter.toLowerCase().trim();
+      if (!searchTerm) return;
+      
+      try {
+        // Search by broker_load_number first
+        let { data: ordersWithBrokerMatch } = await supabase
+          .from("orders")
+          .select(`
+            id,
+            driver1_id,
+            drivers!orders_driver1_id_fkey(
+              dispatcher_id,
+              profiles:dispatcher_id(office)
+            )
+          `)
+          .ilike("broker_load_number", `%${searchTerm}%`)
+          .neq("status", "locked")
+          .eq("canceled", false)
+          .limit(1);
+        
+        if (ordersWithBrokerMatch && ordersWithBrokerMatch.length > 0) {
+          const order = ordersWithBrokerMatch[0] as any;
+          const office = order.drivers?.profiles?.office;
+          if (office && offices.includes(office) && office !== activeTab) {
+            setActiveTab(office);
+            return;
+          }
+        }
+        
+        // Search by internal_load_number (strip suffix if present)
+        const numericPart = searchTerm.split("-")[0];
+        const internalNum = parseInt(numericPart, 10);
+        
+        if (!isNaN(internalNum)) {
+          const { data: ordersWithInternalMatch } = await supabase
+            .from("orders")
+            .select(`
+              id,
+              driver1_id,
+              drivers!orders_driver1_id_fkey(
+                dispatcher_id,
+                profiles:dispatcher_id(office)
+              )
+            `)
+            .eq("internal_load_number", internalNum)
+            .neq("status", "locked")
+            .eq("canceled", false)
+            .limit(1);
+          
+          if (ordersWithInternalMatch && ordersWithInternalMatch.length > 0) {
+            const order = ordersWithInternalMatch[0] as any;
+            const office = order.drivers?.profiles?.office;
+            if (office && offices.includes(office) && office !== activeTab) {
+              setActiveTab(office);
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[Reports] Error searching for load in other offices:", error);
       }
-    }
-  }, [
-    debouncedTruckDriverFilter,
-    debouncedDispatchNameFilter,
-    debouncedLoadNumberFilter,
-    groupedReports,
-    activeTab,
-    filterReportsByOffice,
-    isFetchingBackground,
-  ]);
+    };
+    
+    searchLoadNumber();
+  }, [debouncedLoadNumberFilter, activeTab, isFetchingBackground, filterReportsByOffice]);
 
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
