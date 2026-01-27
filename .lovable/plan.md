@@ -1,118 +1,124 @@
 
-# Fix: Analytics/Orders Page Cache Synchronization
+# Fix Auto-Switch Office Logic on /reports Page
 
 ## Problem Summary
+When a user searches for a load number (like "420294") while on a tab that doesn't have that load, the page should automatically switch to the correct office tab. This functionality stopped working after the backend was changed to use the date-window adapter.
 
-Both `/orders` (useOrders) and `/analytics` (useOrdersWithProgress) share the same React Query cache key `["orders"]` with `staleTime: Infinity` and `refetchOnMount: false`. This creates a one-way sync issue:
+## Root Causes Identified
 
-- **Analytics first → Orders works**: useOrdersWithProgress loads all data with progress tracking, then useOrders reuses it
-- **Orders first → Analytics broken**: useOrders loads 100 orders, React Query caches it, useOrdersWithProgress never runs its queryFn because cache is fresh, so progress state never initializes
+### 1. Background Fetch Blocking (Primary Issue)
+The auto-switch `useEffect` has an early return when `isFetchingBackground` is true:
+```typescript
+if (isFetchingBackground) return;
+```
+When switching between tabs, the adapter fetches data for the new office, keeping `isFetchingBackground` true. This blocks the database lookup from ever executing.
 
-## Root Cause
+### 2. Supabase Join Syntax Error
+The nested relationship syntax is incorrect:
+```typescript
+drivers!orders_driver1_id_fkey(
+  dispatcher_id,
+  profiles:dispatcher_id(office)  // ← Incorrect syntax
+)
+```
+The `profiles:dispatcher_id` syntax attempts to follow a FK relationship, but the actual foreign key from `drivers.dispatcher_id` references `profiles.user_id`, not `profiles.id`. This likely returns `null` for the office.
 
-When React Query finds fresh cached data, it returns it immediately without calling queryFn. The `useOrdersWithProgress` hook depends on its queryFn running to:
-1. Call `fetchUnlockedCount()` to set `progress.unlockedTotal`
-2. Call `setProgress()` to initialize the loading state
-
-Without the queryFn running, `progress.unlockedTotal` stays `null`, and the background loading effect never triggers.
+### 3. Condition Logic Flaw
+The check `if (currentTabReports.length > 0) return` is checking if ANY reports exist on the current tab, but since the search filter is already applied in `filterReportsByOffice`, this actually checks if any matching loads exist on the current tab - which is correct, but the timing with `isFetchingBackground` causes issues.
 
 ## Solution
 
-Make useOrdersWithProgress detect when it receives pre-cached data and initialize its progress state accordingly, then trigger background loading to fetch remaining orders.
-
-### Implementation Steps
-
-1. **Add initialization effect in useOrdersWithProgress**
-   - When `query.data` exists but `progress.unlockedTotal === null`, this indicates we got cached data without running queryFn
-   - Fetch the unlocked count manually and initialize progress
-   - Determine if background loading is needed (cached unlocked count < total)
-
-2. **Check if background loading should start**
-   - Count unlocked orders in cached data
-   - If less than total, start background loading loop
-   - Use cursor-based pagination from the last unlocked order
-
-### Code Changes
-
-**File: `src/hooks/useOrdersWithProgress.ts`**
-
-Add a new `useEffect` after the query definition to handle cache-hit initialization:
+### Step 1: Fix the Background Fetch Blocking
+Remove or modify the `isFetchingBackground` guard to allow searches to proceed even during background fetches. The search is a separate database query that doesn't depend on the adapter's data.
 
 ```typescript
-// Handle case where we got cached data from another page (e.g., /orders)
-// In this case, queryFn never ran, so progress state was never initialized
+// Before
 useEffect(() => {
-  const initializeFromCache = async () => {
-    // Only run if we have data but never initialized progress
-    if (query.data && progress.unlockedTotal === null && !query.isLoading) {
-      console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
-      
-      // Fetch the total count
-      const totalCount = await fetchUnlockedCount();
-      
-      // Count what we have in cache
-      const unlockedInCache = query.data.filter(o => !o.locked).length;
-      const lockedInCache = query.data.filter(o => o.locked).length;
-      
-      console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
-      
-      // Initialize progress state
-      setProgress({
-        unlockedLoaded: unlockedInCache,
-        unlockedTotal: totalCount,
-        lockedLoaded: lockedInCache,
-        isLoadingMore: unlockedInCache < (totalCount || 0),
-        isComplete: unlockedInCache >= (totalCount || 0),
-      });
-      
-      // If we need more orders, trigger background loading
-      if (unlockedInCache < (totalCount || 0)) {
-        hasStartedBackgroundLoad.current = true;
-        setTimeout(() => loadMoreUnlocked(), 300);
-      }
+  if (!debouncedLoadNumberFilter) return;
+  if (isFetchingBackground) return;  // ← Remove this blocker
+  ...
+});
+
+// After
+useEffect(() => {
+  if (!debouncedLoadNumberFilter) return;
+  // Remove isFetchingBackground check - search is independent
+  ...
+});
+```
+
+### Step 2: Fix the Supabase Query Syntax
+Replace the broken nested join with a simpler, working query that manually joins to get the office:
+
+```typescript
+// Before (broken)
+.select(`
+  id,
+  driver1_id,
+  drivers!orders_driver1_id_fkey(
+    dispatcher_id,
+    profiles:dispatcher_id(office)
+  )
+`)
+
+// After (fixed)
+.select(`
+  id,
+  driver1_id,
+  drivers!orders_driver1_id_fkey(dispatcher_id)
+`)
+// Then fetch office in a separate query
+```
+
+Or use a direct SQL approach via RPC if needed:
+```sql
+SELECT p.office 
+FROM orders o
+JOIN drivers d ON o.driver1_id = d.id
+JOIN profiles p ON d.dispatcher_id = p.user_id
+WHERE o.broker_load_number ILIKE '%searchTerm%'
+  AND o.status != 'locked'
+  AND o.canceled = false
+LIMIT 1
+```
+
+### Step 3: Add Debounce Protection
+Add a flag to prevent multiple simultaneous searches:
+
+```typescript
+const isSearchingRef = useRef(false);
+
+useEffect(() => {
+  if (!debouncedLoadNumberFilter) return;
+  if (isSearchingRef.current) return;
+  
+  const searchLoadNumber = async () => {
+    isSearchingRef.current = true;
+    try {
+      // ... search logic
+    } finally {
+      isSearchingRef.current = false;
     }
   };
   
-  initializeFromCache();
-}, [query.data, query.isLoading, progress.unlockedTotal, fetchUnlockedCount, loadMoreUnlocked]);
+  searchLoadNumber();
+}, [debouncedLoadNumberFilter, activeTab]);
 ```
 
-### Why This Works
+## Files to Modify
 
-1. **Detection**: The condition `query.data && progress.unlockedTotal === null && !query.isLoading` precisely identifies the "cache hit without queryFn execution" scenario
+| File | Changes |
+|------|---------|
+| `src/pages/Reports.tsx` | Fix the auto-switch useEffect (lines 2605-2681): remove isFetchingBackground guard, fix Supabase query syntax, add search debounce protection |
 
-2. **State Sync**: By calling `fetchUnlockedCount()` and counting cached data, we reconstruct the progress state that would have been set during normal queryFn execution
+## Testing Plan
+1. Navigate to /reports
+2. Select "Recovery" tab (or any tab without load 420294)
+3. Enter "420294" in the Load # search field
+4. Verify the page automatically switches to "ČAČAK" tab
+5. Verify the matching load is displayed
 
-3. **Background Loading**: If the cache only has 100 unlocked orders but there are 500+ total, we trigger the same background loading mechanism, seamlessly loading the rest
-
-4. **No Double Work**: 
-   - If Analytics runs first → queryFn initializes progress → this effect never triggers (progress.unlockedTotal !== null)
-   - If Orders runs first → cache hit → this effect initializes and loads remaining
-
-### Acceptance Criteria
-
-1. Open fresh app, go to `/orders` first → loads 100 unlocked + locked orders
-2. Navigate to `/analytics` → should show progress indicator, automatically start loading remaining unlocked orders
-3. Progress should increment from 100 → 200 → ... → total unlocked count
-4. Once complete, analytics should show all orders
-5. Navigation back to `/orders` should still work with full dataset
-
-### Testing Notes
-
-- Clear browser cache/IndexedDB before testing
-- Verify console logs show the cache detection message when going Orders→Analytics
-- Confirm background loading completes within reasonable time
-- Check that both pages show same final order count
-
-## Technical Details
-
-**Affected Files:**
-- `src/hooks/useOrdersWithProgress.ts` (primary change)
-
-**Dependencies:**
-- No new dependencies
-- Uses existing `fetchUnlockedCount` and `loadMoreUnlocked` callbacks
-
-**Risk Assessment:**
-- Low risk - only adds initialization logic, doesn't modify existing query or cache behavior
-- The new effect has clear guards to prevent unnecessary execution
+## Technical Notes
+- The fix maintains the existing search behavior for internal load numbers with suffixes
+- The database lookup remains independent of the date-window adapter's cache
+- Real-time subscriptions continue to work normally after the switch
