@@ -1333,25 +1333,26 @@ const Analytics = () => {
     fetchFleetLostDays();
   }, [dateRange, selectedOffices, dispatcherProfiles]);
 
-  // Calculate Usage% 
-  const usagePercent = useMemo(() => {
-    if (!dateRange?.from || fleetAverages.driverCount === 0) return 100;
+  // Calculate Coverage% = (avgTrucks * daysInPeriod - lostDays) / (avgTrucks * daysInPeriod) * 100
+  const coveragePercent = useMemo(() => {
+    if (!dateRange?.from || fleetAverages.truckCount === 0) return 100;
     
-    // Calculate total possible days (calendar days × driver count)
+    // Calculate days in period (no timezone conversion - use UTC date math)
     const startDate = dateRange.from;
     const endDate = dateRange.to || dateRange.from;
     const daysDiff = Math.ceil(
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
     ) + 1;
     
-    const totalPossibleDays = daysDiff * fleetAverages.driverCount;
+    // Total truck-days available = avgTrucks * daysInPeriod
+    const totalTruckDays = fleetAverages.truckCount * daysDiff;
     
-    if (totalPossibleDays === 0) return 100;
+    if (totalTruckDays === 0) return 100;
     
-    // Usage% = 100 - (lostDays / totalPossibleDays × 100)
-    const lostPercentage = (fleetLostDays / totalPossibleDays) * 100;
-    return Math.max(0, 100 - lostPercentage);
-  }, [dateRange, fleetAverages.driverCount, fleetLostDays]);
+    // Coverage% = (totalTruckDays - lostDays) / totalTruckDays * 100
+    const coverage = ((totalTruckDays - fleetLostDays) / totalTruckDays) * 100;
+    return Math.max(0, coverage);
+  }, [dateRange, fleetAverages.truckCount, fleetLostDays]);
 
   // Create a Set of active driver names for filtering
   const activeDriverNames = useMemo(() => {
@@ -2056,13 +2057,13 @@ const Analytics = () => {
                       <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center col-span-2 sm:col-span-1">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Usage %</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Coverage %</p>
                       <p className={`text-lg sm:text-2xl font-bold ${
-                        usagePercent >= 90 ? 'text-green-600 dark:text-green-400' :
-                        usagePercent >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
+                        coveragePercent >= 90 ? 'text-green-600 dark:text-green-400' :
+                        coveragePercent >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-red-600 dark:text-red-400'
                       }`}>
-                        {usagePercent.toFixed(1)}%
+                        {coveragePercent.toFixed(1)}%
                       </p>
                     </div>
                   </div>
