@@ -1,176 +1,227 @@
 
-# Analytics: Fix Truck/Driver Counts Using Historical Daily Averages
 
-## Problem Summary
+# Plan: Fix Fleet Averages Calculation and Add Rescheduled Lost Days
 
-The current Analytics page counts trucks and drivers by extracting unique IDs from filtered orders. This is **incorrect** because:
-- Only trucks/drivers with orders are counted
-- Idle trucks/drivers are excluded from averages
-- This skews "Avg Gross/Truck" and "Avg Miles/Truck" calculations
+## Summary
 
-## Current vs. Correct Behavior
+The current calculation for **# Trucks** and **# Drivers** is incorrect because:
 
-| Metric | Current (Wrong) | Correct |
-|--------|-----------------|---------|
-| Avg # Trucks | Count unique truckIds in filtered orders | Average of daily truck counts from `dispatcher_daily_driver_counts` |
-| Avg # Drivers | Count unique driverIds in filtered orders | Average of daily driver counts from `dispatcher_daily_driver_counts` |
+1. **Per-dispatcher average**: Currently divides by `daysCount` (days WITH data), but should divide by **total days in range** (treating missing days as 0)
+2. **Fleet total**: Currently sums averages incorrectly
 
-**Example**: If dispatcher has 6 trucks but only 4 had loads this month:
-- Current: Shows 4 trucks → Gross/Truck is inflated
-- Correct: Shows 6 trucks → Accurate Gross/Truck
+### Example (Jan 25-27, 3 days):
+| Dispatcher | Current Logic | Correct Logic |
+|------------|---------------|---------------|
+| Danica (1 day of data, 3 trucks) | 3 / 1 = **3.0** avg | (3+0+0) / 3 = **1.0** avg |
+| Adonis (3 days of data, 6 each) | 18 / 3 = **6.0** avg | (6+6+6) / 3 = **6.0** avg |
+
+The fleet total should sum these corrected individual averages.
 
 ---
 
-## Implementation Plan
+## Implementation
 
-### Step 1: Database Migration - Add `truck_count` Column
-
-```sql
--- Add truck_count column (nullable initially for backfill)
-ALTER TABLE dispatcher_daily_driver_counts 
-ADD COLUMN truck_count integer;
-
--- Backfill: Copy driver_count to truck_count 
--- (current driver_count actually stores truck counts)
-UPDATE dispatcher_daily_driver_counts 
-SET truck_count = driver_count;
-
--- Make truck_count NOT NULL after backfill
-ALTER TABLE dispatcher_daily_driver_counts 
-ALTER COLUMN truck_count SET NOT NULL;
-
--- Add comment to clarify column meanings
-COMMENT ON COLUMN dispatcher_daily_driver_counts.driver_count IS 'Number of active drivers assigned to this dispatcher on this date';
-COMMENT ON COLUMN dispatcher_daily_driver_counts.truck_count IS 'Number of trucks assigned to drivers under this dispatcher on this date';
-```
-
-### Step 2: Update Edge Function to Record Both Counts
-
-**File:** `supabase/functions/record-dispatcher-driver-counts/index.ts`
-
-Current logic counts trucks but saves to `driver_count`. Update to:
-
-```typescript
-// Count trucks per dispatcher (existing logic)
-const dispatcherTruckCounts = new Map<string, number>();
-// ... existing truck counting logic ...
-
-// NEW: Count drivers per dispatcher
-const dispatcherDriverCounts = new Map<string, number>();
-drivers?.forEach((driver) => {
-  if (driver.dispatcher_id) {
-    const current = dispatcherDriverCounts.get(driver.dispatcher_id) || 0;
-    dispatcherDriverCounts.set(driver.dispatcher_id, current + 1);
-  }
-});
-
-// Upsert with both counts
-const { data, error } = await supabase
-  .from('dispatcher_daily_driver_counts')
-  .upsert({
-    dispatcher_id: dispatcherId,
-    date: today,
-    truck_count: truckCount,        // actual truck count
-    driver_count: driverCount,      // actual driver count
-    updated_at: new Date().toISOString(),
-  }, {
-    onConflict: 'dispatcher_id,date',
-  });
-```
-
-### Step 3: Update Analytics Page
+### Part 1: Fix Average Calculation in `fetchDriverCounts` Effect
 
 **File:** `src/pages/Analytics.tsx`
 
-#### 3a. Update state and fetch to include both counts
-
+**Current Logic (lines 381-391):**
 ```typescript
-// Update state type
-const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
-  Record<string, { 
-    totalTrucks: number; 
-    totalDrivers: number; 
-    daysCount: number 
-  }>
->({});
-
-// Update aggregation in fetchDriverCounts
-countsMap[record.dispatcher_id].totalTrucks += record.truck_count;
-countsMap[record.dispatcher_id].totalDrivers += record.driver_count;
+countsMap[record.dispatcher_id].totalTrucks += record.truck_count ?? record.driver_count ?? 0;
 countsMap[record.dispatcher_id].daysCount += 1;
+// Then later: avgTrucks = totalTrucks / daysCount
 ```
 
-#### 3b. Calculate fleet-wide averages from daily counts
+**New Logic:**
+1. Store the total days in the date range alongside each dispatcher's data
+2. Calculate average using total range days, not just days with data
 
 ```typescript
-// Replace current fleetAverages useMemo with historical averages
-const fleetAverages = useMemo(() => {
-  // Get dispatchers in scope (filtered by office if applicable)
-  const dispatchersInScope = Object.entries(dispatcherTruckCounts)
-    .filter(([dispatcherId]) => {
-      // If no office filter, include all
-      if (selectedOffices.length === 0) return true;
-      
-      // Find dispatcher's office from profiles
-      const profile = Object.values(dispatcherProfiles)
-        .find(p => p.user_id === dispatcherId);
-      return profile && selectedOffices.includes(profile.office || '');
-    });
+// Calculate total days in the range
+const startDate = new Date(fromDate);
+const endDate = new Date(toDate);
+const totalDaysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Sum up daily counts for dispatchers in scope
-  let totalTruckDays = 0;
-  let totalDriverDays = 0;
-  let totalDays = 0;
+// Store with totalDaysInRange for correct averaging
+const countsMap: Record<string, { 
+  totalTrucks: number; 
+  totalDrivers: number; 
+  daysWithData: number;
+  totalDaysInRange: number;  // NEW: total days for correct averaging
+}> = {};
 
-  dispatchersInScope.forEach(([_, counts]) => {
+allRecords.forEach((record: any) => {
+  if (!countsMap[record.dispatcher_id]) {
+    countsMap[record.dispatcher_id] = { 
+      totalTrucks: 0, 
+      totalDrivers: 0, 
+      daysWithData: 0,
+      totalDaysInRange 
+    };
+  }
+  countsMap[record.dispatcher_id].totalTrucks += record.truck_count ?? record.driver_count ?? 0;
+  countsMap[record.dispatcher_id].totalDrivers += record.driver_count ?? 0;
+  countsMap[record.dispatcher_id].daysWithData += 1;
+});
+```
+
+### Part 2: Fix `dispatcherStats` Average Calculation
+
+**File:** `src/pages/Analytics.tsx` (lines 1118-1119)
+
+**Current:**
+```typescript
+const avgTrucks = truckCountData ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
+```
+
+**New:**
+```typescript
+// Divide by totalDaysInRange instead of daysWithData
+const avgTrucks = truckCountData 
+  ? truckCountData.totalTrucks / truckCountData.totalDaysInRange 
+  : 0;
+```
+
+### Part 3: Fix Fleet Totals in `fleetAverages` Memo
+
+**File:** `src/pages/Analytics.tsx` (lines 1281-1288)
+
+**Current:**
+```typescript
+dispatchersInScope.forEach(([_, counts]) => {
+  if (counts.daysCount > 0) {
     totalTruckDays += counts.totalTrucks;
-    totalDriverDays += counts.totalDrivers;
-    totalDays += counts.daysCount;
-  });
+    totalAvgTrucks += counts.totalTrucks / counts.daysCount;
+  }
+});
+```
 
-  // Calculate averages
-  const avgTrucks = totalDays > 0 ? totalTruckDays / totalDays : 0;
-  const avgDrivers = totalDays > 0 ? totalDriverDays / totalDays : 0;
-
-  return {
-    truckCount: avgTrucks,
-    driverCount: avgDrivers,
-    avgGrossPerTruck: avgTrucks > 0 ? totals.totalFreight / avgTrucks : 0,
-    avgMilesPerTruck: avgTrucks > 0 ? totals.totalMiles / avgTrucks : 0,
-    // Keep uniqueDriverIds for lost_day_notes query (still needed from orders)
-    uniqueDriverIds: Array.from(new Set(
-      filteredOrders.flatMap((o) => [o.driver1Id, o.driver2Id]).filter(Boolean)
-    )),
-  };
-}, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders]);
+**New:**
+```typescript
+dispatchersInScope.forEach(([_, counts]) => {
+  // Sum of all truck-days (for Coverage calculation)
+  totalTruckDays += counts.totalTrucks;
+  
+  // Average per dispatcher = totalTrucks / totalDaysInRange
+  // (missing days treated as 0)
+  const avgForThisDispatcher = counts.totalTrucks / counts.totalDaysInRange;
+  totalAvgTrucks += avgForThisDispatcher;
+  totalAvgDrivers += counts.totalDrivers / counts.totalDaysInRange;
+});
 ```
 
 ---
 
-## Data Flow Diagram
+## Part 4: Add Rescheduled Orders to Lost Days
+
+### Current `date_change_notes` Format:
+```
+Supposed to deliver on 01/26/2026
+```
+
+### Calculation Logic:
+For each order with `date_change_notes`:
+1. Parse the original date from the notes
+2. Get the final `delivery_datetime`
+3. Calculate days between original and actual delivery
+4. Each day = 1 lost day for that driver
+
+### Code Changes to `fetchFleetLostDays`:
+
+**Step 1: Add helper function**
+```typescript
+const parseRescheduledDates = (notes: string): string[] => {
+  const regex = /Supposed to deliver on (\d{2}\/\d{2}\/\d{4})/g;
+  const dates: string[] = [];
+  let match;
+  while ((match = regex.exec(notes)) !== null) {
+    const [month, day, year] = match[1].split('/');
+    dates.push(`${year}-${month}-${day}`);
+  }
+  return dates;
+};
+```
+
+**Step 2: Query rescheduled orders**
+```typescript
+const { data: rescheduledOrders } = await supabase
+  .from("orders")
+  .select("id, driver1_id, date_change_notes, delivery_datetime")
+  .not("date_change_notes", "is", null)
+  .neq("date_change_notes", "");
+```
+
+**Step 3: Calculate lost days from reschedules**
+```typescript
+const rescheduledLostDays = new Set<string>();
+
+rescheduledOrders?.forEach((order) => {
+  if (!order.date_change_notes || !order.delivery_datetime || !order.driver1_id) return;
+  
+  const originalDates = parseRescheduledDates(order.date_change_notes);
+  const actualDate = order.delivery_datetime.split('T')[0]; // YYYY-MM-DD
+  
+  originalDates.forEach((origDate) => {
+    // Only count if original date is before actual delivery
+    if (origDate >= actualDate) return;
+    
+    // Add each day from original to actual (exclusive of actual)
+    let currentDate = origDate;
+    while (currentDate < actualDate) {
+      if (currentDate >= fromDate && currentDate <= toDate) {
+        rescheduledLostDays.add(`${order.driver1_id}-${currentDate}`);
+      }
+      // Increment date
+      const d = new Date(currentDate);
+      d.setDate(d.getDate() + 1);
+      currentDate = d.toISOString().split('T')[0];
+    }
+  });
+});
+```
+
+**Step 4: Combine sources**
+```typescript
+const allLostDays = new Set([
+  ...lostDayNotesKeys,
+  ...rescheduledLostDays
+]);
+setFleetLostDays(allLostDays.size);
+```
+
+---
+
+## Updated Data Flow
 
 ```text
-Daily Cron Job (record-dispatcher-driver-counts)
+Date Range Selection (e.g., Jan 25-27 = 3 days)
     │
-    ├─► Count trucks assigned to dispatcher's drivers ─► truck_count
-    │
-    └─► Count active drivers under dispatcher ─► driver_count
+    └─► fetchDriverCounts
             │
-            └─► Store in dispatcher_daily_driver_counts table
+            ├─► For each dispatcher:
+            │       totalTrucks = sum of truck_count records
+            │       totalDaysInRange = 3 (full range)
+            │       avgTrucks = totalTrucks / 3 (NOT / daysWithData)
+            │
+            └─► Store in dispatcherTruckCounts
 
-Analytics Page Load:
+dispatcherStats:
     │
-    ├─► Fetch dispatcher_daily_driver_counts for date range
+    └─► Each row's "Avg Trucks" = totalTrucks / totalDaysInRange
+
+fleetAverages:
     │
-    ├─► Filter by office (if selected)
+    ├─► # Trucks = SUM of all dispatcher avgTrucks
     │
-    ├─► SUM(truck_count) / days ─► avgTrucks
+    ├─► # Drivers = SUM of all dispatcher avgDrivers
     │
-    ├─► SUM(driver_count) / days ─► avgDrivers
+    └─► Coverage% = (totalTruckDays - lostDays) / totalTruckDays
+
+lostDays:
     │
-    ├─► totalFreight / avgTrucks ─► avgGrossPerTruck
+    ├─► lost_day_notes table
     │
-    └─► totalMiles / avgTrucks ─► avgMilesPerTruck
+    └─► rescheduled orders (days between original and actual delivery)
 ```
 
 ---
@@ -179,45 +230,5 @@ Analytics Page Load:
 
 | File | Changes |
 |------|---------|
-| Database migration | Add `truck_count` column, backfill data |
-| `supabase/functions/record-dispatcher-driver-counts/index.ts` | Record both truck_count and driver_count separately |
-| `src/pages/Analytics.tsx` | Use daily averages from table instead of counting from orders |
+| `src/pages/Analytics.tsx` | Update `fetchDriverCounts` to store `totalDaysInRange`, update `dispatcherStats` average calculation, update `fleetAverages` to sum corrected averages, add rescheduled orders parsing to `fetchFleetLostDays` |
 
----
-
-## Technical Notes
-
-### Why backfill truck_count = driver_count?
-
-The current edge function counts trucks but stores in `driver_count`. After backfill:
-- `truck_count` = historical truck counts (correct data)
-- `driver_count` = same value initially (will be corrected going forward)
-
-### Office Filtering
-
-When user selects office(s) in Analytics:
-- Filter `dispatcherTruckCounts` to only include dispatchers from those offices
-- Sum their daily counts for fleet averages
-
-### Edge Cases
-
-1. **New dispatchers**: Will have daily records going forward
-2. **Date range before data exists**: Show 0 or fallback to order-based count
-3. **Dispatcher changes office**: Historical data stays with old office (correct behavior)
-
----
-
-## Verification
-
-After implementation, verify:
-- [x] Fleet summary shows daily-averaged truck/driver counts
-- [x] Office filter correctly filters dispatcher data
-- [x] Avg Gross/Truck uses correct average truck count
-- [x] Edge function records both truck_count and driver_count
-- [x] Historical data preserved via backfill
-
-## ✅ Implementation Complete (2026-01-28)
-
-- Migration applied: Added `truck_count` column, backfilled data
-- Edge function updated: Records both `truck_count` and `driver_count` separately
-- Analytics page updated: Uses daily averages from `dispatcher_daily_driver_counts` table
