@@ -1222,6 +1222,93 @@ const Analytics = () => {
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
+  // Calculate fleet averages from filtered orders
+  const fleetAverages = useMemo(() => {
+    // Get unique trucks (excluding null/undefined)
+    const uniqueTruckIds = new Set(
+      filteredOrders
+        .map((order) => order.truckId)
+        .filter((id): id is string => !!id && id !== "null")
+    );
+    
+    // Get unique drivers (combining driver1 and driver2)
+    const uniqueDriverIds = new Set(
+      filteredOrders.flatMap((order) => [order.driver1Id, order.driver2Id])
+        .filter((id): id is string => !!id && id !== "null")
+    );
+    
+    const truckCount = uniqueTruckIds.size;
+    const driverCount = uniqueDriverIds.size;
+    
+    return {
+      truckCount,
+      driverCount,
+      avgGrossPerTruck: truckCount > 0 ? totals.totalFreight / truckCount : 0,
+      avgMilesPerTruck: truckCount > 0 ? totals.totalMiles / truckCount : 0,
+      // Store unique IDs for lost days query
+      uniqueDriverIds: Array.from(uniqueDriverIds),
+    };
+  }, [filteredOrders, totals]);
+
+  // State for lost days count (for Usage% calculation)
+  const [fleetLostDays, setFleetLostDays] = useState<number>(0);
+
+  // Effect to fetch lost days within date range for drivers in filtered orders
+  useEffect(() => {
+    const fetchFleetLostDays = async () => {
+      if (!dateRange?.from || fleetAverages.uniqueDriverIds.length === 0) {
+        setFleetLostDays(0);
+        return;
+      }
+      
+      const fromDate = format(dateRange.from, "yyyy-MM-dd");
+      const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
+      
+      // Fetch lost days (excluding "home_time" notes which are intentional)
+      const { data, error } = await supabase
+        .from("lost_day_notes")
+        .select("id, driver_id, date")
+        .in("driver_id", fleetAverages.uniqueDriverIds)
+        .gte("date", fromDate)
+        .lte("date", toDate)
+        .not("note_type", "eq", "home_time");
+      
+      if (error) {
+        console.error("Error fetching fleet lost days:", error);
+        return;
+      }
+      
+      // Count unique driver-date combinations
+      const uniqueLostDays = new Set(
+        (data || []).map((d) => `${d.driver_id}-${d.date}`)
+      );
+      
+      setFleetLostDays(uniqueLostDays.size);
+    };
+    
+    fetchFleetLostDays();
+  }, [dateRange, fleetAverages.uniqueDriverIds]);
+
+  // Calculate Usage% 
+  const usagePercent = useMemo(() => {
+    if (!dateRange?.from || fleetAverages.driverCount === 0) return 100;
+    
+    // Calculate total possible days (calendar days × driver count)
+    const startDate = dateRange.from;
+    const endDate = dateRange.to || dateRange.from;
+    const daysDiff = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    ) + 1;
+    
+    const totalPossibleDays = daysDiff * fleetAverages.driverCount;
+    
+    if (totalPossibleDays === 0) return 100;
+    
+    // Usage% = 100 - (lostDays / totalPossibleDays × 100)
+    const lostPercentage = (fleetLostDays / totalPossibleDays) * 100;
+    return Math.max(0, 100 - lostPercentage);
+  }, [dateRange, fleetAverages.driverCount, fleetLostDays]);
+
   // Create a Set of active driver names for filtering
   const activeDriverNames = useMemo(() => {
     return new Set(
@@ -1894,6 +1981,45 @@ const Analytics = () => {
                     <div className="text-center col-span-2 sm:col-span-1">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Comm. %</p>
                       <p className="text-lg sm:text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                  
+                  {/* Fleet Averages Section - New Row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8 mt-4 pt-4 border-t border-border">
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Gross/Truck</p>
+                      <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        ${fleetAverages.avgGrossPerTruck.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Miles/Truck</p>
+                      <p className="text-lg sm:text-2xl font-bold">
+                        {fleetAverages.avgMilesPerTruck.toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
+                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.truckCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
+                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount}</p>
+                    </div>
+                    <div className="text-center col-span-2 sm:col-span-1">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Usage %</p>
+                      <p className={`text-lg sm:text-2xl font-bold ${
+                        usagePercent >= 90 ? 'text-green-600 dark:text-green-400' :
+                        usagePercent >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-red-600 dark:text-red-400'
+                      }`}>
+                        {usagePercent.toFixed(1)}%
+                      </p>
                     </div>
                   </div>
                 </div>
