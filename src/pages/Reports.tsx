@@ -377,7 +377,7 @@ const Reports = () => {
   const groupedReports = useDeferredValue(rawGroupedReports);
   
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
-  const { ambiguousMatch } = useAutoSwitchOffice({
+  const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter,
     dispatchNameFilter,
     loadNumberFilter,
@@ -2858,54 +2858,165 @@ const Reports = () => {
                   placeholder="Truck # / Driver name"
                   value={truckDriverFilter}
                   onChange={(e) => setTruckDriverFilter(e.target.value)}
-                  className={cn("max-w-[200px]", ambiguousMatch?.filter === "truck" && "border-amber-500")}
+                  className={cn(
+                    "max-w-[200px] pr-8",
+                    ambiguousMatch?.filter === "truck" && "border-amber-500",
+                    searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && "border-red-400"
+                  )}
                 />
-                {ambiguousMatch?.filter === "truck" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  {searchStatus.truck === "searching" && (
+                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                  )}
+                  {searchStatus.truck === "found" && !ambiguousMatch?.filter && (
+                    <Check className="h-4 w-4 text-green-500" />
+                  )}
+                  {searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && (
+                    <X className="h-4 w-4 text-red-400" />
+                  )}
+                  {ambiguousMatch?.filter === "truck" && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <AlertCircle className="h-4 w-4 text-amber-500 cursor-pointer hover:text-amber-600" />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="end">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Found in multiple offices:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {ambiguousMatch.offices.map((office) => (
+                              <Button
+                                key={office}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setActiveTab(office)}
+                                className={cn(office === activeTab && "bg-primary text-primary-foreground")}
+                              >
+                                {office}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               </div>
               <div className="relative">
                 <Input
                   placeholder="Dispatch name"
                   value={dispatchNameFilter}
                   onChange={(e) => setDispatchNameFilter(e.target.value)}
-                  className={cn("max-w-[180px]", ambiguousMatch?.filter === "dispatch" && "border-amber-500")}
+                  className={cn(
+                    "max-w-[180px] pr-8",
+                    ambiguousMatch?.filter === "dispatch" && "border-amber-500",
+                    searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400"
+                  )}
                 />
-                {ambiguousMatch?.filter === "dispatch" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  {searchStatus.dispatch === "searching" && (
+                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                  )}
+                  {searchStatus.dispatch === "found" && !ambiguousMatch?.filter && (
+                    <Check className="h-4 w-4 text-green-500" />
+                  )}
+                  {searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && (
+                    <X className="h-4 w-4 text-red-400" />
+                  )}
+                  {ambiguousMatch?.filter === "dispatch" && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <AlertCircle className="h-4 w-4 text-amber-500 cursor-pointer hover:text-amber-600" />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="end">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Found in multiple offices:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {ambiguousMatch.offices.map((office) => (
+                              <Button
+                                key={office}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setActiveTab(office)}
+                                className={cn(office === activeTab && "bg-primary text-primary-foreground")}
+                              >
+                                {office}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               </div>
               <div className="relative">
                 <Input
-                  placeholder="Load #"
+                  placeholder="Load # (any date)"
                   value={loadNumberFilter}
                   onChange={(e) => setLoadNumberFilter(e.target.value)}
-                  className={cn("max-w-[200px]", ambiguousMatch?.filter === "load" && "border-amber-500")}
+                  className={cn(
+                    "max-w-[200px] pr-8",
+                    ambiguousMatch?.filter === "load" && "border-amber-500",
+                    searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && "border-red-400"
+                  )}
                 />
-                {ambiguousMatch?.filter === "load" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Multiple matches in: {ambiguousMatch.offices.join(", ")}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  {searchStatus.load === "searching" && (
+                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                  )}
+                  {searchStatus.load === "found" && !ambiguousMatch?.filter && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Check className={cn(
+                          "h-4 w-4",
+                          foundOrderMeta?.isLocked ? "text-blue-500" : 
+                          foundOrderMeta?.isCanceled ? "text-amber-500" : "text-green-500"
+                        )} />
+                      </TooltipTrigger>
+                      {(foundOrderMeta?.isLocked || foundOrderMeta?.isCanceled) && (
+                        <TooltipContent>
+                          {foundOrderMeta.isLocked && <p>Order is locked (archived)</p>}
+                          {foundOrderMeta.isCanceled && <p>Order was canceled</p>}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  )}
+                  {searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <X className="h-4 w-4 text-red-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>No order found with this number</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {ambiguousMatch?.filter === "load" && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <AlertCircle className="h-4 w-4 text-amber-500 cursor-pointer hover:text-amber-600" />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="end">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Found in multiple offices:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {ambiguousMatch.offices.map((office) => (
+                              <Button
+                                key={office}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setActiveTab(office)}
+                                className={cn(office === activeTab && "bg-primary text-primary-foreground")}
+                              >
+                                {office}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               </div>
               {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
                 <Button

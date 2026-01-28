@@ -7,14 +7,18 @@ import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
-  | { type: "found"; office: string }
+  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean }
   | { type: "ambiguous"; offices: string[] }
   | { type: "not_found" }
   | { type: "error"; error: Error };
 
+type SearchStatus = "idle" | "searching" | "found" | "not_found";
+
 /**
  * Auto-switch engine for /reports page.
  * Handles all 3 filters with DB lookups, local checks, and guardrails.
+ * 
+ * CRITICAL: Searches ALL orders including locked and canceled - no date restrictions.
  */
 export function useAutoSwitchOffice({
   truckDriverFilter,
@@ -50,7 +54,83 @@ export function useAutoSwitchOffice({
     offices: string[];
   } | null>(null);
 
-  // Check if there's a local match in the currently loaded data
+  // Search status for UI feedback
+  const [searchStatus, setSearchStatus] = useState<{
+    truck: SearchStatus;
+    dispatch: SearchStatus;
+    load: SearchStatus;
+  }>({
+    truck: "idle",
+    dispatch: "idle",
+    load: "idle",
+  });
+
+  // Found order metadata (for showing locked/canceled badges)
+  const [foundOrderMeta, setFoundOrderMeta] = useState<{
+    isLocked?: boolean;
+    isCanceled?: boolean;
+  } | null>(null);
+
+  /**
+   * Check ALL loaded office data, not just the active tab.
+   * This avoids unnecessary DB queries when data is already in memory.
+   */
+  const findInAllLoadedData = useCallback((
+    filterType: "truck" | "dispatch" | "load",
+    searchTerm: string
+  ): string | null => {
+    if (!groupedReports || !searchTerm) return null;
+    
+    const term = searchTerm.toLowerCase().trim();
+    
+    // Check ALL offices in the loaded data
+    for (const group of groupedReports) {
+      const office = group.office;
+      if (!office) continue;
+      
+      let found = false;
+      
+      switch (filterType) {
+        case "truck":
+          found = group.trucks?.some((truck: any) => {
+            const matchesTruck = truck.truckNumber?.toLowerCase().includes(term);
+            const matchesDriver = truck.driver?.toLowerCase().includes(term);
+            const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
+            return matchesTruck || matchesDriver || matchesDriver2;
+          }) || false;
+          break;
+          
+        case "dispatch":
+          found = group.dispatcher?.toLowerCase().includes(term) || false;
+          break;
+          
+        case "load":
+          found = group.trucks?.some((truck: any) => 
+            truck.allOrders?.some((order: any) => {
+              // Check broker load number
+              if (String(order.broker_load_number || '').toLowerCase().includes(term)) return true;
+              
+              // Check internal load number (formatted and raw)
+              const internalNum = order.internal_load_number;
+              const companyName = order.company?.name || order.driver1?.company?.name;
+              if (internalNum) {
+                const formatted = formatInternalLoadNumber(internalNum, companyName).toLowerCase();
+                if (formatted.includes(term)) return true;
+                if (String(internalNum).toLowerCase().includes(term)) return true;
+              }
+              return false;
+            })
+          ) || false;
+          break;
+      }
+      
+      if (found) return office;
+    }
+    
+    return null;
+  }, [groupedReports]);
+
+  // Check if there's a local match in the currently loaded data (active tab only)
   const hasLocalMatch = useCallback((filterType: "truck" | "dispatch" | "load", searchTerm: string): boolean => {
     if (!groupedReports || !searchTerm) return false;
     
@@ -206,27 +286,33 @@ export function useAutoSwitchOffice({
     }
   }, []);
 
-  // DB lookup for load number -> office
+  /**
+   * DB lookup for load number -> office
+   * CRITICAL: NO date filters, NO status filters - searches ALL orders including locked and canceled
+   */
   const lookupLoadOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
     try {
       const term = searchTerm.trim();
       
-      // Search by broker_load_number first
+      // Search by broker_load_number first - NO STATUS FILTERS
       const { data: brokerMatches, error: brokerError } = await supabase
         .from("orders")
-        .select("driver1_id")
+        .select("driver1_id, locked, canceled")
         .ilike("broker_load_number", `%${term}%`)
-        .neq("status", "locked")
-        .eq("canceled", false)
         .not("driver1_id", "is", null)
-        .limit(5);
+        .limit(10);
       
       if (brokerError) throw brokerError;
       
       const driver1Ids: string[] = [];
+      let isLocked = false;
+      let isCanceled = false;
       
       if (brokerMatches && brokerMatches.length > 0) {
         driver1Ids.push(...brokerMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
+        // Track if any match is locked/canceled for UI indication
+        isLocked = brokerMatches.some(o => o.locked);
+        isCanceled = brokerMatches.some(o => o.canceled);
       }
       
       // Also search by internal_load_number (strip suffix if present)
@@ -234,19 +320,20 @@ export function useAutoSwitchOffice({
       const internalNum = parseInt(numericPart, 10);
       
       if (!isNaN(internalNum)) {
+        // NO STATUS FILTERS - search ALL orders
         const { data: internalMatches, error: internalError } = await supabase
           .from("orders")
-          .select("driver1_id")
+          .select("driver1_id, locked, canceled")
           .eq("internal_load_number", internalNum)
-          .neq("status", "locked")
-          .eq("canceled", false)
           .not("driver1_id", "is", null)
-          .limit(5);
+          .limit(10);
         
         if (internalError) throw internalError;
         
         if (internalMatches && internalMatches.length > 0) {
           driver1Ids.push(...internalMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
+          if (!isLocked) isLocked = internalMatches.some(o => o.locked);
+          if (!isCanceled) isCanceled = internalMatches.some(o => o.canceled);
         }
       }
       
@@ -282,7 +369,7 @@ export function useAutoSwitchOffice({
       const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
-        return { type: "found", office: foundOffices[0] };
+        return { type: "found", office: foundOffices[0], isLocked, isCanceled };
       } else if (foundOffices.length > 1) {
         return { type: "ambiguous", offices: foundOffices };
       }
@@ -298,6 +385,7 @@ export function useAutoSwitchOffice({
   useEffect(() => {
     if (!debouncedTruckDriver) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, truck: "idle" }));
       return;
     }
     
@@ -313,25 +401,44 @@ export function useAutoSwitchOffice({
     
     if (isSearchingRef.current) return;
     
-    // Local check - if match exists, don't switch
+    // Local check - if match exists in CURRENT TAB, don't switch
     if (hasLocalMatch("truck", debouncedTruckDriver)) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, truck: "found" }));
+      return;
+    }
+    
+    // Check ALL loaded offices before hitting database
+    const matchInLoadedData = findInAllLoadedData("truck", debouncedTruckDriver);
+    if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
+      lastAutoSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
+      setAmbiguousMatch(null);
+      setSearchStatus(prev => ({ ...prev, truck: "found" }));
+      setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
+      setSearchStatus(prev => ({ ...prev, truck: "searching" }));
       try {
         const result = await lookupTruckDriverOffice(debouncedTruckDriver);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
           setAmbiguousMatch(null);
+          setSearchStatus(prev => ({ ...prev, truck: "found" }));
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "truck", offices: result.offices });
+          setSearchStatus(prev => ({ ...prev, truck: "found" }));
+        } else if (result.type === "found") {
+          // Found but in current tab already
+          setSearchStatus(prev => ({ ...prev, truck: "found" }));
+          setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
+          setSearchStatus(prev => ({ ...prev, truck: "not_found" }));
         }
       } finally {
         isSearchingRef.current = false;
@@ -339,12 +446,13 @@ export function useAutoSwitchOffice({
     };
     
     search();
-  }, [debouncedTruckDriver, activeTab, offices, hasLocalMatch, lookupTruckDriverOffice, setActiveTab]);
+  }, [debouncedTruckDriver, activeTab, offices, hasLocalMatch, findInAllLoadedData, lookupTruckDriverOffice, setActiveTab]);
 
   // Main effect for Dispatch name filter
   useEffect(() => {
     if (!debouncedDispatchName) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, dispatch: "idle" }));
       return;
     }
     
@@ -361,22 +469,40 @@ export function useAutoSwitchOffice({
     // Local check
     if (hasLocalMatch("dispatch", debouncedDispatchName)) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+      return;
+    }
+    
+    // Check ALL loaded offices before hitting database
+    const matchInLoadedData = findInAllLoadedData("dispatch", debouncedDispatchName);
+    if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
+      lastAutoSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
+      setAmbiguousMatch(null);
+      setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+      setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
+      setSearchStatus(prev => ({ ...prev, dispatch: "searching" }));
       try {
         const result = await lookupDispatcherOffice(debouncedDispatchName);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
           setAmbiguousMatch(null);
+          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "dispatch", offices: result.offices });
+          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+        } else if (result.type === "found") {
+          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+          setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
+          setSearchStatus(prev => ({ ...prev, dispatch: "not_found" }));
         }
       } finally {
         isSearchingRef.current = false;
@@ -384,12 +510,14 @@ export function useAutoSwitchOffice({
     };
     
     search();
-  }, [debouncedDispatchName, activeTab, offices, hasLocalMatch, lookupDispatcherOffice, setActiveTab]);
+  }, [debouncedDispatchName, activeTab, offices, hasLocalMatch, findInAllLoadedData, lookupDispatcherOffice, setActiveTab]);
 
   // Main effect for Load number filter
   useEffect(() => {
     if (!debouncedLoadNumber) {
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, load: "idle" }));
+      setFoundOrderMeta(null);
       return;
     }
     
@@ -406,22 +534,43 @@ export function useAutoSwitchOffice({
     // Local check
     if (hasLocalMatch("load", debouncedLoadNumber)) {
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
+      setSearchStatus(prev => ({ ...prev, load: "found" }));
+      return;
+    }
+    
+    // Check ALL loaded offices before hitting database
+    const matchInLoadedData = findInAllLoadedData("load", debouncedLoadNumber);
+    if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
+      lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
+      setAmbiguousMatch(null);
+      setSearchStatus(prev => ({ ...prev, load: "found" }));
+      setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
+      setSearchStatus(prev => ({ ...prev, load: "searching" }));
       try {
         const result = await lookupLoadOffice(debouncedLoadNumber);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
           setAmbiguousMatch(null);
+          setSearchStatus(prev => ({ ...prev, load: "found" }));
+          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "load", offices: result.offices });
+          setSearchStatus(prev => ({ ...prev, load: "found" }));
+        } else if (result.type === "found") {
+          setSearchStatus(prev => ({ ...prev, load: "found" }));
+          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
+          setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
+          setSearchStatus(prev => ({ ...prev, load: "not_found" }));
+          setFoundOrderMeta(null);
         }
       } finally {
         isSearchingRef.current = false;
@@ -429,18 +578,21 @@ export function useAutoSwitchOffice({
     };
     
     search();
-  }, [debouncedLoadNumber, activeTab, offices, hasLocalMatch, lookupLoadOffice, setActiveTab]);
+  }, [debouncedLoadNumber, activeTab, offices, hasLocalMatch, findInAllLoadedData, lookupLoadOffice, setActiveTab]);
 
   // Clear the last auto-switch ref when filters are cleared
   useEffect(() => {
     if (!truckDriverFilter && !dispatchNameFilter && !loadNumberFilter) {
       lastAutoSwitchRef.current = null;
       setAmbiguousMatch(null);
+      setFoundOrderMeta(null);
     }
   }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter]);
 
   return {
     ambiguousMatch,
+    searchStatus,
+    foundOrderMeta,
     isSearching: isSearchingRef.current,
   };
 }
