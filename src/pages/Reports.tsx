@@ -348,6 +348,9 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
   
+  // Track which offices have been loaded with data to prevent flickering on tab switch
+  const loadedOfficesRef = useRef<Set<string>>(new Set());
+  
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
@@ -375,6 +378,16 @@ const Reports = () => {
   
   // Use deferred value to prevent background data updates from blocking interactions
   const groupedReports = useDeferredValue(rawGroupedReports);
+  
+  // Mark offices as loaded when data arrives (to prevent empty state flicker on tab switch)
+  useEffect(() => {
+    if (groupedReports && groupedReports.length > 0) {
+      const officesInData = new Set(groupedReports.map(g => g.office));
+      officesInData.forEach(office => {
+        if (office) loadedOfficesRef.current.add(office);
+      });
+    }
+  }, [groupedReports]);
   
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
@@ -3099,6 +3112,9 @@ const Reports = () => {
           {/* Only render the active tab content */}
           <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
             {isLoading || groupedReports == null ? (
+              <LoadingSkeleton />
+            ) : activeOfficeReports.length === 0 && !loadedOfficesRef.current.has(activeTab) ? (
+              // Show loading if this office hasn't been loaded yet (prevents empty state flicker)
               <LoadingSkeleton />
             ) : activeOfficeReports.length === 0 ? (
               <div className="p-4">
