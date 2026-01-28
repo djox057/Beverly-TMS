@@ -388,6 +388,141 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled && windowOrderIds.length > 0,
   });
 
+  // Track drivers who have orders in the date window
+  const driversWithOrdersInWindow = useMemo(() => {
+    const driverSet = new Set<string>();
+    for (const order of dateWindowHook.orders || []) {
+      if (order.driver1_id) driverSet.add(order.driver1_id);
+      if (order.driver2_id) driverSet.add(order.driver2_id);
+      // Also check transfer drivers
+      for (const transfer of order.order_transfers || []) {
+        if (transfer.driver1_id) driverSet.add(transfer.driver1_id);
+        if (transfer.driver2_id) driverSet.add(transfer.driver2_id);
+      }
+    }
+    return driverSet;
+  }, [dateWindowHook.orders]);
+
+  // Identify drivers with no loads in the date window (need their last load)
+  const driversNeedingLastLoad = useMemo(() => {
+    if (!drivers || drivers.length === 0) return [];
+    return drivers.filter(d => !driversWithOrdersInWindow.has(d.id)).map(d => d.id);
+  }, [drivers, driversWithOrdersInWindow]);
+
+  // Create stable query key for last loads
+  const driversNeedingLastLoadKey = useMemo(() => {
+    return driversNeedingLastLoad.sort().join(",");
+  }, [driversNeedingLastLoad]);
+
+  // Fetch last load for drivers with no orders in the date window
+  const { data: lastLoadsData } = useQuery({
+    queryKey: ["adapter-last-loads", priorityOffice, driversNeedingLastLoadKey],
+    queryFn: async () => {
+      if (driversNeedingLastLoad.length === 0) return { orders: [], files: [] };
+      
+      console.log(`[adapter] Fetching last load for ${driversNeedingLastLoad.length} drivers with no recent loads`);
+      
+      // Fetch the most recent order for each driver (by delivery_datetime DESC)
+      // We need to get one order per driver, so fetch recent orders and pick the latest per driver
+      const driverIdsStr = driversNeedingLastLoad.join(',');
+      
+      const { data: recentOrders, error } = await supabase
+        .from("orders")
+        .select(`
+          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+          canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+          is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+          freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
+        `)
+        .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
+        .eq("canceled", false)
+        .order("delivery_datetime", { ascending: false })
+        .limit(driversNeedingLastLoad.length * 3); // Get a few per driver to ensure we have one for each
+      
+      if (error) {
+        console.error("[adapter] Error fetching last loads:", error);
+        return { orders: [], files: [] };
+      }
+      
+      // Pick the most recent order per driver
+      const lastOrderByDriver = new Map<string, any>();
+      for (const order of recentOrders || []) {
+        if (order.driver1_id && driversNeedingLastLoad.includes(order.driver1_id) && !lastOrderByDriver.has(order.driver1_id)) {
+          lastOrderByDriver.set(order.driver1_id, order);
+        }
+        if (order.driver2_id && driversNeedingLastLoad.includes(order.driver2_id) && !lastOrderByDriver.has(order.driver2_id)) {
+          lastOrderByDriver.set(order.driver2_id, order);
+        }
+      }
+      
+      const lastOrders = Array.from(lastOrderByDriver.values());
+      
+      if (lastOrders.length === 0) {
+        return { orders: [], files: [] };
+      }
+      
+      // Fetch pickup_drops and order_transfers for these orders
+      const orderIds = lastOrders.map(o => o.id);
+      
+      const [pickupDrops, transfers, files] = await Promise.all([
+        (async () => {
+          const { data } = await supabase
+            .from("pickup_drops")
+            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at")
+            .in("order_id", orderIds);
+          return data || [];
+        })(),
+        (async () => {
+          const { data } = await supabase
+            .from("order_transfers")
+            .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, transfer_city, transfer_state, transfer_address, transfer_datetime")
+            .in("order_id", orderIds);
+          return data || [];
+        })(),
+        (async () => {
+          const { data } = await supabase
+            .from("order_files")
+            .select("id, order_id, file_category, file_name, file_path")
+            .in("order_id", orderIds);
+          return data || [];
+        })()
+      ]);
+      
+      // Build lookup maps
+      const pickupDropsByOrderId = new Map<string, any[]>();
+      for (const pd of pickupDrops) {
+        const arr = pickupDropsByOrderId.get(pd.order_id) || [];
+        arr.push(pd);
+        pickupDropsByOrderId.set(pd.order_id, arr);
+      }
+      
+      const transfersByOrderId = new Map<string, any[]>();
+      for (const t of transfers) {
+        const arr = transfersByOrderId.get(t.order_id) || [];
+        arr.push(t);
+        transfersByOrderId.set(t.order_id, arr);
+      }
+      
+      // Attach relations and mark as "last load"
+      const enrichedOrders = lastOrders.map(order => ({
+        ...order,
+        pickup_drops: (pickupDropsByOrderId.get(order.id) || [])
+          .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+        order_transfers: (transfersByOrderId.get(order.id) || [])
+          .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+        isLastLoadFallback: true, // Mark this as a fallback last load
+      }));
+      
+      console.log(`[adapter] Fetched ${enrichedOrders.length} last loads for drivers with no recent activity`);
+      
+      return { orders: enrichedOrders, files };
+    },
+    staleTime: 60000,
+    enabled: scopeEnabled && driversNeedingLastLoad.length > 0,
+  });
+
   // P2: Subscribe to order_files realtime changes to invalidate adapter cache
   const orderFilesChannelRef = useRef<RealtimeChannel | null>(null);
   
@@ -525,18 +660,30 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
 
-  // Build order_files lookup map
+  // Build order_files lookup map (include files from last loads)
   const orderFilesMap = useMemo(() => {
     const map = new Map<string, any[]>();
-    if (!orderFiles) return map;
-    for (const file of orderFiles) {
-      if (!file.order_id) continue;
-      const existing = map.get(file.order_id) || [];
-      existing.push(file);
-      map.set(file.order_id, existing);
+    // Add regular order files
+    if (orderFiles) {
+      for (const file of orderFiles) {
+        if (!file.order_id) continue;
+        const existing = map.get(file.order_id) || [];
+        existing.push(file);
+        map.set(file.order_id, existing);
+      }
+    }
+    // Add files from last loads (for drivers with no recent activity)
+    if (lastLoadsData?.files) {
+      for (const file of lastLoadsData.files) {
+        if (!file.order_id) continue;
+        if (map.has(file.order_id)) continue; // Don't duplicate
+        const existing = map.get(file.order_id) || [];
+        existing.push(file);
+        map.set(file.order_id, existing);
+      }
     }
     return map;
-  }, [orderFiles]);
+  }, [orderFiles, lastLoadsData?.files]);
 
   // Transform date-window orders into the expected Reports shape
   const transformedData = useMemo(() => {
@@ -622,6 +769,26 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           const existing = ordersByDriverId.get(transfer.driver2_id) || [];
           existing.push(order);
           ordersByDriverId.set(transfer.driver2_id, existing);
+        }
+      }
+    }
+
+    // Add last loads for drivers with no orders in the date window
+    if (lastLoadsData?.orders) {
+      for (const lastOrder of lastLoadsData.orders) {
+        // Enrich with order_files
+        const enrichedOrder = {
+          ...lastOrder,
+          order_files: orderFilesMap.get(lastOrder.id) || [],
+        };
+        
+        // Add to driver1 if they have no orders yet
+        if (lastOrder.driver1_id && !ordersByDriverId.has(lastOrder.driver1_id)) {
+          ordersByDriverId.set(lastOrder.driver1_id, [enrichedOrder]);
+        }
+        // Add to driver2 if they have no orders yet
+        if (lastOrder.driver2_id && !ordersByDriverId.has(lastOrder.driver2_id)) {
+          ordersByDriverId.set(lastOrder.driver2_id, [enrichedOrder]);
         }
       }
     }
@@ -910,6 +1077,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dispatcherId,
     isOrderFilesLoading,
     windowOrderIds,
+    lastLoadsData,
   ]);
 
   if (!USE_DATE_WINDOW_LOADING) {
