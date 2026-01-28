@@ -48,8 +48,16 @@ Deno.serve(async (req) => {
     if (yardActionsToDelete && yardActionsToDelete.length > 0) {
       for (const action of yardActionsToDelete) {
         if (action.arrival_datetime) {
-          const arrivalDate = action.arrival_datetime.split('T')[0];
-          if (arrivalDate < chicagoToday) {
+          // Convert arrival_datetime to Chicago timezone before extracting date
+          // This ensures we compare apples to apples (Chicago date vs Chicago date)
+          const arrivalInChicago = new Date(action.arrival_datetime).toLocaleString('en-US', { timeZone: 'America/Chicago' });
+          const arrivalChicagoDate = new Date(arrivalInChicago);
+          const arrivalDateStr = arrivalChicagoDate.toISOString().split('T')[0];
+          
+          console.log(`Checking action ${action.id}: arrival_datetime=${action.arrival_datetime}, arrivalDateChicago=${arrivalDateStr}, chicagoToday=${chicagoToday}`);
+          
+          // Only delete if the arrival date (in Chicago time) is BEFORE today (in Chicago time)
+          if (arrivalDateStr < chicagoToday) {
             // Delete the yard action
             const { error: deleteError } = await supabase
               .from('driver_yard_actions')
@@ -60,12 +68,15 @@ Deno.serve(async (req) => {
               console.error(`Error deleting yard action ${action.id}:`, deleteError);
             } else {
               deletedYardActions++;
+              console.log(`Deleted yard action ${action.id} (arrival ${arrivalDateStr} < today ${chicagoToday})`);
               // Also reset going_yard on driver
               await supabase
                 .from('drivers')
                 .update({ going_yard: false })
                 .eq('id', action.driver_id);
             }
+          } else {
+            console.log(`Keeping action ${action.id} - arrival ${arrivalDateStr} >= today ${chicagoToday}`);
           }
         }
       }
