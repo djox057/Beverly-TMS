@@ -1254,19 +1254,34 @@ const Analytics = () => {
       return {
         truckCount: 0,
         driverCount: 0,
+        totalTruckDays: 0,
         avgGrossPerTruck: 0,
         avgMilesPerTruck: 0,
+        weeklyAvgGrossPerTruck: 0,
+        weeklyAvgMilesPerTruck: 0,
         uniqueDriverIds: [],
         needsLiveCounts: true,
+        daysInPeriod: 1,
       };
     }
 
-    // Sum up each dispatcher's individual average (total of all averages)
+    // Calculate days in period
+    const daysInPeriod = dateRange?.from 
+      ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      : 1;
+    const weeksInPeriod = Math.max(1, daysInPeriod / 7);
+
+    // Sum up totals across all dispatchers for the period
+    // totalTrucks represents the SUM of all daily truck counts (for Coverage% calculation)
+    let totalTruckDays = 0;
+    let totalDriverDays = 0;
     let totalAvgTrucks = 0;
     let totalAvgDrivers = 0;
 
     dispatchersInScope.forEach(([_, counts]) => {
       if (counts.daysCount > 0) {
+        totalTruckDays += counts.totalTrucks; // Sum of all daily truck counts
+        totalDriverDays += counts.totalDrivers;
         totalAvgTrucks += counts.totalTrucks / counts.daysCount;
         totalAvgDrivers += counts.totalDrivers / counts.daysCount;
       }
@@ -1278,13 +1293,29 @@ const Analytics = () => {
         .filter((id): id is string => !!id && id !== "null")
     ));
 
+    // Calculate averages
+    const avgGrossPerTruck = totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks : 0;
+    const avgMilesPerTruck = totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks : 0;
+    
+    // Weekly averages (for periods > 7 days, divide by weeks; otherwise use total)
+    const weeklyAvgGrossPerTruck = daysInPeriod > 7 
+      ? (totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks / weeksInPeriod : 0)
+      : avgGrossPerTruck;
+    const weeklyAvgMilesPerTruck = daysInPeriod > 7 
+      ? (totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks / weeksInPeriod : 0)
+      : avgMilesPerTruck;
+
     return {
       truckCount: totalAvgTrucks,
       driverCount: totalAvgDrivers,
-      avgGrossPerTruck: totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks : 0,
-      avgMilesPerTruck: totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks : 0,
+      totalTruckDays,
+      avgGrossPerTruck,
+      avgMilesPerTruck,
+      weeklyAvgGrossPerTruck,
+      weeklyAvgMilesPerTruck,
       uniqueDriverIds,
       needsLiveCounts: false,
+      daysInPeriod,
     };
   }, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders, dateRange]);
 
@@ -1352,15 +1383,23 @@ const Analytics = () => {
       return {
         truckCount: liveTruckCounts.trucks,
         driverCount: liveTruckCounts.drivers,
+        totalTruckDays: liveTruckCounts.trucks, // For single day, totalTruckDays = truckCount
         avgGrossPerTruck: liveTruckCounts.trucks > 0 ? totals.totalFreight / liveTruckCounts.trucks : 0,
         avgMilesPerTruck: liveTruckCounts.trucks > 0 ? totals.totalMiles / liveTruckCounts.trucks : 0,
+        weeklyAvgGrossPerTruck: liveTruckCounts.trucks > 0 ? totals.totalFreight / liveTruckCounts.trucks : 0,
+        weeklyAvgMilesPerTruck: liveTruckCounts.trucks > 0 ? totals.totalMiles / liveTruckCounts.trucks : 0,
+        daysInPeriod: 1,
       };
     }
     return {
       truckCount: fleetAverages.truckCount,
       driverCount: fleetAverages.driverCount,
+      totalTruckDays: fleetAverages.totalTruckDays,
       avgGrossPerTruck: fleetAverages.avgGrossPerTruck,
       avgMilesPerTruck: fleetAverages.avgMilesPerTruck,
+      weeklyAvgGrossPerTruck: fleetAverages.weeklyAvgGrossPerTruck,
+      weeklyAvgMilesPerTruck: fleetAverages.weeklyAvgMilesPerTruck,
+      daysInPeriod: fleetAverages.daysInPeriod,
     };
   }, [fleetAverages, liveTruckCounts, totals]);
 
@@ -1433,16 +1472,17 @@ const Analytics = () => {
     fetchFleetLostDays();
   }, [dateRange, selectedOffices, dispatcherProfiles]);
 
-  // Calculate Coverage% = (avgTrucks - lostDays) / avgTrucks * 100
-  // For single day: (232 trucks - 16 lost days) / 232 = 93.1%
+  // Calculate Coverage% = (totalTruckDays - lostDays) / totalTruckDays * 100
+  // For single day: (232 trucks - 13 lost days) / 232 = 94.4%
+  // For multi-day: (6322 total truck-days - 249 lost days) / 6322 = 96.1%
   const coveragePercent = useMemo(() => {
-    if (!dateRange?.from || finalFleetAverages.truckCount === 0) return 100;
+    if (!dateRange?.from || finalFleetAverages.totalTruckDays === 0) return 100;
     
-    // Coverage% = (totalAvgTrucks - lostDays) / totalAvgTrucks * 100
-    // This works for any period: trucks represents the total average across all days
-    const coverage = ((finalFleetAverages.truckCount - fleetLostDays) / finalFleetAverages.truckCount) * 100;
+    // Coverage% = (totalTruckDays - lostDays) / totalTruckDays * 100
+    // This correctly scales for multi-day periods
+    const coverage = ((finalFleetAverages.totalTruckDays - fleetLostDays) / finalFleetAverages.totalTruckDays) * 100;
     return Math.max(0, coverage);
-  }, [dateRange, finalFleetAverages.truckCount, fleetLostDays]);
+  }, [dateRange, finalFleetAverages.totalTruckDays, fleetLostDays]);
 
   // Create a Set of active driver names for filtering
   const activeDriverNames = useMemo(() => {
@@ -2122,18 +2162,22 @@ const Analytics = () => {
                   {/* Fleet Averages Section - New Row */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8 mt-4 pt-4 border-t border-border">
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Gross/Truck</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
+                        {finalFleetAverages.daysInPeriod > 7 ? 'Avg Gross/Truck/Week' : 'Avg Gross/Truck'}
+                      </p>
                       <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        ${finalFleetAverages.avgGrossPerTruck.toLocaleString(undefined, {
+                        ${finalFleetAverages.weeklyAvgGrossPerTruck.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Miles/Truck</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
+                        {finalFleetAverages.daysInPeriod > 7 ? 'Avg Miles/Truck/Week' : 'Avg Miles/Truck'}
+                      </p>
                       <p className="text-lg sm:text-2xl font-bold">
-                        {finalFleetAverages.avgMilesPerTruck.toLocaleString(undefined, {
+                        {finalFleetAverages.weeklyAvgMilesPerTruck.toLocaleString(undefined, {
                           maximumFractionDigits: 0,
                         })}
                       </p>
