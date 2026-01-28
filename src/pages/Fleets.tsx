@@ -9,7 +9,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft, CalendarDays, Award } from "lucide-react";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft, CalendarDays, Award, Crown } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
@@ -400,10 +401,21 @@ const Fleets = () => {
               </Card>
             </div>
 
-            {/* Supervisors Section */}
-            <SupervisorsSection allDispatchers={allDispatchers} hasRole={hasRole} />
+            {/* Tabs for Dispatchers and Supervisors */}
+            <Tabs defaultValue="dispatchers" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="dispatchers" className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  Dispatchers
+                </TabsTrigger>
+                <TabsTrigger value="supervisors" className="flex items-center gap-2">
+                  <Crown className="h-4 w-4" />
+                  Supervisors
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Dispatcher Fleets */}
+              <TabsContent value="dispatchers" className="mt-4 space-y-4">
+                {/* Dispatcher Fleets */}
             {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).map(dispatcherFleet => {
             const filteredDrivers = filterDrivers(dispatcherFleet.drivers);
 
@@ -851,6 +863,12 @@ const Fleets = () => {
                       </Card>}
                   </Droppable>;
           })()}
+              </TabsContent>
+
+              <TabsContent value="supervisors" className="mt-4">
+                <SupervisorsSection allDispatchers={allDispatchers} hasRole={hasRole} />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
