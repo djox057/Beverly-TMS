@@ -33,55 +33,7 @@ Deno.serve(async (req) => {
 
     console.log(`Running cleanup at Chicago time: ${chicagoNow}, date: ${chicagoToday}`);
 
-    // 1. Delete checked yard actions where arrival_datetime date has passed
-    const { data: yardActionsToDelete, error: yardFetchError } = await supabase
-      .from('driver_yard_actions')
-      .select('id, driver_id, arrival_datetime')
-      .eq('is_checked', true);
-
-    if (yardFetchError) {
-      console.error('Error fetching yard actions:', yardFetchError);
-      throw yardFetchError;
-    }
-
-    let deletedYardActions = 0;
-    if (yardActionsToDelete && yardActionsToDelete.length > 0) {
-      for (const action of yardActionsToDelete) {
-        if (action.arrival_datetime) {
-          // Convert arrival_datetime to Chicago timezone before extracting date
-          // This ensures we compare apples to apples (Chicago date vs Chicago date)
-          const arrivalInChicago = new Date(action.arrival_datetime).toLocaleString('en-US', { timeZone: 'America/Chicago' });
-          const arrivalChicagoDate = new Date(arrivalInChicago);
-          const arrivalDateStr = arrivalChicagoDate.toISOString().split('T')[0];
-          
-          console.log(`Checking action ${action.id}: arrival_datetime=${action.arrival_datetime}, arrivalDateChicago=${arrivalDateStr}, chicagoToday=${chicagoToday}`);
-          
-          // Only delete if the arrival date (in Chicago time) is BEFORE today (in Chicago time)
-          if (arrivalDateStr < chicagoToday) {
-            // Delete the yard action
-            const { error: deleteError } = await supabase
-              .from('driver_yard_actions')
-              .delete()
-              .eq('id', action.id);
-
-            if (deleteError) {
-              console.error(`Error deleting yard action ${action.id}:`, deleteError);
-            } else {
-              deletedYardActions++;
-              console.log(`Deleted yard action ${action.id} (arrival ${arrivalDateStr} < today ${chicagoToday})`);
-              // Also reset going_yard on driver
-              await supabase
-                .from('drivers')
-                .update({ going_yard: false })
-                .eq('id', action.driver_id);
-            }
-          } else {
-            console.log(`Keeping action ${action.id} - arrival ${arrivalDateStr} >= today ${chicagoToday}`);
-          }
-        }
-      }
-    }
-    console.log(`Deleted ${deletedYardActions} yard actions`);
+    // NOTE: Yard actions are no longer automatically deleted - they persist until manually removed
 
     // 2. Process checked 2-week notice drivers where block date has passed
     const { data: twoWeekDrivers, error: twoWeekFetchError } = await supabase
@@ -146,7 +98,6 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        deletedYardActions,
         terminatedDrivers,
         chicagoDate: chicagoToday,
       }),
