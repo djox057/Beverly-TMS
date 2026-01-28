@@ -5,8 +5,6 @@ import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
 
-const PAGE_SIZE = 100;
-
 interface LoadingProgress {
   unlockedLoaded: number;
   unlockedTotal: number | null;
@@ -17,9 +15,8 @@ interface LoadingProgress {
 
 /**
  * Hook for Analytics page that loads ALL orders with progress tracking.
+ * Uses Edge Function for bulk fetch - loads all unlocked orders in ~1 second.
  * CRITICAL: This hook MUST load 100% of unlocked orders from the database.
- * No limits, no pagination shortcuts, no date windows.
- * Correctness > Performance.
  */
 export function useOrdersWithProgress() {
   const queryClient = useQueryClient();
@@ -31,25 +28,10 @@ export function useOrdersWithProgress() {
     isComplete: false,
   });
   
-  const isLoadingRef = useRef(false);
-  const hasStartedBackgroundLoad = useRef(false);
-  const isCompleteRef = useRef(false);
   const isMountedRef = useRef(true);
-  // Store the total count to verify completion
-  const totalUnlockedCountRef = useRef<number | null>(null);
 
   // Subscribe to real-time updates
   useOrdersRealtime();
-
-  // Fetch total count of unlocked orders - this is the source of truth
-  const fetchUnlockedCount = useCallback(async () => {
-    const { count } = await supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("locked", false);
-    totalUnlockedCountRef.current = count;
-    return count;
-  }, []);
 
   // Helper function to enrich locked orders
   const enrichLockedOrders = useCallback(async (lockedOrders: any[]) => {
@@ -177,64 +159,108 @@ export function useOrdersWithProgress() {
     }));
   }, []);
 
-  // Main query for initial load - use SAME base key as useOrders for cache sharing
+  // Main query - uses Edge Function for bulk fetch
   const query = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      // CRITICAL: Get total count first - this is the source of truth
-      const totalCount = await fetchUnlockedCount();
-      console.log(`[OrdersWithProgress] Total unlocked in DB: ${totalCount}`);
-      setProgress(prev => ({ ...prev, unlockedTotal: totalCount }));
+      const startTime = Date.now();
+      console.log("[OrdersWithProgress] Starting bulk fetch via Edge Function...");
 
-      // Fetch first batch of unlocked orders
-      const { data: initialBatch, error } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          pickup_drops (id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions),
-          order_files (id, file_category, file_name, file_path),
-          order_transfers (id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
-            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
-            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
-            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
-            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
-          ),
-          recovery_history (id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
-            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
-            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
-            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
-            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
-          ),
-          broker:brokers (id, name, mc_number, address),
-          company:companies!orders_company_id_fkey (id, name),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-        `)
-        .eq("locked", false)
-        .order("created_at", { ascending: false })
-        .range(0, PAGE_SIZE - 1);
+      setProgress(prev => ({ ...prev, isLoadingMore: true }));
 
-      if (error) throw error;
-
-      console.log(`[OrdersWithProgress] Initial batch: ${initialBatch?.length || 0} unlocked orders`);
+      // Use Edge Function to fetch ALL unlocked orders in a single call
+      let allUnlockedOrders: any[] = [];
+      let totalUnlockedCount: number | null = null;
       
+      try {
+        const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
+          "get-all-unlocked-orders",
+          { body: {} }
+        );
+
+        if (edgeFunctionError) {
+          console.error("[OrdersWithProgress] Edge Function error:", edgeFunctionError);
+          throw edgeFunctionError;
+        }
+
+        if (edgeFunctionResponse?.orders) {
+          allUnlockedOrders = edgeFunctionResponse.orders;
+          totalUnlockedCount = edgeFunctionResponse.count;
+          console.log(`[OrdersWithProgress] ✅ Edge Function returned ${allUnlockedOrders.length} orders in ${edgeFunctionResponse.fetchTimeMs}ms`);
+        }
+      } catch (edgeError) {
+        // Fallback to direct database fetch if Edge Function fails
+        console.warn("[OrdersWithProgress] Edge Function failed, falling back to direct fetch:", edgeError);
+        
+        // Get total count
+        const { count } = await supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("locked", false);
+        
+        totalUnlockedCount = count;
+        
+        // Fetch all unlocked orders in batches
+        const BATCH_SIZE = 1000;
+        let offset = 0;
+        
+        while (true) {
+          const { data: batch, error: batchError } = await supabase
+            .from("orders")
+            .select(`
+              *,
+              pickup_drops (id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions),
+              order_files (id, file_category, file_name, file_path),
+              order_transfers (id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
+                driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+                driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+                truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+                trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
+              ),
+              recovery_history (id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
+                recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
+                recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
+                recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
+                recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
+              ),
+              broker:brokers (id, name, mc_number, address),
+              company:companies!orders_company_id_fkey (id, name),
+              booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
+              truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
+              trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+              driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+              driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
+              original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
+              original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
+              original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
+              original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
+            `)
+            .eq("locked", false)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + BATCH_SIZE - 1);
+
+          if (batchError || !batch || batch.length === 0) break;
+
+          allUnlockedOrders = allUnlockedOrders.concat(batch);
+          
+          if (batch.length < BATCH_SIZE) break;
+          offset += BATCH_SIZE;
+        }
+      }
+
+      const fetchTime = Date.now() - startTime;
+      console.log(`[OrdersWithProgress] Unlocked orders fetched: ${allUnlockedOrders.length} in ${fetchTime}ms`);
+
+      // Update progress with unlocked count
       setProgress(prev => ({ 
         ...prev, 
-        unlockedLoaded: initialBatch?.length || 0,
-        isLoadingMore: (initialBatch?.length || 0) < (totalCount || 0)
+        unlockedLoaded: allUnlockedOrders.length,
+        unlockedTotal: totalUnlockedCount,
       }));
 
-      // Load locked orders
+      // Load locked orders from cache and DB
       let lockedOrders = await getLockedOrders() || [];
       
-      // Fetch missing locked orders from DB
       const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
       let allDbLockedOrders: any[] = [];
       let offset = 0;
@@ -257,15 +283,15 @@ export function useOrdersWithProgress() {
       if (allDbLockedOrders.length > 0) {
         const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
         if (missingLockedOrders.length > 0) {
+          console.log(`[OrdersWithProgress] Added ${missingLockedOrders.length} locked orders from DB`);
           lockedOrders = [...lockedOrders, ...missingLockedOrders];
         }
       }
 
       const enrichedLockedOrders = await enrichLockedOrders(lockedOrders);
-      setProgress(prev => ({ ...prev, lockedLoaded: enrichedLockedOrders.length }));
-
+      
       // Deduplicate
-      const unlockedOrderIds = new Set((initialBatch || []).map(o => o.id));
+      const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
       const deduplicatedLockedOrders = enrichedLockedOrders.filter(order => !unlockedOrderIds.has(order.id));
       
       deduplicatedLockedOrders.sort((a, b) => {
@@ -274,233 +300,57 @@ export function useOrdersWithProgress() {
         return dateB.localeCompare(dateA);
       });
 
-      return transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
+      // Final progress update
+      const totalTime = Date.now() - startTime;
+      setProgress({
+        unlockedLoaded: allUnlockedOrders.length,
+        unlockedTotal: totalUnlockedCount,
+        lockedLoaded: deduplicatedLockedOrders.length,
+        isLoadingMore: false,
+        isComplete: true,
+      });
+
+      const mergedOrders = transformOrders([...allUnlockedOrders, ...deduplicatedLockedOrders]);
+      console.log(`[OrdersWithProgress] ✅ COMPLETE: ${allUnlockedOrders.length} unlocked + ${deduplicatedLockedOrders.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
+
+      return mergedOrders;
     },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
   });
 
-  // Background loading for remaining unlocked orders
-  // CRITICAL: This MUST continue until ALL unlocked orders are loaded
-  const loadMoreUnlocked = useCallback(async () => {
-    // Use refs to avoid stale closure issues with setTimeout recursion
-    if (isLoadingRef.current || isCompleteRef.current || !isMountedRef.current) return;
-    isLoadingRef.current = true;
-    setProgress(prev => ({ ...prev, isLoadingMore: true }));
-
-    try {
-      const currentOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
-      const unlockedOrders = currentOrders.filter(o => !o.locked);
-      const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
-      
-      if (!lastUnlocked) {
-        isCompleteRef.current = true;
-        setProgress(prev => ({ ...prev, isLoadingMore: false, isComplete: true }));
-        isLoadingRef.current = false;
-        return;
-      }
-
-      const cursor = lastUnlocked.createdAt || lastUnlocked.created_at;
-      
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          pickup_drops (id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions),
-          order_files (id, file_category, file_name, file_path),
-          order_transfers (id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
-            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
-            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
-            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
-            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
-          ),
-          recovery_history (id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
-            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
-            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
-            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
-            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
-          ),
-          broker:brokers (id, name, mc_number, address),
-          company:companies!orders_company_id_fkey (id, name),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-        `)
-        .eq("locked", false)
-        .lt("created_at", cursor)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
-
-      if (error) throw error;
-
-      const newOrders = transformOrders(data || []);
-
-      // Merge new orders into cache
-      if (isMountedRef.current) {
-        queryClient.setQueryData<any[]>(["orders"], (old) => {
-          if (!old) return newOrders;
-          const existingIds = new Set(old.map(o => o.id));
-          const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
-          const lockedOrders = old.filter(o => o.locked);
-          const existingUnlocked = old.filter(o => !o.locked);
-          return [...existingUnlocked, ...uniqueNewOrders, ...lockedOrders];
-        });
-      }
-
-      const updatedOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
-      const newUnlockedCount = updatedOrders.filter(o => !o.locked).length;
-      const totalNeeded = totalUnlockedCountRef.current;
-
-      // CRITICAL: Determine if we need more based on:
-      // 1. We got a full batch (might have more)
-      // 2. OR we haven't reached the total count yet
-      const hasMoreFromBatch = newOrders.length === PAGE_SIZE;
-      const needsMoreFromTotal = totalNeeded !== null && newUnlockedCount < totalNeeded;
-      const hasMore = hasMoreFromBatch || needsMoreFromTotal;
-
-      console.log(`[OrdersWithProgress] Loaded ${newOrders.length} more (total: ${newUnlockedCount}/${totalNeeded})`);
-
-      isCompleteRef.current = !hasMore;
-      
-      if (isMountedRef.current) {
-        setProgress(prev => ({
-          ...prev,
-          unlockedLoaded: newUnlockedCount,
-          isLoadingMore: hasMore,
-          isComplete: !hasMore,
-        }));
-      }
-
-      isLoadingRef.current = false;
-
-      // Continue loading if there's more
-      if (hasMore && isMountedRef.current) {
-        setTimeout(() => loadMoreUnlocked(), 150);
-      } else {
-        console.log(`[OrdersWithProgress] ✅ Loading COMPLETE: ${newUnlockedCount} unlocked orders`);
-      }
-    } catch (error) {
-      console.error("[useOrdersWithProgress] Error loading more:", error);
-      if (isMountedRef.current) {
-        setProgress(prev => ({ ...prev, isLoadingMore: false }));
-      }
-      isLoadingRef.current = false;
-    }
-  }, [queryClient]);
-
-  // Ref to track if cache initialization has been attempted
-  const hasInitializedFromCache = useRef(false);
-
-  // Handle case where we got cached data from another page (e.g., /orders)
-  // In this case, queryFn never ran, so progress state was never initialized
+  // Handle cache hit scenario (data already loaded by /orders page)
   useEffect(() => {
     isMountedRef.current = true;
     
-    // Only run once, when we have data but never initialized progress
-    if (query.data && progress.unlockedTotal === null && !query.isLoading && !hasInitializedFromCache.current) {
-      hasInitializedFromCache.current = true;
+    if (query.data && progress.unlockedTotal === null && !query.isLoading) {
+      // Data exists but progress wasn't initialized (came from cache)
+      const unlockedCount = query.data.filter((o: any) => !o.locked).length;
+      const lockedCount = query.data.filter((o: any) => o.locked).length;
       
-      console.log('[OrdersWithProgress] Detected cached data without progress init, initializing...');
+      console.log(`[OrdersWithProgress] Using cached data: ${unlockedCount} unlocked, ${lockedCount} locked`);
       
-      // Use IIFE to handle async logic
+      // Verify we have all unlocked orders
       (async () => {
-        try {
-          // Fetch the total count
-          const totalCount = await fetchUnlockedCount();
-          if (!isMountedRef.current) return;
-          
-          // Count what we have in cache
-          const currentData = queryClient.getQueryData<any[]>(["orders"]) || [];
-          const unlockedInCache = currentData.filter((o: any) => !o.locked).length;
-          let lockedInCache = currentData.filter((o: any) => o.locked).length;
-          
-          console.log(`[OrdersWithProgress] Cache has ${unlockedInCache} unlocked, ${lockedInCache} locked. Total unlocked in DB: ${totalCount}`);
-          
-          // If locked orders are missing from cache, load them now
-          if (lockedInCache === 0) {
-            console.log('[OrdersWithProgress] No locked orders in cache, loading them...');
-            
-            let lockedOrders = await getLockedOrders() || [];
-            if (!isMountedRef.current) return;
-            
-            const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
-            let allDbLockedOrders: any[] = [];
-            let offset = 0;
-            const batchSize = 1000;
-            
-            while (isMountedRef.current) {
-              const { data: batch, error: batchError } = await supabase
-                .from("orders")
-                .select("*")
-                .eq("locked", true)
-                .order("updated_at", { ascending: false })
-                .range(offset, offset + batchSize - 1);
-              
-              if (batchError || !batch || batch.length === 0) break;
-              allDbLockedOrders = [...allDbLockedOrders, ...batch];
-              offset += batchSize;
-              if (batch.length < batchSize) break;
-            }
-            
-            if (!isMountedRef.current) return;
-
-            if (allDbLockedOrders.length > 0) {
-              const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
-              if (missingLockedOrders.length > 0) {
-                lockedOrders = [...lockedOrders, ...missingLockedOrders];
-              }
-            }
-
-            if (lockedOrders.length > 0 && isMountedRef.current) {
-              const enrichedLockedOrders = await enrichLockedOrders(lockedOrders);
-              if (!isMountedRef.current) return;
-              
-              lockedInCache = enrichedLockedOrders.length;
-              
-              const currentOrders = queryClient.getQueryData<any[]>(["orders"]) || [];
-              const existingIds = new Set(currentOrders.map((o: any) => o.id));
-              const newLockedOrders = transformOrders(enrichedLockedOrders).filter((o: any) => !existingIds.has(o.id));
-              
-              if (newLockedOrders.length > 0 && isMountedRef.current) {
-                console.log(`[OrdersWithProgress] Adding ${newLockedOrders.length} locked orders to cache`);
-                queryClient.setQueryData<any[]>(["orders"], [...currentOrders, ...newLockedOrders]);
-              }
-            }
-          }
-          
-          if (!isMountedRef.current) return;
-          
-          // Update completion ref - CRITICAL: use totalCount from ref
-          isCompleteRef.current = unlockedInCache >= (totalCount || 0);
-          
-          // Initialize progress state
+        const { count } = await supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("locked", false);
+        
+        if (isMountedRef.current) {
           setProgress({
-            unlockedLoaded: unlockedInCache,
-            unlockedTotal: totalCount,
-            lockedLoaded: lockedInCache,
-            isLoadingMore: unlockedInCache < (totalCount || 0),
-            isComplete: unlockedInCache >= (totalCount || 0),
+            unlockedLoaded: unlockedCount,
+            unlockedTotal: count,
+            lockedLoaded: lockedCount,
+            isLoadingMore: false,
+            isComplete: unlockedCount >= (count || 0),
           });
           
-          // CRITICAL: If we need more orders, trigger background loading
-          if (unlockedInCache < (totalCount || 0) && isMountedRef.current) {
-            hasStartedBackgroundLoad.current = true;
-            console.log(`[OrdersWithProgress] Need to load more: ${unlockedInCache}/${totalCount}`);
-            setTimeout(() => {
-              if (isMountedRef.current) loadMoreUnlocked();
-            }, 300);
-          } else {
-            console.log(`[OrdersWithProgress] ✅ All ${unlockedInCache} unlocked orders already loaded`);
+          if (unlockedCount < (count || 0)) {
+            console.warn(`[OrdersWithProgress] Cache incomplete: ${unlockedCount}/${count}, triggering refetch`);
+            queryClient.invalidateQueries({ queryKey: ["orders"] });
           }
-        } catch (error) {
-          console.error('[OrdersWithProgress] Error during cache initialization:', error);
         }
       })();
     }
@@ -508,28 +358,7 @@ export function useOrdersWithProgress() {
     return () => {
       isMountedRef.current = false;
     };
-  }, [query.data, query.isLoading, progress.unlockedTotal, enrichLockedOrders, fetchUnlockedCount, loadMoreUnlocked, queryClient]);
-
-  // Start background loading after initial load (when queryFn ran normally)
-  useEffect(() => {
-    if (query.data && !hasStartedBackgroundLoad.current && progress.unlockedTotal !== null) {
-      const unlockedInData = query.data.filter(o => !o.locked).length;
-      const totalNeeded = progress.unlockedTotal;
-      
-      // CRITICAL: Check if we have ALL unlocked orders
-      if (unlockedInData < totalNeeded) {
-        hasStartedBackgroundLoad.current = true;
-        console.log(`[OrdersWithProgress] Starting background load: ${unlockedInData}/${totalNeeded}`);
-        setTimeout(() => {
-          if (isMountedRef.current) loadMoreUnlocked();
-        }, 300);
-      } else {
-        isCompleteRef.current = true;
-        console.log(`[OrdersWithProgress] ✅ All ${unlockedInData} unlocked orders loaded`);
-        setProgress(prev => ({ ...prev, isComplete: true, isLoadingMore: false }));
-      }
-    }
-  }, [query.data, progress.unlockedTotal, loadMoreUnlocked]);
+  }, [query.data, query.isLoading, progress.unlockedTotal, queryClient]);
 
   return {
     ...query,

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useRef, useCallback } from "react";
-import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
+import { useRef } from "react";
+import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
 
@@ -241,8 +241,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      // PERFORMANCE: Load only 100 orders initially - background loading completes the rest
-      const initialBatchSize = 100;
+      const startTime = Date.now();
+      console.log("[useOrders] Starting bulk fetch via Edge Function...");
 
       // If dispatcher user ID is provided, fetch driver IDs assigned to them
       let dispatcherDriverIds: string[] = [];
@@ -255,226 +255,141 @@ export const useOrders = (options?: UseOrdersOptions) => {
         dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
       }
 
-      // CRITICAL: Fetch the TOTAL count of unlocked orders FIRST
-      // This is the source of truth for how many we need to load
-      let countQuery = supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("locked", false);
+      // Use Edge Function to fetch ALL unlocked orders in a single call
+      let allUnlockedOrders: any[] = [];
       
-      // Apply same filters to count query
-      if (options?.dispatcherUserId) {
-        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-          countQuery = countQuery.or(
-            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-          );
+      try {
+        const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
+          "get-all-unlocked-orders",
+          {
+            body: {
+              bookedBy: options?.bookedBy || null,
+              dispatcherDriverIds: options?.dispatcherUserId ? dispatcherDriverIds : [],
+            },
+          }
+        );
+
+        if (edgeFunctionError) {
+          console.error("[useOrders] Edge Function error:", edgeFunctionError);
+          throw edgeFunctionError;
+        }
+
+        if (edgeFunctionResponse?.orders) {
+          allUnlockedOrders = edgeFunctionResponse.orders;
+          totalUnlockedCountRef.current = edgeFunctionResponse.count;
+          console.log(`[useOrders] ✅ Edge Function returned ${allUnlockedOrders.length} unlocked orders in ${edgeFunctionResponse.fetchTimeMs}ms`);
+        }
+      } catch (edgeError) {
+        // Fallback to direct database fetch if Edge Function fails
+        console.warn("[useOrders] Edge Function failed, falling back to direct fetch:", edgeError);
+        
+        // Get total count
+        let countQuery = supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("locked", false);
+        
+        if (options?.dispatcherUserId) {
+          if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+            countQuery = countQuery.or(
+              `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+            );
+          } else if (options?.bookedBy) {
+            countQuery = countQuery.eq("booked_by", options.bookedBy);
+          } else if (dispatcherDriverIds.length > 0) {
+            countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+          }
         } else if (options?.bookedBy) {
           countQuery = countQuery.eq("booked_by", options.bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
         }
-      } else if (options?.bookedBy) {
-        countQuery = countQuery.eq("booked_by", options.bookedBy);
-      }
 
-      const { count: totalUnlockedCount } = await countQuery;
-      totalUnlockedCountRef.current = totalUnlockedCount;
-      console.log(`[useOrders] Total unlocked orders in DB: ${totalUnlockedCount}`);
+        const { count: totalUnlockedCount } = await countQuery;
+        totalUnlockedCountRef.current = totalUnlockedCount;
+        
+        // Fetch all unlocked orders in batches
+        const BATCH_SIZE = 1000;
+        let offset = 0;
+        
+        while (true) {
+          let query = supabase
+            .from("orders")
+            .select(`
+              *,
+              pickup_drops (
+                id, type, address, city, state, zip_code, datetime, end_datetime,
+                sequence_number, arrived_at, checked_out_at, going_to_at,
+                company_name, contact_name, contact_phone, special_instructions
+              ),
+              order_files (id, file_category, file_name, file_path),
+              order_transfers (
+                id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id,
+                miles, driver_price, manual_driver_name, manual_truck_number,
+                manual_trailer_number, transfer_date, transfer_city, transfer_state,
+                transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
+                driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+                driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+                truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+                trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
+              ),
+              recovery_history (
+                id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
+                recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
+                recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
+                recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
+                recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
+              ),
+              broker:brokers (id, name, mc_number, address),
+              company:companies!orders_company_id_fkey (id, name),
+              booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
+              truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
+              trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+              driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+              driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
+              original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
+              original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
+              original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
+              original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
+            `)
+            .eq("locked", false)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + BATCH_SIZE - 1);
 
-      // Fetch first 100 UNLOCKED orders immediately with joins
-      let initialQuery = supabase
-        .from("orders")
-        .select(
-          `
-          *,
-          pickup_drops (
-            id,
-            type,
-            address,
-            city,
-            state,
-            zip_code,
-            datetime,
-            end_datetime,
-            sequence_number,
-            arrived_at,
-            checked_out_at,
-            going_to_at,
-            company_name,
-            contact_name,
-            contact_phone,
-            special_instructions
-          ),
-          order_files (
-            id,
-            file_category,
-            file_name,
-            file_path
-          ),
-          order_transfers (
-            id,
-            sequence_number,
-            driver1_id,
-            driver2_id,
-            truck_id,
-            trailer_id,
-            miles,
-            driver_price,
-            manual_driver_name,
-            manual_truck_number,
-            manual_trailer_number,
-            transfer_date,
-            transfer_city,
-            transfer_state,
-            transfer_address,
-            transfer_datetime,
-            transfer_latitude,
-            transfer_longitude,
-            driver1:drivers!order_transfers_driver1_id_fkey (
-              id,
-              name
-            ),
-            driver2:drivers!order_transfers_driver2_id_fkey (
-              id,
-              name
-            ),
-            truck:trucks!order_transfers_truck_id_fkey (
-              id,
-              truck_number
-            ),
-            trailer:trailers!order_transfers_trailer_id_fkey (
-              id,
-              trailer_number
-            )
-          ),
-          recovery_history (
-            id,
-            recovery_driver1_id,
-            recovery_driver2_id,
-            recovery_truck_id,
-            recovery_trailer_id,
-            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
-              id,
-              name
-            ),
-            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
-              id,
-              name
-            ),
-            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
-              id,
-              truck_number
-            ),
-            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
-              id,
-              trailer_number
-            )
-          ),
-          broker:brokers (
-            id,
-            name,
-            mc_number,
-            address
-          ),
-          company:companies!orders_company_id_fkey (
-            id,
-            name
-          ),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (
-            id,
-            name
-          ),
-          truck:trucks!orders_truck_id_fkey (
-            id,
-            truck_number,
-            company:companies (
-              id,
-              name
-            )
-          ),
-          trailer:trailers!orders_trailer_id_fkey (
-            id,
-            trailer_number
-          ),
-          driver1:drivers!orders_driver1_id_fkey (
-            id,
-            name,
-            company_id,
-            company:companies (
-              id,
-              name
-            )
-          ),
-          driver2:drivers!orders_driver2_id_fkey (
-            id,
-            name,
-            company_id,
-            company:companies (
-              id,
-              name
-            )
-          ),
-          original_driver1:drivers!orders_original_driver1_id_fkey (
-            id,
-            name
-          ),
-          original_driver2:drivers!orders_original_driver2_id_fkey (
-            id,
-            name
-          ),
-          original_truck:trucks!orders_original_truck_id_fkey (
-            id,
-            truck_number
-          ),
-          original_trailer:trailers!orders_original_trailer_id_fkey (
-            id,
-            trailer_number
-          )
-        `,
-        )
-        .eq("locked", false)
-        .order("created_at", { ascending: false })
-        .range(0, initialBatchSize - 1);
+          // Apply dispatcher filtering
+          if (options?.dispatcherUserId) {
+            if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+              query = query.or(
+                `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+              );
+            } else if (options?.bookedBy) {
+              query = query.eq("booked_by", options.bookedBy);
+            } else if (dispatcherDriverIds.length > 0) {
+              query = query.in("driver1_id", dispatcherDriverIds);
+            }
+          } else if (options?.bookedBy) {
+            query = query.eq("booked_by", options.bookedBy);
+          }
 
-      // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
-      if (options?.dispatcherUserId) {
-        // Dispatcher mode: filter by booked_by AND/OR assigned drivers
-        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-          // Has both booked_by name and assigned drivers - use OR filter
-          initialQuery = initialQuery.or(
-            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-          );
-        } else if (options?.bookedBy) {
-          // Only has booked_by name, no assigned drivers
-          initialQuery = initialQuery.eq("booked_by", options.bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          // Only has assigned drivers, no booked_by name yet
-          initialQuery = initialQuery.in("driver1_id", dispatcherDriverIds);
+          const { data: batch, error: batchError } = await query;
+
+          if (batchError || !batch || batch.length === 0) break;
+
+          allUnlockedOrders = allUnlockedOrders.concat(batch);
+          
+          if (batch.length < BATCH_SIZE) break;
+          offset += BATCH_SIZE;
         }
-        // If neither bookedBy nor drivers, this will return no orders (intended for dispatcher)
-      } else if (options?.bookedBy) {
-        // Non-dispatcher mode with bookedBy filter
-        initialQuery = initialQuery.eq("booked_by", options.bookedBy);
       }
 
-      const { data: initialBatch, error: initialError } = await initialQuery;
-
-      if (initialError) {
-        console.error("[useOrders] Error fetching initial batch:", initialError);
-        throw initialError;
-      }
-
-      console.log(`[useOrders] Initial batch: ${initialBatch?.length || 0} unlocked orders`);
+      const fetchTime = Date.now() - startTime;
+      console.log(`[useOrders] Unlocked orders fetched: ${allUnlockedOrders.length} in ${fetchTime}ms`);
 
       // Load LOCKED orders from cache only (no DB fetch for performance)
       let lockedOrders = await getLockedOrders() || [];
       
       // Fetch ALL locked orders from DB that are missing from archive cache
-      // This ensures any locked order in the database appears, regardless of archive state
       try {
         const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
         
-        // Fetch ALL locked orders from DB - need to paginate to avoid 1000 row limit
         let allDbLockedOrders: any[] = [];
         let offset = 0;
         const batchSize = 1000;
@@ -492,7 +407,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
           allDbLockedOrders = [...allDbLockedOrders, ...batch];
           offset += batchSize;
           
-          // If we got less than batchSize, we've reached the end
           if (batch.length < batchSize) break;
         }
 
@@ -507,7 +421,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
         console.warn('[useOrders] Could not fetch locked orders from DB:', error);
       }
       
-      // Filter locked orders for dispatchers (by booked_by or assigned drivers)
+      // Filter locked orders for dispatchers
       if (options?.dispatcherUserId && lockedOrders) {
         lockedOrders = lockedOrders.filter(order => {
           const matchesBookedBy = options?.bookedBy && order.booked_by === options.bookedBy;
@@ -516,14 +430,14 @@ export const useOrders = (options?: UseOrdersOptions) => {
         });
       }
 
-      // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
+      // Enrich locked orders with lookup data
       let enrichedLockedOrders: any[] = [];
       if (lockedOrders && lockedOrders.length > 0) {
         enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
       }
 
       // Deduplicate: remove locked orders if unlocked version exists
-      const unlockedOrderIds = new Set((initialBatch || []).map(o => o.id));
+      const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
       const deduplicatedLockedOrders = enrichedLockedOrders.filter(
         order => !unlockedOrderIds.has(order.id)
       );
@@ -535,206 +449,24 @@ export const useOrders = (options?: UseOrdersOptions) => {
         return dateB.localeCompare(dateA);
       });
       
-      // Merge initial unlocked orders with deduplicated locked orders
-      const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
+      // Merge ALL unlocked orders with deduplicated locked orders
+      const mergedOrders = transformOrders([...allUnlockedOrders, ...deduplicatedLockedOrders]);
 
-      // Return initial merged data (unlocked + locked)
-      // Background loading will fetch remaining unlocked orders automatically
-      return initialMergedOrders;
+      const totalTime = Date.now() - startTime;
+      console.log(`[useOrders] ✅ COMPLETE: ${allUnlockedOrders.length} unlocked + ${deduplicatedLockedOrders.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
+
+      return mergedOrders;
     },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
     retry: 2,
-    staleTime: Infinity, // Keep data fresh with real-time updates
+    staleTime: Infinity,
   });
-
-  // Background loading state
-  const isBackgroundLoadingRef = useRef(false);
-  const hasStartedBackgroundLoadRef = useRef(false);
-  const isMountedRef = useRef(true);
-
-  // Function to load more unlocked orders using cursor-based pagination
-  const loadMoreUnlockedOrders = useCallback(async () => {
-    if (isBackgroundLoadingRef.current || !isMountedRef.current) return;
-    isBackgroundLoadingRef.current = true;
-
-    try {
-      // Get current orders from cache
-      const currentOrders = queryClient.getQueryData<any[]>(queryKey) || [];
-      const unlockedOrders = currentOrders.filter((o: any) => !o.locked);
-      
-      if (unlockedOrders.length === 0) {
-        isBackgroundLoadingRef.current = false;
-        return;
-      }
-
-      // Find cursor (oldest unlocked order's created_at)
-      const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
-      const cursor = lastUnlocked.createdAt || lastUnlocked.created_at;
-      
-      if (!cursor) {
-        isBackgroundLoadingRef.current = false;
-        return;
-      }
-
-      // Get dispatcher driver IDs if needed
-      let dispatcherDriverIds: string[] = [];
-      if (options?.dispatcherUserId) {
-        const { data: assignedDrivers } = await supabase
-          .from("drivers")
-          .select("id")
-          .eq("dispatcher_id", options.dispatcherUserId);
-        dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
-      }
-
-      // Fetch next batch of 100 unlocked orders
-      let nextQuery = supabase
-        .from("orders")
-        .select(`
-          *,
-          pickup_drops (
-            id, type, address, city, state, zip_code, datetime, end_datetime,
-            sequence_number, arrived_at, checked_out_at, going_to_at,
-            company_name, contact_name, contact_phone, special_instructions
-          ),
-          order_files (id, file_category, file_name, file_path),
-          order_transfers (
-            id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id,
-            miles, driver_price, manual_driver_name, manual_truck_number,
-            manual_trailer_number, transfer_date, transfer_city, transfer_state,
-            transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
-            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
-            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
-            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
-            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
-          ),
-          recovery_history (
-            id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
-            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
-            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
-            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
-            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
-          ),
-          broker:brokers (id, name, mc_number, address),
-          company:companies!orders_company_id_fkey (id, name),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-        `)
-        .eq("locked", false)
-        .lt("created_at", cursor)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      // Apply dispatcher filtering
-      if (options?.dispatcherUserId) {
-        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-          nextQuery = nextQuery.or(
-            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-          );
-        } else if (options?.bookedBy) {
-          nextQuery = nextQuery.eq("booked_by", options.bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          nextQuery = nextQuery.in("driver1_id", dispatcherDriverIds);
-        }
-      } else if (options?.bookedBy) {
-        nextQuery = nextQuery.eq("booked_by", options.bookedBy);
-      }
-
-      const { data: nextBatch, error } = await nextQuery;
-
-      if (error) {
-        console.error("[useOrders] Background load error:", error);
-        isBackgroundLoadingRef.current = false;
-        return;
-      }
-
-      if (!nextBatch || nextBatch.length === 0) {
-        console.log("[useOrders] Background loading complete - no more orders");
-        isBackgroundLoadingRef.current = false;
-        return;
-      }
-
-      const newOrders = transformOrders(nextBatch);
-
-      // Merge into cache
-      if (isMountedRef.current) {
-        queryClient.setQueryData<any[]>(queryKey, (old) => {
-          if (!old) return newOrders;
-          
-          const existingIds = new Set(old.map((o: any) => o.id));
-          const uniqueNewOrders = newOrders.filter((o: any) => !existingIds.has(o.id));
-          
-          // Keep locked orders at the end
-          const existingUnlocked = old.filter((o: any) => !o.locked);
-          const existingLocked = old.filter((o: any) => o.locked);
-          
-          return [...existingUnlocked, ...uniqueNewOrders, ...existingLocked];
-        });
-      }
-
-      // Count current unlocked orders after merge
-      const updatedOrders = queryClient.getQueryData<any[]>(queryKey) || [];
-      const currentUnlockedCount = updatedOrders.filter((o: any) => !o.locked).length;
-      console.log(`[useOrders] Loaded ${newOrders.length} more unlocked (total: ${currentUnlockedCount}/${totalUnlockedCountRef.current})`);
-      
-      isBackgroundLoadingRef.current = false;
-
-      // CRITICAL: Continue loading until we have ALL unlocked orders
-      // Check against the known total, not just batch size
-      const needsMore = nextBatch.length === 100 || 
-        (totalUnlockedCountRef.current !== null && currentUnlockedCount < totalUnlockedCountRef.current);
-      
-      if (needsMore && isMountedRef.current) {
-        setTimeout(() => loadMoreUnlockedOrders(), 100);
-      } else {
-        console.log(`[useOrders] ✅ Background loading COMPLETE: ${currentUnlockedCount} unlocked orders loaded`);
-      }
-    } catch (error) {
-      console.error("[useOrders] Background load exception:", error);
-      isBackgroundLoadingRef.current = false;
-    }
-  }, [queryClient, queryKey, options?.bookedBy, options?.dispatcherUserId]);
-
-  // Start background loading after initial data is available
-  // CRITICAL: Use the total count to determine if we need more, not just the batch size
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    if (query.data && !query.isLoading && !hasStartedBackgroundLoadRef.current) {
-      const unlockedCount = query.data.filter((o: any) => !o.locked).length;
-      const totalNeeded = totalUnlockedCountRef.current;
-      
-      // Start background loading if we don't have all unlocked orders
-      // Even if initial batch < 100, we still need to verify we have them all
-      if (totalNeeded !== null && unlockedCount < totalNeeded) {
-        hasStartedBackgroundLoadRef.current = true;
-        console.log(`[useOrders] Starting background load: ${unlockedCount}/${totalNeeded} unlocked orders`);
-        setTimeout(() => loadMoreUnlockedOrders(), 300);
-      } else if (unlockedCount >= 100) {
-        // Fallback: if we couldn't get total count but have a full batch, try loading more
-        hasStartedBackgroundLoadRef.current = true;
-        console.log(`[useOrders] Starting background load (full batch detected): ${unlockedCount} unlocked orders`);
-        setTimeout(() => loadMoreUnlockedOrders(), 300);
-      } else {
-        console.log(`[useOrders] ✅ All ${unlockedCount} unlocked orders loaded (total: ${totalNeeded})`);
-      }
-    }
-    
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [query.data, query.isLoading, loadMoreUnlockedOrders]);
 
   // Real-time subscriptions are handled by useOrdersRealtime hook
   // Cache updates happen via setQueryData, avoiding expensive full refetches
+  // NOTE: All unlocked orders are now fetched in a single Edge Function call (no background loading needed)
   return query;
 };
 
