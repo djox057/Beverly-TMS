@@ -87,22 +87,36 @@ Deno.serve(async (req) => {
       }
     });
 
-    const dispatcherCounts = new Map<string, number>();
-    dispatcherTruckSets.forEach((truckSet, dispatcherId) => {
-      dispatcherCounts.set(dispatcherId, truckSet.size);
+    // Count drivers per dispatcher
+    const dispatcherDriverCounts = new Map<string, number>();
+    drivers?.forEach((driver) => {
+      if (driver.dispatcher_id) {
+        const current = dispatcherDriverCounts.get(driver.dispatcher_id) || 0;
+        dispatcherDriverCounts.set(driver.dispatcher_id, current + 1);
+      }
     });
 
-    console.log(`Found ${dispatcherCounts.size} dispatchers with trucks`);
+    // Get all unique dispatcher IDs
+    const allDispatcherIds = new Set([
+      ...dispatcherTruckSets.keys(),
+      ...dispatcherDriverCounts.keys(),
+    ]);
+
+    console.log(`Found ${allDispatcherIds.size} dispatchers with trucks/drivers`);
 
     // Insert or update counts for each dispatcher
     const results = [];
-    for (const [dispatcherId, count] of dispatcherCounts.entries()) {
+    for (const dispatcherId of allDispatcherIds) {
+      const truckCount = dispatcherTruckSets.get(dispatcherId)?.size || 0;
+      const driverCount = dispatcherDriverCounts.get(dispatcherId) || 0;
+      
       const { data, error } = await supabase
         .from('dispatcher_daily_driver_counts')
         .upsert({
           dispatcher_id: dispatcherId,
           date: today,
-          driver_count: count,
+          truck_count: truckCount,
+          driver_count: driverCount,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'dispatcher_id,date',
@@ -113,8 +127,8 @@ Deno.serve(async (req) => {
       if (error) {
         console.error(`Error recording count for dispatcher ${dispatcherId}:`, error);
       } else {
-        console.log(`Recorded ${count} trucks for dispatcher ${dispatcherId}`);
-        results.push({ dispatcher_id: dispatcherId, count });
+        console.log(`Recorded ${truckCount} trucks, ${driverCount} drivers for dispatcher ${dispatcherId}`);
+        results.push({ dispatcher_id: dispatcherId, truck_count: truckCount, driver_count: driverCount });
       }
     }
 

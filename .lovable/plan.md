@@ -210,8 +210,14 @@ When user selects office(s) in Analytics:
 ## Verification
 
 After implementation, verify:
-- [ ] Fleet summary shows daily-averaged truck/driver counts
-- [ ] Office filter correctly filters dispatcher data
-- [ ] Avg Gross/Truck uses correct average truck count
-- [ ] Edge function records both truck_count and driver_count
-- [ ] Historical data preserved via backfill
+- [x] Fleet summary shows daily-averaged truck/driver counts
+- [x] Office filter correctly filters dispatcher data
+- [x] Avg Gross/Truck uses correct average truck count
+- [x] Edge function records both truck_count and driver_count
+- [x] Historical data preserved via backfill
+
+## ✅ Implementation Complete (2026-01-28)
+
+- Migration applied: Added `truck_count` column, backfilled data
+- Edge function updated: Records both `truck_count` and `driver_count` separately
+- Analytics page updated: Uses daily averages from `dispatcher_daily_driver_counts` table

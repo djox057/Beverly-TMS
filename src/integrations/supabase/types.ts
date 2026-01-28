@@ -745,6 +745,7 @@ export type Database = {
           dispatcher_id: string
           driver_count: number
           id: string
+          truck_count: number
           updated_at: string
         }
         Insert: {
@@ -753,6 +754,7 @@ export type Database = {
           dispatcher_id: string
           driver_count?: number
           id?: string
+          truck_count: number
           updated_at?: string
         }
         Update: {
@@ -761,6 +763,7 @@ export type Database = {
           dispatcher_id?: string
           driver_count?: number
           id?: string
+          truck_count?: number
           updated_at?: string
         }
         Relationships: []
