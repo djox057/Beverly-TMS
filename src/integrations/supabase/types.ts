@@ -498,6 +498,63 @@ export type Database = {
           },
         ]
       }
+      daily_driver_stats: {
+        Row: {
+          date: string
+          dispatcher_id: string
+          driver_id: string
+          has_home_time: boolean | null
+          has_lost_day: boolean | null
+          has_reschedule: boolean | null
+          id: string
+          lost_day_note: string | null
+          office: string
+          recorded_at: string | null
+          reschedule_order_id: string | null
+        }
+        Insert: {
+          date: string
+          dispatcher_id: string
+          driver_id: string
+          has_home_time?: boolean | null
+          has_lost_day?: boolean | null
+          has_reschedule?: boolean | null
+          id?: string
+          lost_day_note?: string | null
+          office: string
+          recorded_at?: string | null
+          reschedule_order_id?: string | null
+        }
+        Update: {
+          date?: string
+          dispatcher_id?: string
+          driver_id?: string
+          has_home_time?: boolean | null
+          has_lost_day?: boolean | null
+          has_reschedule?: boolean | null
+          id?: string
+          lost_day_note?: string | null
+          office?: string
+          recorded_at?: string | null
+          reschedule_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_driver_stats_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_driver_stats_reschedule_order_id_fkey"
+            columns: ["reschedule_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deleted_drivers: {
         Row: {
           agreement_start_date: string | null
