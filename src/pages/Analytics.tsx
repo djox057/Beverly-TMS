@@ -2077,14 +2077,19 @@ const Analytics = () => {
         </div>
 
         <Tabs defaultValue="performance" className="w-full">
-          <TabsList>
-            <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
-            <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>
-            {/* Hidden: Driver Performance tab - keeping code for future use */}
-            {/* <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger> */}
-            <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
-            {canViewSalaries && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
-          </TabsList>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <TabsList>
+              <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
+              <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>
+              {/* Hidden: Driver Performance tab - keeping code for future use */}
+              {/* <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger> */}
+              <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
+              {canViewSalaries && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
+            </TabsList>
+            <Button variant="outline" onClick={() => navigate("/billboard")}>
+              Billboard
+            </Button>
+          </div>
 
           <TabsContent value="performance" className="space-y-6">
             <Card>
