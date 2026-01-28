@@ -39,8 +39,10 @@ interface LostDayNote {
 interface Order {
   id: string;
   driver1_id: string | null;
-  date_change_notes: string | null;
+  pickup_datetime: string | null;
   delivery_datetime: string | null;
+  date_change_notes: string | null;
+  canceled: boolean;
 }
 
 function getChicagoDate(): string {
@@ -54,15 +56,27 @@ function getChicagoDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-function parseRescheduledDates(notes: string): string[] {
-  const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/g;
-  const dates: string[] = [];
-  let match;
-  while ((match = regex.exec(notes)) !== null) {
+function subtractDays(dateStr: string, days: number): string {
+  const date = new Date(dateStr + "T12:00:00Z");
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split("T")[0];
+}
+
+function addDays(dateStr: string, days: number): string {
+  const date = new Date(dateStr + "T12:00:00Z");
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+}
+
+function parseRescheduledOriginalDate(notes: string): string | null {
+  // Parse "Supposed to deliver on MM/DD/YYYY" from date_change_notes
+  const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/;
+  const match = notes.match(regex);
+  if (match) {
     const [_, month, day, year] = match;
-    dates.push(`${year}-${month}-${day}`);
+    return `${year}-${month}-${day}`;
   }
-  return dates;
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -143,12 +157,7 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
   // Step 1: Get all active drivers with their dispatcher/office info
   const { data: driversData, error: driversError } = await supabase
     .from("drivers")
-    .select(`
-      id,
-      name,
-      dispatcher_id,
-      is_active
-    `)
+    .select(`id, name, dispatcher_id, is_active`)
     .eq("is_active", true)
     .not("dispatcher_id", "is", null);
 
@@ -175,7 +184,7 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
   const profiles = profilesData as Profile[];
   const profileMap = new Map(profiles?.map((p) => [p.user_id, p.office]) || []);
 
-  // Step 2: Get all lost_day_notes for the target date
+  // Step 2: Get all lost_day_notes for the target date (for home_time detection)
   const { data: lostDayNotesData, error: notesError } = await supabase
     .from("lost_day_notes")
     .select("driver_id, note_type, note")
@@ -192,74 +201,51 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
     lostDayMap.set(note.driver_id, { type: note.note_type, note: note.note });
   });
 
-  // Step 3: Get all orders to determine working drivers (pickup on date OR in-transit)
-  // Use pagination to handle large datasets (Supabase has 1000 row limit)
-  const workingDriverIds = new Set<string>();
-  let offset = 0;
-  const batchSize = 1000;
-  let hasMore = true;
+  // Step 3: Fetch ALL non-canceled orders with pickup within last 30 days + future
+  // This will be used for the walkback algorithm
+  const lookbackDate = subtractDays(targetDate, 30);
   
-  while (hasMore) {
-    const { data: ordersBatch, error: ordersError } = await supabase
-      .from("orders")
-      .select("driver1_id, driver2_id, pickup_datetime, delivery_datetime")
-      .eq("canceled", false)
-      .range(offset, offset + batchSize - 1);
+  const { data: ordersData, error: ordersError } = await supabase
+    .from("orders")
+    .select("id, driver1_id, pickup_datetime, delivery_datetime, date_change_notes, canceled")
+    .eq("canceled", false)
+    .not("driver1_id", "is", null)
+    .gte("pickup_datetime", lookbackDate + "T00:00:00")
+    .order("pickup_datetime", { ascending: false });
 
-    if (ordersError) {
-      console.error("Error fetching orders:", ordersError);
-      throw ordersError;
-    }
-    
-    for (const order of ordersBatch || []) {
-      if (!order.pickup_datetime) continue;
-      
-      const pickupDate = order.pickup_datetime.split("T")[0];
-      const deliveryDate = order.delivery_datetime?.split("T")[0];
-      
-      // Check if driver is working on targetDate
-      const hasPickupOnDate = pickupDate === targetDate;
-      const isInTransit = pickupDate < targetDate && deliveryDate && deliveryDate >= targetDate;
-      
-      if (hasPickupOnDate || isInTransit) {
-        if (order.driver1_id) workingDriverIds.add(order.driver1_id);
-        if (order.driver2_id) workingDriverIds.add(order.driver2_id);
-      }
-    }
-    
-    // Check if we got a full batch (need to fetch more)
-    hasMore = (ordersBatch?.length || 0) === batchSize;
-    offset += batchSize;
+  if (ordersError) {
+    console.error("Error fetching orders:", ordersError);
+    throw ordersError;
   }
 
-  console.log(`Found ${workingDriverIds.size} working drivers for ${targetDate}`);
+  const orders = ordersData as Order[];
+  
+  // Group orders by driver1_id for faster lookups
+  const ordersByDriver = new Map<string, Order[]>();
+  for (const order of orders) {
+    if (!order.driver1_id) continue;
+    if (!ordersByDriver.has(order.driver1_id)) {
+      ordersByDriver.set(order.driver1_id, []);
+    }
+    ordersByDriver.get(order.driver1_id)!.push(order);
+  }
 
-  // Build reschedule map (keeping the original logic for now - this will be addressed separately)
-  const rescheduleMap = new Map<string, { hasReschedule: boolean; orderId: string | null }>();
-  // Note: Reschedule logic is deprecated - user said to ignore it for now
-
-  // Step 4: Build stats records for each driver
+  // Step 4: Build stats records for each driver using WALKBACK algorithm
   const statsToInsert: DriverStats[] = [];
 
   for (const driver of drivers || []) {
     const office = profileMap.get(driver.dispatcher_id) || "Unknown";
     const lostDayInfo = lostDayMap.get(driver.id);
+    const driverOrders = ordersByDriver.get(driver.id) || [];
 
-    // Determine flags based on NEW logic:
-    // Lost Day = driver is NOT working (no pickup and not in-transit) AND not on home_time
-    const isWorking = workingDriverIds.has(driver.id);
-    const hasHomeTimeNote = lostDayInfo?.type === "home_time";
+    // WALKBACK ALGORITHM: Determine if this is a lost day
+    const hasLostDay = isLostDayWalkback(driverOrders, targetDate);
     
-    // A driver has a lost day if:
-    // 1. They are NOT working (no pickup, not in-transit)
-    // 2. AND they are NOT on home_time
-    const hasLostDay = !isWorking && !hasHomeTimeNote;
+    // Home time from lost_day_notes
+    const hasHomeTime = lostDayInfo?.type === "home_time";
     
-    // Home time is tracked separately
-    const hasHomeTime = hasHomeTimeNote;
-    
-    // Reschedule logic is deprecated for now
-    const hasReschedule = false;
+    // Reschedule detection: check if targetDate falls in any reschedule range
+    const hasReschedule = isRescheduleLostDay(driverOrders, targetDate);
 
     statsToInsert.push({
       date: targetDate,
@@ -301,4 +287,98 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
   console.log(`Summary for ${targetDate}:`, summary);
 
   return summary;
+}
+
+/**
+ * WALKBACK ALGORITHM: Determines if a date is a lost day for a driver
+ * 
+ * 1. Check if driver has a pickup on targetDate → NOT a lost day
+ * 2. Walk backwards day-by-day up to 30 days to find most recent pickup
+ * 3. When found, check if delivery_datetime > targetDate → NOT a lost day (in transit)
+ * 4. If delivery_datetime <= targetDate → IS a lost day (load complete)
+ * 5. If no pickup found in 30 days → IS a lost day (idle)
+ */
+function isLostDayWalkback(orders: Order[], targetDate: string): boolean {
+  // Step 1: Check if driver has a pickup on targetDate
+  const hasPickupToday = orders.some(order => {
+    if (!order.pickup_datetime) return false;
+    const pickupDate = order.pickup_datetime.split("T")[0];
+    return pickupDate === targetDate;
+  });
+
+  if (hasPickupToday) {
+    return false; // Has pickup today → NOT a lost day
+  }
+
+  // Step 2: Walk backwards to find most recent pickup before targetDate
+  for (let daysBack = 1; daysBack <= 30; daysBack++) {
+    const checkDate = subtractDays(targetDate, daysBack);
+    
+    // Find order with pickup on this checkDate
+    const orderOnDate = orders.find(order => {
+      if (!order.pickup_datetime) return false;
+      const pickupDate = order.pickup_datetime.split("T")[0];
+      return pickupDate === checkDate;
+    });
+
+    if (orderOnDate) {
+      // Found a load with pickup on checkDate
+      if (!orderOnDate.delivery_datetime) {
+        // No delivery date → treat as lost day (shouldn't happen but handle it)
+        return true;
+      }
+
+      const deliveryDate = orderOnDate.delivery_datetime.split("T")[0];
+      
+      // If delivery date > targetDate → driver is still in transit → NOT a lost day
+      // If delivery date <= targetDate → load is complete → IS a lost day
+      if (deliveryDate > targetDate) {
+        return false; // Still in transit
+      } else {
+        return true; // Load complete, is a lost day
+      }
+    }
+  }
+
+  // No pickup found in 30 days → driver is idle → IS a lost day
+  return true;
+}
+
+/**
+ * RESCHEDULE DETECTION: Check if targetDate falls in a reschedule lost day range
+ * 
+ * For orders with "Supposed to deliver on MM/DD/YYYY" in date_change_notes:
+ * - Range: original_delivery_date to actual_delivery_date (BOTH INCLUSIVE)
+ * - Each date in range counts as reschedule lost day UNLESS driver has new pickup that day
+ */
+function isRescheduleLostDay(orders: Order[], targetDate: string): boolean {
+  for (const order of orders) {
+    if (!order.date_change_notes) continue;
+    
+    const originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    if (!originalDate) continue;
+    
+    if (!order.delivery_datetime) continue;
+    const actualDate = order.delivery_datetime.split("T")[0];
+    
+    // Check if actualDate > originalDate (was actually rescheduled later)
+    if (actualDate <= originalDate) continue;
+    
+    // Check if targetDate falls within the reschedule range [originalDate, actualDate] inclusive
+    if (targetDate >= originalDate && targetDate <= actualDate) {
+      // Check if driver has a NEW pickup on targetDate (different from this order)
+      const hasNewPickup = orders.some(o => {
+        if (o.id === order.id) return false; // Skip the same order
+        if (!o.pickup_datetime) return false;
+        const pickupDate = o.pickup_datetime.split("T")[0];
+        return pickupDate === targetDate;
+      });
+      
+      if (!hasNewPickup) {
+        return true; // Is a reschedule lost day
+      }
+    }
+  }
+  
+  return false;
 }

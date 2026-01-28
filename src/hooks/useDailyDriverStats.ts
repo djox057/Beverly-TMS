@@ -31,6 +31,15 @@ export interface DispatcherDailyStats {
   reschedule_count: number;
 }
 
+interface Order {
+  id: string;
+  driver1_id: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
+  date_change_notes: string | null;
+  canceled: boolean;
+}
+
 /**
  * Get Chicago timezone date string (YYYY-MM-DD)
  */
@@ -43,6 +52,97 @@ function getChicagoToday(): string {
   });
   const [month, day, year] = chicago.split("/");
   return `${year}-${month}-${day}`;
+}
+
+function subtractDays(dateStr: string, days: number): string {
+  const date = new Date(dateStr + "T12:00:00Z");
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split("T")[0];
+}
+
+function parseRescheduledOriginalDate(notes: string): string | null {
+  const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/;
+  const match = notes.match(regex);
+  if (match) {
+    const [, month, day, year] = match;
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
+/**
+ * WALKBACK ALGORITHM: Determines if a date is a lost day for a driver
+ */
+function isLostDayWalkback(orders: Order[], targetDate: string): boolean {
+  // Step 1: Check if driver has a pickup on targetDate
+  const hasPickupToday = orders.some(order => {
+    if (!order.pickup_datetime) return false;
+    const pickupDate = order.pickup_datetime.split("T")[0];
+    return pickupDate === targetDate;
+  });
+
+  if (hasPickupToday) {
+    return false; // Has pickup today → NOT a lost day
+  }
+
+  // Step 2: Walk backwards to find most recent pickup before targetDate
+  for (let daysBack = 1; daysBack <= 30; daysBack++) {
+    const checkDate = subtractDays(targetDate, daysBack);
+    
+    const orderOnDate = orders.find(order => {
+      if (!order.pickup_datetime) return false;
+      const pickupDate = order.pickup_datetime.split("T")[0];
+      return pickupDate === checkDate;
+    });
+
+    if (orderOnDate) {
+      if (!orderOnDate.delivery_datetime) {
+        return true; // No delivery date → treat as lost day
+      }
+
+      const deliveryDate = orderOnDate.delivery_datetime.split("T")[0];
+      
+      if (deliveryDate > targetDate) {
+        return false; // Still in transit
+      } else {
+        return true; // Load complete, is a lost day
+      }
+    }
+  }
+
+  return true; // No pickup found in 30 days → IS a lost day
+}
+
+/**
+ * RESCHEDULE DETECTION: Check if targetDate falls in a reschedule lost day range
+ */
+function isRescheduleLostDay(orders: Order[], targetDate: string): boolean {
+  for (const order of orders) {
+    if (!order.date_change_notes) continue;
+    
+    const originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    if (!originalDate) continue;
+    
+    if (!order.delivery_datetime) continue;
+    const actualDate = order.delivery_datetime.split("T")[0];
+    
+    if (actualDate <= originalDate) continue;
+    
+    if (targetDate >= originalDate && targetDate <= actualDate) {
+      const hasNewPickup = orders.some(o => {
+        if (o.id === order.id) return false;
+        if (!o.pickup_datetime) return false;
+        const pickupDate = o.pickup_datetime.split("T")[0];
+        return pickupDate === targetDate;
+      });
+      
+      if (!hasNewPickup) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -135,11 +235,11 @@ async function fetchDailyStatsByDispatcher(
 }
 
 /**
- * Calculate live stats for today by querying orders directly
- * Lost Day = No pickup on that day AND not in-transit (picked up before, delivering after)
+ * Calculate live stats for today using WALKBACK algorithm
  */
 async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSummary[]> {
   const today = getChicagoToday();
+  const lookbackDate = subtractDays(today, 30);
 
   // Step 1: Get all active drivers with their dispatcher/office info
   const { data: driversData, error: driversError } = await supabase
@@ -171,45 +271,30 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
 
   const homeTimeDrivers = new Set((homeTimeNotes || []).map((n) => n.driver_id));
 
-  // Step 3: Find drivers who are "working" today
-  // Working = has pickup today OR is in-transit (picked up before today, delivering today or after)
-  const workingDriverIds = new Set<string>();
+  // Step 3: Fetch all orders from last 30 days for walkback algorithm
+  const { data: ordersData, error: ordersError } = await supabase
+    .from("orders")
+    .select("id, driver1_id, pickup_datetime, delivery_datetime, date_change_notes, canceled")
+    .eq("canceled", false)
+    .not("driver1_id", "is", null)
+    .gte("pickup_datetime", lookbackDate + "T00:00:00")
+    .order("pickup_datetime", { ascending: false });
 
-  // Paginate through orders to find working drivers
-  let offset = 0;
-  const batchSize = 1000;
-  let hasMore = true;
+  if (ordersError) throw ordersError;
 
-  while (hasMore) {
-    const { data: ordersBatch, error: ordersError } = await supabase
-      .from("orders")
-      .select("driver1_id, driver2_id, pickup_datetime, delivery_datetime")
-      .eq("canceled", false)
-      .range(offset, offset + batchSize - 1);
+  const orders = (ordersData || []) as Order[];
 
-    if (ordersError) throw ordersError;
-
-    for (const order of ordersBatch || []) {
-      if (!order.pickup_datetime) continue;
-
-      const pickupDate = order.pickup_datetime.split("T")[0];
-      const deliveryDate = order.delivery_datetime?.split("T")[0];
-
-      // Check if driver is working on today
-      const hasPickupToday = pickupDate === today;
-      const isInTransit = pickupDate < today && deliveryDate && deliveryDate >= today;
-
-      if (hasPickupToday || isInTransit) {
-        if (order.driver1_id) workingDriverIds.add(order.driver1_id);
-        if (order.driver2_id) workingDriverIds.add(order.driver2_id);
-      }
+  // Group orders by driver1_id
+  const ordersByDriver = new Map<string, Order[]>();
+  for (const order of orders) {
+    if (!order.driver1_id) continue;
+    if (!ordersByDriver.has(order.driver1_id)) {
+      ordersByDriver.set(order.driver1_id, []);
     }
-
-    hasMore = (ordersBatch?.length || 0) === batchSize;
-    offset += batchSize;
+    ordersByDriver.get(order.driver1_id)!.push(order);
   }
 
-  // Step 4: Calculate lost days per office
+  // Step 4: Calculate stats per office using walkback algorithm
   const officeStats = new Map<string, DailyStatsSummary>();
 
   for (const driver of drivers) {
@@ -227,14 +312,23 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
     }
 
     const stats = officeStats.get(driverOffice)!;
-    const isWorking = workingDriverIds.has(driver.id);
+    const driverOrders = ordersByDriver.get(driver.id) || [];
     const hasHomeTime = homeTimeDrivers.has(driver.id);
 
     if (hasHomeTime) {
       stats.home_time_count++;
-    } else if (!isWorking) {
-      // Lost day = not working AND not on home time
-      stats.lost_day_count++;
+    } else {
+      // Use walkback algorithm
+      const isLostDay = isLostDayWalkback(driverOrders, today);
+      if (isLostDay) {
+        stats.lost_day_count++;
+      }
+    }
+
+    // Check for reschedule
+    const hasReschedule = isRescheduleLostDay(driverOrders, today);
+    if (hasReschedule) {
+      stats.reschedule_count++;
     }
   }
 
