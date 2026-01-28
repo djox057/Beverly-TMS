@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.get-all-unlocked-orders]
 verify_jwt = false
+
+[functions.record-daily-driver-stats]
+verify_jwt = false
