@@ -856,6 +856,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         isOffDutyDriver: false,
         // Additional fields for compatibility
         hireDate: driver.hire_date,
+        // Emergency contact info
+        emergencyContactName: driver.emergency_contact_name || null,
+        emergencyContactPhone: driver.emergency_contact_phone || null,
+        emergencyContactRelation: driver.emergency_contact_relation || null,
         // Maintenance dates (snake_case to match helper functions in helpers.ts)
         oil_change_date: truck?.oil_change_date || null,
         tires_swap_date: truck?.tires_swap_date || null,
