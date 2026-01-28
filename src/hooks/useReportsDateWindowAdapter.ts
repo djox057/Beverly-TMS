@@ -818,6 +818,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driver2Name: driver2?.name || null,
         driver2Phone: driver2?.phone || null,
         driver2Email: driver2?.email || null,
+        // Emergency contact info (from driver1)
+        emergencyContactName: driver.emergency_contact_name || null,
+        emergencyContactRelation: driver.emergency_contact_relation || null,
+        emergencyContactPhone: driver.emergency_contact_phone || null,
         trailerNumber: trailerInfo?.trailer_number || null,
         home: homeString,
         dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
