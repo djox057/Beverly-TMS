@@ -1268,10 +1268,10 @@ const Analytics = () => {
   // State for lost days count (for Usage% calculation)
   const [fleetLostDays, setFleetLostDays] = useState<number>(0);
 
-  // Effect to fetch lost days within date range for drivers in filtered orders
+  // Effect to fetch lost days within date range, filtered by driver → dispatcher → office
   useEffect(() => {
     const fetchFleetLostDays = async () => {
-      if (!dateRange?.from || fleetAverages.uniqueDriverIds.length === 0) {
+      if (!dateRange?.from) {
         setFleetLostDays(0);
         return;
       }
@@ -1279,30 +1279,59 @@ const Analytics = () => {
       const fromDate = format(dateRange.from, "yyyy-MM-dd");
       const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
       
-      // Fetch lost days (excluding "home_time" notes which are intentional)
-      const { data, error } = await supabase
+      // Fetch lost days with driver info to get dispatcher_id
+      const { data: lostDaysData, error: lostDaysError } = await supabase
         .from("lost_day_notes")
-        .select("id, driver_id, date")
-        .in("driver_id", fleetAverages.uniqueDriverIds)
+        .select("id, driver_id, date, drivers!inner(dispatcher_id)")
         .gte("date", fromDate)
         .lte("date", toDate)
         .not("note_type", "eq", "home_time");
       
-      if (error) {
-        console.error("Error fetching fleet lost days:", error);
+      if (lostDaysError) {
+        console.error("Error fetching fleet lost days:", lostDaysError);
         return;
+      }
+      
+      if (!lostDaysData || lostDaysData.length === 0) {
+        setFleetLostDays(0);
+        return;
+      }
+      
+      // Filter by office if offices are selected
+      let filteredLostDays = lostDaysData;
+      
+      if (selectedOffices.length > 0) {
+        // Get dispatcher IDs from the lost days data
+        const dispatcherIds = [...new Set(
+          lostDaysData
+            .map((d: any) => d.drivers?.dispatcher_id)
+            .filter(Boolean)
+        )];
+        
+        // Find which dispatchers belong to selected offices
+        const dispatchersInSelectedOffices = new Set(
+          Object.values(dispatcherProfiles)
+            .filter(p => p.office && selectedOffices.includes(p.office))
+            .map(p => p.user_id)
+        );
+        
+        // Filter lost days to only include drivers whose dispatcher is in selected offices
+        filteredLostDays = lostDaysData.filter((d: any) => {
+          const dispatcherId = d.drivers?.dispatcher_id;
+          return dispatcherId && dispatchersInSelectedOffices.has(dispatcherId);
+        });
       }
       
       // Count unique driver-date combinations
       const uniqueLostDays = new Set(
-        (data || []).map((d) => `${d.driver_id}-${d.date}`)
+        filteredLostDays.map((d: any) => `${d.driver_id}-${d.date}`)
       );
       
       setFleetLostDays(uniqueLostDays.size);
     };
     
     fetchFleetLostDays();
-  }, [dateRange, fleetAverages.uniqueDriverIds]);
+  }, [dateRange, selectedOffices, dispatcherProfiles]);
 
   // Calculate Usage% 
   const usagePercent = useMemo(() => {
