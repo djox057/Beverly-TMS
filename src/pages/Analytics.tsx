@@ -1225,7 +1225,13 @@ const Analytics = () => {
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
   // Calculate fleet averages from daily dispatcher counts (historical data)
+  // For current day: if no data in dispatcher_daily_driver_counts, fall back to live truck assignments
   const fleetAverages = useMemo(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const isCurrentDayOnly = dateRange?.from && 
+      format(dateRange.from, "yyyy-MM-dd") === today && 
+      (!dateRange.to || format(dateRange.to, "yyyy-MM-dd") === today);
+
     // Get dispatchers in scope (filtered by office if applicable)
     const dispatchersInScope = Object.entries(dispatcherTruckCounts)
       .filter(([dispatcherId]) => {
@@ -1237,6 +1243,23 @@ const Analytics = () => {
           .find(p => p.user_id === dispatcherId);
         return profile && selectedOffices.includes(profile.office || '');
       });
+
+    // Check if we have data for current day
+    const hasDataForToday = dispatchersInScope.some(([_, counts]) => counts.daysCount > 0);
+
+    // If current day only and no historical data, use live truck/driver counts
+    if (isCurrentDayOnly && !hasDataForToday) {
+      // Use live counts from trucks table (passed via drivers hook or calculate here)
+      // For now, return 0 and let a separate effect handle live counts
+      return {
+        truckCount: 0,
+        driverCount: 0,
+        avgGrossPerTruck: 0,
+        avgMilesPerTruck: 0,
+        uniqueDriverIds: [],
+        needsLiveCounts: true,
+      };
+    }
 
     // Sum up each dispatcher's individual average (total of all averages)
     let totalAvgTrucks = 0;
@@ -1260,10 +1283,86 @@ const Analytics = () => {
       driverCount: totalAvgDrivers,
       avgGrossPerTruck: totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks : 0,
       avgMilesPerTruck: totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks : 0,
-      // Store unique IDs for lost days query (still needed from orders)
       uniqueDriverIds,
+      needsLiveCounts: false,
     };
-  }, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders]);
+  }, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders, dateRange]);
+
+  // State for live truck/driver counts (fallback for current day)
+  const [liveTruckCounts, setLiveTruckCounts] = useState<{ trucks: number; drivers: number } | null>(null);
+
+  // Effect to fetch live truck/driver counts when needed for current day
+  useEffect(() => {
+    const fetchLiveCounts = async () => {
+      if (!fleetAverages.needsLiveCounts) {
+        setLiveTruckCounts(null);
+        return;
+      }
+
+      try {
+        // Get all trucks with assigned drivers, filtered by dispatcher office
+        const { data: trucks, error } = await supabase
+          .from("trucks")
+          .select("id, driver1_id, driver2_id, drivers!trucks_driver1_id_fkey(dispatcher_id)");
+
+        if (error) {
+          console.error("Error fetching live truck counts:", error);
+          return;
+        }
+
+        // Filter by office if applicable
+        let filteredTrucks = trucks || [];
+        if (selectedOffices.length > 0) {
+          const dispatchersInSelectedOffices = new Set(
+            Object.values(dispatcherProfiles)
+              .filter(p => p.office && selectedOffices.includes(p.office))
+              .map(p => p.user_id)
+          );
+          
+          filteredTrucks = filteredTrucks.filter((truck: any) => {
+            const dispatcherId = truck.drivers?.dispatcher_id;
+            return dispatcherId && dispatchersInSelectedOffices.has(dispatcherId);
+          });
+        }
+
+        // Count trucks with at least one driver assigned
+        const trucksWithDrivers = filteredTrucks.filter((t: any) => t.driver1_id);
+        const truckCount = trucksWithDrivers.length;
+        
+        // Count all assigned drivers (driver1 + driver2 if exists)
+        const driverCount = filteredTrucks.reduce((acc: number, t: any) => {
+          let count = 0;
+          if (t.driver1_id) count++;
+          if (t.driver2_id) count++;
+          return acc + count;
+        }, 0);
+
+        setLiveTruckCounts({ trucks: truckCount, drivers: driverCount });
+      } catch (error) {
+        console.error("Error in fetchLiveCounts:", error);
+      }
+    };
+
+    fetchLiveCounts();
+  }, [fleetAverages.needsLiveCounts, selectedOffices, dispatcherProfiles]);
+
+  // Final fleet averages (use live counts if needed)
+  const finalFleetAverages = useMemo(() => {
+    if (fleetAverages.needsLiveCounts && liveTruckCounts) {
+      return {
+        truckCount: liveTruckCounts.trucks,
+        driverCount: liveTruckCounts.drivers,
+        avgGrossPerTruck: liveTruckCounts.trucks > 0 ? totals.totalFreight / liveTruckCounts.trucks : 0,
+        avgMilesPerTruck: liveTruckCounts.trucks > 0 ? totals.totalMiles / liveTruckCounts.trucks : 0,
+      };
+    }
+    return {
+      truckCount: fleetAverages.truckCount,
+      driverCount: fleetAverages.driverCount,
+      avgGrossPerTruck: fleetAverages.avgGrossPerTruck,
+      avgMilesPerTruck: fleetAverages.avgMilesPerTruck,
+    };
+  }, [fleetAverages, liveTruckCounts, totals]);
 
   // State for lost days count (for Usage% calculation)
   const [fleetLostDays, setFleetLostDays] = useState<number>(0);
@@ -1280,12 +1379,13 @@ const Analytics = () => {
       const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
       
       // Fetch lost days with driver info to get dispatcher_id
+      // Use .or() to properly handle NULL note_type (include NULL and non-home_time)
       const { data: lostDaysData, error: lostDaysError } = await supabase
         .from("lost_day_notes")
-        .select("id, driver_id, date, drivers!inner(dispatcher_id)")
+        .select("id, driver_id, date, note_type, drivers!inner(dispatcher_id)")
         .gte("date", fromDate)
         .lte("date", toDate)
-        .not("note_type", "eq", "home_time");
+        .or("note_type.is.null,note_type.neq.home_time");
       
       if (lostDaysError) {
         console.error("Error fetching fleet lost days:", lostDaysError);
@@ -1333,26 +1433,16 @@ const Analytics = () => {
     fetchFleetLostDays();
   }, [dateRange, selectedOffices, dispatcherProfiles]);
 
-  // Calculate Coverage% = (avgTrucks * daysInPeriod - lostDays) / (avgTrucks * daysInPeriod) * 100
+  // Calculate Coverage% = (avgTrucks - lostDays) / avgTrucks * 100
+  // For single day: (232 trucks - 16 lost days) / 232 = 93.1%
   const coveragePercent = useMemo(() => {
-    if (!dateRange?.from || fleetAverages.truckCount === 0) return 100;
+    if (!dateRange?.from || finalFleetAverages.truckCount === 0) return 100;
     
-    // Calculate days in period (no timezone conversion - use UTC date math)
-    const startDate = dateRange.from;
-    const endDate = dateRange.to || dateRange.from;
-    const daysDiff = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    ) + 1;
-    
-    // Total truck-days available = avgTrucks * daysInPeriod
-    const totalTruckDays = fleetAverages.truckCount * daysDiff;
-    
-    if (totalTruckDays === 0) return 100;
-    
-    // Coverage% = (totalTruckDays - lostDays) / totalTruckDays * 100
-    const coverage = ((totalTruckDays - fleetLostDays) / totalTruckDays) * 100;
+    // Coverage% = (totalAvgTrucks - lostDays) / totalAvgTrucks * 100
+    // This works for any period: trucks represents the total average across all days
+    const coverage = ((finalFleetAverages.truckCount - fleetLostDays) / finalFleetAverages.truckCount) * 100;
     return Math.max(0, coverage);
-  }, [dateRange, fleetAverages.truckCount, fleetLostDays]);
+  }, [dateRange, finalFleetAverages.truckCount, fleetLostDays]);
 
   // Create a Set of active driver names for filtering
   const activeDriverNames = useMemo(() => {
@@ -2034,7 +2124,7 @@ const Analytics = () => {
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Gross/Truck</p>
                       <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        ${fleetAverages.avgGrossPerTruck.toLocaleString(undefined, {
+                        ${finalFleetAverages.avgGrossPerTruck.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
@@ -2043,18 +2133,18 @@ const Analytics = () => {
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Miles/Truck</p>
                       <p className="text-lg sm:text-2xl font-bold">
-                        {fleetAverages.avgMilesPerTruck.toLocaleString(undefined, {
+                        {finalFleetAverages.avgMilesPerTruck.toLocaleString(undefined, {
                           maximumFractionDigits: 0,
                         })}
                       </p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
-                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.truckCount.toFixed(1)}</p>
+                      <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.truckCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
-                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount.toFixed(1)}</p>
+                      <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.driverCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center col-span-2 sm:col-span-1">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Coverage %</p>
