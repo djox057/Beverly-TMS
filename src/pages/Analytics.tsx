@@ -182,7 +182,7 @@ const Analytics = () => {
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
-    Record<string, { totalTrucks: number; daysCount: number }>
+    Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number }>
   >({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
@@ -379,12 +379,14 @@ const Analytics = () => {
         }
 
         // Aggregate counts by dispatcher
-        const countsMap: Record<string, { totalTrucks: number; daysCount: number }> = {};
+        const countsMap: Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number }> = {};
         allRecords.forEach((record: any) => {
           if (!countsMap[record.dispatcher_id]) {
-            countsMap[record.dispatcher_id] = { totalTrucks: 0, daysCount: 0 };
+            countsMap[record.dispatcher_id] = { totalTrucks: 0, totalDrivers: 0, daysCount: 0 };
           }
-          countsMap[record.dispatcher_id].totalTrucks += record.driver_count;
+          // Use truck_count if available, fallback to driver_count for backward compatibility
+          countsMap[record.dispatcher_id].totalTrucks += record.truck_count ?? record.driver_count ?? 0;
+          countsMap[record.dispatcher_id].totalDrivers += record.driver_count ?? 0;
           countsMap[record.dispatcher_id].daysCount += 1;
         });
 
@@ -1222,33 +1224,50 @@ const Analytics = () => {
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
-  // Calculate fleet averages from filtered orders
+  // Calculate fleet averages from daily dispatcher counts (historical data)
   const fleetAverages = useMemo(() => {
-    // Get unique trucks (excluding null/undefined)
-    const uniqueTruckIds = new Set(
-      filteredOrders
-        .map((order) => order.truckId)
-        .filter((id): id is string => !!id && id !== "null")
-    );
+    // Get dispatchers in scope (filtered by office if applicable)
+    const dispatchersInScope = Object.entries(dispatcherTruckCounts)
+      .filter(([dispatcherId]) => {
+        // If no office filter, include all
+        if (selectedOffices.length === 0) return true;
+        
+        // Find dispatcher's office from profiles
+        const profile = Object.values(dispatcherProfiles)
+          .find(p => p.user_id === dispatcherId);
+        return profile && selectedOffices.includes(profile.office || '');
+      });
+
+    // Sum up daily counts for dispatchers in scope
+    let totalTruckDays = 0;
+    let totalDriverDays = 0;
+    let totalDays = 0;
+
+    dispatchersInScope.forEach(([_, counts]) => {
+      totalTruckDays += counts.totalTrucks;
+      totalDriverDays += counts.totalDrivers;
+      totalDays += counts.daysCount;
+    });
+
+    // Calculate averages
+    const avgTrucks = totalDays > 0 ? totalTruckDays / totalDays : 0;
+    const avgDrivers = totalDays > 0 ? totalDriverDays / totalDays : 0;
     
-    // Get unique drivers (combining driver1 and driver2)
-    const uniqueDriverIds = new Set(
+    // Get unique drivers from orders for lost_day_notes query
+    const uniqueDriverIds = Array.from(new Set(
       filteredOrders.flatMap((order) => [order.driver1Id, order.driver2Id])
         .filter((id): id is string => !!id && id !== "null")
-    );
-    
-    const truckCount = uniqueTruckIds.size;
-    const driverCount = uniqueDriverIds.size;
-    
+    ));
+
     return {
-      truckCount,
-      driverCount,
-      avgGrossPerTruck: truckCount > 0 ? totals.totalFreight / truckCount : 0,
-      avgMilesPerTruck: truckCount > 0 ? totals.totalMiles / truckCount : 0,
-      // Store unique IDs for lost days query
-      uniqueDriverIds: Array.from(uniqueDriverIds),
+      truckCount: avgTrucks,
+      driverCount: avgDrivers,
+      avgGrossPerTruck: avgTrucks > 0 ? totals.totalFreight / avgTrucks : 0,
+      avgMilesPerTruck: avgTrucks > 0 ? totals.totalMiles / avgTrucks : 0,
+      // Store unique IDs for lost days query (still needed from orders)
+      uniqueDriverIds,
     };
-  }, [filteredOrders, totals]);
+  }, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders]);
 
   // State for lost days count (for Usage% calculation)
   const [fleetLostDays, setFleetLostDays] = useState<number>(0);
@@ -2004,12 +2023,12 @@ const Analytics = () => {
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
-                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.truckCount}</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg # Trucks</p>
+                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.truckCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
-                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount}</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg # Drivers</p>
+                      <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center col-span-2 sm:col-span-1">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Usage %</p>
