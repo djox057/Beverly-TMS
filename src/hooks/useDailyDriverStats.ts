@@ -135,139 +135,108 @@ async function fetchDailyStatsByDispatcher(
 }
 
 /**
- * Calculate live stats for today by querying source tables directly
+ * Calculate live stats for today by querying orders directly
+ * Lost Day = No pickup on that day AND not in-transit (picked up before, delivering after)
  */
 async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSummary[]> {
   const today = getChicagoToday();
 
-  // Get lost_day_notes for today
-  const { data: lostDayNotes, error: notesError } = await supabase
-    .from("lost_day_notes")
-    .select(`
-      driver_id,
-      note_type,
-      drivers!inner(dispatcher_id)
-    `)
-    .eq("date", today);
+  // Step 1: Get all active drivers with their dispatcher/office info
+  const { data: driversData, error: driversError } = await supabase
+    .from("drivers")
+    .select("id, name, dispatcher_id, is_active")
+    .eq("is_active", true)
+    .not("dispatcher_id", "is", null);
 
-  if (notesError) throw notesError;
+  if (driversError) throw driversError;
+
+  const drivers = driversData || [];
 
   // Get dispatcher profiles for office info
-  const dispatcherIds = [
-    ...new Set(
-      (lostDayNotes || [])
-        .map((n: any) => n.drivers?.dispatcher_id)
-        .filter(Boolean)
-    ),
-  ];
+  const dispatcherIds = [...new Set(drivers.map((d) => d.dispatcher_id).filter(Boolean))];
 
-  const { data: profiles } = await supabase
+  const { data: profilesData } = await supabase
     .from("profiles")
     .select("user_id, office")
     .in("user_id", dispatcherIds);
 
-  const profileMap = new Map((profiles || []).map((p) => [p.user_id, p.office]));
+  const profileMap = new Map((profilesData || []).map((p) => [p.user_id, p.office]));
 
-  // Get orders with reschedules
-  const { data: orders } = await supabase
-    .from("orders")
-    .select(`
-      id,
-      driver1_id,
-      date_change_notes,
-      delivery_datetime,
-      driver1:drivers!orders_driver1_id_fkey(dispatcher_id)
-    `)
-    .not("date_change_notes", "is", null)
-    .eq("canceled", false);
+  // Step 2: Get home_time notes for today
+  const { data: homeTimeNotes } = await supabase
+    .from("lost_day_notes")
+    .select("driver_id, note_type")
+    .eq("date", today)
+    .eq("note_type", "home_time");
 
-  // Get dispatcher info for rescheduled orders
-  const rescheduleDispatcherIds = [
-    ...new Set(
-      (orders || [])
-        .map((o: any) => o.driver1?.dispatcher_id)
-        .filter(Boolean)
-    ),
-  ];
+  const homeTimeDrivers = new Set((homeTimeNotes || []).map((n) => n.driver_id));
 
-  const { data: rescheduleProfiles } = await supabase
-    .from("profiles")
-    .select("user_id, office")
-    .in("user_id", rescheduleDispatcherIds);
+  // Step 3: Find drivers who are "working" today
+  // Working = has pickup today OR is in-transit (picked up before today, delivering today or after)
+  const workingDriverIds = new Set<string>();
 
-  const rescheduleProfileMap = new Map(
-    (rescheduleProfiles || []).map((p) => [p.user_id, p.office])
-  );
+  // Paginate through orders to find working drivers
+  let offset = 0;
+  const batchSize = 1000;
+  let hasMore = true;
 
-  // Aggregate by office
+  while (hasMore) {
+    const { data: ordersBatch, error: ordersError } = await supabase
+      .from("orders")
+      .select("driver1_id, driver2_id, pickup_datetime, delivery_datetime")
+      .eq("canceled", false)
+      .range(offset, offset + batchSize - 1);
+
+    if (ordersError) throw ordersError;
+
+    for (const order of ordersBatch || []) {
+      if (!order.pickup_datetime) continue;
+
+      const pickupDate = order.pickup_datetime.split("T")[0];
+      const deliveryDate = order.delivery_datetime?.split("T")[0];
+
+      // Check if driver is working on today
+      const hasPickupToday = pickupDate === today;
+      const isInTransit = pickupDate < today && deliveryDate && deliveryDate >= today;
+
+      if (hasPickupToday || isInTransit) {
+        if (order.driver1_id) workingDriverIds.add(order.driver1_id);
+        if (order.driver2_id) workingDriverIds.add(order.driver2_id);
+      }
+    }
+
+    hasMore = (ordersBatch?.length || 0) === batchSize;
+    offset += batchSize;
+  }
+
+  // Step 4: Calculate lost days per office
   const officeStats = new Map<string, DailyStatsSummary>();
 
-  // Process lost day notes
-  (lostDayNotes || []).forEach((note: any) => {
-    const noteOffice = profileMap.get(note.drivers?.dispatcher_id) || "Unknown";
-    if (office && noteOffice !== office) return;
+  for (const driver of drivers) {
+    const driverOffice = profileMap.get(driver.dispatcher_id) || "Unknown";
+    if (office && driverOffice !== office) continue;
 
-    if (!officeStats.has(noteOffice)) {
-      officeStats.set(noteOffice, {
+    if (!officeStats.has(driverOffice)) {
+      officeStats.set(driverOffice, {
         date: today,
-        office: noteOffice,
+        office: driverOffice,
         lost_day_count: 0,
         home_time_count: 0,
         reschedule_count: 0,
       });
     }
 
-    const stats = officeStats.get(noteOffice)!;
-    if (note.note_type === "home_time") {
+    const stats = officeStats.get(driverOffice)!;
+    const isWorking = workingDriverIds.has(driver.id);
+    const hasHomeTime = homeTimeDrivers.has(driver.id);
+
+    if (hasHomeTime) {
       stats.home_time_count++;
-    } else {
+    } else if (!isWorking) {
+      // Lost day = not working AND not on home time
       stats.lost_day_count++;
     }
-  });
-
-  // Process reschedules
-  const countedDrivers = new Set<string>();
-  
-  (orders || []).forEach((order: any) => {
-    if (!order.date_change_notes || !order.driver1_id || !order.delivery_datetime) return;
-    if (countedDrivers.has(order.driver1_id)) return;
-
-    const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/g;
-    let match;
-    let isRescheduledToday = false;
-
-    while ((match = regex.exec(order.date_change_notes)) !== null) {
-      const [_, month, day, year] = match;
-      const origDate = `${year}-${month}-${day}`;
-      const actualDate = order.delivery_datetime.split("T")[0];
-
-      const origDateObj = new Date(origDate);
-      const actualDateObj = new Date(actualDate);
-      const todayObj = new Date(today);
-
-      if (todayObj >= origDateObj && todayObj < actualDateObj) {
-        isRescheduledToday = true;
-        break;
-      }
-    }
-
-    if (isRescheduledToday) {
-      countedDrivers.add(order.driver1_id);
-      const orderOffice = rescheduleProfileMap.get(order.driver1?.dispatcher_id) || "Unknown";
-      if (office && orderOffice !== office) return;
-
-      if (!officeStats.has(orderOffice)) {
-        officeStats.set(orderOffice, {
-          date: today,
-          office: orderOffice,
-          lost_day_count: 0,
-          home_time_count: 0,
-          reschedule_count: 0,
-        });
-      }
-      officeStats.get(orderOffice)!.reschedule_count++;
-    }
-  });
+  }
 
   return Array.from(officeStats.values());
 }

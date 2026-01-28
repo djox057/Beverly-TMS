@@ -1414,23 +1414,12 @@ const Analytics = () => {
     };
   }, [fleetAverages, liveTruckCounts, totals]);
 
-  // State for lost days count (for Usage% calculation)
+  // State for lost days count (for Coverage% calculation)
   const [fleetLostDays, setFleetLostDays] = useState<number>(0);
 
-  // Effect to fetch lost days within date range, filtered by driver → dispatcher → office
+  // Effect to fetch lost days from daily_driver_stats table
+  // Lost Day = No pickup on that day AND not in-transit (picked up before, delivering after)
   useEffect(() => {
-    // Helper function to parse rescheduled dates from date_change_notes
-    const parseRescheduledDates = (notes: string): string[] => {
-      const regex = /Supposed to deliver on (\d{2}\/\d{2}\/\d{4})/g;
-      const dates: string[] = [];
-      let match;
-      while ((match = regex.exec(notes)) !== null) {
-        const [month, day, year] = match[1].split('/');
-        dates.push(`${year}-${month}-${day}`);
-      }
-      return dates;
-    };
-
     const fetchFleetLostDays = async () => {
       if (!dateRange?.from) {
         setFleetLostDays(0);
@@ -1440,107 +1429,38 @@ const Analytics = () => {
       const fromDate = format(dateRange.from, "yyyy-MM-dd");
       const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
       
-      // Build set of dispatcher IDs in selected offices (for filtering)
-      const dispatchersInSelectedOffices = selectedOffices.length > 0 
-        ? new Set(
-            Object.values(dispatcherProfiles)
-              .filter(p => p.office && selectedOffices.includes(p.office))
-              .map(p => p.user_id)
-          )
-        : null;
-      
-      // Fetch all lost days with driver info (use regular join to include drivers with null dispatcher)
-      const { data: lostDaysData, error: lostDaysError } = await supabase
-        .from("lost_day_notes")
-        .select("id, driver_id, date, note_type, drivers(dispatcher_id)")
+      // Query the daily_driver_stats table which has pre-calculated lost days
+      // The edge function calculates: lost_day = no pickup AND not in-transit
+      let query = supabase
+        .from("daily_driver_stats")
+        .select("driver_id, date, has_lost_day, office")
         .gte("date", fromDate)
-        .lte("date", toDate);
+        .lte("date", toDate)
+        .eq("has_lost_day", true);
       
-      if (lostDaysError) {
-        console.error("Error fetching fleet lost days:", lostDaysError);
+      // Apply office filter if applicable
+      if (selectedOffices.length > 0) {
+        query = query.in("office", selectedOffices);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Error fetching fleet lost days:", error);
         return;
       }
       
-      // Build set of unique driver-date combinations from lost_day_notes
+      // Count unique driver-date combinations with lost days
       const lostDaysSet = new Set<string>();
+      (data || []).forEach((d: any) => {
+        lostDaysSet.add(`${d.driver_id}-${d.date}`);
+      });
       
-      if (lostDaysData) {
-        lostDaysData.forEach((d: any) => {
-          const dispatcherId = d.drivers?.dispatcher_id;
-          
-          // Apply office filter if applicable
-          if (dispatchersInSelectedOffices && dispatcherId) {
-            if (!dispatchersInSelectedOffices.has(dispatcherId)) return;
-          } else if (dispatchersInSelectedOffices && !dispatcherId) {
-            // Skip records without dispatcher when office filter is active
-            return;
-          }
-          
-          lostDaysSet.add(`${d.driver_id}-${d.date}`);
-        });
-      }
-      
-      // Fetch rescheduled orders and calculate lost days from date gaps
-      const { data: rescheduledOrders, error: rescheduledError } = await supabase
-        .from("orders")
-        .select("id, driver1_id, date_change_notes, delivery_datetime, drivers:drivers!orders_driver1_id_fkey(dispatcher_id)")
-        .not("date_change_notes", "is", null)
-        .neq("date_change_notes", "");
-      
-      if (rescheduledError) {
-        console.error("Error fetching rescheduled orders:", rescheduledError);
-      }
-      
-      // Calculate lost days from rescheduled orders
-      const rescheduledLostDays = new Set<string>();
-      
-      if (rescheduledOrders) {
-        rescheduledOrders.forEach((order: any) => {
-          if (!order.date_change_notes || !order.delivery_datetime || !order.driver1_id) return;
-          
-          // Check office filter
-          const dispatcherId = order.drivers?.dispatcher_id;
-          if (dispatchersInSelectedOffices && dispatcherId) {
-            if (!dispatchersInSelectedOffices.has(dispatcherId)) return;
-          } else if (dispatchersInSelectedOffices && !dispatcherId) {
-            return;
-          }
-          
-          // Parse original dates from notes
-          const originalDates = parseRescheduledDates(order.date_change_notes);
-          
-          // Get actual delivery date (extract YYYY-MM-DD without timezone conversion)
-          const actualDate = order.delivery_datetime.split('T')[0];
-          
-          // For each original date, add days between it and actual as lost
-          originalDates.forEach((origDate) => {
-            // Only count if original date is before actual delivery
-            if (origDate >= actualDate) return;
-            
-            // Add each day from original to actual (exclusive of actual) as lost
-            let currentDate = origDate;
-            while (currentDate < actualDate) {
-              // Only count if within selected date range
-              if (currentDate >= fromDate && currentDate <= toDate) {
-                rescheduledLostDays.add(`${order.driver1_id}-${currentDate}`);
-              }
-              // Increment date by 1 day
-              const d = new Date(currentDate + 'T12:00:00'); // Use noon to avoid timezone issues
-              d.setDate(d.getDate() + 1);
-              currentDate = d.toISOString().split('T')[0];
-            }
-          });
-        });
-      }
-      
-      // Combine both sources (Set automatically handles duplicates)
-      const allLostDays = new Set([...lostDaysSet, ...rescheduledLostDays]);
-      
-      setFleetLostDays(allLostDays.size);
+      setFleetLostDays(lostDaysSet.size);
     };
     
     fetchFleetLostDays();
-  }, [dateRange, selectedOffices, dispatcherProfiles]);
+  }, [dateRange, selectedOffices]);
 
   // Calculate Coverage% = (totalTruckDays - lostDays) / totalTruckDays * 100
   // For single day: (232 trucks - 13 lost days) / 232 = 94.4%
