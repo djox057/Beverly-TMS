@@ -1238,20 +1238,16 @@ const Analytics = () => {
         return profile && selectedOffices.includes(profile.office || '');
       });
 
-    // Sum up daily counts for dispatchers in scope
-    let totalTruckDays = 0;
-    let totalDriverDays = 0;
-    let totalDays = 0;
+    // Sum up each dispatcher's individual average (total of all averages)
+    let totalAvgTrucks = 0;
+    let totalAvgDrivers = 0;
 
     dispatchersInScope.forEach(([_, counts]) => {
-      totalTruckDays += counts.totalTrucks;
-      totalDriverDays += counts.totalDrivers;
-      totalDays += counts.daysCount;
+      if (counts.daysCount > 0) {
+        totalAvgTrucks += counts.totalTrucks / counts.daysCount;
+        totalAvgDrivers += counts.totalDrivers / counts.daysCount;
+      }
     });
-
-    // Calculate averages
-    const avgTrucks = totalDays > 0 ? totalTruckDays / totalDays : 0;
-    const avgDrivers = totalDays > 0 ? totalDriverDays / totalDays : 0;
     
     // Get unique drivers from orders for lost_day_notes query
     const uniqueDriverIds = Array.from(new Set(
@@ -1260,10 +1256,10 @@ const Analytics = () => {
     ));
 
     return {
-      truckCount: avgTrucks,
-      driverCount: avgDrivers,
-      avgGrossPerTruck: avgTrucks > 0 ? totals.totalFreight / avgTrucks : 0,
-      avgMilesPerTruck: avgTrucks > 0 ? totals.totalMiles / avgTrucks : 0,
+      truckCount: totalAvgTrucks,
+      driverCount: totalAvgDrivers,
+      avgGrossPerTruck: totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks : 0,
+      avgMilesPerTruck: totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks : 0,
       // Store unique IDs for lost days query (still needed from orders)
       uniqueDriverIds,
     };
@@ -2023,11 +2019,11 @@ const Analytics = () => {
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg # Trucks</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
                       <p className="text-lg sm:text-2xl font-bold">{fleetAverages.truckCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg # Drivers</p>
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
                       <p className="text-lg sm:text-2xl font-bold">{fleetAverages.driverCount.toFixed(1)}</p>
                     </div>
                     <div className="text-center col-span-2 sm:col-span-1">
