@@ -1,40 +1,61 @@
-# Performance Optimization Plan - COMPLETED ✅
 
-## Implemented: Bulk Orders Edge Function
+# Fix Reports Page Tab Switching Flicker
 
-### What Was Built
-Created `supabase/functions/get-all-unlocked-orders` that fetches ALL unlocked orders in a single optimized API call.
+## Problem Summary
+When switching between office tabs on the Reports page, users briefly see "No drivers assigned" message even when data exists. This happens because of a state synchronization issue between the active tab and the deferred data.
 
-### Performance Results
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Network calls | 50+ requests | 1 request | **98% reduction** |
-| Load time | 15-20 seconds | ~700ms | **95% faster** |
-| Data integrity | 100% | 100% | ✅ Maintained |
+## Technical Root Cause
+1. `activeTab` changes immediately on tab click
+2. `groupedReports` is wrapped in `useDeferredValue` and lags behind
+3. The `loadedOffices` tracking approach tracks "ever loaded" not "currently in data"
+4. When filtering old data with new tab name, result is empty
+5. Since office was "ever loaded", system shows empty state instead of skeleton
 
-### How It Works
-1. Edge Function uses service role key for optimal performance
-2. Fetches all unlocked orders with full JOINs in batched 1000-row queries
-3. Returns complete dataset in single response
-4. Falls back to direct DB fetch if Edge Function fails
+## Solution
+Replace the `loadedOffices` tracking state with a direct check: does the current `groupedReports` actually contain data for the `activeTab`?
 
-### Files Changed
-- `supabase/functions/get-all-unlocked-orders/index.ts` - New Edge Function
-- `supabase/config.toml` - Added function config
-- `src/hooks/useOrders.ts` - Updated to use Edge Function
-- `src/hooks/useOrdersWithProgress.ts` - Updated to use Edge Function
+## Changes Required
 
-### Data Integrity Verification
-- Total count verification: Edge Function compares fetched count vs DB count
-- Console logging shows exact counts for debugging
-- Fallback mechanism ensures data is never lost
+### File: `src/pages/Reports.tsx`
 
----
+**1. Remove the `loadedOffices` state and its effect (lines ~351-396):**
+- Delete `const [loadedOffices, setLoadedOffices] = useState<Set<string>>(new Set());`
+- Delete the `useEffect` that populates `loadedOffices`
 
-## Previous Plan (Reference)
+**2. Add a direct data check:**
+```typescript
+// Check if current groupedReports contains data for the active tab
+const hasDataForActiveTab = useMemo(() => {
+  if (!groupedReports || groupedReports.length === 0) return false;
+  return groupedReports.some(group => group.office === activeTab);
+}, [groupedReports, activeTab]);
+```
 
-### Reports Page Optimization (Separate Issue)
-The `/reports` page has different performance issues related to:
-- Broken PostgREST filter logic with multiple `.or()` calls
-- Date window queries returning too many results
-- See original plan for details if needed
+**3. Update the render conditional (lines ~3120-3125):**
+
+Before:
+```typescript
+{isLoading || groupedReports == null ? (
+  <LoadingSkeleton />
+) : activeOfficeReports.length === 0 && !loadedOffices.has(activeTab) ? (
+  <LoadingSkeleton />
+) : activeOfficeReports.length === 0 ? (
+```
+
+After:
+```typescript
+{isLoading || groupedReports == null || !hasDataForActiveTab ? (
+  <LoadingSkeleton />
+) : activeOfficeReports.length === 0 ? (
+```
+
+## Why This Works
+- `hasDataForActiveTab` is `false` when `groupedReports` doesn't contain `activeTab` data
+- During the lag period (useDeferredValue), old data won't have new office → shows skeleton
+- Once data arrives with correct office, `hasDataForActiveTab` becomes `true`
+- If office truly has no dispatchers/trucks, it will be in the data with empty trucks array, so `hasDataForActiveTab` is `true` but `activeOfficeReports.length === 0` → shows empty state
+
+## Benefits
+- Simpler code (removes state + effect)
+- More reliable (checks actual data, not tracking state)
+- No race conditions between tab changes and data updates
