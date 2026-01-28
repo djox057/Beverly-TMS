@@ -182,7 +182,7 @@ const Analytics = () => {
   >("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
-    Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number }>
+    Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number; totalDaysInRange: number }>
   >({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
@@ -378,11 +378,16 @@ const Analytics = () => {
           }
         }
 
-        // Aggregate counts by dispatcher
-        const countsMap: Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number }> = {};
+        // Calculate total days in the date range (for proper averaging)
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        const totalDaysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Aggregate counts by dispatcher with totalDaysInRange for correct averaging
+        const countsMap: Record<string, { totalTrucks: number; totalDrivers: number; daysCount: number; totalDaysInRange: number }> = {};
         allRecords.forEach((record: any) => {
           if (!countsMap[record.dispatcher_id]) {
-            countsMap[record.dispatcher_id] = { totalTrucks: 0, totalDrivers: 0, daysCount: 0 };
+            countsMap[record.dispatcher_id] = { totalTrucks: 0, totalDrivers: 0, daysCount: 0, totalDaysInRange };
           }
           // Use truck_count if available, fallback to driver_count for backward compatibility
           countsMap[record.dispatcher_id].totalTrucks += record.truck_count ?? record.driver_count ?? 0;
@@ -1116,7 +1121,10 @@ const Analytics = () => {
         // Get dispatcher user_id from the profile - name can be either full_name or user_id
         const dispatcherUserId = dispatcherProfile?.user_id;
         const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
-        const avgTrucks = truckCountData ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
+        // Use totalDaysInRange for averaging (missing days count as 0)
+        const avgTrucks = truckCountData && truckCountData.totalDaysInRange > 0 
+          ? truckCountData.totalTrucks / truckCountData.totalDaysInRange 
+          : 0;
 
         // Validate userId is a valid UUID before storing
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1279,11 +1287,14 @@ const Analytics = () => {
     let totalAvgDrivers = 0;
 
     dispatchersInScope.forEach(([_, counts]) => {
-      if (counts.daysCount > 0) {
-        totalTruckDays += counts.totalTrucks; // Sum of all daily truck counts
-        totalDriverDays += counts.totalDrivers;
-        totalAvgTrucks += counts.totalTrucks / counts.daysCount;
-        totalAvgDrivers += counts.totalDrivers / counts.daysCount;
+      // Sum of all truck-days (for Coverage calculation)
+      totalTruckDays += counts.totalTrucks;
+      totalDriverDays += counts.totalDrivers;
+      
+      // Average per dispatcher = totalTrucks / totalDaysInRange (missing days treated as 0)
+      if (counts.totalDaysInRange > 0) {
+        totalAvgTrucks += counts.totalTrucks / counts.totalDaysInRange;
+        totalAvgDrivers += counts.totalDrivers / counts.totalDaysInRange;
       }
     });
     
@@ -1408,6 +1419,18 @@ const Analytics = () => {
 
   // Effect to fetch lost days within date range, filtered by driver → dispatcher → office
   useEffect(() => {
+    // Helper function to parse rescheduled dates from date_change_notes
+    const parseRescheduledDates = (notes: string): string[] => {
+      const regex = /Supposed to deliver on (\d{2}\/\d{2}\/\d{4})/g;
+      const dates: string[] = [];
+      let match;
+      while ((match = regex.exec(notes)) !== null) {
+        const [month, day, year] = match[1].split('/');
+        dates.push(`${year}-${month}-${day}`);
+      }
+      return dates;
+    };
+
     const fetchFleetLostDays = async () => {
       if (!dateRange?.from) {
         setFleetLostDays(0);
@@ -1417,10 +1440,19 @@ const Analytics = () => {
       const fromDate = format(dateRange.from, "yyyy-MM-dd");
       const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
       
-      // Fetch all lost days with driver info to get dispatcher_id (including home_time)
+      // Build set of dispatcher IDs in selected offices (for filtering)
+      const dispatchersInSelectedOffices = selectedOffices.length > 0 
+        ? new Set(
+            Object.values(dispatcherProfiles)
+              .filter(p => p.office && selectedOffices.includes(p.office))
+              .map(p => p.user_id)
+          )
+        : null;
+      
+      // Fetch all lost days with driver info (use regular join to include drivers with null dispatcher)
       const { data: lostDaysData, error: lostDaysError } = await supabase
         .from("lost_day_notes")
-        .select("id, driver_id, date, note_type, drivers!inner(dispatcher_id)")
+        .select("id, driver_id, date, note_type, drivers(dispatcher_id)")
         .gte("date", fromDate)
         .lte("date", toDate);
       
@@ -1429,42 +1461,82 @@ const Analytics = () => {
         return;
       }
       
-      if (!lostDaysData || lostDaysData.length === 0) {
-        setFleetLostDays(0);
-        return;
-      }
+      // Build set of unique driver-date combinations from lost_day_notes
+      const lostDaysSet = new Set<string>();
       
-      // Filter by office if offices are selected
-      let filteredLostDays = lostDaysData;
-      
-      if (selectedOffices.length > 0) {
-        // Get dispatcher IDs from the lost days data
-        const dispatcherIds = [...new Set(
-          lostDaysData
-            .map((d: any) => d.drivers?.dispatcher_id)
-            .filter(Boolean)
-        )];
-        
-        // Find which dispatchers belong to selected offices
-        const dispatchersInSelectedOffices = new Set(
-          Object.values(dispatcherProfiles)
-            .filter(p => p.office && selectedOffices.includes(p.office))
-            .map(p => p.user_id)
-        );
-        
-        // Filter lost days to only include drivers whose dispatcher is in selected offices
-        filteredLostDays = lostDaysData.filter((d: any) => {
+      if (lostDaysData) {
+        lostDaysData.forEach((d: any) => {
           const dispatcherId = d.drivers?.dispatcher_id;
-          return dispatcherId && dispatchersInSelectedOffices.has(dispatcherId);
+          
+          // Apply office filter if applicable
+          if (dispatchersInSelectedOffices && dispatcherId) {
+            if (!dispatchersInSelectedOffices.has(dispatcherId)) return;
+          } else if (dispatchersInSelectedOffices && !dispatcherId) {
+            // Skip records without dispatcher when office filter is active
+            return;
+          }
+          
+          lostDaysSet.add(`${d.driver_id}-${d.date}`);
         });
       }
       
-      // Count unique driver-date combinations
-      const uniqueLostDays = new Set(
-        filteredLostDays.map((d: any) => `${d.driver_id}-${d.date}`)
-      );
+      // Fetch rescheduled orders and calculate lost days from date gaps
+      const { data: rescheduledOrders, error: rescheduledError } = await supabase
+        .from("orders")
+        .select("id, driver1_id, date_change_notes, delivery_datetime, drivers:drivers!orders_driver1_id_fkey(dispatcher_id)")
+        .not("date_change_notes", "is", null)
+        .neq("date_change_notes", "");
       
-      setFleetLostDays(uniqueLostDays.size);
+      if (rescheduledError) {
+        console.error("Error fetching rescheduled orders:", rescheduledError);
+      }
+      
+      // Calculate lost days from rescheduled orders
+      const rescheduledLostDays = new Set<string>();
+      
+      if (rescheduledOrders) {
+        rescheduledOrders.forEach((order: any) => {
+          if (!order.date_change_notes || !order.delivery_datetime || !order.driver1_id) return;
+          
+          // Check office filter
+          const dispatcherId = order.drivers?.dispatcher_id;
+          if (dispatchersInSelectedOffices && dispatcherId) {
+            if (!dispatchersInSelectedOffices.has(dispatcherId)) return;
+          } else if (dispatchersInSelectedOffices && !dispatcherId) {
+            return;
+          }
+          
+          // Parse original dates from notes
+          const originalDates = parseRescheduledDates(order.date_change_notes);
+          
+          // Get actual delivery date (extract YYYY-MM-DD without timezone conversion)
+          const actualDate = order.delivery_datetime.split('T')[0];
+          
+          // For each original date, add days between it and actual as lost
+          originalDates.forEach((origDate) => {
+            // Only count if original date is before actual delivery
+            if (origDate >= actualDate) return;
+            
+            // Add each day from original to actual (exclusive of actual) as lost
+            let currentDate = origDate;
+            while (currentDate < actualDate) {
+              // Only count if within selected date range
+              if (currentDate >= fromDate && currentDate <= toDate) {
+                rescheduledLostDays.add(`${order.driver1_id}-${currentDate}`);
+              }
+              // Increment date by 1 day
+              const d = new Date(currentDate + 'T12:00:00'); // Use noon to avoid timezone issues
+              d.setDate(d.getDate() + 1);
+              currentDate = d.toISOString().split('T')[0];
+            }
+          });
+        });
+      }
+      
+      // Combine both sources (Set automatically handles duplicates)
+      const allLostDays = new Set([...lostDaysSet, ...rescheduledLostDays]);
+      
+      setFleetLostDays(allLostDays.size);
     };
     
     fetchFleetLostDays();
