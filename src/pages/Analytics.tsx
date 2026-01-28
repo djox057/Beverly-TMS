@@ -1417,14 +1417,12 @@ const Analytics = () => {
       const fromDate = format(dateRange.from, "yyyy-MM-dd");
       const toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
       
-      // Fetch lost days with driver info to get dispatcher_id
-      // Use .or() to properly handle NULL note_type (include NULL and non-home_time)
+      // Fetch all lost days with driver info to get dispatcher_id (including home_time)
       const { data: lostDaysData, error: lostDaysError } = await supabase
         .from("lost_day_notes")
         .select("id, driver_id, date, note_type, drivers!inner(dispatcher_id)")
         .gte("date", fromDate)
-        .lte("date", toDate)
-        .or("note_type.is.null,note_type.neq.home_time");
+        .lte("date", toDate);
       
       if (lostDaysError) {
         console.error("Error fetching fleet lost days:", lostDaysError);
