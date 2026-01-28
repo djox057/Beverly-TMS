@@ -349,7 +349,8 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
   
   // Track which offices have been loaded with data to prevent flickering on tab switch
-  const loadedOfficesRef = useRef<Set<string>>(new Set());
+  // Using state instead of ref so updates trigger re-renders
+  const [loadedOffices, setLoadedOffices] = useState<Set<string>>(new Set());
   
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
@@ -382,12 +383,17 @@ const Reports = () => {
   // Mark offices as loaded when data arrives (to prevent empty state flicker on tab switch)
   useEffect(() => {
     if (groupedReports && groupedReports.length > 0) {
-      const officesInData = new Set(groupedReports.map(g => g.office));
-      officesInData.forEach(office => {
-        if (office) loadedOfficesRef.current.add(office);
-      });
+      const officesInData = groupedReports.map(g => g.office).filter(Boolean) as string[];
+      const newOffices = officesInData.filter(office => !loadedOffices.has(office));
+      if (newOffices.length > 0) {
+        setLoadedOffices(prev => {
+          const updated = new Set(prev);
+          newOffices.forEach(office => updated.add(office));
+          return updated;
+        });
+      }
     }
-  }, [groupedReports]);
+  }, [groupedReports, loadedOffices]);
   
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
@@ -3113,7 +3119,7 @@ const Reports = () => {
           <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
             {isLoading || groupedReports == null ? (
               <LoadingSkeleton />
-            ) : activeOfficeReports.length === 0 && !loadedOfficesRef.current.has(activeTab) ? (
+            ) : activeOfficeReports.length === 0 && !loadedOffices.has(activeTab) ? (
               // Show loading if this office hasn't been loaded yet (prevents empty state flicker)
               <LoadingSkeleton />
             ) : activeOfficeReports.length === 0 ? (
