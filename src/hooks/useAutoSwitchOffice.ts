@@ -54,16 +54,10 @@ export function useAutoSwitchOffice({
     offices: string[];
   } | null>(null);
 
-  // Search status for UI feedback
-  const [searchStatus, setSearchStatus] = useState<{
-    truck: SearchStatus;
-    dispatch: SearchStatus;
-    load: SearchStatus;
-  }>({
-    truck: "idle",
-    dispatch: "idle",
-    load: "idle",
-  });
+  // Search status for UI feedback - use separate state to avoid object recreation loops
+  const [truckSearchStatus, setTruckSearchStatus] = useState<SearchStatus>("idle");
+  const [dispatchSearchStatus, setDispatchSearchStatus] = useState<SearchStatus>("idle");
+  const [loadSearchStatus, setLoadSearchStatus] = useState<SearchStatus>("idle");
 
   // Found order metadata (for showing locked/canceled badges)
   const [foundOrderMeta, setFoundOrderMeta] = useState<{
@@ -385,7 +379,7 @@ export function useAutoSwitchOffice({
   useEffect(() => {
     if (!debouncedTruckDriver) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, truck: "idle" }));
+      setTruckSearchStatus("idle");
       return;
     }
     
@@ -404,7 +398,7 @@ export function useAutoSwitchOffice({
     // Local check - if match exists in CURRENT TAB, don't switch
     if (hasLocalMatch("truck", debouncedTruckDriver)) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, truck: "found" }));
+      setTruckSearchStatus("found");
       return;
     }
     
@@ -413,32 +407,32 @@ export function useAutoSwitchOffice({
     if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
       lastAutoSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
       setAmbiguousMatch(null);
-      setSearchStatus(prev => ({ ...prev, truck: "found" }));
+      setTruckSearchStatus("found");
       setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
-      setSearchStatus(prev => ({ ...prev, truck: "searching" }));
+      setTruckSearchStatus("searching");
       try {
         const result = await lookupTruckDriverOffice(debouncedTruckDriver);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
           setAmbiguousMatch(null);
-          setSearchStatus(prev => ({ ...prev, truck: "found" }));
+          setTruckSearchStatus("found");
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "truck", offices: result.offices });
-          setSearchStatus(prev => ({ ...prev, truck: "found" }));
+          setTruckSearchStatus("found");
         } else if (result.type === "found") {
           // Found but in current tab already
-          setSearchStatus(prev => ({ ...prev, truck: "found" }));
+          setTruckSearchStatus("found");
           setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
-          setSearchStatus(prev => ({ ...prev, truck: "not_found" }));
+          setTruckSearchStatus("not_found");
         }
       } finally {
         isSearchingRef.current = false;
@@ -452,7 +446,7 @@ export function useAutoSwitchOffice({
   useEffect(() => {
     if (!debouncedDispatchName) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, dispatch: "idle" }));
+      setDispatchSearchStatus("idle");
       return;
     }
     
@@ -469,7 +463,7 @@ export function useAutoSwitchOffice({
     // Local check
     if (hasLocalMatch("dispatch", debouncedDispatchName)) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+      setDispatchSearchStatus("found");
       return;
     }
     
@@ -478,31 +472,31 @@ export function useAutoSwitchOffice({
     if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
       lastAutoSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
       setAmbiguousMatch(null);
-      setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+      setDispatchSearchStatus("found");
       setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
-      setSearchStatus(prev => ({ ...prev, dispatch: "searching" }));
+      setDispatchSearchStatus("searching");
       try {
         const result = await lookupDispatcherOffice(debouncedDispatchName);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
           setAmbiguousMatch(null);
-          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+          setDispatchSearchStatus("found");
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "dispatch", offices: result.offices });
-          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+          setDispatchSearchStatus("found");
         } else if (result.type === "found") {
-          setSearchStatus(prev => ({ ...prev, dispatch: "found" }));
+          setDispatchSearchStatus("found");
           setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
-          setSearchStatus(prev => ({ ...prev, dispatch: "not_found" }));
+          setDispatchSearchStatus("not_found");
         }
       } finally {
         isSearchingRef.current = false;
@@ -516,7 +510,7 @@ export function useAutoSwitchOffice({
   useEffect(() => {
     if (!debouncedLoadNumber) {
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, load: "idle" }));
+      setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
       return;
     }
@@ -534,7 +528,7 @@ export function useAutoSwitchOffice({
     // Local check
     if (hasLocalMatch("load", debouncedLoadNumber)) {
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
-      setSearchStatus(prev => ({ ...prev, load: "found" }));
+      setLoadSearchStatus("found");
       return;
     }
     
@@ -543,33 +537,33 @@ export function useAutoSwitchOffice({
     if (matchInLoadedData && offices.includes(matchInLoadedData) && matchInLoadedData !== activeTab) {
       lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
       setAmbiguousMatch(null);
-      setSearchStatus(prev => ({ ...prev, load: "found" }));
+      setLoadSearchStatus("found");
       setActiveTab(matchInLoadedData);
       return;
     }
     
     const search = async () => {
       isSearchingRef.current = true;
-      setSearchStatus(prev => ({ ...prev, load: "searching" }));
+      setLoadSearchStatus("searching");
       try {
         const result = await lookupLoadOffice(debouncedLoadNumber);
         
         if (result.type === "found" && offices.includes(result.office) && result.office !== activeTab) {
           lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
           setAmbiguousMatch(null);
-          setSearchStatus(prev => ({ ...prev, load: "found" }));
+          setLoadSearchStatus("found");
           setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
           setActiveTab(result.office);
         } else if (result.type === "ambiguous") {
           setAmbiguousMatch({ filter: "load", offices: result.offices });
-          setSearchStatus(prev => ({ ...prev, load: "found" }));
+          setLoadSearchStatus("found");
         } else if (result.type === "found") {
-          setSearchStatus(prev => ({ ...prev, load: "found" }));
+          setLoadSearchStatus("found");
           setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
-          setSearchStatus(prev => ({ ...prev, load: "not_found" }));
+          setLoadSearchStatus("not_found");
           setFoundOrderMeta(null);
         }
       } finally {
@@ -591,7 +585,11 @@ export function useAutoSwitchOffice({
 
   return {
     ambiguousMatch,
-    searchStatus,
+    searchStatus: {
+      truck: truckSearchStatus,
+      dispatch: dispatchSearchStatus,
+      load: loadSearchStatus,
+    },
     foundOrderMeta,
     isSearching: isSearchingRef.current,
   };
