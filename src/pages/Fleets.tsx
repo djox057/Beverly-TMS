@@ -18,6 +18,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
+import { SupervisorsSection } from "@/components/SupervisorsSection";
 import { supabase } from "@/integrations/supabase/client";
 
 // Generate month options for the last 12 months
@@ -398,6 +399,9 @@ const Fleets = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Supervisors Section */}
+            <SupervisorsSection allDispatchers={allDispatchers} hasRole={hasRole} />
 
             {/* Dispatcher Fleets */}
             {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).map(dispatcherFleet => {

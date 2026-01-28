@@ -945,6 +945,36 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_supervisors: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          dispatcher_id: string
+          id: string
+          supervisor_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          dispatcher_id: string
+          id?: string
+          supervisor_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          dispatcher_id?: string
+          id?: string
+          supervisor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_cash_advances: {
         Row: {
           amount: number
