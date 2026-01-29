@@ -415,7 +415,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
           </div>
 
           <div className="space-y-1.5 w-28">
-            <Label className="text-xs">Company</Label>
+            <Label className="text-xs">Broker paid</Label>
             <Input
               type="number"
               step="0.01"
@@ -441,6 +441,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                 onKeyDown={handleNumericKeyDown}
                 onChange={(e) => setNewDriverAmount(e.target.value)}
                 className="h-9"
+                disabled={!newCompanyAmount || parseFloat(newCompanyAmount) <= 0}
               />
             </div>
           )}
@@ -488,7 +489,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Company:</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Broker paid:</span>
                       <Input
                         type="number"
                         step="0.01"
@@ -513,6 +514,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                           onKeyDown={handleNumericKeyDown}
                           onChange={(e) => setEditDriverAmount(e.target.value)}
                           className="h-8 w-28"
+                          disabled={!editCompanyAmount || parseFloat(editCompanyAmount) <= 0}
                         />
                       </div>
                     )}
@@ -559,7 +561,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-4 flex-1 text-sm">
                     <span>
-                      <span className="text-muted-foreground">Company:</span>{" "}
+                      <span className="text-muted-foreground">Broker paid:</span>{" "}
                       <span className="font-medium">${parseFloat(item.companyAmount || "0").toFixed(2)}</span>
                     </span>
                     {typeHasDriver(item.type) && (
