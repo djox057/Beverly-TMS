@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -197,8 +197,8 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
  * Phase 1: Load unlocked orders → Display immediately (1-2s)
  * Phase 2: Background load locked orders with progress indicator (5-8s)
  * 
- * Uses React Query as single source of truth - useQuery auto-subscribes to cache changes
- * Real-time updates from useOrdersRealtime automatically reflect in UI
+ * Uses local state for progressive loading phases, but syncs to React Query cache
+ * for real-time updates from useOrdersRealtime
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
@@ -214,7 +214,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Subscribe to real-time updates - this updates the cache automatically
   useOrdersRealtime();
   
-  // Progress tracking (for UI indicators only, decoupled from data)
+  // Progress tracking
   const [progress, setProgress] = useState<ProgressiveLoadingProgress>({
     phase: 1,
     unlockedLoaded: 0,
@@ -225,17 +225,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     percentComplete: 0,
   });
 
-  // Single source of truth: useQuery subscribes to cache automatically
-  // When useOrdersRealtime updates the cache, this automatically re-renders
-  const { data: orders = [] } = useQuery({
-    queryKey,
-    queryFn: () => queryClient.getQueryData<any[]>(queryKey) || [],
-    staleTime: Infinity,
-    gcTime: Infinity,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  // Local state for progressive loading phases
+  const [phase1Data, setPhase1Data] = useState<any[]>([]);
+  const [phase2Data, setPhase2Data] = useState<any[]>([]);
+
+  // Track cache version for real-time updates (lightweight - only increments on actual changes)
+  const [cacheVersion, setCacheVersion] = useState(0);
 
   // Check if we have cached data on mount
   const initialCachedData = useRef(queryClient.getQueryData<any[]>(queryKey));
@@ -253,25 +248,42 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return (assignedDrivers || []).map(d => d.id);
   }, [options?.dispatcherUserId]);
 
-  // Initialize progress if we have cached data
+  // Initialize from cache if available
   useEffect(() => {
     if (hasCachedData && !hasInitializedRef.current) {
       const cachedOrders = initialCachedData.current!;
-      const unlockedCount = cachedOrders.filter(o => !o.locked).length;
-      const lockedCount = cachedOrders.filter(o => o.locked).length;
+      const unlockedOrders = cachedOrders.filter(o => !o.locked);
+      const lockedOrders = cachedOrders.filter(o => o.locked);
       
+      setPhase1Data(unlockedOrders);
+      setPhase2Data(lockedOrders);
       setProgress({
         phase: "complete",
-        unlockedLoaded: unlockedCount,
-        unlockedTotal: unlockedCount,
-        lockedLoaded: lockedCount,
-        lockedTotal: lockedCount,
+        unlockedLoaded: unlockedOrders.length,
+        unlockedTotal: unlockedOrders.length,
+        lockedLoaded: lockedOrders.length,
+        lockedTotal: lockedOrders.length,
         isLoadingLocked: false,
         percentComplete: 100,
       });
       hasInitializedRef.current = true;
     }
   }, [hasCachedData]);
+
+  // Subscribe to cache updates for real-time changes (only for "orders" key)
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // Only respond to updates on the specific query key, not all cache events
+      if (
+        event?.type === "updated" && 
+        event?.query?.queryKey?.[0] === "orders" &&
+        progress.phase === "complete"
+      ) {
+        setCacheVersion(v => v + 1);
+      }
+    });
+    return () => unsubscribe();
+  }, [queryClient, progress.phase]);
 
   // PHASE 1 & 2: Progressive loading
   useEffect(() => {
@@ -320,12 +332,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           
           console.log(`[Progressive] Phase 1: ✅ Fetched ${allUnlocked.length} unlocked orders in ${Date.now() - startTime}ms`);
           
-          // Transform and update cache directly
+          // Transform and set local state
           const transformedUnlocked = transformOrders(allUnlocked);
           
-          if (!cancelled) {
-            // Update cache directly - useQuery will automatically pick this up
-            queryClient.setQueryData(queryKey, transformedUnlocked);
+          if (!cancelled && isMountedRef.current) {
+            setPhase1Data(transformedUnlocked);
             
             setProgress(prev => ({
               ...prev,
@@ -448,14 +459,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         const transformedLocked = transformOrders(deduplicatedLockedOrders);
         
         if (isMountedRef.current) {
-          // Merge locked orders into cache
-          queryClient.setQueryData(queryKey, (old: any[] | undefined) => {
-            const existingOrders = old || [];
-            // Deduplicate when merging
-            const existingIds = new Set(existingOrders.map(o => o.id));
-            const newLockedOrders = transformedLocked.filter(o => !existingIds.has(o.id));
-            return [...existingOrders, ...newLockedOrders];
-          });
+          setPhase2Data(transformedLocked);
           
           setProgress({
             phase: "complete",
@@ -493,14 +497,56 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     };
   }, []);
 
+  // Merge data and sync to cache for real-time updates
+  // Use useMemo with cacheVersion dependency for reactive updates
+  const mergedData = useMemo(() => {
+    // If loading is complete, check cache for real-time updates
+    if (progress.phase === "complete" && cacheVersion > 0) {
+      const freshCachedOrders = queryClient.getQueryData<any[]>(queryKey);
+      if (freshCachedOrders && freshCachedOrders.length > 0) {
+        // Deduplicate by ID - use Map for O(1) lookups
+        const orderMap = new Map<string, any>();
+        freshCachedOrders.forEach(order => {
+          orderMap.set(order.id, order);
+        });
+        const deduplicated = Array.from(orderMap.values());
+        console.log(`[Progressive] Using cache (v${cacheVersion}): ${deduplicated.length} orders (deduped from ${freshCachedOrders.length})`);
+        return deduplicated;
+      }
+    }
+    
+    // Merge phase1 and phase2 data with deduplication
+    const allOrders = [...phase1Data, ...phase2Data];
+    
+    // Deduplicate by ID - use Map for O(1) lookups
+    const orderMap = new Map<string, any>();
+    allOrders.forEach(order => {
+      // For duplicates, prefer unlocked version (more recent data)
+      const existing = orderMap.get(order.id);
+      if (!existing || (!order.locked && existing.locked)) {
+        orderMap.set(order.id, order);
+      }
+    });
+    
+    const deduplicated = Array.from(orderMap.values());
+    
+    // Only sync to cache once loading is complete
+    if (progress.phase === "complete" && deduplicated.length > 0) {
+      // Sync to cache for other components and real-time updates
+      queryClient.setQueryData(queryKey, deduplicated);
+    }
+    
+    return deduplicated;
+  }, [phase1Data, phase2Data, progress.phase, queryClient, queryKey, cacheVersion]);
+
   return {
-    data: orders,
-    isLoading: progress.phase === 1 && orders.length === 0,
+    data: mergedData,
+    isLoading: progress.phase === 1 && phase1Data.length === 0,
     isLoadingLocked: progress.isLoadingLocked,
     progress,
     unlockedCount: progress.unlockedLoaded,
     lockedCount: progress.lockedLoaded,
-    totalCount: orders.length,
+    totalCount: mergedData.length,
     isPartialData: progress.phase !== "complete",
   };
 }
