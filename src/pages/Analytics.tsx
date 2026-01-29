@@ -2968,57 +2968,24 @@ const Analytics = () => {
                               daysInMonth = 30;
                             }
 
-                            // Salary formula: (Total Freight * 0.01 + Total Comm. * 0.05) * ((Days in month + Extra days - Lost days) / Days in month)
+                            // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                             const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                            const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
+                            // For display, just show the base rate (no adjustments for extra/lost days)
+                            const displaySalary = baseRate;
 
                             // Get dispatcher bonus for this month
                             const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
                             const bonusAmount = bonusInfo?.amount ?? 0;
                             const bonusRank = bonusInfo?.rank ?? 0;
 
-                            // Calculate adjustment from previous month (paid - calculated = difference)
-                            // If paid > calculated, dispatcher got extra, so subtract from this month
-                            // If paid < calculated, dispatcher got less, so add to this month
-                            const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
-                            let adjustment = 0;
-                            if (prevPayment && prevPayment.calculated_salary > 0) {
-                              // Difference: paid_amount - calculated_salary
-                              // Positive = overpaid last month, subtract this month
-                              // Negative = underpaid last month, add this month
-                              adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
-                            }
-
-                            // Final salary = base salary + bonus - adjustment (subtract overpayment, add underpayment)
-                            const salaryWithoutBonus = baseSalary - adjustment;
-                            const finalSalary = salaryWithoutBonus + bonusAmount;
-
-                            // Store for bulk action - store baseSalary + bonus as calculated_salary
+                            // Store for bulk action - store baseRate only (Total Freight * 0.01 + Total Comm. * 0.05)
                             if (stat.userId) {
-                              calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
+                              calculatedSalaries[stat.userId] = baseRate;
                             }
 
                             // Get payment info
                             const payment = stat.userId ? salaryPayments[stat.userId] : null;
                             const isPaid = payment && payment.paid_at;
-
-                            // Determine salary color and tooltip
-                            const hasAdjustment = Math.abs(adjustment) >= 0.01;
-                            const hasBonus = bonusAmount > 0;
-
-                            // Salary color: golden if has bonus, otherwise red/green for adjustments
-                            const salaryColorClass = hasBonus
-                              ? "text-yellow-600"
-                              : hasAdjustment
-                                ? adjustment > 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                                : "";
-                            const adjustmentTooltip = hasAdjustment
-                              ? adjustment > 0
-                                ? `Previous month overpaid by $${adjustment.toFixed(2)}, deducted from this salary`
-                                : `Previous month underpaid by $${Math.abs(adjustment).toFixed(2)}, added to this salary`
-                              : null;
 
                             // Helper to render rank icon
                             const renderRankIcon = () => {
@@ -3092,13 +3059,17 @@ const Analytics = () => {
                                                 const extraDaysAmount =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
+                                                // Determine food allowance based on office
+                                                const isBeograd = stat.office === "BEOGRAD";
+                                                const foodAllowanceAmount = isBeograd ? 0 : 70;
+
                                                 downloadPayrollDoc(
                                                   {
                                                     employeeName: stat.name,
                                                     payPeriod,
                                                     salary1Percent: stat.totalFreight * 0.01,
                                                     bonus5Percent: stat.cut * 0.05,
-                                                    foodAllowance: 70,
+                                                    foodAllowance: foodAllowanceAmount,
                                                     extraDays,
                                                     lostDays,
                                                     extraDayDates,
@@ -3157,6 +3128,10 @@ const Analytics = () => {
                                                   dispatcherProfiles[stat.userId || ""];
                                                 const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
 
+                                                // Determine food allowance based on office
+                                                const isBeograd = stat.office === "BEOGRAD";
+                                                const foodAllowanceForPreview = isBeograd ? 0 : 70;
+
                                                 // Open preview dialog with all the data
                                                 setPayrollPreviewData({
                                                   dispatcherName: stat.name,
@@ -3165,7 +3140,7 @@ const Analytics = () => {
                                                   payPeriod,
                                                   salary1Percent: stat.totalFreight * 0.01,
                                                   bonus5Percent: stat.cut * 0.05,
-                                                  foodAllowance: 70,
+                                                  foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
                                                   lostDays,
                                                   extraDayDates: extraDayDatesForDoc,
@@ -3209,45 +3184,13 @@ const Analytics = () => {
                                   {lostDays > 0 ? `-${lostDays}` : lostDays}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {hasAdjustment || hasBonus ? (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <span
-                                          className={`font-medium cursor-pointer underline decoration-dotted ${salaryColorClass}`}
-                                        >
-                                          $
-                                          {finalSalary.toLocaleString(undefined, {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                          })}
-                                        </span>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-2">
-                                        {hasBonus && (
-                                          <p className="text-yellow-500 font-medium">
-                                            Base: ${salaryWithoutBonus.toFixed(2)} + Bonus: ${bonusAmount.toFixed(2)}
-                                          </p>
-                                        )}
-                                        {hasAdjustment && (
-                                          <>
-                                            <p>{adjustmentTooltip}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              Base: ${baseSalary.toFixed(2)} | Adj: {adjustment > 0 ? "-" : "+"}$
-                                              {Math.abs(adjustment).toFixed(2)}
-                                            </p>
-                                          </>
-                                        )}
-                                      </PopoverContent>
-                                    </Popover>
-                                  ) : (
-                                    <span>
-                                      $
-                                      {finalSalary.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </span>
-                                  )}
+                                  <span>
+                                    $
+                                    {displaySalary.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-right">
                                   {isPaid ? (
@@ -3342,43 +3285,17 @@ const Analytics = () => {
                         size="sm"
                         onClick={() => {
                           // Recalculate salaries for bulk action
+                          // Recalculate salaries for bulk action - use simple base rate only
                           const calculatedSalaries: Record<string, number> = {};
                           const adjustedSalaries: Record<string, number> = {};
                           dispatcherStats.forEach((stat) => {
                             if (stat.userId) {
-                              const extraDays = extraDaysByUser[stat.userId] || 0;
-                              const lostDays = lostDaysByUser[stat.userId] || 0;
-                              let daysInMonth = 30;
-                              if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
-                                const parts = selectedMonth.split("-");
-                                if (parts.length === 2) {
-                                  const year = parseInt(parts[0], 10);
-                                  const month = parseInt(parts[1], 10);
-                                  if (!isNaN(year) && !isNaN(month)) {
-                                    daysInMonth = new Date(year, month, 0).getDate();
-                                  }
-                                }
-                              }
-                              if (isNaN(daysInMonth) || daysInMonth <= 0) {
-                                daysInMonth = 30;
-                              }
+                              // Simple base rate: Total Freight * 0.01 + Total Comm. * 0.05
                               const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                              const baseSalary = baseRate * ((daysInMonth + extraDays - lostDays) / daysInMonth);
 
-                              // Get dispatcher bonus
-                              const bonusInfo = dispatcherBonuses[stat.userId];
-                              const bonusAmount = bonusInfo?.amount ?? 0;
-
-                              // Calculate adjustment from previous month
-                              const prevPayment = prevMonthPayments[stat.userId];
-                              let adjustment = 0;
-                              if (prevPayment && prevPayment.calculated_salary > 0) {
-                                adjustment = prevPayment.paid_amount - prevPayment.calculated_salary;
-                              }
-
-                              // Include bonus in calculated salary
-                              calculatedSalaries[stat.userId] = baseSalary + bonusAmount;
-                              adjustedSalaries[stat.userId] = baseSalary + bonusAmount - adjustment;
+                              // Store base rate as both calculated and adjusted salary
+                              calculatedSalaries[stat.userId] = baseRate;
+                              adjustedSalaries[stat.userId] = baseRate;
                             }
                           });
                           markSelectedAsPaid(calculatedSalaries, adjustedSalaries);

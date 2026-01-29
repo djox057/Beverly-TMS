@@ -261,13 +261,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("month", selectedMonth)
         .eq("user_id", dispatcherUserId);
 
-      // Calculate the salary amount (paid_amount excludes food allowance)
-      // Non-sick lost days are the ones that get deducted
-      const nonSickLostDays = lostDays - selectedSickDayDates.length;
-      const daysOffDeduction = Math.max(0, nonSickLostDays) * perDayRate;
-      // Paid amount = salary components WITHOUT food allowance
-      const paidAmount = salary1Percent + bonus5Percent + 
-        (extraDays > 0 ? extraDaysAmount : 0) - daysOffDeduction + dispatcherBonus;
+      // Calculate the salary amount (paid_amount = Total Freight * 0.01 + Total Comm. * 0.05 only)
+      // This is the simple base rate without extra days, food allowance, etc.
+      const paidAmount = salary1Percent + bonus5Percent;
 
       // Insert new payment record
       await supabase
@@ -311,8 +307,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               </div>
             ) : pdfUrl ? (
               <iframe
-                src={`${pdfUrl}#zoom=80`}
-                className="w-full h-full min-h-[500px]"
+                src={`${pdfUrl}#zoom=120`}
+                className="w-full h-full min-h-[600px]"
                 title="Payroll Preview"
               />
             ) : (
