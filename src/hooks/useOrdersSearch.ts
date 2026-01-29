@@ -144,6 +144,9 @@ export function useOrdersSearch() {
   }, []);
 
   const clearSearch = useCallback(() => {
+    // Fully reset all search state to prevent stale async responses from interfering
+    latestSearchKeyRef.current = "";
+    setIsSearching(false);
     setSearchResults(null);
     setSearchError(null);
   }, []);
