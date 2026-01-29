@@ -247,7 +247,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       const ids = dispatcherIdsKey.split(",");
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, email, office, ext")
+        .select("user_id, full_name, email, office, ext, created_at")
         .in("user_id", ids);
       if (error) throw error;
       return data || [];
@@ -846,6 +846,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           dispatcherId,
           office: dispatcherInfo.office || null,
           ext: dispatcherInfo.ext || null,
+          createdAt: dispatcherInfo.created_at || null, // For sorting by user creation date
           trucks: [],
           isOffDuty: false,
         });
@@ -1027,6 +1028,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         isOffDutyDriver: false,
         // Additional fields for compatibility
         hireDate: driver.hire_date,
+        driverCreatedAt: driver.created_at || null, // For sorting by driver creation date
         // Maintenance dates (snake_case to match helper functions in helpers.ts)
         oil_change_date: truck?.oil_change_date || null,
         tires_swap_date: truck?.tires_swap_date || null,
@@ -1044,20 +1046,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       groupedData = groupedData.filter((g) => g.office === priorityOffice);
     }
 
-    // Sort dispatchers: current user first, off-duty dispatchers last
-    if (dispatcherId) {
-      groupedData.sort((a, b) => {
-        // Off-duty dispatchers always go to the end
-        if (a.isOffDuty && !b.isOffDuty) return 1;
-        if (!a.isOffDuty && b.isOffDuty) return -1;
+    // Sort dispatchers:
+    // 1. Current user first (their own section)
+    // 2. Off-duty dispatchers last
+    // 3. All others sorted by profile created_at ASC (oldest first)
+    groupedData.sort((a, b) => {
+      // Current user always first
+      const aIsCurrentUser = a.dispatcherId === dispatcherId;
+      const bIsCurrentUser = b.dispatcherId === dispatcherId;
+      if (aIsCurrentUser && !bIsCurrentUser) return -1;
+      if (!aIsCurrentUser && bIsCurrentUser) return 1;
 
-        // Current user's dispatcher appears first
-        const aIsCurrentUser = a.dispatcherId === dispatcherId;
-        const bIsCurrentUser = b.dispatcherId === dispatcherId;
+      // Off-duty dispatchers always go to the end
+      if (a.isOffDuty && !b.isOffDuty) return 1;
+      if (!a.isOffDuty && b.isOffDuty) return -1;
 
-        if (aIsCurrentUser && !bIsCurrentUser) return -1;
-        if (!aIsCurrentUser && bIsCurrentUser) return 1;
-        return 0;
+      // Sort by created_at ASC (oldest dispatchers first)
+      const aCreatedAt = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return aCreatedAt - bCreatedAt;
+    });
+
+    // Sort drivers (trucks) within each dispatcher by driver created_at ASC
+    for (const group of groupedData) {
+      group.trucks.sort((a: any, b: any) => {
+        const aCreatedAt = a.driverCreatedAt ? new Date(a.driverCreatedAt).getTime() : 0;
+        const bCreatedAt = b.driverCreatedAt ? new Date(b.driverCreatedAt).getTime() : 0;
+        return aCreatedAt - bCreatedAt;
       });
     }
 
