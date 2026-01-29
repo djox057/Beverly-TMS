@@ -271,18 +271,37 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   }, [hasCachedData]);
 
   // Subscribe to cache updates for real-time changes (only for "orders" key)
+  // Use a ref to track pending updates and batch them
+  const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       // Only respond to updates on the specific query key, not all cache events
+      // Check isMountedRef to avoid state updates on unmounted components
       if (
+        isMountedRef.current &&
         event?.type === "updated" && 
         event?.query?.queryKey?.[0] === "orders" &&
         progress.phase === "complete"
       ) {
-        setCacheVersion(v => v + 1);
+        // Batch updates using a timeout to avoid React queue corruption
+        if (pendingUpdateRef.current) {
+          clearTimeout(pendingUpdateRef.current);
+        }
+        pendingUpdateRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            setCacheVersion(v => v + 1);
+          }
+          pendingUpdateRef.current = null;
+        }, 50);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+      }
+    };
   }, [queryClient, progress.phase]);
 
   // PHASE 1 & 2: Progressive loading
