@@ -203,7 +203,7 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
   const isMountedRef = useRef(true);
-  const hasInitializedRef = useRef(false);
+  const loadingStartedRef = useRef(false);
   
   // Determine query key based on filter options
   const hasFilters = Boolean(options?.bookedBy || options?.dispatcherUserId);
@@ -232,9 +232,9 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Track cache version for real-time updates (lightweight - only increments on actual changes)
   const [cacheVersion, setCacheVersion] = useState(0);
 
-  // Check if we have cached data on mount
-  const initialCachedData = useRef(queryClient.getQueryData<any[]>(queryKey));
-  const hasCachedData = initialCachedData.current && initialCachedData.current.length > 0;
+  // Check if we have cached data on mount - use state to avoid ref timing issues
+  const [initializedFromCache, setInitializedFromCache] = useState(false);
+  const cachedDataOnMount = useRef(queryClient.getQueryData<any[]>(queryKey));
 
   // Get dispatcher driver IDs if needed
   const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
@@ -248,10 +248,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return (assignedDrivers || []).map(d => d.id);
   }, [options?.dispatcherUserId]);
 
-  // Initialize from cache if available
+  // Initialize from cache if available (runs once on mount)
   useEffect(() => {
-    if (hasCachedData && !hasInitializedRef.current) {
-      const cachedOrders = initialCachedData.current!;
+    const cachedOrders = cachedDataOnMount.current;
+    if (cachedOrders && cachedOrders.length > 0 && !initializedFromCache && !loadingStartedRef.current) {
+      console.log(`[Progressive] Initializing from cache: ${cachedOrders.length} orders`);
       const unlockedOrders = cachedOrders.filter(o => !o.locked);
       const lockedOrders = cachedOrders.filter(o => o.locked);
       
@@ -266,9 +267,10 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         isLoadingLocked: false,
         percentComplete: 100,
       });
-      hasInitializedRef.current = true;
+      setInitializedFromCache(true);
+      loadingStartedRef.current = true;
     }
-  }, [hasCachedData]);
+  }, [initializedFromCache]);
 
   // Subscribe to cache updates for real-time changes (only for "orders" key)
   // Use a ref to track pending updates and batch them
@@ -306,18 +308,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // PHASE 1 & 2: Progressive loading
   useEffect(() => {
-    // Skip loading if we have cached data
-    if (hasCachedData && hasInitializedRef.current) {
-      console.log("[Progressive] Using cached data, skipping fetch");
+    // Skip if already loading or initialized from cache
+    if (loadingStartedRef.current || initializedFromCache) {
+      console.log("[Progressive] Skipping fetch - already started or cached");
       return;
     }
     
-    // Skip if already initialized this session
-    if (hasInitializedRef.current) {
-      return;
-    }
-    
-    hasInitializedRef.current = true;
+    loadingStartedRef.current = true;
     let cancelled = false;
     
     const loadPhase1 = async () => {
@@ -504,11 +501,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     
     return () => {
       cancelled = true;
-      isMountedRef.current = false;
     };
-  }, [options?.bookedBy, options?.dispatcherUserId, fetchDispatcherDriverIds, hasCachedData, queryClient, queryKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initializedFromCache]);
 
-  // Reset mount ref on options change
+  // Track mount state separately
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
