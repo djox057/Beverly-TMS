@@ -113,7 +113,9 @@ const calculateDriverTenures = (driverHistory: AssignmentHistoryEntry[]): Driver
 
 /**
  * Merge overlapping or consecutive tenures for the same driver.
- * If a driver has multiple entries (e.g., from slot changes), combine them.
+ * If a driver has multiple entries (e.g., from slot changes or brief gaps), combine them.
+ * Uses a generous threshold (7 days) to merge tenures that are close together,
+ * which handles brief unassignment/reassignment cycles within the same day or week.
  */
 const mergeSameDriverTenures = (tenures: DriverTenure[]): DriverTenure[] => {
   if (tenures.length === 0) return [];
@@ -128,6 +130,10 @@ const mergeSameDriverTenures = (tenures: DriverTenure[]): DriverTenure[] => {
   
   const merged: DriverTenure[] = [];
   
+  // Merge threshold: 7 days in milliseconds
+  // This handles cases where a driver is briefly unassigned and reassigned
+  const MERGE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+  
   for (const [driverName, driverTenures] of byDriver) {
     // Sort by start date ascending
     const sorted = [...driverTenures].sort((a, b) => 
@@ -141,8 +147,8 @@ const mergeSameDriverTenures = (tenures: DriverTenure[]): DriverTenure[] => {
       const currentEnd = current.endDate ? new Date(current.endDate).getTime() : Infinity;
       const nextStart = new Date(next.startDate).getTime();
       
-      // If overlapping or consecutive (within 1 day), merge
-      if (nextStart <= currentEnd + 86400000) { // 86400000ms = 1 day
+      // If overlapping or within threshold, merge
+      if (nextStart <= currentEnd + MERGE_THRESHOLD_MS) {
         // Extend current tenure to include next
         if (next.endDate === null) {
           current.endDate = null; // Current driver
