@@ -184,7 +184,10 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
-  const [bookedByFilter, setBookedByFilter] = useState("all-users");
+  // For dispatch-only users, auto-select themselves as the default filter
+  const [bookedByFilter, setBookedByFilter] = useState(() => 
+    isDispatchOnly && profile?.full_name ? profile.full_name : "all-users"
+  );
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
@@ -267,9 +270,12 @@ const Orders = () => {
     }
   }, []);
 
-  // For dispatch-only users, we don't auto-set bookedByFilter anymore
-  // since the DB query already filters to their booked orders + their assigned drivers' orders
-  // They can still manually filter by "booked by" if they want to see only their own bookings
+  // For dispatch-only users, auto-set bookedByFilter to their name when profile loads
+  useEffect(() => {
+    if (isDispatchOnly && profile?.full_name && bookedByFilter === "all-users") {
+      setBookedByFilter(profile.full_name);
+    }
+  }, [isDispatchOnly, profile?.full_name]);
 
   // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 background loads locked
   const { 
@@ -1096,18 +1102,20 @@ const Orders = () => {
                     className="w-full"
                   />
 
-                  {/* Column 5 Row 1: Users */}
-                  <Combobox
-                    value={bookedByFilter}
-                    onValueChange={setBookedByFilter}
-                    placeholder="All Users"
-                    searchPlaceholder="Search users..."
-                    options={[
-                      { value: "all-users", label: "All Users" },
-                      ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
-                    ]}
-                    className="w-full"
-                  />
+                  {/* Column 5 Row 1: Users - hidden for dispatch-only users */}
+                  {!isDispatchOnly && (
+                    <Combobox
+                      value={bookedByFilter}
+                      onValueChange={setBookedByFilter}
+                      placeholder="All Users"
+                      searchPlaceholder="Search users..."
+                      options={[
+                        { value: "all-users", label: "All Users" },
+                        ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
+                      ]}
+                      className="w-full"
+                    />
+                  )}
 
                   {/* Column 6 Row 1: Missing Docs Filter */}
                   <Combobox
