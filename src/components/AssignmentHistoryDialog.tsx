@@ -26,48 +26,77 @@ const calculateDriverTenures = (driverHistory: AssignmentHistoryEntry[]): Driver
     new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
   );
   
-  // Track active drivers and when they started
-  const activeDrivers: Map<string, { startDate: string; changedByName: string | null }> = new Map();
+  // Track active drivers by slot (driver1, driver2) and when they started
+  const activeDriver1: { name: string; startDate: string; changedByName: string | null } | null = null;
+  const activeDriver2: { name: string; startDate: string; changedByName: string | null } | null = null;
+  let currentDriver1: typeof activeDriver1 = null;
+  let currentDriver2: typeof activeDriver2 = null;
   
   for (const entry of sorted) {
     const entryDate = extractDatePart(entry.changed_at);
+    const newDriver1 = entry.driver1_name;
+    const newDriver2 = entry.driver2_name;
     
-    // Check if old drivers were removed (they are ending their tenure)
-    const oldDrivers = [entry.old_driver1_name, entry.old_driver2_name].filter(Boolean) as string[];
-    const newDrivers = [entry.driver1_name, entry.driver2_name].filter(Boolean) as string[];
-    
-    // End tenure for drivers who were removed
-    for (const oldDriver of oldDrivers) {
-      if (!newDrivers.includes(oldDriver) && activeDrivers.has(oldDriver)) {
-        const tenure = activeDrivers.get(oldDriver)!;
-        tenures.push({
-          driverName: oldDriver,
-          startDate: tenure.startDate,
-          endDate: entryDate,
-          changedByName: tenure.changedByName,
-        });
-        activeDrivers.delete(oldDriver);
-      }
+    // Check driver1 slot - if changed, end previous tenure
+    if (currentDriver1 && currentDriver1.name !== newDriver1) {
+      tenures.push({
+        driverName: currentDriver1.name,
+        startDate: currentDriver1.startDate,
+        endDate: entryDate,
+        changedByName: currentDriver1.changedByName,
+      });
+      currentDriver1 = null;
     }
     
-    // Start tenure for new drivers
-    for (const newDriver of newDrivers) {
-      if (!oldDrivers.includes(newDriver) && !activeDrivers.has(newDriver)) {
-        activeDrivers.set(newDriver, { 
-          startDate: entryDate, 
-          changedByName: entry.changed_by_name 
-        });
-      }
+    // Check driver2 slot - if changed, end previous tenure
+    if (currentDriver2 && currentDriver2.name !== newDriver2) {
+      tenures.push({
+        driverName: currentDriver2.name,
+        startDate: currentDriver2.startDate,
+        endDate: entryDate,
+        changedByName: currentDriver2.changedByName,
+      });
+      currentDriver2 = null;
+    }
+    
+    // Start new tenure for driver1 if new driver assigned
+    if (newDriver1 && (!currentDriver1 || currentDriver1.name !== newDriver1)) {
+      currentDriver1 = {
+        name: newDriver1,
+        startDate: entryDate,
+        changedByName: entry.changed_by_name,
+      };
+    } else if (!newDriver1) {
+      currentDriver1 = null;
+    }
+    
+    // Start new tenure for driver2 if new driver assigned
+    if (newDriver2 && (!currentDriver2 || currentDriver2.name !== newDriver2)) {
+      currentDriver2 = {
+        name: newDriver2,
+        startDate: entryDate,
+        changedByName: entry.changed_by_name,
+      };
+    } else if (!newDriver2) {
+      currentDriver2 = null;
     }
   }
   
-  // Add still-active drivers (current assignments)
-  for (const [driverName, data] of activeDrivers) {
+  // Add still-active drivers (current assignments) - endDate = null means "Current"
+  if (currentDriver1) {
     tenures.push({
-      driverName,
-      startDate: data.startDate,
-      endDate: null, // still current
-      changedByName: data.changedByName,
+      driverName: currentDriver1.name,
+      startDate: currentDriver1.startDate,
+      endDate: null,
+      changedByName: currentDriver1.changedByName,
+    });
+  }
+  if (currentDriver2) {
+    tenures.push({
+      driverName: currentDriver2.name,
+      startDate: currentDriver2.startDate,
+      endDate: null,
+      changedByName: currentDriver2.changedByName,
     });
   }
   
