@@ -300,16 +300,17 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
         <div className="flex-1 min-h-0 flex gap-4">
           {/* PDF Preview */}
-          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
+          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100">
             {loading ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : pdfUrl ? (
               <iframe
-                src={`${pdfUrl}#zoom=120`}
-                className="w-full h-full min-h-[600px]"
+                src={pdfUrl}
+                className="w-full h-[700px]"
                 title="Payroll Preview"
+                style={{ border: 'none' }}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
