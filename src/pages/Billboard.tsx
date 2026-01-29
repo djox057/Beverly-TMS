@@ -381,7 +381,7 @@ const Billboard = () => {
   }
 
   return (
-    <div className="bg-background flex flex-col p-7" style={{ height: "90vh" }}>
+    <div className="bg-background flex flex-col p-7" style={{ height: "100vh" }}>
       {/* Average RPM - Big number at top */}
       <div className="text-center py-7 border-b border-border">
         <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
