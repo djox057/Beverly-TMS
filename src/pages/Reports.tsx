@@ -55,10 +55,12 @@ import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
 import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
+import weeklyPlanIcon from "@/assets/weekly-plan-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
+import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-
+import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -531,6 +533,11 @@ const Reports = () => {
     driverName: string;
   } | null>(null);
   
+  // Weekly Plan dialog state
+  const [weeklyPlanDialog, setWeeklyPlanDialog] = useState<{
+    driverId: string;
+    driverName: string;
+  } | null>(null);
   // Driver Problem dialog state
   const [problemDialog, setProblemDialog] = useState<{
     driverId: string;
@@ -2335,6 +2342,22 @@ const Reports = () => {
     };
   }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
 
+  // Collect all driver IDs for weekly plans hook
+  const allDriverIds = useMemo(() => {
+    if (!groupedReports) return [];
+    const ids = new Set<string>();
+    groupedReports.forEach((group) => {
+      group.trucks.forEach((truck: any) => {
+        if (truck.driverId) ids.add(truck.driverId);
+        if (truck.driver2Id) ids.add(truck.driver2Id);
+      });
+    });
+    return Array.from(ids);
+  }, [groupedReports]);
+
+  // Weekly plans hook
+  const { hasPlan: hasWeeklyPlan } = useWeeklyPlans(allDriverIds);
+
   // Check for late pickups/deliveries using eta_minutes from trucks table
   // This runs client-side using already-loaded truck data (no additional API calls)
   // IMPORTANT: Skip while background is fetching to prevent UI freeze
@@ -3547,7 +3570,7 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs relative ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
@@ -4063,6 +4086,44 @@ const Reports = () => {
                                             </div>
                                           )}
                                         </div>
+                                        {/* Weekly Plan Icon - Bottom Right Corner */}
+                                        {truck.driverId && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setWeeklyPlanDialog({
+                                                    driverId: truck.driverId,
+                                                    driverName: truck.driver || "Unknown Driver",
+                                                  });
+                                                }}
+                                              >
+                                                <img
+                                                  src={weeklyPlanIcon}
+                                                  alt="Weekly Plan"
+                                                  className="h-4 w-4"
+                                                  style={{
+                                                    filter: (() => {
+                                                      const color = getWeeklyPlanIconColor(hasWeeklyPlan(truck.driverId));
+                                                      if (color === "red") {
+                                                        return "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)";
+                                                      } else if (color === "yellow") {
+                                                        return "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)";
+                                                      }
+                                                      // Gray
+                                                      return "invert(50%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%)";
+                                                    })(),
+                                                  }}
+                                                />
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="text-xs">Weekly Plan</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
                                       </td>
                                       <td
                                         className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
@@ -6013,6 +6074,14 @@ const Reports = () => {
       <AllProblemsDialog
         open={allProblemsDialogOpen}
         onOpenChange={setAllProblemsDialogOpen}
+      />
+
+      {/* Weekly Plan Dialog */}
+      <WeeklyPlanDialog
+        open={!!weeklyPlanDialog}
+        onOpenChange={(open) => !open && setWeeklyPlanDialog(null)}
+        driverId={weeklyPlanDialog?.driverId || ""}
+        driverName={weeklyPlanDialog?.driverName || ""}
       />
     </>
   );
