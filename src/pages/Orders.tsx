@@ -3,28 +3,49 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import {
   Search,
   FileText,
+  Edit,
   Loader2,
   Download,
   Lock,
+  LockOpen,
   XCircle,
+  Calculator,
+  Undo2,
   Info,
+  Layers,
+  CalendarClock,
+  CheckSquare,
+  Square,
+  ChevronDown,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import moneyStackIcon from "@/assets/money-stack.png";
+import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
-import { useOrdersProgressive } from "@/hooks/useOrdersProgressive";
-import { VirtualOrdersTable } from "@/components/VirtualOrdersTable";
+import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
+import { useUnlockedOrdersPagination } from "@/hooks/useUnlockedOrdersPagination";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -250,10 +271,20 @@ const Orders = () => {
   // since the DB query already filters to their booked orders + their assigned drivers' orders
   // They can still manually filter by "booked by" if they want to see only their own bookings
 
-  const { orders, isLoading, isPartialData, lockedOrdersProgress, error } = useOrdersProgressive(orderFilterOptions);
+  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
 
   // Server-side search hook - queries database directly when searching
   const { searchResults, isSearching, searchOrders, clearSearch } = useOrdersSearch();
+  
+  // Pagination hook for unlocked orders - allows loading more without loading everything
+  const {
+    isLoadingMore,
+    totalUnlockedCount,
+    loadedCount: loadedUnlockedCount,
+    loadMoreUnlockedOrders,
+    fetchTotalCount,
+    setInitialLoadedCount,
+  } = useUnlockedOrdersPagination(orderFilterOptions);
 
   // Debounce search term for server-side search
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -279,6 +310,66 @@ const Orders = () => {
       clearSearch();
     }
   }, [debouncedSearchTerm]); // Intentionally not including orderFilterOptions to prevent re-search on every render
+
+  // Fetch total unlocked count on mount (once)
+  const [hasFetchedCount, setHasFetchedCount] = useState(false);
+  useEffect(() => {
+    if (!hasFetchedCount) {
+      fetchTotalCount();
+      setHasFetchedCount(true);
+    }
+  }, [hasFetchedCount, fetchTotalCount]);
+
+  // Update pagination state when orders load
+  useEffect(() => {
+    if (orders) {
+      const unlockedCount = orders.filter(o => !o.locked).length;
+      setInitialLoadedCount(unlockedCount);
+    }
+  }, [orders, setInitialLoadedCount]);
+
+  // Background loading: automatically load remaining unlocked orders in batches
+  const [backgroundLoadingStarted, setBackgroundLoadingStarted] = useState(false);
+  const [backgroundLoadingComplete, setBackgroundLoadingComplete] = useState(false);
+  
+  useEffect(() => {
+    // Start background loading after initial data is loaded
+    if (
+      orders && 
+      orders.length > 0 && 
+      !backgroundLoadingStarted && 
+      !backgroundLoadingComplete &&
+      !isLoading &&
+      totalUnlockedCount !== null &&
+      loadedUnlockedCount < totalUnlockedCount
+    ) {
+      setBackgroundLoadingStarted(true);
+      
+      // Load remaining orders in background batches
+      const loadRemainingInBackground = async () => {
+        console.log(`[Orders] Starting background load: ${loadedUnlockedCount} of ${totalUnlockedCount}`);
+        let hasMore = true;
+        let attempts = 0;
+        const maxAttempts = 50; // Safety limit
+        
+        while (hasMore && attempts < maxAttempts) {
+          attempts++;
+          // loadMoreUnlockedOrders returns whether there are more to load
+          hasMore = await loadMoreUnlockedOrders();
+          
+          if (hasMore) {
+            // Small delay between batches to not overwhelm the browser
+            await new Promise(resolve => setTimeout(resolve, 150));
+          }
+        }
+        
+        console.log(`[Orders] Background loading complete after ${attempts} batches`);
+        setBackgroundLoadingComplete(true);
+      };
+      
+      loadRemainingInBackground();
+    }
+  }, [orders, isLoading, backgroundLoadingStarted, backgroundLoadingComplete, totalUnlockedCount, loadedUnlockedCount, loadMoreUnlockedOrders]);
 
   console.log("🟦 [Orders Page] useOrders returned:", {
     ordersCount: orders?.length,
@@ -1205,72 +1296,751 @@ const Orders = () => {
           </CardHeader>
           <OrdersCacheStatus />
           <CardContent className="p-0">
-            {/* Virtual Orders Table */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-3 text-muted-foreground">Loading orders...</span>
-              </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No orders found
-              </div>
-            ) : (
-              <VirtualOrdersTable
-                orders={filteredOrders}
-                primaryRole={primaryRole || ""}
-                selectionMode={selectionMode}
-                selectedOrderIds={selectedOrderIds}
-                orderIdsWithMissingLumperRC={orderIdsWithMissingLumperRC}
-                recalculatingOrder={recalculatingOrder}
-                onToggleOrderSelection={toggleOrderSelection}
-                onToggleSelectAll={toggleSelectAll}
-                onSetSelectionMode={setSelectionMode}
-                onNavigateToEdit={navigateToEditOrder}
-                onToggleLock={toggleOrderLock}
-                onCancelOrder={openCancelDialog}
-                onRevertCancellation={handleRevertCancellation}
-                onRecalculateMiles={(orderId) => {
-                  const order = filteredOrders.find(o => o.id === orderId);
-                  if (order?.internalLoadNumber) {
-                    recalculateMiles(order.internalLoadNumber, orderId);
-                  }
-                }}
-                onOpenNotes={(notes) => {
-                  setSelectedNotes(notes);
-                  setNotesDialogOpen(true);
-                }}
-                onOpenPaidConfirm={(orderId, currentPaid) => {
-                  setPendingPaidOrder({ id: orderId, currentPaid });
-                  setPaidConfirmDialogOpen(true);
-                }}
-                onOpenLumperMissing={(data) => setLumperMissingDataDialog(data)}
-                hasRole={hasRole}
-                canCancelOrders={canCancelOrders}
-              />
-            )}
+            <div className="p-2 md:p-6 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px]">
+                      {selectionMode ? (
+                        <Checkbox
+                          checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                        />
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setSelectionMode(true)}
+                          title="Enable selection mode"
+                        >
+                          <Square className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Truck #</TableHead>
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap">Driver</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">Load #</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Pickup Date</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Pickup City</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Delivery Date</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Delivery City</TableHead>
+                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px] whitespace-nowrap">Miles</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Broker Name</TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">Broker Load #</TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Notes</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
+                    <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">RC</TableHead>
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">POD</TableHead>
+                    <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">Actions</TableHead>
+                    {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && (
+                      <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">Paid</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={primaryRole === 'dispatch' || primaryRole === 'afterhours' ? 20 : 21} className="text-center py-8 text-muted-foreground">
+                        No orders found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedOrders.map((order, index) => {
+                      // Background color rules - Based on total freight vs freight amount
+                      const isRecovery = (order as any).isRecovery;
+                      const isCanceled = order.canceled;
+                      const freightAmount = Number((order as any).freightAmount) || 0;
+                      const totalFreight = Number(order.totalFreightAmount) || 0;
+                      const lumper = Number((order as any).lumper) || 0;
+                      const escortFee = Number((order as any).escortFee) || 0;
+                      const hasLumperOrEscort = lumper > 0 || escortFee > 0;
+                      const hasAdditionalPay = totalFreight > freightAmount;
+                      const hasReducedPay = totalFreight < freightAmount;
 
-            {/* Progressive Loading Progress */}
-            {isPartialData && (
-              <div className="flex items-center justify-center gap-4 px-6 py-4 border-t bg-muted/30">
-                <div className="flex items-center gap-3 w-full max-w-md">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                  <div className="flex-1">
-                    <Progress value={lockedOrdersProgress} className="h-2" />
-                  </div>
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    Loading archived orders...
-                  </span>
-                </div>
-              </div>
-            )}
+                      const hasOrangeCondition =
+                        order.canceled ||
+                        ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
-            {/* Order count summary */}
-            {!isLoading && filteredOrders.length > 0 && (
-              <div className="flex items-center justify-between px-6 py-3 border-t bg-muted/30">
+                      const isEvenRow = index % 2 === 1;
+                      const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
+
+                      // Yellow (hue ~50) for lumper/escort, Orange (hue ~25) for canceled/date changed
+                      // Lumper/Escort takes priority over additional/reduced pay for yellow background
+                      const rowClassName = isRecovery
+                        ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
+                        : hasLumperOrEscort
+                          ? "bg-[hsl(50_95%_88%)] dark:bg-[hsl(50_75%_25%)] hover:bg-[hsl(50_95%_88%)] dark:hover:bg-[hsl(50_75%_25%)]"
+                          : hasReducedPay
+                            ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
+                            : hasAdditionalPay
+                              ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
+                              : hasOrangeCondition
+                                ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
+                                : alternatingBg;
+
+                      return (
+                        <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                          <TableCell className="w-12 px-1">
+                            <div className="flex items-center gap-0">
+                              {selectionMode && (
+                                <Checkbox
+                                  checked={selectedOrderIds.has(order.id)}
+                                  onCheckedChange={() => toggleOrderSelection(order.id)}
+                                  className="mr-1"
+                                  aria-label={`Select load ${order.loadNumber}`}
+                                />
+                              )}
+                              {/* Canceled icon */}
+                              {isCanceled && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-lg leading-none cursor-default">🚫</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Canceled</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {/* Additional/Reduced Pay Icon (includes lumper/escort) */}
+                              {(hasAdditionalPay || hasReducedPay) && (() => {
+                                const isPositive = hasAdditionalPay;
+                                const freightAmountVal = Number((order as any).freightAmount) || 0;
+                                const totalFreightVal = Number(order.totalFreightAmount) || 0;
+                                const difference = totalFreightVal - freightAmountVal;
+
+                                // Get driver values
+                                const driverPrice = Number((order as any).driverPrice) || 0;
+                                const totalDriverPay = Number((order as any).totalDriverPay) || 0;
+
+                                // Freight side values
+                                const detention = Number((order as any).detention) || 0;
+                                const layover = Number((order as any).layover) || 0;
+                                const tonu = Number((order as any).tonu) || 0;
+                                const extraStop = Number((order as any).extraStop) || 0;
+                                const lateFee = Number((order as any).lateFee) || 0;
+                                const noTrackingFee = Number((order as any).noTrackingFee) || 0;
+                                const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
+                                const escortFee = Number((order as any).escortFee) || 0;
+                                const lumper = Number((order as any).lumper) || 0;
+                                const otherCharges = Number((order as any).otherCharges) || 0;
+                                const otherAdditionals = Number((order as any).otherAdditionals) || 0;
+
+                                // Driver side values
+                                const detentionDriver = Number((order as any).detentionDriver) || 0;
+                                const layoverDriver = Number((order as any).layoverDriver) || 0;
+                                const tonuDriver = Number((order as any).tonuDriver) || 0;
+                                const extraStopDriver = Number((order as any).extraStopDriver) || 0;
+                                const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
+                                const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
+                                const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
+                                const lumperDriver = Number((order as any).lumperDriver) || 0;
+                                const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
+                                const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
+
+                                const freightItems: { label: string; value: number }[] = [];
+                                const driverItems: { label: string; value: number }[] = [];
+
+                                // Build freight items - late fee, no tracking, wrong address, other charges are deductions (negative)
+                                if (detention !== 0) freightItems.push({ label: "Detention", value: detention });
+                                if (layover !== 0) freightItems.push({ label: "Layover", value: layover });
+                                if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
+                                if (extraStop !== 0) freightItems.push({ label: "Extra Stop", value: extraStop });
+                                if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: -lateFee });
+                                if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: -noTrackingFee });
+                                if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: -wrongAddressFee });
+                                if (escortFee !== 0) freightItems.push({ label: "Escort", value: escortFee });
+                                if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
+                                if (otherCharges !== 0) {
+                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                  freightItems.push({ label: reason || "Other Charges", value: -otherCharges });
+                                }
+                                if (otherAdditionals !== 0) {
+                                  const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                  freightItems.push({ label: reason || "Other Additionals", value: otherAdditionals });
+                                }
+
+                                // Build driver items - late fee, no tracking, wrong address are deductions (negative)
+                                if (detentionDriver !== 0) driverItems.push({ label: "Detention", value: detentionDriver });
+                                if (layoverDriver !== 0) driverItems.push({ label: "Layover", value: layoverDriver });
+                                if (tonuDriver !== 0) driverItems.push({ label: "TONU", value: tonuDriver });
+                                if (extraStopDriver !== 0) driverItems.push({ label: "Extra Stop", value: extraStopDriver });
+                                if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: -lateFeeDriver });
+                                if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: -noTrackingFeeDriver });
+                                if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: -wrongAddressFeeDriver });
+                                if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
+                                if (otherChargesDriver !== 0) {
+                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                  driverItems.push({ label: reason || "Other Charges", value: otherChargesDriver });
+                                }
+                                if (otherAdditionalsDriver !== 0) {
+                                  const reason = String((order as any).otherAdditionalsReason || "").trim();
+                                  driverItems.push({ label: reason || "Other Additionals", value: otherAdditionalsDriver });
+                                }
+
+                                const driverDifference = totalDriverPay - driverPrice;
+                                const hasDriverItems = driverItems.length > 0;
+
+                                return (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                        <img 
+                                          src={moneyStackIcon} 
+                                          alt={isPositive ? "Additional pay" : "Reduced pay"} 
+                                          className={`h-5 w-5 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+                                        />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-3 max-w-sm" align="start">
+                                      <div className="text-sm font-semibold mb-2">
+                                        {isPositive ? "Additional Pay" : "Reduced Pay"}
+                                      </div>
+                                      
+                                      {/* Freight Section */}
+                                      <div className="space-y-1 text-sm">
+                                        <div className="font-medium text-muted-foreground">Company (Freight Amount)</div>
+                                        <div>Base: {formatCurrency(freightAmountVal)}</div>
+                                        {freightItems.map((item, idx) => {
+                                          const sign = item.value >= 0 ? "+" : "-";
+                                          return (
+                                            <div key={idx} className="text-muted-foreground pl-2">
+                                              {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                            </div>
+                                          );
+                                        })}
+                                        <div className="pt-1 border-t">Total: {formatCurrency(totalFreightVal)}</div>
+                                        <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                                          Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
+                                        </div>
+                                      </div>
+
+                                      {/* Driver Section */}
+                                      {hasDriverItems && (
+                                        <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                                          <div className="font-medium text-muted-foreground">Driver Pay</div>
+                                          <div>Base: {formatCurrency(driverPrice)}</div>
+                                          {driverItems.map((item, idx) => {
+                                            const sign = item.value >= 0 ? "+" : "-";
+                                            return (
+                                              <div key={idx} className="text-muted-foreground pl-2">
+                                                {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
+                                              </div>
+                                            );
+                                          })}
+                                          <div className="pt-1 border-t">Total: {formatCurrency(totalDriverPay)}</div>
+                                          <div className={`font-semibold ${driverDifference >= 0 ? "text-green-500" : "text-red-500"}`}>
+                                            Difference: {driverDifference >= 0 ? "+" : ""}{formatCurrency(driverDifference)}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
+                                );
+                              })()}
+                              {/* Rescheduled icon */}
+                              {(order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "" && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                      <CalendarClock className="h-5 w-5 text-orange-500" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                    <div className="text-sm font-semibold mb-2">Rescheduled</div>
+                                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                      {(order as any).dateChangeNotes}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                              {/* Lumper Missing Revised RC icon */}
+                              {orderIdsWithMissingLumperRC.has(order.id) && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        className="inline-flex p-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLumperMissingDataDialog({
+                                            orderId: order.id,
+                                            driverId: (order as any).driver1Id || "",
+                                            driverName: order.driverName || "Unknown",
+                                          });
+                                        }}
+                                      >
+                                        <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Lumper - Missing Receipt</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
+                          <TableCell className="w-32">
+                            <div className="line-clamp-2">{order.driverName}</div>
+                          </TableCell>
+                          <TableCell className="w-20">
+                            <div className="flex items-center gap-1">
+                              {(order as any).isPartial && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Layers className="h-3.5 w-3.5 text-primary" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Partial Load</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {formatInternalLoadNumber(order.internalLoadNumber, order.companyName || order.truckCompanyName)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-32 p-0">
+                            <div className="h-full p-4">
+                              {formatDateNoTimezone(order.pickupDate)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-40 p-0">
+                            <div className="h-full p-4 line-clamp-2">
+                              {order.pickupCity}
+                              {order.pickupCity && order.pickupState ? ", " : ""}
+                              {order.pickupState}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-32 p-0">
+                            <div className="h-full p-4">
+                              {formatDateNoTimezone(order.deliveryDate)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-40 p-0">
+                            <div className="h-full p-4 line-clamp-2">
+                              {order.deliveryCity}
+                              {order.deliveryCity && order.deliveryState ? ", " : ""}
+                              {order.deliveryState}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-16">
+                            {order.mileage != null ? order.mileage.toLocaleString() : "0"}
+                          </TableCell>
+                          <TableCell className="w-36">
+                            {(order as any).isPartial && (order as any).partialBrokers?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="line-clamp-2 cursor-help">
+                                      {(order as any).partialBrokers.find((b: string) => b) || ""}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBrokers.map((broker: string, idx: number) =>
+                                        broker ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {broker}
+                                          </div>
+                                        ) : null,
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <div className="line-clamp-2">{order.brokerName}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-28">
+                            {(order as any).isPartial && (order as any).partialBrokerLoads?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="cursor-help">
+                                      {(order as any).partialBrokerLoads.find((n: string) => n) || ""}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBrokerLoads.map((loadNum: string, idx: number) =>
+                                        loadNum ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {loadNum}
+                                          </div>
+                                        ) : null,
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <>{order.brokerLoadNumber}</>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-20">{order.invoiced ? "Yes" : "No"}</TableCell>
+                          <TableCell className="w-20">
+                            {order.notes && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto p-1 text-xs font-normal hover:underline"
+                                onClick={() => {
+                                  setSelectedNotes(order.notes);
+                                  setNotesDialogOpen(true);
+                                }}
+                              >
+                                {order.notes.length > 12 ? order.notes.substring(0, 12) + "..." : order.notes}
+                              </Button>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-24">
+                            <div className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency((order as any).totalDriverPay)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-28">
+                            <div className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(order.totalFreightAmount)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-28">
+                            {(order as any).isPartial && (order as any).partialBookedByCompanies?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="line-clamp-2 cursor-help">
+                                      {(order as any).partialBookedByCompanies.find((c: string) => c) || ""}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBookedByCompanies.map((company: string, idx: number) =>
+                                        company ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {company}
+                                          </div>
+                                        ) : null,
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <div className="line-clamp-2">{order.bookedByCompanyName}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="w-24">
+                            <div className="line-clamp-2">{order.bookedBy}</div>
+                          </TableCell>
+                          <TableCell className="w-24 text-center">
+                            <div className="flex gap-1 flex-wrap justify-center">
+                              {order.rcFiles && order.rcFiles.length > 0 ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={async () => {
+                                    const file = order.rcFiles[0];
+                                    const { data, error } = await supabase.storage
+                                      .from("order-files")
+                                      .createSignedUrl(file.file_path, 3600);
+
+                                    if (error) {
+                                      toast.error(`Failed to load file: ${error.message}`);
+                                      return;
+                                    }
+
+                                    const signedUrl = data?.signedUrl;
+                                    if (signedUrl) {
+                                      try {
+                                        const response = await fetch(signedUrl);
+                                        if (!response.ok) throw new Error("Failed to fetch file");
+
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+
+                                        const newWindow = window.open(blobUrl, "_blank");
+                                        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+                                        if (!newWindow) {
+                                          toast.error("Please allow popups for this site");
+                                        }
+                                      } catch (err) {
+                                        console.error("Error opening file:", err);
+                                        toast.error("Failed to open file");
+                                      }
+                                    }
+                                  }}
+                                >
+                                  {order.rcFiles[0].file_name.length > 8
+                                    ? order.rcFiles[0].file_name.substring(0, 8) + "..."
+                                    : order.rcFiles[0].file_name}
+                                </Button>
+                              ) : (
+                                <Badge variant="destructive" className="text-xs">
+                                  Missing
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-24 text-center">
+                            <div className="flex gap-1 flex-wrap justify-center">
+                              {(() => {
+                                const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+                                const podCount = order.podFiles?.length || 0;
+                                const isComplete = podCount >= deliveryCount;
+                                
+                                if (podCount > 0) {
+                                  return (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className={`text-xs ${!isComplete ? 'border-warning text-warning' : ''}`}
+                                      onClick={async () => {
+                                        const file = order.podFiles[0];
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
+
+                                        if (error) {
+                                          toast.error(`Failed to load file: ${error.message}`);
+                                          return;
+                                        }
+
+                                        const signedUrl = data?.signedUrl;
+                                        if (signedUrl) {
+                                          try {
+                                            const response = await fetch(signedUrl);
+                                            if (!response.ok) throw new Error("Failed to fetch file");
+
+                                            const blob = await response.blob();
+                                            const blobUrl = URL.createObjectURL(blob);
+
+                                            const newWindow = window.open(blobUrl, "_blank");
+                                            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+                                            if (!newWindow) {
+                                              toast.error("Please allow popups for this site");
+                                            }
+                                          } catch (err) {
+                                            console.error("Error opening file:", err);
+                                            toast.error("Failed to open file");
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      {deliveryCount > 1 ? `POD ${podCount}/${deliveryCount}` : (
+                                        order.podFiles[0].file_name.length > 8
+                                          ? order.podFiles[0].file_name.substring(0, 8) + "..."
+                                          : order.podFiles[0].file_name
+                                      )}
+                                    </Button>
+                                  );
+                                } else {
+                                  return (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {deliveryCount > 1 ? `Missing 0/${deliveryCount}` : 'Missing'}
+                                    </Badge>
+                                  );
+                                }
+                              })()}
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-32 text-center">
+                            <div className="flex gap-1 w-32 justify-center">
+                              <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              {(hasRole("manager") ||
+                                hasRole("admin") ||
+                                hasRole("accounting") ||
+                                hasRole("supervisor")) && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleOrderLock(order.id, order.locked)}
+                                    title={order.locked ? "Unlock load" : "Lock load"}
+                                  >
+                                    {order.locked ? (
+                                      <Lock className="h-4 w-4 text-destructive" />
+                                    ) : (
+                                      <LockOpen className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                  {!order.locked && !order.canceled && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openCancelDialog(order.id)}
+                                      title="Cancel load"
+                                    >
+                                      <XCircle className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  )}
+                                  {order.canceled &&
+                                    !order.locked &&
+                                    (hasRole("manager") ||
+                                      hasRole("admin") ||
+                                      hasRole("accounting") ||
+                                      hasRole("supervisor") ||
+                                      canCancelOrders) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleRevertCancellation(order.id)}
+                                        title="Revert cancellation"
+                                      >
+                                        <Undo2 className="h-4 w-4 text-primary" />
+                                      </Button>
+                                    )}
+                                </>
+                              )}
+                              {canCancelOrders && !order.locked && !order.canceled && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openCancelDialog(order.id)}
+                                  title="Cancel load"
+                                >
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                              {canCancelOrders && order.canceled && !order.locked && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRevertCancellation(order.id)}
+                                  title="Revert cancellation"
+                                >
+                                  <Undo2 className="h-4 w-4 text-primary" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                          {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && (
+                            <TableCell className="w-20 text-center">
+                              <div className="flex justify-center">
+                                <Checkbox
+                                  checked={order.paid === true}
+                                  onCheckedChange={() => {
+                                    setPendingPaidOrder({ id: order.id, currentPaid: order.paid === true });
+                                    setPaidConfirmDialogOpen(true);
+                                  }}
+                                  aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                                />
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            {filteredOrders.length > ORDERS_PER_PAGE && (
+              <div className="flex items-center justify-between px-6 py-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Showing {filteredOrders.length} loads
-                  {isPartialData && " (loading more...)"}
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}{" "}
+                  loads
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+
+                    {/* First page */}
+                    {currentPage > 2 && (
+                      <PaginationItem>
+                        <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+
+                    {/* Ellipsis before current */}
+                    {currentPage > 3 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+
+                    {/* Previous page */}
+                    {currentPage > 1 && (
+                      <PaginationItem>
+                        <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                          {currentPage - 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+
+                    {/* Current page */}
+                    <PaginationItem>
+                      <PaginationLink isActive className="cursor-default">
+                        {currentPage}
+                      </PaginationLink>
+                    </PaginationItem>
+
+                    {/* Next page */}
+                    {currentPage < totalPages && (
+                      <PaginationItem>
+                        <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                          {currentPage + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+
+                    {/* Ellipsis after current */}
+                    {currentPage < totalPages - 2 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+
+                    {/* Last page */}
+                    {currentPage < totalPages - 1 && (
+                      <PaginationItem>
+                        <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+
+            {/* Background Loading Progress */}
+            {!backgroundLoadingComplete && totalUnlockedCount !== null && loadedUnlockedCount < totalUnlockedCount && !isSearching && !debouncedSearchTerm && (
+              <div className="flex items-center justify-center gap-4 px-6 py-4 border-t bg-muted/30">
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading orders: {loadedUnlockedCount} of {totalUnlockedCount} unlocked orders
                 </div>
               </div>
             )}
