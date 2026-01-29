@@ -1,9 +1,91 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAssignmentHistory, AssignmentHistoryEntry } from "@/hooks/useAssignmentHistory";
+import { useAssignmentHistory, AssignmentHistoryEntry, extractDatePart } from "@/hooks/useAssignmentHistory";
 import { format } from "date-fns";
 import { Loader2, ArrowRight } from "lucide-react";
+
+interface DriverTenure {
+  driverName: string;
+  startDate: string;
+  endDate: string | null; // null means still current
+  changedByName: string | null;
+}
+
+/**
+ * Process driver history entries to calculate date ranges for each driver's tenure on a truck.
+ * Returns a list of tenures sorted by start date descending (most recent first).
+ */
+const calculateDriverTenures = (driverHistory: AssignmentHistoryEntry[]): DriverTenure[] => {
+  if (!driverHistory || driverHistory.length === 0) return [];
+  
+  const tenures: DriverTenure[] = [];
+  
+  // Sort chronologically (oldest first) to process in order
+  const sorted = [...driverHistory].sort((a, b) => 
+    new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+  );
+  
+  // Track active drivers and when they started
+  const activeDrivers: Map<string, { startDate: string; changedByName: string | null }> = new Map();
+  
+  for (const entry of sorted) {
+    const entryDate = extractDatePart(entry.changed_at);
+    
+    // Check if old drivers were removed (they are ending their tenure)
+    const oldDrivers = [entry.old_driver1_name, entry.old_driver2_name].filter(Boolean) as string[];
+    const newDrivers = [entry.driver1_name, entry.driver2_name].filter(Boolean) as string[];
+    
+    // End tenure for drivers who were removed
+    for (const oldDriver of oldDrivers) {
+      if (!newDrivers.includes(oldDriver) && activeDrivers.has(oldDriver)) {
+        const tenure = activeDrivers.get(oldDriver)!;
+        tenures.push({
+          driverName: oldDriver,
+          startDate: tenure.startDate,
+          endDate: entryDate,
+          changedByName: tenure.changedByName,
+        });
+        activeDrivers.delete(oldDriver);
+      }
+    }
+    
+    // Start tenure for new drivers
+    for (const newDriver of newDrivers) {
+      if (!oldDrivers.includes(newDriver) && !activeDrivers.has(newDriver)) {
+        activeDrivers.set(newDriver, { 
+          startDate: entryDate, 
+          changedByName: entry.changed_by_name 
+        });
+      }
+    }
+  }
+  
+  // Add still-active drivers (current assignments)
+  for (const [driverName, data] of activeDrivers) {
+    tenures.push({
+      driverName,
+      startDate: data.startDate,
+      endDate: null, // still current
+      changedByName: data.changedByName,
+    });
+  }
+  
+  // Sort by start date descending (most recent first)
+  return tenures.sort((a, b) => {
+    const dateA = new Date(a.startDate).getTime();
+    const dateB = new Date(b.startDate).getTime();
+    return dateB - dateA;
+  });
+};
+
+/**
+ * Format a date string (YYYY-MM-DD) to MM/DD/YYYY
+ */
+const formatTenureDate = (dateStr: string): string => {
+  const [year, month, day] = dateStr.split('-');
+  return `${month}/${day}/${year}`;
+};
 
 interface AssignmentHistoryDialogProps {
   entityType: 'truck' | 'trailer' | 'driver';
@@ -176,6 +258,45 @@ export const AssignmentHistoryDialog = ({
     isTruckChange(entry.change_type) || entry.change_type === 'assignment_change'
   ) || [];
 
+  const renderDriverTenureList = (items: AssignmentHistoryEntry[] | undefined) => {
+    const tenures = calculateDriverTenures(items || []);
+    
+    if (tenures.length === 0) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          No driver history found
+        </div>
+      );
+    }
+
+    return (
+      <ScrollArea className="h-[400px] pr-4">
+        <div className="space-y-4">
+          {tenures.map((tenure, index) => (
+            <div
+              key={`${tenure.driverName}-${tenure.startDate}-${index}`}
+              className="border rounded-lg p-4 bg-card"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="font-semibold text-sm mb-1 text-primary">
+                    Driver Change
+                  </div>
+                  <div className="text-sm mb-2">
+                    <span className="font-semibold">{tenure.driverName}</span>
+                    <span className="text-muted-foreground ml-2">
+                      ({formatTenureDate(tenure.startDate)} - {tenure.endDate ? formatTenureDate(tenure.endDate) : 'Current'})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  };
+
   const renderHistoryList = (items: typeof history, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
     if (!items || items.length === 0) {
       return (
@@ -235,16 +356,16 @@ export const AssignmentHistoryDialog = ({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : entityType === 'truck' ? (
-          <Tabs defaultValue="trailer" className="w-full">
+          <Tabs defaultValue="driver" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="trailer">Trailer Changes</TabsTrigger>
               <TabsTrigger value="driver">Driver Changes</TabsTrigger>
+              <TabsTrigger value="trailer">Trailer Changes</TabsTrigger>
             </TabsList>
+            <TabsContent value="driver" className="mt-4">
+              {renderDriverTenureList(driverHistory)}
+            </TabsContent>
             <TabsContent value="trailer" className="mt-4">
               {renderHistoryList(trailerHistory, 'trailer')}
-            </TabsContent>
-            <TabsContent value="driver" className="mt-4">
-              {renderHistoryList(driverHistory, 'driver')}
             </TabsContent>
           </Tabs>
         ) : entityType === 'trailer' ? (
