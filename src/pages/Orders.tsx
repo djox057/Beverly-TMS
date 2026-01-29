@@ -331,10 +331,10 @@ const Orders = () => {
 
   const { data: companies } = useCompanies();
 
-  // When server-side search is active, LOCK into server mode
-  // Never fall back to local orders during active search to prevent flicker
+  // When search is active, LOCK into server mode IMMEDIATELY (use raw searchTerm, not debounced)
+  // This prevents local filtering flash before debounce triggers server search
   const dataSource = useMemo(() => {
-    const isActiveSearch = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
     
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
@@ -344,13 +344,13 @@ const Orders = () => {
     }
     
     return orders || [];
-  }, [debouncedSearchTerm, searchResults, orders]);
+  }, [searchTerm, searchResults, orders]);
 
   // Filter orders based on search term and filters
   const filteredOrders =
     dataSource?.filter((order) => {
       // When using server-side search results, don't apply client-side search filter
-      const isServerSearch = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2 && searchResults;
+      const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
       
       let matchesSearch = true;
       if (!isServerSearch && searchTerm) {

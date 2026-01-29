@@ -96,7 +96,14 @@ export function useOrdersSearch() {
           original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
           original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
         `)
-        .or(`load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`)
+      // internal_load_number is INTEGER - use eq for numeric terms, skip for non-numeric
+      const isNumericTerm = /^\d+$/.test(term);
+      const stringFieldsFilter = `load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`;
+      const searchFilter = isNumericTerm 
+        ? `${stringFieldsFilter},internal_load_number.eq.${term}`
+        : stringFieldsFilter;
+      
+      query = query.or(searchFilter)
         .order("created_at", { ascending: false })
         .limit(100);
 
