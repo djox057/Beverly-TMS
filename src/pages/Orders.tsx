@@ -42,10 +42,10 @@ import moneyStackIcon from "@/assets/money-stack.png";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
-import { useOrders } from "@/hooks/useOrders";
+import { useOrdersProgressive } from "@/hooks/useOrdersProgressive";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
-import { useUnlockedOrdersPagination } from "@/hooks/useUnlockedOrdersPagination";
+import { OrdersLoadingProgress, OrdersLoadingBadge } from "@/components/OrdersLoadingProgress";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -271,20 +271,22 @@ const Orders = () => {
   // since the DB query already filters to their booked orders + their assigned drivers' orders
   // They can still manually filter by "booked by" if they want to see only their own bookings
 
-  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
+  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 background loads locked
+  const { 
+    data: orders, 
+    isLoading, 
+    isLoadingLocked,
+    progress: loadingProgress,
+    unlockedCount,
+    lockedCount,
+    isPartialData,
+  } = useOrdersProgressive(orderFilterOptions);
+  
+  // For error handling, use a stable reference
+  const error = null; // Progressive hook handles errors internally
 
   // Server-side search hook - queries database directly when searching
   const { searchResults, isSearching, searchOrders, clearSearch } = useOrdersSearch();
-  
-  // Pagination hook for unlocked orders - allows loading more without loading everything
-  const {
-    isLoadingMore,
-    totalUnlockedCount,
-    loadedCount: loadedUnlockedCount,
-    loadMoreUnlockedOrders,
-    fetchTotalCount,
-    setInitialLoadedCount,
-  } = useUnlockedOrdersPagination(orderFilterOptions);
 
   // Debounce search term for server-side search
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -311,71 +313,14 @@ const Orders = () => {
     }
   }, [debouncedSearchTerm]); // Intentionally not including orderFilterOptions to prevent re-search on every render
 
-  // Fetch total unlocked count on mount (once)
-  const [hasFetchedCount, setHasFetchedCount] = useState(false);
-  useEffect(() => {
-    if (!hasFetchedCount) {
-      fetchTotalCount();
-      setHasFetchedCount(true);
-    }
-  }, [hasFetchedCount, fetchTotalCount]);
-
-  // Update pagination state when orders load
-  useEffect(() => {
-    if (orders) {
-      const unlockedCount = orders.filter(o => !o.locked).length;
-      setInitialLoadedCount(unlockedCount);
-    }
-  }, [orders, setInitialLoadedCount]);
-
-  // Background loading: automatically load remaining unlocked orders in batches
-  const [backgroundLoadingStarted, setBackgroundLoadingStarted] = useState(false);
-  const [backgroundLoadingComplete, setBackgroundLoadingComplete] = useState(false);
-  
-  useEffect(() => {
-    // Start background loading after initial data is loaded
-    if (
-      orders && 
-      orders.length > 0 && 
-      !backgroundLoadingStarted && 
-      !backgroundLoadingComplete &&
-      !isLoading &&
-      totalUnlockedCount !== null &&
-      loadedUnlockedCount < totalUnlockedCount
-    ) {
-      setBackgroundLoadingStarted(true);
-      
-      // Load remaining orders in background batches
-      const loadRemainingInBackground = async () => {
-        console.log(`[Orders] Starting background load: ${loadedUnlockedCount} of ${totalUnlockedCount}`);
-        let hasMore = true;
-        let attempts = 0;
-        const maxAttempts = 50; // Safety limit
-        
-        while (hasMore && attempts < maxAttempts) {
-          attempts++;
-          // loadMoreUnlockedOrders returns whether there are more to load
-          hasMore = await loadMoreUnlockedOrders();
-          
-          if (hasMore) {
-            // Small delay between batches to not overwhelm the browser
-            await new Promise(resolve => setTimeout(resolve, 150));
-          }
-        }
-        
-        console.log(`[Orders] Background loading complete after ${attempts} batches`);
-        setBackgroundLoadingComplete(true);
-      };
-      
-      loadRemainingInBackground();
-    }
-  }, [orders, isLoading, backgroundLoadingStarted, backgroundLoadingComplete, totalUnlockedCount, loadedUnlockedCount, loadMoreUnlockedOrders]);
-
-  console.log("🟦 [Orders Page] useOrders returned:", {
+  console.log("🟦 [Orders Page] Progressive loading:", {
     ordersCount: orders?.length,
     isLoading,
-    error,
-    orderFilterOptions,
+    isLoadingLocked,
+    phase: loadingProgress.phase,
+    unlockedCount,
+    lockedCount,
+    isPartialData,
     searchResultsCount: searchResults?.length,
   });
 
@@ -2035,14 +1980,9 @@ const Orders = () => {
               </div>
             )}
 
-            {/* Background Loading Progress */}
-            {!backgroundLoadingComplete && totalUnlockedCount !== null && loadedUnlockedCount < totalUnlockedCount && !isSearching && !debouncedSearchTerm && (
-              <div className="flex items-center justify-center gap-4 px-6 py-4 border-t bg-muted/30">
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading orders: {loadedUnlockedCount} of {totalUnlockedCount} unlocked orders
-                </div>
-              </div>
+            {/* Progressive Loading Progress Indicator */}
+            {loadingProgress.phase !== "complete" && !isSearching && !debouncedSearchTerm && (
+              <OrdersLoadingProgress {...loadingProgress} />
             )}
 
             {/* Server-side search indicator */}
