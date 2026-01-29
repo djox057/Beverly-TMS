@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -211,15 +211,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
     : ["orders"];
   
-  // Use React Query to subscribe to cache updates (for real-time changes)
-  const { data: cachedOrders } = useQuery({
-    queryKey,
-    queryFn: () => [] as any[], // Never actually fetch - data comes from progressive loading
-    enabled: false, // Disable automatic fetching
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
+  // Subscribe to real-time updates FIRST - this updates the cache
+  useOrdersRealtime();
   
   // Check if we have cached data on mount
   const initialCachedData = useRef(queryClient.getQueryData<any[]>(queryKey));
@@ -269,8 +262,21 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     };
   });
 
-  // Subscribe to real-time updates
-  useOrdersRealtime();
+  // Subscribe to cache changes for live updates
+  const cachedOrders = queryClient.getQueryData<any[]>(queryKey);
+  
+  // Track cache version to trigger re-renders on real-time updates
+  const [cacheVersion, setCacheVersion] = useState(0);
+  
+  useEffect(() => {
+    // Subscribe to query cache changes
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey?.[0] === "orders") {
+        setCacheVersion(v => v + 1);
+      }
+    });
+    return () => unsubscribe();
+  }, [queryClient]);
 
   // Get dispatcher driver IDs if needed
   const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
@@ -504,11 +510,14 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Merge phase 1 and phase 2 data with deduplication
   const mergedData = useMemo(() => {
+    // Always get fresh cache data (cacheVersion triggers re-computation on real-time updates)
+    const freshCachedOrders = queryClient.getQueryData<any[]>(queryKey);
+    
     // If we have cached data from React Query (includes real-time updates), use it
-    if (cachedOrders && cachedOrders.length > 0 && progress.phase === "complete") {
+    if (freshCachedOrders && freshCachedOrders.length > 0 && progress.phase === "complete") {
       // Deduplicate by ID just in case
       const seen = new Set<string>();
-      return cachedOrders.filter(order => {
+      return freshCachedOrders.filter(order => {
         if (seen.has(order.id)) return false;
         seen.add(order.id);
         return true;
@@ -538,7 +547,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     }
     
     return result;
-  }, [phase1Data, phase2Data, cachedOrders, progress.phase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase1Data, phase2Data, cacheVersion, progress.phase, queryClient, queryKey]);
 
   // Update React Query cache when complete
   useEffect(() => {
