@@ -1,16 +1,121 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
  * Server-side search hook for orders.
  * When user types a search term, this queries the DATABASE directly.
  * This ensures ANY order in the database can be found - never "invisible".
+ * 
+ * Also subscribes to realtime updates to refresh search results when orders change.
  */
 export function useOrdersSearch() {
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
+  const lastSearchTermRef = useRef<string>("");
+  const lastSearchOptionsRef = useRef<{ bookedBy?: string | null; dispatcherUserId?: string | null } | undefined>();
+
+  // Helper to fetch a single order with all joins
+  const fetchSingleOrder = async (orderId: string) => {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        pickup_drops (*),
+        order_files (id, file_category, file_name, file_path),
+        order_transfers (
+          *,
+          driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+          driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+          truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+          trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
+        ),
+        recovery_history (
+          *,
+          recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
+          recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
+          recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
+          recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
+        ),
+        broker:brokers (id, name, mc_number, address),
+        company:companies!orders_company_id_fkey (id, name),
+        booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
+        truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
+        trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+        driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+        driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
+        original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
+        original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
+        original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
+        original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
+      `)
+      .eq("id", orderId)
+      .single();
+
+    if (error) {
+      console.error("[useOrdersSearch] Error fetching order:", error);
+      return null;
+    }
+    return data;
+  };
+
+  // Subscribe to realtime updates for orders in search results
+  useEffect(() => {
+    const channel = supabase
+      .channel("orders-search-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        async (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const orderId = newRecord?.id || oldRecord?.id;
+
+          if (!orderId) return;
+
+          // Check if this order is in our current search results
+          setSearchResults((prevResults) => {
+            if (!prevResults) return prevResults;
+            
+            const orderIndex = prevResults.findIndex((o) => o.id === orderId);
+            if (orderIndex === -1) return prevResults; // Order not in search results
+
+            // Order is in our search results - update it
+            if (payload.eventType === "DELETE") {
+              return prevResults.filter((o) => o.id !== orderId);
+            }
+
+            // For UPDATE/INSERT, fetch the updated order and update the results
+            // We do this asynchronously but trigger an immediate state update
+            fetchSingleOrder(orderId).then((fullOrder) => {
+              if (!fullOrder) return;
+              
+              const [transformedOrder] = transformOrders([fullOrder]);
+              
+              setSearchResults((currentResults) => {
+                if (!currentResults) return currentResults;
+                
+                const idx = currentResults.findIndex((o) => o.id === orderId);
+                if (idx === -1) return currentResults;
+                
+                const updated = [...currentResults];
+                updated[idx] = transformedOrder;
+                return updated;
+              });
+            });
+
+            return prevResults; // Return unchanged for now, async update will handle it
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const searchOrders = useCallback(async (
     searchTerm: string,
@@ -19,6 +124,10 @@ export function useOrdersSearch() {
       dispatcherUserId?: string | null;
     }
   ) => {
+    // Store last search params for potential re-search
+    lastSearchTermRef.current = searchTerm;
+    lastSearchOptionsRef.current = options;
+
     // Clear search results if no search term
     if (!searchTerm || searchTerm.trim().length < 2) {
       setSearchResults(null);
@@ -84,7 +193,7 @@ export function useOrdersSearch() {
           original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
           original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
         `)
-        .or(`load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%,internal_load_number::text.ilike.%${term}%`)
+        .or(`load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`)
         .order("created_at", { ascending: false })
         .limit(100);
 
@@ -122,6 +231,8 @@ export function useOrdersSearch() {
   const clearSearch = useCallback(() => {
     setSearchResults(null);
     setSearchError(null);
+    lastSearchTermRef.current = "";
+    lastSearchOptionsRef.current = undefined;
   }, []);
 
   return {
