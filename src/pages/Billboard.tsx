@@ -416,12 +416,14 @@ const Billboard = () => {
                   </span>
                 </div>
 
-                {/* Gross + RPM */}
+                {/* Gross + RPM (hide Gross for monthly RPM views) */}
                 <div className="flex items-center gap-14">
-                  <div className="text-right">
-                    <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                    <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
-                  </div>
+                  {activeView !== "monthlyRpm5" && activeView !== "monthlyRpm10" && (
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                      <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                    </div>
+                  )}
                   <div className="text-right">
                     <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
                     <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -445,10 +447,12 @@ const Billboard = () => {
                     <span className="text-4xl font-semibold text-muted-foreground">—</span>
                   </div>
                   <div className="flex items-center gap-14">
-                    <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                      <p className="text-4xl font-bold text-muted-foreground">—</p>
-                    </div>
+                    {activeView !== "monthlyRpm5" && activeView !== "monthlyRpm10" && (
+                      <div className="text-right">
+                        <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                        <p className="text-4xl font-bold text-muted-foreground">—</p>
+                      </div>
+                    )}
                     <div className="text-right">
                       <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
                       <p className="text-4xl font-bold text-muted-foreground">—</p>
