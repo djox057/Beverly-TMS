@@ -9,7 +9,9 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
-  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyRpm10">("rpm5");
+  const [activeView, setActiveView] = useState<
+    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyRpm10"
+  >("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch profiles to resolve booked_by to display names and office
@@ -188,7 +190,12 @@ const Billboard = () => {
 
   // View order now has 6 pages
   const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyRpm10"> = [
-    "rpm5", "rpm10", "gross5", "gross10", "monthlyRpm5", "monthlyRpm10"
+    "rpm5",
+    "rpm10",
+    "gross5",
+    "gross10",
+    "monthlyRpm5",
+    "monthlyRpm10",
   ];
 
   // Rotate views every 20 seconds with smooth transition (6 views)
@@ -375,11 +382,6 @@ const Billboard = () => {
 
   return (
     <div className="bg-background flex flex-col p-7" style={{ height: "90vh" }}>
-      {/* Header - Week Label */}
-      <div className="text-center mb-3">
-        <p className="text-xl text-muted-foreground font-medium">This Week: {weekRangeLabel}</p>
-      </div>
-
       {/* Average RPM - Big number at top */}
       <div className="text-center py-7 border-b border-border">
         <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
