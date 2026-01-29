@@ -461,17 +461,27 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           }
         }
 
-        // Prune stale cached orders (e.g., deleted/unlocked in DB) and merge missing DB orders.
-        // This prevents UI counts exceeding the database count.
+        // Merge DB orders into cache. Only prune stale orders if we successfully fetched
+        // ALL locked orders from DB (count matches). Otherwise just add missing ones.
         if (allDbLockedOrders.length > 0) {
-          const dbIds = new Set(allDbLockedOrders.map((o: any) => o.id));
-          lockedOrders = lockedOrders.filter((o: any) => dbIds.has(o.id));
-
           const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
           const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
+          
           if (missingLockedOrders.length > 0) {
             console.log(`[Progressive] Phase 2: Added ${missingLockedOrders.length} locked orders from DB`);
             lockedOrders = [...lockedOrders, ...missingLockedOrders];
+          }
+
+          // Only prune if we fetched the complete dataset from DB
+          const dbFetchComplete = lockedTotal && allDbLockedOrders.length >= lockedTotal;
+          if (dbFetchComplete) {
+            const dbIds = new Set(allDbLockedOrders.map((o: any) => o.id));
+            const beforePrune = lockedOrders.length;
+            lockedOrders = lockedOrders.filter((o: any) => dbIds.has(o.id));
+            const pruned = beforePrune - lockedOrders.length;
+            if (pruned > 0) {
+              console.log(`[Progressive] Phase 2: Pruned ${pruned} stale cached orders`);
+            }
           }
 
           // Final dedupe pass (prefer newest updated_at)
