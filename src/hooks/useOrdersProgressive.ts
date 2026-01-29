@@ -20,35 +20,6 @@ interface UseOrdersProgressiveOptions {
   dispatcherUserId?: string | null;
 }
 
-// Deduplicate by id, preferring unlocked versions (and otherwise the newest updated_at when available)
-function dedupeOrdersPreferUnlocked(orders: any[]): any[] {
-  const map = new Map<string, any>();
-  for (const order of orders || []) {
-    const id = order?.id;
-    if (!id) continue;
-
-    const existing = map.get(id);
-    if (!existing) {
-      map.set(id, order);
-      continue;
-    }
-
-    // Prefer unlocked version over locked when duplicates exist
-    if (existing?.locked === true && order?.locked !== true) {
-      map.set(id, order);
-      continue;
-    }
-
-    // Otherwise prefer the newest updated_at if present
-    const prevUpdated = existing?.updated_at as string | undefined;
-    const nextUpdated = order?.updated_at as string | undefined;
-    if (prevUpdated && nextUpdated && nextUpdated > prevUpdated) {
-      map.set(id, order);
-    }
-  }
-  return Array.from(map.values());
-}
-
 // Helper to enrich locked orders with lookup data
 async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]> {
   if (lockedOrders.length === 0) return [];
@@ -282,9 +253,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     const cachedOrders = cachedDataOnMount.current;
     if (cachedOrders && cachedOrders.length > 0 && !initializedFromCache && !loadingStartedRef.current) {
       console.log(`[Progressive] Initializing from cache: ${cachedOrders.length} orders`);
-      const dedupedCached = dedupeOrdersPreferUnlocked(cachedOrders);
-      const unlockedOrders = dedupedCached.filter(o => !o.locked);
-      const lockedOrders = dedupedCached.filter(o => o.locked);
+      const unlockedOrders = cachedOrders.filter(o => !o.locked);
+      const lockedOrders = cachedOrders.filter(o => o.locked);
       
       setPhase1Data(unlockedOrders);
       setPhase2Data(lockedOrders);
@@ -299,11 +269,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       });
       setInitializedFromCache(true);
       loadingStartedRef.current = true;
-
-      // Sync deduped cached data into React Query so realtime updates can patch it
-      queryClient.setQueryData(queryKey, dedupedCached);
     }
-  }, [initializedFromCache, queryClient, queryKey]);
+  }, [initializedFromCache]);
 
   // Subscribe to cache updates for real-time changes (only for "orders" key)
   // Use a ref to track pending updates and batch them
@@ -425,12 +392,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         setProgress(prev => ({ ...prev, lockedTotal }));
         
         // Load from cache first (fast)
-        let lockedOrders = (await getLockedOrders()) || [];
-        // Cache can contain duplicates or orders that no longer exist in DB; clean it up early.
-        lockedOrders = dedupeOrdersPreferUnlocked(lockedOrders).filter(o => o?.locked === true);
-        console.log(`[Progressive] Phase 2: Loaded ${lockedOrders.length} from cache (deduped)`);
+        let lockedOrders = await getLockedOrders() || [];
+        console.log(`[Progressive] Phase 2: Loaded ${lockedOrders.length} from cache`);
         
-        // Fetch locked orders from DB (used to backfill missing & prune stale cached orders)
+        // Fetch missing locked orders from DB
+        const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
         let allDbLockedOrders: any[] = [];
         let offset = 0;
         const batchSize = 1000;
@@ -461,31 +427,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           }
         }
 
-        // Merge DB orders into cache. Only prune stale orders if we successfully fetched
-        // ALL locked orders from DB (count matches). Otherwise just add missing ones.
+        // Merge missing orders
         if (allDbLockedOrders.length > 0) {
-          const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
           const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
-          
           if (missingLockedOrders.length > 0) {
             console.log(`[Progressive] Phase 2: Added ${missingLockedOrders.length} locked orders from DB`);
             lockedOrders = [...lockedOrders, ...missingLockedOrders];
           }
-
-          // Only prune if we fetched the complete dataset from DB
-          const dbFetchComplete = lockedTotal && allDbLockedOrders.length >= lockedTotal;
-          if (dbFetchComplete) {
-            const dbIds = new Set(allDbLockedOrders.map((o: any) => o.id));
-            const beforePrune = lockedOrders.length;
-            lockedOrders = lockedOrders.filter((o: any) => dbIds.has(o.id));
-            const pruned = beforePrune - lockedOrders.length;
-            if (pruned > 0) {
-              console.log(`[Progressive] Phase 2: Pruned ${pruned} stale cached orders`);
-            }
-          }
-
-          // Final dedupe pass (prefer newest updated_at)
-          lockedOrders = dedupeOrdersPreferUnlocked(lockedOrders).filter((o: any) => o?.locked === true);
         }
 
         // Filter for dispatcher if needed
@@ -528,10 +476,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         
         if (isMountedRef.current) {
           setPhase2Data(transformedLocked);
-
-          // Sync final merged dataset into cache exactly once at completion.
-          const finalMerged = dedupeOrdersPreferUnlocked([...unlockedOrders, ...transformedLocked]);
-          queryClient.setQueryData(queryKey, finalMerged);
           
           setProgress({
             phase: "complete",
@@ -601,7 +545,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     });
     
     const deduplicated = Array.from(orderMap.values());
-
+    
+    // Only sync to cache once loading is complete
+    if (progress.phase === "complete" && deduplicated.length > 0) {
+      // Sync to cache for other components and real-time updates
+      queryClient.setQueryData(queryKey, deduplicated);
+    }
+    
     return deduplicated;
   }, [phase1Data, phase2Data, progress.phase, queryClient, queryKey, cacheVersion]);
 
