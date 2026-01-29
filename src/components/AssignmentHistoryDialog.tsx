@@ -100,12 +100,70 @@ const calculateDriverTenures = (driverHistory: AssignmentHistoryEntry[]): Driver
     });
   }
   
+  // Merge overlapping/consecutive tenures for the same driver
+  const mergedTenures = mergeSameDriverTenures(tenures);
+  
   // Sort by start date descending (most recent first)
-  return tenures.sort((a, b) => {
+  return mergedTenures.sort((a, b) => {
     const dateA = new Date(a.startDate).getTime();
     const dateB = new Date(b.startDate).getTime();
     return dateB - dateA;
   });
+};
+
+/**
+ * Merge overlapping or consecutive tenures for the same driver.
+ * If a driver has multiple entries (e.g., from slot changes), combine them.
+ */
+const mergeSameDriverTenures = (tenures: DriverTenure[]): DriverTenure[] => {
+  if (tenures.length === 0) return [];
+  
+  // Group by driver name
+  const byDriver = new Map<string, DriverTenure[]>();
+  for (const tenure of tenures) {
+    const existing = byDriver.get(tenure.driverName) || [];
+    existing.push(tenure);
+    byDriver.set(tenure.driverName, existing);
+  }
+  
+  const merged: DriverTenure[] = [];
+  
+  for (const [driverName, driverTenures] of byDriver) {
+    // Sort by start date ascending
+    const sorted = [...driverTenures].sort((a, b) => 
+      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+    
+    let current = { ...sorted[0] };
+    
+    for (let i = 1; i < sorted.length; i++) {
+      const next = sorted[i];
+      const currentEnd = current.endDate ? new Date(current.endDate).getTime() : Infinity;
+      const nextStart = new Date(next.startDate).getTime();
+      
+      // If overlapping or consecutive (within 1 day), merge
+      if (nextStart <= currentEnd + 86400000) { // 86400000ms = 1 day
+        // Extend current tenure to include next
+        if (next.endDate === null) {
+          current.endDate = null; // Current driver
+        } else if (current.endDate !== null) {
+          const currentEndTime = new Date(current.endDate).getTime();
+          const nextEndTime = new Date(next.endDate).getTime();
+          if (nextEndTime > currentEndTime) {
+            current.endDate = next.endDate;
+          }
+        }
+      } else {
+        // No overlap, push current and start new
+        merged.push(current);
+        current = { ...next };
+      }
+    }
+    
+    merged.push(current);
+  }
+  
+  return merged;
 };
 
 /**
