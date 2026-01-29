@@ -108,7 +108,8 @@ const Billboard = () => {
         return false;
       }
 
-      const dateToFilter = order.pickupDate;
+      // Use delivery date for monthly filtering
+      const dateToFilter = order.deliveryDate;
       if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
         return false;
       }
