@@ -25,79 +25,57 @@ export const OrdersLoadingProgress = ({
   const phase2Complete = phase === "complete";
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-card border border-border rounded-lg shadow-lg p-4 w-80">
-      <div className="space-y-3">
+    <div className="fixed bottom-4 right-4 z-50 bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-md p-3 w-64">
+      <div className="space-y-2">
         {/* Phase 1: Unlocked Orders */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-full",
+            "flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0",
             phase1Complete ? "bg-success/20" : "bg-primary/20"
           )}>
             {phase1Complete ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
+              <CheckCircle2 className="h-3 w-3 text-success" />
             ) : (
-              <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              <Loader2 className="h-3 w-3 text-primary animate-spin" />
             )}
           </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Active Orders</span>
-              <span className="text-xs text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium truncate">Active</span>
+              <span className="text-muted-foreground">
                 {unlockedLoaded.toLocaleString()}
-                {unlockedTotal !== null && ` / ${unlockedTotal.toLocaleString()}`}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {phase1Complete ? "Ready to display" : "Loading unlocked orders..."}
-            </p>
           </div>
         </div>
 
         {/* Phase 2: Locked Orders */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-full",
+            "flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0",
             phase2Complete ? "bg-success/20" : isLoadingLocked ? "bg-warning/20" : "bg-muted"
           )}>
             {phase2Complete ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
+              <CheckCircle2 className="h-3 w-3 text-success" />
             ) : isLoadingLocked ? (
-              <Loader2 className="h-4 w-4 text-warning animate-spin" />
+              <Loader2 className="h-3 w-3 text-warning animate-spin" />
             ) : (
-              <FileStack className="h-4 w-4 text-muted-foreground" />
+              <FileStack className="h-3 w-3 text-muted-foreground" />
             )}
           </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Archived Orders</span>
-              <span className="text-xs text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium truncate">Archived</span>
+              <span className="text-muted-foreground">
                 {lockedLoaded.toLocaleString()}
                 {lockedTotal !== null && ` / ${lockedTotal.toLocaleString()}`}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {phase2Complete 
-                ? "All orders loaded" 
-                : isLoadingLocked 
-                  ? "Loading in background..." 
-                  : "Waiting..."
-              }
-            </p>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="space-y-1">
-          <Progress value={percentComplete} className="h-2" />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {phase === 1 && "Phase 1: Loading active orders..."}
-              {phase === 2 && "Phase 2: Loading archived orders..."}
-              {phase === "complete" && "All orders loaded"}
-            </span>
-            <span>{percentComplete}%</span>
-          </div>
-        </div>
+        <Progress value={percentComplete} className="h-1.5" />
       </div>
     </div>
   );

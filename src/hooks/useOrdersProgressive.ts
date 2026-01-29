@@ -337,18 +337,18 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           allDbLockedOrders = [...allDbLockedOrders, ...batch];
           offset += batchSize;
           
+          if (batch.length < batchSize) break;
+          
           // Update progress during DB fetch
           if (isMountedRef.current) {
             const loadedSoFar = allDbLockedOrders.length;
-            const percent = 30 + Math.min(30, (loadedSoFar / (lockedTotal || 1)) * 30);
+            const percent = 30 + Math.min(40, (loadedSoFar / (lockedTotal || 1)) * 40);
             setProgress(prev => ({
               ...prev,
               lockedLoaded: loadedSoFar,
               percentComplete: Math.round(percent),
             }));
           }
-          
-          if (batch.length < batchSize) break;
         }
 
         // Merge missing orders
@@ -369,15 +369,18 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           });
         }
 
-        // Update progress before enrichment
+        // Update progress before enrichment (70%)
         setProgress(prev => ({
           ...prev,
           lockedLoaded: lockedOrders.length,
-          percentComplete: 60,
+          percentComplete: 70,
         }));
 
         // Enrich locked orders (this takes a bit longer)
         console.log(`[Progressive] Phase 2: Enriching ${lockedOrders.length} locked orders...`);
+        
+        // Update to 85% during enrichment
+        setProgress(prev => ({ ...prev, percentComplete: 85 }));
         const enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
         
         // Deduplicate
