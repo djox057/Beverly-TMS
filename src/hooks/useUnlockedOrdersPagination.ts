@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -15,6 +15,7 @@ interface PaginationState {
 /**
  * Hook to handle cursor-based pagination for unlocked orders.
  * Supports both manual "Load More" and automatic background loading.
+ * Uses isMountedRef to prevent "Should have a queue" React errors.
  */
 export function useUnlockedOrdersPagination(options?: {
   bookedBy?: string | null;
@@ -28,10 +29,21 @@ export function useUnlockedOrdersPagination(options?: {
     loadedCount: 0,
   });
   
+  // CRITICAL: Track mount state to prevent "Should have a queue" React error
+  const isMountedRef = useRef(true);
+  
   // Use ref to track loading state to prevent race conditions
   const isLoadingRef = useRef(false);
   // Track the last cursor to prevent duplicate loads
   const lastCursorRef = useRef<string | null>(null);
+  
+  // Setup mount/unmount tracking
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Fetch total count of unlocked orders (for UI display)
   const fetchTotalCount = useCallback(async () => {
@@ -66,11 +78,14 @@ export function useUnlockedOrdersPagination(options?: {
 
       const { count } = await countQuery;
       
-      setPaginationState(prev => ({
-        ...prev,
-        totalUnlockedCount: count,
-        hasMore: prev.loadedCount < (count || 0),
-      }));
+      // Guard against unmounted state updates
+      if (isMountedRef.current) {
+        setPaginationState(prev => ({
+          ...prev,
+          totalUnlockedCount: count,
+          hasMore: prev.loadedCount < (count || 0),
+        }));
+      }
       
       return count;
     } catch (error) {
@@ -87,7 +102,9 @@ export function useUnlockedOrdersPagination(options?: {
     }
 
     isLoadingRef.current = true;
-    setPaginationState(prev => ({ ...prev, isLoadingMore: true }));
+    if (isMountedRef.current) {
+      setPaginationState(prev => ({ ...prev, isLoadingMore: true }));
+    }
 
     try {
       // Get current orders from cache
@@ -102,7 +119,9 @@ export function useUnlockedOrdersPagination(options?: {
       const lastUnlocked = unlockedOrders[unlockedOrders.length - 1];
       
       if (!lastUnlocked) {
-        setPaginationState(prev => ({ ...prev, isLoadingMore: false, hasMore: false }));
+        if (isMountedRef.current) {
+          setPaginationState(prev => ({ ...prev, isLoadingMore: false, hasMore: false }));
+        }
         isLoadingRef.current = false;
         return false;
       }
@@ -111,7 +130,9 @@ export function useUnlockedOrdersPagination(options?: {
       const cursor = lastUnlocked.createdAt || lastUnlocked.created_at;
       if (cursor === lastCursorRef.current) {
         console.log("[useUnlockedOrdersPagination] Skipping duplicate cursor:", cursor);
-        setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+        if (isMountedRef.current) {
+          setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+        }
         isLoadingRef.current = false;
         return paginationState.hasMore;
       }
@@ -223,12 +244,15 @@ export function useUnlockedOrdersPagination(options?: {
       ]) || [];
       const newLoadedCount = updatedOrders.filter(o => !o.locked).length;
       
-      setPaginationState(prev => ({
-        ...prev,
-        isLoadingMore: false,
-        hasMore,
-        loadedCount: newLoadedCount,
-      }));
+      // Guard against unmounted state updates
+      if (isMountedRef.current) {
+        setPaginationState(prev => ({
+          ...prev,
+          isLoadingMore: false,
+          hasMore,
+          loadedCount: newLoadedCount,
+        }));
+      }
 
       console.log(`[useUnlockedOrdersPagination] Loaded ${newOrders.length} more (total: ${newLoadedCount})`);
       
@@ -236,7 +260,9 @@ export function useUnlockedOrdersPagination(options?: {
       return hasMore;
     } catch (error) {
       console.error("[useUnlockedOrdersPagination] Error loading more:", error);
-      setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+      if (isMountedRef.current) {
+        setPaginationState(prev => ({ ...prev, isLoadingMore: false }));
+      }
       isLoadingRef.current = false;
       return false;
     }
