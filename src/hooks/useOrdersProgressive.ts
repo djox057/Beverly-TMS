@@ -196,28 +196,66 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
  * 
  * Phase 1: Load unlocked orders → Display first 100 immediately (1-2s)
  * Phase 2: Background load locked orders with progress indicator (5-8s)
+ * 
+ * Uses React Query cache to avoid refetching when navigating back to /orders
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
   const isMountedRef = useRef(true);
+  const hasInitializedRef = useRef(false);
+  
+  // Determine query key based on filter options
+  const hasFilters = Boolean(options?.bookedBy || options?.dispatcherUserId);
+  const queryKey = hasFilters 
+    ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
+    : ["orders"];
+  
+  // Check if we have cached data
+  const cachedData = queryClient.getQueryData<any[]>(queryKey);
+  const hasCachedData = cachedData && cachedData.length > 0;
   
   // Phase 1 state: unlocked orders (quick display)
-  const [phase1Data, setPhase1Data] = useState<any[] | null>(null);
-  const [phase1Loading, setPhase1Loading] = useState(true);
+  const [phase1Data, setPhase1Data] = useState<any[] | null>(() => {
+    if (hasCachedData) {
+      return cachedData.filter(o => !o.locked);
+    }
+    return null;
+  });
+  const [phase1Loading, setPhase1Loading] = useState(!hasCachedData);
   
   // Phase 2 state: locked orders (background load)
-  const [phase2Data, setPhase2Data] = useState<any[] | null>(null);
+  const [phase2Data, setPhase2Data] = useState<any[] | null>(() => {
+    if (hasCachedData) {
+      return cachedData.filter(o => o.locked);
+    }
+    return null;
+  });
   const [phase2Loading, setPhase2Loading] = useState(false);
   
   // Progress tracking
-  const [progress, setProgress] = useState<ProgressiveLoadingProgress>({
-    phase: 1,
-    unlockedLoaded: 0,
-    unlockedTotal: null,
-    lockedLoaded: 0,
-    lockedTotal: null,
-    isLoadingLocked: false,
-    percentComplete: 0,
+  const [progress, setProgress] = useState<ProgressiveLoadingProgress>(() => {
+    if (hasCachedData) {
+      const unlockedCount = cachedData.filter(o => !o.locked).length;
+      const lockedCount = cachedData.filter(o => o.locked).length;
+      return {
+        phase: "complete" as const,
+        unlockedLoaded: unlockedCount,
+        unlockedTotal: unlockedCount,
+        lockedLoaded: lockedCount,
+        lockedTotal: lockedCount,
+        isLoadingLocked: false,
+        percentComplete: 100,
+      };
+    }
+    return {
+      phase: 1,
+      unlockedLoaded: 0,
+      unlockedTotal: null,
+      lockedLoaded: 0,
+      lockedTotal: null,
+      isLoadingLocked: false,
+      percentComplete: 0,
+    };
   });
 
   // Subscribe to real-time updates
@@ -236,7 +274,21 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   }, [options?.dispatcherUserId]);
 
   // PHASE 1: Fetch unlocked orders and display first 100 immediately
+  // Skip if we already have cached data
   useEffect(() => {
+    // Skip loading if we have cached data
+    if (hasCachedData && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      console.log("[Progressive] Using cached data, skipping fetch");
+      return;
+    }
+    
+    // Skip if already initialized this session
+    if (hasInitializedRef.current) {
+      return;
+    }
+    
+    hasInitializedRef.current = true;
     let cancelled = false;
     
     const loadPhase1 = async () => {
@@ -429,7 +481,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       cancelled = true;
       isMountedRef.current = false;
     };
-  }, [options?.bookedBy, options?.dispatcherUserId, fetchDispatcherDriverIds]);
+  }, [options?.bookedBy, options?.dispatcherUserId, fetchDispatcherDriverIds, hasCachedData]);
 
   // Reset mount ref on options change
   useEffect(() => {
@@ -437,7 +489,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return () => {
       isMountedRef.current = false;
     };
-  }, [options?.bookedBy, options?.dispatcherUserId]);
+  }, []);
 
   // Merge phase 1 and phase 2 data
   const mergedData = useMemo(() => {
