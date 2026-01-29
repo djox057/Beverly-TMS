@@ -198,6 +198,7 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
  * Phase 2: Background load locked orders with progress indicator (5-8s)
  * 
  * Uses React Query cache to avoid refetching when navigating back to /orders
+ * Subscribes to cache changes for real-time updates
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
@@ -210,14 +211,24 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
     : ["orders"];
   
-  // Check if we have cached data
-  const cachedData = queryClient.getQueryData<any[]>(queryKey);
-  const hasCachedData = cachedData && cachedData.length > 0;
+  // Use React Query to subscribe to cache updates (for real-time changes)
+  const { data: cachedOrders } = useQuery({
+    queryKey,
+    queryFn: () => [] as any[], // Never actually fetch - data comes from progressive loading
+    enabled: false, // Disable automatic fetching
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+  
+  // Check if we have cached data on mount
+  const initialCachedData = useRef(queryClient.getQueryData<any[]>(queryKey));
+  const hasCachedData = initialCachedData.current && initialCachedData.current.length > 0;
   
   // Phase 1 state: unlocked orders (quick display)
   const [phase1Data, setPhase1Data] = useState<any[] | null>(() => {
     if (hasCachedData) {
-      return cachedData.filter(o => !o.locked);
+      return initialCachedData.current!.filter(o => !o.locked);
     }
     return null;
   });
@@ -226,7 +237,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Phase 2 state: locked orders (background load)
   const [phase2Data, setPhase2Data] = useState<any[] | null>(() => {
     if (hasCachedData) {
-      return cachedData.filter(o => o.locked);
+      return initialCachedData.current!.filter(o => o.locked);
     }
     return null;
   });
@@ -235,8 +246,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Progress tracking
   const [progress, setProgress] = useState<ProgressiveLoadingProgress>(() => {
     if (hasCachedData) {
-      const unlockedCount = cachedData.filter(o => !o.locked).length;
-      const lockedCount = cachedData.filter(o => o.locked).length;
+      const unlockedCount = initialCachedData.current!.filter(o => !o.locked).length;
+      const lockedCount = initialCachedData.current!.filter(o => o.locked).length;
       return {
         phase: "complete" as const,
         unlockedLoaded: unlockedCount,
@@ -491,28 +502,69 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     };
   }, []);
 
-  // Merge phase 1 and phase 2 data
+  // Merge phase 1 and phase 2 data with deduplication
   const mergedData = useMemo(() => {
+    // If we have cached data from React Query (includes real-time updates), use it
+    if (cachedOrders && cachedOrders.length > 0 && progress.phase === "complete") {
+      // Deduplicate by ID just in case
+      const seen = new Set<string>();
+      return cachedOrders.filter(order => {
+        if (seen.has(order.id)) return false;
+        seen.add(order.id);
+        return true;
+      });
+    }
+    
+    // Otherwise use our loading state
     if (!phase1Data) return [];
     if (!phase2Data) return phase1Data;
     
-    // Combine unlocked + locked, already deduplicated
-    return [...phase1Data, ...phase2Data];
-  }, [phase1Data, phase2Data]);
+    // Combine unlocked + locked with deduplication
+    const seen = new Set<string>();
+    const result: any[] = [];
+    
+    for (const order of phase1Data) {
+      if (!seen.has(order.id)) {
+        seen.add(order.id);
+        result.push(order);
+      }
+    }
+    
+    for (const order of phase2Data) {
+      if (!seen.has(order.id)) {
+        seen.add(order.id);
+        result.push(order);
+      }
+    }
+    
+    return result;
+  }, [phase1Data, phase2Data, cachedOrders, progress.phase]);
 
   // Update React Query cache when complete
   useEffect(() => {
-    if (progress.phase === "complete" && mergedData.length > 0) {
-      // Determine query key based on filter options
-      const hasFilters = Boolean(options?.bookedBy || options?.dispatcherUserId);
-      const queryKey = hasFilters 
-        ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
-        : ["orders"];
+    if (progress.phase === "complete" && phase1Data && phase2Data) {
+      // Deduplicate before saving to cache
+      const seen = new Set<string>();
+      const dedupedData: any[] = [];
       
-      queryClient.setQueryData(queryKey, mergedData);
-      console.log(`[Progressive] Updated React Query cache with ${mergedData.length} orders`);
+      for (const order of phase1Data) {
+        if (!seen.has(order.id)) {
+          seen.add(order.id);
+          dedupedData.push(order);
+        }
+      }
+      
+      for (const order of phase2Data) {
+        if (!seen.has(order.id)) {
+          seen.add(order.id);
+          dedupedData.push(order);
+        }
+      }
+      
+      queryClient.setQueryData(queryKey, dedupedData);
+      console.log(`[Progressive] Updated React Query cache with ${dedupedData.length} orders`);
     }
-  }, [progress.phase, mergedData, options, queryClient]);
+  }, [progress.phase, phase1Data, phase2Data, queryKey, queryClient]);
 
   return {
     data: mergedData,
