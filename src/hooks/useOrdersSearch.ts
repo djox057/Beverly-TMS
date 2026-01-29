@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 
@@ -14,6 +14,9 @@ export function useOrdersSearch() {
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
+  
+  // Stale response protection: track the latest search key (term + filters)
+  const latestSearchKeyRef = useRef<string>("");
 
   const searchOrders = useCallback(async (
     searchTerm: string,
@@ -25,14 +28,20 @@ export function useOrdersSearch() {
     // Clear search results if no search term
     if (!searchTerm || searchTerm.trim().length < 2) {
       setSearchResults(null);
+      latestSearchKeyRef.current = "";
       return;
     }
 
+    const term = searchTerm.trim().toLowerCase();
+    
+    // Create a search key combining term and filters for stale response protection
+    const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}`;
+    latestSearchKeyRef.current = searchKey;
+    
     setIsSearching(true);
     setSearchError(null);
 
     try {
-      const term = searchTerm.trim().toLowerCase();
       
       // Build the search query - search across multiple fields
       // For dispatcher users, we need to get their assigned drivers first
@@ -106,6 +115,12 @@ export function useOrdersSearch() {
 
       const { data, error } = await query;
 
+      // Stale response check: discard if user typed a new search
+      if (latestSearchKeyRef.current !== searchKey) {
+        console.log("[useOrdersSearch] Discarding stale response for:", searchKey);
+        return;
+      }
+
       if (error) {
         throw error;
       }
@@ -114,11 +129,17 @@ export function useOrdersSearch() {
       const transformed = transformOrders(data || []);
       setSearchResults(transformed);
     } catch (err) {
-      console.error("[useOrdersSearch] Error:", err);
-      setSearchError(err instanceof Error ? err : new Error("Search failed"));
-      setSearchResults(null);
+      // Only update error state if this is still the current search
+      if (latestSearchKeyRef.current === searchKey) {
+        console.error("[useOrdersSearch] Error:", err);
+        setSearchError(err instanceof Error ? err : new Error("Search failed"));
+        setSearchResults(null);
+      }
     } finally {
-      setIsSearching(false);
+      // Only clear loading state if this is still the current search
+      if (latestSearchKeyRef.current === searchKey) {
+        setIsSearching(false);
+      }
     }
   }, []);
 

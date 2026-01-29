@@ -341,13 +341,18 @@ const Orders = () => {
 
   const { data: companies } = useCompanies();
 
-  // When server-side search is active and has results, use those
-  // Otherwise, filter loaded orders locally
+  // When server-side search is active, LOCK into server mode
+  // Never fall back to local orders during active search to prevent flicker
   const dataSource = useMemo(() => {
-    // If searching and we have server results, prioritize those
-    if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2 && searchResults) {
-      return searchResults;
+    const isActiveSearch = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
+    
+    if (isActiveSearch) {
+      // LOCKED into server mode - never fall back to local orders during active search
+      // While searching: show previous results or empty array (no flicker)
+      // After search completes: show server results
+      return searchResults || [];
     }
+    
     return orders || [];
   }, [debouncedSearchTerm, searchResults, orders]);
 
