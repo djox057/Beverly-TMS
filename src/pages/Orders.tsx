@@ -271,7 +271,7 @@ const Orders = () => {
   // since the DB query already filters to their booked orders + their assigned drivers' orders
   // They can still manually filter by "booked by" if they want to see only their own bookings
 
-  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
+  const { data: orders, isLoading, error, isLoadingLocked, lockedOrdersLoaded } = useOrders(orderFilterOptions);
 
   // Server-side search hook - queries database directly when searching
   const { searchResults, isSearching, searchOrders, clearSearch } = useOrdersSearch();
@@ -1096,6 +1096,12 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <CardTitle className="shrink-0">All Loads</CardTitle>
+                {isLoadingLocked && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Loading archived...</span>
+                  </div>
+                )}
               </div>
 
               <ScrollArea className="w-full">

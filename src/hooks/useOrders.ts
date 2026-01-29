@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useRef } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
@@ -237,12 +237,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
   // Store total unlocked count for background loading verification
   const totalUnlockedCountRef = useRef<number | null>(null);
+  
+  // Track background loading state
+  const [isLoadingLocked, setIsLoadingLocked] = useState(false);
+  const [lockedOrdersLoaded, setLockedOrdersLoaded] = useState(false);
+  const backgroundLoadStartedRef = useRef(false);
 
+  // Fetch only unlocked orders first (fast initial load)
   const query = useQuery({
     queryKey,
     queryFn: async () => {
       const startTime = Date.now();
-      console.log("[useOrders] Starting bulk fetch via Edge Function...");
+      console.log("[useOrders] Starting FAST fetch (unlocked only) via Edge Function...");
 
       // If dispatcher user ID is provided, fetch driver IDs assigned to them
       let dispatcherDriverIds: string[] = [];
@@ -381,9 +387,41 @@ export const useOrders = (options?: UseOrdersOptions) => {
       }
 
       const fetchTime = Date.now() - startTime;
-      console.log(`[useOrders] Unlocked orders fetched: ${allUnlockedOrders.length} in ${fetchTime}ms`);
+      console.log(`[useOrders] ✅ Unlocked orders fetched: ${allUnlockedOrders.length} in ${fetchTime}ms (displaying immediately)`);
 
-      // Load LOCKED orders from cache only (no DB fetch for performance)
+      // Return ONLY unlocked orders for fast initial display
+      // Locked orders will be loaded in background and merged
+      return transformOrders(allUnlockedOrders);
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    retry: 2,
+    staleTime: Infinity,
+  });
+
+  // Background load locked orders after unlocked orders are displayed
+  const loadLockedOrdersInBackground = useCallback(async () => {
+    if (backgroundLoadStartedRef.current) return;
+    backgroundLoadStartedRef.current = true;
+    setIsLoadingLocked(true);
+    
+    const startTime = Date.now();
+    console.log("[useOrders] Starting BACKGROUND load of locked orders...");
+    
+    try {
+      // If dispatcher user ID is provided, fetch driver IDs assigned to them
+      let dispatcherDriverIds: string[] = [];
+      if (options?.dispatcherUserId) {
+        const { data: assignedDrivers } = await supabase
+          .from("drivers")
+          .select("id")
+          .eq("dispatcher_id", options.dispatcherUserId);
+        
+        dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
+      }
+
+      // Load LOCKED orders from cache
       let lockedOrders = await getLockedOrders() || [];
       
       // Fetch ALL locked orders from DB that are missing from archive cache
@@ -436,8 +474,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
         enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
       }
 
+      // Get current unlocked orders from cache
+      const currentOrders = queryClient.getQueryData<any[]>(queryKey) || [];
+      const unlockedOrderIds = new Set(currentOrders.map(o => o.id));
+      
       // Deduplicate: remove locked orders if unlocked version exists
-      const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
       const deduplicatedLockedOrders = enrichedLockedOrders.filter(
         order => !unlockedOrderIds.has(order.id)
       );
@@ -449,25 +490,44 @@ export const useOrders = (options?: UseOrdersOptions) => {
         return dateB.localeCompare(dateA);
       });
       
-      // Merge ALL unlocked orders with deduplicated locked orders
-      const mergedOrders = transformOrders([...allUnlockedOrders, ...deduplicatedLockedOrders]);
+      // Merge with existing unlocked orders and update cache
+      const mergedOrders = transformOrders([
+        ...currentOrders.map(o => ({ ...o, _transformed: false })), // Mark to avoid double transform
+        ...deduplicatedLockedOrders
+      ]);
+
+      // Update the query cache with merged data
+      queryClient.setQueryData(queryKey, mergedOrders);
 
       const totalTime = Date.now() - startTime;
-      console.log(`[useOrders] ✅ COMPLETE: ${allUnlockedOrders.length} unlocked + ${deduplicatedLockedOrders.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
+      console.log(`[useOrders] ✅ BACKGROUND COMPLETE: Added ${deduplicatedLockedOrders.length} locked orders in ${totalTime}ms. Total: ${mergedOrders.length}`);
+      
+      setLockedOrdersLoaded(true);
+    } catch (error) {
+      console.error("[useOrders] Background locked orders load failed:", error);
+    } finally {
+      setIsLoadingLocked(false);
+    }
+  }, [options?.bookedBy, options?.dispatcherUserId, queryClient, queryKey]);
 
-      return mergedOrders;
-    },
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 2,
-    staleTime: Infinity,
-  });
+  // Trigger background loading when unlocked orders are ready
+  useEffect(() => {
+    if (query.data && query.data.length >= 0 && !query.isLoading && !backgroundLoadStartedRef.current) {
+      // Small delay to let UI render first
+      const timer = setTimeout(() => {
+        loadLockedOrdersInBackground();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [query.data, query.isLoading, loadLockedOrdersInBackground]);
 
   // Real-time subscriptions are handled by useOrdersRealtime hook
   // Cache updates happen via setQueryData, avoiding expensive full refetches
-  // NOTE: All unlocked orders are now fetched in a single Edge Function call (no background loading needed)
-  return query;
+  return {
+    ...query,
+    isLoadingLocked,
+    lockedOrdersLoaded,
+  };
 };
 
 // Helper function to fetch a single order with all joins
