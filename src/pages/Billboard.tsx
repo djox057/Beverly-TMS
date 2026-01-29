@@ -9,7 +9,7 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
-  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10">("rpm5");
+  const [activeView, setActiveView] = useState<"gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyRpm10">("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Fetch profiles to resolve booked_by to display names and office
@@ -87,9 +87,111 @@ const Billboard = () => {
     fetchTruckCounts();
   }, [weekStart, weekEnd]);
 
-  // Rotate views every 15 seconds with smooth transition (4 views)
+  // Get current month bounds
+  const getMonthBounds = () => {
+    const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    return { monthStart, monthEnd };
+  };
+
+  const { monthStart, monthEnd } = getMonthBounds();
+
+  // Filter orders for current month
+  const thisMonthOrders = useMemo(() => {
+    if (!orders) return [];
+
+    return orders.filter((order) => {
+      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
+        return false;
+      }
+
+      const dateToFilter = order.pickupDate;
+      if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
+        return false;
+      }
+
+      try {
+        let dateStr = dateToFilter;
+        if (dateStr.includes(" ") && !dateStr.includes("T")) {
+          dateStr = dateStr.replace(" ", "T");
+        }
+        const datePart = dateStr.split("T")[0];
+        if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return false;
+        }
+        const [year, month, day] = datePart.split("-").map(Number);
+        const orderDate = new Date(year, month - 1, day);
+
+        if (isNaN(orderDate.getTime())) return false;
+
+        const fromDateOnly = new Date(monthStart.getFullYear(), monthStart.getMonth(), monthStart.getDate());
+        const toDateOnly = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate());
+
+        return orderDate >= fromDateOnly && orderDate <= toDateOnly;
+      } catch {
+        return false;
+      }
+    });
+  }, [orders, monthStart, monthEnd]);
+
+  // Calculate monthly dispatcher stats
+  const monthlyDispatcherStats = useMemo(() => {
+    const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number }> = {};
+
+    thisMonthOrders.forEach((order) => {
+      const dispatcher = order.bookedBy || "Unknown";
+      if (!analytics[dispatcher]) {
+        analytics[dispatcher] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
+      }
+      analytics[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
+      analytics[dispatcher].totalMiles += Number(order.mileage) || 0;
+      analytics[dispatcher].orderCount += 1;
+    });
+
+    return Object.entries(analytics)
+      .map(([name, stats]) => {
+        const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+        const profile = dispatcherProfiles[name];
+        const displayName = profile?.full_name || name;
+        const userId = profile?.user_id;
+        const office = profile?.office || null;
+        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
+
+        return {
+          name,
+          displayName,
+          userId,
+          office,
+          totalFreight: stats.totalFreight,
+          totalMiles: stats.totalMiles,
+          ratePerMile,
+          orderCount: stats.orderCount,
+          avgTrucks,
+        };
+      })
+      .filter((d) => d.name !== "Unknown" && d.orderCount > 0);
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts]);
+
+  // Sorted monthly RPM list (filtered by 4.8+ trucks)
+  const sortedMonthlyByRPM = useMemo(() => {
+    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8);
+    const list = qualified.length > 0 ? qualified : [...monthlyDispatcherStats];
+    return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
+  }, [monthlyDispatcherStats]);
+
+  const top5MonthlyRPM = sortedMonthlyByRPM.slice(0, 5);
+  const top10MonthlyRPM = sortedMonthlyByRPM.slice(5, 10);
+
+  // View order now has 6 pages
+  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyRpm10"> = [
+    "rpm5", "rpm10", "gross5", "gross10", "monthlyRpm5", "monthlyRpm10"
+  ];
+
+  // Rotate views every 20 seconds with smooth transition (6 views)
   useEffect(() => {
-    const viewOrder: Array<"gross5" | "gross10" | "rpm5" | "rpm10"> = ["rpm5", "rpm10", "gross5", "gross10"];
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
@@ -101,11 +203,23 @@ const Billboard = () => {
         setTimeout(() => {
           setIsTransitioning(false);
         }, 50);
-      }, 500); // Wait for fade out
-    }, 15000);
+      }, 500);
+    }, 20000);
 
     return () => clearInterval(interval);
   }, []);
+
+  // Manual page switch handler
+  const handlePageClick = (view: typeof activeView) => {
+    if (view === activeView) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveView(view);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 300);
+  };
 
   // Filter orders to this week only (using pickup date like Analytics weekly filter)
   const thisWeekOrders = useMemo(() => {
@@ -228,6 +342,9 @@ const Billboard = () => {
   // Week date range string
   const weekRangeLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
+  // Month label for monthly views
+  const monthLabel = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
   const getCurrentListAndTitle = () => {
     switch (activeView) {
       case "gross5":
@@ -238,6 +355,10 @@ const Billboard = () => {
         return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM(5+ trucks)", startRank: 1 };
       case "rpm10":
         return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM(5+ trucks)", startRank: 6 };
+      case "monthlyRpm5":
+        return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel}`, startRank: 1 };
+      case "monthlyRpm10":
+        return { list: top10MonthlyRPM, title: `Top 10 Dispatchers by RPM - ${monthLabel}`, startRank: 6 };
     }
   };
 
@@ -252,7 +373,7 @@ const Billboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-7">
+    <div className="bg-background flex flex-col p-7" style={{ height: "90vh" }}>
       {/* Header - Week Label */}
       <div className="text-center mb-3">
         <p className="text-xl text-muted-foreground font-medium">This Week: {weekRangeLabel}</p>
@@ -336,12 +457,13 @@ const Billboard = () => {
           </div>
         </div>
 
-        {/* View indicator dots (4 dots now) */}
+        {/* View indicator dots (6 dots now, clickable) */}
         <div className="flex justify-center gap-3 mt-8">
-          {(["rpm5", "rpm10", "gross5", "gross10"] as const).map((view) => (
+          {viewOrder.map((view) => (
             <div
               key={view}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              onClick={() => handlePageClick(view)}
+              className={`w-3 h-3 rounded-full transition-all duration-300 cursor-pointer ${
                 activeView === view ? "bg-primary scale-125" : "bg-muted-foreground/30"
               }`}
             />
