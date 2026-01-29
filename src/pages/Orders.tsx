@@ -297,27 +297,17 @@ const Orders = () => {
   // Debounce search term for server-side search
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Track previous search term to avoid unnecessary searches
-  const [lastSearchedTerm, setLastSearchedTerm] = useState<string>("");
-
-  // Trigger server-side search ONLY when debounced search term actually changes
+  // Trigger server-side search when debounced term changes
+  // No lastSearchedTerm optimization needed - debounce already handles rapid typing
   useEffect(() => {
-    const trimmedTerm = debouncedSearchTerm?.trim() || "";
-    
-    // Only search if the term actually changed
-    if (trimmedTerm === lastSearchedTerm) {
-      return;
-    }
-    
-    if (trimmedTerm.length >= 2) {
-      setLastSearchedTerm(trimmedTerm);
-      searchOrders(trimmedTerm, orderFilterOptions);
-    } else if (lastSearchedTerm) {
-      // Clear search only if we had a previous search
-      setLastSearchedTerm("");
+    const term = (debouncedSearchTerm || "").trim();
+
+    if (term.length >= 2) {
+      searchOrders(term, orderFilterOptions);
+    } else {
       clearSearch();
     }
-  }, [debouncedSearchTerm]); // Intentionally not including orderFilterOptions to prevent re-search on every render
+  }, [debouncedSearchTerm, searchOrders, clearSearch]);
 
   console.log("🟦 [Orders Page] Progressive loading:", {
     ordersCount: orders?.length,
