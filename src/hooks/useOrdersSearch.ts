@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { transformOrders } from "@/utils/ordersTransform";
 
 /**
@@ -96,12 +97,28 @@ export function useOrdersSearch() {
           original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
           original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
         `)
-      // internal_load_number is INTEGER - use eq for numeric terms, skip for non-numeric
+      // Check if term is purely numeric
       const isNumericTerm = /^\d+$/.test(term);
+
+      // Check if term matches formatted internal load number pattern (e.g., "6538-BFU")
+      const parsedInternalLoadNumber = parseInternalLoadNumber(term);
+      const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null;
+
+      // Build string fields filter (always search these)
       const stringFieldsFilter = `load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`;
-      const searchFilter = isNumericTerm 
-        ? `${stringFieldsFilter},internal_load_number.eq.${term}`
-        : stringFieldsFilter;
+
+      // Build search filter - include internal_load_number when we have a valid numeric value
+      let searchFilter: string;
+      if (isNumericTerm) {
+        // Pure number like "6538" - exact match on internal_load_number
+        searchFilter = `${stringFieldsFilter},internal_load_number.eq.${term}`;
+      } else if (hasValidInternalLoadNumber) {
+        // Formatted number like "6538-BFU" - extract numeric part for internal_load_number
+        searchFilter = `${stringFieldsFilter},internal_load_number.eq.${parsedInternalLoadNumber}`;
+      } else {
+        // Non-numeric term - only search string fields
+        searchFilter = stringFieldsFilter;
+      }
       
       query = query.or(searchFilter)
         .order("created_at", { ascending: false })
