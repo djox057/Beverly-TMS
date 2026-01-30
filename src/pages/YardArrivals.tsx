@@ -73,6 +73,7 @@ export default function YardArrivals() {
   const queryClient = useQueryClient();
   const { hasRole } = useAuthContext();
   const canEditDriver = hasRole('admin') || hasRole('manager');
+  const canRemoveYardArrival = hasRole('admin') || hasRole('manager');
   
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string; isTeam: boolean } | null>(null);
@@ -709,26 +710,28 @@ export default function YardArrivals() {
                                   size="icon"
                                   className="h-6 w-6"
                                   onClick={() => handleCheckYardAction(action.id, action.is_checked)}
-                                  title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                                  title={action.is_checked ? "Uncheck" : "Check"}
                                 >
                                   <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    setActionToCancel({
-                                      id: action.id,
-                                      driverId: action.driver_id,
-                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
-                                      isTeam: action.is_team,
-                                    });
-                                    setCancelDialogOpen(true);
-                                  }}
-                                >
-                                  <X className="h-3 w-3 text-destructive" />
-                                </Button>
+                                {canRemoveYardArrival && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => {
+                                      setActionToCancel({
+                                        id: action.id,
+                                        driverId: action.driver_id,
+                                        driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                        isTeam: action.is_team,
+                                      });
+                                      setCancelDialogOpen(true);
+                                    }}
+                                  >
+                                    <X className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground">
@@ -814,26 +817,28 @@ export default function YardArrivals() {
                                 size="icon"
                                 className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
-                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                                title={action.is_checked ? "Uncheck" : "Check"}
                               >
                                 <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => {
-                                  setActionToCancel({
-                                    id: action.id,
-                                    driverId: action.driver_id,
-                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
-                                    isTeam: action.is_team,
-                                  });
-                                  setCancelDialogOpen(true);
-                                }}
-                              >
-                                <X className="h-3 w-3 text-destructive" />
-                              </Button>
+                              {canRemoveYardArrival && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    setActionToCancel({
+                                      id: action.id,
+                                      driverId: action.driver_id,
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      isTeam: action.is_team,
+                                    });
+                                    setCancelDialogOpen(true);
+                                  }}
+                                >
+                                  <X className="h-3 w-3 text-destructive" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -919,26 +924,28 @@ export default function YardArrivals() {
                                 size="icon"
                                 className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
-                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                                title={action.is_checked ? "Uncheck" : "Check"}
                               >
                                 <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => {
-                                  setActionToCancel({
-                                    id: action.id,
-                                    driverId: action.driver_id,
-                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
-                                    isTeam: action.is_team,
-                                  });
-                                  setCancelDialogOpen(true);
-                                }}
-                              >
-                                <X className="h-3 w-3 text-destructive" />
-                              </Button>
+                              {canRemoveYardArrival && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    setActionToCancel({
+                                      id: action.id,
+                                      driverId: action.driver_id,
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      isTeam: action.is_team,
+                                    });
+                                    setCancelDialogOpen(true);
+                                  }}
+                                >
+                                  <X className="h-3 w-3 text-destructive" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -1032,26 +1039,28 @@ export default function YardArrivals() {
                                 size="icon"
                                 className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
-                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                                title={action.is_checked ? "Uncheck" : "Check"}
                               >
                                 <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => {
-                                  setActionToCancel({
-                                    id: action.id,
-                                    driverId: action.driver_id,
-                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
-                                    isTeam: action.is_team,
-                                  });
-                                  setCancelDialogOpen(true);
-                                }}
-                              >
-                                <X className="h-3 w-3 text-destructive" />
-                              </Button>
+                              {canRemoveYardArrival && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    setActionToCancel({
+                                      id: action.id,
+                                      driverId: action.driver_id,
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      isTeam: action.is_team,
+                                    });
+                                    setCancelDialogOpen(true);
+                                  }}
+                                >
+                                  <X className="h-3 w-3 text-destructive" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -1123,23 +1132,25 @@ export default function YardArrivals() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleCheckTwoWeekNotice(driver.id, driver.is_checked_for_termination)}
-                                title={driver.is_checked_for_termination ? "Uncheck - will not auto-terminate" : "Check - will auto-terminate and disconnect after date passes"}
+                                title={driver.is_checked_for_termination ? "Uncheck" : "Check"}
                               >
                                 <Check className={`h-4 w-4 ${driver.is_checked_for_termination ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setDriverToRemoveTwoWeek({
-                                    id: driver.id,
-                                    name: driver.name || `${driver.first_name} ${driver.last_name}`,
-                                  });
-                                  setRemoveTwoWeekDialogOpen(true);
-                                }}
-                              >
-                                <X className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canRemoveYardArrival && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDriverToRemoveTwoWeek({
+                                      id: driver.id,
+                                      name: driver.name || `${driver.first_name} ${driver.last_name}`,
+                                    });
+                                    setRemoveTwoWeekDialogOpen(true);
+                                  }}
+                                >
+                                  <X className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
