@@ -10,7 +10,7 @@ const Billboard = () => {
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
   const [activeView, setActiveView] = useState<
-    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyRpm10"
+    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5"
   >("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -185,17 +185,22 @@ const Billboard = () => {
     return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [monthlyDispatcherStats]);
 
+  // Sorted monthly Gross list
+  const sortedMonthlyByGross = useMemo(() => {
+    return [...monthlyDispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
+  }, [monthlyDispatcherStats]);
+
   const top5MonthlyRPM = sortedMonthlyByRPM.slice(0, 5);
-  const top10MonthlyRPM = sortedMonthlyByRPM.slice(5, 10);
+  const top5MonthlyGross = sortedMonthlyByGross.slice(0, 5);
 
   // View order now has 6 pages
-  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyRpm10"> = [
+  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyGross5"> = [
     "rpm5",
     "rpm10",
     "gross5",
     "gross10",
     "monthlyRpm5",
-    "monthlyRpm10",
+    "monthlyGross5",
   ];
 
   // Rotate views every 20 seconds with smooth transition (6 views)
@@ -365,8 +370,8 @@ const Billboard = () => {
         return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM(5+ trucks)", startRank: 6 };
       case "monthlyRpm5":
         return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel}`, startRank: 1 };
-      case "monthlyRpm10":
-        return { list: top10MonthlyRPM, title: `Top 10 Dispatchers by RPM - ${monthLabel}`, startRank: 6 };
+      case "monthlyGross5":
+        return { list: top5MonthlyGross, title: `Top 5 Dispatchers by Gross - ${monthLabel}`, startRank: 1 };
     }
   };
 
@@ -416,9 +421,9 @@ const Billboard = () => {
                   </span>
                 </div>
 
-                {/* Gross + RPM (hide Gross for monthly RPM views) */}
+                {/* Gross + RPM (hide Gross for monthly RPM view only) */}
                 <div className="flex items-center gap-14">
-                  {activeView !== "monthlyRpm5" && activeView !== "monthlyRpm10" && (
+                  {activeView !== "monthlyRpm5" && (
                     <div className="text-right">
                       <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
                       <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
@@ -447,7 +452,7 @@ const Billboard = () => {
                     <span className="text-4xl font-semibold text-muted-foreground">—</span>
                   </div>
                   <div className="flex items-center gap-14">
-                    {activeView !== "monthlyRpm5" && activeView !== "monthlyRpm10" && (
+                  {activeView !== "monthlyRpm5" && (
                       <div className="text-right">
                         <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
                         <p className="text-4xl font-bold text-muted-foreground">—</p>
