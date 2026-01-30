@@ -156,13 +156,19 @@ const getTransferAwareStops = (driverId: string, order: any, originalPickupStop:
 export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapterOptions) => {
   const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate } = options;
   const queryClient = useQueryClient();
+  
+  // Get individual mode state - this controls database-level filtering
+  const { individualMode, currentUserDispatcherId } = useIndividualMode();
 
   // Get date-window data (disabled when feature flag is OFF)
+  // Pass individualMode and currentUserDispatcherId for database-level filtering
   const dateWindowHook = useReportsDateWindow({
     dispatcherId: USE_DATE_WINDOW_LOADING ? dispatcherId : null,
     dispatcherProfileId,
     selectedDate,
     priorityOffice,
+    individualMode,
+    currentUserDispatcherId,
   });
 
   // Legacy hook (for fallback when feature flag is OFF). When feature flag is ON,
@@ -1096,18 +1102,17 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     lastLoadsData,
   ]);
 
-  // Individual mode filtering - filter to show only current user's drivers
-  const { individualMode } = useIndividualMode();
-  
+  // Individual mode filtering already applied at database level in useReportsDateWindow
+  // This secondary filter is kept as a safety net but should be no-op when DB filtering works
   const filteredData = useMemo(() => {
     // CRITICAL: Early return when Individual mode is OFF - zero overhead
     if (!individualMode || !transformedData) {
       return transformedData;
     }
     
-    // Individual mode: filter to show only user's own drivers
-    return transformedData.filter(group => group.dispatcherId === dispatcherId);
-  }, [individualMode, transformedData, dispatcherId]);
+    // Individual mode: filter to show only user's own drivers (safety net)
+    return transformedData.filter(group => group.dispatcherId === currentUserDispatcherId);
+  }, [individualMode, transformedData, currentUserDispatcherId]);
 
   if (!USE_DATE_WINDOW_LOADING) {
     return legacyReportsHook;
