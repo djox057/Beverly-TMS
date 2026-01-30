@@ -39,6 +39,8 @@ export function useOrdersSearch() {
     const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}`;
     latestSearchKeyRef.current = searchKey;
     
+    console.log("[useOrdersSearch] Starting search for:", term, "searchKey:", searchKey);
+    
     setIsSearching(true);
     setSearchError(null);
 
@@ -122,6 +124,8 @@ export function useOrdersSearch() {
         searchFilter = `broker_load_number.ilike.%${term}%`;
       }
       
+      console.log("[useOrdersSearch] Search filter:", searchFilter);
+      
       query = query.or(searchFilter)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -148,8 +152,11 @@ export function useOrdersSearch() {
       }
 
       if (error) {
+        console.error("[useOrdersSearch] Query error:", error);
         throw error;
       }
+
+      console.log("[useOrdersSearch] Results count:", data?.length || 0);
 
       // Transform to UI shape
       const transformed = transformOrders(data || []);
