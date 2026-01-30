@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useReportsDateWindow, useOrderFilesOnDemand } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // Feature flag - set to true to use date-window based loading
@@ -1095,13 +1096,26 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     lastLoadsData,
   ]);
 
+  // Individual mode filtering - filter to show only current user's drivers
+  const { individualMode } = useIndividualMode();
+  
+  const filteredData = useMemo(() => {
+    // CRITICAL: Early return when Individual mode is OFF - zero overhead
+    if (!individualMode || !transformedData) {
+      return transformedData;
+    }
+    
+    // Individual mode: filter to show only user's own drivers
+    return transformedData.filter(group => group.dispatcherId === dispatcherId);
+  }, [individualMode, transformedData, dispatcherId]);
+
   if (!USE_DATE_WINDOW_LOADING) {
     return legacyReportsHook;
   }
 
   return {
-    // Data from date-window with transformation
-    data: transformedData,
+    // Data from date-window with transformation (filtered when individual mode is ON)
+    data: filteredData,
     isLoading: dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading),
     isPending: dateWindowHook.isLoading,
     isError: !!dateWindowHook.error,

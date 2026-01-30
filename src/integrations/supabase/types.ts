@@ -2723,6 +2723,7 @@ export type Database = {
           ext: string | null
           full_name: string | null
           id: string
+          individual_mode: boolean | null
           office: Database["public"]["Enums"]["office_location"] | null
           updated_at: string
           user_id: string
@@ -2734,6 +2735,7 @@ export type Database = {
           ext?: string | null
           full_name?: string | null
           id?: string
+          individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
           updated_at?: string
           user_id: string
@@ -2745,6 +2747,7 @@ export type Database = {
           ext?: string | null
           full_name?: string | null
           id?: string
+          individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
           updated_at?: string
           user_id?: string

@@ -21,11 +21,13 @@ import {
   Route,
   Warehouse,
   Bell,
-  Wrench
+  Wrench,
+  UserCircle
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -74,6 +76,7 @@ const navigation = [
 
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
+  const { individualMode, setIndividualMode, canUseIndividualMode } = useIndividualMode();
   const { state, isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
@@ -332,6 +335,38 @@ export const Sidebar = () => {
         {/* Theme Toggle & User Profile */}
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
+            {/* Individual Mode Toggle - Only for dispatch/afterhours */}
+            {canUseIndividualMode && (
+              <div className="px-4 py-3 border-t border-border">
+                <div className="flex items-center justify-between gap-3">
+                  {showText ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <UserCircle className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="individual-toggle" className="text-sm font-medium cursor-pointer">
+                          Individual
+                        </Label>
+                      </div>
+                      <Switch
+                        id="individual-toggle"
+                        checked={individualMode}
+                        onCheckedChange={setIndividualMode}
+                      />
+                    </>
+                  ) : (
+                    <Button
+                      variant={individualMode ? "default" : "ghost"}
+                      size="icon"
+                      className="w-8 h-8 mx-auto"
+                      onClick={() => setIndividualMode(!individualMode)}
+                    >
+                      <UserCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Theme Toggle */}
             <div className="px-4 py-3 border-t border-border">
               <div className="flex items-center justify-between gap-3">
