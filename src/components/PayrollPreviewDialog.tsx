@@ -27,6 +27,7 @@ interface PayrollPreviewDialogProps {
   dispatcherBonus?: number;
   perDayRate?: number;
   onEmailSent: () => void;
+  previewOnly?: boolean; // When true, hide send button and sick day editing
 }
 
 export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
@@ -48,6 +49,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   dispatcherBonus = 0,
   perDayRate = 0,
   onEmailSent,
+  previewOnly = false,
 }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -295,7 +297,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Payroll Statement Preview - {dispatcherName}</DialogTitle>
+          <DialogTitle>
+            {previewOnly ? "Payroll Statement" : "Payroll Statement Preview"} - {dispatcherName}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 flex gap-4">
@@ -319,8 +323,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
             )}
           </div>
 
-          {/* Sick Days Panel - only show if there are days off */}
-          {lostDayDates.length > 0 && (
+          {/* Sick Days Panel - only show if there are days off AND not in preview-only mode */}
+          {!previewOnly && lostDayDates.length > 0 && (
             <div className="w-64 border rounded-lg p-4 space-y-4">
               <div>
                 <h3 className="font-semibold text-sm">Mark as Sick Days</h3>
@@ -360,21 +364,23 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {previewOnly ? "Close" : "Cancel"}
           </Button>
-          <Button onClick={handleSendEmail} disabled={sending}>
-            {sending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                Send & Mark as Paid
-              </>
-            )}
-          </Button>
+          {!previewOnly && (
+            <Button onClick={handleSendEmail} disabled={sending}>
+              {sending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send & Mark as Paid
+                </>
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
