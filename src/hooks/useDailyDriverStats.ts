@@ -34,8 +34,10 @@ export interface DispatcherDailyStats {
 interface Order {
   id: string;
   driver1_id: string | null;
+  driver2_id: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  original_delivery_datetime: string | null;
   date_change_notes: string | null;
   canceled: boolean;
 }
@@ -61,6 +63,7 @@ function subtractDays(dateStr: string, days: number): string {
 }
 
 function parseRescheduledOriginalDate(notes: string): string | null {
+  // LEGACY FALLBACK: Parse "Supposed to deliver on MM/DD/YYYY" from date_change_notes
   const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/;
   const match = notes.match(regex);
   if (match) {
@@ -115,30 +118,43 @@ function isLostDayWalkback(orders: Order[], targetDate: string): boolean {
 
 /**
  * RESCHEDULE DETECTION: Check if targetDate falls in a reschedule lost day range
+ * Uses original_delivery_datetime (structured) with fallback to regex parsing.
  */
 function isRescheduleLostDay(orders: Order[], targetDate: string): boolean {
+  // Check if driver has ANY pickup on targetDate - if so, not a reschedule lost day
+  const hasPickupToday = orders.some(order => {
+    if (!order.pickup_datetime) return false;
+    const pickupDate = order.pickup_datetime.split("T")[0];
+    return pickupDate === targetDate;
+  });
+
+  if (hasPickupToday) {
+    return false;
+  }
+
   for (const order of orders) {
-    if (!order.date_change_notes) continue;
+    // Get original delivery date:
+    // 1. Prefer structured column (original_delivery_datetime)
+    // 2. Fallback to regex parsing for legacy records
+    let originalDate: string | null = null;
     
-    const originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    if (order.original_delivery_datetime) {
+      originalDate = order.original_delivery_datetime.split("T")[0];
+    } else if (order.date_change_notes) {
+      originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    }
+    
     if (!originalDate) continue;
     
     if (!order.delivery_datetime) continue;
     const actualDate = order.delivery_datetime.split("T")[0];
     
+    // Check if actualDate > originalDate (was actually rescheduled later)
     if (actualDate <= originalDate) continue;
     
+    // Check if targetDate falls within the reschedule range [originalDate, actualDate] inclusive
     if (targetDate >= originalDate && targetDate <= actualDate) {
-      const hasNewPickup = orders.some(o => {
-        if (o.id === order.id) return false;
-        if (!o.pickup_datetime) return false;
-        const pickupDate = o.pickup_datetime.split("T")[0];
-        return pickupDate === targetDate;
-      });
-      
-      if (!hasNewPickup) {
-        return true;
-      }
+      return true;
     }
   }
   
@@ -236,6 +252,7 @@ async function fetchDailyStatsByDispatcher(
 
 /**
  * Calculate live stats for today using WALKBACK algorithm
+ * Includes both driver1_id and driver2_id for team driver support
  */
 async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSummary[]> {
   const today = getChicagoToday();
@@ -271,12 +288,11 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
 
   const homeTimeDrivers = new Set((homeTimeNotes || []).map((n) => n.driver_id));
 
-  // Step 3: Fetch all orders from last 30 days for walkback algorithm
+  // Step 3: Fetch all orders from last 30 days - include BOTH driver1_id and driver2_id
   const { data: ordersData, error: ordersError } = await supabase
     .from("orders")
-    .select("id, driver1_id, pickup_datetime, delivery_datetime, date_change_notes, canceled")
+    .select("id, driver1_id, driver2_id, pickup_datetime, delivery_datetime, original_delivery_datetime, date_change_notes, canceled")
     .eq("canceled", false)
-    .not("driver1_id", "is", null)
     .gte("pickup_datetime", lookbackDate + "T00:00:00")
     .order("pickup_datetime", { ascending: false });
 
@@ -284,14 +300,23 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
 
   const orders = (ordersData || []) as Order[];
 
-  // Group orders by driver1_id
+  // Group orders by driver (BOTH driver1 and driver2)
   const ordersByDriver = new Map<string, Order[]>();
   for (const order of orders) {
-    if (!order.driver1_id) continue;
-    if (!ordersByDriver.has(order.driver1_id)) {
-      ordersByDriver.set(order.driver1_id, []);
+    // Add to driver1's list
+    if (order.driver1_id) {
+      if (!ordersByDriver.has(order.driver1_id)) {
+        ordersByDriver.set(order.driver1_id, []);
+      }
+      ordersByDriver.get(order.driver1_id)!.push(order);
     }
-    ordersByDriver.get(order.driver1_id)!.push(order);
+    // Also add to driver2's list (team driver)
+    if (order.driver2_id) {
+      if (!ordersByDriver.has(order.driver2_id)) {
+        ordersByDriver.set(order.driver2_id, []);
+      }
+      ordersByDriver.get(order.driver2_id)!.push(order);
+    }
   }
 
   // Step 4: Calculate stats per office using walkback algorithm
@@ -317,18 +342,21 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
 
     if (hasHomeTime) {
       stats.home_time_count++;
+      // Home time takes precedence - driver is NOT counted as lost day
     } else {
       // Use walkback algorithm
       const isLostDay = isLostDayWalkback(driverOrders, today);
-      if (isLostDay) {
+      // Check for reschedule
+      const hasReschedule = isRescheduleLostDay(driverOrders, today);
+      
+      // Combined: lost if walkback says lost OR reschedule says lost
+      if (isLostDay || hasReschedule) {
         stats.lost_day_count++;
       }
-    }
-
-    // Check for reschedule
-    const hasReschedule = isRescheduleLostDay(driverOrders, today);
-    if (hasReschedule) {
-      stats.reschedule_count++;
+      
+      if (hasReschedule) {
+        stats.reschedule_count++;
+      }
     }
   }
 

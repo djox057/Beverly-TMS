@@ -2279,6 +2279,7 @@ export type Database = {
           no_tracking_fee: number | null
           no_tracking_fee_driver: number | null
           notes: string | null
+          original_delivery_datetime: string | null
           original_detention: number | null
           original_detention_driver: number | null
           original_dh_miles: number | null
@@ -2386,6 +2387,7 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_delivery_datetime?: string | null
           original_detention?: number | null
           original_detention_driver?: number | null
           original_dh_miles?: number | null
@@ -2493,6 +2495,7 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_delivery_datetime?: string | null
           original_detention?: number | null
           original_detention_driver?: number | null
           original_dh_miles?: number | null
