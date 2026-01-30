@@ -2206,8 +2206,12 @@ const Analytics = () => {
                       : coveragePercent;
                     const safeCoverage = Math.max(0, Math.min(100, displayCoverage));
                     
+                    if (isDispatchOnly) {
+                      return null;
+                    }
+                    
                     return (
-                      <div className={`grid grid-cols-2 sm:grid-cols-${isDispatchOnly ? '2' : '3'} lg:grid-cols-${isDispatchOnly ? '4' : '5'} gap-4 sm:gap-8 mt-4 pt-4 border-t border-border`}>
+                      <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8 mt-4 pt-4 border-t border-border`}>
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
                             {daysInPeriod > 7 ? 'Avg Gross/Truck/Week' : 'Avg Gross/Truck'}
@@ -2233,12 +2237,10 @@ const Analytics = () => {
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
                           <p className="text-lg sm:text-2xl font-bold">{displayTruckCount.toFixed(1)}</p>
                         </div>
-                        {!isDispatchOnly && (
-                          <div className="text-center">
-                            <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
-                            <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.driverCount.toFixed(1)}</p>
-                          </div>
-                        )}
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
+                          <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.driverCount.toFixed(1)}</p>
+                        </div>
                         <div className="text-center col-span-2 sm:col-span-1">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Coverage %</p>
                           <p className={`text-lg sm:text-2xl font-bold ${
