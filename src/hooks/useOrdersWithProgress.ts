@@ -13,12 +13,17 @@ interface LoadingProgress {
   isComplete: boolean;
 }
 
+interface UseOrdersWithProgressOptions {
+  bookedBy?: string | null;
+  dispatcherUserId?: string | null;
+}
+
 /**
  * Hook for Analytics page that loads ALL orders with progress tracking.
  * Uses Edge Function for bulk fetch - loads all unlocked orders in ~1 second.
  * CRITICAL: This hook MUST load 100% of unlocked orders from the database.
  */
-export function useOrdersWithProgress() {
+export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<LoadingProgress>({
     unlockedLoaded: 0,
@@ -30,8 +35,30 @@ export function useOrdersWithProgress() {
   
   const isMountedRef = useRef(true);
 
+  // Normalize option values for stable query key
+  const bookedBy = options?.bookedBy ?? null;
+  const dispatcherUserId = options?.dispatcherUserId ?? null;
+  const hasFilters = Boolean(bookedBy || dispatcherUserId);
+  
+  // Query key changes when filters change
+  const queryKey = hasFilters 
+    ? ["orders", "analytics", bookedBy, dispatcherUserId] 
+    : ["orders"];
+
   // Subscribe to real-time updates
   useOrdersRealtime();
+
+  // Fetch dispatcher driver IDs if needed
+  const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
+    if (!dispatcherUserId) return [];
+    
+    const { data: assignedDrivers } = await supabase
+      .from("drivers")
+      .select("id")
+      .eq("dispatcher_id", dispatcherUserId);
+    
+    return (assignedDrivers || []).map(d => d.id);
+  }, [dispatcherUserId]);
 
   // Helper function to enrich locked orders
   const enrichLockedOrders = useCallback(async (lockedOrders: any[]) => {
@@ -161,12 +188,15 @@ export function useOrdersWithProgress() {
 
   // Main query - uses Edge Function for bulk fetch
   const query = useQuery({
-    queryKey: ["orders"],
+    queryKey,
     queryFn: async () => {
       const startTime = Date.now();
       console.log("[OrdersWithProgress] Starting bulk fetch via Edge Function...");
 
       setProgress(prev => ({ ...prev, isLoadingMore: true }));
+
+      // Fetch dispatcher driver IDs if filtering
+      const dispatcherDriverIds = await fetchDispatcherDriverIds();
 
       // Use Edge Function to fetch ALL unlocked orders in a single call
       let allUnlockedOrders: any[] = [];
@@ -175,7 +205,12 @@ export function useOrdersWithProgress() {
       try {
         const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
           "get-all-unlocked-orders",
-          { body: {} }
+          { 
+            body: {
+              bookedBy,
+              dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            }
+          }
         );
 
         if (edgeFunctionError) {
@@ -192,12 +227,23 @@ export function useOrdersWithProgress() {
         // Fallback to direct database fetch if Edge Function fails
         console.warn("[OrdersWithProgress] Edge Function failed, falling back to direct fetch:", edgeError);
         
-        // Get total count
-        const { count } = await supabase
+        // Get total count with filters
+        let countQuery = supabase
           .from("orders")
           .select("*", { count: "exact", head: true })
           .eq("locked", false);
         
+        if (bookedBy && dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.or(
+            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+          );
+        } else if (bookedBy) {
+          countQuery = countQuery.eq("booked_by", bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+        }
+        
+        const { count } = await countQuery;
         totalUnlockedCount = count;
         
         // Fetch all unlocked orders in batches
@@ -205,7 +251,7 @@ export function useOrdersWithProgress() {
         let offset = 0;
         
         while (true) {
-          const { data: batch, error: batchError } = await supabase
+          let batchQuery = supabase
             .from("orders")
             .select(`
               *,
@@ -239,6 +285,19 @@ export function useOrdersWithProgress() {
             .order("created_at", { ascending: false })
             .range(offset, offset + BATCH_SIZE - 1);
 
+          // Apply filters
+          if (bookedBy && dispatcherDriverIds.length > 0) {
+            batchQuery = batchQuery.or(
+              `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+            );
+          } else if (bookedBy) {
+            batchQuery = batchQuery.eq("booked_by", bookedBy);
+          } else if (dispatcherDriverIds.length > 0) {
+            batchQuery = batchQuery.in("driver1_id", dispatcherDriverIds);
+          }
+
+          const { data: batch, error: batchError } = await batchQuery;
+
           if (batchError || !batch || batch.length === 0) break;
 
           allUnlockedOrders = allUnlockedOrders.concat(batch);
@@ -258,8 +317,22 @@ export function useOrdersWithProgress() {
         unlockedTotal: totalUnlockedCount,
       }));
 
+      // Helper: apply the same filtering logic for locked orders
+      const filterByDispatcher = (orders: any[]) => {
+        const hasBookedByFilter = Boolean(bookedBy);
+        const hasDriverFilter = dispatcherDriverIds.length > 0;
+        if (!hasBookedByFilter && !hasDriverFilter) return orders;
+
+        return orders.filter((order) => {
+          const matchesBookedBy = hasBookedByFilter ? order.booked_by === bookedBy : false;
+          const matchesDriver = hasDriverFilter ? dispatcherDriverIds.includes(order.driver1_id) : false;
+          return matchesBookedBy || matchesDriver;
+        });
+      };
+
       // Load locked orders from cache and DB
       let lockedOrders = await getLockedOrders() || [];
+      lockedOrders = filterByDispatcher(lockedOrders);
       
       const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
       let allDbLockedOrders: any[] = [];
@@ -267,12 +340,25 @@ export function useOrdersWithProgress() {
       const batchSize = 1000;
       
       while (true) {
-        const { data: batch, error: batchError } = await supabase
+        let dbQuery = supabase
           .from("orders")
           .select("*")
           .eq("locked", true)
           .order("updated_at", { ascending: false })
           .range(offset, offset + batchSize - 1);
+        
+        // Apply filters to DB query
+        if (bookedBy && dispatcherDriverIds.length > 0) {
+          dbQuery = dbQuery.or(
+            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+          );
+        } else if (bookedBy) {
+          dbQuery = dbQuery.eq("booked_by", bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          dbQuery = dbQuery.in("driver1_id", dispatcherDriverIds);
+        }
+        
+        const { data: batch, error: batchError } = await dbQuery;
         
         if (batchError || !batch || batch.length === 0) break;
         allDbLockedOrders = [...allDbLockedOrders, ...batch];
@@ -333,10 +419,25 @@ export function useOrdersWithProgress() {
       
       // Verify we have all unlocked orders
       (async () => {
-        const { count } = await supabase
+        const dispatcherDriverIds = await fetchDispatcherDriverIds();
+        
+        let countQuery = supabase
           .from("orders")
           .select("*", { count: "exact", head: true })
           .eq("locked", false);
+        
+        // Apply same filters as main query
+        if (bookedBy && dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.or(
+            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+          );
+        } else if (bookedBy) {
+          countQuery = countQuery.eq("booked_by", bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+        }
+        
+        const { count } = await countQuery;
         
         if (isMountedRef.current) {
           setProgress({
@@ -349,7 +450,7 @@ export function useOrdersWithProgress() {
           
           if (unlockedCount < (count || 0)) {
             console.warn(`[OrdersWithProgress] Cache incomplete: ${unlockedCount}/${count}, triggering refetch`);
-            queryClient.invalidateQueries({ queryKey: ["orders"] });
+            queryClient.invalidateQueries({ queryKey });
           }
         }
       })();
@@ -358,7 +459,7 @@ export function useOrdersWithProgress() {
     return () => {
       isMountedRef.current = false;
     };
-  }, [query.data, query.isLoading, progress.unlockedTotal, queryClient]);
+  }, [query.data, query.isLoading, progress.unlockedTotal, queryClient, queryKey, bookedBy, fetchDispatcherDriverIds]);
 
   return {
     ...query,
