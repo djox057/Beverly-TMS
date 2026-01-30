@@ -34,71 +34,12 @@ Deno.serve(async (req) => {
     console.log(`Running cleanup at Chicago time: ${chicagoNow}, date: ${chicagoToday}`);
 
     // NOTE: Yard actions are no longer automatically deleted - they persist until manually removed
-
-    // 2. Process checked 2-week notice drivers where block date has passed
-    const { data: twoWeekDrivers, error: twoWeekFetchError } = await supabase
-      .from('drivers')
-      .select('id, two_week_block_date')
-      .eq('is_checked_for_termination', true)
-      .not('two_week_block_date', 'is', null);
-
-    if (twoWeekFetchError) {
-      console.error('Error fetching 2-week notice drivers:', twoWeekFetchError);
-      throw twoWeekFetchError;
-    }
-
-    let terminatedDrivers = 0;
-    if (twoWeekDrivers && twoWeekDrivers.length > 0) {
-      for (const driver of twoWeekDrivers) {
-        if (driver.two_week_block_date && driver.two_week_block_date < chicagoToday) {
-          // 1. Update driver record - terminate and disconnect
-          const { error: updateError } = await supabase
-            .from('drivers')
-            .update({
-              is_active: false,
-              termination_date: driver.two_week_block_date,
-              dispatcher_id: null,
-              two_week_block_date: null,
-              is_checked_for_termination: false,
-            })
-            .eq('id', driver.id);
-
-          if (updateError) {
-            console.error(`Error updating driver ${driver.id}:`, updateError);
-            continue;
-          }
-
-          // 2. Disconnect from any truck as driver1
-          const { error: driver1Error } = await supabase
-            .from('trucks')
-            .update({ driver1_id: null })
-            .eq('driver1_id', driver.id);
-
-          if (driver1Error) {
-            console.error(`Error disconnecting driver1 ${driver.id}:`, driver1Error);
-          }
-
-          // 3. Disconnect from any truck as driver2
-          const { error: driver2Error } = await supabase
-            .from('trucks')
-            .update({ driver2_id: null })
-            .eq('driver2_id', driver.id);
-
-          if (driver2Error) {
-            console.error(`Error disconnecting driver2 ${driver.id}:`, driver2Error);
-          }
-
-          terminatedDrivers++;
-          console.log(`Terminated driver ${driver.id}`);
-        }
-      }
-    }
-    console.log(`Terminated ${terminatedDrivers} drivers from 2-week notice`);
+    // NOTE: 2-week notice drivers are no longer automatically terminated - they must be manually processed
 
     return new Response(
       JSON.stringify({
         success: true,
-        terminatedDrivers,
+        message: 'Cleanup job executed - no auto-deletions configured',
         chicagoDate: chicagoToday,
       }),
       {
