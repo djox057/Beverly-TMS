@@ -39,8 +39,10 @@ interface LostDayNote {
 interface Order {
   id: string;
   driver1_id: string | null;
+  driver2_id: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  original_delivery_datetime: string | null;
   date_change_notes: string | null;
   canceled: boolean;
 }
@@ -62,14 +64,8 @@ function subtractDays(dateStr: string, days: number): string {
   return date.toISOString().split("T")[0];
 }
 
-function addDays(dateStr: string, days: number): string {
-  const date = new Date(dateStr + "T12:00:00Z");
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
-}
-
 function parseRescheduledOriginalDate(notes: string): string | null {
-  // Parse "Supposed to deliver on MM/DD/YYYY" from date_change_notes
+  // LEGACY FALLBACK: Parse "Supposed to deliver on MM/DD/YYYY" from date_change_notes
   const regex = /Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/;
   const match = notes.match(regex);
   if (match) {
@@ -196,20 +192,24 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
   }
 
   const lostDayNotes = lostDayNotesData as LostDayNote[];
-  const lostDayMap = new Map<string, { type: string | null; note: string | null }>();
+  const homeTimeDrivers = new Set<string>();
+  const lostDayNoteMap = new Map<string, string | null>();
+  
   lostDayNotes?.forEach((note) => {
-    lostDayMap.set(note.driver_id, { type: note.note_type, note: note.note });
+    if (note.note_type === "home_time") {
+      homeTimeDrivers.add(note.driver_id);
+    }
+    lostDayNoteMap.set(note.driver_id, note.note);
   });
 
   // Step 3: Fetch ALL non-canceled orders with pickup within last 30 days + future
-  // This will be used for the walkback algorithm
+  // Include BOTH driver1_id and driver2_id for team driver support
   const lookbackDate = subtractDays(targetDate, 30);
   
   const { data: ordersData, error: ordersError } = await supabase
     .from("orders")
-    .select("id, driver1_id, pickup_datetime, delivery_datetime, date_change_notes, canceled")
+    .select("id, driver1_id, driver2_id, pickup_datetime, delivery_datetime, original_delivery_datetime, date_change_notes, canceled")
     .eq("canceled", false)
-    .not("driver1_id", "is", null)
     .gte("pickup_datetime", lookbackDate + "T00:00:00")
     .order("pickup_datetime", { ascending: false });
 
@@ -218,44 +218,54 @@ async function recordStatsForDate(supabase: any, targetDate: string) {
     throw ordersError;
   }
 
-  const orders = ordersData as Order[];
+  const orders = (ordersData || []) as Order[];
   
-  // Group orders by driver1_id for faster lookups
+  // Group orders by driver (BOTH driver1 and driver2)
   const ordersByDriver = new Map<string, Order[]>();
   for (const order of orders) {
-    if (!order.driver1_id) continue;
-    if (!ordersByDriver.has(order.driver1_id)) {
-      ordersByDriver.set(order.driver1_id, []);
+    // Add to driver1's list
+    if (order.driver1_id) {
+      if (!ordersByDriver.has(order.driver1_id)) {
+        ordersByDriver.set(order.driver1_id, []);
+      }
+      ordersByDriver.get(order.driver1_id)!.push(order);
     }
-    ordersByDriver.get(order.driver1_id)!.push(order);
+    // Also add to driver2's list (team driver)
+    if (order.driver2_id) {
+      if (!ordersByDriver.has(order.driver2_id)) {
+        ordersByDriver.set(order.driver2_id, []);
+      }
+      ordersByDriver.get(order.driver2_id)!.push(order);
+    }
   }
 
-  // Step 4: Build stats records for each driver using WALKBACK algorithm
+  // Step 4: Build stats records for each driver
   const statsToInsert: DriverStats[] = [];
 
   for (const driver of drivers || []) {
     const office = profileMap.get(driver.dispatcher_id) || "Unknown";
-    const lostDayInfo = lostDayMap.get(driver.id);
     const driverOrders = ordersByDriver.get(driver.id) || [];
 
-    // WALKBACK ALGORITHM: Determine if this is a lost day
-    const hasLostDay = isLostDayWalkback(driverOrders, targetDate);
+    // PRIORITY 1: Check for home time - if set, NOT a lost day
+    const hasHomeTime = homeTimeDrivers.has(driver.id);
     
-    // Home time from lost_day_notes
-    const hasHomeTime = lostDayInfo?.type === "home_time";
+    // WALKBACK ALGORITHM: Determine if this is a lost day (only if NOT home time)
+    const isLostDay = hasHomeTime ? false : isLostDayWalkback(driverOrders, targetDate);
     
-    // Reschedule detection: check if targetDate falls in any reschedule range
-    const hasReschedule = isRescheduleLostDay(driverOrders, targetDate);
+    // RESCHEDULE DETECTION: Check if targetDate falls in any reschedule range
+    // This is separate tracking for reschedule-specific lost days
+    const hasReschedule = hasHomeTime ? false : isRescheduleLostDay(driverOrders, targetDate, driver.id);
 
     statsToInsert.push({
       date: targetDate,
       driver_id: driver.id,
       dispatcher_id: driver.dispatcher_id,
       office: office,
-      has_lost_day: hasLostDay,
+      // Combined logic: lost day = walkback lost OR reschedule lost, but NOT if home time
+      has_lost_day: isLostDay || hasReschedule,
       has_home_time: hasHomeTime,
       has_reschedule: hasReschedule,
-      lost_day_note: lostDayInfo?.note || null,
+      lost_day_note: lostDayNoteMap.get(driver.id) || null,
       reschedule_order_id: null,
     });
   }
@@ -347,15 +357,39 @@ function isLostDayWalkback(orders: Order[], targetDate: string): boolean {
 /**
  * RESCHEDULE DETECTION: Check if targetDate falls in a reschedule lost day range
  * 
- * For orders with "Supposed to deliver on MM/DD/YYYY" in date_change_notes:
+ * Uses original_delivery_datetime (structured) with fallback to regex parsing.
+ * 
+ * For rescheduled orders:
  * - Range: original_delivery_date to actual_delivery_date (BOTH INCLUSIVE)
- * - Each date in range counts as reschedule lost day UNLESS driver has new pickup that day
+ * - Each date in range counts as reschedule lost day UNLESS driver has pickup that day
+ * 
+ * This function returns true ONCE per (driver_id, date) - no double counting.
  */
-function isRescheduleLostDay(orders: Order[], targetDate: string): boolean {
+function isRescheduleLostDay(orders: Order[], targetDate: string, driverId: string): boolean {
+  // Check if driver has ANY pickup on targetDate - if so, not a reschedule lost day
+  const hasPickupToday = orders.some(order => {
+    if (!order.pickup_datetime) return false;
+    const pickupDate = order.pickup_datetime.split("T")[0];
+    return pickupDate === targetDate;
+  });
+
+  if (hasPickupToday) {
+    return false; // Driver has a pickup, not a lost day due to reschedule
+  }
+
+  // Check each order for reschedule window
   for (const order of orders) {
-    if (!order.date_change_notes) continue;
+    // Get original delivery date:
+    // 1. Prefer structured column (original_delivery_datetime)
+    // 2. Fallback to regex parsing for legacy records
+    let originalDate: string | null = null;
     
-    const originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    if (order.original_delivery_datetime) {
+      originalDate = order.original_delivery_datetime.split("T")[0];
+    } else if (order.date_change_notes) {
+      originalDate = parseRescheduledOriginalDate(order.date_change_notes);
+    }
+    
     if (!originalDate) continue;
     
     if (!order.delivery_datetime) continue;
@@ -366,17 +400,7 @@ function isRescheduleLostDay(orders: Order[], targetDate: string): boolean {
     
     // Check if targetDate falls within the reschedule range [originalDate, actualDate] inclusive
     if (targetDate >= originalDate && targetDate <= actualDate) {
-      // Check if driver has a NEW pickup on targetDate (different from this order)
-      const hasNewPickup = orders.some(o => {
-        if (o.id === order.id) return false; // Skip the same order
-        if (!o.pickup_datetime) return false;
-        const pickupDate = o.pickup_datetime.split("T")[0];
-        return pickupDate === targetDate;
-      });
-      
-      if (!hasNewPickup) {
-        return true; // Is a reschedule lost day
-      }
+      return true; // This date is in the reschedule window
     }
   }
   
