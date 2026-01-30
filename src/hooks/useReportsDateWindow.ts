@@ -36,6 +36,10 @@ export interface ReportsDateWindowOptions {
   selectedDate: Date;
   /** Office to filter dispatchers by (e.g., "Čačak"). Used to match legacy useReports behavior. */
   priorityOffice?: string | null;
+  /** When true, only loads the current user's drivers (Individual mode) */
+  individualMode?: boolean;
+  /** The current user's dispatcher ID for Individual mode filtering */
+  currentUserDispatcherId?: string | null;
 }
 
 // Helper to format date for Supabase queries
@@ -426,8 +430,34 @@ const fetchGapFillOrders = async (
  * 4. Return all driver IDs from those filtered trucks
  * 
  * This matches useReports.ts lines 844-886 exactly.
+ * 
+ * @param individualDispatcherId When provided (Individual mode ON), only fetches drivers for this dispatcher
  */
-const fetchDriverIdsForOffice = async (priorityOffice: string | null): Promise<{ driverIds: string[], dispatcherIds: string[] }> => {
+const fetchDriverIdsForOffice = async (
+  priorityOffice: string | null,
+  individualDispatcherId?: string | null
+): Promise<{ driverIds: string[], dispatcherIds: string[] }> => {
+  // Individual mode: only fetch drivers for the current user
+  if (individualDispatcherId) {
+    console.log(`[useReportsDateWindow] 🔍 INDIVIDUAL MODE: Fetching drivers only for dispatcher: ${individualDispatcherId}`);
+    
+    const { data: directDrivers, error: directDriversError } = await supabase
+      .from("drivers")
+      .select("id")
+      .eq("is_active", true)
+      .eq("dispatcher_id", individualDispatcherId);
+
+    if (directDriversError) {
+      console.error('[useReportsDateWindow] Error fetching individual dispatcher drivers:', directDriversError);
+      throw directDriversError;
+    }
+
+    const driverIds = (directDrivers || []).map(d => d.id);
+    console.log(`[useReportsDateWindow] ✅ INDIVIDUAL MODE: Found ${driverIds.length} drivers for dispatcher`);
+    
+    return { driverIds, dispatcherIds: [individualDispatcherId] };
+  }
+
   console.log(`[useReportsDateWindow] 🔍 DEBUG: Fetching drivers for office: ${priorityOffice || 'ALL'}`);
   
   // Step 1: Get all dispatchers in this office
@@ -519,7 +549,7 @@ const fetchDriverIdsForOffice = async (priorityOffice: string | null): Promise<{
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId } = options;
   
   // Track loaded windows for accumulative caching
   const loadedWindowsRef = useRef<Set<string>>(new Set());
@@ -532,11 +562,15 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const windowKey = getWindowKey(currentWindow);
 
   // Fetch data for the current date window
+  // Include individualMode in query key to refetch when mode changes
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['reports-date-window', priorityOffice, windowKey],
+    queryKey: ['reports-date-window', priorityOffice, windowKey, individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : null],
     queryFn: async () => {
-      // Step 1: Get driver IDs for this office (matches legacy useReports behavior)
-      const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(priorityOffice || null);
+      // Step 1: Get driver IDs for this office (or just current user in Individual mode)
+      const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
+        priorityOffice || null,
+        individualMode ? currentUserDispatcherId : null
+      );
       if (driverIds.length === 0) {
         console.log('[useReportsDateWindow] No drivers found for office, returning empty');
         return { orders: [], driverIds: [], dispatcherIds: [] };

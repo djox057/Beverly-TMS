@@ -7,6 +7,8 @@ interface IndividualModeContextType {
   setIndividualMode: (enabled: boolean) => Promise<void>;
   canUseIndividualMode: boolean;
   isLoading: boolean;
+  /** The current user's dispatcher ID (user_id from profile) for filtering */
+  currentUserDispatcherId: string | null;
 }
 
 const IndividualModeContext = createContext<IndividualModeContextType | undefined>(undefined);
@@ -69,6 +71,7 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
         setIndividualMode,
         canUseIndividualMode,
         isLoading,
+        currentUserDispatcherId: profile?.user_id ?? null,
       }}
     >
       {children}
