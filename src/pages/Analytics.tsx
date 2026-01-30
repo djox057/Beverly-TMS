@@ -2007,13 +2007,19 @@ const Analytics = () => {
 
         <Tabs defaultValue="performance" className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <TabsList>
+          <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
-              <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>
+              {/* Hide Driver Gross Rankings and Loads tabs for dispatch-only users */}
+              {!isDispatchOnly && (
+                <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>
+              )}
               {/* Hidden: Driver Performance tab - keeping code for future use */}
               {/* <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger> */}
-              <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
-              {canViewSalaries && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
+              {!isDispatchOnly && (
+                <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
+              )}
+              {/* Show Salaries tab for admins/chicago_management OR for dispatch-only users (their own salary) */}
+              {(canViewSalaries || isDispatchOnly) && <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
@@ -2883,12 +2889,12 @@ const Analytics = () => {
             )}
           </TabsContent>
 
-          {canViewSalaries && (
+          {(canViewSalaries || isDispatchOnly) && (
             <TabsContent value="salaries" className="space-y-6">
               <Card>
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-4">
-                    <CardTitle>Salaries</CardTitle>
+                    <CardTitle>{isDispatchOnly ? "My Salary" : "Salaries"}</CardTitle>
                     <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
                       <Select value={selectedMonth} onValueChange={handleMonthChange}>
                         <SelectTrigger className="w-full sm:w-64">
@@ -2907,13 +2913,16 @@ const Analytics = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" size="sm" onClick={() => setIsBonusesDialogOpen(true)}>
-                        Bonuses
-                      </Button>
+                      {/* Hide Bonuses button for dispatch-only users */}
+                      {!isDispatchOnly && (
+                        <Button variant="outline" size="sm" onClick={() => setIsBonusesDialogOpen(true)}>
+                          Bonuses
+                        </Button>
+                      )}
                     </div>
 
-                    {/* Office Filters - Only for Admin/Manager/Chicago Management */}
-                    {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
+                    {/* Office Filters - Only for Admin/Manager/Chicago Management, hidden for dispatch-only */}
+                    {!isDispatchOnly && (hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
                       <div className="flex flex-wrap gap-2 items-center w-full">
                         <span className="text-sm font-medium text-muted-foreground">Office:</span>
                         {Array.from(
@@ -2952,39 +2961,43 @@ const Analytics = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[50px]">
-                            {salarySelectionMode ? (
-                              <Checkbox
-                                checked={
-                                  dispatcherStats.length > 0 &&
-                                  selectedDispatcherIds.size === dispatcherStats.filter((s) => s.userId).length
-                                }
-                                onCheckedChange={() =>
-                                  toggleSelectAllDispatchers(
-                                    dispatcherStats.filter((s) => s.userId).map((s) => s.userId!),
-                                  )
-                                }
-                              />
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setSalarySelectionMode(true)}
-                                title="Enable selection mode"
-                                disabled={!selectedMonth || selectedMonth === "all"}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </TableHead>
+                          {/* Hide selection column for dispatch-only users */}
+                          {!isDispatchOnly && (
+                            <TableHead className="w-[50px]">
+                              {salarySelectionMode ? (
+                                <Checkbox
+                                  checked={
+                                    dispatcherStats.length > 0 &&
+                                    selectedDispatcherIds.size === dispatcherStats.filter((s) => s.userId).length
+                                  }
+                                  onCheckedChange={() =>
+                                    toggleSelectAllDispatchers(
+                                      dispatcherStats.filter((s) => s.userId).map((s) => s.userId!),
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => setSalarySelectionMode(true)}
+                                  title="Enable selection mode"
+                                  disabled={!selectedMonth || selectedMonth === "all"}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableHead>
+                          )}
                           <TableHead>Dispatcher</TableHead>
                           <TableHead className="text-right">Total Freight</TableHead>
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                           <TableHead className="text-right">Days Off</TableHead>
                           <TableHead className="text-right">Salary</TableHead>
-                          <TableHead className="text-right">Paid</TableHead>
+                          {/* Hide Paid column for dispatch-only users */}
+                          {!isDispatchOnly && <TableHead className="text-right">Paid</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3062,19 +3075,23 @@ const Analytics = () => {
                                 key={stat.name}
                                 className={index === dispatcherStats.length - 1 ? "border-b" : ""}
                               >
-                                <TableCell className="w-[50px]">
-                                  {salarySelectionMode && stat.userId ? (
-                                    <Checkbox
-                                      checked={selectedDispatcherIds.has(stat.userId)}
-                                      onCheckedChange={() => toggleDispatcherSelection(stat.userId!)}
-                                    />
-                                  ) : null}
-                                </TableCell>
+                                {/* Hide selection checkbox for dispatch-only users */}
+                                {!isDispatchOnly && (
+                                  <TableCell className="w-[50px]">
+                                    {salarySelectionMode && stat.userId ? (
+                                      <Checkbox
+                                        checked={selectedDispatcherIds.has(stat.userId)}
+                                        onCheckedChange={() => toggleDispatcherSelection(stat.userId!)}
+                                      />
+                                    ) : null}
+                                  </TableCell>
+                                )}
                                 <TableCell className="font-medium">
                                   <div className="flex items-center gap-2">
                                     {renderRankIcon()}
                                     {stat.name}
-                                    {selectedMonth && selectedMonth !== "all" && (
+                                    {/* Hide download/send payroll buttons for dispatch-only users */}
+                                    {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -3242,19 +3259,22 @@ const Analytics = () => {
                                     })}
                                   </span>
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  {isPaid ? (
-                                    <span className="text-green-600 font-medium">
-                                      $
-                                      {payment.paid_amount.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
+                                {/* Hide Paid column for dispatch-only users */}
+                                {!isDispatchOnly && (
+                                  <TableCell className="text-right">
+                                    {isPaid ? (
+                                      <span className="text-green-600 font-medium">
+                                        $
+                                        {payment.paid_amount.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                )}
                               </TableRow>
                             );
                           });
@@ -3262,7 +3282,8 @@ const Analytics = () => {
                         {/* Totals Row for All Time view */}
                         {selectedMonth === "all" && (
                           <TableRow className="bg-muted/50 font-medium border-t-2">
-                            <TableCell></TableCell>
+                            {/* Hide empty cell for dispatch-only users */}
+                            {!isDispatchOnly && <TableCell></TableCell>}
                             <TableCell className="font-bold">Total</TableCell>
                             <TableCell className="text-right font-bold">
                               $
@@ -3291,12 +3312,15 @@ const Analytics = () => {
                               )}
                             </TableCell>
                             <TableCell className="text-right font-bold">—</TableCell>
-                            <TableCell className="text-right font-bold text-green-600">
-                              $
-                              {Object.values(salaryPayments)
-                                .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
-                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
+                            {/* Hide Paid column for dispatch-only users */}
+                            {!isDispatchOnly && (
+                              <TableCell className="text-right font-bold text-green-600">
+                                $
+                                {Object.values(salaryPayments)
+                                  .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
+                                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                            )}
                           </TableRow>
                         )}
                       </TableBody>
