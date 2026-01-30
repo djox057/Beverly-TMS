@@ -1,100 +1,81 @@
 
 
-# Fix: Search Flicker During Progressive Loading
+# Fix: Search for Internal Load Numbers with Company Suffix
 
-## Problem Summary
+## Problem
 
-When a user searches for an archived order while Phase 2 (locked orders) is still loading:
-1. User types search term → `debouncedSearchTerm` updates  
-2. Server search starts → `searchResults` is still `null`
-3. **Line 348** condition fails: `&& searchResults` is falsy
-4. Falls back to `orders` (incomplete local data)
-5. Table shows empty/wrong results
-6. Server completes → briefly shows correct result
-7. Phase 2 updates → triggers re-render → cycle repeats
+Users see internal load numbers displayed as `6538-BFU` in the UI, but the database stores only the integer `6538`. When a user searches for "6538-BFU", the search fails because:
 
-**Root cause**: The condition `searchResults` being truthy is required, but during an active search `searchResults` is `null`, causing fallback to incomplete local data.
+1. Current logic: `const isNumericTerm = /^\d+$/.test(term)` → `false` for "6538-BFU"
+2. Since it's not purely numeric, `internal_load_number` is not included in the search filter
+3. The order is never found
 
 ## Solution
 
-Two minimal, targeted changes:
+Use the existing `parseInternalLoadNumber()` utility to extract the numeric portion from search terms that match the formatted pattern (e.g., "6538-BFU" → `6538`).
 
-### Change 1: Add Stale Response Protection to `useOrdersSearch.ts`
+## Implementation
 
-Add a `latestSearchKeyRef` to track the most recent search (term + filters). When an async response arrives, discard it if it doesn't match the current key.
+### File: `src/hooks/useOrdersSearch.ts`
 
-**File**: `src/hooks/useOrdersSearch.ts`
+**Change 1**: Import the parse utility
 
-Changes:
-- Line 1: Add `useRef` to imports
-- Line 17: Add `latestSearchKeyRef` 
-- Line 26-29: Clear the ref when clearing search
-- Line 35: Generate search key and set ref BEFORE async call
-- Lines 107-122: Check ref before updating state in try/catch/finally
-
-### Change 2: Fix `dataSource` to Lock Into Server Mode
-
-**File**: `src/pages/Orders.tsx`
-
-Change the `dataSource` condition to lock into server mode when search is active, regardless of whether results have arrived yet.
-
-**Current (buggy) - Lines 346-352:**
 ```typescript
-const dataSource = useMemo(() => {
-  // If searching and we have server results, prioritize those
-  if (debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2 && searchResults) {
-    return searchResults;
-  }
-  return orders || [];
-}, [debouncedSearchTerm, searchResults, orders]);
+import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 ```
 
-**Fixed:**
+**Change 2**: Update search filter logic (around lines 99-104)
+
+Replace:
 ```typescript
-const dataSource = useMemo(() => {
-  const isActiveSearch = debouncedSearchTerm && debouncedSearchTerm.trim().length >= 2;
-  
-  if (isActiveSearch) {
-    // LOCKED into server mode - never fall back to local orders during active search
-    // While searching: show previous results or empty array (no flicker)
-    // After search: show server results
-    return searchResults || [];
-  }
-  
-  return orders || [];
-}, [debouncedSearchTerm, searchResults, orders]);
+const isNumericTerm = /^\d+$/.test(term);
+const stringFieldsFilter = `load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`;
+const searchFilter = isNumericTerm 
+  ? `${stringFieldsFilter},internal_load_number.eq.${term}`
+  : stringFieldsFilter;
 ```
 
-**Key insight**: When `isActiveSearch` is true, we **always** return `searchResults` (or empty array), never falling back to `orders`. This prevents the flicker caused by incomplete Phase 2 data.
+With:
+```typescript
+// Check if term is purely numeric
+const isNumericTerm = /^\d+$/.test(term);
 
-## Technical Details
+// Check if term matches formatted internal load number pattern (e.g., "6538-BFU")
+const parsedInternalLoadNumber = parseInternalLoadNumber(term);
+const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null;
 
-### File 1: `src/hooks/useOrdersSearch.ts`
+// Build string fields filter (always search these)
+const stringFieldsFilter = `load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`;
 
-| Line | Change |
-|------|--------|
-| 1 | Add `useRef` to imports |
-| 17 | Add `const latestSearchKeyRef = useRef<string>("")` |
-| 26-29 | Set `latestSearchKeyRef.current = ""` when clearing |
-| 35 | Create search key and set `latestSearchKeyRef.current = searchKey` before async |
-| 107-115 | Check `if (latestSearchKeyRef.current !== searchKey)` before updating state |
-| 116-120 | Apply same stale check in error handling |
-| 121-123 | Apply same stale check in finally block |
+// Build search filter - include internal_load_number when we have a valid numeric value
+let searchFilter: string;
+if (isNumericTerm) {
+  // Pure number like "6538" - exact match on internal_load_number
+  searchFilter = `${stringFieldsFilter},internal_load_number.eq.${term}`;
+} else if (hasValidInternalLoadNumber) {
+  // Formatted number like "6538-BFU" - extract numeric part for internal_load_number
+  searchFilter = `${stringFieldsFilter},internal_load_number.eq.${parsedInternalLoadNumber}`;
+} else {
+  // Non-numeric term - only search string fields
+  searchFilter = stringFieldsFilter;
+}
+```
 
-### File 2: `src/pages/Orders.tsx`
+## How It Works
 
-| Lines | Change |
-|-------|--------|
-| 346-352 | Replace `dataSource` logic to remove `&& searchResults` requirement |
+| Search Term | `isNumericTerm` | `parsedInternalLoadNumber` | Filter Includes |
+|-------------|-----------------|---------------------------|-----------------|
+| `6538` | `true` | `6538` | `internal_load_number.eq.6538` |
+| `6538-BFU` | `false` | `6538` | `internal_load_number.eq.6538` |
+| `6538-bfu` | `false` | `6538` | `internal_load_number.eq.6538` |
+| `abc123` | `false` | `null` | Only string fields |
+| `ABC-XYZ` | `false` | `null` | Only string fields |
 
 ## Expected Behavior After Fix
 
-1. User navigates to `/orders` → Phase 1 loads immediately
-2. Phase 2 starts loading archived orders in background
-3. User types "6898-BFU" (archived order)
-4. After 300ms debounce, server search starts
-5. **During search**: Table shows empty array (not local incomplete data) - no flicker
-6. **Within ~500ms**: Server returns match → Table shows result stably
-7. Phase 2 continues loading but does NOT affect search display
-8. User clears search → Returns to normal progressive loading
+1. User types "6538-BFU" in search
+2. `parseInternalLoadNumber("6538-bfu")` returns `6538`
+3. Search filter includes `internal_load_number.eq.6538`
+4. Database finds the order with `internal_load_number = 6538`
+5. Result displays correctly with formatted suffix "6538-BFU"
 
