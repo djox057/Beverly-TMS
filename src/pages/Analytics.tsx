@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
@@ -235,8 +236,16 @@ const Analytics = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // Don't use database-level filtering for dispatch users - let client-side filtering handle both full_name and user_id formats
-  const { data: orders, isLoading, error, progress } = useOrdersWithProgress();
+  // Use Individual Mode context - applies filtering when toggle is ON
+  const { individualMode } = useIndividualMode();
+  
+  // Apply filtering when Individual Mode is ON or user is dispatch-only
+  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const orderFilterOptions = shouldFilterByUser 
+    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
+    : { bookedBy: null, dispatcherUserId: null };
+
+  const { data: orders, isLoading, error, progress } = useOrdersWithProgress(orderFilterOptions);
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();

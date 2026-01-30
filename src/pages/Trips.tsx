@@ -41,6 +41,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
 
@@ -432,7 +433,12 @@ const Trips = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  const orderFilterOptions = isDispatchOnly 
+  // Use Individual Mode context - applies filtering when toggle is ON
+  const { individualMode } = useIndividualMode();
+  
+  // Apply filtering when Individual Mode is ON or user is dispatch-only
+  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const orderFilterOptions = shouldFilterByUser 
     ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
     : { bookedBy: null, dispatcherUserId: null };
 
