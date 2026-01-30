@@ -42,7 +42,7 @@ import moneyStackIcon from "@/assets/money-stack.png";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
-import { useOrdersProgressive } from "@/hooks/useOrdersProgressive";
+import { useGlobalOrders } from "@/hooks/useGlobalOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { OrdersLoadingProgress, OrdersLoadingBadge } from "@/components/OrdersLoadingProgress";
@@ -169,14 +169,6 @@ const Orders = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // For individual mode users OR dispatch-only users, pass their name and user_id to filter at the database level
-  // This includes orders they booked AND orders for drivers assigned to them
-  // Use null instead of undefined to prevent double fetch when profile loads
-  const shouldFilterByUser = individualMode || isDispatchOnly;
-  const orderFilterOptions = shouldFilterByUser 
-    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
-    : { bookedBy: null, dispatcherUserId: null };
-
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders =
     (hasRole("dispatch") || hasRole("afterhours")) &&
@@ -280,19 +272,37 @@ const Orders = () => {
     }
   }, [isDispatchOnly, profile?.full_name]);
 
-  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 background loads locked
+  // Global orders loading hook - loads ALL orders once and persists across navigation
   const { 
-    data: orders, 
-    isLoading, 
+    orders: globalOrders, 
+    isLoading: globalIsLoading, 
     isLoadingLocked,
     progress: loadingProgress,
-    unlockedCount,
-    lockedCount,
+    totalUnlocked: unlockedCount,
+    totalLocked: lockedCount,
     isPartialData,
-  } = useOrdersProgressive(orderFilterOptions);
+  } = useGlobalOrders();
+  
+  // Client-side filter for Individual Mode (instant, no reload)
+  const orders = useMemo(() => {
+    if (!individualMode && !isDispatchOnly) return globalOrders;
+    
+    // Filter to show only user's booked orders
+    const userFullName = profile?.full_name;
+    const userId = profile?.user_id;
+    
+    if (!userFullName && !userId) return globalOrders;
+    
+    return globalOrders.filter(order => {
+      const matchesBookedBy = order.bookedBy === userFullName || order.bookedBy === userId;
+      return matchesBookedBy;
+    });
+  }, [globalOrders, individualMode, isDispatchOnly, profile?.full_name, profile?.user_id]);
+  
+  const isLoading = globalIsLoading;
   
   // For error handling, use a stable reference
-  const error = null; // Progressive hook handles errors internally
+  const error = null; // Global hook handles errors internally
 
   // Server-side search hook - queries database directly when searching
   const { searchResults, isSearching, searchOrders, clearSearch } = useOrdersSearch();
@@ -307,11 +317,12 @@ const Orders = () => {
 
     if (term.length >= 2) {
       console.log("[Orders] Triggering server-side search for:", term);
-      searchOrders(term, orderFilterOptions);
+      // Use null for options since global orders already handles filtering client-side
+      searchOrders(term, { bookedBy: null, dispatcherUserId: null });
     } else {
       clearSearch();
     }
-  }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions.bookedBy, orderFilterOptions.dispatcherUserId]);
+  }, [debouncedSearchTerm, searchOrders, clearSearch]);
 
   console.log("🟦 [Orders Page] Progressive loading:", {
     ordersCount: orders?.length,
@@ -1988,8 +1999,21 @@ const Orders = () => {
             )}
 
             {/* Progressive Loading Progress Indicator */}
-            {loadingProgress.phase !== "complete" && !isSearching && !debouncedSearchTerm && (
-              <OrdersLoadingProgress {...loadingProgress} />
+            {loadingProgress.phase !== "complete" && loadingProgress.phase !== "idle" && !isSearching && !debouncedSearchTerm && (
+              <OrdersLoadingProgress 
+                phase={loadingProgress.phase === 'unlocked' ? 1 : loadingProgress.phase === 'locked' ? 2 : 'complete'}
+                unlockedLoaded={loadingProgress.unlockedLoaded}
+                unlockedTotal={loadingProgress.unlockedTotal}
+                lockedLoaded={loadingProgress.lockedLoaded}
+                lockedTotal={loadingProgress.lockedTotal}
+                isLoadingLocked={isLoadingLocked}
+                percentComplete={
+                  loadingProgress.phase === 'unlocked' ? 30 :
+                  loadingProgress.phase === 'locked' ? 
+                    30 + Math.round((loadingProgress.lockedLoaded / Math.max(loadingProgress.lockedTotal, 1)) * 70) :
+                    100
+                }
+              />
             )}
 
             {/* Server-side search indicator */}

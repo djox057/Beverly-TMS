@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { IndividualModeProvider } from "./contexts/IndividualModeContext";
+import { OrdersLoadingProvider } from "./contexts/OrdersLoadingContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { supabase } from "./integrations/supabase/client";
@@ -238,9 +239,11 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>
         <IndividualModeProvider>
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
+          <OrdersLoadingProvider>
+            <BrowserRouter>
+              <AppContent />
+            </BrowserRouter>
+          </OrdersLoadingProvider>
         </IndividualModeProvider>
       </AuthProvider>
     </ThemeProvider>
