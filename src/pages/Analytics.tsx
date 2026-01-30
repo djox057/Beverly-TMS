@@ -2155,47 +2155,88 @@ const Analytics = () => {
                   </div>
                   
                   {/* Fleet Averages Section - New Row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8 mt-4 pt-4 border-t border-border">
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                        {finalFleetAverages.daysInPeriod > 7 ? 'Avg Gross/Truck/Week' : 'Avg Gross/Truck'}
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        ${finalFleetAverages.weeklyAvgGrossPerTruck.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                        {finalFleetAverages.daysInPeriod > 7 ? 'Avg Miles/Truck/Week' : 'Avg Miles/Truck'}
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold">
-                        {finalFleetAverages.weeklyAvgMilesPerTruck.toLocaleString(undefined, {
-                          maximumFractionDigits: 0,
-                        })}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
-                      <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.truckCount.toFixed(1)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
-                      <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.driverCount.toFixed(1)}</p>
-                    </div>
-                    <div className="text-center col-span-2 sm:col-span-1">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Coverage %</p>
-                      <p className={`text-lg sm:text-2xl font-bold ${
-                        coveragePercent >= 90 ? 'text-green-600 dark:text-green-400' :
-                        coveragePercent >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
-                        'text-red-600 dark:text-red-400'
-                      }`}>
-                        {coveragePercent.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
+                  {(() => {
+                    // For dispatch-only users, show their own stats
+                    const dispatcherOwnStats = isDispatchOnly && dispatcherStats.length === 1 ? dispatcherStats[0] : null;
+                    const dispatcherTruckData = dispatcherOwnStats?.userId ? dispatcherTruckCounts[dispatcherOwnStats.userId] : null;
+                    
+                    // Calculate dispatcher-specific averages
+                    const dispatcherAvgTrucks = dispatcherTruckData && dispatcherTruckData.totalDaysInRange > 0 
+                      ? dispatcherTruckData.totalTrucks / dispatcherTruckData.totalDaysInRange 
+                      : 0;
+                    const dispatcherTotalTruckDays = dispatcherTruckData?.totalTrucks || 0;
+                    const daysInPeriod = dateRange?.from 
+                      ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+                      : 1;
+                    const weeksInPeriod = Math.max(1, daysInPeriod / 7);
+                    
+                    // Use dispatcher-specific values for dispatch users, otherwise fleet totals
+                    const displayTruckCount = isDispatchOnly && dispatcherOwnStats ? dispatcherAvgTrucks : finalFleetAverages.truckCount;
+                    const displayTotalTruckDays = isDispatchOnly && dispatcherOwnStats ? dispatcherTotalTruckDays : finalFleetAverages.totalTruckDays;
+                    const displayFreight = isDispatchOnly && dispatcherOwnStats ? dispatcherOwnStats.totalFreight : totals.totalFreight;
+                    const displayMiles = isDispatchOnly && dispatcherOwnStats ? dispatcherOwnStats.totalMiles : totals.totalMiles;
+                    
+                    const displayAvgGrossPerTruck = displayTruckCount > 0 ? displayFreight / displayTruckCount : 0;
+                    const displayAvgMilesPerTruck = displayTruckCount > 0 ? displayMiles / displayTruckCount : 0;
+                    const displayWeeklyAvgGross = daysInPeriod > 7 
+                      ? (displayTruckCount > 0 ? displayFreight / displayTruckCount / weeksInPeriod : 0)
+                      : displayAvgGrossPerTruck;
+                    const displayWeeklyAvgMiles = daysInPeriod > 7 
+                      ? (displayTruckCount > 0 ? displayMiles / displayTruckCount / weeksInPeriod : 0)
+                      : displayAvgMilesPerTruck;
+                    
+                    // Calculate dispatcher-specific coverage %
+                    const displayCoverage = isDispatchOnly && dispatcherOwnStats
+                      ? (displayTotalTruckDays > 0 ? ((displayTotalTruckDays - fleetLostDays) / displayTotalTruckDays) * 100 : 100)
+                      : coveragePercent;
+                    const safeCoverage = Math.max(0, Math.min(100, displayCoverage));
+                    
+                    return (
+                      <div className={`grid grid-cols-2 sm:grid-cols-${isDispatchOnly ? '2' : '3'} lg:grid-cols-${isDispatchOnly ? '4' : '5'} gap-4 sm:gap-8 mt-4 pt-4 border-t border-border`}>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
+                            {daysInPeriod > 7 ? 'Avg Gross/Truck/Week' : 'Avg Gross/Truck'}
+                          </p>
+                          <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            ${displayWeeklyAvgGross.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
+                            {daysInPeriod > 7 ? 'Avg Miles/Truck/Week' : 'Avg Miles/Truck'}
+                          </p>
+                          <p className="text-lg sm:text-2xl font-bold">
+                            {displayWeeklyAvgMiles.toLocaleString(undefined, {
+                              maximumFractionDigits: 0,
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Trucks</p>
+                          <p className="text-lg sm:text-2xl font-bold">{displayTruckCount.toFixed(1)}</p>
+                        </div>
+                        {!isDispatchOnly && (
+                          <div className="text-center">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1"># Drivers</p>
+                            <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.driverCount.toFixed(1)}</p>
+                          </div>
+                        )}
+                        <div className="text-center col-span-2 sm:col-span-1">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Coverage %</p>
+                          <p className={`text-lg sm:text-2xl font-bold ${
+                            safeCoverage >= 90 ? 'text-green-600 dark:text-green-400' :
+                            safeCoverage >= 75 ? 'text-yellow-600 dark:text-yellow-400' :
+                            'text-red-600 dark:text-red-400'
+                          }`}>
+                            {safeCoverage.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
