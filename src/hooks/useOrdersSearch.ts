@@ -109,20 +109,17 @@ export function useOrdersSearch() {
       const parsedInternalLoadNumber = parseInternalLoadNumber(term);
       const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null;
 
-      // Build string fields filter (always search these)
-      const stringFieldsFilter = `load_number.ilike.%${term}%,broker_load_number.ilike.%${term}%`;
-
-      // Build search filter - include internal_load_number when we have a valid numeric value
+      // Build search filter - search by broker_load_number (string) and internal_load_number (integer)
       let searchFilter: string;
       if (isNumericTerm && isValidInternalLoadNumber) {
-        // Pure number within integer range like "6538" - exact match on internal_load_number
-        searchFilter = `${stringFieldsFilter},internal_load_number.eq.${term}`;
+        // Pure number within integer range like "6538" - exact match on internal_load_number + ilike on broker_load_number
+        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.eq.${term}`;
       } else if (hasValidInternalLoadNumber) {
         // Formatted number like "6538-BFU" - extract numeric part for internal_load_number
-        searchFilter = `${stringFieldsFilter},internal_load_number.eq.${parsedInternalLoadNumber}`;
+        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.eq.${parsedInternalLoadNumber}`;
       } else {
-        // Non-numeric term OR number too large for internal_load_number - only search string fields
-        searchFilter = stringFieldsFilter;
+        // Non-numeric term OR number too large for internal_load_number - only search broker_load_number
+        searchFilter = `broker_load_number.ilike.%${term}%`;
       }
       
       query = query.or(searchFilter)
