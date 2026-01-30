@@ -108,8 +108,9 @@ export function useOrdersSearch() {
       const isValidInternalLoadNumber = numericValue !== null && numericValue <= 2147483647;
 
       // Check if term matches formatted internal load number pattern (e.g., "6538-BFU")
+      // ALSO verify the parsed number is within PostgreSQL integer range
       const parsedInternalLoadNumber = parseInternalLoadNumber(term);
-      const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null;
+      const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null && parsedInternalLoadNumber <= 2147483647;
 
       // Build search filter - search by broker_load_number (string) and internal_load_number (integer)
       let searchFilter: string;
