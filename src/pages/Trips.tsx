@@ -28,7 +28,7 @@ import {
 import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
-import { useGlobalOrders } from "@/hooks/useGlobalOrders";
+import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
@@ -435,27 +435,14 @@ const Trips = () => {
 
   // Use Individual Mode context - applies filtering when toggle is ON
   const { individualMode } = useIndividualMode();
+  
+  // Apply filtering when Individual Mode is ON or user is dispatch-only
+  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const orderFilterOptions = shouldFilterByUser 
+    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
+    : { bookedBy: null, dispatcherUserId: null };
 
-  // Global orders loading hook - loads ALL orders once and persists across navigation
-  const { orders: globalOrders, isLoading: globalIsLoading } = useGlobalOrders();
-  
-  // Client-side filter for Individual Mode (instant, no reload)
-  const orders = useMemo(() => {
-    if (!individualMode && !isDispatchOnly) return globalOrders;
-    
-    // Filter to show only user's booked orders
-    const userFullName = profile?.full_name;
-    const userId = profile?.user_id;
-    
-    if (!userFullName && !userId) return globalOrders;
-    
-    return globalOrders.filter(order => {
-      const matchesBookedBy = order.bookedBy === userFullName || order.bookedBy === userId;
-      return matchesBookedBy;
-    });
-  }, [globalOrders, individualMode, isDispatchOnly, profile?.full_name, profile?.user_id]);
-  
-  const isLoading = globalIsLoading;
+  const { data: orders, isLoading } = useOrders(orderFilterOptions);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilter, setSearchFilter] = useState(() => {

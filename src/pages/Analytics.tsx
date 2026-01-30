@@ -14,7 +14,7 @@ import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Se
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useGlobalOrders } from "@/hooks/useGlobalOrders";
+import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -260,31 +260,21 @@ const Analytics = () => {
     individualMode
   } = useIndividualMode();
 
-  // Global orders loading hook - loads ALL orders once and persists across navigation
+  // Apply filtering when Individual Mode is ON or user is dispatch-only
+  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const orderFilterOptions = shouldFilterByUser ? {
+    bookedBy: profile?.full_name || null,
+    dispatcherUserId: profile?.user_id || null
+  } : {
+    bookedBy: null,
+    dispatcherUserId: null
+  };
   const {
-    orders: globalOrders,
-    isLoading: globalIsLoading,
+    data: orders,
+    isLoading,
+    error,
     progress
-  } = useGlobalOrders();
-  
-  // Client-side filter for Individual Mode (instant, no reload)
-  const orders = useMemo(() => {
-    if (!individualMode && !isDispatchOnly) return globalOrders;
-    
-    // Filter to show only user's booked orders
-    const userFullName = profile?.full_name;
-    const userId = profile?.user_id;
-    
-    if (!userFullName && !userId) return globalOrders;
-    
-    return globalOrders.filter(order => {
-      const matchesBookedBy = order.bookedBy === userFullName || order.bookedBy === userId;
-      return matchesBookedBy;
-    });
-  }, [globalOrders, individualMode, isDispatchOnly, profile?.full_name, profile?.user_id]);
-  
-  const isLoading = globalIsLoading;
-  const error = null; // Global hook handles errors internally
+  } = useOrdersWithProgress(orderFilterOptions);
   const {
     data: companies
   } = useCompanies();
@@ -1896,7 +1886,7 @@ const Analytics = () => {
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
             {/* Orders loading progress indicator */}
-            {progress && progress.phase !== 'complete' && progress.phase !== 'idle' && <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {progress && !progress.isComplete && <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>
                   Loading orders: {progress.unlockedLoaded}
@@ -1904,7 +1894,7 @@ const Analytics = () => {
                   {progress.lockedLoaded > 0 && `, ${progress.lockedLoaded} locked`}
                 </span>
               </div>}
-            {progress && progress.phase === 'complete' && <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {progress && progress.isComplete && <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-success" />
                 <span>
                   {progress.unlockedLoaded} unlocked, {progress.lockedLoaded} locked orders loaded
