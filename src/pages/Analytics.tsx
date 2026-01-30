@@ -2994,11 +2994,10 @@ const Analytics = () => {
                           <TableHead className="text-right">Total Freight</TableHead>
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
-                          <TableHead className="text-right">Days Off</TableHead>
-                          <TableHead className="text-right">Salary</TableHead>
-                          {/* Hide Paid column for dispatch-only users */}
-                          {!isDispatchOnly && <TableHead className="text-right">Paid</TableHead>}
-                        </TableRow>
+                        <TableHead className="text-right">Days Off</TableHead>
+                        <TableHead className="text-right">Salary</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
+                      </TableRow>
                       </TableHeader>
                       <TableBody>
                         {(() => {
@@ -3090,7 +3089,7 @@ const Analytics = () => {
                                   <div className="flex items-center gap-2">
                                     {renderRankIcon()}
                                     {stat.name}
-                                    {/* Hide download/send payroll buttons for dispatch-only users */}
+                                    {/* Hide download button for dispatch-only users, but show send/preview for all */}
                                     {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && (
                                       <TooltipProvider>
                                         <Tooltip>
@@ -3228,6 +3227,80 @@ const Analytics = () => {
                                         </Tooltip>
                                       </TooltipProvider>
                                     )}
+                                    {/* Show preview-only payroll for dispatch-only users */}
+                                    {isDispatchOnly && selectedMonth && selectedMonth !== "all" && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+
+                                                // Get pay period label from selectedMonth
+                                                const monthParts = selectedMonth.split("-");
+                                                const year = parseInt(monthParts[0], 10);
+                                                const monthNum = parseInt(monthParts[1], 10) - 1;
+                                                const monthDate = new Date(year, monthNum, 1);
+                                                const payPeriod = format(monthDate, "MMMM, yyyy");
+
+                                                // Get dates for extra/lost days
+                                                const allExtraDayDates = stat.userId
+                                                  ? extraDayDatesByUser[stat.userId] || []
+                                                  : [];
+                                                const extraDayDatesForDoc = allExtraDayDates.slice(1);
+                                                const lostDayDatesForDoc = stat.userId
+                                                  ? lostDayDatesByUser[stat.userId] || []
+                                                  : [];
+
+                                                // Calculate extra days amount
+                                                const actualExtraDaysCount = extraDayDatesForDoc.length;
+                                                const perDayRate =
+                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                const extraDaysAmountForDoc =
+                                                  actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
+
+                                                // Get dispatcher email
+                                                const dispatcherProfile =
+                                                  dispatcherProfiles[stat.name] ||
+                                                  dispatcherProfiles[stat.userId || ""];
+                                                const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
+
+                                                // Determine food allowance based on office
+                                                const isBeograd = stat.office === "BEOGRAD";
+                                                const foodAllowanceForPreview = isBeograd ? 0 : 70;
+
+                                                // Open preview dialog with all the data
+                                                setPayrollPreviewData({
+                                                  dispatcherName: stat.name,
+                                                  dispatcherUserId: stat.userId || "",
+                                                  recipientEmail,
+                                                  payPeriod,
+                                                  salary1Percent: stat.totalFreight * 0.01,
+                                                  bonus5Percent: stat.cut * 0.05,
+                                                  foodAllowance: foodAllowanceForPreview,
+                                                  extraDays,
+                                                  lostDays,
+                                                  extraDayDates: extraDayDatesForDoc,
+                                                  lostDayDates: lostDayDatesForDoc,
+                                                  extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
+                                                  dispatcherBonus: bonusAmount,
+                                                  perDayRate,
+                                                });
+                                                setPayrollPreviewOpen(true);
+                                              }}
+                                            >
+                                              <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>View payroll statement</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -3259,22 +3332,20 @@ const Analytics = () => {
                                     })}
                                   </span>
                                 </TableCell>
-                                {/* Hide Paid column for dispatch-only users */}
-                                {!isDispatchOnly && (
-                                  <TableCell className="text-right">
-                                    {isPaid ? (
-                                      <span className="text-green-600 font-medium">
-                                        $
-                                        {payment.paid_amount.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground">—</span>
-                                    )}
-                                  </TableCell>
-                                )}
+                                {/* Paid column - read-only for dispatchers */}
+                                <TableCell className="text-right">
+                                  {isPaid ? (
+                                    <span className="text-green-600 font-medium">
+                                      $
+                                      {payment.paid_amount.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
                               </TableRow>
                             );
                           });
@@ -3312,15 +3383,12 @@ const Analytics = () => {
                               )}
                             </TableCell>
                             <TableCell className="text-right font-bold">—</TableCell>
-                            {/* Hide Paid column for dispatch-only users */}
-                            {!isDispatchOnly && (
-                              <TableCell className="text-right font-bold text-green-600">
-                                $
-                                {Object.values(salaryPayments)
-                                  .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
-                                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </TableCell>
-                            )}
+                            <TableCell className="text-right font-bold text-green-600">
+                              $
+                              {Object.values(salaryPayments)
+                                .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
+                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
@@ -3429,6 +3497,7 @@ const Analytics = () => {
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={payrollPreviewData.dispatcherBonus}
             perDayRate={payrollPreviewData.perDayRate}
+            previewOnly={isDispatchOnly}
             onEmailSent={() => {
               // Refresh salary payments data
               queryClient.invalidateQueries({ queryKey: ["dispatcher_salary_payments"] });
