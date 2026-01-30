@@ -159,6 +159,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   
   // Get individual mode state - this controls database-level filtering
   const { individualMode, currentUserDispatcherId } = useIndividualMode();
+  
+  // Track previous mode to detect changes and invalidate cache
+  const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
+  
+  // When individual mode changes, invalidate all adapter queries to force refetch with new scope
+  useEffect(() => {
+    const currentModeKey = { individualMode, userId: currentUserDispatcherId };
+    const prevModeKey = prevModeRef.current;
+    
+    if (prevModeKey !== null) {
+      const modeChanged = prevModeKey.individualMode !== currentModeKey.individualMode;
+      
+      if (modeChanged) {
+        console.log(`[adapter] Individual mode changed: ${prevModeKey.individualMode} -> ${currentModeKey.individualMode}, invalidating queries`);
+        
+        // Invalidate all adapter queries to force refetch with new scope
+        queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-trucks'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-drivers'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-truck-notes'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-lost-day-notes'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-last-loads'] });
+      }
+    }
+    
+    prevModeRef.current = currentModeKey;
+  }, [individualMode, currentUserDispatcherId, queryClient]);
 
   // Get date-window data (disabled when feature flag is OFF)
   // Pass individualMode and currentUserDispatcherId for database-level filtering
@@ -178,9 +205,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Fetch additional data needed for transformation
   const driverIdsForScope = dateWindowHook.driverIds || [];
   const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && driverIdsForScope.length > 0;
+  
+  // Create a mode-specific key suffix to force refetch on individual mode toggle
+  const modeKeySuffix = individualMode ? `individual-${currentUserDispatcherId}` : 'all';
 
   const { data: trucks } = useQuery({
-    queryKey: ["adapter-trucks", priorityOffice],
+    queryKey: ["adapter-trucks", priorityOffice, modeKeySuffix],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
@@ -205,7 +235,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [trucks]);
 
   const { data: trailers } = useQuery({
-    queryKey: ["adapter-trailers", trailerIdsFromTrucks.join(",")],
+    queryKey: ["adapter-trailers", trailerIdsFromTrucks.join(","), modeKeySuffix],
     queryFn: async () => {
       if (trailerIdsFromTrucks.length === 0) return [];
       const { data, error } = await supabase
@@ -220,7 +250,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: drivers } = useQuery({
-    queryKey: ["adapter-drivers", priorityOffice],
+    queryKey: ["adapter-drivers", priorityOffice, modeKeySuffix],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("drivers")
@@ -275,7 +305,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: truckNotes } = useQuery({
-    queryKey: ["adapter-truck-notes", priorityOffice],
+    queryKey: ["adapter-truck-notes", priorityOffice, modeKeySuffix],
     queryFn: async () => {
       // Order by updated_at DESC so when there are duplicates, the most recent comes first
       const { data, error } = await supabase
@@ -291,7 +321,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   const { data: lostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", priorityOffice],
+    queryKey: ["adapter-lost-day-notes", priorityOffice, modeKeySuffix],
     queryFn: async () => {
       const { data, error } = await supabase.from("lost_day_notes").select("*").in("driver_id", driverIdsForScope);
       if (error) throw error;
@@ -423,7 +453,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Fetch last load for drivers with no orders in the date window
   const { data: lastLoadsData } = useQuery({
-    queryKey: ["adapter-last-loads", priorityOffice, driversNeedingLastLoadKey],
+    queryKey: ["adapter-last-loads", priorityOffice, driversNeedingLastLoadKey, modeKeySuffix],
     queryFn: async () => {
       if (driversNeedingLastLoad.length === 0) return { orders: [], files: [] };
       
