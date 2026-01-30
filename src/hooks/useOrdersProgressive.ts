@@ -205,10 +205,15 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const isMountedRef = useRef(true);
   const loadingStartedRef = useRef(false);
   
+  // Normalize option values so we can reliably detect changes
+  const bookedBy = options?.bookedBy ?? null;
+  const dispatcherUserId = options?.dispatcherUserId ?? null;
+  const optionsKey = `${bookedBy ?? ""}|${dispatcherUserId ?? ""}`;
+  
   // Determine query key based on filter options
-  const hasFilters = Boolean(options?.bookedBy || options?.dispatcherUserId);
+  const hasFilters = Boolean(bookedBy || dispatcherUserId);
   const queryKey = hasFilters 
-    ? ["orders", "filtered", options?.bookedBy, options?.dispatcherUserId] 
+    ? ["orders", "filtered", bookedBy, dispatcherUserId] 
     : ["orders"];
   
   // Subscribe to real-time updates - this updates the cache automatically
@@ -234,19 +239,45 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Check if we have cached data on mount - use state to avoid ref timing issues
   const [initializedFromCache, setInitializedFromCache] = useState(false);
-  const cachedDataOnMount = useRef(queryClient.getQueryData<any[]>(queryKey));
+  const cachedDataOnMount = useRef<any[] | undefined>(queryClient.getQueryData<any[]>(queryKey));
+
+  // When filters change (e.g., Individual Mode toggled), we must restart progressive loading.
+  // Otherwise the first unfiltered fetch will “stick” due to loadingStartedRef.
+  const lastOptionsKeyRef = useRef(optionsKey);
+  useEffect(() => {
+    if (lastOptionsKeyRef.current === optionsKey) return;
+
+    console.log(`[Progressive] Options changed, restarting load (${lastOptionsKeyRef.current} → ${optionsKey})`);
+    lastOptionsKeyRef.current = optionsKey;
+
+    loadingStartedRef.current = false;
+    cachedDataOnMount.current = queryClient.getQueryData<any[]>(queryKey);
+    setInitializedFromCache(false);
+    setCacheVersion(0);
+    setPhase1Data([]);
+    setPhase2Data([]);
+    setProgress({
+      phase: 1,
+      unlockedLoaded: 0,
+      unlockedTotal: null,
+      lockedLoaded: 0,
+      lockedTotal: null,
+      isLoadingLocked: false,
+      percentComplete: 0,
+    });
+  }, [optionsKey, queryClient, queryKey]);
 
   // Get dispatcher driver IDs if needed
   const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
-    if (!options?.dispatcherUserId) return [];
+    if (!dispatcherUserId) return [];
     
     const { data: assignedDrivers } = await supabase
       .from("drivers")
       .select("id")
-      .eq("dispatcher_id", options.dispatcherUserId);
+      .eq("dispatcher_id", dispatcherUserId);
     
     return (assignedDrivers || []).map(d => d.id);
-  }, [options?.dispatcherUserId]);
+  }, [dispatcherUserId]);
 
   // Initialize from cache if available (runs once on mount)
   useEffect(() => {
@@ -270,7 +301,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       setInitializedFromCache(true);
       loadingStartedRef.current = true;
     }
-  }, [initializedFromCache]);
+  }, [initializedFromCache, queryKey]);
 
   // Subscribe to cache updates for real-time changes (only for "orders" key)
   // Use a ref to track pending updates and batch them
@@ -329,8 +360,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
           "get-all-unlocked-orders",
           {
             body: {
-              bookedBy: options?.bookedBy || null,
-              dispatcherDriverIds: options?.dispatcherUserId ? dispatcherDriverIds : [],
+              bookedBy,
+              dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
             },
           }
         );
@@ -383,17 +414,44 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       setProgress(prev => ({ ...prev, isLoadingLocked: true }));
       
       try {
-        // Get locked orders count first for progress
-        const { count: lockedTotal } = await supabase
+        // Helper: apply the same filtering logic used for display
+        const filterByDispatcher = (orders: any[]) => {
+          const hasBookedByFilter = Boolean(bookedBy);
+          const hasDriverFilter = dispatcherDriverIds.length > 0;
+          if (!hasBookedByFilter && !hasDriverFilter) return orders;
+
+          return orders.filter((order) => {
+            const matchesBookedBy = hasBookedByFilter ? order.booked_by === bookedBy : false;
+            const matchesDriver = hasDriverFilter ? dispatcherDriverIds.includes(order.driver1_id) : false;
+            return matchesBookedBy || matchesDriver;
+          });
+        };
+
+        // Get locked orders count first for progress (filtered when Individual Mode / dispatcher filter is active)
+        let lockedCountQuery = supabase
           .from("orders")
           .select("*", { count: "exact", head: true })
           .eq("locked", true);
+
+        if (bookedBy && dispatcherDriverIds.length > 0) {
+          lockedCountQuery = lockedCountQuery.or(
+            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+          );
+        } else if (bookedBy) {
+          lockedCountQuery = lockedCountQuery.eq("booked_by", bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          lockedCountQuery = lockedCountQuery.in("driver1_id", dispatcherDriverIds);
+        }
+
+        const { count: lockedTotal } = await lockedCountQuery;
         
         setProgress(prev => ({ ...prev, lockedTotal }));
         
         // Load from cache first (fast)
         let lockedOrders = await getLockedOrders() || [];
-        console.log(`[Progressive] Phase 2: Loaded ${lockedOrders.length} from cache`);
+        const preFilterCount = lockedOrders.length;
+        lockedOrders = filterByDispatcher(lockedOrders);
+        console.log(`[Progressive] Phase 2: Loaded ${preFilterCount} from cache → ${lockedOrders.length} after dispatcher filter`);
         
         // Fetch missing locked orders from DB
         const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
@@ -402,12 +460,25 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         const batchSize = 1000;
         
         while (true) {
-          const { data: batch, error: batchError } = await supabase
+          let dbQuery = supabase
             .from("orders")
             .select("*")
             .eq("locked", true)
             .order("updated_at", { ascending: false })
             .range(offset, offset + batchSize - 1);
+
+          // IMPORTANT: only apply this filter path when a dispatcher filter is active
+          if (bookedBy && dispatcherDriverIds.length > 0) {
+            dbQuery = dbQuery.or(
+              `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+            );
+          } else if (bookedBy) {
+            dbQuery = dbQuery.eq("booked_by", bookedBy);
+          } else if (dispatcherDriverIds.length > 0) {
+            dbQuery = dbQuery.in("driver1_id", dispatcherDriverIds);
+          }
+
+          const { data: batch, error: batchError } = await dbQuery;
           
           if (batchError || !batch || batch.length === 0) break;
           allDbLockedOrders = [...allDbLockedOrders, ...batch];
@@ -434,15 +505,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
             console.log(`[Progressive] Phase 2: Added ${missingLockedOrders.length} locked orders from DB`);
             lockedOrders = [...lockedOrders, ...missingLockedOrders];
           }
-        }
-
-        // Filter for dispatcher if needed
-        if (options?.dispatcherUserId && lockedOrders) {
-          lockedOrders = lockedOrders.filter(order => {
-            const matchesBookedBy = options?.bookedBy && order.booked_by === options.bookedBy;
-            const matchesDriver = dispatcherDriverIds.includes(order.driver1_id);
-            return matchesBookedBy || matchesDriver;
-          });
         }
 
         // Update progress before enrichment (70%)
@@ -503,7 +565,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initializedFromCache]);
+  }, [initializedFromCache, optionsKey]);
 
   // Track mount state separately
   useEffect(() => {
