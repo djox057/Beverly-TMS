@@ -221,7 +221,26 @@ const Drivers = () => {
           ascending: false,
         });
       if (error) throw error;
-      setTerminationNotes(data || []);
+      
+      // Fetch creator names for notes with created_by
+      const creatorIds = [...new Set((data || []).map(n => n.created_by).filter(Boolean))] as string[];
+      let creatorsMap: Record<string, string> = {};
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", creatorIds);
+        creatorsMap = (profiles || []).reduce((acc, p) => {
+          if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+      
+      const notesWithCreators = (data || []).map(note => ({
+        ...note,
+        creator_name: note.created_by ? creatorsMap[note.created_by] || null : null,
+      }));
+      setTerminationNotes(notesWithCreators);
     } catch (error) {
       console.error("Error fetching termination notes:", error);
     } finally {
@@ -2920,6 +2939,11 @@ const Drivers = () => {
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
+                        {note.creator_name && (
+                          <p className="text-xs text-muted-foreground">
+                            By: {note.creator_name}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
