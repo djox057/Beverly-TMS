@@ -551,8 +551,9 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
   const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId } = options;
   
-  // Track loaded windows for accumulative caching
+  // Track loaded windows for accumulative caching - keyed by mode+office to reset on mode change
   const loadedWindowsRef = useRef<Set<string>>(new Set());
+  const modeKeyRef = useRef<string>('');
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -560,6 +561,16 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   }, [selectedDate]);
   
   const windowKey = getWindowKey(currentWindow);
+  
+  // Create a mode-specific cache key prefix to properly reset on mode toggle
+  const modeKey = `${priorityOffice || 'all'}-${individualMode ? 'individual' : 'all'}-${individualMode ? currentUserDispatcherId : 'none'}`;
+  
+  // Reset loaded windows when mode changes to force fresh data loading
+  if (modeKeyRef.current !== modeKey) {
+    console.log(`[useReportsDateWindow] Mode changed from "${modeKeyRef.current}" to "${modeKey}", resetting loaded windows`);
+    loadedWindowsRef.current = new Set();
+    modeKeyRef.current = modeKey;
+  }
 
   // Fetch data for the current date window
   // Include individualMode in query key to refetch when mode changes
