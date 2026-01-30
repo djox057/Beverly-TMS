@@ -662,10 +662,13 @@ const Trucks = () => {
       
       toast.success(`Truck ${editingTruck.truck_number} reactivated`);
       
+      // Clear local state
+      setTerminationNotes([]);
       setIsEditDialogOpen(false);
       setEditingTruck(null);
       
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      // Use correct query key matching useTrucks hook
+      queryClient.invalidateQueries({ queryKey: ['trucks', 'v2'] });
     } catch (error: any) {
       toast.error(error.message || "Failed to reactivate truck");
     } finally {
