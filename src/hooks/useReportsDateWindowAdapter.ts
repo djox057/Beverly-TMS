@@ -24,6 +24,8 @@ interface UseReportsDateWindowAdapterOptions {
   dispatcherId: string | null;
   dispatcherProfileId?: string | null;
   selectedDate: Date;
+  /** When true, bypasses Individual Mode office restrictions (for search results) */
+  hasActiveSearch?: boolean;
 }
 
 /**
@@ -154,7 +156,7 @@ const getTransferAwareStops = (driverId: string, order: any, originalPickupStop:
  * to match the shape expected by Reports.tsx
  */
 export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapterOptions) => {
-  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate } = options;
+  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate, hasActiveSearch } = options;
   const queryClient = useQueryClient();
   
   // Get individual mode state - this controls database-level filtering
@@ -162,6 +164,37 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   
   // Track previous mode to detect changes and invalidate cache
   const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
+  
+  // Fetch user's office to determine if viewing their own office
+  const { data: userOffice } = useQuery({
+    queryKey: ['user-office', currentUserDispatcherId],
+    queryFn: async () => {
+      if (!currentUserDispatcherId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('office')
+        .eq('user_id', currentUserDispatcherId)
+        .single();
+      if (error) return null;
+      return data?.office || null;
+    },
+    staleTime: 300000, // 5 minutes
+    enabled: !!currentUserDispatcherId,
+  });
+  
+  // Check if we're viewing a different office than user's own
+  const isViewingOtherOffice = !!(userOffice && priorityOffice && userOffice !== priorityOffice);
+  
+  // Determine if we're viewing a non-user office in Individual Mode
+  // In this case, we should show a message instead of loading data
+  // EXCEPT: When there's an active search, we should load data for the search result
+  const isViewingOtherOfficeInIndividualMode = individualMode && 
+    isViewingOtherOffice &&
+    !hasActiveSearch; // Allow loading when search is active
+  
+  // When searching across offices in Individual Mode, bypass the dispatcher filter
+  // This allows search results from other offices to load properly
+  const shouldBypassIndividualMode = hasActiveSearch && isViewingOtherOffice;
   
   // When individual mode changes, invalidate all adapter queries to force refetch with new scope
   useEffect(() => {
@@ -189,13 +222,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Get date-window data (disabled when feature flag is OFF)
   // Pass individualMode and currentUserDispatcherId for database-level filtering
+  // BUT: Skip fetching entirely when viewing another office in Individual Mode (without search)
+  // When searching in another office, bypass Individual Mode to load the search target
   const dateWindowHook = useReportsDateWindow({
-    dispatcherId: USE_DATE_WINDOW_LOADING ? dispatcherId : null,
+    dispatcherId: USE_DATE_WINDOW_LOADING && !isViewingOtherOfficeInIndividualMode ? dispatcherId : null,
     dispatcherProfileId,
     selectedDate,
     priorityOffice,
-    individualMode,
-    currentUserDispatcherId,
+    // Disable individual mode filtering when: 1) viewing other office without search, or 2) searching in other office
+    individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
+    currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
   });
 
   // Legacy hook (for fallback when feature flag is OFF). When feature flag is ON,
@@ -1151,12 +1187,17 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   return {
     // Data from date-window with transformation (filtered when individual mode is ON)
     data: filteredData,
-    isLoading: dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading),
-    isPending: dateWindowHook.isLoading,
+    // When viewing other office in Individual Mode, NOT loading - just empty
+    isLoading: isViewingOtherOfficeInIndividualMode 
+      ? false 
+      : (dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading)),
+    isPending: isViewingOtherOfficeInIndividualMode ? false : dateWindowHook.isLoading,
     isError: !!dateWindowHook.error,
     error: dateWindowHook.error,
-    isSuccess: !dateWindowHook.isLoading && !dateWindowHook.error,
+    isSuccess: isViewingOtherOfficeInIndividualMode ? true : (!dateWindowHook.isLoading && !dateWindowHook.error),
     isFetchingBackground: false,
+    // Flag for UI to show Individual Mode message
+    isViewingOtherOfficeInIndividualMode,
     refetch: dateWindowHook.refetch,
 
     // Date window specific
