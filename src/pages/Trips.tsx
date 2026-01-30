@@ -41,7 +41,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
-import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
 
 // Legacy cleanup function (kept for reference)
@@ -926,9 +926,12 @@ const Trips = () => {
       // Filter by internal load number or broker load number
       const loadSearchLower = loadNumberSearch.toLowerCase().trim();
       const formattedInternalLoad = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+      // Extract numeric portion from search term (e.g., "6538-BFU" -> 6538)
+      const parsedSearchNumber = parseInternalLoadNumber(loadSearchLower);
       const matchesLoadNumber = !loadSearchLower ||
         formattedInternalLoad.toLowerCase().includes(loadSearchLower) ||
         order.internalLoadNumber?.toString().includes(loadSearchLower) ||
+        (parsedSearchNumber !== null && order.internalLoadNumber === parsedSearchNumber) ||
         order.brokerLoadNumber?.toLowerCase().includes(loadSearchLower) ||
         order.loadNumber?.toLowerCase().includes(loadSearchLower);
 
