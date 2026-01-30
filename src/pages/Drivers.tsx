@@ -770,6 +770,14 @@ const Drivers = () => {
           .update({ driver2_id: null })
           .eq("driver2_id", editingDriver.id)
           .neq("id", formData.truck_id);
+
+        // Clear trailer from old truck when driver moves to a new truck
+        if (origTruckId && formData.truck_id !== origTruckId) {
+          await supabase
+            .from("trucks")
+            .update({ trailer_id: null })
+            .eq("id", origTruckId);
+        }
       } else if (formData.trailer_id && existingTruckId) {
         // Only trailer is selected and driver has an existing truck - update trailer on existing truck
         await supabase
@@ -2397,11 +2405,10 @@ const Drivers = () => {
                       }))}
                       value={formData.truck_id}
                       onValueChange={(value) => {
-                        const selectedTruck = trucks?.find((truck) => truck.id === value);
                         setFormData({
                           ...formData,
                           truck_id: value,
-                          trailer_id: selectedTruck?.trailer_id || "",
+                          // Keep current trailer - don't auto-fill from new truck
                         });
                         setSelectedTruckId(value);
                       }}
