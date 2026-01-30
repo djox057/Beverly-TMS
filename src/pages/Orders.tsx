@@ -303,11 +303,12 @@ const Orders = () => {
     const term = (debouncedSearchTerm || "").trim();
 
     if (term.length >= 2) {
+      console.log("[Orders] Triggering server-side search for:", term);
       searchOrders(term, orderFilterOptions);
     } else {
       clearSearch();
     }
-  }, [debouncedSearchTerm, searchOrders, clearSearch]);
+  }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions.bookedBy, orderFilterOptions.dispatcherUserId]);
 
   console.log("🟦 [Orders Page] Progressive loading:", {
     ordersCount: orders?.length,
