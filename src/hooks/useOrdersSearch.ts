@@ -99,6 +99,11 @@ export function useOrdersSearch() {
         `)
       // Check if term is purely numeric
       const isNumericTerm = /^\d+$/.test(term);
+      
+      // PostgreSQL integer max is 2,147,483,647 - only include internal_load_number filter 
+      // if the numeric value is within valid integer range
+      const numericValue = isNumericTerm ? parseInt(term, 10) : null;
+      const isValidInternalLoadNumber = numericValue !== null && numericValue <= 2147483647;
 
       // Check if term matches formatted internal load number pattern (e.g., "6538-BFU")
       const parsedInternalLoadNumber = parseInternalLoadNumber(term);
@@ -109,14 +114,14 @@ export function useOrdersSearch() {
 
       // Build search filter - include internal_load_number when we have a valid numeric value
       let searchFilter: string;
-      if (isNumericTerm) {
-        // Pure number like "6538" - exact match on internal_load_number
+      if (isNumericTerm && isValidInternalLoadNumber) {
+        // Pure number within integer range like "6538" - exact match on internal_load_number
         searchFilter = `${stringFieldsFilter},internal_load_number.eq.${term}`;
       } else if (hasValidInternalLoadNumber) {
         // Formatted number like "6538-BFU" - extract numeric part for internal_load_number
         searchFilter = `${stringFieldsFilter},internal_load_number.eq.${parsedInternalLoadNumber}`;
       } else {
-        // Non-numeric term - only search string fields
+        // Non-numeric term OR number too large for internal_load_number - only search string fields
         searchFilter = stringFieldsFilter;
       }
       
