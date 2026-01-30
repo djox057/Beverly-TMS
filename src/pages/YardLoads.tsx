@@ -66,7 +66,7 @@ export default function YardLoads() {
   
   // Check if user has required roles
   useEffect(() => {
-    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard')) {
+    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard') && !hasRole('afterhours')) {
       navigate('/');
     }
   }, [hasRole, navigate]);
