@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 /**
  * Result of office lookup - can be single office, multiple (ambiguous), or none
@@ -37,10 +38,15 @@ export function useAutoSwitchOffice({
   offices: string[];
   groupedReports: any[] | null;
 }) {
-  // Debounce all filters at 300ms
-  const debouncedTruckDriver = useDebounce(truckDriverFilter, 300);
-  const debouncedDispatchName = useDebounce(dispatchNameFilter, 300);
-  const debouncedLoadNumber = useDebounce(loadNumberFilter, 300);
+  const { individualMode } = useIndividualMode();
+  
+  // Different debounce based on mode - longer for individual mode to give user time to type
+  const debounceDelay = individualMode ? 600 : 300;
+  
+  // Debounce all filters
+  const debouncedTruckDriver = useDebounce(truckDriverFilter, debounceDelay);
+  const debouncedDispatchName = useDebounce(dispatchNameFilter, debounceDelay);
+  const debouncedLoadNumber = useDebounce(loadNumberFilter, debounceDelay);
 
   // Prevent loops: flag to indicate we're in a search operation
   const isSearchingRef = useRef(false);

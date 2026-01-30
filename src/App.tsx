@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
+import { IndividualModeProvider } from "./contexts/IndividualModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { supabase } from "./integrations/supabase/client";
@@ -236,9 +237,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
+        <IndividualModeProvider>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </IndividualModeProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

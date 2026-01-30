@@ -10,6 +10,7 @@ export interface UserProfile {
   full_name: string | null;
   avatar_url: string | null;
   office: string | null;
+  individual_mode?: boolean;
 }
 
 export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard';
