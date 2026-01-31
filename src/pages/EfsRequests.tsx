@@ -46,15 +46,15 @@ interface EfsRequest {
   state: string | null;
   requested_at: string;
   requested_by: string | null;
-  requested_by_name: string | null;
   quantity: number | null;
   receipt_path: string | null;
   company_name: string | null;
-  source: 'efs' | 'cash_advance';
+  source: 'efs' | 'cash_advance'; // Track which table the record came from
 }
 
 const PAGE_SIZE = 100;
 
+// Get distinct purposes for the dropdown
 const EFS_PURPOSES = [
   "All",
   "Cash Advance",
@@ -74,7 +74,6 @@ export default function EfsRequests() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
-  const [requesterFilter, setRequesterFilter] = useState("All");
   const [deleteItem, setDeleteItem] = useState<{ id: string; source: 'efs' | 'cash_advance' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -98,30 +97,6 @@ export default function EfsRequests() {
 
       if (cashError) throw cashError;
 
-      // Collect all user IDs that need name resolution
-      const allUserIds = new Set<string>();
-      efsData?.forEach((item) => {
-        if (item.requested_by) allUserIds.add(item.requested_by);
-      });
-      cashData?.forEach((item) => {
-        if (item.requested_by) allUserIds.add(item.requested_by);
-      });
-
-      // Fetch user profiles for all requested_by IDs
-      let userNameMap: Record<string, string> = {};
-      if (allUserIds.size > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", Array.from(allUserIds));
-
-        if (profiles) {
-          profiles.forEach((p) => {
-            userNameMap[p.id] = p.full_name || p.email || p.id;
-          });
-        }
-      }
-
       // Transform EFS requests
       const efsFormatted: EfsRequest[] = (efsData || []).map((item) => ({
         id: item.id,
@@ -133,7 +108,6 @@ export default function EfsRequests() {
         state: item.state,
         requested_at: item.requested_at,
         requested_by: item.requested_by,
-        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
         quantity: item.quantity,
         receipt_path: item.receipt_path,
         company_name: item.company_name,
@@ -151,7 +125,6 @@ export default function EfsRequests() {
         state: null,
         requested_at: item.requested_at,
         requested_by: item.requested_by,
-        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
         quantity: null,
         receipt_path: null,
         company_name: null,
@@ -167,11 +140,6 @@ export default function EfsRequests() {
     },
     staleTime: 30 * 1000,
   });
-
-  // Get unique requester names for the filter dropdown
-  const uniqueRequesters = Array.from(
-    new Set(efsRequests.map((r) => r.requested_by_name).filter(Boolean))
-  ).sort() as string[];
 
   // Delete mutation (admin only)
   const deleteMutation = useMutation({
@@ -199,11 +167,6 @@ export default function EfsRequests() {
   const filteredRequests = efsRequests.filter((request) => {
     // Purpose filter
     if (purposeFilter !== "All" && request.purpose !== purposeFilter) {
-      return false;
-    }
-
-    // Requester filter
-    if (requesterFilter !== "All" && request.requested_by_name !== requesterFilter) {
       return false;
     }
 
@@ -235,11 +198,6 @@ export default function EfsRequests() {
 
   const handlePurposeChange = (value: string) => {
     setPurposeFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleRequesterChange = (value: string) => {
-    setRequesterFilter(value);
     setCurrentPage(1);
   };
 
@@ -309,19 +267,6 @@ export default function EfsRequests() {
             {EFS_PURPOSES.map((purpose) => (
               <SelectItem key={purpose} value={purpose}>
                 {purpose}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={requesterFilter} onValueChange={handleRequesterChange}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by requester" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Requesters</SelectItem>
-            {uniqueRequesters.map((name) => (
-              <SelectItem key={name} value={name}>
-                {name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -425,7 +370,7 @@ export default function EfsRequests() {
                     {formatCurrency(request.amount)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {request.requested_by_name || "-"}
+                    {request.requested_by || "-"}
                   </TableCell>
                   {isAdmin && (
                     <TableCell>
