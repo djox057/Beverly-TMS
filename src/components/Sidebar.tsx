@@ -22,7 +22,8 @@ import {
   Warehouse,
   Bell,
   Wrench,
-  UserCircle
+  UserCircle,
+  CreditCard
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -192,13 +193,14 @@ export const Sidebar = () => {
       return true;
     });
     
-    // Admin role: all navigation + Alerts + Maintenance and Repairs + Fuel Reports + User Management + Data Management
+    // Admin role: all navigation + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests + User Management + Data Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
         { name: "Data Management", href: "/data-management", icon: Settings },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
@@ -221,22 +223,24 @@ export const Sidebar = () => {
       ];
     }
     
-    // Chicago Management role: all pages + Alerts + Maintenance and Repairs + Fuel Reports (view-only access to everything)
+    // Chicago Management role: all pages + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests (view-only access to everything)
     if (primaryRole === 'chicago_management') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
-        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
       ];
     }
     
-    // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports (financial + operational oversight)
+    // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
     if (primaryRole === 'accounting') {
       return [
         ...filteredNav.filter(item => item.href !== '/analytics'),
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
-        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
       ];
     }
     
