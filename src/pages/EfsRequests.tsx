@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { Trash2, Search, CreditCard } from "lucide-react";
+import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -51,9 +51,12 @@ interface EfsRequest {
   company_name: string | null;
 }
 
+const PAGE_SIZE = 100;
+
 // Get distinct purposes for the dropdown
 const EFS_PURPOSES = [
   "All",
+  "Cash Advance",
   "Fuel",
   "Lumper",
   "Scale",
@@ -71,6 +74,7 @@ export default function EfsRequests() {
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests
   const { data: efsRequests = [], isLoading } = useQuery({
@@ -128,6 +132,24 @@ export default function EfsRequests() {
     return true;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredRequests.length / PAGE_SIZE);
+  const paginatedRequests = filteredRequests.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handlePurposeChange = (value: string) => {
+    setPurposeFilter(value);
+    setCurrentPage(1);
+  };
+
   const handleDelete = (id: string) => {
     setDeleteId(id);
   };
@@ -182,11 +204,11 @@ export default function EfsRequests() {
           <Input
             placeholder="Search by truck # or driver name..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
-        <Select value={purposeFilter} onValueChange={setPurposeFilter}>
+        <Select value={purposeFilter} onValueChange={handlePurposeChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
@@ -200,9 +222,17 @@ export default function EfsRequests() {
         </Select>
       </div>
 
-      {/* Results count */}
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredRequests.length} of {efsRequests.length} requests
+      {/* Results count and pagination info */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {paginatedRequests.length} of {filteredRequests.length} requests
+          {filteredRequests.length !== efsRequests.length && ` (${efsRequests.length} total)`}
+        </div>
+        {totalPages > 1 && (
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -253,7 +283,7 @@ export default function EfsRequests() {
                   )}
                 </TableRow>
               ))
-            ) : filteredRequests.length === 0 ? (
+            ) : paginatedRequests.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={isAdmin ? 8 : 7}
@@ -263,7 +293,7 @@ export default function EfsRequests() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRequests.map((request) => (
+              paginatedRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(request.requested_at), "MMM d, yyyy")}
@@ -309,6 +339,55 @@ export default function EfsRequests() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Previous
+          </Button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  size="sm"
+                  className="w-9"
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
