@@ -1,154 +1,233 @@
 
-# Plan: Keep Trailer When Changing Truck on Drivers Page
 
-## Problem Summary
+# Plan: Bulk Import Excel for Multiple Drivers
 
-Currently, when editing a driver and changing their truck, the trailer field auto-fills with the new truck's trailer, replacing the driver's current trailer. The user wants the trailer to "stay" with the driver (not change), so that:
-- The driver keeps their current trailer
-- The trailer moves with the driver to the new truck
-- The new truck's previous trailer gets disconnected
+## Overview
 
-## Current Behavior
+Create a new dialog component that allows importing an Excel file containing 200+ sheets (one per driver). Each sheet name follows the format `"(truck_number) (driver_full_name)"` (e.g., `"134 Sherik Williams"`, `"363 Roderick Sonnier"`). The feature will:
 
-When selecting a new truck in the Edit Driver dialog:
+1. Parse all sheet names from the uploaded Excel file
+2. Match sheet names to existing drivers in the database by truck number AND driver name
+3. Show a preview of matches (matched, unmatched, ambiguous)
+4. Allow bulk import of expenses/cash advances for all matched drivers at once
 
-```typescript
-// Line 2399-2407 in Drivers.tsx
-onValueChange={(value) => {
-  const selectedTruck = trucks?.find((truck) => truck.id === value);
-  setFormData({
-    ...formData,
-    truck_id: value,
-    trailer_id: selectedTruck?.trailer_id || "",  // ← AUTO-FILLS with new truck's trailer
-  });
-  setSelectedTruckId(value);
-}}
+---
+
+## How Matching Works
+
+### Sheet Name Format
+```
+"134 Sherik Williams" → Truck: 134, Name: Sherik Williams
+"363 Roderick Sonnier" → Truck: 363, Name: Roderick Sonnier
 ```
 
-This causes the driver's trailer to be replaced with whatever trailer is on the new truck.
+### Matching Algorithm
+For each sheet name:
+1. **Parse**: Extract truck number (first word) and driver name (remaining words)
+2. **Find Driver**: Query drivers where:
+   - `truck_info.truck_number` matches extracted truck number
+   - Driver `name` (or `first_name + last_name`) fuzzy matches extracted name
+3. **Categorize Result**:
+   - **Matched**: Exactly one driver found with matching truck + name
+   - **Unmatched**: No driver found with that truck number
+   - **Ambiguous**: Multiple drivers found (e.g., same truck, similar names)
 
-## Solution
-
-### Change 1: Remove Trailer Auto-Fill on Truck Change (Edit Dialog)
-
-Modify the truck `onValueChange` handler in the **Edit Driver** dialog to **not** change the trailer:
-
-**File:** `src/pages/Drivers.tsx`
-**Lines:** 2399-2407
-
-**Before:**
-```typescript
-onValueChange={(value) => {
-  const selectedTruck = trucks?.find((truck) => truck.id === value);
-  setFormData({
-    ...formData,
-    truck_id: value,
-    trailer_id: selectedTruck?.trailer_id || "",  // Replaces trailer
-  });
-  setSelectedTruckId(value);
-}}
-```
-
-**After:**
-```typescript
-onValueChange={(value) => {
-  setFormData({
-    ...formData,
-    truck_id: value,
-    // Keep current trailer - don't auto-fill from new truck
-  });
-  setSelectedTruckId(value);
-}}
-```
-
-### Change 2: Update Add Driver Dialog (Optional - for consistency)
-
-The same pattern exists in the **Add Driver** dialog (lines 1450-1458). For new drivers, auto-filling from the truck may still make sense since they don't have a trailer yet. However, if empty string is selected (no trailer assigned), it should remain empty unless the user explicitly picks one.
-
-**Recommendation:** Keep the Add Driver auto-fill as-is (since new drivers don't have a pre-existing trailer), OR change it to be consistent:
-
-```typescript
-// Line 1450-1458
-onValueChange={(value) => {
-  setFormData({
-    ...formData,
-    truck_id: value,
-    // For new drivers, could optionally auto-fill:
-    // trailer_id: formData.trailer_id || selectedTruck?.trailer_id || "",
-  });
-  setSelectedTruckId(value);
-}}
-```
-
-### Change 3: Update Save Logic to Clear Old Truck's Trailer
-
-The current save logic (lines 739-805) already handles trailer assignment correctly. However, we need to ensure that when the trailer moves to the new truck, it's cleared from any other truck that had it:
-
-**Current Code Already Does This (Line 742-748):**
-```typescript
-if (formData.trailer_id) {
-  await supabase
-    .from("trucks")
-    .update({ trailer_id: null })
-    .eq("trailer_id", formData.trailer_id)
-    .neq("id", formData.truck_id);  // ← Clears trailer from all OTHER trucks
-}
-```
-
-This is already correct! The trailer is cleared from any truck that currently has it (except the new truck being assigned).
-
-### Change 4: Clear Trailer from OLD Truck When Driver Leaves
-
-We should also clear the trailer from the driver's **old truck** when they move to a new truck. Currently, the old truck keeps its trailer.
-
-**Add to save logic after clearing driver from old trucks (after line 772):**
-
-```typescript
-// Also clear trailer from the old truck if driver is moving to a new truck
-if (origTruckId && formData.truck_id !== origTruckId) {
-  await supabase
-    .from("trucks")
-    .update({ trailer_id: null })
-    .eq("id", origTruckId);
-}
+### Example Matching Flow
+```text
+Excel Sheet: "134 Sherik Williams"
+                  ↓
+Parse → Truck: "134", Name: "Sherik Williams"
+                  ↓
+Query → Find driver with truck_number = "134"
+                  ↓
+Compare → Driver.name vs "Sherik Williams" (fuzzy match)
+                  ↓
+Result → Matched to driver ID: abc123
 ```
 
 ---
 
-## Example Walkthrough After Changes
+## UI Flow
 
-**Initial State:**
-- Driver "John" is on Truck **2365** with Trailer **T100**
-- Truck **2400** has Trailer **T200** assigned
+### Step 1: Upload File
+- Button on Stuff page header: "Bulk Import"
+- Opens dialog with file upload dropzone
+- Accepts `.xlsx` files only
 
-**Steps:**
-1. Open Edit Driver dialog for John
-2. Change truck from 2365 → 2400
-3. Trailer field stays as **T100** (no auto-fill)
-4. Click Save
+### Step 2: Processing & Preview
+After file upload:
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Bulk Import Results                                       │
+├──────────────────────────────────────────────────────────┤
+│ ✅ Matched: 185 sheets                                    │
+│ ❌ Unmatched: 12 sheets                                   │
+│ ⚠️ Ambiguous: 3 sheets                                    │
+├──────────────────────────────────────────────────────────┤
+│ Sheet Name              │ Status    │ Driver          │  │
+│ 134 Sherik Williams     │ ✅ Matched │ Sherik Williams │  │
+│ 363 Roderick Sonnier    │ ✅ Matched │ Roderick Sonnier│  │
+│ 999 John Doe            │ ❌ No Match│ -               │  │
+│ 134 Williams            │ ⚠️ Ambig. │ 2 drivers found │  │
+└──────────────────────────────────────────────────────────┘
+```
 
-**Database Updates:**
-1. Clear T100 from any other truck: `UPDATE trucks SET trailer_id = null WHERE trailer_id = 'T100' AND id != '2400'`
-2. Update Truck 2400: `{ driver1_id: John, trailer_id: T100 }`
-3. Clear John from Truck 2365: `{ driver1_id: null }`
-4. Clear trailer from old Truck 2365: `{ trailer_id: null }`
-
-**Final State:**
-- Truck **2400**: John + T100
-- Truck **2365**: No driver, No trailer
-- T200: Disconnected (not on any truck)
+### Step 3: Import
+- "Import All Matched" button
+- Progress indicator showing: "Importing 45/185..."
+- Summary after completion: "Successfully imported 185 drivers, 3,420 expenses, 892 cash advances"
 
 ---
 
-## Files to Modify
+## Technical Implementation
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/BulkImportDriverExcelDialog.tsx` | Main dialog component with all UI and logic |
+
+### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/Drivers.tsx` | Remove trailer auto-fill on truck change in Edit dialog (~line 2404) |
-| `src/pages/Drivers.tsx` | Add logic to clear trailer from old truck when driver moves (~after line 772) |
+| `src/pages/Stuff.tsx` | Add "Bulk Import" button and dialog trigger |
 
-## Technical Considerations
+---
 
-- **Assignment History**: The existing logic already logs trailer changes with the assignment reason, so the history will correctly show the trailer move.
-- **Conflict Detection**: The `checkAssignmentConflicts()` function will still show a warning if the trailer being kept is currently on another truck.
-- **Add Driver**: The behavior for new drivers can optionally remain as auto-fill since they have no pre-existing trailer.
+## Component Structure
+
+### BulkImportDriverExcelDialog.tsx
+
+**State Management**:
+```typescript
+interface SheetMatch {
+  sheetName: string;           // Original sheet name from Excel
+  truckNumber: string;         // Parsed truck number
+  driverNameFromSheet: string; // Parsed driver name
+  status: 'matched' | 'unmatched' | 'ambiguous';
+  matchedDriver?: {            // Matched driver details
+    id: string;
+    name: string;
+    truckNumber: string;
+  };
+  ambiguousDrivers?: Array<{   // Multiple matches
+    id: string;
+    name: string;
+  }>;
+  parsedData?: ParsedData;     // Reuse existing parsing logic
+}
+```
+
+**Key Functions**:
+
+1. `parseSheetName(name: string)` - Extract truck number and driver name
+2. `matchSheetToDriver(sheetName, drivers)` - Find matching driver
+3. `parseAllSheets(workbook)` - Iterate all sheets and parse each one
+4. `importAllMatched(matches)` - Bulk insert for all matched sheets
+
+### Matching Logic
+
+```typescript
+function parseSheetName(sheetName: string): { truckNumber: string; driverName: string } | null {
+  const match = sheetName.match(/^(\d+)\s+(.+)$/);
+  if (!match) return null;
+  return {
+    truckNumber: match[1],
+    driverName: match[2].trim()
+  };
+}
+
+function matchSheetToDriver(
+  parsed: { truckNumber: string; driverName: string },
+  drivers: Driver[]
+): SheetMatch {
+  // Find drivers with matching truck number
+  const byTruck = drivers.filter(d => 
+    d.truck_info?.truck_number === parsed.truckNumber
+  );
+  
+  if (byTruck.length === 0) {
+    return { status: 'unmatched' };
+  }
+  
+  // Fuzzy name matching - normalize and compare
+  const normalized = (name: string) => 
+    name.toLowerCase().replace(/[^a-z]/g, '');
+  
+  const targetName = normalized(parsed.driverName);
+  
+  const matches = byTruck.filter(d => {
+    const driverName = d.name || `${d.first_name} ${d.last_name}`;
+    return normalized(driverName) === targetName;
+  });
+  
+  if (matches.length === 1) {
+    return { status: 'matched', matchedDriver: matches[0] };
+  } else if (matches.length > 1) {
+    return { status: 'ambiguous', ambiguousDrivers: matches };
+  }
+  
+  // Fallback: partial match on truck number alone
+  if (byTruck.length === 1) {
+    return { status: 'matched', matchedDriver: byTruck[0] };
+  }
+  
+  return { status: 'unmatched' };
+}
+```
+
+### Reusing Existing Parsing Logic
+
+The existing `parseExcelFile()` function from `ImportDriverExcelDialog.tsx` will be reused:
+- Extract deal info (weekly_payment, weeks_count, agreement_start_date)
+- Parse expenses table
+- Separate cash advances from regular expenses
+
+### Import Process
+
+For performance with 200+ sheets:
+1. Parse all sheets first (CPU-bound, ~2-3 seconds)
+2. Batch database inserts (100 expenses per batch)
+3. Show progress indicator
+4. Use `yieldToMain()` between batches to keep UI responsive
+
+---
+
+## UI Changes to Stuff.tsx
+
+Add a "Bulk Import" button in the header section:
+
+```tsx
+<div className="flex items-center gap-2">
+  <Button 
+    variant="outline" 
+    onClick={() => setShowBulkImportDialog(true)}
+  >
+    <FileSpreadsheet className="h-4 w-4 mr-2" />
+    Bulk Import
+  </Button>
+</div>
+```
+
+---
+
+## Error Handling
+
+- **Malformed sheet names**: Skip sheets that don't match `"(number) (name)"` format
+- **Parse errors**: Log and skip individual sheets, continue with others
+- **Database errors**: Rollback all inserts for that driver, report in summary
+- **Duplicates**: Option to skip or overwrite existing expenses (based on explanation + date)
+
+---
+
+## Summary
+
+This feature enables importing hundreds of driver expense sheets in one operation:
+
+1. Upload single Excel file with 200+ sheets
+2. Automatic matching based on sheet name format `"(truck) (driver name)"`
+3. Preview showing matched/unmatched/ambiguous results
+4. One-click bulk import for all matched drivers
+5. Detailed summary of imported data
+
