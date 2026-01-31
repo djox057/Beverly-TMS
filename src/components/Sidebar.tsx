@@ -270,9 +270,12 @@ export const Sidebar = () => {
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
-    // Dispatch and Afterhours roles: all navigation
+    // Dispatch and Afterhours roles: all navigation + EFS Requests
     if (primaryRole === 'dispatch' || primaryRole === 'afterhours') {
-      return filteredNav;
+      return [
+        ...filteredNav,
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
+      ];
     }
     
     return filteredNav;

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import {
   Table,
@@ -35,6 +36,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 interface EfsRequest {
   id: string;
@@ -74,6 +88,8 @@ export default function EfsRequests() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
+  const [requestedByFilter, setRequestedByFilter] = useState("All");
+  const [requestedByOpen, setRequestedByOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState<{ id: string; source: 'efs' | 'cash_advance' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -179,10 +195,23 @@ export default function EfsRequests() {
     },
   });
 
+  // Get unique requesters for filter dropdown
+  const uniqueRequesters = useMemo(() => {
+    const requesters = efsRequests
+      .map(r => r.requested_by)
+      .filter((name): name is string => !!name && name.length > 0);
+    return [...new Set(requesters)].sort((a, b) => a.localeCompare(b));
+  }, [efsRequests]);
+
   // Filter requests
   const filteredRequests = efsRequests.filter((request) => {
     // Purpose filter
     if (purposeFilter !== "All" && request.purpose !== purposeFilter) {
+      return false;
+    }
+
+    // Requested By filter
+    if (requestedByFilter !== "All" && request.requested_by !== requestedByFilter) {
       return false;
     }
 
@@ -214,6 +243,12 @@ export default function EfsRequests() {
 
   const handlePurposeChange = (value: string) => {
     setPurposeFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleRequestedByChange = (value: string) => {
+    setRequestedByFilter(value);
+    setRequestedByOpen(false);
     setCurrentPage(1);
   };
 
@@ -265,7 +300,7 @@ export default function EfsRequests() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -287,6 +322,58 @@ export default function EfsRequests() {
             ))}
           </SelectContent>
         </Select>
+        
+        {/* Requested By searchable dropdown */}
+        <Popover open={requestedByOpen} onOpenChange={setRequestedByOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={requestedByOpen}
+              className="w-[220px] justify-between"
+            >
+              {requestedByFilter === "All" ? "Requested By..." : requestedByFilter}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0">
+            <Command>
+              <CommandInput placeholder="Search requester..." />
+              <CommandList>
+                <CommandEmpty>No requester found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="All"
+                    onSelect={() => handleRequestedByChange("All")}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        requestedByFilter === "All" ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    All
+                  </CommandItem>
+                  {uniqueRequesters.map((requester) => (
+                    <CommandItem
+                      key={requester}
+                      value={requester}
+                      onSelect={() => handleRequestedByChange(requester)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          requestedByFilter === requester ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {requester}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Results count and pagination info */}
