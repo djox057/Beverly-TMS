@@ -112,12 +112,12 @@ export default function EfsRequests() {
       if (allUserIds.size > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("user_id, full_name, email")
-          .in("user_id", Array.from(allUserIds));
+          .select("id, full_name, email")
+          .in("id", Array.from(allUserIds));
 
         if (profiles) {
           profiles.forEach((p) => {
-            userNameMap[p.user_id] = p.full_name || p.email || p.user_id;
+            userNameMap[p.id] = p.full_name || p.email || p.id;
           });
         }
       }
@@ -133,7 +133,7 @@ export default function EfsRequests() {
         state: item.state,
         requested_at: item.requested_at,
         requested_by: item.requested_by,
-        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || null : null,
+        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
         quantity: item.quantity,
         receipt_path: item.receipt_path,
         company_name: item.company_name,
@@ -151,7 +151,7 @@ export default function EfsRequests() {
         state: null,
         requested_at: item.requested_at,
         requested_by: item.requested_by,
-        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || null : null,
+        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
         quantity: null,
         receipt_path: null,
         company_name: null,
