@@ -89,13 +89,29 @@ export default function EfsRequests() {
 
       if (efsError) throw efsError;
 
-      // Fetch cash advances with driver name
+      // Fetch cash advances with driver name and requester profile
       const { data: cashData, error: cashError } = await supabase
         .from("driver_cash_advances")
         .select("id, amount, requested_at, requested_by, truck_number, driver_id, drivers(name)")
         .order("requested_at", { ascending: false });
 
       if (cashError) throw cashError;
+
+      // Fetch profiles to map user_id to full_name
+      const requesterIds = [...new Set((cashData || []).map(c => c.requested_by).filter(Boolean))];
+      let profilesMap: Record<string, string> = {};
+      
+      if (requesterIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", requesterIds);
+        
+        profilesMap = (profilesData || []).reduce((acc, p) => {
+          if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
+          return acc;
+        }, {} as Record<string, string>);
+      }
 
       // Transform EFS requests
       const efsFormatted: EfsRequest[] = (efsData || []).map((item) => ({
@@ -124,7 +140,7 @@ export default function EfsRequests() {
         city: null,
         state: null,
         requested_at: item.requested_at,
-        requested_by: item.requested_by,
+        requested_by: item.requested_by ? (profilesMap[item.requested_by] || item.requested_by) : null,
         quantity: null,
         receipt_path: null,
         company_name: null,
