@@ -80,6 +80,8 @@ const EFS_PURPOSES = [
   "Tow",
   "Other",
 ];
+// Helper to check if a string looks like a UUID
+const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 export default function EfsRequests() {
   const { hasRole } = useAuthContext();
@@ -156,7 +158,7 @@ export default function EfsRequests() {
         city: null,
         state: null,
         requested_at: item.requested_at,
-        requested_by: item.requested_by ? (profilesMap[item.requested_by] || item.requested_by) : null,
+        requested_by: item.requested_by ? (profilesMap[item.requested_by] || (isUUID(item.requested_by) ? null : item.requested_by)) : null,
         quantity: null,
         receipt_path: null,
         company_name: null,
