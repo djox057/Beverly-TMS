@@ -1,15 +1,18 @@
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Truck, Building2 } from "lucide-react";
+import { Search, User, Truck, FileSpreadsheet } from "lucide-react";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriverProfile } from "@/components/DriverProfile";
+import { BulkImportDriverExcelDialog } from "@/components/BulkImportDriverExcelDialog";
 
 export default function Stuff() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
   
   const { data: drivers = [], isLoading } = useDrivers();
 
@@ -84,6 +87,13 @@ export default function Stuff() {
             View and manage driver expenses, documents, and information
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => setShowBulkImportDialog(true)}
+        >
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          Bulk Import
+        </Button>
       </div>
 
       {/* Search */}
@@ -149,6 +159,13 @@ export default function Stuff() {
           )}
         </ScrollArea>
       )}
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDriverExcelDialog
+        open={showBulkImportDialog}
+        onOpenChange={setShowBulkImportDialog}
+        drivers={drivers}
+      />
     </div>
   );
 }
