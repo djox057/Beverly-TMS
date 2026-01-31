@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -35,13 +35,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Combobox } from "@/components/ui/combobox";
-
-// Helper to check if a string is a UUID
-const isUUID = (str: string) => {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-};
 
 interface EfsRequest {
   id: string;
@@ -129,49 +122,41 @@ export default function EfsRequests() {
         }
       }
 
-      // Transform EFS requests - only set name if it's a real name (not UUID)
-      const efsFormatted: EfsRequest[] = (efsData || []).map((item) => {
-        const resolvedName = item.requested_by ? userNameMap[item.requested_by] : null;
-        const isRealName = resolvedName && !isUUID(resolvedName);
-        return {
-          id: item.id,
-          driver_name: item.driver_name,
-          truck_number: item.truck_number,
-          amount: item.amount,
-          purpose: item.purpose,
-          city: item.city,
-          state: item.state,
-          requested_at: item.requested_at,
-          requested_by: item.requested_by,
-          requested_by_name: isRealName ? resolvedName : null,
-          quantity: item.quantity,
-          receipt_path: item.receipt_path,
-          company_name: item.company_name,
-          source: 'efs' as const,
-        };
-      });
+      // Transform EFS requests
+      const efsFormatted: EfsRequest[] = (efsData || []).map((item) => ({
+        id: item.id,
+        driver_name: item.driver_name,
+        truck_number: item.truck_number,
+        amount: item.amount,
+        purpose: item.purpose,
+        city: item.city,
+        state: item.state,
+        requested_at: item.requested_at,
+        requested_by: item.requested_by,
+        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
+        quantity: item.quantity,
+        receipt_path: item.receipt_path,
+        company_name: item.company_name,
+        source: 'efs' as const,
+      }));
 
-      // Transform cash advances to match EfsRequest format - only set name if it's a real name
-      const cashFormatted: EfsRequest[] = (cashData || []).map((item) => {
-        const resolvedName = item.requested_by ? userNameMap[item.requested_by] : null;
-        const isRealName = resolvedName && !isUUID(resolvedName);
-        return {
-          id: item.id,
-          driver_name: (item.drivers as { name: string } | null)?.name || "Unknown",
-          truck_number: item.truck_number,
-          amount: item.amount,
-          purpose: "Cash Advance",
-          city: null,
-          state: null,
-          requested_at: item.requested_at,
-          requested_by: item.requested_by,
-          requested_by_name: isRealName ? resolvedName : null,
-          quantity: null,
-          receipt_path: null,
-          company_name: null,
-          source: 'cash_advance' as const,
-        };
-      });
+      // Transform cash advances to match EfsRequest format
+      const cashFormatted: EfsRequest[] = (cashData || []).map((item) => ({
+        id: item.id,
+        driver_name: (item.drivers as { name: string } | null)?.name || "Unknown",
+        truck_number: item.truck_number,
+        amount: item.amount,
+        purpose: "Cash Advance",
+        city: null,
+        state: null,
+        requested_at: item.requested_at,
+        requested_by: item.requested_by,
+        requested_by_name: item.requested_by ? userNameMap[item.requested_by] || item.requested_by : null,
+        quantity: null,
+        receipt_path: null,
+        company_name: null,
+        source: 'cash_advance' as const,
+      }));
 
       // Combine and sort by date descending
       const combined = [...efsFormatted, ...cashFormatted].sort(
@@ -183,16 +168,10 @@ export default function EfsRequests() {
     staleTime: 30 * 1000,
   });
 
-  // Get unique requester names for the filter dropdown (only real names, no UUIDs)
-  const requesterOptions = useMemo(() => {
-    const names = Array.from(
-      new Set(efsRequests.map((r) => r.requested_by_name).filter((name): name is string => !!name && !isUUID(name)))
-    ).sort();
-    return [
-      { value: "All", label: "All Requesters" },
-      ...names.map((name) => ({ value: name, label: name })),
-    ];
-  }, [efsRequests]);
+  // Get unique requester names for the filter dropdown
+  const uniqueRequesters = Array.from(
+    new Set(efsRequests.map((r) => r.requested_by_name).filter(Boolean))
+  ).sort() as string[];
 
   // Delete mutation (admin only)
   const deleteMutation = useMutation({
@@ -334,15 +313,19 @@ export default function EfsRequests() {
             ))}
           </SelectContent>
         </Select>
-        <Combobox
-          options={requesterOptions}
-          value={requesterFilter}
-          onValueChange={(value) => handleRequesterChange(value || "All")}
-          placeholder="Filter by requester"
-          searchPlaceholder="Search requesters..."
-          emptyText="No requesters found"
-          className="w-[220px]"
-        />
+        <Select value={requesterFilter} onValueChange={handleRequesterChange}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by requester" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Requesters</SelectItem>
+            {uniqueRequesters.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count and pagination info */}
