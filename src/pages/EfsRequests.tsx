@@ -49,6 +49,7 @@ interface EfsRequest {
   quantity: number | null;
   receipt_path: string | null;
   company_name: string | null;
+  source: 'efs' | 'cash_advance'; // Track which table the record came from
 }
 
 const PAGE_SIZE = 100;
@@ -73,41 +74,91 @@ export default function EfsRequests() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteItem, setDeleteItem] = useState<{ id: string; source: 'efs' | 'cash_advance' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch all EFS requests
+  // Fetch all EFS requests and cash advances
   const { data: efsRequests = [], isLoading } = useQuery({
-    queryKey: ["efs-all-requests"],
+    queryKey: ["efs-all-requests-combined"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch EFS other requests
+      const { data: efsData, error: efsError } = await supabase
         .from("efs_other_requests")
         .select("*")
         .order("requested_at", { ascending: false });
 
-      if (error) throw error;
-      return data as EfsRequest[];
+      if (efsError) throw efsError;
+
+      // Fetch cash advances with driver name
+      const { data: cashData, error: cashError } = await supabase
+        .from("driver_cash_advances")
+        .select("id, amount, requested_at, requested_by, truck_number, driver_id, drivers(name)")
+        .order("requested_at", { ascending: false });
+
+      if (cashError) throw cashError;
+
+      // Transform EFS requests
+      const efsFormatted: EfsRequest[] = (efsData || []).map((item) => ({
+        id: item.id,
+        driver_name: item.driver_name,
+        truck_number: item.truck_number,
+        amount: item.amount,
+        purpose: item.purpose,
+        city: item.city,
+        state: item.state,
+        requested_at: item.requested_at,
+        requested_by: item.requested_by,
+        quantity: item.quantity,
+        receipt_path: item.receipt_path,
+        company_name: item.company_name,
+        source: 'efs' as const,
+      }));
+
+      // Transform cash advances to match EfsRequest format
+      const cashFormatted: EfsRequest[] = (cashData || []).map((item) => ({
+        id: item.id,
+        driver_name: (item.drivers as { name: string } | null)?.name || "Unknown",
+        truck_number: item.truck_number,
+        amount: item.amount,
+        purpose: "Cash Advance",
+        city: null,
+        state: null,
+        requested_at: item.requested_at,
+        requested_by: item.requested_by,
+        quantity: null,
+        receipt_path: null,
+        company_name: null,
+        source: 'cash_advance' as const,
+      }));
+
+      // Combine and sort by date descending
+      const combined = [...efsFormatted, ...cashFormatted].sort(
+        (a, b) => new Date(b.requested_at).getTime() - new Date(a.requested_at).getTime()
+      );
+
+      return combined;
     },
     staleTime: 30 * 1000,
   });
 
   // Delete mutation (admin only)
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, source }: { id: string; source: 'efs' | 'cash_advance' }) => {
+      const tableName = source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
       const { error } = await supabase
-        .from("efs_other_requests")
+        .from(tableName)
         .delete()
         .eq("id", id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("EFS request deleted");
-      queryClient.invalidateQueries({ queryKey: ["efs-all-requests"] });
-      setDeleteId(null);
+      toast.success("Request deleted");
+      queryClient.invalidateQueries({ queryKey: ["efs-all-requests-combined"] });
+      setDeleteItem(null);
     },
     onError: (error) => {
-      toast.error("Failed to delete EFS request");
+      toast.error("Failed to delete request");
       console.error("Delete error:", error);
     },
   });
@@ -150,13 +201,13 @@ export default function EfsRequests() {
     setCurrentPage(1);
   };
 
-  const handleDelete = (id: string) => {
-    setDeleteId(id);
+  const handleDelete = (id: string, source: 'efs' | 'cash_advance') => {
+    setDeleteItem({ id, source });
   };
 
   const confirmDelete = () => {
-    if (deleteId) {
-      deleteMutation.mutate(deleteId);
+    if (deleteItem) {
+      deleteMutation.mutate(deleteItem);
     }
   };
 
@@ -327,7 +378,7 @@ export default function EfsRequests() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(request.id)}
+                        onClick={() => handleDelete(request.id, request.source)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -390,12 +441,12 @@ export default function EfsRequests() {
       )}
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete EFS Request</AlertDialogTitle>
+            <AlertDialogTitle>Delete Request</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this EFS request? This action
+              Are you sure you want to delete this {deleteItem?.source === 'cash_advance' ? 'cash advance' : 'EFS request'}? This action
               cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
