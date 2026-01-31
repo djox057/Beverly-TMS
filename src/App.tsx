@@ -31,6 +31,7 @@ import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
 import Repairs from "./pages/Repairs";
 import FuelReports from "./pages/FuelReports";
+import EfsRequests from "./pages/EfsRequests";
 import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
@@ -190,6 +191,11 @@ const AppContent = () => {
         <Route path="/fuel-reports" element={
           <ProtectedRoute>
             <Layout><FuelReports /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/efs-requests" element={
+          <ProtectedRoute>
+            <Layout><EfsRequests /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/trips" element={
