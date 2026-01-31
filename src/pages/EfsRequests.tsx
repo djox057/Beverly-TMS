@@ -112,12 +112,12 @@ export default function EfsRequests() {
       if (allUserIds.size > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, full_name, email")
-          .in("id", Array.from(allUserIds));
+          .select("user_id, full_name, email")
+          .in("user_id", Array.from(allUserIds));
 
         if (profiles) {
           profiles.forEach((p) => {
-            userNameMap[p.id] = p.full_name || p.email || p.id;
+            userNameMap[p.user_id] = p.full_name || p.email || p.user_id;
           });
         }
       }
