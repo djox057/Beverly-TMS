@@ -127,13 +127,17 @@ export function useAutoSwitchOffice({
       if (!office) continue;
       
       let found = false;
+      const isNumericSearch = /^\d+$/.test(term);
       
       switch (filterType) {
         case "truck":
           found = group.trucks?.some((truck: any) => {
             // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
-            const truckNumberValue = truck.truckNumber ?? truck.truck_number;
-            const matchesTruck = String(truckNumberValue || "").toLowerCase().includes(term);
+            const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
+            // Truck number uses exact match for numeric searches
+            const matchesTruck = isNumericSearch
+              ? truckNumberValue === term
+              : truckNumberValue.includes(term);
             const matchesDriver = truck.driver?.toLowerCase().includes(term);
             const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
             return matchesTruck || matchesDriver || matchesDriver2;
@@ -183,14 +187,19 @@ export function useAutoSwitchOffice({
       return key === currentOfficeKey;
     });
     
+    const isNumericSearch = /^\d+$/.test(term);
+    
     switch (filterType) {
       case "truck":
         // Check truck numbers and driver names
         return currentOfficeData.some(group => 
           group.trucks?.some((truck: any) => {
             // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
-            const truckNumberValue = truck.truckNumber ?? truck.truck_number;
-            const matchesTruck = String(truckNumberValue || "").toLowerCase().includes(term);
+            const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
+            // Truck number uses exact match for numeric searches
+            const matchesTruck = isNumericSearch
+              ? truckNumberValue === term
+              : truckNumberValue.includes(term);
             const matchesDriver = truck.driver?.toLowerCase().includes(term);
             // Also check driver2 name
             const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
