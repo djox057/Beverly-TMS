@@ -45,7 +45,6 @@ import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 
-
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 // NOTE: Reports must call exactly ONE reports hook. The adapter internally toggles legacy/date-window.
@@ -64,7 +63,16 @@ import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
-import React, { useState, useEffect, useMemo, memo, useRef, useCallback, useDeferredValue, startTransition } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  memo,
+  useRef,
+  useCallback,
+  useDeferredValue,
+  startTransition,
+} from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -284,15 +292,14 @@ const Reports = () => {
     isNewDriver,
     hasGameOverDays,
   } = useReportsFilters();
-  
+
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
-  
+
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
-
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
@@ -330,9 +337,8 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list - values must match database enum values
-  // Keep stable identity so hooks depending on it don't re-run every render.
-  const offices = useMemo(() => ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"], []);
-  
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+
   // Display names for offices (uppercase for UI consistency)
   const getOfficeDisplayName = (office: string) => {
     return office === "Čačak" ? "ČAČAK" : office;
@@ -347,18 +353,18 @@ const Reports = () => {
   };
   // State for date-window navigation (used when USE_DATE_WINDOW_LOADING is true)
   const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
-  
+
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
-  
+
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
   const hasActiveSearch = !!(
-    loadNumberFilter.trim().length >= 3 || 
-    truckDriverFilter.trim().length >= 2 || 
+    loadNumberFilter.trim().length >= 3 ||
+    truckDriverFilter.trim().length >= 2 ||
     dispatchNameFilter.trim().length >= 2
   );
-  
+
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
@@ -385,22 +391,22 @@ const Reports = () => {
     markGoingToDelivery,
     ...restHookData
   } = activeHook;
-  
+
   // Extract isViewingOtherOfficeInIndividualMode (only present in date-window adapter)
   const isViewingOtherOfficeInIndividualMode = (restHookData as any).isViewingOtherOfficeInIndividualMode ?? false;
-  
+
   // Use deferred value to prevent background data updates from blocking interactions
   const groupedReports = useDeferredValue(rawGroupedReports);
-  
+
   // Check if current groupedReports contains data for the active tab
   // This prevents flickering when tab changes before deferred data catches up
   // In Individual Mode viewing other office, we DO have data (empty) so don't show loading
   const hasDataForActiveTab = useMemo(() => {
     if (isViewingOtherOfficeInIndividualMode) return true; // Don't show loading skeleton
     if (!groupedReports || groupedReports.length === 0) return false;
-    return groupedReports.some(group => group.office === activeTab);
+    return groupedReports.some((group) => group.office === activeTab);
   }, [groupedReports, activeTab, isViewingOtherOfficeInIndividualMode]);
-  
+
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter,
@@ -411,7 +417,7 @@ const Reports = () => {
     offices,
     groupedReports,
   });
-  
+
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
@@ -461,7 +467,7 @@ const Reports = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
-  
+
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
   const [lateTrucks, setLateTrucks] = useState<Set<string>>(new Set()); // Track late trucks by truck ID
@@ -478,7 +484,7 @@ const Reports = () => {
   const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "recovery" | "safety" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
   const [yardActionDatetime, setYardActionDatetime] = useState<Date | undefined>(new Date());
-  
+
   const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState<{
     driverId: string;
     driverName: string;
@@ -505,7 +511,7 @@ const Reports = () => {
     canceled: boolean;
     bookedBy: string;
   } | null>(null);
-  
+
   // Additional files popover state
   const [additionalFilesPopover, setAdditionalFilesPopover] = useState<{
     open: boolean;
@@ -515,13 +521,13 @@ const Reports = () => {
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
-  
+
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
   const [lumperAmount, setLumperAmount] = useState("");
   const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
   const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
-  
+
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
     driverId: string;
@@ -529,26 +535,26 @@ const Reports = () => {
     truckNumber: string;
     companyName: string;
   } | null>(null);
-  
+
   // HOS Request dialog state
   const [hosRequestDialog, setHosRequestDialog] = useState<{
     driverName: string;
     truckNumber: string;
     companyName: string;
   } | null>(null);
-  
+
   // EFS Missing Data dialog state
   const [efsMissingDataDialog, setEfsMissingDataDialog] = useState<{
     driverId: string;
     driverName: string;
   } | null>(null);
-  
+
   // Lumper Missing Revised RC dialog state
   const [lumperMissingDataDialog, setLumperMissingDataDialog] = useState<{
     driverId: string;
     driverName: string;
   } | null>(null);
-  
+
   // Weekly Plan dialog state
   const [weeklyPlanDialog, setWeeklyPlanDialog] = useState<{
     driverId: string;
@@ -561,10 +567,10 @@ const Reports = () => {
     truckNumber: string;
     dispatcherName: string;
   } | null>(null);
-  
+
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
-  
+
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -574,7 +580,7 @@ const Reports = () => {
     pickupDropId: string;
     type: "pickup" | "delivery";
   } | null>(null);
-  
+
   const [checkInOutDialog, setCheckInOutDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
@@ -598,7 +604,6 @@ const Reports = () => {
   } | null>(null);
   const [redCellNote, setRedCellNote] = useState("");
   const [redCellIsHomeTime, setRedCellIsHomeTime] = useState(false);
-  
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -629,7 +634,12 @@ const Reports = () => {
   };
 
   // Helper to determine if we should show Going to Pickup button
-  const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null, previousLoadDeliveryComplete: boolean = false): boolean => {
+  const shouldShowGoingToPickup = (
+    order: any,
+    stop: any,
+    truck: any | null = null,
+    previousLoadDeliveryComplete: boolean = false,
+  ): boolean => {
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
     const goingToPickupClicked = !!stop.going_to_at;
     const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
@@ -650,7 +660,12 @@ const Reports = () => {
   };
 
   // Helper to determine if we should show At Pickup button
-  const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null, previousLoadDeliveryComplete: boolean = false): boolean => {
+  const shouldShowAtPickup = (
+    order: any,
+    stop: any,
+    truck: any | null = null,
+    previousLoadDeliveryComplete: boolean = false,
+  ): boolean => {
     if (stop.arrived_at) return false; // Already arrived
 
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
@@ -686,7 +701,7 @@ const Reports = () => {
 
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
     const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-    
+
     // Don't show if already has POD
     if (hasPOD) return false;
 
@@ -816,7 +831,7 @@ const Reports = () => {
         .single();
 
       // Get current timestamp in Chicago timezone for checkout time
-      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const chicagoTime = toZonedTime(new Date(), "America/Chicago");
       const checkoutTimestamp = chicagoTime.toISOString();
 
       // Upload all files
@@ -851,7 +866,7 @@ const Reports = () => {
             .from("pickup_drops")
             .update({ checked_out_at: checkoutTimestamp })
             .eq("id", firstPickup.id);
-          
+
           if (updateError) {
             console.error("Error updating pickup checkout time:", updateError);
           }
@@ -863,10 +878,10 @@ const Reports = () => {
           .select("id")
           .eq("order_id", zoomedLoad.orderId)
           .eq("file_category", "POD");
-        
+
         const podCount = existingFiles?.length || 0;
         const deliveryIndex = podCount - 1; // 1st POD = index 0, 2nd POD = index 1, etc.
-        
+
         if (deliveryIndex >= 0 && deliveryIndex < zoomedLoad.allDeliveryStops.length) {
           const deliveryStop = zoomedLoad.allDeliveryStops[deliveryIndex];
           if (deliveryStop?.id) {
@@ -874,20 +889,17 @@ const Reports = () => {
               .from("pickup_drops")
               .update({ checked_out_at: checkoutTimestamp })
               .eq("id", deliveryStop.id);
-            
+
             if (updateError) {
               console.error("Error updating delivery checkout time:", updateError);
             }
           }
         }
-        
+
         // Auto-set status to "delivered" when POD uploaded and all deliveries have PODs
         const totalDeliveries = zoomedLoad.allDeliveryStops?.length || 1;
         if (podCount >= totalDeliveries) {
-          await supabase
-            .from("orders")
-            .update({ status: "delivered" })
-            .eq("id", zoomedLoad.orderId);
+          await supabase.from("orders").update({ status: "delivered" }).eq("id", zoomedLoad.orderId);
         }
       }
 
@@ -1134,7 +1146,7 @@ const Reports = () => {
 
       // Show confirmation message
       setLumperConfirmation(data.confirmationMessage);
-      
+
       toast({
         title: "Success",
         description: "Lumper request sent and order updated",
@@ -1168,7 +1180,7 @@ const Reports = () => {
   useEffect(() => {
     // Skip expensive state updates during background fetch
     if (!groupedReports || isFetchingBackground) return;
-    
+
     setVisibleTrucks((prev) => {
       const updated = { ...prev };
       let hasChanges = false;
@@ -1291,23 +1303,24 @@ const Reports = () => {
       ...prev,
       [dispatcherId]: newDate,
     }));
-    
+
     // Check if this date range needs loading and update the global window if needed
     // This uses a more conservative check - only update if we're going significantly outside
     const visibleWindowEnd = addDays(newDate, 5);
     const loadedWindowStart = addDays(selectedDateForWindow, -2);
     const loadedWindowEnd = addDays(selectedDateForWindow, 3);
-    
+
     // Only trigger a load if the calendar is more than 1 day outside the current window
     // This prevents excessive reloading while still ensuring data availability
-    const isSignificantlyOutside = 
-      newDate < addDays(loadedWindowStart, -1) || 
-      visibleWindowEnd > addDays(loadedWindowEnd, 1);
-    
+    const isSignificantlyOutside =
+      newDate < addDays(loadedWindowStart, -1) || visibleWindowEnd > addDays(loadedWindowEnd, 1);
+
     if (isSignificantlyOutside) {
       // Center the new window on the visible range
       const newCenterDate = addDays(newDate, 2);
-      console.log(`[Reports] Calendar navigation significantly outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, 'yyyy-MM-dd')}`);
+      console.log(
+        `[Reports] Calendar navigation significantly outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, "yyyy-MM-dd")}`,
+      );
       setSelectedDateForWindow(newCenterDate);
     }
   };
@@ -1374,7 +1387,7 @@ const Reports = () => {
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = order.pickupStop?.arrived_at;
       const isLate = latePickups.has(order.id);
-      
+
       if (hasBOL || hasPOD)
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       // Arrived at pickup overrides late status - if arrived, show blue not orange
@@ -1501,12 +1514,18 @@ const Reports = () => {
           // instead of the original order dates
           const firstPickupStop = order.pickupStops?.[0];
           const lastDeliveryStop = order.deliveryStops?.[order.deliveryStops?.length - 1];
-          
+
           // Use first pickup stop datetime (transfer-aware) if available, otherwise fall back to order datetime
           const pickupDatetimeToUse = firstPickupStop?.datetime || order.pickup_datetime;
           const pickupParsed = pickupDatetimeToUse ? parseSimpleDateTime(pickupDatetimeToUse) : null;
           const pickupDate = pickupParsed
-            ? new Date(pickupParsed.year, pickupParsed.month - 1, pickupParsed.day, pickupParsed.hours, pickupParsed.minutes)
+            ? new Date(
+                pickupParsed.year,
+                pickupParsed.month - 1,
+                pickupParsed.day,
+                pickupParsed.hours,
+                pickupParsed.minutes,
+              )
             : null;
 
           // Some loads store "00:00" as a placeholder time (especially when stop-level datetime is missing).
@@ -1518,7 +1537,7 @@ const Reports = () => {
             pickupDatetimeToUse === order.pickup_datetime &&
             typeof order.pickup_datetime === "string" &&
             /(T|\s)00:00(:00)?/.test(order.pickup_datetime);
-          
+
           // Use last delivery stop datetime (transfer-aware) if available, otherwise fall back to order datetime
           const deliveryDatetimeToUse = lastDeliveryStop?.datetime || order.delivery_datetime;
           const deliveryDate = deliveryDatetimeToUse
@@ -1602,7 +1621,7 @@ const Reports = () => {
     const firstPickupDate = ordersWithDates
       .filter((order) => order.pickupDate)
       .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
-    
+
     // Red box logic is based on actual current date, not the carousel viewing window
     const chicagoToday = getChicagoToday();
     const oneDayInFuture = addDays(chicagoToday, 1);
@@ -1714,14 +1733,14 @@ const Reports = () => {
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
         return hasPickupOnDay && hasDeliveryOnDay;
       });
-      
+
       // True same-day orders (first pickup and first delivery on same day)
       const sameDayOrders = ordersWithBothOnDay.filter((order) => isSameDayPickupDelivery(order));
-      
+
       // Orders with both stops on THIS day but NOT true same-day orders (multi-day loads with overlapping stops)
       // These need to show BOTH pickup and delivery cells on this day
       const mixedDayOrders = ordersWithBothOnDay.filter((order) => !isSameDayPickupDelivery(order));
-      
+
       const pickupOnlyOrders = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
@@ -1734,7 +1753,7 @@ const Reports = () => {
         // Has delivery on this day but not pickup on this day
         return hasDeliveryOnDay && !hasPickupOnDay;
       });
-      
+
       // Combine for rendering: pickups include mixedDayOrders, deliveries include mixedDayOrders
       const allPickupOrders = [...pickupOnlyOrders, ...mixedDayOrders];
       const allDeliveryOrders = [...deliveryOnlyOrders, ...mixedDayOrders];
@@ -1798,16 +1817,16 @@ const Reports = () => {
         // Check if any delivery order has MORE deliveries after this day for the SAME order
         shouldShowContinuingDelivery = allDeliveryOrders.some((order) => {
           if (!order.deliveryStopsByDate) return false;
-          
+
           // Get all delivery dates for this order
           const deliveryDates = Array.from(order.deliveryStopsByDate.keys()).map((dateStr: string) => {
-            const parts = dateStr.split('-');
+            const parts = dateStr.split("-");
             return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
           });
-          
+
           // Check if there are deliveries after today for THIS order
           const dayTime = day.getTime();
-          return deliveryDates.some(deliveryDate => deliveryDate.getTime() > dayTime);
+          return deliveryDates.some((deliveryDate) => deliveryDate.getTime() > dayTime);
         });
       }
 
@@ -1818,19 +1837,21 @@ const Reports = () => {
         // Check if this day falls between deliveries of the same order
         isInTransitBetweenDeliveries = ordersWithDates.some((order) => {
           if (!order.deliveryStopsByDate || order.deliveryStopsByDate.size === 0) return false;
-          
+
           // Get all delivery dates for this order
-          const deliveryDates = Array.from(order.deliveryStopsByDate.keys()).map((dateStr: string) => {
-            const parts = dateStr.split('-');
-            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-          }).sort((a, b) => a.getTime() - b.getTime());
-          
+          const deliveryDates = Array.from(order.deliveryStopsByDate.keys())
+            .map((dateStr: string) => {
+              const parts = dateStr.split("-");
+              return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            })
+            .sort((a, b) => a.getTime() - b.getTime());
+
           if (deliveryDates.length < 2) return false; // Need at least 2 deliveries to be "between"
-          
+
           const dayTime = day.getTime();
           const firstDeliveryTime = deliveryDates[0].getTime();
           const lastDeliveryTime = deliveryDates[deliveryDates.length - 1].getTime();
-          
+
           // Day is between if it's after first delivery and before last delivery
           return dayTime > firstDeliveryTime && dayTime < lastDeliveryTime;
         });
@@ -1842,30 +1863,30 @@ const Reports = () => {
       let shouldShowPickupInTransit = false;
       shouldShowPickupInTransit = ordersWithDates.some((order) => {
         if (!order.pickupDate || !order.pickupStopsByDate || !order.deliveryStopsByDate) return false;
-        
+
         // Get the last delivery date for this order by finding the max date in deliveryStopsByDate
         const deliveryDates = Array.from(order.deliveryStopsByDate.keys()).map((dateStr: string) => {
-          const parts = dateStr.split('-');
+          const parts = dateStr.split("-");
           return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
         });
-        
+
         if (deliveryDates.length === 0) return false;
-        const lastDeliveryDate = new Date(Math.max(...deliveryDates.map(d => d.getTime())));
-        
+        const lastDeliveryDate = new Date(Math.max(...deliveryDates.map((d) => d.getTime())));
+
         // Check if today is between pickup and last delivery (exclusive of both ends)
         const dayTime = day.getTime();
         const pickupTime = order.pickupDate.getTime();
         const lastDeliveryTime = lastDeliveryDate.getTime();
-        
+
         // Must be after pickup and before or on last delivery
         if (dayTime <= pickupTime || dayTime > lastDeliveryTime) {
           return false; // Not in the active date range of this order
         }
-        
+
         // Check if this specific day has a pickup or delivery for this order
         const hasPickupToday = order.pickupStopsByDate.has(dayStr);
         const hasDeliveryToday = order.deliveryStopsByDate.has(dayStr);
-        
+
         // Show ">>>" only if it's in the date range but NOT a pickup/delivery day
         return !hasPickupToday && !hasDeliveryToday;
       });
@@ -2290,10 +2311,7 @@ const Reports = () => {
                       }}
                     >
                       {isMissingPickup ? (
-                        <span 
-                          className="line-clamp-2 text-center px-0.5"
-                          title={getLostDayNote(day)}
-                        >
+                        <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
                           {getLostDayNote(day)}
                         </span>
                       ) : isInTransit || shouldShowPickupInTransit ? (
@@ -2338,10 +2356,8 @@ const Reports = () => {
             const filteredTrucks = group.trucks.filter((truck) => {
               // Check truck/driver filter
               if (debouncedTruckDriverFilter) {
-                // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
-                const truckNumberValue = (truck.truckNumber ?? truck.truck_number) as unknown;
-                const matchesTruck = String(truckNumberValue || "")
-                  .toLowerCase()
+                const matchesTruck = truck.truckNumber
+                  ?.toLowerCase()
                   .includes(debouncedTruckDriverFilter.toLowerCase());
                 const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
                 if (!matchesTruck && !matchesDriver) return false;
@@ -2352,9 +2368,11 @@ const Reports = () => {
                 const searchTerm = debouncedLoadNumberFilter.toLowerCase();
                 const hasMatchingLoad = truck.allOrders?.some((order: any) => {
                   // Check broker load number
-                  const brokerMatch = String(order.broker_load_number || '').toLowerCase().includes(searchTerm);
+                  const brokerMatch = String(order.broker_load_number || "")
+                    .toLowerCase()
+                    .includes(searchTerm);
                   if (brokerMatch) return true;
-                  
+
                   // Check internal load number with suffix (e.g., "123-BFP")
                   const internalLoadNumber = order.internal_load_number;
                   const companyName = order.company?.name || order.driver1?.company?.name;
@@ -2424,37 +2442,35 @@ const Reports = () => {
         loadNumber: string;
         currentMiles?: number;
       }> = [];
-      
+
       // Track stops to auto-mark as arrived (truck within 1 mile)
       const stopsToAutoArrive: Array<{ stopId: string; stopType: "pickup" | "delivery" }> = [];
-      
+
       // Collect new notified keys to batch update
       const newNotifiedKeys: string[] = [];
 
       // Get current time
       const now = new Date();
-      
+
       // Helper to parse datetime as Chicago time and convert to UTC for comparison
       // Database stores times that represent Chicago local time (tagged incorrectly as UTC)
       const parseAsChicagoTime = (dateStr: string): Date => {
         // Remove any timezone suffix - the datetime represents Chicago local time
-        const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, '');
-        
+        const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, "");
+
         // Parse the date parts
-        const [datePart, timePart] = cleanDate.includes('T') 
-          ? cleanDate.split('T') 
-          : cleanDate.split(' ');
-        
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
-        
+        const [datePart, timePart] = cleanDate.includes("T") ? cleanDate.split("T") : cleanDate.split(" ");
+
+        const [year, month, day] = datePart.split("-").map(Number);
+        const [hours, minutes] = (timePart || "00:00").split(":").map(Number);
+
         // Build an ISO string representing the Chicago local time
         // Format: YYYY-MM-DDTHH:mm:ss (no timezone suffix)
-        const isoString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-        
+        const isoString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+
         // fromZonedTime interprets the input as being in the specified timezone (Chicago)
         // and returns the equivalent UTC Date
-        return fromZonedTime(isoString, 'America/Chicago');
+        return fromZonedTime(isoString, "America/Chicago");
       };
 
       // Iterate through all trucks
@@ -2469,13 +2485,14 @@ const Reports = () => {
 
           // Determine the current order for this truck (same logic as rendering)
           // Filter out canceled, game over, AND already delivered orders
-          const allSortedOrders = truck.allOrders
-            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER" && order.status !== 'delivered')
-            .sort((a: any, b: any) => {
-              const aDate = a.pickupStop?.datetime || "";
-              const bDate = b.pickupStop?.datetime || "";
-              return aDate.localeCompare(bDate);
-            }) || [];
+          const allSortedOrders =
+            truck.allOrders
+              ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER" && order.status !== "delivered")
+              .sort((a: any, b: any) => {
+                const aDate = a.pickupStop?.datetime || "";
+                const bDate = b.pickupStop?.datetime || "";
+                return aDate.localeCompare(bDate);
+              }) || [];
 
           if (allSortedOrders.length === 0) return;
 
@@ -2492,9 +2509,9 @@ const Reports = () => {
             if (previousHasPOD) {
               currentOrder = lastOrder;
             } else {
-              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                order.order_files?.some((file: any) => file.file_category === "BOL")
-              );
+              const lastWithBOL = [...allSortedOrders]
+                .reverse()
+                .find((order: any) => order.order_files?.some((file: any) => file.file_category === "BOL"));
               currentOrder = lastWithBOL || lastOrder;
             }
           } else {
@@ -2504,7 +2521,7 @@ const Reports = () => {
           if (!currentOrder) return;
 
           // Double-check: skip if order is already delivered
-          if (currentOrder.status === 'delivered') return;
+          if (currentOrder.status === "delivered") return;
 
           // Check if current order has POD uploaded (means delivery completed)
           const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === "POD");
@@ -2528,12 +2545,12 @@ const Reports = () => {
               // Cell turns orange only when scheduled end time has passed (pickup is overdue)
               // This matches user expectation: "late" means the deadline has passed, not future ETA projection
               const isOverdue = now > scheduledEnd;
-              
+
               // Auto-mark arrival if truck is within 1 mile (check before isOverdue)
               if (truck.milesAway !== undefined && truck.milesAway > 0 && truck.milesAway < 1 && stop.id) {
                 stopsToAutoArrive.push({ stopId: stop.id, stopType: "pickup" });
               }
-              
+
               if (isOverdue) {
                 newLatePickups.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
@@ -2564,7 +2581,8 @@ const Reports = () => {
 
           // Check delivery stops (only if BOL is uploaded)
           if (hasBOL) {
-            const deliveryStops = currentOrder.deliveryStops || (currentOrder.deliveryStop ? [currentOrder.deliveryStop] : []);
+            const deliveryStops =
+              currentOrder.deliveryStops || (currentOrder.deliveryStop ? [currentOrder.deliveryStop] : []);
             deliveryStops.forEach((stop: any) => {
               if (stop.arrived_at) return; // Already arrived at delivery
 
@@ -2578,18 +2596,18 @@ const Reports = () => {
               // Cell turns orange only when scheduled end time has passed (delivery is overdue)
               // This matches user expectation: "late" means the deadline has passed, not future ETA projection
               const isOverdue = now > scheduledEnd;
-              
+
               // Auto-mark arrival if truck is within 1 mile (check before isOverdue)
               if (truck.milesAway !== undefined && truck.milesAway > 0 && truck.milesAway < 1 && stop.id) {
                 stopsToAutoArrive.push({ stopId: stop.id, stopType: "delivery" });
               }
-              
+
               if (isOverdue) {
                 newLateDeliveries.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
 
                 // Queue email notification for late delivery (send immediately when overdue)
-                const notifyKey = `${currentOrder.id}-delivery-${stop.id || 'main'}`;
+                const notifyKey = `${currentOrder.id}-delivery-${stop.id || "main"}`;
                 if (!notifiedLateStopsRef.current.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
@@ -2619,16 +2637,16 @@ const Reports = () => {
         setLatePickups(newLatePickups);
         setLateDeliveries(newLateDeliveries);
         setLateTrucks(newLateTrucks);
-        
+
         // Batch update notified keys (update ref first to avoid re-triggering effect)
         if (newNotifiedKeys.length > 0) {
           // Update ref immediately (synchronous, no re-render)
-          newNotifiedKeys.forEach(key => notifiedLateStopsRef.current.add(key));
-          
+          newNotifiedKeys.forEach((key) => notifiedLateStopsRef.current.add(key));
+
           // Also update state for any components that read it
           setNotifiedLateStops((prev) => {
             const updated = new Set(prev);
-            newNotifiedKeys.forEach(key => updated.add(key));
+            newNotifiedKeys.forEach((key) => updated.add(key));
             return updated;
           });
         }
@@ -2649,12 +2667,12 @@ const Reports = () => {
       //     }
       //   }
       // };
-      // 
+      //
       // // Run in background (fire and forget)
       // if (lateStopsToNotify.length > 0) {
       //   sendNotificationsSequentially();
       // }
-      
+
       // Auto-mark arrivals for trucks within 1 mile (fire and forget)
       if (stopsToAutoArrive.length > 0) {
         const processAutoArrivals = async () => {
@@ -2805,11 +2823,11 @@ const Reports = () => {
           const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            
+
             // Parse dates the same way as formatDateTime (without timezone conversion)
             const pickupParsed = parseSimpleDateTime(order.pickupStop.datetime);
             const pickupDate = new Date(pickupParsed.year, pickupParsed.month - 1, pickupParsed.day);
-            
+
             const deliveryParsed = parseSimpleDateTime(order.deliveryStop.datetime);
             const deliveryDate = new Date(deliveryParsed.year, deliveryParsed.month - 1, deliveryParsed.day);
 
@@ -2826,10 +2844,10 @@ const Reports = () => {
             if (order.notes === "GAME|OVER") return false;
             // Canceled orders don't count as having a pickup
             if (order.canceled) return false;
-            
+
             // Check all pickup stops (handles multi-stop loads)
             const allPickupStops = order.pickupStops || (order.pickupStop ? [order.pickupStop] : []);
-            
+
             return allPickupStops.some((stop: any) => {
               if (!stop?.datetime) return false;
               const parsed = parseSimpleDateTime(stop.datetime);
@@ -2864,7 +2882,17 @@ const Reports = () => {
         };
       })
       .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice, showLateTrucks, showProblems, lateTrucks, hasDriverProblem]);
+  }, [
+    activeTab,
+    filterReportsByOffice,
+    showEmptyTrucks,
+    showNewDrivers,
+    showTwoWeekNotice,
+    showLateTrucks,
+    showProblems,
+    lateTrucks,
+    hasDriverProblem,
+  ]);
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
     <div className="space-y-4 p-4">
@@ -2888,7 +2916,7 @@ const Reports = () => {
   );
   if (error) {
     // Auto-refresh the page on query timeout errors
-    if (error.message?.includes('timeout') || error.message?.includes('connection')) {
+    if (error.message?.includes("timeout") || error.message?.includes("connection")) {
       window.location.reload();
       return null;
     }
@@ -2930,7 +2958,7 @@ const Reports = () => {
                   className={cn(
                     "max-w-[200px] pr-8",
                     ambiguousMatch?.filter === "truck" && "border-amber-500",
-                    searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && "border-red-400"
+                    searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && "border-red-400",
                   )}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -2978,7 +3006,7 @@ const Reports = () => {
                   className={cn(
                     "max-w-[180px] pr-8",
                     ambiguousMatch?.filter === "dispatch" && "border-amber-500",
-                    searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400"
+                    searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400",
                   )}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -3020,13 +3048,13 @@ const Reports = () => {
               </div>
               <div className="relative">
                 <Input
-                  placeholder="Load # (any date)"
+                  placeholder="Load #"
                   value={loadNumberFilter}
                   onChange={(e) => setLoadNumberFilter(e.target.value)}
                   className={cn(
                     "max-w-[200px] pr-8",
                     ambiguousMatch?.filter === "load" && "border-amber-500",
-                    searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && "border-red-400"
+                    searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && "border-red-400",
                   )}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -3036,11 +3064,16 @@ const Reports = () => {
                   {searchStatus.load === "found" && !ambiguousMatch?.filter && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Check className={cn(
-                          "h-4 w-4",
-                          foundOrderMeta?.isLocked ? "text-blue-500" : 
-                          foundOrderMeta?.isCanceled ? "text-amber-500" : "text-green-500"
-                        )} />
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            foundOrderMeta?.isLocked
+                              ? "text-blue-500"
+                              : foundOrderMeta?.isCanceled
+                                ? "text-amber-500"
+                                : "text-green-500",
+                          )}
+                        />
                       </TooltipTrigger>
                       {(foundOrderMeta?.isLocked || foundOrderMeta?.isCanceled) && (
                         <TooltipContent>
@@ -3139,8 +3172,7 @@ const Reports = () => {
                     onClick={() => setShowTwoWeekNotice(!showTwoWeekNotice)}
                     className="gap-2"
                   >
-                    <Ban className="h-4 w-4" />
-                    2 Week Notice
+                    <Ban className="h-4 w-4" />2 Week Notice
                   </Button>
                   <Button
                     variant={showNewDrivers ? "default" : "outline"}
@@ -3199,7 +3231,7 @@ const Reports = () => {
                     (_, i) => addDays(startDate, i),
                   );
                   return (
-                    <div key={group.dispatcherId} className={`bg-card ${(group as any).isOffDuty ? 'opacity-50' : ''}`}>
+                    <div key={group.dispatcherId} className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
                       {/* Google Sheets-style table */}
                       <div className="w-full">
                         <table
@@ -3212,10 +3244,12 @@ const Reports = () => {
                         >
                           <thead>
                             {/* Date Range Selector Row with Dispatcher Name */}
-                            <tr className={`sticky top-0 z-20 ${(group as any).isOffDuty ? 'bg-gray-300' : 'bg-muted/50'}`}>
+                            <tr
+                              className={`sticky top-0 z-20 ${(group as any).isOffDuty ? "bg-gray-300" : "bg-muted/50"}`}
+                            >
                               <th
                                 colSpan={3}
-                                className={`border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold ${(group as any).isOffDuty ? 'text-gray-500 bg-gray-300' : 'text-foreground bg-muted/50'}`}
+                                className={`border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold ${(group as any).isOffDuty ? "text-gray-500 bg-gray-300" : "text-foreground bg-muted/50"}`}
                                 style={{
                                   fontSize: "0.825rem",
                                 }}
@@ -3226,24 +3260,25 @@ const Reports = () => {
                                       e.stopPropagation();
                                       // Toggle expanded dispatcher map
                                       setExpandedDispatcherMap(
-                                        expandedDispatcherMap === group.dispatcherId ? null : group.dispatcherId
+                                        expandedDispatcherMap === group.dispatcherId ? null : group.dispatcherId,
                                       );
                                     }}
                                     className="p-1 hover:bg-muted rounded transition-colors"
                                     aria-label="Fleet map"
                                   >
-                                    <MapIcon className={`h-4 w-4 ${expandedDispatcherMap === group.dispatcherId ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} />
+                                    <MapIcon
+                                      className={`h-4 w-4 ${expandedDispatcherMap === group.dispatcherId ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                                    />
                                   </button>
                                   <span>
-                                    {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                    {group.dispatcher} ({group.trucks.length} truck
+                                    {group.trucks.length !== 1 ? "s" : ""})
                                     {(group as any).isOffDuty && (
                                       <span className="ml-2 text-xs font-normal italic">(Off Duty)</span>
                                     )}
                                   </span>
                                   {group.ext && (
-                                    <span className="text-xs font-normal text-muted-foreground">
-                                      ext {group.ext}
-                                    </span>
+                                    <span className="text-xs font-normal text-muted-foreground">ext {group.ext}</span>
                                   )}
                                 </div>
                               </th>
@@ -3317,9 +3352,11 @@ const Reports = () => {
                                             if (previousHasPOD) {
                                               currentOrder = lastOrder;
                                             } else {
-                                              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                                                order.order_files?.some((file: any) => file.file_category === "BOL"),
-                                              );
+                                              const lastWithBOL = [...allSortedOrders]
+                                                .reverse()
+                                                .find((order: any) =>
+                                                  order.order_files?.some((file: any) => file.file_category === "BOL"),
+                                                );
                                               currentOrder = lastWithBOL || lastOrder;
                                             }
                                           } else {
@@ -3340,8 +3377,10 @@ const Reports = () => {
                                           currentOrder: currentOrder
                                             ? {
                                                 id: currentOrder.id,
-                                                loadNumber:
-                                                  formatInternalLoadNumber(currentOrder.internal_load_number, truck.companyName),
+                                                loadNumber: formatInternalLoadNumber(
+                                                  currentOrder.internal_load_number,
+                                                  truck.companyName,
+                                                ),
                                                 brokerLoadNumber: currentOrder.broker_load_number,
                                                 pickupAddress: currentOrder.pickupStop?.address,
                                                 deliveryAddress: currentOrder.deliveryStop?.address,
@@ -3356,11 +3395,13 @@ const Reports = () => {
                                                 pickupDatetime: currentOrder.pickupStop?.datetime,
                                                 deliveryDatetime: currentOrder.deliveryStop?.datetime,
                                                 hasBOL:
-                                                  currentOrder.order_files?.some((f: any) => f.file_category === "BOL") ||
-                                                  false,
+                                                  currentOrder.order_files?.some(
+                                                    (f: any) => f.file_category === "BOL",
+                                                  ) || false,
                                                 hasPOD:
-                                                  currentOrder.order_files?.some((f: any) => f.file_category === "POD") ||
-                                                  false,
+                                                  currentOrder.order_files?.some(
+                                                    (f: any) => f.file_category === "POD",
+                                                  ) || false,
                                                 pickupArrived: !!currentOrder.pickupStop?.arrival_time,
                                               }
                                             : undefined,
@@ -3477,31 +3518,38 @@ const Reports = () => {
                                 // 1. Default: last/latest load that has BOL
                                 // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
                                 // 3. Fallback: if no load with BOL, use last load
-                                const allSortedOrders = truck.allOrders
-                                  ?.filter((order) => !order.canceled && order.notes !== "GAME|OVER")
-                                  .sort((a, b) => {
-                                    const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
-                                    const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
-                                    return aDate - bDate;
-                                  }) || [];
-                                
-                                let currentOrder: typeof allSortedOrders[0] | undefined = undefined;
+                                const allSortedOrders =
+                                  truck.allOrders
+                                    ?.filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+                                    .sort((a, b) => {
+                                      const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                      const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
+                                      return aDate - bDate;
+                                    }) || [];
+
+                                let currentOrder: (typeof allSortedOrders)[0] | undefined = undefined;
                                 if (allSortedOrders.length > 0) {
                                   const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                  const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
-                                  
+                                  const lastOrderHasBOL = lastOrder.order_files?.some(
+                                    (file: any) => file.file_category === "BOL",
+                                  );
+
                                   if (lastOrderHasBOL) {
                                     currentOrder = lastOrder;
                                   } else if (allSortedOrders.length >= 2) {
                                     const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                    const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-                                    
+                                    const previousHasPOD = previousOrder.order_files?.some(
+                                      (file: any) => file.file_category === "POD",
+                                    );
+
                                     if (previousHasPOD) {
                                       currentOrder = lastOrder;
                                     } else {
-                                      const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                                        order.order_files?.some((file: any) => file.file_category === "BOL")
-                                      );
+                                      const lastWithBOL = [...allSortedOrders]
+                                        .reverse()
+                                        .find((order) =>
+                                          order.order_files?.some((file: any) => file.file_category === "BOL"),
+                                        );
                                       currentOrder = lastWithBOL || lastOrder;
                                     }
                                   } else {
@@ -3521,7 +3569,6 @@ const Reports = () => {
                                           return aSeq - bSeq;
                                         })
                                     : []);
-
 
                                 const pickupStopForDisplay = currentOrder?.pickupStop ?? pickupStopsForDisplay[0];
 
@@ -3569,7 +3616,7 @@ const Reports = () => {
                                                 <PopoverContent className="w-auto p-2">
                                                   <p className="text-xs font-medium">2-Week Notice</p>
                                                   <p className="text-xs">
-                                                    Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
+                                                    Last day: {format(new Date(truck.twoWeekBlockDate), "MMM dd, yyyy")}
                                                   </p>
                                                 </PopoverContent>
                                               </Popover>
@@ -3580,14 +3627,15 @@ const Reports = () => {
                                                 return (
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                      <img 
+                                                      <img
                                                         src={dotInspectionIcon}
                                                         alt="DOT Inspection"
                                                         className="h-4 w-4"
                                                         style={{
-                                                          filter: dotStatus.color === 'red' 
-                                                            ? 'brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)'
-                                                            : 'brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)',
+                                                          filter:
+                                                            dotStatus.color === "red"
+                                                              ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                              : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
                                                         }}
                                                       />
                                                     </TooltipTrigger>
@@ -3668,303 +3716,145 @@ const Reports = () => {
                                               }
                                             }}
                                           >
-                                            {truck.driverId && hasDriverProblem(truck.driverId) && 
+                                            {truck.driverId &&
+                                              hasDriverProblem(truck.driverId) &&
                                               !(roles.includes("dispatch") || roles.includes("afterhours")) && (
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <button
+                                                      className="inline-flex"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                      <AlertCircle
+                                                        className="h-3.5 w-3.5 text-destructive cursor-pointer"
+                                                        strokeWidth={2.5}
+                                                      />
+                                                    </button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-auto max-w-xs p-3">
+                                                    <p className="text-xs font-bold text-destructive mb-1">
+                                                      Driver Problem
+                                                    </p>
+                                                    <p className="text-xs whitespace-pre-wrap">
+                                                      {getProblemForDriver(truck.driverId)?.reason}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground mt-2">
+                                                      {getProblemForDriver(truck.driverId)?.created_at &&
+                                                        new Date(
+                                                          getProblemForDriver(truck.driverId)!.created_at,
+                                                        ).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                    </p>
+                                                  </PopoverContent>
+                                                </Popover>
+                                              )}
+                                            <span>{truck.driver}</span>
+                                            {(() => {
+                                              const maintenanceStatus = getMaintenanceIconStatus(truck);
+                                              if (maintenanceStatus.show) {
+                                                return (
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <img
+                                                        src={wrenchIcon}
+                                                        alt="Maintenance"
+                                                        className="h-3.5 w-3.5"
+                                                        style={{
+                                                          filter:
+                                                            maintenanceStatus.color === "red"
+                                                              ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
+                                                              : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                        }}
+                                                      />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p className="text-xs">{maintenanceStatus.tooltip}</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                            {hasLumperMissingRC(truck.driverId) && (
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <button
+                                                    className="inline-flex"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setLumperMissingDataDialog({
+                                                        driverId: truck.driverId!,
+                                                        driverName: truck.driver || "Unknown",
+                                                      });
+                                                    }}
+                                                  >
+                                                    <img
+                                                      src={lumperReceiptIcon}
+                                                      alt="Lumper Receipt"
+                                                      className="h-4 w-4 cursor-pointer"
+                                                    />
+                                                  </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="text-xs">Lumper - Missing Receipt</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            )}
+                                            {hasEfsMissingData(truck.driverId) && (
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <button
+                                                    className="inline-flex"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setEfsMissingDataDialog({
+                                                        driverId: truck.driverId!,
+                                                        driverName: truck.driver || "Unknown",
+                                                      });
+                                                    }}
+                                                  >
+                                                    <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
+                                                  </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="text-xs">EFS Fuel - Missing Data</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            )}
+                                            {truck.randomDrugTestDate && (
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                    <AlertCircle className="h-3.5 w-3.5 text-destructive cursor-pointer" strokeWidth={2.5} />
+                                                    <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
                                                   </button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto max-w-xs p-3">
-                                                  <p className="text-xs font-bold text-destructive mb-1">Driver Problem</p>
-                                                  <p className="text-xs whitespace-pre-wrap">
-                                                    {getProblemForDriver(truck.driverId)?.reason}
-                                                  </p>
-                                                  <p className="text-[10px] text-muted-foreground mt-2">
-                                                    {getProblemForDriver(truck.driverId)?.created_at && 
-                                                      new Date(getProblemForDriver(truck.driverId)!.created_at).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                <PopoverContent className="w-auto p-2">
+                                                  <p className="text-xs font-medium">Random Drug Test</p>
+                                                  <p className="text-xs">
+                                                    Date: {format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}
                                                   </p>
                                                 </PopoverContent>
                                               </Popover>
                                             )}
-                                            <span>{truck.driver}</span>
-                                          {(() => {
-                                            const maintenanceStatus = getMaintenanceIconStatus(truck);
-                                            if (maintenanceStatus.show) {
-                                              return (
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <img 
-                                                      src={wrenchIcon} 
-                                                      alt="Maintenance" 
-                                                      className="h-3.5 w-3.5"
-                                                      style={{ 
-                                                        filter: maintenanceStatus.color === 'red' 
-                                                          ? 'invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)' 
-                                                          : 'invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)'
-                                                      }}
-                                                    />
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    <p className="text-xs">{maintenanceStatus.tooltip}</p>
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              );
-                                            }
-                                            return null;
-                                          })()}
-                                          {hasLumperMissingRC(truck.driverId) && (
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  className="inline-flex"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setLumperMissingDataDialog({
-                                                      driverId: truck.driverId!,
-                                                      driverName: truck.driver || "Unknown",
-                                                    });
-                                                  }}
-                                                >
-                                                  <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                <p className="text-xs">Lumper - Missing Receipt</p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          )}
-                                          {hasEfsMissingData(truck.driverId) && (
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  className="inline-flex"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEfsMissingDataDialog({
-                                                      driverId: truck.driverId!,
-                                                      driverName: truck.driver || "Unknown",
-                                                    });
-                                                  }}
-                                                >
-                                                  <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                <p className="text-xs">EFS Fuel - Missing Data</p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          )}
-                                          {truck.randomDrugTestDate && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                  <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
-                                                </button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto p-2">
-                                                <p className="text-xs font-medium">Random Drug Test</p>
-                                                <p className="text-xs">
-                                                  Date: {format(new Date(truck.randomDrugTestDate), 'MMM dd, yyyy')}
-                                                </p>
-                                              </PopoverContent>
-                                            </Popover>
-                                          )}
-                                          {(truck.driverPhone ||
-                                            truck.driverEmail ||
-                                            truck.trailerNumber ||
-                                            truck.driver2Name) && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                  <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                                </button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto">
-                                                <div className="space-y-1">
-                                                  {truck.driver2Name ? (
-                                                    <>
-                                                      <div className="flex items-center justify-between gap-2">
-                                                        <p className="font-semibold text-sm">
-                                                          Driver 1: {truck.driver1Name}
-                                                        </p>
-                                                        {truck.driverId && truck.driver2Id && (
-                                                          <div className="flex items-center gap-1">
-                                                            {truck.goingYard ? (
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={async (e) => {
-                                                                  e.stopPropagation();
-                                                                  try {
-                                                                    // Cancel for both drivers
-                                                                    await supabase
-                                                                      .from("drivers")
-                                                                      .update({ going_yard: false })
-                                                                      .in("id", [truck.driverId, truck.driver2Id]);
-
-                                                                    await supabase
-                                                                      .from("driver_yard_actions")
-                                                                      .delete()
-                                                                      .in("driver_id", [truck.driverId, truck.driver2Id]);
-
-                                                                    toast({
-                                                                      title: "Yard action canceled for team",
-                                                                    });
-                                                                    // Real-time subscription handles cache updates
-                                                                  } catch (error) {
-                                                                    console.error("Error:", error);
-                                                                    toast({
-                                                                      title: "Error",
-                                                                      description: "Failed to cancel",
-                                                                      variant: "destructive",
-                                                                    });
-                                                                  }
-                                                                }}
-                                                              >
-                                                                <X className="h-3 w-3 text-destructive" />
-                                                              </Button>
-                                                            ) : (
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setYardActionDialog({
-                                                                    driverId: truck.driverId!,
-                                                                    driverName: truck.driver1Name,
-                                                                    driver2Id: truck.driver2Id!,
-                                                                    driver2Name: truck.driver2Name,
-                                                                    truckNumber: truck.truckNumber,
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <Warehouse className="h-3 w-3" />
-                                                              </Button>
-                                                            )}
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setTwoWeekNoticeDialog({
-                                                                  driverId: truck.driverId!,
-                                                                  driverName: truck.driver1Name,
-                                                                  driver2Id: truck.driver2Id!,
-                                                                  driver2Name: truck.driver2Name,
-                                                                });
-                                                              }}
-                                                            >
-                                                              <CalendarIcon className="h-3 w-3" />
-                                                            </Button>
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setEfsRequestDialog({
-                                                                  driverId: truck.driverId!,
-                                                                  driverName: truck.driver1Name,
-                                                                  truckNumber: truck.truckNumber,
-                                                                  companyName: truck.companyName || "",
-                                                                });
-                                                              }}
-                                                            >
-                                                              <DollarSign className="h-3 w-3" />
-                                                            </Button>
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setHosRequestDialog({
-                                                                  driverName: truck.driver1Name,
-                                                                  truckNumber: truck.truckNumber,
-                                                                  companyName: truck.companyName || "",
-                                                                });
-                                                              }}
-                                                            >
-                                                              <Clock className="h-3 w-3" />
-                                                            </Button>
-                                                            {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && (
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setProblemDialog({
-                                                                    driverId: truck.driverId!,
-                                                                    driverName: truck.driver1Name,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    dispatcherName: truck.dispatcher || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <AlertCircle className="h-3 w-3 text-destructive" />
-                                                              </Button>
-                                                            )}
-                                                          </div>
-                                                        )}
-                                                      </div>
-                                                      {truck.driverPhone && (
-                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
-                                                      )}
-                                                      {truck.driverEmail && (
-                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
-                                                      )}
-                                                      <div className="border-t pt-1 mt-1">
-                                                        <p className="font-semibold text-sm">
-                                                          Driver 2: {truck.driver2Name}
-                                                        </p>
-                                                        {truck.driver2Phone && (
-                                                          <p className="text-xs">📞 {truck.driver2Phone}</p>
-                                                        )}
-                                                        {truck.driver2Email && (
-                                                          <p className="text-xs">✉️ {truck.driver2Email}</p>
-                                                        )}
-                                                      </div>
-                                                      <div className="border-t pt-1 mt-1">
-                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                        {truck.trailerNumber && (
-                                                          <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
-                                                        )}
-                                                      </div>
-                                                      {((truck as any).emergencyContactName ||
-                                                        (truck as any).emergencyContactPhone) && (
-                                                        <div className="border-t pt-1 mt-1">
-                                                          <p className="font-semibold text-xs mb-0.5">
-                                                            Emergency Contact
+                                            {(truck.driverPhone ||
+                                              truck.driverEmail ||
+                                              truck.trailerNumber ||
+                                              truck.driver2Name) && (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                                    <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto">
+                                                  <div className="space-y-1">
+                                                    {truck.driver2Name ? (
+                                                      <>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                          <p className="font-semibold text-sm">
+                                                            Driver 1: {truck.driver1Name}
                                                           </p>
-                                                          {(truck as any).emergencyContactName && (
-                                                            <p className="text-xs">
-                                                              👤 {(truck as any).emergencyContactName}
-                                                              {(truck as any).emergencyContactRelation
-                                                                ? ` (${(truck as any).emergencyContactRelation})`
-                                                                : ""}
-                                                            </p>
-                                                          )}
-                                                          {(truck as any).emergencyContactPhone && (
-                                                            <p className="text-xs">
-                                                              📞 {(truck as any).emergencyContactPhone}
-                                                            </p>
-                                                          )}
-                                                        </div>
-                                                      )}
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <div className="flex items-center justify-between gap-2">
-                                                        <p className="font-semibold text-sm">{truck.driver}</p>
-                                                        <div className="flex items-center gap-1">
-                                                          {truck.driverId && (
-                                                            <>
+                                                          {truck.driverId && truck.driver2Id && (
+                                                            <div className="flex items-center gap-1">
                                                               {truck.goingYard ? (
                                                                 <Button
                                                                   variant="ghost"
@@ -3973,20 +3863,22 @@ const Reports = () => {
                                                                   onClick={async (e) => {
                                                                     e.stopPropagation();
                                                                     try {
+                                                                      // Cancel for both drivers
                                                                       await supabase
                                                                         .from("drivers")
                                                                         .update({ going_yard: false })
-                                                                        .eq("id", truck.driverId);
+                                                                        .in("id", [truck.driverId, truck.driver2Id]);
 
                                                                       await supabase
                                                                         .from("driver_yard_actions")
                                                                         .delete()
-                                                                        .eq("driver_id", truck.driverId)
-                                                                        .order("created_at", { ascending: false })
-                                                                        .limit(1);
+                                                                        .in("driver_id", [
+                                                                          truck.driverId,
+                                                                          truck.driver2Id,
+                                                                        ]);
 
                                                                       toast({
-                                                                        title: "Yard action canceled",
+                                                                        title: "Yard action canceled for team",
                                                                       });
                                                                       // Real-time subscription handles cache updates
                                                                     } catch (error) {
@@ -4010,7 +3902,9 @@ const Reports = () => {
                                                                     e.stopPropagation();
                                                                     setYardActionDialog({
                                                                       driverId: truck.driverId!,
-                                                                      driverName: truck.driver,
+                                                                      driverName: truck.driver1Name,
+                                                                      driver2Id: truck.driver2Id!,
+                                                                      driver2Name: truck.driver2Name,
                                                                       truckNumber: truck.truckNumber,
                                                                     });
                                                                   }}
@@ -4026,7 +3920,9 @@ const Reports = () => {
                                                                   e.stopPropagation();
                                                                   setTwoWeekNoticeDialog({
                                                                     driverId: truck.driverId!,
-                                                                    driverName: truck.driver,
+                                                                    driverName: truck.driver1Name,
+                                                                    driver2Id: truck.driver2Id!,
+                                                                    driver2Name: truck.driver2Name,
                                                                   });
                                                                 }}
                                                               >
@@ -4040,7 +3936,7 @@ const Reports = () => {
                                                                   e.stopPropagation();
                                                                   setEfsRequestDialog({
                                                                     driverId: truck.driverId!,
-                                                                    driverName: truck.driver,
+                                                                    driverName: truck.driver1Name,
                                                                     truckNumber: truck.truckNumber,
                                                                     companyName: truck.companyName || "",
                                                                   });
@@ -4055,7 +3951,7 @@ const Reports = () => {
                                                                 onClick={(e) => {
                                                                   e.stopPropagation();
                                                                   setHosRequestDialog({
-                                                                    driverName: truck.driver,
+                                                                    driverName: truck.driver1Name,
                                                                     truckNumber: truck.truckNumber,
                                                                     companyName: truck.companyName || "",
                                                                   });
@@ -4063,7 +3959,9 @@ const Reports = () => {
                                                               >
                                                                 <Clock className="h-3 w-3" />
                                                               </Button>
-                                                              {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && (
+                                                              {(hasRole("manager") ||
+                                                                hasRole("supervisor") ||
+                                                                hasRole("admin")) && (
                                                                 <Button
                                                                   variant="ghost"
                                                                   size="sm"
@@ -4072,7 +3970,7 @@ const Reports = () => {
                                                                     e.stopPropagation();
                                                                     setProblemDialog({
                                                                       driverId: truck.driverId!,
-                                                                      driverName: truck.driver,
+                                                                      driverName: truck.driver1Name,
                                                                       truckNumber: truck.truckNumber,
                                                                       dispatcherName: truck.dispatcher || "",
                                                                     });
@@ -4081,47 +3979,220 @@ const Reports = () => {
                                                                   <AlertCircle className="h-3 w-3 text-destructive" />
                                                                 </Button>
                                                               )}
-                                                            </>
+                                                            </div>
                                                           )}
                                                         </div>
-                                                      </div>
-                                                      <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                      {truck.trailerNumber && (
-                                                        <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
-                                                      )}
-                                                      {truck.driverPhone && (
-                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
-                                                      )}
-                                                      {truck.driverEmail && (
-                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
-                                                      )}
-                                                      {((truck as any).emergencyContactName ||
-                                                        (truck as any).emergencyContactPhone) && (
+                                                        {truck.driverPhone && (
+                                                          <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                        )}
+                                                        {truck.driverEmail && (
+                                                          <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                        )}
                                                         <div className="border-t pt-1 mt-1">
-                                                          <p className="font-semibold text-xs mb-0.5">
-                                                            Emergency Contact
+                                                          <p className="font-semibold text-sm">
+                                                            Driver 2: {truck.driver2Name}
                                                           </p>
-                                                          {(truck as any).emergencyContactName && (
-                                                            <p className="text-xs">
-                                                              👤 {(truck as any).emergencyContactName}
-                                                              {(truck as any).emergencyContactRelation
-                                                                ? ` (${(truck as any).emergencyContactRelation})`
-                                                                : ""}
-                                                            </p>
+                                                          {truck.driver2Phone && (
+                                                            <p className="text-xs">📞 {truck.driver2Phone}</p>
                                                           )}
-                                                          {(truck as any).emergencyContactPhone && (
-                                                            <p className="text-xs">
-                                                              📞 {(truck as any).emergencyContactPhone}
-                                                            </p>
+                                                          {truck.driver2Email && (
+                                                            <p className="text-xs">✉️ {truck.driver2Email}</p>
                                                           )}
                                                         </div>
-                                                      )}
-                                                    </>
-                                                  )}
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                          )}
+                                                        <div className="border-t pt-1 mt-1">
+                                                          <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                          {truck.trailerNumber && (
+                                                            <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                          )}
+                                                        </div>
+                                                        {((truck as any).emergencyContactName ||
+                                                          (truck as any).emergencyContactPhone) && (
+                                                          <div className="border-t pt-1 mt-1">
+                                                            <p className="font-semibold text-xs mb-0.5">
+                                                              Emergency Contact
+                                                            </p>
+                                                            {(truck as any).emergencyContactName && (
+                                                              <p className="text-xs">
+                                                                👤 {(truck as any).emergencyContactName}
+                                                                {(truck as any).emergencyContactRelation
+                                                                  ? ` (${(truck as any).emergencyContactRelation})`
+                                                                  : ""}
+                                                              </p>
+                                                            )}
+                                                            {(truck as any).emergencyContactPhone && (
+                                                              <p className="text-xs">
+                                                                📞 {(truck as any).emergencyContactPhone}
+                                                              </p>
+                                                            )}
+                                                          </div>
+                                                        )}
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                          <p className="font-semibold text-sm">{truck.driver}</p>
+                                                          <div className="flex items-center gap-1">
+                                                            {truck.driverId && (
+                                                              <>
+                                                                {truck.goingYard ? (
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={async (e) => {
+                                                                      e.stopPropagation();
+                                                                      try {
+                                                                        await supabase
+                                                                          .from("drivers")
+                                                                          .update({ going_yard: false })
+                                                                          .eq("id", truck.driverId);
+
+                                                                        await supabase
+                                                                          .from("driver_yard_actions")
+                                                                          .delete()
+                                                                          .eq("driver_id", truck.driverId)
+                                                                          .order("created_at", { ascending: false })
+                                                                          .limit(1);
+
+                                                                        toast({
+                                                                          title: "Yard action canceled",
+                                                                        });
+                                                                        // Real-time subscription handles cache updates
+                                                                      } catch (error) {
+                                                                        console.error("Error:", error);
+                                                                        toast({
+                                                                          title: "Error",
+                                                                          description: "Failed to cancel",
+                                                                          variant: "destructive",
+                                                                        });
+                                                                      }
+                                                                    }}
+                                                                  >
+                                                                    <X className="h-3 w-3 text-destructive" />
+                                                                  </Button>
+                                                                ) : (
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setYardActionDialog({
+                                                                        driverId: truck.driverId!,
+                                                                        driverName: truck.driver,
+                                                                        truckNumber: truck.truckNumber,
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <Warehouse className="h-3 w-3" />
+                                                                  </Button>
+                                                                )}
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setTwoWeekNoticeDialog({
+                                                                      driverId: truck.driverId!,
+                                                                      driverName: truck.driver,
+                                                                    });
+                                                                  }}
+                                                                >
+                                                                  <CalendarIcon className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEfsRequestDialog({
+                                                                      driverId: truck.driverId!,
+                                                                      driverName: truck.driver,
+                                                                      truckNumber: truck.truckNumber,
+                                                                      companyName: truck.companyName || "",
+                                                                    });
+                                                                  }}
+                                                                >
+                                                                  <DollarSign className="h-3 w-3" />
+                                                                </Button>
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setHosRequestDialog({
+                                                                      driverName: truck.driver,
+                                                                      truckNumber: truck.truckNumber,
+                                                                      companyName: truck.companyName || "",
+                                                                    });
+                                                                  }}
+                                                                >
+                                                                  <Clock className="h-3 w-3" />
+                                                                </Button>
+                                                                {(hasRole("manager") ||
+                                                                  hasRole("supervisor") ||
+                                                                  hasRole("admin")) && (
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setProblemDialog({
+                                                                        driverId: truck.driverId!,
+                                                                        driverName: truck.driver,
+                                                                        truckNumber: truck.truckNumber,
+                                                                        dispatcherName: truck.dispatcher || "",
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                  </Button>
+                                                                )}
+                                                              </>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                        {truck.trailerNumber && (
+                                                          <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                        )}
+                                                        {truck.driverPhone && (
+                                                          <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                        )}
+                                                        {truck.driverEmail && (
+                                                          <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                        )}
+                                                        {((truck as any).emergencyContactName ||
+                                                          (truck as any).emergencyContactPhone) && (
+                                                          <div className="border-t pt-1 mt-1">
+                                                            <p className="font-semibold text-xs mb-0.5">
+                                                              Emergency Contact
+                                                            </p>
+                                                            {(truck as any).emergencyContactName && (
+                                                              <p className="text-xs">
+                                                                👤 {(truck as any).emergencyContactName}
+                                                                {(truck as any).emergencyContactRelation
+                                                                  ? ` (${(truck as any).emergencyContactRelation})`
+                                                                  : ""}
+                                                              </p>
+                                                            )}
+                                                            {(truck as any).emergencyContactPhone && (
+                                                              <p className="text-xs">
+                                                                📞 {(truck as any).emergencyContactPhone}
+                                                              </p>
+                                                            )}
+                                                          </div>
+                                                        )}
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
                                           </div>
                                           {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
                                           {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
@@ -4156,7 +4227,9 @@ const Reports = () => {
                                                   className="h-4 w-4"
                                                   style={{
                                                     filter: (() => {
-                                                      const color = getWeeklyPlanIconColor(hasWeeklyPlan(truck.driverId));
+                                                      const color = getWeeklyPlanIconColor(
+                                                        hasWeeklyPlan(truck.driverId),
+                                                      );
                                                       if (color === "red") {
                                                         return "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)";
                                                       } else if (color === "yellow") {
@@ -4307,21 +4380,23 @@ const Reports = () => {
                                                   {Math.round(truck.milesAway)}
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">/{Math.round(truck.totalMiles)}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                                                    /{Math.round(truck.totalMiles)}
+                                                  </span>
                                                 )}
                                               </div>
                                             ) : (
                                               <div className="flex items-center w-[58px] justify-end">
                                                 <div
                                                   className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
-                                                  onClick={() =>
-                                                    handleEdit(truck.id, "miles-away", "0")
-                                                  }
+                                                  onClick={() => handleEdit(truck.id, "miles-away", "0")}
                                                 >
                                                   0
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">/{Math.round(truck.totalMiles)}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                                                    /{Math.round(truck.totalMiles)}
+                                                  </span>
                                                 )}
                                               </div>
                                             )}
@@ -4392,132 +4467,133 @@ const Reports = () => {
                                         }}
                                       >
                                         {activeTab === "Recovery" &&
-                                        truck.activeOrders?.some((o: any) => {
-                                          const order = o as any;
-                                          // Hide Revert button if POD is uploaded
-                                          const hasPOD = order.order_files?.some(
-                                            (file: any) => file.file_category === "POD",
-                                          );
-                                          return order.is_recovery && !hasPOD;
-                                        }) && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
-                                            onClick={async (e) => {
-                                              e.stopPropagation();
-                                              // Revert recovery load
-                                              const recoveryOrder = truck.activeOrders.find((o: any) => {
-                                                const order = o as any;
-                                                const hasPOD = order.order_files?.some(
-                                                  (file: any) => file.file_category === "POD",
-                                                );
-                                                return order.is_recovery && !hasPOD;
-                                              });
-                                              if (!recoveryOrder) return;
+                                          truck.activeOrders?.some((o: any) => {
+                                            const order = o as any;
+                                            // Hide Revert button if POD is uploaded
+                                            const hasPOD = order.order_files?.some(
+                                              (file: any) => file.file_category === "POD",
+                                            );
+                                            return order.is_recovery && !hasPOD;
+                                          }) && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                // Revert recovery load
+                                                const recoveryOrder = truck.activeOrders.find((o: any) => {
+                                                  const order = o as any;
+                                                  const hasPOD = order.order_files?.some(
+                                                    (file: any) => file.file_category === "POD",
+                                                  );
+                                                  return order.is_recovery && !hasPOD;
+                                                });
+                                                if (!recoveryOrder) return;
 
-                                              try {
-                                                const order = recoveryOrder as any;
+                                                try {
+                                                  const order = recoveryOrder as any;
 
-                                                // Get recovery history from the table
-                                                const { data: recoveryHistory, error: historyError } = await supabase
-                                                  .from("recovery_history")
-                                                  .select("*")
-                                                  .eq("order_id", order.id)
-                                                  .is("reverted_at", null)
-                                                  .order("created_at", { ascending: false })
-                                                  .limit(1)
-                                                  .single();
+                                                  // Get recovery history from the table
+                                                  const { data: recoveryHistory, error: historyError } = await supabase
+                                                    .from("recovery_history")
+                                                    .select("*")
+                                                    .eq("order_id", order.id)
+                                                    .is("reverted_at", null)
+                                                    .order("created_at", { ascending: false })
+                                                    .limit(1)
+                                                    .single();
 
-                                                if (historyError || !recoveryHistory) {
+                                                  if (historyError || !recoveryHistory) {
+                                                    toast({
+                                                      title: "No recovery history found",
+                                                      description: "Cannot revert this load",
+                                                      variant: "destructive",
+                                                    });
+                                                    return;
+                                                  }
+
+                                                  // Revert the order to original assignment
+                                                  const { error: orderError } = await supabase
+                                                    .from("orders")
+                                                    .update({
+                                                      is_recovery: false,
+                                                      driver1_id: recoveryHistory.original_driver1_id,
+                                                      driver2_id: recoveryHistory.original_driver2_id,
+                                                      truck_id: recoveryHistory.original_truck_id,
+                                                      trailer_id: recoveryHistory.original_trailer_id,
+                                                      original_driver1_id: null,
+                                                      original_driver2_id: null,
+                                                      original_truck_id: null,
+                                                      original_trailer_id: null,
+                                                      original_miles: null,
+                                                      original_freight_amount: null,
+                                                      original_driver_price: null,
+                                                      recovery_miles: null,
+                                                      recovery_freight_amount: null,
+                                                      recovery_driver_price: null,
+                                                      recovery_date: null,
+                                                    })
+                                                    .eq("id", order.id);
+
+                                                  if (orderError) throw orderError;
+
+                                                  // Update the original truck - reassign original drivers and clear recovery status
+                                                  const { error: truckError } = await supabase
+                                                    .from("trucks")
+                                                    .update({
+                                                      driver1_id: recoveryHistory.original_driver1_id,
+                                                      driver2_id: recoveryHistory.original_driver2_id,
+                                                      needs_recovery: false,
+                                                      left_by_driver_id: null,
+                                                    })
+                                                    .eq("id", recoveryHistory.original_truck_id);
+
+                                                  if (truckError) throw truckError;
+
+                                                  // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
+                                                  if (
+                                                    recoveryHistory.original_driver1_id &&
+                                                    recoveryHistory.original_dispatcher_id
+                                                  ) {
+                                                    const { error: dispatcherError } = await supabase
+                                                      .from("drivers")
+                                                      .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
+                                                      .eq("id", recoveryHistory.original_driver1_id);
+
+                                                    if (dispatcherError) throw dispatcherError;
+                                                  }
+
+                                                  // Mark recovery history as reverted
+                                                  const {
+                                                    data: { user },
+                                                  } = await supabase.auth.getUser();
+                                                  await supabase
+                                                    .from("recovery_history")
+                                                    .update({
+                                                      reverted_at: new Date().toISOString(),
+                                                      reverted_by: user?.id || null,
+                                                    })
+                                                    .eq("id", recoveryHistory.id);
+
                                                   toast({
-                                                    title: "No recovery history found",
-                                                    description: "Cannot revert this load",
+                                                    title: "Recovery reverted",
+                                                    description: `Load ${recoveryOrder.load_number} returned to original driver`,
+                                                  });
+                                                  // Real-time subscription handles cache updates
+                                                } catch (error) {
+                                                  toast({
+                                                    title: "Failed to revert",
+                                                    description:
+                                                      error instanceof Error ? error.message : "Unknown error",
                                                     variant: "destructive",
                                                   });
-                                                  return;
                                                 }
-
-                                                // Revert the order to original assignment
-                                                const { error: orderError } = await supabase
-                                                  .from("orders")
-                                                  .update({
-                                                    is_recovery: false,
-                                                    driver1_id: recoveryHistory.original_driver1_id,
-                                                    driver2_id: recoveryHistory.original_driver2_id,
-                                                    truck_id: recoveryHistory.original_truck_id,
-                                                    trailer_id: recoveryHistory.original_trailer_id,
-                                                    original_driver1_id: null,
-                                                    original_driver2_id: null,
-                                                    original_truck_id: null,
-                                                    original_trailer_id: null,
-                                                    original_miles: null,
-                                                    original_freight_amount: null,
-                                                    original_driver_price: null,
-                                                    recovery_miles: null,
-                                                    recovery_freight_amount: null,
-                                                    recovery_driver_price: null,
-                                                    recovery_date: null,
-                                                  })
-                                                  .eq("id", order.id);
-
-                                                if (orderError) throw orderError;
-
-                                                // Update the original truck - reassign original drivers and clear recovery status
-                                                const { error: truckError } = await supabase
-                                                  .from("trucks")
-                                                  .update({
-                                                    driver1_id: recoveryHistory.original_driver1_id,
-                                                    driver2_id: recoveryHistory.original_driver2_id,
-                                                    needs_recovery: false,
-                                                    left_by_driver_id: null,
-                                                  })
-                                                  .eq("id", recoveryHistory.original_truck_id);
-
-                                                if (truckError) throw truckError;
-
-                                                // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
-                                                if (
-                                                  recoveryHistory.original_driver1_id &&
-                                                  recoveryHistory.original_dispatcher_id
-                                                ) {
-                                                  const { error: dispatcherError } = await supabase
-                                                    .from("drivers")
-                                                    .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
-                                                    .eq("id", recoveryHistory.original_driver1_id);
-
-                                                  if (dispatcherError) throw dispatcherError;
-                                                }
-
-                                                // Mark recovery history as reverted
-                                                const {
-                                                  data: { user },
-                                                } = await supabase.auth.getUser();
-                                                await supabase
-                                                  .from("recovery_history")
-                                                  .update({
-                                                    reverted_at: new Date().toISOString(),
-                                                    reverted_by: user?.id || null,
-                                                  })
-                                                  .eq("id", recoveryHistory.id);
-
-                                                toast({
-                                                  title: "Recovery reverted",
-                                                  description: `Load ${recoveryOrder.load_number} returned to original driver`,
-                                                });
-                                                // Real-time subscription handles cache updates
-                                              } catch (error) {
-                                                toast({
-                                                  title: "Failed to revert",
-                                                  description: error instanceof Error ? error.message : "Unknown error",
-                                                  variant: "destructive",
-                                                });
-                                              }
-                                            }}
-                                          >
-                                            <span className="text-[10px] text-green-600">Revert</span>
-                                          </Button>
-                                        )}
+                                              }}
+                                            >
+                                              <span className="text-[10px] text-green-600">Revert</span>
+                                            </Button>
+                                          )}
                                         {truck.editDate}
                                       </td>
                                     </tr>
@@ -4527,18 +4603,20 @@ const Reports = () => {
                                           <TruckMapView
                                             truckNumber={truck.truckNumber}
                                             truckId={truck.id}
-                                            pickupAddresses={
-                                              currentOrder?.pickupStops?.map((stop: any) =>
-                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim()
-                                              ).filter((addr: string) => addr && addr !== ", ,")
-                                            }
-                                            deliveryAddresses={
-                                              currentOrder?.deliveryStops?.map((stop: any) =>
-                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim()
-                                              ).filter((addr: string) => addr && addr !== ", ,")
-                                            }
+                                            pickupAddresses={currentOrder?.pickupStops
+                                              ?.map((stop: any) =>
+                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
+                                              )
+                                              .filter((addr: string) => addr && addr !== ", ,")}
+                                            deliveryAddresses={currentOrder?.deliveryStops
+                                              ?.map((stop: any) =>
+                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
+                                              )
+                                              .filter((addr: string) => addr && addr !== ", ,")}
                                             completedDeliveryCount={
-                                              currentOrder?.order_files?.filter((file: any) => file.file_category === "POD").length || 0
+                                              currentOrder?.order_files?.filter(
+                                                (file: any) => file.file_category === "POD",
+                                              ).length || 0
                                             }
                                             pickupDate={truck.pickup?.date}
                                             pickupTime={truck.pickup?.time}
@@ -4616,7 +4694,6 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-
       {/* Drug Test Dialog */}
       <Dialog open={!!dialogs.drugTestDialog} onOpenChange={(open) => !open && dialogs.setDrugTestDialog(null)}>
         <DialogContent>
@@ -4673,7 +4750,12 @@ const Reports = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Yard Action - {yardActionDialog?.driver2Name ? `${yardActionDialog?.driverName} & ${yardActionDialog?.driver2Name}` : yardActionDialog?.driverName}</DialogTitle>
+            <DialogTitle>
+              Yard Action -{" "}
+              {yardActionDialog?.driver2Name
+                ? `${yardActionDialog?.driverName} & ${yardActionDialog?.driver2Name}`
+                : yardActionDialog?.driverName}
+            </DialogTitle>
             <DialogDescription className="sr-only">Set yard action for this driver</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -4681,7 +4763,12 @@ const Reports = () => {
               <label className="text-sm font-medium">
                 Action Type <span className="text-destructive">*</span>
               </label>
-              <Select value={yardActionType} onValueChange={(value: "maintenance" | "return_truck" | "recovery" | "safety") => setYardActionType(value)}>
+              <Select
+                value={yardActionType}
+                onValueChange={(value: "maintenance" | "return_truck" | "recovery" | "safety") =>
+                  setYardActionType(value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select action" />
                 </SelectTrigger>
@@ -4714,7 +4801,7 @@ const Reports = () => {
                     variant="outline"
                     className={cn(
                       "justify-start text-left font-normal",
-                      !yardActionDatetime && "text-muted-foreground"
+                      !yardActionDatetime && "text-muted-foreground",
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -4792,26 +4879,24 @@ const Reports = () => {
                 disabled={!yardActionType || !yardActionComment.trim() || !yardActionDatetime}
                 onClick={async () => {
                   if (!yardActionDialog || !yardActionType || !yardActionComment.trim() || !yardActionDatetime) return;
-                  
+
                   const driverIds = [yardActionDialog.driverId];
                   if (yardActionDialog.driver2Id) {
                     driverIds.push(yardActionDialog.driver2Id);
                   }
-                  
+
                   const isTeam = !!yardActionDialog.driver2Id;
-                  
+
                   // Insert single yard action (for teams, only create one with is_team flag)
-                  const { error: insertError } = await supabase
-                    .from("driver_yard_actions")
-                    .insert({
-                      driver_id: yardActionDialog.driverId,
-                      action_type: yardActionType,
-                      comment: yardActionComment.trim(),
-                      arrival_datetime: yardActionDatetime.toISOString(),
-                      created_by: profile?.user_id,
-                      is_team: isTeam,
-                      truck_number: yardActionDialog.truckNumber || null,
-                    });
+                  const { error: insertError } = await supabase.from("driver_yard_actions").insert({
+                    driver_id: yardActionDialog.driverId,
+                    action_type: yardActionType,
+                    comment: yardActionComment.trim(),
+                    arrival_datetime: yardActionDatetime.toISOString(),
+                    created_by: profile?.user_id,
+                    is_team: isTeam,
+                    truck_number: yardActionDialog.truckNumber || null,
+                  });
 
                   if (insertError) {
                     toast({
@@ -4834,7 +4919,7 @@ const Reports = () => {
                       variant: "destructive",
                     });
                   } else {
-                    const driverNames = yardActionDialog.driver2Name 
+                    const driverNames = yardActionDialog.driver2Name
                       ? `${yardActionDialog.driverName} & ${yardActionDialog.driver2Name}`
                       : yardActionDialog.driverName;
                     toast({
@@ -4842,33 +4927,36 @@ const Reports = () => {
                       description: `Yard action saved for ${driverNames}`,
                     });
                     // Real-time subscription handles cache updates
-                    
+
                     // Send SMS notification for new yard arrival
                     try {
                       const actionTypeLabels: Record<string, string> = {
                         maintenance: "Maintenance",
                         return_truck: "Returning Truck",
                         recovery: "Recovery",
-                        safety: "Safety"
+                        safety: "Safety",
                       };
-                      
+
                       const formattedDate = format(yardActionDatetime, "MMM dd 'at' h:mm a");
-                      
-                      const smsMessage = `New Yard Arrival:\n` +
-                        `Truck: ${yardActionDialog.truckNumber || 'N/A'}\n` +
+
+                      const smsMessage =
+                        `New Yard Arrival:\n` +
+                        `Truck: ${yardActionDialog.truckNumber || "N/A"}\n` +
                         `Driver: ${driverNames}\n` +
                         `Type: ${actionTypeLabels[yardActionType] || yardActionType}\n` +
                         `Date: ${formattedDate}\n` +
                         `Note: ${yardActionComment.trim()}`;
-                      
-                      supabase.functions.invoke("send-sms", {
-                        body: {
-                          message: smsMessage,
-                          phoneNumbers: ["+12192465764", "+18474835375"]
-                        }
-                      }).catch((smsError) => {
-                        console.error("Failed to send SMS notification:", smsError);
-                      });
+
+                      supabase.functions
+                        .invoke("send-sms", {
+                          body: {
+                            message: smsMessage,
+                            phoneNumbers: ["+12192465764", "+18474835375"],
+                          },
+                        })
+                        .catch((smsError) => {
+                          console.error("Failed to send SMS notification:", smsError);
+                        });
                     } catch (smsError) {
                       console.error("Failed to send SMS notification:", smsError);
                     }
@@ -4891,20 +4979,22 @@ const Reports = () => {
       <Dialog open={!!twoWeekNoticeDialog} onOpenChange={(open) => !open && setTwoWeekNoticeDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set 2 Week Notice - {twoWeekNoticeDialog?.driver2Name ? `${twoWeekNoticeDialog?.driverName} & ${twoWeekNoticeDialog?.driver2Name}` : twoWeekNoticeDialog?.driverName}</DialogTitle>
+            <DialogTitle>
+              Set 2 Week Notice -{" "}
+              {twoWeekNoticeDialog?.driver2Name
+                ? `${twoWeekNoticeDialog?.driverName} & ${twoWeekNoticeDialog?.driver2Name}`
+                : twoWeekNoticeDialog?.driverName}
+            </DialogTitle>
             <DialogDescription className="sr-only">Set the 2 week notice end date for this driver</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Last Date of 2 Week Notice</Label>
-              <DatePicker
-                date={twoWeekNoticeDate}
-                onDateChange={setTwoWeekNoticeDate}
-                placeholder="Select last date"
-              />
+              <DatePicker date={twoWeekNoticeDate} onDateChange={setTwoWeekNoticeDate} placeholder="Select last date" />
               {twoWeekNoticeDate && (
                 <p className="text-xs text-muted-foreground">
-                  Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                  Start date was:{" "}
+                  {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -4922,12 +5012,12 @@ const Reports = () => {
                 disabled={!twoWeekNoticeDate}
                 onClick={async () => {
                   if (!twoWeekNoticeDialog || !twoWeekNoticeDate) return;
-                  
+
                   const driverIds = [twoWeekNoticeDialog.driverId];
                   if (twoWeekNoticeDialog.driver2Id) {
                     driverIds.push(twoWeekNoticeDialog.driver2Id);
                   }
-                  
+
                   const { error } = await supabase
                     .from("drivers")
                     .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
@@ -4942,7 +5032,7 @@ const Reports = () => {
                     return;
                   }
 
-                  const driverNames = twoWeekNoticeDialog.driver2Name 
+                  const driverNames = twoWeekNoticeDialog.driver2Name
                     ? `${twoWeekNoticeDialog.driverName} & ${twoWeekNoticeDialog.driver2Name}`
                     : twoWeekNoticeDialog.driverName;
                   toast({
@@ -4963,7 +5053,6 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-
       <TruckNoteHistoryDialog
         driverId={historyDialogDriverId}
         open={!!historyDialogDriverId}
@@ -4971,13 +5060,19 @@ const Reports = () => {
       />
 
       {/* Load Zoom Dialog */}
-      <Dialog open={!!zoomedLoad} onOpenChange={(open) => {
-        if (!open) {
-          lastZoomedLoadCloseTime.current = Date.now();
-          setZoomedLoad(null);
-        }
-      }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
+      <Dialog
+        open={!!zoomedLoad}
+        onOpenChange={(open) => {
+          if (!open) {
+            lastZoomedLoadCloseTime.current = Date.now();
+            setZoomedLoad(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-6xl max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-4 flex-wrap">
               <div className="space-y-1">
@@ -5293,12 +5388,16 @@ const Reports = () => {
               <div className="flex gap-3 flex-wrap items-center">
                 {["RC", "BOL", "POD", "ADDITIONAL"].map((doc) => {
                   const isChecked = zoomedLoad?.documents.includes(doc);
-                  const docFiles = zoomedLoad?.orderFiles?.filter(f => f.file_category === doc) || [];
-                  
+                  const docFiles = zoomedLoad?.orderFiles?.filter((f) => f.file_category === doc) || [];
+
                   return (
-                    <Popover 
+                    <Popover
                       key={doc}
-                      open={additionalFilesPopover.open && additionalFilesPopover.files[0]?.file_category === doc && docFiles.length > 1}
+                      open={
+                        additionalFilesPopover.open &&
+                        additionalFilesPopover.files[0]?.file_category === doc &&
+                        docFiles.length > 1
+                      }
                       onOpenChange={(open) => {
                         if (!open) setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                       }}
@@ -5315,7 +5414,7 @@ const Reports = () => {
                               const { data, error } = await supabase.storage
                                 .from("order-files")
                                 .createSignedUrl(file.file_path, 3600);
-                              
+
                               if (error) {
                                 toast({
                                   title: "Error",
@@ -5343,9 +5442,7 @@ const Reports = () => {
                           <div className="flex items-center gap-2">
                             {isChecked ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
                             <span>{doc === "ADDITIONAL" ? "Additionals" : doc}</span>
-                            {docFiles.length > 1 && (
-                              <span className="text-xs opacity-75">({docFiles.length})</span>
-                            )}
+                            {docFiles.length > 1 && <span className="text-xs opacity-75">({docFiles.length})</span>}
                           </div>
                         </div>
                       </PopoverTrigger>
@@ -5361,7 +5458,7 @@ const Reports = () => {
                                   const { data, error } = await supabase.storage
                                     .from("order-files")
                                     .createSignedUrl(file.file_path, 3600);
-                                  
+
                                   if (error) {
                                     toast({
                                       title: "Error",
@@ -5409,19 +5506,14 @@ const Reports = () => {
                       !hasRole("afterhours") &&
                       !hasRole("safety") &&
                       !hasRole("accounting");
-                    
+
                     // Dispatch-only users can only cancel their own loads
-                    const canCancelThisLoad = !isDispatchOnly || 
-                      (zoomedLoad?.bookedBy === profile?.full_name);
-                    
+                    const canCancelThisLoad = !isDispatchOnly || zoomedLoad?.bookedBy === profile?.full_name;
+
                     if (!canCancelThisLoad) return null;
-                    
+
                     return zoomedLoad?.canceled ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRevertCancellation}
-                      >
+                      <Button variant="outline" size="sm" onClick={handleRevertCancellation}>
                         <Undo2 className="h-4 w-4 mr-1" />
                         Revert
                       </Button>
@@ -5457,7 +5549,9 @@ const Reports = () => {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Report Board Legend</DialogTitle>
-            <DialogDescription className="sr-only">Color coding and status legend for the reports board</DialogDescription>
+            <DialogDescription className="sr-only">
+              Color coding and status legend for the reports board
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Company Colors Section */}
@@ -5868,7 +5962,7 @@ const Reports = () => {
                 type="number"
                 step="0.01"
                 value={cancelFormData.tonu}
-                onChange={(e) => setCancelFormData(prev => ({ ...prev, tonu: e.target.value }))}
+                onChange={(e) => setCancelFormData((prev) => ({ ...prev, tonu: e.target.value }))}
                 placeholder="Enter company TONU amount"
               />
             </div>
@@ -5879,7 +5973,7 @@ const Reports = () => {
                 type="number"
                 step="0.01"
                 value={cancelFormData.driverRate}
-                onChange={(e) => setCancelFormData(prev => ({ ...prev, driverRate: e.target.value }))}
+                onChange={(e) => setCancelFormData((prev) => ({ ...prev, driverRate: e.target.value }))}
                 placeholder="Enter driver rate"
               />
             </div>
@@ -5889,7 +5983,7 @@ const Reports = () => {
                 id="cancel-dh-miles"
                 type="number"
                 value={cancelFormData.dhMiles}
-                onChange={(e) => setCancelFormData(prev => ({ ...prev, dhMiles: e.target.value }))}
+                onChange={(e) => setCancelFormData((prev) => ({ ...prev, dhMiles: e.target.value }))}
                 placeholder="Enter DH miles"
               />
             </div>
@@ -5898,7 +5992,7 @@ const Reports = () => {
               <Textarea
                 id="cancel-notes"
                 value={cancelFormData.notes}
-                onChange={(e) => setCancelFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) => setCancelFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Enter reason for cancellation"
                 rows={3}
               />
@@ -5993,32 +6087,33 @@ const Reports = () => {
       </Dialog>
 
       {/* Lumper Request Dialog */}
-      <Dialog open={lumperDialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          setLumperDialogOpen(false);
-          setLumperAmount("");
-          setLumperConfirmation(null);
-        }
-      }}>
+      <Dialog
+        open={lumperDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLumperDialogOpen(false);
+            setLumperAmount("");
+            setLumperConfirmation(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {lumperConfirmation ? "Lumper Request Sent" : "Lumper Request"}
-            </DialogTitle>
+            <DialogTitle>{lumperConfirmation ? "Lumper Request Sent" : "Lumper Request"}</DialogTitle>
             <DialogDescription className="sr-only">Submit a lumper fee request</DialogDescription>
           </DialogHeader>
-          
+
           {lumperConfirmation ? (
             <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono text-sm">
-                {lumperConfirmation}
-              </div>
+              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono text-sm">{lumperConfirmation}</div>
               <div className="flex justify-end">
-                <Button onClick={() => {
-                  setLumperDialogOpen(false);
-                  setLumperAmount("");
-                  setLumperConfirmation(null);
-                }}>
+                <Button
+                  onClick={() => {
+                    setLumperDialogOpen(false);
+                    setLumperAmount("");
+                    setLumperConfirmation(null);
+                  }}
+                >
                   Done
                 </Button>
               </div>
@@ -6038,25 +6133,24 @@ const Reports = () => {
                   autoFocus
                 />
               </div>
-              
+
               <div className="text-sm text-muted-foreground">
-                <p><strong>Truck:</strong> #{zoomedLoad?.truckNumber}</p>
-                <p><strong>Driver:</strong> {zoomedLoad?.driverNames || "N/A"}</p>
-                <p><strong>Load:</strong> #{zoomedLoad?.brokerLoadNumber || zoomedLoad?.loadNumber}</p>
+                <p>
+                  <strong>Truck:</strong> #{zoomedLoad?.truckNumber}
+                </p>
+                <p>
+                  <strong>Driver:</strong> {zoomedLoad?.driverNames || "N/A"}
+                </p>
+                <p>
+                  <strong>Load:</strong> #{zoomedLoad?.brokerLoadNumber || zoomedLoad?.loadNumber}
+                </p>
               </div>
-              
+
               <div className="flex gap-2 justify-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setLumperDialogOpen(false)}
-                  disabled={isSubmittingLumper}
-                >
+                <Button variant="outline" onClick={() => setLumperDialogOpen(false)} disabled={isSubmittingLumper}>
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleLumperRequest}
-                  disabled={!lumperAmount || isSubmittingLumper}
-                >
+                <Button onClick={handleLumperRequest} disabled={!lumperAmount || isSubmittingLumper}>
                   {isSubmittingLumper ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -6084,7 +6178,6 @@ const Reports = () => {
         requesterName={profile?.full_name}
       />
 
-
       {/* HOS Request Dialog */}
       <HosRequestDialog
         open={!!hosRequestDialog}
@@ -6101,7 +6194,7 @@ const Reports = () => {
         driverId={efsMissingDataDialog?.driverId || ""}
         driverName={efsMissingDataDialog?.driverName || ""}
       />
-      
+
       {/* Lumper Missing Revised RC Dialog */}
       <LumperMissingDataDialog
         open={!!lumperMissingDataDialog}
@@ -6121,10 +6214,7 @@ const Reports = () => {
       />
 
       {/* All Problems Dialog */}
-      <AllProblemsDialog
-        open={allProblemsDialogOpen}
-        onOpenChange={setAllProblemsDialogOpen}
-      />
+      <AllProblemsDialog open={allProblemsDialogOpen} onOpenChange={setAllProblemsDialogOpen} />
 
       {/* Weekly Plan Dialog */}
       <WeeklyPlanDialog
