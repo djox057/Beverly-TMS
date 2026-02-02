@@ -2,6 +2,29 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { calculateExpenseStatus } from "@/hooks/useDriverExpenses";
+import { formatInTimeZone } from "date-fns-tz";
+
+// Extract last part of name (after last hyphen or space)
+function extractLastNamePart(fullName: string | null | undefined): string {
+  if (!fullName) return "Unknown";
+  const trimmed = fullName.trim();
+  // Try hyphen first
+  if (trimmed.includes("-")) {
+    const parts = trimmed.split("-");
+    return parts[parts.length - 1].trim() || "Unknown";
+  }
+  // Then try space
+  if (trimmed.includes(" ")) {
+    const parts = trimmed.split(" ");
+    return parts[parts.length - 1].trim() || "Unknown";
+  }
+  return trimmed;
+}
+
+// Get current date in Chicago timezone
+function getChicagoDate(): string {
+  return formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM-dd");
+}
 
 export interface Repair {
   id: string;
@@ -69,7 +92,7 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
   });
 
   const createRepair = useMutation({
-    mutationFn: async (data: RepairFormData) => {
+    mutationFn: async (data: RepairFormData & { createdByName?: string }) => {
       // Create repair
       const { data: result, error } = await supabase
         .from('repairs')
@@ -114,15 +137,19 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
       // Also create driver_expense linked to this repair
       const paidAmount = data.is_paid ? data.amount : 0;
       const status = calculateExpenseStatus(data.amount, paidAmount);
+      const chicagoDate = getChicagoDate();
+      
+      // Extract last part of creator's name
+      const expenseName = extractLastNamePart(data.createdByName);
       
       await supabase.from('driver_expenses').insert({
         driver_id: data.driver_id,
         repair_id: result.id,
-        name: data.repair_type === 'truck' ? 'Truck Repair' : 'Trailer Repair',
+        name: expenseName,
         explanation: data.reason,
         amount: data.amount,
         paid_amount: paidAmount,
-        paid_date: data.is_paid ? data.repair_date : null,
+        paid_date: data.is_paid ? chicagoDate : null,
         notice_1: data.accounting_note,
         status,
         expense_date: data.repair_date,
@@ -267,12 +294,13 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
       if (linkedExpense && repair) {
         const paidAmount = is_paid ? repair.amount : 0;
         const status = calculateExpenseStatus(repair.amount, paidAmount);
+        const chicagoDate = getChicagoDate();
         
         await supabase
           .from('driver_expenses')
           .update({
             paid_amount: paidAmount,
-            paid_date: is_paid ? repair.repair_date : null,
+            paid_date: is_paid ? chicagoDate : null,
             status,
           })
           .eq('id', linkedExpense.id);

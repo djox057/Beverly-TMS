@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatInTimeZone } from "date-fns-tz";
+
+// Get current date in Chicago timezone
+function getChicagoDate(): string {
+  return formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM-dd");
+}
 
 export interface DriverExpense {
   id: string;
@@ -142,6 +148,15 @@ export function useDriverExpenses(driverId: string | null) {
         const amount = updates.amount ?? current?.amount ?? 0;
         const paidAmount = updates.paid_amount !== undefined ? updates.paid_amount : current?.paid_amount;
         finalUpdates.status = calculateExpenseStatus(amount, paidAmount);
+        
+        // Auto-set paid_date to Chicago time when switching to paid
+        const currentPaidAmount = current?.paid_amount ?? 0;
+        const newPaidAmount = updates.paid_amount ?? currentPaidAmount;
+        if (currentPaidAmount === 0 && newPaidAmount > 0 && !updates.paid_date) {
+          finalUpdates.paid_date = getChicagoDate();
+        } else if (newPaidAmount === 0) {
+          finalUpdates.paid_date = null;
+        }
       }
       
       const { data, error } = await supabase
