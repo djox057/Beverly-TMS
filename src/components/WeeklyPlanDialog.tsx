@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,6 +98,7 @@ export function WeeklyPlanDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [existingPlanId, setExistingPlanId] = useState<string | null>(null);
+  const isSavingRef = useRef(false); // Track saving state for realtime guard
 
   const weekStart = useMemo(() => getCurrentWeekMonday(), []);
   const editingStatus = useMemo(() => getEditingStatus(), []);
@@ -124,6 +125,12 @@ export function WeeklyPlanDialog({
           filter: `driver_id=eq.${driverId}`,
         },
         (payload) => {
+          // Skip realtime updates while saving to prevent overwriting local state
+          if (isSavingRef.current) {
+            console.log("[WeeklyPlan] Ignoring realtime update during save");
+            return;
+          }
+          
           if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
             const data = payload.new as any;
             if (data.week_start === weekStart) {
@@ -188,33 +195,50 @@ export function WeeklyPlanDialog({
     }
 
     setIsSaving(true);
+    isSavingRef.current = true; // Guard against realtime overwrites
+    
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
 
       if (existingPlanId) {
         // Update existing plan
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("weekly_plans")
           .update({
             plan_text: planText,
             updated_by: userId,
           })
-          .eq("id", existingPlanId);
+          .eq("id", existingPlanId)
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Update local state with returned data
+        if (data) {
+          setPlanText(data.plan_text || "");
+        }
       } else {
         // Insert new plan
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("weekly_plans")
           .insert({
             driver_id: driverId,
             week_start: weekStart,
             plan_text: planText,
             updated_by: userId,
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Update local state with returned data
+        if (data) {
+          setExistingPlanId(data.id);
+          setPlanText(data.plan_text || "");
+        }
       }
 
       toast({
@@ -230,6 +254,10 @@ export function WeeklyPlanDialog({
       });
     } finally {
       setIsSaving(false);
+      // Delay clearing the guard to allow realtime event to pass
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 500);
     }
   };
 
