@@ -19,6 +19,7 @@ interface ProgressiveLoadingProgress {
 interface UseOrdersProgressiveOptions {
   bookedBy?: string | null;
   dispatcherUserId?: string | null;
+  currentPage?: number;
 }
 
 /**
@@ -30,6 +31,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
+  const currentPage = options?.currentPage ?? 1;
 
   const hasFilters = Boolean(bookedBy || dispatcherUserId);
   
@@ -37,7 +39,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   useOrdersRealtime();
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [currentPageNum, setCurrentPageNum] = useState(1);
   
   // Cache for loaded pages: Map<pageNumber, orders[]>
   const loadedPagesRef = useRef<Map<number, any[]>>(new Map());
@@ -168,18 +169,27 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     }
   }, [fetchPage, totalCount]);
 
-  // Combined data from all loaded pages
-  const allLoadedOrders = useMemo(() => {
-    const orders: any[] = [];
-    const sortedPages = Array.from(loadedPagesRef.current.keys()).sort((a, b) => a - b);
-    for (const pageNum of sortedPages) {
-      orders.push(...(loadedPagesRef.current.get(pageNum) || []));
-    }
-    return orders;
-  }, [loadedPages]); // Re-compute when loadedPages changes
+  // Return ONLY the current page's data (not all pages merged)
+  const currentPageOrders = useMemo(() => {
+    return loadedPagesRef.current.get(currentPage) || [];
+  }, [currentPage, loadedPages]); // Re-compute when currentPage or loadedPages changes
 
-  const loadedCount = allLoadedOrders.length;
-  const hasMore = totalCount ? loadedCount < totalCount : false;
+  // Calculate total pages based on server count
+  const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 1;
+
+  // Check if current page is loaded
+  const isCurrentPageLoaded = loadedPages.has(currentPage);
+
+  // For backward compatibility, also track total loaded
+  const loadedCount = useMemo(() => {
+    let count = 0;
+    for (const orders of loadedPagesRef.current.values()) {
+      count += orders.length;
+    }
+    return count;
+  }, [loadedPages]);
+
+  const hasMore = totalCount ? currentPage < totalPages : false;
 
   const progress = useMemo<ProgressiveLoadingProgress>(() => {
     const isLoading = countQuery.isLoading || initialPageQuery.isLoading;
@@ -195,7 +205,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   }, [loadedCount, totalCount, countQuery.isLoading, initialPageQuery.isLoading]);
 
   return {
-    data: allLoadedOrders,
+    data: currentPageOrders,  // Only current page's orders
     isLoading: countQuery.isLoading || initialPageQuery.isLoading,
     isLoadingMore: isLoadingPage,
     isLoadingLocked: false,
@@ -203,14 +213,16 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     unlockedCount: loadedCount,
     lockedCount: 0,
     lockedTotal: null,
-    totalCount: totalCount ?? loadedCount,
+    totalCount: totalCount ?? 0,
+    totalPages,
     totalLoaded: loadedCount,
     hasMore,
-    loadMoreOrders: () => {}, // Legacy - no longer used
+    currentPage,
+    isCurrentPageLoaded,
     requestPage,
     prefetchNextPage,
     loadedPages,
-    isPartialData: countQuery.isLoading || initialPageQuery.isLoading || hasMore,
+    isPartialData: countQuery.isLoading || initialPageQuery.isLoading || !isCurrentPageLoaded,
     requestLockedOrders: () => {},
     lockedOrdersLoaded: true,
   };
