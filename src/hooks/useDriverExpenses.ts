@@ -186,15 +186,34 @@ export function useDriverExpenses(driverId: string | null) {
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (expenseId: string) => {
-      const { error } = await supabase
+      // First check if this expense is linked to a repair
+      const { data: expense } = await supabase
         .from("driver_expenses")
-        .delete()
-        .eq("id", expenseId);
+        .select("repair_id")
+        .eq("id", expenseId)
+        .single();
 
-      if (error) throw error;
+      // If linked to repair, delete the repair (which will cascade delete the expense)
+      if (expense?.repair_id) {
+        const { error: repairError } = await supabase
+          .from("repairs")
+          .delete()
+          .eq("id", expense.repair_id);
+        
+        if (repairError) throw repairError;
+      } else {
+        // Otherwise just delete the expense directly
+        const { error } = await supabase
+          .from("driver_expenses")
+          .delete()
+          .eq("id", expenseId);
+
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["driver-expenses", driverId] });
+      queryClient.invalidateQueries({ queryKey: ["repairs"] });
       toast.success("Expense deleted successfully");
     },
     onError: (error) => {
