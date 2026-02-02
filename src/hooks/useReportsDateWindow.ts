@@ -504,19 +504,24 @@ const fetchDriverIdsForOffice = async (
 };
 
 /**
+ * Global accumulated orders storage - persists across office switches
+ * This is intentionally module-level to survive component remounts
+ */
+const globalAccumulatedOrders = new Map<string, any>();
+const globalLoadedWindows = new Set<string>();
+let lastIndividualMode: boolean | undefined = undefined;
+
+/**
  * Main hook for date-window based reports data loading
+ * 
+ * KEY DESIGN: 
+ * - The query key does NOT include windowKey - this prevents refetching when navigating calendars
+ * - Instead, windowKey is used to track which ranges have been loaded
+ * - Accumulated orders persist globally across office switches
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
   const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId } = options;
-  
-  // Track loaded windows for accumulative caching - keyed by mode+office to reset on mode change
-  const loadedWindowsRef = useRef<Set<string>>(new Set());
-  const modeKeyRef = useRef<string>('');
-  
-  // Store accumulated orders persistently across window changes
-  // This prevents data loss when navigating different dispatchers' calendars
-  const accumulatedOrdersRef = useRef<Map<string, any>>(new Map());
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -525,112 +530,121 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   
   const windowKey = getWindowKey(currentWindow);
   
-  // Create a mode-specific cache key prefix to properly reset on mode toggle
-  const modeKey = `${priorityOffice || 'all'}-${individualMode ? 'individual' : 'all'}-${individualMode ? currentUserDispatcherId : 'none'}`;
-  
-  // Reset loaded windows AND accumulated orders when mode changes to force fresh data loading
-  if (modeKeyRef.current !== modeKey) {
-    console.log(`[useReportsDateWindow] Mode changed from "${modeKeyRef.current}" to "${modeKey}", resetting loaded windows and accumulated orders`);
-    loadedWindowsRef.current = new Set();
-    accumulatedOrdersRef.current = new Map();
-    modeKeyRef.current = modeKey;
+  // Reset global state ONLY when individual mode changes (complete data context switch)
+  if (lastIndividualMode !== undefined && lastIndividualMode !== individualMode) {
+    console.log(`[useReportsDateWindow] Individual mode changed, clearing global accumulated orders`);
+    globalAccumulatedOrders.clear();
+    globalLoadedWindows.clear();
   }
+  lastIndividualMode = individualMode;
+  
+  // Create a stable query key that does NOT change with windowKey
+  // This prevents refetching when navigating calendars - we load incrementally instead
+  const stableQueryKey = useMemo(() => [
+    'reports-date-window-stable',
+    individualMode ? 'individual' : 'all',
+    individualMode ? currentUserDispatcherId : 'all-dispatchers',
+  ], [individualMode, currentUserDispatcherId]);
 
-  // Fetch data for the current date window
-  // Include individualMode in query key to refetch when mode changes
-  // Use placeholderData to keep previous data visible while loading new window (prevents flash)
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['reports-date-window', priorityOffice, windowKey, individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : null],
+  // Primary query: loads the initial date window on mount
+  // Does NOT refetch when selectedDate changes - we handle that separately
+  const { data: initialData, isLoading: initialLoading, error } = useQuery({
+    queryKey: stableQueryKey,
     queryFn: async () => {
-      // Step 1: Get driver IDs for this office (or just current user in Individual mode)
+      // Get driver IDs for current mode (individual or all offices)
       const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
-        priorityOffice || null,
+        null, // Don't filter by office - we load all and filter in UI
         individualMode ? currentUserDispatcherId : null
       );
+      
       if (driverIds.length === 0) {
-        console.log('[useReportsDateWindow] No drivers found for office, returning empty');
-        return { orders: [], driverIds: [], dispatcherIds: [], windowKey };
+        console.log('[useReportsDateWindow] No drivers found, returning empty');
+        return { driverIds: [], dispatcherIds: [] };
       }
+      
+      console.log(`[useReportsDateWindow] Initial load: ${driverIds.length} drivers`);
+      return { driverIds, dispatcherIds };
+    },
+    enabled: !!dispatcherId,
+    staleTime: 300000, // 5 minutes - driver list rarely changes
+    gcTime: 600000,
+    refetchOnWindowFocus: false,
+  });
 
-      // Step 2: Fetch unlocked orders from database
+  // Effect to load orders for the current window when it changes
+  // This is the key to incremental loading without full refetches
+  const { isFetching, refetch } = useQuery({
+    queryKey: ['reports-date-window-orders', windowKey, individualMode ? 'individual' : 'all'],
+    queryFn: async () => {
+      const driverIds = initialData?.driverIds || [];
+      if (driverIds.length === 0) return { orders: [], windowKey };
+      
+      // Skip if already loaded this window
+      if (globalLoadedWindows.has(windowKey)) {
+        console.log(`[useReportsDateWindow] Window ${windowKey} already loaded, skipping`);
+        return { orders: [], windowKey, skipped: true };
+      }
+      
+      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}`);
+      
+      // Fetch all order types for this window
       const unlockedOrders = await fetchOrdersForDateWindow(driverIds, currentWindow);
-
-      // Step 3: Fetch locked orders from archive storage
       const lockedOrders = await fetchLockedOrdersForDateWindow(driverIds, currentWindow);
-
-      // Step 4: Deduplicate (database takes priority)
-      const unlockedOrderIds = new Set(unlockedOrders.map(o => o.id));
-      const deduplicatedLocked = lockedOrders.filter(o => !unlockedOrderIds.has(o.id));
-
-      // Step 5: Fetch gap-fill orders
-      const existingIds = new Set([...unlockedOrderIds, ...deduplicatedLocked.map(o => o.id)]);
+      
+      const unlockedIds = new Set(unlockedOrders.map(o => o.id));
+      const deduplicatedLocked = lockedOrders.filter(o => !unlockedIds.has(o.id));
+      
+      const existingIds = new Set([...unlockedIds, ...deduplicatedLocked.map(o => o.id)]);
       const gapFillOrders = await fetchGapFillOrders(driverIds, currentWindow, existingIds);
-
-      // Combine all orders
+      
       const combinedOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
       
-      // Filter out canceled orders unless:
-      // 1. Their pickup date is today AND
-      // 2. There is NO other non-canceled load for that driver with same or later pickup date
+      // Filter canceled orders
       const allOrders = combinedOrders.filter(order => {
         if (!order.canceled) return true;
-        
-        // Must be pickup today to even consider showing
         if (!isPickupDateToday(order.pickup_datetime)) return false;
         
-        // Extract the date part (YYYY-MM-DD) from this canceled order's pickup
         const canceledPickupDate = order.pickup_datetime?.substring(0, 10);
         if (!canceledPickupDate) return false;
         
-        // Check if there's another non-canceled order for this driver with same or later pickup date
         const hasLaterOrSameDayLoad = combinedOrders.some(otherOrder => {
-          // Must be for the same driver
           if (otherOrder.driver1_id !== order.driver1_id) return false;
-          // Must not be the same order
           if (otherOrder.id === order.id) return false;
-          // Must not be canceled
           if (otherOrder.canceled) return false;
-          // Must have a pickup datetime
           if (!otherOrder.pickup_datetime) return false;
-          
-          // Compare date parts only (no timezone conversion)
           const otherPickupDate = otherOrder.pickup_datetime.substring(0, 10);
           return otherPickupDate >= canceledPickupDate;
         });
         
-        // Don't show canceled order if there's a non-canceled load with same or later pickup
         return !hasLaterOrSameDayLoad;
       });
       
-      console.log(`[useReportsDateWindow] Total orders for window ${windowKey}: ${allOrders.length}`);
-
-      // Mark this window as loaded
-      loadedWindowsRef.current.add(windowKey);
-      
-      // CRITICAL: Add orders to accumulated ref (persists across window changes)
+      // Add to global accumulated store
       for (const order of allOrders) {
-        accumulatedOrdersRef.current.set(order.id, order);
+        globalAccumulatedOrders.set(order.id, order);
       }
-      console.log(`[useReportsDateWindow] Accumulated orders total: ${accumulatedOrdersRef.current.size}`);
-
-      return {
-        orders: allOrders,
-        driverIds,
-        dateWindow: currentWindow,
-        windowKey,
-      };
+      globalLoadedWindows.add(windowKey);
+      
+      console.log(`[useReportsDateWindow] Loaded ${allOrders.length} orders for window ${windowKey}, total accumulated: ${globalAccumulatedOrders.size}`);
+      
+      return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId,
-    staleTime: 60000, // 1 minute
-    gcTime: 300000, // 5 minutes
+    enabled: !!dispatcherId && !!initialData?.driverIds?.length,
+    staleTime: 60000,
+    gcTime: 300000,
     refetchOnWindowFocus: false,
-    // CRITICAL: Keep previous data while loading new window to prevent UI flash
-    placeholderData: (previousData) => previousData,
+    // Keep previous data to prevent flashing
+    placeholderData: (prev) => prev,
   });
+
+  // Get all accumulated orders
+  const accumulatedOrders = useMemo(() => {
+    return Array.from(globalAccumulatedOrders.values());
+  }, [globalAccumulatedOrders.size, windowKey]); // windowKey dependency triggers re-render after loading
 
   // Function to prefetch adjacent date windows
   const prefetchAdjacentWindows = useCallback(async () => {
-    if (!dispatcherId || !data?.driverIds) return;
+    if (!initialData?.driverIds?.length) return;
 
     const pastWindow = calculateDateWindow(subDays(selectedDate, 1), 'past');
     const futureWindow = calculateDateWindow(addDays(selectedDate, 1), 'future');
@@ -638,65 +652,32 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     const pastKey = getWindowKey(pastWindow);
     const futureKey = getWindowKey(futureWindow);
 
-    // Only prefetch if not already loaded
-    if (!loadedWindowsRef.current.has(pastKey)) {
+    if (!globalLoadedWindows.has(pastKey)) {
       queryClient.prefetchQuery({
-        queryKey: ['reports-date-window', dispatcherId, pastKey],
-        queryFn: async () => {
-          const unlockedOrders = await fetchOrdersForDateWindow(data.driverIds, pastWindow);
-          const lockedOrders = await fetchLockedOrdersForDateWindow(data.driverIds, pastWindow);
-          const unlockedIds = new Set(unlockedOrders.map(o => o.id));
-          const deduplicatedLocked = lockedOrders.filter(o => !unlockedIds.has(o.id));
-          const existingIds = new Set([...unlockedIds, ...deduplicatedLocked.map(o => o.id)]);
-          const gapFill = await fetchGapFillOrders(data.driverIds, pastWindow, existingIds);
-          loadedWindowsRef.current.add(pastKey);
-          return { orders: [...unlockedOrders, ...deduplicatedLocked, ...gapFill], driverIds: data.driverIds, dateWindow: pastWindow };
-        },
+        queryKey: ['reports-date-window-orders', pastKey, individualMode ? 'individual' : 'all'],
         staleTime: 60000,
       });
     }
 
-    if (!loadedWindowsRef.current.has(futureKey)) {
+    if (!globalLoadedWindows.has(futureKey)) {
       queryClient.prefetchQuery({
-        queryKey: ['reports-date-window', dispatcherId, futureKey],
-        queryFn: async () => {
-          const unlockedOrders = await fetchOrdersForDateWindow(data.driverIds, futureWindow);
-          const lockedOrders = await fetchLockedOrdersForDateWindow(data.driverIds, futureWindow);
-          const unlockedIds = new Set(unlockedOrders.map(o => o.id));
-          const deduplicatedLocked = lockedOrders.filter(o => !unlockedIds.has(o.id));
-          const existingIds = new Set([...unlockedIds, ...deduplicatedLocked.map(o => o.id)]);
-          const gapFill = await fetchGapFillOrders(data.driverIds, futureWindow, existingIds);
-          loadedWindowsRef.current.add(futureKey);
-          return { orders: [...unlockedOrders, ...deduplicatedLocked, ...gapFill], driverIds: data.driverIds, dateWindow: futureWindow };
-        },
+        queryKey: ['reports-date-window-orders', futureKey, individualMode ? 'individual' : 'all'],
         staleTime: 60000,
       });
     }
-  }, [dispatcherId, data?.driverIds, selectedDate, queryClient]);
-
-  // Get accumulated orders from the persistent ref (not from query cache)
-  // This ensures orders persist across window navigations for different dispatchers
-  const accumulatedOrders = useMemo(() => {
-    if (!dispatcherId) return [];
-    
-    // Return all orders from the persistent ref
-    return Array.from(accumulatedOrdersRef.current.values());
-  }, [dispatcherId, data?.orders]); // Re-compute when new orders are fetched
+  }, [initialData?.driverIds, selectedDate, queryClient, individualMode]);
 
   return {
-    // CRITICAL: Return accumulated orders, not just current window orders
-    // This ensures all loaded orders remain visible when navigating different dispatcher calendars
     orders: accumulatedOrders,
     accumulatedOrders,
-    driverIds: data?.driverIds || [],
+    driverIds: initialData?.driverIds || [],
     dateWindow: currentWindow,
-    // Only show loading on initial load, not when fetching additional windows (prevents flash)
-    isLoading: isLoading && accumulatedOrdersRef.current.size === 0,
-    isFetching, // Expose isFetching for background loading indicator if needed
+    isLoading: initialLoading && globalAccumulatedOrders.size === 0,
+    isFetching,
     error,
     refetch,
     prefetchAdjacentWindows,
-    loadedWindowCount: loadedWindowsRef.current.size,
+    loadedWindowCount: globalLoadedWindows.size,
   };
 };
 

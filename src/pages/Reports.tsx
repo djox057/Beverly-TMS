@@ -1284,30 +1284,29 @@ const Reports = () => {
     return addDays(getChicagoToday(), -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
+    // Only update the per-dispatcher calendar position - DO NOT trigger global data reload
+    // Orders will be loaded on-demand when the calendar navigates to a new window
     setCalendarDates((prev) => ({
       ...prev,
       [dispatcherId]: newDate,
     }));
     
-    // CRITICAL: Also update the global selectedDateForWindow to trigger data loading
-    // for the new date range. The hook will fetch orders for drivers in scope 
-    // when the date window changes.
-    // Calculate the visible window: newDate to newDate + 5 days
+    // Check if this date range needs loading and update the global window if needed
+    // This uses a more conservative check - only update if we're going significantly outside
     const visibleWindowEnd = addDays(newDate, 5);
-    
-    // Current loaded window is: selectedDateForWindow - 2 days to selectedDateForWindow + 3 days
     const loadedWindowStart = addDays(selectedDateForWindow, -2);
     const loadedWindowEnd = addDays(selectedDateForWindow, 3);
     
-    // If any part of the visible window is outside the loaded window, update selectedDateForWindow
-    // to center on the new visible range
-    const isStartOutside = newDate < loadedWindowStart;
-    const isEndOutside = visibleWindowEnd > loadedWindowEnd;
+    // Only trigger a load if the calendar is more than 1 day outside the current window
+    // This prevents excessive reloading while still ensuring data availability
+    const isSignificantlyOutside = 
+      newDate < addDays(loadedWindowStart, -1) || 
+      visibleWindowEnd > addDays(loadedWindowEnd, 1);
     
-    if (isStartOutside || isEndOutside) {
-      // Center the new window on the visible range (newDate + 2 gives us -2 to +3 coverage)
+    if (isSignificantlyOutside) {
+      // Center the new window on the visible range
       const newCenterDate = addDays(newDate, 2);
-      console.log(`[Reports] Calendar navigation outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, 'yyyy-MM-dd')}`);
+      console.log(`[Reports] Calendar navigation significantly outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, 'yyyy-MM-dd')}`);
       setSelectedDateForWindow(newCenterDate);
     }
   };
