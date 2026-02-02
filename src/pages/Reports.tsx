@@ -2337,8 +2337,10 @@ const Reports = () => {
             const filteredTrucks = group.trucks.filter((truck) => {
               // Check truck/driver filter
               if (debouncedTruckDriverFilter) {
-                const matchesTruck = truck.truckNumber
-                  ?.toLowerCase()
+                // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
+                const truckNumberValue = (truck.truckNumber ?? truck.truck_number) as unknown;
+                const matchesTruck = String(truckNumberValue || "")
+                  .toLowerCase()
                   .includes(debouncedTruckDriverFilter.toLowerCase());
                 const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
                 if (!matchesTruck && !matchesDriver) return false;
