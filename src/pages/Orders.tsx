@@ -436,6 +436,36 @@ const Orders = () => {
     setSelectedOrderIds(new Set());
   }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter, invoicedFilter]);
 
+  // Detect if any filter is active that requires all archived orders
+  const hasActiveFilter = 
+    (companyFilter && companyFilter !== "all-companies") ||
+    (truckCompanyFilter && truckCompanyFilter !== "all-truck-companies") ||
+    (bookedByFilter && bookedByFilter !== "all-booked-by" && bookedByFilter !== "all-users") ||
+    (truckFilter && truckFilter !== "all-trucks") ||
+    (driverFilter && driverFilter !== "all-drivers") ||
+    (brokerFilter && brokerFilter !== "all-brokers") ||
+    (missingDocsFilter && missingDocsFilter !== "all") ||
+    lockedNotInvoicedFilter ||
+    invoicedFilter ||
+    dateRange?.from ||
+    pickupDateRange?.from;
+
+  // When a filter is applied, load ALL locked orders to ensure complete results
+  useEffect(() => {
+    if (hasActiveFilter && !lockedOrdersLoaded && !isLoadingLocked && unlockedCount > 0) {
+      console.log(`[Orders] Filter active - loading all locked orders for complete results`);
+      requestLockedOrders();
+    }
+  }, [hasActiveFilter, lockedOrdersLoaded, isLoadingLocked, unlockedCount, requestLockedOrders]);
+
+  // Continue loading locked orders until all are loaded when filter is active
+  useEffect(() => {
+    if (hasActiveFilter && !lockedOrdersLoaded && !isLoadingLocked && loadingProgress.lockedLoaded > 0) {
+      console.log(`[Orders] Filter active - continuing to load more locked orders`);
+      requestLockedOrders();
+    }
+  }, [hasActiveFilter, lockedOrdersLoaded, isLoadingLocked, loadingProgress.lockedLoaded, requestLockedOrders]);
+
   // Trigger loading more locked orders when user paginates near the end of loaded data
   // Calculate how many orders we need for current page
   const ordersNeededForCurrentView = currentPage * ORDERS_PER_PAGE;
