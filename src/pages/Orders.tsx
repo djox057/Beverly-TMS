@@ -398,21 +398,14 @@ const Orders = () => {
     if (driverFilter !== "all-drivers" && !driverId) return null;
     if (brokerFilter !== "all-brokers" && !brokerId) return null;
     
-    // For date ranges, ensure the "to" date includes the full day
-    // by setting it to 23:59:59.999 of that day
-    let deliveryDateTo: string | undefined;
-    if (dateRange?.to) {
-      const endOfDay = new Date(dateRange.to);
-      endOfDay.setHours(23, 59, 59, 999);
-      deliveryDateTo = endOfDay.toISOString();
-    }
-    
-    let pickupDateTo: string | undefined;
-    if (pickupDateRange?.to) {
-      const endOfDay = new Date(pickupDateRange.to);
-      endOfDay.setHours(23, 59, 59, 999);
-      pickupDateTo = endOfDay.toISOString();
-    }
+    // Helper to format date without timezone conversion - extracts local date parts
+    const formatDateNoTz = (date: Date, endOfDay = false): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const time = endOfDay ? '23:59:59' : '00:00:00';
+      return `${year}-${month}-${day} ${time}`;
+    };
     
     return {
       companyId,
@@ -423,10 +416,10 @@ const Orders = () => {
       brokerId,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
-      deliveryDateFrom: dateRange?.from?.toISOString(),
-      deliveryDateTo,
-      pickupDateFrom: pickupDateRange?.from?.toISOString(),
-      pickupDateTo,
+      deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
+      deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
+      pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
+      pickupDateTo: pickupDateRange?.to ? formatDateNoTz(pickupDateRange.to, true) : undefined,
     };
   }, [hasActiveFilter, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange, companies, trucks, drivers, brokers]);
 
