@@ -1,233 +1,154 @@
 
+# Fix: Truck Number Search Auto-Switch Protection Not Working
 
-# Plan: Bulk Import Excel for Multiple Drivers
+## Problem Analysis
 
-## Overview
+The Reports page search has an "auto-switch" feature that changes the active office tab when a search term is found in a different office. While this works correctly for driver name searches, it's too aggressive for truck number searches - users cannot manually switch away from the auto-selected tab because the system keeps switching them back.
 
-Create a new dialog component that allows importing an Excel file containing 200+ sheets (one per driver). Each sheet name follows the format `"(truck_number) (driver_full_name)"` (e.g., `"134 Sherik Williams"`, `"363 Roderick Sonnier"`). The feature will:
+### Root Cause
 
-1. Parse all sheet names from the uploaded Excel file
-2. Match sheet names to existing drivers in the database by truck number AND driver name
-3. Show a preview of matches (matched, unmatched, ambiguous)
-4. Allow bulk import of expenses/cash advances for all matched drivers at once
+After extensive code analysis, the issue appears to be a **race condition or timing problem** in the manual tab switch detection logic:
 
----
+1. When user types "327" (truck number), auto-switch correctly finds and switches to the truck's office (e.g., KRAGUJEVAC)
+2. User manually clicks another tab (e.g., ČAČAK)
+3. The `manualTabSwitchRef` is set to block auto-switching
+4. **However**, the truck search effect still runs and bypasses the protection
 
-## How Matching Works
+The specific issue is that the manual switch detection checks `lastSwitch?.targetOffice !== activeTab` (line 402), which can be flaky when:
+- Multiple effects run in quick succession
+- The ref values are read at different points in the render cycle
+- State updates within effects trigger additional renders
 
-### Sheet Name Format
-```
-"134 Sherik Williams" → Truck: 134, Name: Sherik Williams
-"363 Roderick Sonnier" → Truck: 363, Name: Roderick Sonnier
-```
+### Why Driver Name Works
 
-### Matching Algorithm
-For each sheet name:
-1. **Parse**: Extract truck number (first word) and driver name (remaining words)
-2. **Find Driver**: Query drivers where:
-   - `truck_info.truck_number` matches extracted truck number
-   - Driver `name` (or `first_name + last_name`) fuzzy matches extracted name
-3. **Categorize Result**:
-   - **Matched**: Exactly one driver found with matching truck + name
-   - **Unmatched**: No driver found with that truck number
-   - **Ambiguous**: Multiple drivers found (e.g., same truck, similar names)
+For driver name searches, the `hasLocalMatch` function often returns `true` when checking the current tab's data (drivers might have partial name matches across multiple offices). This causes an early return before the DB lookup that would trigger a switch.
 
-### Example Matching Flow
-```text
-Excel Sheet: "134 Sherik Williams"
-                  ↓
-Parse → Truck: "134", Name: "Sherik Williams"
-                  ↓
-Query → Find driver with truck_number = "134"
-                  ↓
-Compare → Driver.name vs "Sherik Williams" (fuzzy match)
-                  ↓
-Result → Matched to driver ID: abc123
-```
+For truck numbers, trucks are typically unique to a single dispatcher/office, so `hasLocalMatch` returns `false` when the user switches to a different office, triggering the DB lookup which always finds the truck in its original office.
 
 ---
 
-## UI Flow
+## Solution
 
-### Step 1: Upload File
-- Button on Stuff page header: "Bulk Import"
-- Opens dialog with file upload dropzone
-- Accepts `.xlsx` files only
+Implement a more robust protection mechanism that tracks user intent more reliably:
 
-### Step 2: Processing & Preview
-After file upload:
-```text
-┌──────────────────────────────────────────────────────────┐
-│ Bulk Import Results                                       │
-├──────────────────────────────────────────────────────────┤
-│ ✅ Matched: 185 sheets                                    │
-│ ❌ Unmatched: 12 sheets                                   │
-│ ⚠️ Ambiguous: 3 sheets                                    │
-├──────────────────────────────────────────────────────────┤
-│ Sheet Name              │ Status    │ Driver          │  │
-│ 134 Sherik Williams     │ ✅ Matched │ Sherik Williams │  │
-│ 363 Roderick Sonnier    │ ✅ Matched │ Roderick Sonnier│  │
-│ 999 John Doe            │ ❌ No Match│ -               │  │
-│ 134 Williams            │ ⚠️ Ambig. │ 2 drivers found │  │
-└──────────────────────────────────────────────────────────┘
-```
+### 1. Add Stable "User Override" State
 
-### Step 3: Import
-- "Import All Matched" button
-- Progress indicator showing: "Importing 45/185..."
-- Summary after completion: "Successfully imported 185 drivers, 3,420 expenses, 892 cash advances"
-
----
-
-## Technical Implementation
-
-### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/components/BulkImportDriverExcelDialog.tsx` | Main dialog component with all UI and logic |
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/Stuff.tsx` | Add "Bulk Import" button and dialog trigger |
-
----
-
-## Component Structure
-
-### BulkImportDriverExcelDialog.tsx
-
-**State Management**:
-```typescript
-interface SheetMatch {
-  sheetName: string;           // Original sheet name from Excel
-  truckNumber: string;         // Parsed truck number
-  driverNameFromSheet: string; // Parsed driver name
-  status: 'matched' | 'unmatched' | 'ambiguous';
-  matchedDriver?: {            // Matched driver details
-    id: string;
-    name: string;
-    truckNumber: string;
-  };
-  ambiguousDrivers?: Array<{   // Multiple matches
-    id: string;
-    name: string;
-  }>;
-  parsedData?: ParsedData;     // Reuse existing parsing logic
-}
-```
-
-**Key Functions**:
-
-1. `parseSheetName(name: string)` - Extract truck number and driver name
-2. `matchSheetToDriver(sheetName, drivers)` - Find matching driver
-3. `parseAllSheets(workbook)` - Iterate all sheets and parse each one
-4. `importAllMatched(matches)` - Bulk insert for all matched sheets
-
-### Matching Logic
+Instead of relying on refs that can be affected by timing issues, add a timestamp-based "user override" system that completely disables auto-switching for a search term once the user has demonstrated they want a different tab.
 
 ```typescript
-function parseSheetName(sheetName: string): { truckNumber: string; driverName: string } | null {
-  const match = sheetName.match(/^(\d+)\s+(.+)$/);
-  if (!match) return null;
-  return {
-    truckNumber: match[1],
-    driverName: match[2].trim()
-  };
-}
-
-function matchSheetToDriver(
-  parsed: { truckNumber: string; driverName: string },
-  drivers: Driver[]
-): SheetMatch {
-  // Find drivers with matching truck number
-  const byTruck = drivers.filter(d => 
-    d.truck_info?.truck_number === parsed.truckNumber
-  );
-  
-  if (byTruck.length === 0) {
-    return { status: 'unmatched' };
-  }
-  
-  // Fuzzy name matching - normalize and compare
-  const normalized = (name: string) => 
-    name.toLowerCase().replace(/[^a-z]/g, '');
-  
-  const targetName = normalized(parsed.driverName);
-  
-  const matches = byTruck.filter(d => {
-    const driverName = d.name || `${d.first_name} ${d.last_name}`;
-    return normalized(driverName) === targetName;
-  });
-  
-  if (matches.length === 1) {
-    return { status: 'matched', matchedDriver: matches[0] };
-  } else if (matches.length > 1) {
-    return { status: 'ambiguous', ambiguousDrivers: matches };
-  }
-  
-  // Fallback: partial match on truck number alone
-  if (byTruck.length === 1) {
-    return { status: 'matched', matchedDriver: byTruck[0] };
-  }
-  
-  return { status: 'unmatched' };
-}
+// Track when user explicitly overrode auto-switch (timestamp-based for robustness)
+const userOverrideRef = useRef<{
+  filter: "truck" | "dispatch" | "load";
+  value: string;
+  overrideTime: number;
+} | null>(null);
 ```
 
-### Reusing Existing Parsing Logic
+### 2. Extend Override Duration
 
-The existing `parseExcelFile()` function from `ImportDriverExcelDialog.tsx` will be reused:
-- Extract deal info (weekly_payment, weeks_count, agreement_start_date)
-- Parse expenses table
-- Separate cash advances from regular expenses
+When a user manually switches tabs while a search is active, block auto-switching for that search term **indefinitely** (until the filter value changes), not just for a cooldown period.
 
-### Import Process
+### 3. Fix Manual Switch Detection Order
 
-For performance with 200+ sheets:
-1. Parse all sheets first (CPU-bound, ~2-3 seconds)
-2. Batch database inserts (100 expenses per batch)
-3. Show progress indicator
-4. Use `yieldToMain()` between batches to keep UI responsive
+The current detection checks if `lastSwitch?.targetOffice !== activeTab`, which fails when the user tries to switch to the SAME office that was auto-switched to. Simplify this to: "any tab change while a search is active and we already did an auto-switch = manual override".
+
+### 4. Add Filter-Specific Blocking
+
+Track overrides per filter type more explicitly, ensuring that a truck number override doesn't accidentally get cleared when dispatch or load filters change.
 
 ---
 
-## UI Changes to Stuff.tsx
+## Implementation Details
 
-Add a "Bulk Import" button in the header section:
+### File: `src/hooks/useAutoSwitchOffice.ts`
 
-```tsx
-<div className="flex items-center gap-2">
-  <Button 
-    variant="outline" 
-    onClick={() => setShowBulkImportDialog(true)}
-  >
-    <FileSpreadsheet className="h-4 w-4 mr-2" />
-    Bulk Import
-  </Button>
-</div>
+#### Change 1: Add User Override Tracking (lines 51-68)
+
+Add a more robust override tracking mechanism:
+
+```typescript
+// Track when user explicitly overrode auto-switch
+// This completely disables auto-switch for the specific filter+value until cleared
+const userOverrideRef = useRef<{
+  filter: "truck" | "dispatch" | "load";
+  value: string;
+} | null>(null);
 ```
 
+#### Change 2: Fix Manual Switch Detection Effect (lines 396-414)
+
+Simplify the detection logic to be more reliable:
+
+```typescript
+useEffect(() => {
+  const prevTab = prevActiveTabRef.current;
+  
+  // If tab changed at all (not just from auto-switch)
+  if (prevTab !== activeTab) {
+    const lastSwitch = lastAutoSwitchRef.current;
+    
+    // If we auto-switched before and user is now on a DIFFERENT tab than the target,
+    // they're explicitly overriding our switch
+    if (lastSwitch && lastSwitch.targetOffice !== activeTab) {
+      // User overrode the auto-switch - block ALL further switches for this search
+      if (debouncedTruckDriver && debouncedTruckDriver.trim().length >= 2) {
+        userOverrideRef.current = { filter: "truck", value: debouncedTruckDriver };
+      } else if (debouncedDispatchName && debouncedDispatchName.trim().length >= 2) {
+        userOverrideRef.current = { filter: "dispatch", value: debouncedDispatchName };
+      } else if (debouncedLoadNumber && debouncedLoadNumber.trim().length >= 3) {
+        userOverrideRef.current = { filter: "load", value: debouncedLoadNumber };
+      }
+    }
+  }
+  
+  prevActiveTabRef.current = activeTab;
+}, [activeTab, debouncedTruckDriver, debouncedDispatchName, debouncedLoadNumber]);
+```
+
+#### Change 3: Update Truck Search Effect (lines 416-513)
+
+Check the user override ref early and exit immediately:
+
+```typescript
+// Main effect for Truck/Driver filter
+useEffect(() => {
+  if (!debouncedTruckDriver) {
+    // ... existing cleanup code ...
+    // Also clear user override when filter is cleared
+    if (userOverrideRef.current?.filter === "truck") {
+      userOverrideRef.current = null;
+    }
+    return;
+  }
+  
+  // ... min length check ...
+  
+  // NEW: Check if user explicitly overrode auto-switch for this search
+  const userOverride = userOverrideRef.current;
+  if (userOverride?.filter === "truck" && userOverride?.value === debouncedTruckDriver) {
+    // User overrode - do NOT auto-switch, just show status
+    setTruckSearchStatus("found");
+    return;
+  }
+  
+  // ... rest of existing logic ...
+}, [/* existing deps */]);
+```
+
+#### Change 4: Apply Same Pattern to Dispatch and Load Effects
+
+Apply the same `userOverrideRef` check to the dispatch name and load number effects for consistency.
+
 ---
 
-## Error Handling
+## Testing Checklist
 
-- **Malformed sheet names**: Skip sheets that don't match `"(number) (name)"` format
-- **Parse errors**: Log and skip individual sheets, continue with others
-- **Database errors**: Rollback all inserts for that driver, report in summary
-- **Duplicates**: Option to skip or overwrite existing expenses (based on explanation + date)
+After implementation, verify:
 
----
-
-## Summary
-
-This feature enables importing hundreds of driver expense sheets in one operation:
-
-1. Upload single Excel file with 200+ sheets
-2. Automatic matching based on sheet name format `"(truck) (driver name)"`
-3. Preview showing matched/unmatched/ambiguous results
-4. One-click bulk import for all matched drivers
-5. Detailed summary of imported data
-
+1. **Truck Number Auto-Switch**: Type a truck number that exists in a different office - should auto-switch
+2. **Manual Override Works**: After auto-switch, click a different tab - should stay on that tab
+3. **Override Persists**: While on the manually-selected tab with search still active, wait several seconds - should NOT switch back
+4. **Clear on Filter Change**: Clear the truck number filter - override should reset
+5. **Driver Name Still Works**: Driver name search should work the same as before
+6. **Load Number Still Works**: Load number search should work the same as before
+7. **New Search Triggers Switch**: After clearing and typing a new truck number, auto-switch should work again
