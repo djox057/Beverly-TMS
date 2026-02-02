@@ -30,6 +30,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
 import { StatementPreviewDialog, ScheduledDeduction } from "@/components/StatementPreviewDialog";
+import { CellSelectionSummary } from "@/components/CellSelectionSummary";
+import { useCellSelection } from "@/hooks/useCellSelection";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
@@ -470,11 +472,15 @@ const Trips = () => {
 
   const queryClient = useQueryClient();
 
+  // Cell selection for Excel-like sum/average functionality
+  const { selectedValues, toggleCell, clearSelection, isSelected } = useCellSelection();
+
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
   const canMoveLoads = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
   
   // Check if user can see paid columns - dispatch/supervisor cannot
   const canSeePaidColumn = primaryRole !== 'dispatch' && primaryRole !== 'supervisor';
+
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({
@@ -4521,12 +4527,26 @@ const Trips = () => {
                             </TableCell>
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
                           <TableCell colSpan={2} className="py-3"></TableCell>
-                          <TableCell className="py-3">
+                          <TableCell 
+                            className={`py-3 cursor-pointer select-none transition-colors ${
+                              isSelected(`week-driver-${week.weekStart}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={() => toggleCell(`week-driver-${week.weekStart}`, weekTotal.driverPay, "driverPay")}
+                          >
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.driverPay)}
                             </div>
                           </TableCell>
-                          <TableCell className="py-3">
+                          <TableCell 
+                            className={`py-3 cursor-pointer select-none transition-colors ${
+                              isSelected(`week-freight-${week.weekStart}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={() => toggleCell(`week-freight-${week.weekStart}`, weekTotal.freightAmount, "freightAmount")}
+                          >
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.freightAmount)}
                             </div>
@@ -4793,12 +4813,32 @@ const Trips = () => {
                               <TableCell>
                                 <div className="line-clamp-2">{order.brokerLoadNumber}</div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell 
+                                className={`cursor-pointer select-none transition-colors ${
+                                  isSelected(`order-driver-${order.virtualId ?? order.id}`) 
+                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                    : "hover:bg-muted/50"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCell(`order-driver-${order.virtualId ?? order.id}`, Number(order.totalDriverPay) || 0, "driverPay");
+                                }}
+                              >
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalDriverPay)}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell 
+                                className={`cursor-pointer select-none transition-colors ${
+                                  isSelected(`order-freight-${order.virtualId ?? order.id}`) 
+                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                    : "hover:bg-muted/50"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCell(`order-freight-${order.virtualId ?? order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount");
+                                }}
+                              >
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalFreightAmountNoLumper)}
                                 </div>
@@ -5117,6 +5157,9 @@ const Trips = () => {
           }}
         />
       )}
+
+      {/* Cell Selection Summary - Excel-like sum/average popup */}
+      <CellSelectionSummary selectedValues={selectedValues} onClear={clearSelection} />
     </div>
   );
 };
