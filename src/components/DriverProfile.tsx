@@ -50,13 +50,6 @@ interface DriverProfileProps {
   onBack: () => void;
 }
 
-interface CashAdvance {
-  id: string;
-  amount: number;
-  requested_at: string;
-  truck_number: string | null;
-}
-
 export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const { roles } = useAuthContext();
   const isAdmin = roles.includes("admin");
@@ -65,7 +58,6 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [cdlImageUrl, setCdlImageUrl] = useState<string | null>(null);
   const [isUploadingCdl, setIsUploadingCdl] = useState(false);
-  const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
   const [editingExpense, setEditingExpense] = useState<DriverExpense | null>(null);
   const [showDebtGraph, setShowDebtGraph] = useState(false);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
@@ -73,34 +65,11 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
 
-  // Handler for deleting cash advances (admin only)
-  const handleDeleteCashAdvance = async (cashAdvanceId: string) => {
-    try {
-      const { error } = await supabase
-        .from("driver_cash_advances")
-        .delete()
-        .eq("id", cashAdvanceId);
-      
-      if (error) throw error;
-      
-      setCashAdvances(prev => prev.filter(ca => ca.id !== cashAdvanceId));
-      toast.success("Cash advance deleted");
-    } catch (error) {
-      console.error("Error deleting cash advance:", error);
-      toast.error("Failed to delete cash advance");
-    }
-  };
-
-  // Calculate total debt from unpaid expenses and cash advances
+  // Calculate total debt from unpaid expenses (now includes cash advances as expenses)
   const { totalDebt, debtHistory } = useMemo(() => {
-    // Calculate unpaid expense debt
+    // Calculate unpaid expense debt (includes cash advances since they're now expenses)
     const unpaidExpenses = expenses.filter(e => e.status !== 'paid');
-    const expenseDebt = unpaidExpenses.reduce((sum, e) => sum + (e.amount - (e.paid_amount || 0)), 0);
-    
-    // Calculate cash advance debt
-    const cashAdvanceDebt = cashAdvances.reduce((sum, ca) => sum + ca.amount, 0);
-    
-    const total = expenseDebt + cashAdvanceDebt;
+    const total = unpaidExpenses.reduce((sum, e) => sum + (e.amount - (e.paid_amount || 0)), 0);
 
     // Build weekly debt history (mock data based on weeks_count for now)
     const weeksCount = driver.weeks_count || 0;
@@ -117,7 +86,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
     }
 
     return { totalDebt: total, debtHistory: history };
-  }, [expenses, cashAdvances, driver.weeks_count]);
+  }, [expenses, driver.weeks_count]);
 
   // Initialize default expenses on first view
   useEffect(() => {
@@ -144,22 +113,6 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       }
     };
     fetchCdlImage();
-  }, [driver.id]);
-
-  // Fetch cash advances
-  useEffect(() => {
-    const fetchCashAdvances = async () => {
-      const { data } = await supabase
-        .from("driver_cash_advances")
-        .select("*")
-        .eq("driver_id", driver.id)
-        .order("requested_at", { ascending: false });
-
-      if (data) {
-        setCashAdvances(data);
-      }
-    };
-    fetchCashAdvances();
   }, [driver.id]);
 
   const handleCdlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,31 +176,10 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
     setEditingExpense(null);
   };
 
-  // Combine expenses with cash advances for display
+  // Filter and sort expenses for display
   // Sort: fixed expenses (Start Expenses) first, then by created_at
   const allItems = useMemo(() => {
-    let items = [
-      ...expenses,
-      ...cashAdvances.map((ca) => ({
-        id: `ca-${ca.id}`,
-        driver_id: driver.id,
-        truck_number: ca.truck_number,
-        trailer_number: null,
-        name: "Cash Advance",
-        explanation: `Cash Advance`,
-        expense_date: ca.requested_at.split("T")[0],
-        amount: ca.amount,
-        status: "pending", // Cash advances are debt, so they're always pending
-        paid_date: null,
-        paid_amount: 0,
-        notice_1: null,
-        notice_2: null,
-        is_fixed: false,
-        created_at: ca.requested_at,
-        updated_at: ca.requested_at,
-        isCashAdvance: true,
-      })),
-    ];
+    let items = [...expenses];
 
     // Apply unpaid filter if enabled
     if (showUnpaidOnly) {
@@ -260,7 +192,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       if (!a.is_fixed && b.is_fixed) return 1;
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
-  }, [expenses, cashAdvances, driver.id, driver.name, showUnpaidOnly]);
+  }, [expenses, showUnpaidOnly]);
 
   return (
     <div className="space-y-6">
@@ -563,7 +495,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 </TableRow>
               ) : (
                 allItems.map((item) => {
-                  const isCashAdvance = 'isCashAdvance' in item && item.isCashAdvance;
+                  const isCashAdvance = !!item.cash_advance_id;
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">
@@ -591,40 +523,28 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                       <TableCell className="text-xs">{item.notice_1 || "-"}</TableCell>
                       <TableCell className="text-xs">{item.notice_2 || "-"}</TableCell>
                       <TableCell>
-                        {isCashAdvance ? (
-                          // Admin can delete cash advances
-                          isAdmin && (
+                        <div className="flex gap-1">
+                          {/* Edit button - works for all expenses including cash advances */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setEditingExpense(item)}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          {/* Delete button - non-fixed expenses and cash advances (admin only for cash advances) */}
+                          {!item.is_fixed && (!isCashAdvance || isAdmin) && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive"
-                              onClick={() => handleDeleteCashAdvance(item.id.replace('ca-', ''))}
+                              onClick={() => deleteExpense(item.id)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
-                          )
-                        ) : (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setEditingExpense(item as DriverExpense)}
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </Button>
-                            {!item.is_fixed && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => deleteExpense(item.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
