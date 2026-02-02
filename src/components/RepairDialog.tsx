@@ -70,6 +70,7 @@ export function RepairDialog({
   onSubmit,
   onDelete,
 }: RepairDialogProps) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [truckNumber, setTruckNumber] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -305,9 +306,14 @@ export function RepairDialog({
     onOpenChange(false);
   };
 
-  const handleDelete = () => {
+  const handleDeleteClick = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
     if (repair && onDelete) {
       onDelete(repair.id);
+      setDeleteConfirmOpen(false);
       onOpenChange(false);
     }
   };
@@ -507,7 +513,7 @@ export function RepairDialog({
 
         <DialogFooter className="flex justify-between">
           {repair && onDelete && (
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" onClick={handleDeleteClick}>
               Delete
             </Button>
           )}
@@ -521,6 +527,25 @@ export function RepairDialog({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Repair?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this repair record and its linked expense in driver profiles.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
