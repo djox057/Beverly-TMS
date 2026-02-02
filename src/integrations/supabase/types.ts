@@ -2943,6 +2943,7 @@ export type Database = {
       }
       repairs: {
         Row: {
+          accounting_note: string | null
           amount: number
           created_at: string
           created_by: string | null
@@ -2957,6 +2958,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accounting_note?: string | null
           amount?: number
           created_at?: string
           created_by?: string | null
@@ -2971,6 +2973,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accounting_note?: string | null
           amount?: number
           created_at?: string
           created_by?: string | null
