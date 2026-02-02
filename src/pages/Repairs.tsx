@@ -42,7 +42,7 @@ const formatRepairDate = (dateStr: string | null): string => {
 };
 
 export default function Repairs() {
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   const [activeTab, setActiveTab] = useState<'truck' | 'trailer'>('truck');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
@@ -81,7 +81,7 @@ export default function Repairs() {
     if (selectedRepair) {
       updateRepair.mutate({ id: selectedRepair.id, data });
     } else {
-      createRepair.mutate(data);
+      createRepair.mutate({ ...data, createdByName: profile?.full_name || null });
     }
   };
 
