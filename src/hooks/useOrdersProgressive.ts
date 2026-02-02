@@ -19,16 +19,15 @@ interface UseOrdersProgressiveOptions {
   dispatcherUserId?: string | null;
 }
 
+const LOCKED_BATCH_SIZE = 100;
+
 /**
  * Progressive loading hook for /orders page
  * 
  * Phase 1: Load ALL unlocked orders → Display immediately
- * Phase 2: Load locked orders ON-DEMAND when:
+ * Phase 2: Load locked orders in batches ON-DEMAND when:
  *   - User paginates past unlocked data
- *   - User searches for archived orders
- * 
- * Uses local state for progressive loading phases, but syncs to React Query cache
- * for real-time updates from useOrdersRealtime
+ *   - Batches of 100 are loaded incrementally
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
@@ -64,9 +63,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const [phase1Data, setPhase1Data] = useState<any[]>([]);
   const [phase2Data, setPhase2Data] = useState<any[]>([]);
   
-  // Track if locked orders have been requested (pagination or search)
-  const [lockedOrdersRequested, setLockedOrdersRequested] = useState(false);
+  // Track locked orders loading state
   const lockedLoadingRef = useRef(false);
+  const lockedOffsetRef = useRef(0);
+  const lockedTotalRef = useRef<number | null>(null);
+  const allLockedLoadedRef = useRef(false);
 
   // Track cache version for real-time updates (lightweight - only increments on actual changes)
   const [cacheVersion, setCacheVersion] = useState(0);
@@ -85,12 +86,14 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
     loadingStartedRef.current = false;
     lockedLoadingRef.current = false;
+    lockedOffsetRef.current = 0;
+    lockedTotalRef.current = null;
+    allLockedLoadedRef.current = false;
     cachedDataOnMount.current = queryClient.getQueryData<any[]>(queryKey);
     setInitializedFromCache(false);
     setCacheVersion(0);
     setPhase1Data([]);
     setPhase2Data([]);
-    setLockedOrdersRequested(false);
     setProgress({
       phase: 1,
       unlockedLoaded: 0,
@@ -125,18 +128,20 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       setPhase1Data(unlockedOrders);
       setPhase2Data(lockedOrders);
       
-      // If cache has locked orders, mark as already loaded
-      const hasLockedInCache = lockedOrders.length > 0;
-      setLockedOrdersRequested(hasLockedInCache);
+      // If cache has locked orders, update our tracking
+      if (lockedOrders.length > 0) {
+        lockedOffsetRef.current = lockedOrders.length;
+        // We don't know if all are loaded from cache, assume not
+      }
       
       setProgress({
-        phase: hasLockedInCache ? "complete" : 2,
+        phase: lockedOrders.length > 0 ? 2 : 2,
         unlockedLoaded: unlockedOrders.length,
         unlockedTotal: unlockedOrders.length,
         lockedLoaded: lockedOrders.length,
-        lockedTotal: hasLockedInCache ? lockedOrders.length : null,
+        lockedTotal: null,
         isLoadingLocked: false,
-        percentComplete: hasLockedInCache ? 100 : 50,
+        percentComplete: 50,
       });
       setInitializedFromCache(true);
       loadingStartedRef.current = true;
@@ -232,7 +237,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               percentComplete: 50, // 50% complete - unlocked done, locked pending
             });
             
-            console.log("[Progressive] Phase 1 complete. Locked orders will load on pagination/search.");
+            console.log("[Progressive] Phase 1 complete. Locked orders will load on pagination.");
           }
         }
       } catch (error) {
@@ -251,16 +256,19 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initializedFromCache, optionsKey]);
 
-  // PHASE 2: Load locked orders on demand
-  const loadLockedOrders = useCallback(async () => {
-    if (lockedLoadingRef.current || phase2Data.length > 0) {
-      console.log("[Progressive] Locked orders already loading or loaded");
+  // PHASE 2: Load locked orders in batches on demand
+  const loadNextLockedBatch = useCallback(async () => {
+    // Prevent concurrent loads or loading when all loaded
+    if (lockedLoadingRef.current || allLockedLoadedRef.current) {
+      console.log("[Progressive] Skipping batch - already loading or all loaded");
       return;
     }
     
     lockedLoadingRef.current = true;
+    const currentOffset = lockedOffsetRef.current;
     const startTime = Date.now();
-    console.log("[Progressive] Phase 2: Starting locked orders fetch (on-demand)...");
+    
+    console.log(`[Progressive] Loading locked batch: offset=${currentOffset}, limit=${LOCKED_BATCH_SIZE}`);
     
     if (isMountedRef.current) {
       setProgress(prev => ({ ...prev, isLoadingLocked: true }));
@@ -269,69 +277,81 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     try {
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
       
-      // Use Edge Function for bulk fetch
-      const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
+      // Use Edge Function for paginated fetch
+      const { data: response, error } = await supabase.functions.invoke(
         "get-all-locked-orders",
         {
           body: {
             bookedBy,
             dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            offset: currentOffset,
+            limit: LOCKED_BATCH_SIZE,
           },
         }
       );
 
-      if (edgeFunctionError) {
-        console.error("[Progressive] Phase 2 Edge Function error:", edgeFunctionError);
-        throw edgeFunctionError;
+      if (error) {
+        console.error("[Progressive] Locked batch error:", error);
+        throw error;
       }
 
-      if (edgeFunctionResponse?.orders) {
-        const allLocked = edgeFunctionResponse.orders;
-        const totalLocked = edgeFunctionResponse.count;
+      if (response?.orders) {
+        const batchOrders = response.orders;
+        const totalCount = response.totalCount;
+        const hasMore = response.hasMore;
         
-        console.log(`[Progressive] Phase 2: ✅ Fetched ${allLocked.length} locked orders in ${Date.now() - startTime}ms`);
+        console.log(`[Progressive] Batch loaded: ${batchOrders.length} orders in ${Date.now() - startTime}ms`);
+        
+        // Update total if this is first batch
+        if (currentOffset === 0 && totalCount !== null) {
+          lockedTotalRef.current = totalCount;
+        }
         
         // Deduplicate against unlocked orders
         const unlockedOrderIds = new Set(phase1Data.map(o => o.id));
-        const deduplicatedLockedOrders = allLocked.filter(
-          (order: any) => !unlockedOrderIds.has(order.id)
+        const existingLockedIds = new Set(phase2Data.map(o => o.id));
+        const newOrders = batchOrders.filter(
+          (order: any) => !unlockedOrderIds.has(order.id) && !existingLockedIds.has(order.id)
         );
         
-        // Transform locked orders
-        const transformedLocked = transformOrders(deduplicatedLockedOrders);
+        // Transform new orders
+        const transformedBatch = transformOrders(newOrders);
+        
+        // Update offset for next batch
+        lockedOffsetRef.current = currentOffset + batchOrders.length;
+        
+        // Check if all loaded
+        if (!hasMore || batchOrders.length < LOCKED_BATCH_SIZE) {
+          allLockedLoadedRef.current = true;
+          console.log("[Progressive] All locked orders loaded");
+        }
         
         if (isMountedRef.current) {
-          setPhase2Data(transformedLocked);
+          setPhase2Data(prev => [...prev, ...transformedBatch]);
           
-          setProgress({
-            phase: "complete",
-            unlockedLoaded: phase1Data.length,
-            unlockedTotal: phase1Data.length,
-            lockedLoaded: transformedLocked.length,
-            lockedTotal: totalLocked,
+          const newLockedCount = phase2Data.length + transformedBatch.length;
+          const total = lockedTotalRef.current;
+          const isComplete = allLockedLoadedRef.current;
+          
+          setProgress(prev => ({
+            ...prev,
+            phase: isComplete ? "complete" : 2,
+            lockedLoaded: newLockedCount,
+            lockedTotal: total,
             isLoadingLocked: false,
-            percentComplete: 100,
-          });
-          
-          console.log(`[Progressive] Phase 2: ✅ Complete! ${transformedLocked.length} locked orders`);
+            percentComplete: isComplete ? 100 : Math.min(50 + (newLockedCount / (total || newLockedCount)) * 50, 99),
+          }));
         }
       }
     } catch (error) {
-      console.error("[Progressive] Phase 2 failed:", error);
+      console.error("[Progressive] Batch load failed:", error);
       if (isMountedRef.current) {
         setProgress(prev => ({ ...prev, isLoadingLocked: false }));
       }
     } finally {
       lockedLoadingRef.current = false;
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, phase1Data]);
-
-  // Trigger locked orders load when requested
-  useEffect(() => {
-    if (lockedOrdersRequested && phase2Data.length === 0 && progress.phase === 2) {
-      loadLockedOrders();
-    }
-  }, [lockedOrdersRequested, phase2Data.length, progress.phase, loadLockedOrders]);
+  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, phase1Data, phase2Data]);
 
   // Track mount state separately
   useEffect(() => {
@@ -379,13 +399,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return deduplicated;
   }, [phase1Data, phase2Data, progress.phase, queryClient, queryKey, cacheVersion]);
 
-  // Function to request loading locked orders (called from pagination)
+  // Function to request loading more locked orders (called from pagination)
   const requestLockedOrders = useCallback(() => {
-    if (!lockedOrdersRequested && phase2Data.length === 0) {
-      console.log("[Progressive] Locked orders requested by user action");
-      setLockedOrdersRequested(true);
+    if (!allLockedLoadedRef.current && !lockedLoadingRef.current) {
+      console.log("[Progressive] Requesting next locked batch");
+      loadNextLockedBatch();
     }
-  }, [lockedOrdersRequested, phase2Data.length]);
+  }, [loadNextLockedBatch]);
 
   return {
     data: mergedData,
@@ -394,9 +414,10 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     progress,
     unlockedCount: progress.unlockedLoaded,
     lockedCount: progress.lockedLoaded,
+    lockedTotal: progress.lockedTotal,
     totalCount: mergedData.length,
     isPartialData: progress.phase !== "complete",
-    requestLockedOrders, // New: trigger locked orders load
-    lockedOrdersLoaded: phase2Data.length > 0 || progress.phase === "complete",
+    requestLockedOrders, // Trigger next batch load
+    lockedOrdersLoaded: allLockedLoadedRef.current,
   };
 }

@@ -545,15 +545,19 @@ const Orders = () => {
     setSelectedOrderIds(new Set());
   }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter, invoicedFilter]);
 
-  // Trigger loading locked orders when user paginates near the end of unlocked data
-  const isNearEndOfUnlockedData = (currentPage * ORDERS_PER_PAGE) >= unlockedCount && !lockedOrdersLoaded;
+  // Trigger loading more locked orders when user paginates near the end of loaded data
+  // Calculate how many orders we need for current page
+  const ordersNeededForCurrentView = currentPage * ORDERS_PER_PAGE;
+  const ordersCurrentlyLoaded = unlockedCount + (loadingProgress.lockedLoaded || 0);
+  const needsMoreData = ordersNeededForCurrentView > ordersCurrentlyLoaded - ORDERS_PER_PAGE;
   
   useEffect(() => {
-    if (isNearEndOfUnlockedData && !isLoadingLocked && unlockedCount > 0) {
-      console.log("[Orders] Near end of unlocked data, requesting locked orders");
+    // Load more locked orders if we're approaching the end of loaded data
+    if (needsMoreData && !isLoadingLocked && unlockedCount > 0 && !lockedOrdersLoaded) {
+      console.log(`[Orders] Need more data: need ${ordersNeededForCurrentView}, have ${ordersCurrentlyLoaded}`);
       requestLockedOrders();
     }
-  }, [isNearEndOfUnlockedData, isLoadingLocked, unlockedCount, requestLockedOrders]);
+  }, [needsMoreData, isLoadingLocked, unlockedCount, lockedOrdersLoaded, ordersNeededForCurrentView, ordersCurrentlyLoaded, requestLockedOrders]);
 
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
