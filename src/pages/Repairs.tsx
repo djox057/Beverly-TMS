@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,11 +12,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Wrench, Plus, Truck, Container, Search } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useRepairs, Repair, RepairFormData } from "@/hooks/useRepairs";
 import { RepairDialog } from "@/components/RepairDialog";
-import { parse, format } from "date-fns";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -38,6 +47,7 @@ export default function Repairs() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+  const [paidConfirmRepair, setPaidConfirmRepair] = useState<Repair | null>(null);
 
   const { repairs, isLoading, createRepair, updateRepair, deleteRepair, togglePaid } = useRepairs(activeTab);
 
@@ -80,7 +90,15 @@ export default function Repairs() {
   };
 
   const handleTogglePaid = (repair: Repair) => {
-    togglePaid.mutate({ id: repair.id, is_paid: !repair.is_paid });
+    // Show confirmation dialog
+    setPaidConfirmRepair(repair);
+  };
+
+  const confirmTogglePaid = () => {
+    if (paidConfirmRepair) {
+      togglePaid.mutate({ id: paidConfirmRepair.id, is_paid: !paidConfirmRepair.is_paid });
+      setPaidConfirmRepair(null);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -110,21 +128,22 @@ export default function Repairs() {
           {activeTab === 'truck' && <TableHead className="w-28">Truck #</TableHead>}
           {activeTab === 'trailer' && <TableHead className="w-28">Trailer #</TableHead>}
           <TableHead className="w-40">Driver</TableHead>
-          <TableHead className="min-w-[200px] text-center">Reason</TableHead>
+          <TableHead className="min-w-[150px]">Reason</TableHead>
           <TableHead className="w-32">Amount</TableHead>
+          <TableHead className="min-w-[150px]">Accounting Note</TableHead>
           <TableHead className="w-16">Paid</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {isLoading ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
               Loading repairs...
             </TableCell>
           </TableRow>
         ) : filteredRepairs.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
               No repairs found
             </TableCell>
           </TableRow>
@@ -141,10 +160,11 @@ export default function Repairs() {
               {activeTab === 'truck' && <TableCell>{repair.truck_number || '-'}</TableCell>}
               {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
               <TableCell>{repair.driver_name || '-'}</TableCell>
-              <TableCell>
-                {repair.reason}
-              </TableCell>
+              <TableCell>{repair.reason}</TableCell>
               <TableCell>{formatCurrency(repair.amount)}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {repair.accounting_note || '-'}
+              </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={repair.is_paid}
@@ -220,6 +240,30 @@ export default function Repairs() {
         onSubmit={handleSubmit}
         onDelete={canModify ? handleDelete : undefined}
       />
+
+      {/* Paid confirmation dialog */}
+      <AlertDialog open={!!paidConfirmRepair} onOpenChange={(open) => !open && setPaidConfirmRepair(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {paidConfirmRepair?.is_paid ? 'Mark as Unpaid?' : 'Mark as Paid?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this repair as {paidConfirmRepair?.is_paid ? 'unpaid' : 'paid'}?
+              <br />
+              <span className="font-medium">
+                {formatCurrency(paidConfirmRepair?.amount || 0)} - {paidConfirmRepair?.driver_name}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmTogglePaid}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

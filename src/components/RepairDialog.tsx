@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +6,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +24,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { Repair, RepairFormData } from "@/hooks/useRepairs";
 import { toast } from "sonner";
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -36,16 +49,17 @@ interface RepairDialogProps {
 interface TruckOption {
   id: string;
   truck_number: string;
-  driver1_id: string | null;
-  trailer_id: string | null;
-  driver_name: string | null;
-  trailer_number: string | null;
 }
 
 interface TrailerOption {
   id: string;
   trailer_number: string;
-  connected_truck?: TruckOption | null;
+}
+
+interface DriverOption {
+  id: string;
+  name: string;
+  is_active: boolean;
 }
 
 export function RepairDialog({
@@ -60,61 +74,44 @@ export function RepairDialog({
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-  const [driverName, setDriverName] = useState("");
   const [trailerNumber, setTrailerNumber] = useState("");
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
   const [isPaid, setIsPaid] = useState(false);
   const [repairDate, setRepairDate] = useState(getChicagoDateString());
-  const [showTrailerConfirm, setShowTrailerConfirm] = useState(false);
-  const [suggestedTrailerId, setSuggestedTrailerId] = useState<string | null>(null);
-  const [suggestedTrailerNumber, setSuggestedTrailerNumber] = useState("");
+  const [accountingNote, setAccountingNote] = useState("");
 
   const [trucks, setTrucks] = useState<TruckOption[]>([]);
   const [trailers, setTrailers] = useState<TrailerOption[]>([]);
+  const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [filteredTrucks, setFilteredTrucks] = useState<TruckOption[]>([]);
   const [filteredTrailers, setFilteredTrailers] = useState<TrailerOption[]>([]);
+  
+  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [showInactiveDrivers, setShowInactiveDrivers] = useState(false);
 
   // Load options on mount
   useEffect(() => {
     const loadOptions = async () => {
-      const [trucksRes, trailersRes] = await Promise.all([
+      const [trucksRes, trailersRes, driversRes] = await Promise.all([
         supabase
           .from('trucks')
-          .select(`
-            id, truck_number, driver1_id, trailer_id,
-            drivers:driver1_id(name),
-            trailers:trailer_id(trailer_number)
-          `)
+          .select('id, truck_number')
           .order('truck_number'),
         supabase
           .from('trailers')
           .select('id, trailer_number')
           .order('trailer_number'),
+        supabase
+          .from('drivers')
+          .select('id, name, is_active')
+          .order('name'),
       ]);
 
-      const trucksList: TruckOption[] = trucksRes.data?.map((t: any) => ({
-        id: t.id,
-        truck_number: t.truck_number,
-        driver1_id: t.driver1_id,
-        trailer_id: t.trailer_id,
-        driver_name: t.drivers?.name || null,
-        trailer_number: t.trailers?.trailer_number || null,
-      })) || [];
-      
-      setTrucks(trucksList);
-      
-      // Map trailers with their connected truck/driver info
-      if (trailersRes.data) {
-        setTrailers(trailersRes.data.map((trailer: any) => {
-          const connectedTruck = trucksList.find(t => t.trailer_id === trailer.id);
-          return {
-            id: trailer.id,
-            trailer_number: trailer.trailer_number,
-            connected_truck: connectedTruck || null,
-          };
-        }));
-      }
+      setTrucks(trucksRes.data || []);
+      setTrailers(trailersRes.data || []);
+      setDrivers(driversRes.data || []);
     };
 
     if (open) loadOptions();
@@ -128,31 +125,35 @@ export function RepairDialog({
         setSelectedTruckId(repair.truck_id);
         setSelectedTrailerId(repair.trailer_id);
         setSelectedDriverId(repair.driver_id);
-        setDriverName(repair.driver_name || "");
         setTrailerNumber(repair.trailer_number || "");
         setReason(repair.reason);
         setAmount(repair.amount.toString());
         setIsPaid(repair.is_paid);
         setRepairDate(repair.repair_date || getChicagoDateString());
+        setAccountingNote(repair.accounting_note || "");
+        // Show inactive drivers if editing a repair with an inactive driver
+        const driver = drivers.find(d => d.id === repair.driver_id);
+        if (driver && !driver.is_active) {
+          setShowInactiveDrivers(true);
+        }
       } else {
         setTruckNumber("");
         setSelectedTruckId(null);
         setSelectedTrailerId(null);
         setSelectedDriverId(null);
-        setDriverName("");
         setTrailerNumber("");
         setReason("");
         setAmount("");
         setIsPaid(false);
         setRepairDate(getChicagoDateString());
+        setAccountingNote("");
+        setShowInactiveDrivers(false);
       }
-      setShowTrailerConfirm(false);
-      setSuggestedTrailerId(null);
-      setSuggestedTrailerNumber("");
+      setDriverSearch("");
     }
-  }, [open, repair]);
+  }, [open, repair, drivers]);
 
-  // Filter trucks based on input (hide dropdown when exact match is unique)
+  // Filter trucks based on input
   useEffect(() => {
     if (!truckNumber) {
       setFilteredTrucks([]);
@@ -163,7 +164,6 @@ export function RepairDialog({
       ? trucks.find((t) => t.id === selectedTruckId)
       : null;
 
-    // If an item is already selected, never show the dropdown for the exact value
     if (
       selectedTruck &&
       selectedTruck.truck_number.toLowerCase() === truckNumber.toLowerCase()
@@ -178,7 +178,8 @@ export function RepairDialog({
 
     if (exact.length === 1) {
       if (selectedTruckId !== exact[0].id) {
-        handleTruckSelect(exact[0]);
+        setSelectedTruckId(exact[0].id);
+        setTruckNumber(exact[0].truck_number);
       }
       setFilteredTrucks([]);
       return;
@@ -193,7 +194,7 @@ export function RepairDialog({
     );
   }, [truckNumber, trucks, selectedTruckId]);
 
-  // Filter trailers based on input (hide dropdown when exact match is unique)
+  // Filter trailers based on input
   useEffect(() => {
     if (!trailerNumber) {
       setFilteredTrailers([]);
@@ -204,7 +205,6 @@ export function RepairDialog({
       ? trailers.find((t) => t.id === selectedTrailerId)
       : null;
 
-    // If an item is already selected, never show the dropdown for the exact value
     if (
       selectedTrailer &&
       selectedTrailer.trailer_number.toLowerCase() === trailerNumber.toLowerCase()
@@ -219,7 +219,8 @@ export function RepairDialog({
 
     if (exact.length === 1) {
       if (selectedTrailerId !== exact[0].id) {
-        handleTrailerSelect(exact[0]);
+        setSelectedTrailerId(exact[0].id);
+        setTrailerNumber(exact[0].trailer_number);
       }
       setFilteredTrailers([]);
       return;
@@ -234,61 +235,31 @@ export function RepairDialog({
     );
   }, [trailerNumber, trailers, selectedTrailerId]);
 
-  const handleTruckSelect = (truck: TruckOption) => {
-    // Driver is required, so only allow selecting trucks with an assigned driver
-    if (!truck.driver1_id || !truck.driver_name) {
-      toast.error("This truck has no driver assigned");
-      return;
-    }
+  // Filtered drivers based on search and active/inactive toggle
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter((driver) => {
+      const matchesSearch = !driverSearch || 
+        driver.name?.toLowerCase().includes(driverSearch.toLowerCase());
+      const matchesActiveFilter = showInactiveDrivers || driver.is_active;
+      return matchesSearch && matchesActiveFilter;
+    });
+  }, [drivers, driverSearch, showInactiveDrivers]);
 
+  const selectedDriverName = useMemo(() => {
+    const driver = drivers.find(d => d.id === selectedDriverId);
+    return driver?.name || "";
+  }, [drivers, selectedDriverId]);
+
+  const handleTruckSelect = (truck: TruckOption) => {
     setTruckNumber(truck.truck_number);
     setSelectedTruckId(truck.id);
     setFilteredTrucks([]);
-
-    // Auto-fill driver
-    setSelectedDriverId(truck.driver1_id);
-    setDriverName(truck.driver_name);
-
-    // Ask to confirm trailer if truck has one (unless it's already selected)
-    if (truck.trailer_id && truck.trailer_number) {
-      if (selectedTrailerId === truck.trailer_id) {
-        setSelectedTrailerId(truck.trailer_id);
-        setTrailerNumber(truck.trailer_number);
-        setShowTrailerConfirm(false);
-        setSuggestedTrailerId(null);
-        setSuggestedTrailerNumber("");
-        return;
-      }
-
-      setSuggestedTrailerId(truck.trailer_id);
-      setSuggestedTrailerNumber(truck.trailer_number);
-      setShowTrailerConfirm(true);
-    }
-  };
-
-  const handleTrailerConfirm = (confirm: boolean) => {
-    if (confirm) {
-      setSelectedTrailerId(suggestedTrailerId);
-      setTrailerNumber(suggestedTrailerNumber);
-    } else {
-      setSelectedTrailerId(null);
-      setTrailerNumber("");
-    }
-    setShowTrailerConfirm(false);
   };
 
   const handleTrailerSelect = (trailer: TrailerOption) => {
     setTrailerNumber(trailer.trailer_number);
     setSelectedTrailerId(trailer.id);
     setFilteredTrailers([]);
-
-    // Auto-fill driver from connected truck
-    if (trailer.connected_truck?.driver1_id && trailer.connected_truck?.driver_name) {
-      setSelectedTruckId(trailer.connected_truck.id);
-      setTruckNumber(trailer.connected_truck.truck_number);
-      setSelectedDriverId(trailer.connected_truck.driver1_id);
-      setDriverName(trailer.connected_truck.driver_name);
-    }
   };
 
   const handleSubmit = () => {
@@ -328,6 +299,7 @@ export function RepairDialog({
       amount: parsedAmount,
       is_paid: isPaid,
       repair_date: repairDate,
+      accounting_note: accountingNote.trim() || null,
     });
 
     onOpenChange(false);
@@ -349,7 +321,7 @@ export function RepairDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
           {/* Repair Date */}
           <div className="space-y-2">
             <Label htmlFor="repair_date">Date *</Label>
@@ -363,7 +335,7 @@ export function RepairDialog({
 
           {/* Truck Number */}
           <div className="space-y-2">
-            <Label htmlFor="truck">Truck #</Label>
+            <Label htmlFor="truck">Truck # {repairType === 'truck' && '*'}</Label>
             <div className="relative">
               <Input
                 id="truck"
@@ -383,11 +355,6 @@ export function RepairDialog({
                       onClick={() => handleTruckSelect(truck)}
                     >
                       <span className="font-medium">{truck.truck_number}</span>
-                      {truck.driver_name && (
-                        <span className="text-muted-foreground text-sm ml-2">
-                          ({truck.driver_name})
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -395,36 +362,9 @@ export function RepairDialog({
             </div>
           </div>
 
-          {/* Trailer Confirmation */}
-          {showTrailerConfirm && (
-            <div className="p-3 bg-muted rounded-md space-y-2">
-              <p className="text-sm">
-                This truck has trailer <strong>{suggestedTrailerNumber}</strong> assigned. Include it in this repair?
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => handleTrailerConfirm(true)}>
-                  Yes
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => handleTrailerConfirm(false)}>
-                  No
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Driver (read-only, auto-filled from truck) */}
-          {driverName && (
-            <div className="space-y-2">
-              <Label>Driver</Label>
-              <div className="px-3 py-2 bg-muted rounded-md text-sm">
-                {driverName}
-              </div>
-            </div>
-          )}
-
           {/* Trailer Number */}
           <div className="space-y-2">
-            <Label htmlFor="trailer">Trailer #</Label>
+            <Label htmlFor="trailer">Trailer # {repairType === 'trailer' && '*'}</Label>
             <div className="relative">
               <Input
                 id="trailer"
@@ -444,16 +384,74 @@ export function RepairDialog({
                       onClick={() => handleTrailerSelect(trailer)}
                     >
                       <span className="font-medium">{trailer.trailer_number}</span>
-                      {trailer.connected_truck?.driver_name && (
-                        <span className="text-muted-foreground text-sm ml-2">
-                          ({trailer.connected_truck.driver_name})
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Driver Selector */}
+          <div className="space-y-2">
+            <Label>Driver *</Label>
+            <Popover open={driverPopoverOpen} onOpenChange={setDriverPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={driverPopoverOpen}
+                  className="w-full justify-between"
+                >
+                  {selectedDriverName || "Select driver..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput 
+                    placeholder="Search driver..." 
+                    value={driverSearch}
+                    onValueChange={setDriverSearch}
+                  />
+                  <div className="flex items-center gap-2 px-3 py-2 border-b">
+                    <Checkbox
+                      id="show-inactive"
+                      checked={showInactiveDrivers}
+                      onCheckedChange={(checked) => setShowInactiveDrivers(checked as boolean)}
+                    />
+                    <Label htmlFor="show-inactive" className="text-sm cursor-pointer">
+                      Show inactive drivers
+                    </Label>
+                  </div>
+                  <CommandList>
+                    <CommandEmpty>No driver found.</CommandEmpty>
+                    <CommandGroup className="max-h-60 overflow-auto">
+                      {filteredDrivers.map((driver) => (
+                        <CommandItem
+                          key={driver.id}
+                          value={driver.id}
+                          onSelect={() => {
+                            setSelectedDriverId(driver.id);
+                            setDriverPopoverOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedDriverId === driver.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {driver.name}
+                          {!driver.is_active && (
+                            <span className="ml-2 text-xs text-muted-foreground">(Inactive)</span>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Reason */}
@@ -470,7 +468,7 @@ export function RepairDialog({
 
           {/* Amount */}
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount</Label>
+            <Label htmlFor="amount">Amount *</Label>
             <Input
               id="amount"
               type="number"
@@ -479,6 +477,18 @@ export function RepairDialog({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
+            />
+          </div>
+
+          {/* Accounting Note */}
+          <div className="space-y-2">
+            <Label htmlFor="accounting_note">Accounting Note</Label>
+            <Textarea
+              id="accounting_note"
+              value={accountingNote}
+              onChange={(e) => setAccountingNote(e.target.value)}
+              placeholder="Note for accounting..."
+              rows={2}
             />
           </div>
 
@@ -506,7 +516,7 @@ export function RepairDialog({
               Cancel
             </Button>
             <Button onClick={handleSubmit}>
-              {repair ? "Update" : "Create"}
+              {repair ? "Save" : "Create"}
             </Button>
           </div>
         </DialogFooter>
