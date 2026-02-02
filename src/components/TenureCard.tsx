@@ -87,22 +87,6 @@ export const TenureCard = ({ tenure, entityType, timelinePercentage }: TenureCar
               </div>
             </div>
 
-            {/* Timeline bar */}
-            {timelinePercentage !== undefined && timelinePercentage > 0 && (
-              <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    isCurrent 
-                      ? "bg-green-500" 
-                      : isGap 
-                        ? "bg-muted-foreground/30" 
-                        : "bg-primary/60"
-                  )}
-                  style={{ width: `${Math.min(100, Math.max(5, timelinePercentage))}%` }}
-                />
-              </div>
-            )}
 
             {/* End reason */}
             {tenure.endReason && !isCurrent && (
