@@ -25,16 +25,22 @@ Deno.serve(async (req) => {
     // Parse optional filters from request body
     let bookedBy: string | null = null;
     let dispatcherDriverIds: string[] = [];
+    let limit: number | null = null;
+    let offset: number = 0;
     
     if (req.method === "POST") {
       try {
         const body = await req.json();
         bookedBy = body.bookedBy || null;
         dispatcherDriverIds = body.dispatcherDriverIds || [];
+        limit = body.limit || null;
+        offset = body.offset || 0;
       } catch {
         // No body or invalid JSON - proceed without filters
       }
     }
+
+    console.log(`[get-all-unlocked-orders] limit=${limit}, offset=${offset}`);
 
     // Step 1: Fetch total count first for verification
     let countQuery = supabase
@@ -62,10 +68,10 @@ Deno.serve(async (req) => {
 
     console.log(`[get-all-unlocked-orders] Total unlocked orders: ${totalCount}`);
 
-    // Step 2: Fetch ALL unlocked orders in batches (bypass 1000 row limit)
-    const BATCH_SIZE = 1000;
+    // Step 2: Fetch orders with limit/offset or all in batches
+    const BATCH_SIZE = limit ?? 1000;
     let allOrders: any[] = [];
-    let offset = 0;
+    let currentOffset = offset;
 
     while (true) {
       let query = supabase
@@ -218,7 +224,7 @@ Deno.serve(async (req) => {
         `)
         .eq("locked", false)
         .order("created_at", { ascending: false })
-        .range(offset, offset + BATCH_SIZE - 1);
+        .range(currentOffset, currentOffset + BATCH_SIZE - 1);
 
       // Apply filters
       if (bookedBy && dispatcherDriverIds.length > 0) {
@@ -234,7 +240,7 @@ Deno.serve(async (req) => {
       const { data: batch, error: batchError } = await query;
 
       if (batchError) {
-        console.error(`[get-all-unlocked-orders] Batch error at offset ${offset}:`, batchError);
+        console.error(`[get-all-unlocked-orders] Batch error at offset ${currentOffset}:`, batchError);
         throw batchError;
       }
 
@@ -245,11 +251,16 @@ Deno.serve(async (req) => {
       allOrders = allOrders.concat(batch);
       console.log(`[get-all-unlocked-orders] Fetched batch: ${batch.length}, total: ${allOrders.length}`);
 
+      // If limit was specified, only fetch one batch
+      if (limit !== null) {
+        break;
+      }
+
       if (batch.length < BATCH_SIZE) {
         break;
       }
 
-      offset += BATCH_SIZE;
+      currentOffset += BATCH_SIZE;
     }
 
     const fetchTime = Date.now() - startTime;
