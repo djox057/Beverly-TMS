@@ -13,6 +13,7 @@ import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 // Fixed weekly charges (same for all drivers)
 const FIXED_WEEKLY_CHARGES = {
@@ -57,6 +58,9 @@ interface CashAdvance {
 }
 
 export function DriverProfile({ driver, onBack }: DriverProfileProps) {
+  const { roles } = useAuthContext();
+  const isAdmin = roles.includes("admin");
+  
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
   const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [cdlImageUrl, setCdlImageUrl] = useState<string | null>(null);
@@ -68,6 +72,24 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
 
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
+
+  // Handler for deleting cash advances (admin only)
+  const handleDeleteCashAdvance = async (cashAdvanceId: string) => {
+    try {
+      const { error } = await supabase
+        .from("driver_cash_advances")
+        .delete()
+        .eq("id", cashAdvanceId);
+      
+      if (error) throw error;
+      
+      setCashAdvances(prev => prev.filter(ca => ca.id !== cashAdvanceId));
+      toast.success("Cash advance deleted");
+    } catch (error) {
+      console.error("Error deleting cash advance:", error);
+      toast.error("Failed to delete cash advance");
+    }
+  };
 
   // Calculate total debt from unpaid expenses and cash advances
   const { totalDebt, debtHistory } = useMemo(() => {
@@ -569,7 +591,19 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                       <TableCell className="text-xs">{item.notice_1 || "-"}</TableCell>
                       <TableCell className="text-xs">{item.notice_2 || "-"}</TableCell>
                       <TableCell>
-                        {!isCashAdvance && (
+                        {isCashAdvance ? (
+                          // Admin can delete cash advances
+                          isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => handleDeleteCashAdvance(item.id.replace('ca-', ''))}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )
+                        ) : (
                           <div className="flex gap-1">
                             <Button
                               variant="ghost"
