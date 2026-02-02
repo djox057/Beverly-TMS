@@ -200,6 +200,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Also create a driver_expense entry so cash advances work like regular expenses
     // This enables editing, statement export deductions, and consistent debt tracking
+    // Use Chicago date for expense_date (matches cash advance request logic)
+    const chicagoDate = getChicagoTodayStartUTC().split("T")[0]; // YYYY-MM-DD
     const { error: expenseError } = await supabase
       .from("driver_expenses")
       .insert({
@@ -212,6 +214,7 @@ const handler = async (req: Request): Promise<Response> => {
         paid_amount: 0,
         is_fixed: false,
         cash_advance_id: insertedAdvance.id, // Link to cash advance record
+        expense_date: chicagoDate, // Preserve date of request
       });
 
     if (expenseError) {
