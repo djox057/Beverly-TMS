@@ -452,7 +452,6 @@ const Trips = () => {
 
   // Use lazy loading hook - only fetches on search if no global orders cached
   const { data: orders, isLoading, isLazyMode, hasGlobalOrders } = useTripsLazyOrders(
-    orderFilterOptions,
     { truckDriverSearch: searchFilter, loadNumberSearch }
   );
 
