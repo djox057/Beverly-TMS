@@ -263,7 +263,9 @@ export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeli
 // Helper function to get lost day note for a specific date
 export const getLostDayNote = (truck: any, date: Date): string => {
   const dateStr = format(date, "yyyy-MM-dd");
-  const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+  // Check both snake_case and camelCase versions for compatibility with legacy and date-window adapter
+  const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+  const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
 
   if (!lostDayNote) {
     const today = new Date();
@@ -293,7 +295,9 @@ export type GameOverType = "yard" | "at_road";
 // Helper function to check if a date has "game over" note
 export const isGameOverDay = (truck: any, date: Date): { isGameOver: boolean; type: GameOverType | null } => {
   const dateStr = format(date, "yyyy-MM-dd");
-  const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+  // Check both snake_case and camelCase versions for compatibility
+  const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+  const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
   const note = lostDayNote?.note?.toLowerCase();
 
   if (note === "game over - yard") return { isGameOver: true, type: "yard" };
