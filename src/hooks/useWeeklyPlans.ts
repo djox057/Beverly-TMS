@@ -32,7 +32,7 @@ function getCurrentWeekMonday(): string {
 /**
  * Get icon color based on plan state and time
  * - Yellow: No plan before 11 AM Monday
- * - Red: No plan after 11 AM Monday
+ * - Red: No plan after 1 PM Monday
  * - Gray: Has plan (all good)
  */
 export function getWeeklyPlanIconColor(hasPlan: boolean): "yellow" | "red" | "gray" {
@@ -41,8 +41,8 @@ export function getWeeklyPlanIconColor(hasPlan: boolean): "yellow" | "red" | "gr
   const hours = chicagoNow.getHours();
   const totalMinutes = hours * 60 + chicagoNow.getMinutes();
   
-  // After 11:00 AM Monday (660 minutes)
-  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 11 * 60;
+  // After 1:00 PM Monday (780 minutes)
+  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 13 * 60;
   const isPastMonday = dayOfWeek > 1 || dayOfWeek === 0; // Tue-Sun
 
   if (hasPlan) {
