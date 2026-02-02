@@ -514,6 +514,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const loadedWindowsRef = useRef<Set<string>>(new Set());
   const modeKeyRef = useRef<string>('');
   
+  // Store accumulated orders persistently across window changes
+  // This prevents data loss when navigating different dispatchers' calendars
+  const accumulatedOrdersRef = useRef<Map<string, any>>(new Map());
+  
   // Calculate current date window
   const currentWindow = useMemo(() => {
     return calculateDateWindow(selectedDate, 'initial');
@@ -524,16 +528,18 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // Create a mode-specific cache key prefix to properly reset on mode toggle
   const modeKey = `${priorityOffice || 'all'}-${individualMode ? 'individual' : 'all'}-${individualMode ? currentUserDispatcherId : 'none'}`;
   
-  // Reset loaded windows when mode changes to force fresh data loading
+  // Reset loaded windows AND accumulated orders when mode changes to force fresh data loading
   if (modeKeyRef.current !== modeKey) {
-    console.log(`[useReportsDateWindow] Mode changed from "${modeKeyRef.current}" to "${modeKey}", resetting loaded windows`);
+    console.log(`[useReportsDateWindow] Mode changed from "${modeKeyRef.current}" to "${modeKey}", resetting loaded windows and accumulated orders`);
     loadedWindowsRef.current = new Set();
+    accumulatedOrdersRef.current = new Map();
     modeKeyRef.current = modeKey;
   }
 
   // Fetch data for the current date window
   // Include individualMode in query key to refetch when mode changes
-  const { data, isLoading, error, refetch } = useQuery({
+  // Use placeholderData to keep previous data visible while loading new window (prevents flash)
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['reports-date-window', priorityOffice, windowKey, individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : null],
     queryFn: async () => {
       // Step 1: Get driver IDs for this office (or just current user in Individual mode)
@@ -543,7 +549,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       );
       if (driverIds.length === 0) {
         console.log('[useReportsDateWindow] No drivers found for office, returning empty');
-        return { orders: [], driverIds: [], dispatcherIds: [] };
+        return { orders: [], driverIds: [], dispatcherIds: [], windowKey };
       }
 
       // Step 2: Fetch unlocked orders from database
@@ -596,21 +602,30 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         return !hasLaterOrSameDayLoad;
       });
       
-      console.log(`[useReportsDateWindow] Total orders for window: ${allOrders.length} (combined: ${combinedOrders.length}, after canceled filter: ${allOrders.length})`);
+      console.log(`[useReportsDateWindow] Total orders for window ${windowKey}: ${allOrders.length}`);
 
       // Mark this window as loaded
       loadedWindowsRef.current.add(windowKey);
+      
+      // CRITICAL: Add orders to accumulated ref (persists across window changes)
+      for (const order of allOrders) {
+        accumulatedOrdersRef.current.set(order.id, order);
+      }
+      console.log(`[useReportsDateWindow] Accumulated orders total: ${accumulatedOrdersRef.current.size}`);
 
       return {
         orders: allOrders,
         driverIds,
         dateWindow: currentWindow,
+        windowKey,
       };
     },
     enabled: !!dispatcherId,
     staleTime: 60000, // 1 minute
     gcTime: 300000, // 5 minutes
     refetchOnWindowFocus: false,
+    // CRITICAL: Keep previous data while loading new window to prevent UI flash
+    placeholderData: (previousData) => previousData,
   });
 
   // Function to prefetch adjacent date windows
@@ -659,46 +674,25 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     }
   }, [dispatcherId, data?.driverIds, selectedDate, queryClient]);
 
-  // Get accumulated orders from all loaded windows
+  // Get accumulated orders from the persistent ref (not from query cache)
+  // This ensures orders persist across window navigations for different dispatchers
   const accumulatedOrders = useMemo(() => {
     if (!dispatcherId) return [];
-
-    const allOrders = new Map<string, any>();
     
-    // Get orders from all cached windows for the current mode
-    for (const windowKeyStr of loadedWindowsRef.current) {
-      // Build the full query key matching the query definition
-      const cachedData = queryClient.getQueryData<{ orders: any[] }>([
-        'reports-date-window', 
-        priorityOffice, 
-        windowKeyStr, 
-        individualMode ? 'individual' : 'all', 
-        individualMode ? currentUserDispatcherId : null
-      ]);
-      if (cachedData?.orders) {
-        for (const order of cachedData.orders) {
-          // Use Map to deduplicate, most recent data wins
-          allOrders.set(order.id, order);
-        }
-      }
-    }
-
-    // Also include current query data
-    if (data?.orders) {
-      for (const order of data.orders) {
-        allOrders.set(order.id, order);
-      }
-    }
-
-    return Array.from(allOrders.values());
-  }, [data?.orders, dispatcherId, priorityOffice, individualMode, currentUserDispatcherId, queryClient]);
+    // Return all orders from the persistent ref
+    return Array.from(accumulatedOrdersRef.current.values());
+  }, [dispatcherId, data?.orders]); // Re-compute when new orders are fetched
 
   return {
-    orders: data?.orders || [],
+    // CRITICAL: Return accumulated orders, not just current window orders
+    // This ensures all loaded orders remain visible when navigating different dispatcher calendars
+    orders: accumulatedOrders,
     accumulatedOrders,
     driverIds: data?.driverIds || [],
     dateWindow: currentWindow,
-    isLoading,
+    // Only show loading on initial load, not when fetching additional windows (prevents flash)
+    isLoading: isLoading && accumulatedOrdersRef.current.size === 0,
+    isFetching, // Expose isFetching for background loading indicator if needed
     error,
     refetch,
     prefetchAdjacentWindows,
