@@ -291,7 +291,7 @@ export function useAutoSwitchOffice({
         return resolveOfficesFromDispatcherIds(dispatcherIds);
       };
       
-      // 1) If numeric, prefer exact match to avoid collisions like 327 matching 7327
+      // 1) If numeric, ONLY do exact match - no prefix/partial matching
       if (isNumeric) {
         const { data: exactTrucks, error: exactTruckError } = await supabase
           .from("trucks")
@@ -307,25 +307,27 @@ export function useAutoSwitchOffice({
           if (foundOffices.length === 1) return { type: "found", office: foundOffices[0] };
           if (foundOffices.length > 1) return { type: "ambiguous", offices: foundOffices };
         }
-      }
+        
+        // For numeric searches, if no exact match found, return not_found immediately
+        // (don't fall through to prefix/substring matching)
+      } else {
+        // 2) For non-numeric searches: substring match for names/alphanumerics
+        const { data: truckMatches, error: truckError } = await supabase
+          .from("trucks")
+          .select("driver1_id, driver2_id")
+          .ilike("truck_number", `%${term}%`)
+          .limit(10);
 
-      // 2) Fallback: prefix match for numeric; substring match for names/alphanumerics
-      const truckPattern = isNumeric ? `${term}%` : `%${term}%`;
-      const { data: truckMatches, error: truckError } = await supabase
-        .from("trucks")
-        .select("driver1_id, driver2_id")
-        .ilike("truck_number", truckPattern)
-        .limit(10);
+        if (truckError) throw truckError;
 
-      if (truckError) throw truckError;
+        if (truckMatches && truckMatches.length > 0) {
+          const foundOffices = await resolveOfficesFromTruckRows(truckMatches);
 
-      if (truckMatches && truckMatches.length > 0) {
-        const foundOffices = await resolveOfficesFromTruckRows(truckMatches);
-
-        if (foundOffices.length === 1) {
-          return { type: "found", office: foundOffices[0] };
-        } else if (foundOffices.length > 1) {
-          return { type: "ambiguous", offices: foundOffices };
+          if (foundOffices.length === 1) {
+            return { type: "found", office: foundOffices[0] };
+          } else if (foundOffices.length > 1) {
+            return { type: "ambiguous", offices: foundOffices };
+          }
         }
       }
       
