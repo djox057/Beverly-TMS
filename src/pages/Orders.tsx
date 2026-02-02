@@ -20,6 +20,7 @@ import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useOrdersProgressive } from "@/hooks/useOrdersProgressive";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
+import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { OrdersLoadingProgress, OrdersLoadingBadge } from "@/components/OrdersLoadingProgress";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -266,6 +267,17 @@ const Orders = () => {
     clearSearch
   } = useOrdersSearch();
 
+  // Server-side filtered search hook - queries database with filter criteria
+  const {
+    orders: filteredServerOrders,
+    totalCount: filteredTotalCount,
+    isLoading: isFilteredLoading,
+    hasMore: hasMoreFiltered,
+    loadMore: loadMoreFiltered,
+    search: searchFiltered,
+    reset: resetFiltered,
+  } = useFilteredOrdersSearch();
+
   // Debounce search term for server-side search
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -280,6 +292,7 @@ const Orders = () => {
       clearSearch();
     }
   }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions.bookedBy, orderFilterOptions.dispatcherUserId]);
+  
   console.log("🟦 [Orders Page] Progressive loading:", {
     ordersCount: orders?.length,
     isLoading,
@@ -288,7 +301,8 @@ const Orders = () => {
     unlockedCount,
     lockedCount,
     isPartialData,
-    searchResultsCount: searchResults?.length
+    searchResultsCount: searchResults?.length,
+    filteredServerOrdersCount: filteredServerOrders?.length,
   });
 
   // Log when orders data changes
@@ -299,42 +313,160 @@ const Orders = () => {
       console.log("🔵 [Orders Page] Last order:", orders[orders.length - 1]);
     }
   }, [orders]);
+  
   const {
     data: companies
   } = useCompanies();
 
-  // When search is active, LOCK into server mode IMMEDIATELY (use raw searchTerm, not debounced)
-  // This prevents local filtering flash before debounce triggers server search
+  // Detect if any filter is active that requires server-side filtering
+  const hasActiveFilter = useMemo(() => {
+    return (
+      (companyFilter && companyFilter !== "all-companies") ||
+      (truckCompanyFilter && truckCompanyFilter !== "all-truck-companies") ||
+      (bookedByFilter && bookedByFilter !== "all-booked-by" && bookedByFilter !== "all-users") ||
+      (truckFilter && truckFilter !== "all-trucks") ||
+      (driverFilter && driverFilter !== "all-drivers") ||
+      (brokerFilter && brokerFilter !== "all-brokers") ||
+      lockedNotInvoicedFilter ||
+      invoicedFilter ||
+      dateRange?.from ||
+      pickupDateRange?.from
+    );
+  }, [companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange]);
+
+  // Build filter object for server-side search
+  const serverFilters = useMemo(() => {
+    if (!hasActiveFilter) return null;
+    
+    // Find company ID from name
+    const companyId = companyFilter !== "all-companies" 
+      ? companies?.find(c => c.name === companyFilter)?.id 
+      : undefined;
+    
+    // Find truck company ID from name
+    const truckCompanyId = truckCompanyFilter !== "all-truck-companies"
+      ? companies?.find(c => c.name === truckCompanyFilter)?.id
+      : undefined;
+    
+    // Find truck ID from truck number
+    const truckId = truckFilter !== "all-trucks" 
+      ? orders?.find(o => o.truckNumber === truckFilter)?.truck?.id
+      : undefined;
+    
+    // Find driver ID from driver name
+    const driverId = driverFilter !== "all-drivers"
+      ? orders?.find(o => o.driverName === driverFilter)?.driver1?.id
+      : undefined;
+    
+    // Find broker ID from broker name  
+    const brokerId = brokerFilter !== "all-brokers"
+      ? orders?.find(o => o.brokerName === brokerFilter)?.broker?.id
+      : undefined;
+    
+    return {
+      companyId,
+      truckCompanyId,
+      bookedBy: bookedByFilter !== "all-booked-by" && bookedByFilter !== "all-users" ? bookedByFilter : undefined,
+      truckId,
+      driverId,
+      brokerId,
+      lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
+      invoiced: invoicedFilter || undefined,
+      deliveryDateFrom: dateRange?.from?.toISOString(),
+      deliveryDateTo: dateRange?.to?.toISOString(),
+      pickupDateFrom: pickupDateRange?.from?.toISOString(),
+      pickupDateTo: pickupDateRange?.to?.toISOString(),
+    };
+  }, [hasActiveFilter, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange, companies, orders]);
+
+  // Trigger server-side filtered search when filters change
+  const debouncedServerFilters = useDebounce(serverFilters, 400);
+  
+  useEffect(() => {
+    if (debouncedServerFilters) {
+      console.log("[Orders] Triggering server-side filtered search:", debouncedServerFilters);
+      searchFiltered(debouncedServerFilters);
+    } else {
+      resetFiltered();
+    }
+  }, [debouncedServerFilters, searchFiltered, resetFiltered]);
+
+  // Data source selection:
+  // 1. Active search → use search results
+  // 2. Active filter → use server-side filtered results
+  // 3. No filters → use locally loaded orders
   const dataSource = useMemo(() => {
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
-      // While searching: show previous results or empty array (no flicker)
-      // After search completes: show server results
       return searchResults || [];
     }
+    
+    // When filters are active, use server-side filtered results
+    if (hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0) {
+      return filteredServerOrders;
+    }
+    
+    // While loading filtered results, show existing orders to prevent flash
+    if (hasActiveFilter && isFilteredLoading) {
+      return orders || [];
+    }
+    
     return orders || [];
-  }, [searchTerm, searchResults, orders]);
+  }, [searchTerm, searchResults, orders, hasActiveFilter, filteredServerOrders, isFilteredLoading]);
 
   // Filter orders based on search term and filters
+  // When server-side filtering is active, skip most client-side filters
   const filteredOrders = dataSource?.filter(order => {
-    // When using server-side search results, don't apply client-side search filter
     const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
+    const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
+    
+    // Client-side search filter (only when not using server search)
     let matchesSearch = true;
     if (!isServerSearch && searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      // Format internal load number with company suffix for search
       const formattedInternalLoadNumber = order.internalLoadNumber ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName) : "";
       matchesSearch = (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) || formattedInternalLoadNumber.toLowerCase().includes(searchLower) || (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) || (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) || (order.driverName?.toLowerCase() || "").includes(searchLower) || (order.brokerName?.toLowerCase() || "").includes(searchLower) || (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
     }
+    
+    // Skip most client-side filters when server-side filtering is active
+    if (isServerFiltered) {
+      // Only apply missingDocsFilter client-side since it requires file analysis
+      let matchesMissingDocs = true;
+      if (missingDocsFilter !== "all") {
+        if (missingDocsFilter === "missing-rc") {
+          matchesMissingDocs = order.rcFiles?.length === 0;
+        } else if (missingDocsFilter === "missing-bol") {
+          matchesMissingDocs = order.bolFiles?.length === 0;
+        } else if (missingDocsFilter === "missing-pod") {
+          const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+          const podCount = order.podFiles?.length || 0;
+          matchesMissingDocs = podCount < deliveryCount;
+        } else if (missingDocsFilter === "complete") {
+          const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
+          const podCount = order.podFiles?.length || 0;
+          matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && podCount >= deliveryCount;
+        } else if (missingDocsFilter === "canceled") {
+          matchesMissingDocs = order.canceled === true;
+        } else if (missingDocsFilter === "pending-payment") {
+          matchesMissingDocs = order.invoiced === true && order.paid !== true;
+        } else if (missingDocsFilter === "billed") {
+          matchesMissingDocs = order.paid === true;
+        } else if (missingDocsFilter === "updated") {
+          matchesMissingDocs = hasUpdateTracking(order.notes);
+        }
+      }
+      return matchesSearch && matchesMissingDocs;
+    }
+    
+    // Full client-side filtering when server-side is not active
     const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === "all-truck-companies" || order.driverCompanyName === truckCompanyFilter;
-
-    // For dispatch users, respect the filter but default to their own loads
     const matchesBookedBy = !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
     const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerName === brokerFilter;
+    
     let matchesMissingDocs = true;
     if (missingDocsFilter !== "all") {
       if (missingDocsFilter === "missing-rc") {
@@ -342,12 +474,10 @@ const Orders = () => {
       } else if (missingDocsFilter === "missing-bol") {
         matchesMissingDocs = order.bolFiles?.length === 0;
       } else if (missingDocsFilter === "missing-pod") {
-        // For multi-drop loads, check if all deliveries have PODs
         const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
         const podCount = order.podFiles?.length || 0;
         matchesMissingDocs = podCount < deliveryCount;
       } else if (missingDocsFilter === "complete") {
-        // Complete means RC exists AND all deliveries have PODs
         const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
         const podCount = order.podFiles?.length || 0;
         matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && podCount >= deliveryCount;
@@ -362,26 +492,22 @@ const Orders = () => {
       }
     }
 
-    // Date filtering based on delivery date - extract UTC date directly from ISO string
+    // Date filtering based on delivery date
     let matchesDate = true;
     if (dateRange?.from && order.deliveryDate) {
       let dateStr = order.deliveryDate.split(" - ")[0];
-      // Normalize space-separated dates (from CSV) to ISO format
       if (dateStr.includes(' ') && !dateStr.includes('T')) {
         dateStr = dateStr.replace(' ', 'T');
       }
-      // Extract date part directly from ISO string (UTC-based)
       const datePart = dateStr.split('T')[0];
       if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = datePart.split('-').map(Number);
         const orderDateOnly = new Date(year, month - 1, day);
         if (dateRange.to) {
-          // Date range filtering
           const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
           const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
           matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
         } else {
-          // Single date filtering
           const selectedDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
           matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
         }
@@ -390,26 +516,22 @@ const Orders = () => {
       }
     }
 
-    // Date filtering based on pickup date - extract UTC date directly from ISO string
+    // Date filtering based on pickup date
     let matchesPickupDate = true;
     if (pickupDateRange?.from && order.pickupDate) {
       let dateStr = order.pickupDate.split(" - ")[0];
-      // Normalize space-separated dates (from CSV) to ISO format
       if (dateStr.includes(' ') && !dateStr.includes('T')) {
         dateStr = dateStr.replace(' ', 'T');
       }
-      // Extract date part directly from ISO string (UTC-based)
       const datePart = dateStr.split('T')[0];
       if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = datePart.split('-').map(Number);
         const orderDateOnly = new Date(year, month - 1, day);
         if (pickupDateRange.to) {
-          // Date range filtering
           const fromDateOnly = new Date(pickupDateRange.from.getFullYear(), pickupDateRange.from.getMonth(), pickupDateRange.from.getDate());
           const toDateOnly = new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate());
           matchesPickupDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
         } else {
-          // Single date filtering
           const selectedDateOnly = new Date(pickupDateRange.from.getFullYear(), pickupDateRange.from.getMonth(), pickupDateRange.from.getDate());
           matchesPickupDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
         }
@@ -418,11 +540,9 @@ const Orders = () => {
       }
     }
 
-    // Filter for locked but not invoiced loads with freight amount > 0
     const matchesLockedNotInvoiced = !lockedNotInvoicedFilter || order.locked && !order.invoiced && (order.totalFreightAmount || 0) > 0;
-
-    // Filter for invoiced loads
     const matchesInvoiced = !invoicedFilter || order.invoiced === true;
+    
     return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesBroker && matchesMissingDocs && matchesDate && matchesPickupDate && matchesLockedNotInvoiced && matchesInvoiced;
   }) || [];
 
@@ -436,35 +556,8 @@ const Orders = () => {
     setSelectedOrderIds(new Set());
   }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter, invoicedFilter]);
 
-  // Detect if any filter is active that requires all archived orders
-  const hasActiveFilter = 
-    (companyFilter && companyFilter !== "all-companies") ||
-    (truckCompanyFilter && truckCompanyFilter !== "all-truck-companies") ||
-    (bookedByFilter && bookedByFilter !== "all-booked-by" && bookedByFilter !== "all-users") ||
-    (truckFilter && truckFilter !== "all-trucks") ||
-    (driverFilter && driverFilter !== "all-drivers") ||
-    (brokerFilter && brokerFilter !== "all-brokers") ||
-    (missingDocsFilter && missingDocsFilter !== "all") ||
-    lockedNotInvoicedFilter ||
-    invoicedFilter ||
-    dateRange?.from ||
-    pickupDateRange?.from;
-
-  // When a filter is applied, load ALL locked orders to ensure complete results
-  useEffect(() => {
-    if (hasActiveFilter && !lockedOrdersLoaded && !isLoadingLocked && unlockedCount > 0) {
-      console.log(`[Orders] Filter active - loading all locked orders for complete results`);
-      requestLockedOrders();
-    }
-  }, [hasActiveFilter, lockedOrdersLoaded, isLoadingLocked, unlockedCount, requestLockedOrders]);
-
-  // Continue loading locked orders until all are loaded when filter is active
-  useEffect(() => {
-    if (hasActiveFilter && !lockedOrdersLoaded && !isLoadingLocked && loadingProgress.lockedLoaded > 0) {
-      console.log(`[Orders] Filter active - continuing to load more locked orders`);
-      requestLockedOrders();
-    }
-  }, [hasActiveFilter, lockedOrdersLoaded, isLoadingLocked, loadingProgress.lockedLoaded, requestLockedOrders]);
+  // Note: Server-side filtering is now handled by useFilteredOrdersSearch
+  // The old client-side filter loading logic has been replaced
 
   // Trigger loading more locked orders when user paginates near the end of loaded data
   // Calculate how many orders we need for current page
@@ -909,6 +1002,17 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <CardTitle className="shrink-0">All Loads</CardTitle>
+                {isFilteredLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Searching...</span>
+                  </div>
+                )}
+                {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
+                  <Badge variant="secondary" className="ml-2">
+                    {filteredTotalCount !== null ? `${filteredServerOrders.length} of ${filteredTotalCount}` : filteredServerOrders.length} filtered
+                  </Badge>
+                )}
               </div>
 
               <ScrollArea className="w-full">
@@ -1681,6 +1785,15 @@ const Orders = () => {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm text-muted-foreground">Searching all orders...</span>
               </div>}
+
+            {/* Load more filtered results */}
+            {hasActiveFilter && hasMoreFiltered && !isFilteredLoading && (
+              <div className="flex items-center justify-center gap-2 px-6 py-4 border-t">
+                <Button variant="outline" onClick={loadMoreFiltered}>
+                  Load More Results
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
