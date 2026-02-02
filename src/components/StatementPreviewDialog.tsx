@@ -37,6 +37,8 @@ interface StatementPreviewDialogProps {
   weekEnd: string;
   // The actual export function that generates the Excel
   onExport: (scheduledDeductions: ScheduledDeduction[]) => Promise<void>;
+  // Optional callback to mark the week as paid when exporting
+  onMarkWeekPaid?: () => Promise<void>;
 }
 
 export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
@@ -48,6 +50,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   weekStart,
   weekEnd,
   onExport,
+  onMarkWeekPaid,
 }) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -188,6 +191,11 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
         }
       }
       
+      // Mark the week as paid
+      if (onMarkWeekPaid) {
+        await onMarkWeekPaid();
+      }
+      
       // Invalidate cache to refresh Stuff page
       queryClient.invalidateQueries({ queryKey: ["driver-expenses", driverId] });
       
@@ -209,6 +217,12 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
     setExporting(true);
     try {
       await onExport([]);
+      
+      // Mark the week as paid
+      if (onMarkWeekPaid) {
+        await onMarkWeekPaid();
+      }
+      
       onOpenChange(false);
     } catch (err) {
       console.error("Error exporting statement:", err);
@@ -257,7 +271,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
                 No unpaid expenses found for this driver
               </div>
             ) : (
-              <ScrollArea className="flex-1 -mx-4 px-4">
+              <ScrollArea className="flex-1 -mx-4 px-4 max-h-[300px]">
                 <div className="space-y-3">
                   {expensesWithRemaining.map(expense => (
                     <div

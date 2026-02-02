@@ -460,6 +460,7 @@ const Trips = () => {
     driverId: string;
     driverName: string;
     truckNumber: string;
+    truckId: string;
   } | null>(null);
 
   // Use lazy loading hook - only fetches on search if no global orders cached
@@ -4550,6 +4551,7 @@ const Trips = () => {
                                     driverId: firstActualOrder.driver1Id || "",
                                     driverName: firstActualOrder.driverName || "Unknown",
                                     truckNumber: firstActualOrder.truckNumber || "",
+                                    truckId: firstActualOrder.truck?.id || "",
                                   });
                                   setStatementDialogOpen(true);
                                 }}
@@ -5100,6 +5102,18 @@ const Trips = () => {
               statementDialogData.weekEndDate,
               scheduledDeductions
             );
+          }}
+          onMarkWeekPaid={async () => {
+            // Mark the week as paid when exporting statement
+            const weekStartStr = format(statementDialogData.weekStartDate, "yyyy-MM-dd");
+            await togglePaidMutation.mutateAsync({
+              truckNumber: statementDialogData.truckNumber,
+              truckId: statementDialogData.truckId,
+              driverName: statementDialogData.driverName,
+              weekStart: weekStartStr,
+              weekOrders: statementDialogData.week.orders || [],
+              isPaid: true,
+            });
           }}
         />
       )}
