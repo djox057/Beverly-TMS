@@ -12,7 +12,7 @@ export interface Tenure {
   isGap: boolean;              // True if this represents an unassigned period
 }
 
-export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck';
+export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck' | 'dispatcher';
 
 // Merge threshold: 7 days - handles brief unassignment/reassignment cycles
 const MERGE_THRESHOLD_DAYS = 7;
@@ -33,6 +33,8 @@ const getEntityFromEntry = (
       return { id: entry.trailer_id, name: entry.trailer_number };
     case 'truck':
       return { id: entry.truck_id, name: entry.truck_number };
+    case 'dispatcher':
+      return { id: entry.dispatcher_id, name: entry.dispatcher_name };
   }
 };
 

@@ -7,7 +7,7 @@ export interface AssignmentHistoryEntry {
   trailer_id: string | null;
   driver1_id: string | null;
   driver2_id: string | null;
-  // New before/after columns for explicit change tracking
+  // Before/after columns for explicit change tracking
   old_truck_id: string | null;
   old_trailer_id: string | null;
   old_driver1_id: string | null;
@@ -21,11 +21,16 @@ export interface AssignmentHistoryEntry {
   driver2_name: string | null;
   changed_by_name: string | null;
   reason: string | null;
-  // New resolved names for old values
+  // Resolved names for old values
   old_truck_number: string | null;
   old_trailer_number: string | null;
   old_driver1_name: string | null;
   old_driver2_name: string | null;
+  // Dispatcher fields
+  dispatcher_id: string | null;
+  old_dispatcher_id: string | null;
+  dispatcher_name: string | null;
+  old_dispatcher_name: string | null;
 }
 
 interface UseAssignmentHistoryOptions {
