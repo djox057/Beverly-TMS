@@ -363,21 +363,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Merge data and sync to cache for real-time updates
   const mergedData = useMemo(() => {
-    // If loading is complete, check cache for real-time updates
-    if (progress.phase === "complete" && cacheVersion > 0) {
-      const freshCachedOrders = queryClient.getQueryData<any[]>(queryKey);
-      if (freshCachedOrders && freshCachedOrders.length > 0) {
-        const orderMap = new Map<string, any>();
-        freshCachedOrders.forEach(order => {
-          orderMap.set(order.id, order);
-        });
-        const deduplicated = Array.from(orderMap.values());
-        console.log(`[Progressive] Using cache (v${cacheVersion}): ${deduplicated.length} orders`);
-        return deduplicated;
-      }
-    }
-    
-    // Merge phase1 and phase2 data with deduplication
+    // Merge phase1 and phase2 data with deduplication first
     const allOrders = [...phase1Data, ...phase2Data];
     
     const orderMap = new Map<string, any>();
@@ -388,6 +374,19 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         orderMap.set(order.id, order);
       }
     });
+    
+    // If we have cache updates from real-time, merge them in
+    // This applies during phase 2 as well, not just when complete
+    if (cacheVersion > 0 && progress.phase !== 1) {
+      const freshCachedOrders = queryClient.getQueryData<any[]>(queryKey);
+      if (freshCachedOrders && freshCachedOrders.length > 0) {
+        console.log(`[Progressive] Merging real-time cache updates (v${cacheVersion}): ${freshCachedOrders.length} orders`);
+        freshCachedOrders.forEach(order => {
+          // Real-time updates take precedence (they have the latest data)
+          orderMap.set(order.id, order);
+        });
+      }
+    }
     
     const deduplicated = Array.from(orderMap.values());
     
