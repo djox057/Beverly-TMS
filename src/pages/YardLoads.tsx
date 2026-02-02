@@ -234,30 +234,7 @@ export default function YardLoads() {
       // Show success immediately
       toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
 
-      // Update cache in background (non-blocking)
-      (async () => {
-        try {
-          const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
-          
-          if (!currentLockState) {
-            // Locking - fetch full order data and add to cache
-            const { data: orderData } = await supabase
-              .from("orders")
-              .select("*")
-              .eq("id", orderId)
-              .single();
-            
-            if (orderData) {
-              await addLockedOrderToCache(orderData);
-            }
-          } else {
-            // Unlocking - remove from cache
-            await removeLockedOrderFromCache(orderId);
-          }
-        } catch (cacheError) {
-          console.warn("Cache update failed (will sync on next archive export):", cacheError);
-        }
-      })();
+      // No cache update needed - data will be refreshed via React Query
     } catch (error) {
       console.error('Error toggling lock:', error);
       toast.error("Failed to toggle lock status");

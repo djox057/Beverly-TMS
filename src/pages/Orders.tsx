@@ -72,7 +72,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
-import { OrdersCacheStatus } from "@/components/OrdersCacheStatus";
+// OrdersCacheStatus removed - now using direct database queries
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -602,24 +602,7 @@ const Orders = () => {
       setSelectedOrderIds(new Set());
       setSelectionMode(false);
 
-      // Update cache in background
-      (async () => {
-        try {
-          const { addLockedOrderToCache } = await import("@/utils/ordersCache");
-          for (const order of unlocked) {
-            const { data: orderData } = await supabase
-              .from("orders")
-              .select("*")
-              .eq("id", order.id)
-              .single();
-            if (orderData) {
-              await addLockedOrderToCache(orderData);
-            }
-          }
-        } catch (cacheError) {
-          console.warn("Cache update failed:", cacheError);
-        }
-      })();
+      // No cache update needed - data will be refreshed via React Query
     } catch (error) {
       console.error("Error bulk locking orders:", error);
       toast.error("Failed to lock selected loads");
@@ -716,30 +699,7 @@ const Orders = () => {
       // Show success immediately - real-time subscription will update cache
       toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
 
-      // Update cache in background (non-blocking)
-      (async () => {
-        try {
-          const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
-          
-          if (!currentLockStatus) {
-            // Locking - fetch full order data and add to cache
-            const { data: orderData } = await supabase
-              .from("orders")
-              .select("*")
-              .eq("id", orderId)
-              .single();
-            
-            if (orderData) {
-              await addLockedOrderToCache(orderData);
-            }
-          } else {
-            // Unlocking - remove from cache
-            await removeLockedOrderFromCache(orderId);
-          }
-        } catch (cacheError) {
-          console.warn("Cache update failed (will sync on next archive export):", cacheError);
-        }
-      })();
+      // No cache update needed - data will be refreshed via React Query
     } catch (error) {
       console.error("Error toggling order lock:", error);
       toast.error("Failed to update load lock status");
@@ -1246,7 +1206,7 @@ const Orders = () => {
               </ScrollArea>
             </div>
           </CardHeader>
-          <OrdersCacheStatus />
+          {/* Cache status removed - now using direct database queries */}
           <CardContent className="p-0">
             <div className="p-2 md:p-6 overflow-x-auto">
               <Table>

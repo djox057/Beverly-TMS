@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getLockedOrders } from "@/utils/ordersCache";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
 
@@ -20,182 +19,11 @@ interface UseOrdersProgressiveOptions {
   dispatcherUserId?: string | null;
 }
 
-// Helper to enrich locked orders with lookup data
-async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]> {
-  if (lockedOrders.length === 0) return [];
-
-  const filterValidIds = (ids: any[]) => ids.filter(id => id && id !== "null" && id !== "NULL");
-  
-  const orderIds = lockedOrders.map((o) => o.id);
-  const truckIds = [...new Set(filterValidIds([
-    ...lockedOrders.map((o) => o.truck_id),
-    ...lockedOrders.map((o) => o.original_truck_id)
-  ]))];
-  const trailerIds = [...new Set(filterValidIds([
-    ...lockedOrders.map((o) => o.trailer_id),
-    ...lockedOrders.map((o) => o.original_trailer_id)
-  ]))];
-  const allDriverIds = [...new Set(filterValidIds([
-    ...lockedOrders.map((o) => o.driver1_id),
-    ...lockedOrders.map((o) => o.driver2_id),
-    ...lockedOrders.map((o) => o.original_driver1_id),
-    ...lockedOrders.map((o) => o.original_driver2_id)
-  ]))];
-  const brokerIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.broker_id)))];
-  const companyIds = [...new Set(filterValidIds([
-    ...lockedOrders.map((o) => o.company_id),
-    ...lockedOrders.map((o) => o.booked_by_company_id)
-  ]))];
-
-  const batchFetch = async (table: string, select: string, ids: string[], batchSize = 50) => {
-    if (ids.length === 0) return { data: [] };
-    const batches: string[][] = [];
-    for (let i = 0; i < ids.length; i += batchSize) {
-      batches.push(ids.slice(i, i + batchSize));
-    }
-    const results = await Promise.all(
-      batches.map(async batch => {
-        const { data } = await supabase.from(table as any).select(select).in("id", batch);
-        return { data: data || [] };
-      })
-    );
-    return { data: results.flatMap(r => r.data || []) };
-  };
-
-  // Fetch live paid status
-  const fetchLivePaidStatus = async (): Promise<Map<string, boolean>> => {
-    const paidMap = new Map<string, boolean>();
-    if (orderIds.length === 0) return paidMap;
-
-    try {
-      if (orderIds.length > 2000) {
-        const pageSize = 1000;
-        let offset = 0;
-
-        while (true) {
-          const { data, error } = await supabase
-            .from("orders")
-            .select("id, paid")
-            .eq("locked", true)
-            .range(offset, offset + pageSize - 1);
-
-          if (error || !data || data.length === 0) break;
-          data.forEach((row: any) => paidMap.set(row.id, row.paid === true));
-          if (data.length < pageSize) break;
-          offset += pageSize;
-        }
-        return paidMap;
-      }
-
-      const batchSize = 200;
-      for (let i = 0; i < orderIds.length; i += batchSize) {
-        const batch = orderIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("orders")
-          .select("id, paid")
-          .in("id", batch);
-
-        if (error || !data) continue;
-        data.forEach((row: any) => paidMap.set(row.id, row.paid === true));
-      }
-    } catch (error) {
-      console.warn("[Progressive] Could not fetch live paid status:", error);
-    }
-
-    return paidMap;
-  };
-
-  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData, livePaidStatus] = await Promise.all([
-    batchFetch("trucks", "id, truck_number", truckIds),
-    batchFetch("trailers", "id, trailer_number", trailerIds),
-    batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
-    batchFetch("brokers", "id, name, mc_number, address", brokerIds),
-    batchFetch("companies", "id, name", companyIds),
-    (async () => {
-      if (orderIds.length === 0) return { data: [] };
-      const batches: string[][] = [];
-      for (let i = 0; i < orderIds.length; i += 50) {
-        batches.push(orderIds.slice(i, i + 50));
-      }
-      const results = await Promise.all(
-        batches.map(batch => supabase.from("pickup_drops").select("*").in("order_id", batch))
-      );
-      return { data: results.flatMap(r => r.data || []) };
-    })(),
-    (async () => {
-      if (orderIds.length === 0) return { data: [] };
-      const batches: string[][] = [];
-      for (let i = 0; i < orderIds.length; i += 50) {
-        batches.push(orderIds.slice(i, i + 50));
-      }
-      const results = await Promise.all(
-        batches.map(batch => supabase.from("order_files").select("id, order_id, file_category, file_name, file_path").in("order_id", batch))
-      );
-      return { data: results.flatMap(r => r.data || []) };
-    })(),
-    (async () => {
-      if (orderIds.length === 0) return { data: [] };
-      const batches: string[][] = [];
-      for (let i = 0; i < orderIds.length; i += 50) {
-        batches.push(orderIds.slice(i, i + 50));
-      }
-      const results = await Promise.all(
-        batches.map(batch => supabase.from("order_transfers").select("*").in("order_id", batch))
-      );
-      return { data: results.flatMap(r => r.data || []) };
-    })(),
-    fetchLivePaidStatus(),
-  ]);
-
-  const trucksMap = new Map(((trucksData.data || []) as any[]).map((t: any) => [t.id, t]));
-  const trailersMap = new Map(((trailersData.data || []) as any[]).map((t: any) => [t.id, t]));
-  const driversMap = new Map(((driversData.data || []) as any[]).map((d: any) => [d.id, d]));
-  const brokersMap = new Map(((brokersData.data || []) as any[]).map((b: any) => [b.id, b]));
-  const companiesMap = new Map(((companiesData.data || []) as any[]).map((c: any) => [c.id, c]));
-
-  const pickupDropsByOrder = new Map<string, any[]>();
-  ((pickupDropsData.data || []) as any[]).forEach((pd: any) => {
-    if (!pickupDropsByOrder.has(pd.order_id)) pickupDropsByOrder.set(pd.order_id, []);
-    pickupDropsByOrder.get(pd.order_id)!.push(pd);
-  });
-
-  const orderFilesByOrder = new Map<string, any[]>();
-  ((orderFilesData.data || []) as any[]).forEach((of: any) => {
-    if (!orderFilesByOrder.has(of.order_id)) orderFilesByOrder.set(of.order_id, []);
-    orderFilesByOrder.get(of.order_id)!.push(of);
-  });
-
-  const orderTransfersByOrder = new Map<string, any[]>();
-  ((orderTransfersData.data || []) as any[]).forEach((ot: any) => {
-    if (!orderTransfersByOrder.has(ot.order_id)) orderTransfersByOrder.set(ot.order_id, []);
-    orderTransfersByOrder.get(ot.order_id)!.push(ot);
-  });
-
-  return lockedOrders.map((order) => ({
-    ...order,
-    paid: livePaidStatus.has(order.id) ? livePaidStatus.get(order.id) : order.paid,
-    truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
-    trailer: order.trailer_id ? trailersMap.get(order.trailer_id) || null : null,
-    driver1: order.driver1_id ? driversMap.get(order.driver1_id) || null : null,
-    driver2: order.driver2_id ? driversMap.get(order.driver2_id) || null : null,
-    original_driver1: order.original_driver1_id ? driversMap.get(order.original_driver1_id) || null : null,
-    original_driver2: order.original_driver2_id ? driversMap.get(order.original_driver2_id) || null : null,
-    original_truck: order.original_truck_id ? trucksMap.get(order.original_truck_id) || null : null,
-    original_trailer: order.original_trailer_id ? trailersMap.get(order.original_trailer_id) || null : null,
-    broker: order.broker_id ? brokersMap.get(order.broker_id) || null : null,
-    company: order.company_id ? companiesMap.get(order.company_id) || null : null,
-    booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
-    pickup_drops: pickupDropsByOrder.get(order.id) || [],
-    order_files: orderFilesByOrder.get(order.id) || [],
-    order_transfers: (orderTransfersByOrder.get(order.id) || []).sort((a, b) => a.sequence_number - b.sequence_number),
-  }));
-}
-
 /**
  * Progressive loading hook for /orders page
  * 
  * Phase 1: Load unlocked orders → Display immediately (1-2s)
- * Phase 2: Background load locked orders with progress indicator (5-8s)
+ * Phase 2: Background load locked orders via edge function (3-5s)
  * 
  * Uses local state for progressive loading phases, but syncs to React Query cache
  * for real-time updates from useOrdersRealtime
@@ -242,7 +70,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const cachedDataOnMount = useRef<any[] | undefined>(queryClient.getQueryData<any[]>(queryKey));
 
   // When filters change (e.g., Individual Mode toggled), we must restart progressive loading.
-  // Otherwise the first unfiltered fetch will “stick” due to loadingStartedRef.
   const lastOptionsKeyRef = useRef(optionsKey);
   useEffect(() => {
     if (lastOptionsKeyRef.current === optionsKey) return;
@@ -303,21 +130,17 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     }
   }, [initializedFromCache, queryKey]);
 
-  // Subscribe to cache updates for real-time changes (only for "orders" key)
-  // Use a ref to track pending updates and batch them
+  // Subscribe to cache updates for real-time changes
   const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      // Only respond to updates on the specific query key, not all cache events
-      // Check isMountedRef to avoid state updates on unmounted components
       if (
         isMountedRef.current &&
         event?.type === "updated" && 
         event?.query?.queryKey?.[0] === "orders" &&
         progress.phase === "complete"
       ) {
-        // Batch updates using a timeout to avoid React queue corruption
         if (pendingUpdateRef.current) {
           clearTimeout(pendingUpdateRef.current);
         }
@@ -407,149 +230,61 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     
     const loadPhase2 = async (unlockedOrders: any[], dispatcherDriverIds: string[]) => {
       const startTime = Date.now();
-      console.log("[Progressive] Phase 2: Starting locked orders background load...");
+      console.log("[Progressive] Phase 2: Starting locked orders fetch via edge function...");
       
       if (!isMountedRef.current) return;
       
       setProgress(prev => ({ ...prev, isLoadingLocked: true }));
       
       try {
-        // Helper: apply the same filtering logic used for display
-        const filterByDispatcher = (orders: any[]) => {
-          const hasBookedByFilter = Boolean(bookedBy);
-          const hasDriverFilter = dispatcherDriverIds.length > 0;
-          if (!hasBookedByFilter && !hasDriverFilter) return orders;
-
-          return orders.filter((order) => {
-            const matchesBookedBy = hasBookedByFilter ? order.booked_by === bookedBy : false;
-            const matchesDriver = hasDriverFilter ? dispatcherDriverIds.includes(order.driver1_id) : false;
-            return matchesBookedBy || matchesDriver;
-          });
-        };
-
-        // Get locked orders count first for progress (filtered when Individual Mode / dispatcher filter is active)
-        let lockedCountQuery = supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("locked", true);
-
-        if (bookedBy && dispatcherDriverIds.length > 0) {
-          lockedCountQuery = lockedCountQuery.or(
-            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
-          );
-        } else if (bookedBy) {
-          lockedCountQuery = lockedCountQuery.eq("booked_by", bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          lockedCountQuery = lockedCountQuery.in("driver1_id", dispatcherDriverIds);
-        }
-
-        const { count: lockedTotal } = await lockedCountQuery;
-        
-        setProgress(prev => ({ ...prev, lockedTotal }));
-        
-        // Load from cache first (fast)
-        let lockedOrders = await getLockedOrders() || [];
-        const preFilterCount = lockedOrders.length;
-        lockedOrders = filterByDispatcher(lockedOrders);
-        console.log(`[Progressive] Phase 2: Loaded ${preFilterCount} from cache → ${lockedOrders.length} after dispatcher filter`);
-        
-        // Fetch missing locked orders from DB
-        const lockedOrderIds = new Set(lockedOrders.map((o: any) => o.id));
-        let allDbLockedOrders: any[] = [];
-        let offset = 0;
-        const batchSize = 1000;
-        
-        while (true) {
-          let dbQuery = supabase
-            .from("orders")
-            .select("*")
-            .eq("locked", true)
-            .order("updated_at", { ascending: false })
-            .range(offset, offset + batchSize - 1);
-
-          // IMPORTANT: only apply this filter path when a dispatcher filter is active
-          if (bookedBy && dispatcherDriverIds.length > 0) {
-            dbQuery = dbQuery.or(
-              `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
-            );
-          } else if (bookedBy) {
-            dbQuery = dbQuery.eq("booked_by", bookedBy);
-          } else if (dispatcherDriverIds.length > 0) {
-            dbQuery = dbQuery.in("driver1_id", dispatcherDriverIds);
+        // Use Edge Function for bulk fetch - same pattern as unlocked orders
+        const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
+          "get-all-locked-orders",
+          {
+            body: {
+              bookedBy,
+              dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            },
           }
-
-          const { data: batch, error: batchError } = await dbQuery;
-          
-          if (batchError || !batch || batch.length === 0) break;
-          allDbLockedOrders = [...allDbLockedOrders, ...batch];
-          offset += batchSize;
-          
-          if (batch.length < batchSize) break;
-          
-          // Update progress during DB fetch
-          if (isMountedRef.current) {
-            const loadedSoFar = allDbLockedOrders.length;
-            const percent = 30 + Math.min(40, (loadedSoFar / (lockedTotal || 1)) * 40);
-            setProgress(prev => ({
-              ...prev,
-              lockedLoaded: loadedSoFar,
-              percentComplete: Math.round(percent),
-            }));
-          }
-        }
-
-        // Merge missing orders
-        if (allDbLockedOrders.length > 0) {
-          const missingLockedOrders = allDbLockedOrders.filter((o: any) => !lockedOrderIds.has(o.id));
-          if (missingLockedOrders.length > 0) {
-            console.log(`[Progressive] Phase 2: Added ${missingLockedOrders.length} locked orders from DB`);
-            lockedOrders = [...lockedOrders, ...missingLockedOrders];
-          }
-        }
-
-        // Update progress before enrichment (70%)
-        setProgress(prev => ({
-          ...prev,
-          lockedLoaded: lockedOrders.length,
-          percentComplete: 70,
-        }));
-
-        // Enrich locked orders
-        console.log(`[Progressive] Phase 2: Enriching ${lockedOrders.length} locked orders...`);
-        
-        setProgress(prev => ({ ...prev, percentComplete: 85 }));
-        const enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
-        
-        // Deduplicate against unlocked orders
-        const unlockedOrderIds = new Set(unlockedOrders.map(o => o.id));
-        const deduplicatedLockedOrders = enrichedLockedOrders.filter(
-          order => !unlockedOrderIds.has(order.id)
         );
-        
-        // Sort by pickup_datetime descending
-        deduplicatedLockedOrders.sort((a, b) => {
-          const dateA = a.pickup_datetime || '';
-          const dateB = b.pickup_datetime || '';
-          return dateB.localeCompare(dateA);
-        });
-        
-        // Transform locked orders
-        const transformedLocked = transformOrders(deduplicatedLockedOrders);
-        
-        if (isMountedRef.current) {
-          setPhase2Data(transformedLocked);
+
+        if (cancelled) return;
+
+        if (edgeFunctionError) {
+          console.error("[Progressive] Phase 2 Edge Function error:", edgeFunctionError);
+          throw edgeFunctionError;
+        }
+
+        if (edgeFunctionResponse?.orders) {
+          const allLocked = edgeFunctionResponse.orders;
+          const totalLocked = edgeFunctionResponse.count;
           
-          setProgress({
-            phase: "complete",
-            unlockedLoaded: unlockedOrders.length,
-            unlockedTotal: unlockedOrders.length,
-            lockedLoaded: transformedLocked.length,
-            lockedTotal: lockedTotal,
-            isLoadingLocked: false,
-            percentComplete: 100,
-          });
+          console.log(`[Progressive] Phase 2: ✅ Fetched ${allLocked.length} locked orders in ${Date.now() - startTime}ms`);
           
-          console.log(`[Progressive] Phase 2: ✅ Complete! ${transformedLocked.length} locked orders in ${Date.now() - startTime}ms`);
+          // Deduplicate against unlocked orders
+          const unlockedOrderIds = new Set(unlockedOrders.map(o => o.id));
+          const deduplicatedLockedOrders = allLocked.filter(
+            (order: any) => !unlockedOrderIds.has(order.id)
+          );
+          
+          // Transform locked orders
+          const transformedLocked = transformOrders(deduplicatedLockedOrders);
+          
+          if (isMountedRef.current) {
+            setPhase2Data(transformedLocked);
+            
+            setProgress({
+              phase: "complete",
+              unlockedLoaded: unlockedOrders.length,
+              unlockedTotal: unlockedOrders.length,
+              lockedLoaded: transformedLocked.length,
+              lockedTotal: totalLocked,
+              isLoadingLocked: false,
+              percentComplete: 100,
+            });
+            
+            console.log(`[Progressive] Phase 2: ✅ Complete! ${transformedLocked.length} locked orders`);
+          }
         }
       } catch (error) {
         console.error("[Progressive] Phase 2 failed:", error);
@@ -576,19 +311,17 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   }, []);
 
   // Merge data and sync to cache for real-time updates
-  // Use useMemo with cacheVersion dependency for reactive updates
   const mergedData = useMemo(() => {
     // If loading is complete, check cache for real-time updates
     if (progress.phase === "complete" && cacheVersion > 0) {
       const freshCachedOrders = queryClient.getQueryData<any[]>(queryKey);
       if (freshCachedOrders && freshCachedOrders.length > 0) {
-        // Deduplicate by ID - use Map for O(1) lookups
         const orderMap = new Map<string, any>();
         freshCachedOrders.forEach(order => {
           orderMap.set(order.id, order);
         });
         const deduplicated = Array.from(orderMap.values());
-        console.log(`[Progressive] Using cache (v${cacheVersion}): ${deduplicated.length} orders (deduped from ${freshCachedOrders.length})`);
+        console.log(`[Progressive] Using cache (v${cacheVersion}): ${deduplicated.length} orders`);
         return deduplicated;
       }
     }
@@ -596,7 +329,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     // Merge phase1 and phase2 data with deduplication
     const allOrders = [...phase1Data, ...phase2Data];
     
-    // Deduplicate by ID - use Map for O(1) lookups
     const orderMap = new Map<string, any>();
     allOrders.forEach(order => {
       // For duplicates, prefer unlocked version (more recent data)
@@ -610,7 +342,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     
     // Only sync to cache once loading is complete
     if (progress.phase === "complete" && deduplicated.length > 0) {
-      // Sync to cache for other components and real-time updates
       queryClient.setQueryData(queryKey, deduplicated);
     }
     

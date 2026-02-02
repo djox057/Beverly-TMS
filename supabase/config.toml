@@ -51,10 +51,10 @@ verify_jwt = false
 [functions.send-payroll-email]
 verify_jwt = false
 
-[functions.sync-archived-orders]
+[functions.get-all-unlocked-orders]
 verify_jwt = false
 
-[functions.get-all-unlocked-orders]
+[functions.get-all-locked-orders]
 verify_jwt = false
 
 [functions.record-daily-driver-stats]
