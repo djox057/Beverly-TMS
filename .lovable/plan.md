@@ -1,115 +1,164 @@
 
-# Fix Orders Pagination - Direct Page Fetching
+# Tenure-Based Assignment History Redesign
 
-## Problem Summary
+## Overview
+Transform the assignment history from an event-log view to a **tenure-based timeline** that shows continuous date ranges when equipment was assigned together. This provides a clearer "who was on what, and when" view.
 
-The Orders page has a broken pagination implementation where:
-1. The hook returns ALL loaded pages merged together
-2. The UI tries to slice this merged array by page offset
-3. When navigating to page 7 with 662 total orders, it shows "601 to 562 of 562" (impossible)
-4. The edge function works correctly but returns data for the wrong architecture
+## Current State
+- History shows individual **change events** (e.g., "Driver: None → John Smith")
+- Users see a list of timestamps with before/after snapshots
+- For trucks, there's already partial tenure calculation for drivers (merging within 7-day gaps)
 
-## Root Cause
+## New Design
 
-Mismatch between data structure and UI expectations:
-- Hook returns: `allLoadedOrders` (all pages concatenated)
-- UI expects: to slice by `(currentPage - 1) * 100`
-- Result: When on page 7 with only some pages loaded, slice returns wrong/empty data
+### Truck History Dialog
+Shows two tabs with tenure timelines:
 
-## Solution
-
-Restructure to true server-side pagination where:
-1. Hook knows which page UI is currently viewing
-2. Hook returns ONLY current page's orders (not all pages merged)
-3. UI displays returned orders directly without slicing
-4. Pagination UI uses server `totalCount` for page numbers
-
----
-
-## Technical Changes
-
-### 1. Update `useOrdersProgressive` Hook
-
-**Current approach**: Returns `allLoadedOrders` (merged pages)
-**New approach**: Accept `currentPage` parameter and return only that page's data
-
-```typescript
-export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
-  // Accept currentPage from caller
-  const currentPage = options?.currentPage ?? 1;
-  
-  // Return ONLY current page's data, not all pages
-  const currentPageOrders = useMemo(() => {
-    return loadedPagesRef.current.get(currentPage) || [];
-  }, [currentPage, loadedPages]);
-
-  return {
-    data: currentPageOrders,        // Just this page
-    totalCount,                      // Server total (662)
-    totalPages,                      // Calculated (7)
-    currentPage,
-    isCurrentPageLoaded: loadedPages.has(currentPage),
-    // ... rest of properties
-  };
-}
-```
-
-### 2. Update `Orders.tsx` UI Component
-
-**Current approach**: 
-```typescript
-const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-```
-
-**New approach**:
-```typescript
-// Pass currentPage to hook
-const { data: currentPageOrders, totalCount, totalPages } = useOrdersProgressive({
-  ...orderFilterOptions,
-  currentPage,
-});
-
-// Display directly - no slicing
-{currentPageOrders.map(order => <TableRow>...</TableRow>)}
-
-// Pagination text
-"Showing {(currentPage-1)*100 + 1} to {(currentPage-1)*100 + currentPageOrders.length} of {totalCount}"
-```
-
-### 3. Edge Function Verification
-
-The edge function already supports `limit` and `offset` correctly:
-- When called with `{ limit: 100, offset: 600 }`, returns orders 601-662
-- Returns `totalCount` from initial count query
-- No changes needed here
-
----
-
-## Data Flow After Fix
-
+**Driver Tenures Tab**
 ```text
-User on Page 7 (662 total orders):
-
-1. Orders.tsx passes currentPage=7 to hook
-2. Hook checks loadedPagesRef.get(7)
-   - If not loaded: fetches from server with offset=600, limit=100
-   - Server returns 62 orders + totalCount=662
-3. Hook returns { data: [62 orders], totalCount: 662, totalPages: 7 }
-4. UI displays 62 orders directly
-5. Pagination shows: "Showing 601 to 662 of 662 loads"
+┌─────────────────────────────────────────────────────────────┐
+│  John Smith                                                  │
+│  01/15/2026 - Current (18 days)                             │
+│  ─────────────────────────────────────────────────── ▓▓▓▓▓  │
+├─────────────────────────────────────────────────────────────┤
+│  Mike Johnson                                                │
+│  11/20/2025 - 01/14/2026 (56 days)                          │
+│  ─────────────────── ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │
+│  Reason ended: Driver requested transfer                     │
+├─────────────────────────────────────────────────────────────┤
+│  No driver assigned                                          │
+│  11/01/2025 - 11/19/2025 (19 days)                          │
+│  ───── ░░░░░░░░░░░░░░░░░░░░                                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Files to Modify
+**Trailer Tenures Tab**
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Trailer #53-2847                                            │
+│  12/01/2025 - Current (63 days)                             │
+│  ─────────────────────────────────────────────────── ▓▓▓▓▓  │
+├─────────────────────────────────────────────────────────────┤
+│  Trailer #53-1923                                            │
+│  10/15/2025 - 11/30/2025 (47 days)                          │
+│  ─────────────────── ▓▓▓▓▓▓▓▓▓▓▓▓▓                          │
+│  Reason ended: Trailer sent for repair                       │
+└─────────────────────────────────────────────────────────────┘
+```
 
-| File | Changes |
-|------|---------|
-| `src/hooks/useOrdersProgressive.ts` | Accept `currentPage`, return only that page's data, calculate `totalPages` internally |
-| `src/pages/Orders.tsx` | Pass `currentPage` to hook, remove slice logic, use returned data directly |
+### Driver History Dialog
+Shows two tabs with tenure timelines:
+
+**Truck Tenures Tab**
+- Shows which trucks this driver has been assigned to, with date ranges
+- "Current" badge for active assignment
+
+**Trailer Tenures Tab**  
+- Shows which trailers this driver has worked with, with date ranges
+
+### Trailer History Dialog
+Shows two tabs:
+
+**Truck Tenures Tab**
+- Shows which trucks this trailer has been attached to
+
+**Driver Tenures Tab**
+- Shows which drivers have operated with this trailer
+
+## Technical Implementation
+
+### 1. Create Tenure Calculation Utility
+New file: `src/utils/tenureCalculator.ts`
+
+```typescript
+interface Tenure {
+  entityId: string | null;
+  entityName: string | null;
+  startDate: string;           // YYYY-MM-DD
+  endDate: string | null;      // null = Current
+  durationDays: number;
+  endReason: string | null;    // From assignment_history.reason
+  changedByName: string | null;
+}
+
+// Calculate tenures for a given relationship type
+function calculateTenures(
+  history: AssignmentHistoryEntry[],
+  tenureType: 'driver1' | 'driver2' | 'trailer' | 'truck'
+): Tenure[]
+```
+
+**Algorithm:**
+1. Sort history chronologically (oldest first)
+2. Track "current state" for the entity slot
+3. When state changes:
+   - Close previous tenure with end date and reason
+   - Open new tenure with start date
+4. Merge consecutive tenures for same entity within 7-day threshold
+5. Mark final tenure as "Current" if entity still assigned
+
+### 2. Update Database RPC (Optional Enhancement)
+The current `get_assignment_history` RPC returns raw events. We could add a new RPC `get_assignment_tenures` that performs tenure calculation in SQL for better performance, but the client-side approach is simpler to implement first.
+
+### 3. Redesign AssignmentHistoryDialog Component
+
+**New Component Structure:**
+```text
+AssignmentHistoryDialog.tsx
+├── TenureCard.tsx          (displays single tenure with timeline bar)
+├── TenureList.tsx          (list of TenureCards with scroll)
+└── TenureEmptyState.tsx    (no history message)
+```
+
+**TenureCard Features:**
+- Entity name (driver name, truck#, trailer#) 
+- Date range: "MM/DD/YYYY - MM/DD/YYYY" or "MM/DD/YYYY - Current"
+- Duration in days/weeks
+- Visual progress bar showing relative position in timeline
+- "Reason ended" if available
+- "Current" badge with green styling for active assignments
+- Show "No driver/trailer assigned" periods as gaps
+
+### 4. File Changes Summary
+
+| File | Change |
+|------|--------|
+| `src/utils/tenureCalculator.ts` | **NEW** - Tenure calculation logic |
+| `src/components/AssignmentHistoryDialog.tsx` | **MAJOR** - Complete UI redesign |
+| `src/components/TenureCard.tsx` | **NEW** - Individual tenure display |
+| `src/hooks/useAssignmentHistory.ts` | Minor - Increase default limit if needed |
+
+### 5. UI/UX Details
+
+**Tenure Card Design:**
+- Clean card with subtle border
+- Large entity name as primary text
+- Date range as secondary text with duration in parentheses
+- Green "Current" badge for active assignments
+- Gray text for ended assignments
+- Optional: Mini timeline bar showing relative position
+
+**Timeline Visualization (Optional):**
+- Horizontal bar under each tenure
+- Filled portion represents tenure duration relative to oldest entry
+- Helps users visually understand overlap and gaps
+
+**Sorting:**
+- Most recent tenures first (descending by start date)
+- "Current" assignment always at top
+
+### 6. Edge Cases to Handle
+
+1. **Same-day changes**: Multiple assignments in one day - show each as separate entry
+2. **Gap periods**: When entity was unassigned - optionally show as "No assignment" blocks
+3. **Legacy data**: History entries without `old_*` columns - handle gracefully
+4. **Team drivers**: Show both driver1 and driver2 slots separately or combined
+5. **Deleted entities**: Show "Unknown Driver" or "Deleted Trailer #X" using existing fallback patterns
 
 ## Benefits
 
-- Correct pagination display ("601 to 662 of 662")
-- All 7 pages visible in UI from the start (based on totalCount)
-- Each page fetch is independent (can jump to page 7 without loading 1-6)
-- Prefetching still works for next page
-- Cache retains loaded pages for back-navigation
+1. **Clarity**: Users immediately see "John drove this truck for 56 days"
+2. **Context**: Reasons for changes are attached to the tenure that ended
+3. **Visual**: Duration shown in days/weeks, not just timestamps
+4. **Simpler**: Fewer cards to scroll through (tenures vs events)
+5. **Actionable**: Easy to spot short tenures that might indicate problems
