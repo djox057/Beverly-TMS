@@ -129,7 +129,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
    * - If entirely within locked range: fetch from locked
    * - If spans boundary: fetch from both and merge
    */
-  const fetchPage = useCallback(async (pageNumber: number) => {
+  const fetchPage = useCallback(async (pageNumber: number, unlockedTotal: number, lockedTotal: number) => {
     if (loadedPagesRef.current.has(pageNumber)) {
       console.log(`[OrdersProgressive] Page ${pageNumber} already loaded`);
       return loadedPagesRef.current.get(pageNumber)!;
@@ -141,19 +141,16 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       const globalOffset = (pageNumber - 1) * PAGE_SIZE;
       const globalEnd = globalOffset + PAGE_SIZE;
       
-      console.log(`[OrdersProgressive] Fetching page ${pageNumber} (global offset ${globalOffset}-${globalEnd})...`);
+      console.log(`[OrdersProgressive] Fetching page ${pageNumber} (global offset ${globalOffset}-${globalEnd}, unlocked=${unlockedTotal}, locked=${lockedTotal})...`);
 
       let allOrders: any[] = [];
 
-      // Determine what to fetch
-      const unlockedStart = Math.max(0, globalOffset);
-      const unlockedEnd = Math.min(unlockedCount, globalEnd);
-      const needsUnlocked = globalOffset < unlockedCount;
+      // Determine what to fetch using passed-in counts (not stale closure values)
+      const unlockedEnd = Math.min(unlockedTotal, globalEnd);
+      const needsUnlocked = globalOffset < unlockedTotal;
       
-      const lockedGlobalStart = unlockedCount;
-      const lockedOffset = Math.max(0, globalOffset - unlockedCount);
-      const lockedEnd = Math.min(lockedCount, globalEnd - unlockedCount);
-      const needsLocked = globalEnd > unlockedCount && lockedCount > 0;
+      const lockedOffset = Math.max(0, globalOffset - unlockedTotal);
+      const needsLocked = globalEnd > unlockedTotal && lockedTotal > 0;
 
       const fetchPromises: Promise<any>[] = [];
 
@@ -176,7 +173,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
       // Fetch locked orders if needed
       if (needsLocked) {
-        const lockedLimit = Math.min(PAGE_SIZE - (needsUnlocked ? (unlockedEnd - globalOffset) : 0), lockedCount - lockedOffset);
+        const lockedLimit = Math.min(PAGE_SIZE - (needsUnlocked ? (unlockedEnd - globalOffset) : 0), lockedTotal - lockedOffset);
         console.log(`[OrdersProgressive] Fetching ${lockedLimit} locked orders (offset ${lockedOffset})`);
         
         fetchPromises.push(
@@ -206,9 +203,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         allOrders = [...allOrders, ...transformed];
       }
       
-      // Sort to ensure unlocked come before locked (they're already sorted by created_at desc within each type)
-      // The order is preserved since we process unlocked first
-      
       // Cache the page
       loadedPagesRef.current.set(pageNumber, allOrders);
       setLoadedPages(prev => new Set(prev).add(pageNumber));
@@ -218,18 +212,18 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     } finally {
       setIsLoadingPage(false);
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, unlockedCount, lockedCount]);
+  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds]);
 
   // Query for the current page - dynamically loads the page the user is viewing
   const currentPageQuery = useQuery({
     queryKey: hasFilters 
       ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId] 
       : ["orders", "page", currentPage],
-    queryFn: () => fetchPage(currentPage),
+    queryFn: () => fetchPage(currentPage, unlockedCount, lockedCount),
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
-    enabled: countsQuery.isSuccess,
+    enabled: countsQuery.isSuccess && unlockedCount + lockedCount > 0,
   });
 
   // Request a specific page - returns orders for that page
@@ -237,8 +231,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     if (loadedPagesRef.current.has(pageNumber)) {
       return loadedPagesRef.current.get(pageNumber)!;
     }
-    return fetchPage(pageNumber);
-  }, [fetchPage]);
+    return fetchPage(pageNumber, unlockedCount, lockedCount);
+  }, [fetchPage, unlockedCount, lockedCount]);
 
   // Prefetch the next page in background
   const prefetchNextPage = useCallback((currentPageNum: number) => {
@@ -247,11 +241,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     
     if (nextPage <= maxPage && !loadedPagesRef.current.has(nextPage)) {
       console.log(`[OrdersProgressive] Prefetching page ${nextPage}...`);
-      fetchPage(nextPage).catch(err => 
+      fetchPage(nextPage, unlockedCount, lockedCount).catch(err => 
         console.error(`[OrdersProgressive] Prefetch failed for page ${nextPage}:`, err)
       );
     }
-  }, [fetchPage, totalCount]);
+  }, [fetchPage, totalCount, unlockedCount, lockedCount]);
 
   // Return ONLY the current page's data - use query data directly to ensure reactivity
   const currentPageOrders = useMemo(() => {
