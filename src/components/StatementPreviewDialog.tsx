@@ -271,7 +271,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
                 No unpaid expenses found for this driver
               </div>
             ) : (
-              <ScrollArea className="flex-1 -mx-4 px-4 max-h-[400px] overflow-y-auto">
+              <ScrollArea className="flex-1 -mx-4 px-4 max-h-[600px] overflow-y-auto">
                 <div className="space-y-3">
                   {expensesWithRemaining.map(expense => (
                     <div
