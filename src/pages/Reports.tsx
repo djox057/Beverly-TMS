@@ -2356,10 +2356,14 @@ const Reports = () => {
             const filteredTrucks = group.trucks.filter((truck) => {
               // Check truck/driver filter
               if (debouncedTruckDriverFilter) {
-                const matchesTruck = truck.truckNumber
-                  ?.toLowerCase()
-                  .includes(debouncedTruckDriverFilter.toLowerCase());
-                const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
+                const searchLower = debouncedTruckDriverFilter.toLowerCase();
+                const isNumericSearch = /^\d+$/.test(debouncedTruckDriverFilter);
+                
+                // For numeric searches, use exact match for truck number
+                const matchesTruck = isNumericSearch
+                  ? truck.truckNumber?.toLowerCase() === searchLower
+                  : truck.truckNumber?.toLowerCase().includes(searchLower);
+                const matchesDriver = truck.driver?.toLowerCase().includes(searchLower);
                 if (!matchesTruck && !matchesDriver) return false;
               }
 
