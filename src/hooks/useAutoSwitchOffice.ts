@@ -112,7 +112,9 @@ export function useAutoSwitchOffice({
       switch (filterType) {
         case "truck":
           found = group.trucks?.some((truck: any) => {
-            const matchesTruck = truck.truckNumber?.toLowerCase().includes(term);
+            // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
+            const truckNumberValue = truck.truckNumber ?? truck.truck_number;
+            const matchesTruck = String(truckNumberValue || "").toLowerCase().includes(term);
             const matchesDriver = truck.driver?.toLowerCase().includes(term);
             const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
             return matchesTruck || matchesDriver || matchesDriver2;
@@ -163,7 +165,9 @@ export function useAutoSwitchOffice({
         // Check truck numbers and driver names
         return currentOfficeData.some(group => 
           group.trucks?.some((truck: any) => {
-            const matchesTruck = truck.truckNumber?.toLowerCase().includes(term);
+            // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
+            const truckNumberValue = truck.truckNumber ?? truck.truck_number;
+            const matchesTruck = String(truckNumberValue || "").toLowerCase().includes(term);
             const matchesDriver = truck.driver?.toLowerCase().includes(term);
             // Also check driver2 name
             const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
@@ -415,7 +419,6 @@ export function useAutoSwitchOffice({
         if (debouncedTruckDriver && debouncedTruckDriver.trim().length >= 2) {
           manualTabSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
           userOverrideRef.current = { filter: "truck", value: debouncedTruckDriver };
-          console.log("[AutoSwitch] User overrode truck search, blocking future switches for:", debouncedTruckDriver);
         } else if (debouncedDispatchName && debouncedDispatchName.trim().length >= 2) {
           manualTabSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
           userOverrideRef.current = { filter: "dispatch", value: debouncedDispatchName };
@@ -455,7 +458,6 @@ export function useAutoSwitchOffice({
     if (userOverride?.filter === "truck" && userOverride?.value === debouncedTruckDriver) {
       // User overrode - do NOT auto-switch, just show found status
       setTruckSearchStatus("found");
-      console.log("[AutoSwitch] Truck search blocked by userOverride for:", debouncedTruckDriver);
       return;
     }
     
