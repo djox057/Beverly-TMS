@@ -1446,9 +1446,12 @@ const Reports = () => {
     };
 
     // Helper function to get lost day note for a specific date
+    // NOTE: Some code paths (legacy vs date-window adapter) may provide notes under
+    // `lost_day_notes` (snake_case) or `lostDayNotes` (camelCase). Always check both.
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, "yyyy-MM-dd");
-      const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+      const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+      const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
 
       // If no existing note, check if this is 1 day in future
       if (!lostDayNote) {
@@ -1483,7 +1486,8 @@ const Reports = () => {
       type: GameOverType | null;
     } => {
       const dateStr = format(date, "yyyy-MM-dd");
-      const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+      const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+      const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
       const note = lostDayNote?.note?.toLowerCase();
       if (note === "game over - yard")
         return {
@@ -2284,7 +2288,8 @@ const Reports = () => {
 
                         if (isMissingPickup) {
                           const currentNote = getLostDayNote(day);
-                          const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+                          const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+                          const lostDayNoteData = allLostDayNotes.find((note: any) => note.date === dateStr);
                           const isCurrentlyHomeTime = lostDayNoteData?.note_type === "home_time";
                           const actualNoteValue = lostDayNoteData?.note || "";
 
