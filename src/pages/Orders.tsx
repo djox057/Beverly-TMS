@@ -245,18 +245,14 @@ const Orders = () => {
     }
   }, [isDispatchOnly, profile?.full_name]);
 
-  // Progressive loading hook with pagination
+  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 loads on-demand
   const {
     data: orders,
     isLoading,
     isLoadingLocked,
-    isLoadingMore,
-    hasMore: hasMoreUnlocked,
-    loadMore: loadMoreUnlocked,
     progress: loadingProgress,
     unlockedCount,
     lockedCount,
-    totalCount: unlockedTotalCount,
     isPartialData,
   } = useOrdersProgressive(orderFilterOptions);
 
@@ -575,22 +571,6 @@ const Orders = () => {
     setSelectedOrderIds(new Set());
   }, [selectionMode, searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, missingDocsFilter, dateRange, pickupDateRange, lockedNotInvoicedFilter, invoicedFilter]);
 
-  // Auto-load more orders when approaching end of loaded data
-  useEffect(() => {
-    // Only auto-load when no filters active and there's more to load
-    if (hasActiveFilter || !hasMoreUnlocked || isLoadingMore || isLoading) return;
-    
-    // Calculate if we're approaching the end of loaded data
-    const loadedCount = orders?.length || 0;
-    const ordersNeededForCurrentPage = currentPage * ORDERS_PER_PAGE;
-    const loadThreshold = 50; // Load more when within 50 orders of needing more data
-    
-    if (ordersNeededForCurrentPage > loadedCount - loadThreshold) {
-      console.log(`[Orders] Auto-loading more: currentPage=${currentPage}, loaded=${loadedCount}, needed=${ordersNeededForCurrentPage}`);
-      loadMoreUnlocked();
-    }
-  }, [currentPage, orders?.length, hasActiveFilter, hasMoreUnlocked, isLoadingMore, isLoading, loadMoreUnlocked]);
-
   // Note: Server-side filtering is now handled by useFilteredOrdersSearch
   // The old client-side filter loading logic has been replaced
 
@@ -692,16 +672,11 @@ const Orders = () => {
       </div>;
   }
 
-  // Calculate pagination - use totalCount for total pages when no filters active
-  // This allows showing page numbers before all data is loaded
-  const effectiveTotalCount = hasActiveFilter 
-    ? (filteredTotalCount ?? filteredOrders.length) 
-    : (unlockedTotalCount ?? filteredOrders.length);
-  const totalPages = Math.ceil(effectiveTotalCount / ORDERS_PER_PAGE);
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
   const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
   const endIndex = startIndex + ORDERS_PER_PAGE;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
 
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
@@ -1743,21 +1718,10 @@ const Orders = () => {
             </div>
 
             {/* Pagination Controls */}
-            {(filteredOrders.length > ORDERS_PER_PAGE || totalPages > 1) && <div className="flex items-center justify-between px-6 py-4 border-t">
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {effectiveTotalCount}{" "}
+            {filteredOrders.length > ORDERS_PER_PAGE && <div className="flex items-center justify-between px-6 py-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}{" "}
                   loads
-                  {isLoadingMore && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Loading...
-                    </span>
-                  )}
-                  {hasMoreUnlocked && !isLoadingMore && !hasActiveFilter && (
-                    <span className="text-xs text-muted-foreground/70">
-                      ({filteredOrders.length} loaded)
-                    </span>
-                  )}
                 </div>
                 <Pagination>
                   <PaginationContent>
