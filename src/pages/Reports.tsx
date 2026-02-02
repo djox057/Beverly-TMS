@@ -2096,7 +2096,8 @@ const Reports = () => {
               ) : (
                 (() => {
                   const dayStr = format(day, "yyyy-MM-dd");
-                  const homeTimeNote = truck.lost_day_notes?.find(
+                  const allLostDayNotesDelivery: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+                  const homeTimeNote = allLostDayNotesDelivery.find(
                     (note: any) => note.date === dayStr && note.note_type === "home_time",
                   );
                   const hasHomeTime = !!homeTimeNote;
