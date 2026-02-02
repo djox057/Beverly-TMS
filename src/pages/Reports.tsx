@@ -1280,8 +1280,8 @@ const Reports = () => {
     if (calendarDates[dispatcherId]) {
       return calendarDates[dispatcherId];
     }
-    // Default to 2 days before current day to show 6 days
-    return addDays(new Date(), -2);
+    // Default to 2 days before current day (Chicago time) to show 6 days
+    return addDays(getChicagoToday(), -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
     setCalendarDates((prev) => ({
