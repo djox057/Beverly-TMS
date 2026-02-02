@@ -330,7 +330,8 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list - values must match database enum values
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+  // Keep stable identity so hooks depending on it don't re-run every render.
+  const offices = useMemo(() => ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"], []);
   
   // Display names for offices (uppercase for UI consistency)
   const getOfficeDisplayName = (office: string) => {
