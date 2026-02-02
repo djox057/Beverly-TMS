@@ -29,6 +29,7 @@ import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, 
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
+import { StatementPreviewDialog, ScheduledDeduction } from "@/components/StatementPreviewDialog";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
@@ -449,6 +450,17 @@ const Trips = () => {
   const [loadNumberSearch, setLoadNumberSearch] = useState("");
   const [invoicedDateFilter, setInvoicedDateFilter] = useState<Date | undefined>(undefined);
   const itemsPerPage = 50;
+
+  // Statement preview dialog state
+  const [statementDialogOpen, setStatementDialogOpen] = useState(false);
+  const [statementDialogData, setStatementDialogData] = useState<{
+    week: any;
+    weekStartDate: Date;
+    weekEndDate: Date;
+    driverId: string;
+    driverName: string;
+    truckNumber: string;
+  } | null>(null);
 
   // Use lazy loading hook - only fetches on search if no global orders cached
   const { data: orders, isLoading, isLazyMode, hasGlobalOrders } = useTripsLazyOrders(
@@ -1391,7 +1403,7 @@ const Trips = () => {
     deleteWeekOverrideMutation.mutate(orderId);
   }, [deleteWeekOverrideMutation]);
 
-  const exportWeekToExcel = async (week: any, weekStartDate: Date, weekEndDate: Date) => {
+  const exportWeekToExcel = async (week: any, weekStartDate: Date, weekEndDate: Date, scheduledDeductions: ScheduledDeduction[] = []) => {
     try {
       // Get the first order to determine driver/truck info
       const firstOrder = week.orders[0];
@@ -1417,21 +1429,21 @@ const Trips = () => {
 
       // Check if driver is a company driver - use company driver template regardless of company
       if (driver?.is_company_driver) {
-        await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (companyName === "BF Prime United LLC") {
-        await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (
         companyName === "BF Prime Drivers LLC" ||
         companyName === "BF Prime Trucks LLC" ||
         companyName === "BF Prime LLC"
       ) {
-        await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (companyName === "Beverly Freight Inc") {
-        await exportBeverlyFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportBeverlyFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (companyName === "BG Prime Inc") {
-        await exportBGPrimeIncTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportBGPrimeIncTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (companyName === "United Enterprise Solutions INC") {
-        await exportUnitedEnterpriseSolutionsTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+        await exportUnitedEnterpriseSolutionsTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
@@ -1450,6 +1462,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the Company Driver template
@@ -1761,6 +1774,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the BF Prime Drivers template
@@ -2108,6 +2122,20 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      // Use "Scheduled Deductions:" header if any exist
+      if (scheduledDeductions.length > 0 && negativeRow <= 43) {
+        scheduledDeductions.forEach((deduction) => {
+          if (negativeRow > 43) return; // Deductions section ends at 43
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
+
       // Fetch and write fuel transactions (rows 48-66 for BF Prime)
       // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
@@ -2151,6 +2179,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the Beverly Freight Inc template
@@ -2544,6 +2573,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the BG Prime Inc template
@@ -2968,6 +2998,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the United Enterprise Solutions template
@@ -3332,6 +3363,7 @@ const Trips = () => {
     weekEndDate: Date,
     firstOrder: any,
     driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
   ) => {
     try {
       // Load the template
@@ -4504,7 +4536,23 @@ const Trips = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => exportWeekToExcel({ ...week, orders: actualOrders }, weekStartDate, weekEndDate)}
+                                onClick={() => {
+                                  // Get the first actual order (not history/termination entries)
+                                  const firstActualOrder = actualOrders.find((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
+                                  if (!firstActualOrder) {
+                                    toast.error("No orders to export");
+                                    return;
+                                  }
+                                  setStatementDialogData({
+                                    week: { ...week, orders: actualOrders },
+                                    weekStartDate,
+                                    weekEndDate,
+                                    driverId: firstActualOrder.driver1Id || "",
+                                    driverName: firstActualOrder.driverName || "Unknown",
+                                    truckNumber: firstActualOrder.truckNumber || "",
+                                  });
+                                  setStatementDialogOpen(true);
+                                }}
                                 title="Export week to Excel"
                               >
                                 <FileDown className="h-4 w-4" />
@@ -5031,6 +5079,30 @@ const Trips = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Statement Preview Dialog */}
+      {statementDialogData && (
+        <StatementPreviewDialog
+          open={statementDialogOpen}
+          onOpenChange={(open) => {
+            setStatementDialogOpen(open);
+            if (!open) setStatementDialogData(null);
+          }}
+          driverId={statementDialogData.driverId}
+          driverName={statementDialogData.driverName}
+          truckNumber={statementDialogData.truckNumber}
+          weekStart={format(statementDialogData.weekStartDate, "MM/dd/yyyy")}
+          weekEnd={format(statementDialogData.weekEndDate, "MM/dd/yyyy")}
+          onExport={async (scheduledDeductions) => {
+            await exportWeekToExcel(
+              statementDialogData.week,
+              statementDialogData.weekStartDate,
+              statementDialogData.weekEndDate,
+              scheduledDeductions
+            );
+          }}
+        />
+      )}
     </div>
   );
 };
