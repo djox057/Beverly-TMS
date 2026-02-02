@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const Billboard = () => {
-  const { data: orders, isLoading } = useOrders();
+  const { orders, isLoading } = useOrders();
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});

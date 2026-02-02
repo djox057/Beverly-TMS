@@ -226,7 +226,7 @@ const fetchOrdersForDateWindow = async (
 };
 
 /**
- * Fetch locked orders from archive storage within a date window
+ * Fetch locked orders from database via edge function within a date window
  */
 const fetchLockedOrdersForDateWindow = async (
   driverIds: string[],
@@ -238,50 +238,24 @@ const fetchLockedOrdersForDateWindow = async (
   const endDateStr = formatDateForQuery(dateWindow.endDate);
   const driverIdsSet = new Set(driverIds);
 
-  console.log(`[useReportsDateWindow] Loading locked orders from storage for window: ${startDateStr} to ${endDateStr}`);
+  console.log(`[useReportsDateWindow] Loading locked orders via edge function for window: ${startDateStr} to ${endDateStr}`);
 
   try {
-    const { getLockedOrders, getPickupDrops, getOrderTransfers } = await import("@/utils/ordersCache");
-    
-    const cachedOrders = await getLockedOrders();
-    const cachedPickupDrops = await getPickupDrops();
-    const cachedOrderTransfers = await getOrderTransfers();
+    const { data: response, error } = await supabase.functions.invoke(
+      "get-all-locked-orders",
+      { body: { bookedBy: null, dispatcherDriverIds: driverIds } }
+    );
 
-    if (!cachedOrders || !Array.isArray(cachedOrders) || cachedOrders.length === 0) {
-      console.log('[useReportsDateWindow] No locked orders in storage');
+    if (error || !response?.orders) {
+      console.log('[useReportsDateWindow] No locked orders returned from edge function');
       return [];
     }
 
-    // Pre-index pickup_drops and transfers by order_id for O(1) lookups
-    const pickupDropsByOrderId = new Map<string, any[]>();
-    for (const pd of cachedPickupDrops || []) {
-      if (pd.order_id) {
-        const existing = pickupDropsByOrderId.get(pd.order_id);
-        if (existing) existing.push(pd);
-        else pickupDropsByOrderId.set(pd.order_id, [pd]);
-      }
-    }
+    const allLockedOrders = response.orders;
 
-    const transfersByOrderId = new Map<string, any[]>();
-    for (const ot of cachedOrderTransfers || []) {
-      if (ot.order_id) {
-        const existing = transfersByOrderId.get(ot.order_id);
-        if (existing) existing.push(ot);
-        else transfersByOrderId.set(ot.order_id, [ot]);
-      }
-    }
-
-    // Helper to normalize values from CSV
-    const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
-    const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
-
-    // Filter orders by:
-    // 1. Driver IDs (driver1_id or driver2_id or transfer drivers)
-    // 2. Date window (pickup_datetime or delivery_datetime)
-    // 3. Not canceled
-    const filteredOrders = cachedOrders.filter((order: any) => {
-      // Skip canceled orders
-      if (normalizeBool(order.canceled)) return false;
+    // Filter orders by date window and driver matching
+    const filteredOrders = allLockedOrders.filter((order: any) => {
+      if (order.canceled) return false;
 
       // Check driver matching
       const matchesDriver = 
@@ -289,8 +263,7 @@ const fetchLockedOrdersForDateWindow = async (
         (order.driver2_id && driverIdsSet.has(order.driver2_id));
       
       if (!matchesDriver) {
-        // Also check transfer drivers
-        const transfers = transfersByOrderId.get(order.id) || [];
+        const transfers = order.order_transfers || [];
         const matchesTransfer = transfers.some((t: any) => 
           (t.driver1_id && driverIdsSet.has(t.driver1_id)) ||
           (t.driver2_id && driverIdsSet.has(t.driver2_id))
@@ -299,10 +272,8 @@ const fetchLockedOrdersForDateWindow = async (
       }
 
       // Check date window
-      const pickupDateStr = order.pickup_datetime ? 
-        String(order.pickup_datetime).replace(' ', 'T').split('T')[0] : null;
-      const deliveryDateStr = order.delivery_datetime ? 
-        String(order.delivery_datetime).replace(' ', 'T').split('T')[0] : null;
+      const pickupDateStr = order.pickup_datetime?.split('T')[0] || null;
+      const deliveryDateStr = order.delivery_datetime?.split('T')[0] || null;
 
       const inPickupWindow = pickupDateStr && pickupDateStr >= startDateStr && pickupDateStr <= endDateStr;
       const inDeliveryWindow = deliveryDateStr && deliveryDateStr >= startDateStr && deliveryDateStr <= endDateStr;
@@ -310,23 +281,10 @@ const fetchLockedOrdersForDateWindow = async (
       return inPickupWindow || inDeliveryWindow;
     });
 
-    // Attach pickup_drops and transfers to filtered orders with sequence_number sorting
-    const ordersWithRelations = filteredOrders.map((order: any) => ({
-      ...order,
-      is_recovery: normalizeBool(order.is_recovery),
-      canceled: normalizeBool(order.canceled),
-      locked: normalizeBool(order.locked),
-      notes: normalizeNull(order.notes),
-      pickup_drops: (pickupDropsByOrderId.get(order.id) || [])
-        .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-      order_transfers: (transfersByOrderId.get(order.id) || [])
-        .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-    }));
-
-    console.log(`[useReportsDateWindow] Filtered ${ordersWithRelations.length} locked orders for date window`);
-    return ordersWithRelations;
+    console.log(`[useReportsDateWindow] Filtered ${filteredOrders.length} locked orders for date window`);
+    return filteredOrders;
   } catch (error) {
-    console.error('[useReportsDateWindow] Error loading locked orders from storage:', error);
+    console.error('[useReportsDateWindow] Error loading locked orders:', error);
     return [];
   }
 };
