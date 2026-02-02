@@ -131,8 +131,28 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
    */
   const fetchPage = useCallback(async (pageNumber: number, unlockedTotal: number, lockedTotal: number) => {
     if (loadedPagesRef.current.has(pageNumber)) {
-      console.log(`[OrdersProgressive] Page ${pageNumber} already loaded`);
-      return loadedPagesRef.current.get(pageNumber)!;
+      const cached = loadedPagesRef.current.get(pageNumber)!;
+
+      // If we cached an empty page while counts were still unknown (0),
+      // and we now know there are orders, force a refetch.
+      // This most commonly impacts page 1 on initial mount.
+      const total = unlockedTotal + lockedTotal;
+      const maxPage = total > 0 ? Math.ceil(total / PAGE_SIZE) : 1;
+
+      if (cached.length === 0 && total > 0 && pageNumber <= maxPage) {
+        console.warn(
+          `[OrdersProgressive] Page ${pageNumber} cached empty while total=${total}; refetching.`
+        );
+        loadedPagesRef.current.delete(pageNumber);
+        setLoadedPages((prev) => {
+          const next = new Set(prev);
+          next.delete(pageNumber);
+          return next;
+        });
+      } else {
+        console.log(`[OrdersProgressive] Page ${pageNumber} already loaded`);
+        return cached;
+      }
     }
 
     setIsLoadingPage(true);

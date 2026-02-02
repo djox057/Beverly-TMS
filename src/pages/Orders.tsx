@@ -605,7 +605,12 @@ const Orders = () => {
   // Request current page data if not already loaded
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
-    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+    if (hasActiveFilter || isActiveSearch) return;
+
+    // Wait until the progressive hook has real counts; otherwise page 1 can be cached as empty.
+    if (isLoading) return;
+    if ((totalUnlockedCount ?? 0) <= 0) return;
     if (isLoadingMore) return;
     
     // Check if current page is loaded
@@ -615,7 +620,7 @@ const Orders = () => {
         console.error(`[Orders] Failed to load page ${currentPage}:`, err)
       );
     }
-  }, [currentPage, loadedPages, hasActiveFilter, searchTerm, isLoadingMore, requestPage]);
+  }, [currentPage, loadedPages, hasActiveFilter, searchTerm, isLoading, totalUnlockedCount, isLoadingMore, requestPage]);
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
     setSelectedOrderIds(prev => {
