@@ -444,19 +444,29 @@ const Orders = () => {
 
   // Data source selection:
   // 1. Active search → use search results
-  // 2. Active filter → use server-side filtered results
+  // 2. Active filter → use server-side filtered results (sorted: unlocked first)
   // 3. No filters → use current page orders from hook (already just this page)
   const dataSource = useMemo(() => {
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
-      return searchResults || [];
+      const results = searchResults || [];
+      // Sort unlocked orders first
+      return [...results].sort((a, b) => {
+        if (a.locked === b.locked) return 0;
+        return a.locked ? 1 : -1;
+      });
     }
     
     // When filters are active, ONLY show server-side filtered results.
     // (Never show unfiltered local orders, even while loading.)
     if (hasActiveFilter) {
-      return filteredServerOrders || [];
+      const results = filteredServerOrders || [];
+      // Sort unlocked orders first when filters are active
+      return [...results].sort((a, b) => {
+        if (a.locked === b.locked) return 0;
+        return a.locked ? 1 : -1;
+      });
     }
     
     return currentPageOrdersFromHook || [];
