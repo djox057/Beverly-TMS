@@ -65,6 +65,13 @@ export function useAutoSwitchOffice({
   
   // Track when user manually switched tabs - should block auto-switch for this search term
   const manualTabSwitchRef = useRef<{ filter: string; value: string } | null>(null);
+  
+  // ROBUST user override ref - blocks auto-switch indefinitely until filter changes
+  // This is separate from manualTabSwitchRef to prevent timing issues
+  const userOverrideRef = useRef<{
+    filter: "truck" | "dispatch" | "load";
+    value: string;
+  } | null>(null);
 
   // State for ambiguous matches (to show indicator in UI)
   const [ambiguousMatch, setAmbiguousMatch] = useState<{
@@ -394,19 +401,28 @@ export function useAutoSwitchOffice({
   }, []);
 
   // Detect manual tab switches (user clicked a tab, not auto-switch)
+  // This uses BOTH manualTabSwitchRef (legacy) AND userOverrideRef (more robust)
   useEffect(() => {
     const prevTab = prevActiveTabRef.current;
     const lastSwitch = lastAutoSwitchRef.current;
     
-    // If tab changed and it wasn't from our auto-switch
-    if (prevTab !== activeTab && lastSwitch?.targetOffice !== activeTab) {
-      // User manually switched tabs - block auto-switch for current search terms
-      if (debouncedTruckDriver && debouncedTruckDriver.trim().length >= 2) {
-        manualTabSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
-      } else if (debouncedDispatchName && debouncedDispatchName.trim().length >= 2) {
-        manualTabSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
-      } else if (debouncedLoadNumber && debouncedLoadNumber.trim().length >= 3) {
-        manualTabSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
+    // If tab changed at all
+    if (prevTab !== activeTab) {
+      // If we previously auto-switched AND the user is now on a DIFFERENT tab than the target,
+      // they're explicitly overriding our switch. Block ALL future auto-switches for this search.
+      if (lastSwitch && lastSwitch.targetOffice !== activeTab) {
+        // User overrode the auto-switch - set BOTH refs for maximum protection
+        if (debouncedTruckDriver && debouncedTruckDriver.trim().length >= 2) {
+          manualTabSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
+          userOverrideRef.current = { filter: "truck", value: debouncedTruckDriver };
+          console.log("[AutoSwitch] User overrode truck search, blocking future switches for:", debouncedTruckDriver);
+        } else if (debouncedDispatchName && debouncedDispatchName.trim().length >= 2) {
+          manualTabSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
+          userOverrideRef.current = { filter: "dispatch", value: debouncedDispatchName };
+        } else if (debouncedLoadNumber && debouncedLoadNumber.trim().length >= 3) {
+          manualTabSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
+          userOverrideRef.current = { filter: "load", value: debouncedLoadNumber };
+        }
       }
     }
     
@@ -419,9 +435,12 @@ export function useAutoSwitchOffice({
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
       setTruckSearchStatus("idle");
       localMatchFoundRef.current = null;
-      // Clear manual switch block when filter is cleared
+      // Clear ALL override refs when filter is cleared
       if (manualTabSwitchRef.current?.filter === "truck") {
         manualTabSwitchRef.current = null;
+      }
+      if (userOverrideRef.current?.filter === "truck") {
+        userOverrideRef.current = null;
       }
       return;
     }
@@ -431,10 +450,19 @@ export function useAutoSwitchOffice({
     const minLength = isNumeric ? 3 : 2;
     if (debouncedTruckDriver.trim().length < minLength) return;
     
-    // If user manually switched tabs while this search was active, don't auto-switch back
+    // CRITICAL: Check userOverrideRef FIRST - this is the most robust check
+    const userOverride = userOverrideRef.current;
+    if (userOverride?.filter === "truck" && userOverride?.value === debouncedTruckDriver) {
+      // User overrode - do NOT auto-switch, just show found status
+      setTruckSearchStatus("found");
+      console.log("[AutoSwitch] Truck search blocked by userOverride for:", debouncedTruckDriver);
+      return;
+    }
+    
+    // Legacy check: If user manually switched tabs while this search was active
     const manualSwitch = manualTabSwitchRef.current;
     if (manualSwitch?.filter === "truck" && manualSwitch?.value === debouncedTruckDriver) {
-      setTruckSearchStatus("idle");
+      setTruckSearchStatus("found");
       return;
     }
     
@@ -518,9 +546,12 @@ export function useAutoSwitchOffice({
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
       setDispatchSearchStatus("idle");
       localMatchFoundRef.current = null;
-      // Clear manual switch block when filter is cleared
+      // Clear ALL override refs when filter is cleared
       if (manualTabSwitchRef.current?.filter === "dispatch") {
         manualTabSwitchRef.current = null;
+      }
+      if (userOverrideRef.current?.filter === "dispatch") {
+        userOverrideRef.current = null;
       }
       return;
     }
@@ -528,10 +559,17 @@ export function useAutoSwitchOffice({
     // Minimum 2 chars
     if (debouncedDispatchName.trim().length < 2) return;
     
-    // If user manually switched tabs while this search was active, don't auto-switch back
+    // CRITICAL: Check userOverrideRef FIRST
+    const userOverride = userOverrideRef.current;
+    if (userOverride?.filter === "dispatch" && userOverride?.value === debouncedDispatchName) {
+      setDispatchSearchStatus("found");
+      return;
+    }
+    
+    // Legacy check
     const manualSwitch = manualTabSwitchRef.current;
     if (manualSwitch?.filter === "dispatch" && manualSwitch?.value === debouncedDispatchName) {
-      setDispatchSearchStatus("idle");
+      setDispatchSearchStatus("found");
       return;
     }
     
@@ -614,9 +652,12 @@ export function useAutoSwitchOffice({
       setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
       localMatchFoundRef.current = null;
-      // Clear manual switch block when filter is cleared
+      // Clear ALL override refs when filter is cleared
       if (manualTabSwitchRef.current?.filter === "load") {
         manualTabSwitchRef.current = null;
+      }
+      if (userOverrideRef.current?.filter === "load") {
+        userOverrideRef.current = null;
       }
       return;
     }
@@ -624,10 +665,17 @@ export function useAutoSwitchOffice({
     // Minimum 3 chars for load numbers
     if (debouncedLoadNumber.trim().length < 3) return;
     
-    // If user manually switched tabs while this search was active, don't auto-switch back
+    // CRITICAL: Check userOverrideRef FIRST
+    const userOverride = userOverrideRef.current;
+    if (userOverride?.filter === "load" && userOverride?.value === debouncedLoadNumber) {
+      setLoadSearchStatus("found");
+      return;
+    }
+    
+    // Legacy check
     const manualSwitch = manualTabSwitchRef.current;
     if (manualSwitch?.filter === "load" && manualSwitch?.value === debouncedLoadNumber) {
-      setLoadSearchStatus("idle");
+      setLoadSearchStatus("found");
       return;
     }
     
