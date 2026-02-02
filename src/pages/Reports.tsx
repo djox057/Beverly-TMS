@@ -1288,6 +1288,28 @@ const Reports = () => {
       ...prev,
       [dispatcherId]: newDate,
     }));
+    
+    // CRITICAL: Also update the global selectedDateForWindow to trigger data loading
+    // for the new date range. The hook will fetch orders for drivers in scope 
+    // when the date window changes.
+    // Calculate the visible window: newDate to newDate + 5 days
+    const visibleWindowEnd = addDays(newDate, 5);
+    
+    // Current loaded window is: selectedDateForWindow - 2 days to selectedDateForWindow + 3 days
+    const loadedWindowStart = addDays(selectedDateForWindow, -2);
+    const loadedWindowEnd = addDays(selectedDateForWindow, 3);
+    
+    // If any part of the visible window is outside the loaded window, update selectedDateForWindow
+    // to center on the new visible range
+    const isStartOutside = newDate < loadedWindowStart;
+    const isEndOutside = visibleWindowEnd > loadedWindowEnd;
+    
+    if (isStartOutside || isEndOutside) {
+      // Center the new window on the visible range (newDate + 2 gives us -2 to +3 coverage)
+      const newCenterDate = addDays(newDate, 2);
+      console.log(`[Reports] Calendar navigation outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, 'yyyy-MM-dd')}`);
+      setSelectedDateForWindow(newCenterDate);
+    }
   };
   const getStatusColors = (status: string) => {
     switch (status) {
