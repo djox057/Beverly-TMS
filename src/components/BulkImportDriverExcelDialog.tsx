@@ -553,19 +553,37 @@ export function BulkImportDriverExcelDialog({
             totalExpenses += expenses.length;
           }
 
-          // Insert cash advances
+          // Insert cash advances AND their linked expenses (same behavior as edge function)
           if (cashAdvances.length > 0) {
-            const cashAdvanceRecords = cashAdvances.map((ca) => ({
-              driver_id: driverId,
-              amount: ca.amount,
-              requested_at: ca.requested_at || new Date().toISOString(),
-              truck_number: ca.truck_number,
-            }));
+            for (const ca of cashAdvances) {
+              // Insert into driver_cash_advances
+              const { data: insertedAdvance, error: caError } = await supabase
+                .from("driver_cash_advances")
+                .insert({
+                  driver_id: driverId,
+                  amount: ca.amount,
+                  requested_at: ca.requested_at || new Date().toISOString(),
+                  truck_number: ca.truck_number,
+                })
+                .select("id")
+                .single();
+              if (caError) throw caError;
 
-            const { error } = await supabase
-              .from("driver_cash_advances")
-              .insert(cashAdvanceRecords);
-            if (error) throw error;
+              // Also create linked driver_expense (matches edge function logic)
+              const expenseDate = ca.requested_at ? ca.requested_at.split("T")[0] : null;
+              await supabase.from("driver_expenses").insert({
+                driver_id: driverId,
+                truck_number: ca.truck_number,
+                name: "Cash Advance",
+                explanation: "Cash Advance",
+                amount: ca.amount,
+                status: "pending",
+                paid_amount: 0,
+                is_fixed: false,
+                cash_advance_id: insertedAdvance.id,
+                expense_date: expenseDate,
+              });
+            }
 
             totalCashAdvances += cashAdvances.length;
           }

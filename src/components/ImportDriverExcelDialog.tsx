@@ -426,21 +426,38 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
         }
       }
 
-      // Insert cash advances
+      // Insert cash advances AND linked expenses (same behavior as edge function)
       if (cashAdvances.length > 0) {
-        const cashAdvanceRecords = cashAdvances.map(ca => ({
-          driver_id: driverId,
-          amount: ca.amount,
-          requested_at: ca.requested_at || new Date().toISOString(),
-          truck_number: ca.truck_number
-        }));
+        for (const ca of cashAdvances) {
+          const { data: insertedAdvance, error: caError } = await supabase
+            .from("driver_cash_advances")
+            .insert({
+              driver_id: driverId,
+              amount: ca.amount,
+              requested_at: ca.requested_at || new Date().toISOString(),
+              truck_number: ca.truck_number,
+            })
+            .select("id")
+            .single();
 
-        const { error: caError } = await supabase
-          .from('driver_cash_advances')
-          .insert(cashAdvanceRecords);
+          if (caError) {
+            throw new Error(`Failed to insert cash advance: ${caError.message}`);
+          }
 
-        if (caError) {
-          throw new Error(`Failed to insert cash advances: ${caError.message}`);
+          // Create linked driver_expense
+          const expenseDate = ca.requested_at ? ca.requested_at.split("T")[0] : null;
+          await supabase.from("driver_expenses").insert({
+            driver_id: driverId,
+            truck_number: ca.truck_number,
+            name: "Cash Advance",
+            explanation: "Cash Advance",
+            amount: ca.amount,
+            status: "pending",
+            paid_amount: 0,
+            is_fixed: false,
+            cash_advance_id: insertedAdvance.id,
+            expense_date: expenseDate,
+          });
         }
       }
 
