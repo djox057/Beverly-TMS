@@ -1850,26 +1850,79 @@ const Analytics = () => {
     const cutPercent = (freightAmount - driverPay) / freightAmount * 100;
     return cutPercent >= 50;
   });
-  if (isLoading) {
+  // Show loading animation while orders are being fetched
+  if (isLoading || (progress && !progress.isComplete)) {
+    const unlockedPercent = progress?.unlockedTotal 
+      ? Math.round((progress.unlockedLoaded / progress.unlockedTotal) * 100) 
+      : 0;
+    const lockedPercent = progress?.lockedTotal 
+      ? Math.round((progress.lockedLoaded / progress.lockedTotal) * 100) 
+      : (progress?.lockedLoaded ? 50 : 0);
+    
     return <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-          <div className="flex gap-2">
-            <div className="h-10 w-32 bg-muted animate-pulse rounded" />
-            <div className="h-10 w-32 bg-muted animate-pulse rounded" />
+        <div className="flex flex-col items-center justify-center py-16 space-y-6">
+          <div className="relative">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
           </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="rounded-lg border p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-                <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold">Loading Analytics Data</h2>
+            <p className="text-muted-foreground">
+              Please wait while all orders are being loaded...
+            </p>
+          </div>
+          
+          {/* Progress indicators */}
+          <div className="w-full max-w-md space-y-4">
+            {/* Unlocked orders progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium flex items-center gap-2">
+                  {progress?.unlockedTotal && progress.unlockedLoaded >= progress.unlockedTotal ? (
+                    <CheckCircle className="h-4 w-4 text-success" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  )}
+                  Active Orders
+                </span>
+                <span className="text-muted-foreground">
+                  {progress?.unlockedLoaded?.toLocaleString() || 0}
+                  {progress?.unlockedTotal !== null && ` / ${progress.unlockedTotal.toLocaleString()}`}
+                </span>
               </div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 ease-out"
+                  style={{ width: `${unlockedPercent || (progress?.unlockedLoaded ? 100 : 0)}%` }}
+                />
               </div>
-            </div>)}
+            </div>
+            
+            {/* Locked orders progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium flex items-center gap-2">
+                  {progress?.lockedTotal && progress.lockedLoaded >= progress.lockedTotal ? (
+                    <CheckCircle className="h-4 w-4 text-success" />
+                  ) : progress?.isLoadingMore ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-warning" />
+                  ) : (
+                    <span className="h-4 w-4 rounded-full bg-muted" />
+                  )}
+                  Archived Orders
+                </span>
+                <span className="text-muted-foreground">
+                  {progress?.lockedLoaded?.toLocaleString() || 0}
+                  {progress?.lockedTotal !== null && ` / ${progress.lockedTotal.toLocaleString()}`}
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-warning transition-all duration-300 ease-out"
+                  style={{ width: `${lockedPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>;
   }
@@ -1885,21 +1938,6 @@ const Analytics = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
-            {/* Orders loading progress indicator */}
-            {progress && !progress.isComplete && <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>
-                  Loading orders: {progress.unlockedLoaded}
-                  {progress.unlockedTotal !== null && ` / ${progress.unlockedTotal}`} unlocked
-                  {progress.lockedLoaded > 0 && `, ${progress.lockedLoaded} locked`}
-                </span>
-              </div>}
-            {progress && progress.isComplete && <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle className="h-4 w-4 text-success" />
-                <span>
-                  {progress.unlockedLoaded} unlocked, {progress.lockedLoaded} locked orders loaded
-                </span>
-              </div>}
           </div>
         </div>
 
