@@ -207,14 +207,55 @@ Deno.serve(async (req) => {
 
     // Apply filters - each filter narrows down results
 
-    // Company filter (driver's company)
+    // Company filter (Booked By Company)
+    // UI's "Companies" filter is based on `bookedByCompanyName`.
     if (filters.companyId) {
-      query = query.eq("company_id", filters.companyId);
+      query = query.eq("booked_by_company_id", filters.companyId);
     }
 
-    // Truck company filter (via truck relation - needs inner join approach)
-    // Note: We can't filter on nested relations directly, so we'll handle this post-query if needed
-    // For now, we'll use a workaround by fetching truck IDs first if this filter is set
+    // Truck company filter
+    // We can't reliably filter on nested relations in a single PostgREST query,
+    // so we first fetch truck IDs for the selected company and filter orders by `truck_id`.
+    if (filters.truckCompanyId) {
+      const { data: truckRows, error: trucksError } = await supabase
+        .from("trucks")
+        .select("id")
+        .eq("company_id", filters.truckCompanyId);
+
+      if (trucksError) {
+        console.error("[search-orders] Truck company lookup error:", trucksError);
+        throw trucksError;
+      }
+
+      const truckIds = (truckRows || []).map((t: any) => t.id).filter(Boolean);
+
+      // No trucks for that company => no orders match
+      if (truckIds.length === 0) {
+        const fetchTime = Date.now() - startTime;
+        console.log(
+          `[search-orders] No trucks for truckCompanyId=${filters.truckCompanyId}; returning 0 results in ${fetchTime}ms`
+        );
+        return new Response(
+          JSON.stringify({
+            orders: [],
+            count: 0,
+            totalCount: 0,
+            offset,
+            limit,
+            hasMore: false,
+            fetchTimeMs: fetchTime,
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      query = query.in("truck_id", truckIds);
+    }
     
     // Booked by filter
     if (filters.bookedBy) {
@@ -279,13 +320,8 @@ Deno.serve(async (req) => {
       throw fetchError;
     }
 
-    // Post-process for truck company filter if set
-    let filteredOrders = orders || [];
-    if (filters.truckCompanyId && filteredOrders.length > 0) {
-      filteredOrders = filteredOrders.filter((order: any) => 
-        order.truck?.company?.id === filters.truckCompanyId
-      );
-    }
+    // No post-processing needed; all DB-backed filters are applied server-side.
+    const filteredOrders = orders || [];
 
     const fetchTime = Date.now() - startTime;
     console.log(`[search-orders] Found ${filteredOrders.length} orders (total: ${count}) in ${fetchTime}ms`);
