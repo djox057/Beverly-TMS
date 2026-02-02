@@ -520,26 +520,36 @@ const Analytics = () => {
           return;
         }
 
-        // Count only weekend (Sat/Sun) non-holiday days per user
-        const rawCountsMap: Record<string, number> = {};
+        // Count extra days per user
+        // Weekend days (Sat/Sun) that are non-holidays: subtract 1 (first weekend is regular shift)
+        // Weekday entries: count all (these are manual overrides for extra worked days)
+        const rawWeekendCountsMap: Record<string, number> = {};
+        const weekdayCountsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
             const dayOfWeek = scheduleDate.getDay();
-            // Only count weekend days (Saturday=6, Sunday=0)
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-              return;
-            }
-            // Exclude holidays from count (same as weekend schedule)
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            // Exclude holidays from count
             if (isHolidayDate(record.scheduled_date, targetYear!)) {
               return;
             }
-            if (!rawCountsMap[record.user_id]) {
-              rawCountsMap[record.user_id] = 0;
+            
+            if (!rawWeekendCountsMap[record.user_id]) {
+              rawWeekendCountsMap[record.user_id] = 0;
+              weekdayCountsMap[record.user_id] = 0;
               datesMap[record.user_id] = [];
             }
-            rawCountsMap[record.user_id] += 1;
+            
+            if (isWeekend) {
+              rawWeekendCountsMap[record.user_id] += 1;
+            } else {
+              // Weekday entries are always counted as extra days
+              weekdayCountsMap[record.user_id] += 1;
+            }
+            
             // Format date as M/DD (e.g., 12/16)
             const month = scheduleDate.getMonth() + 1;
             const day = scheduleDate.getDate();
@@ -557,10 +567,14 @@ const Analytics = () => {
           });
         });
 
-        // Subtract 1 from each count (first weekend day is regular, 2+ days = extra)
+        // Subtract 1 from weekend count (first weekend day is regular, 2+ days = extra)
+        // Then add weekday counts (all weekday entries are extra days)
         const countsMap: Record<string, number> = {};
-        Object.keys(rawCountsMap).forEach(userId => {
-          countsMap[userId] = Math.max(0, rawCountsMap[userId] - 1);
+        const allUserIds = new Set([...Object.keys(rawWeekendCountsMap), ...Object.keys(weekdayCountsMap)]);
+        allUserIds.forEach(userId => {
+          const weekendExtra = Math.max(0, (rawWeekendCountsMap[userId] || 0) - 1);
+          const weekdayExtra = weekdayCountsMap[userId] || 0;
+          countsMap[userId] = weekendExtra + weekdayExtra;
         });
         setExtraDaysByUser(countsMap);
         setExtraDayDatesByUser(datesMap);
