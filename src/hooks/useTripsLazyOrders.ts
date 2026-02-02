@@ -62,7 +62,7 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Debounce the search
+    // Debounce the search with 500ms delay
     searchTimeoutRef.current = setTimeout(async () => {
       lastSearchRef.current = searchKey;
 
@@ -76,7 +76,7 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
       if (loadNumberSearch && loadNumberSearch.length >= 2) {
         await searchByLoadNumber(loadNumberSearch, setSearchedOrders, setIsSearching);
       }
-    }, 300);
+    }, 500);
 
     return () => {
       if (searchTimeoutRef.current) {
