@@ -296,12 +296,14 @@ function parseWorksheet(worksheet: XLSX.WorkSheet): ParsedData {
 
       const explanationLower = explanation.toLowerCase();
 
-      const isStartDeposit =
+      // Check if this is a starting expense (should be imported with is_fixed = true)
+      const isStartingExpense =
         explanationLower.includes("start expenses:") ||
-        explanationLower.includes("equipment deposit");
-      if (isStartDeposit) {
-        continue;
-      }
+        explanationLower.includes("equipment deposit") ||
+        explanationLower.includes("escrow") ||
+        (explanationLower.includes("drug test") && !explanationLower.includes("random"));
+
+      // Do NOT skip starting expenses - import them as fixed expenses
 
       const isCashAdvance =
         explanationLower.includes("cash advance") ||
@@ -314,13 +316,16 @@ function parseWorksheet(worksheet: XLSX.WorkSheet): ParsedData {
           requested_at: expenseDate,
         });
       } else {
+        // Mark as fixed if it's a starting/setup expense
         const isFixed =
-          explanationLower.includes("escrow") ||
+          isStartingExpense ||
           explanationLower.includes("registration") ||
           explanationLower.includes("permits") ||
           explanationLower.includes("tablet") ||
           explanationLower.includes("highway use tax") ||
-          explanationLower.includes("2290");
+          explanationLower.includes("2290") ||
+          explanationLower.includes("mvr") ||
+          explanationLower.includes("psp");
 
         expenses.push({
           truck_number: truckNumber,
