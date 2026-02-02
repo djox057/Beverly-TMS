@@ -234,32 +234,85 @@ export function useAutoSwitchOffice({
   const lookupTruckDriverOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
     try {
       const term = searchTerm.trim();
-      
-      // First try trucks by truck_number
-      const { data: truckMatches, error: truckError } = await supabase
-        .from("trucks")
-        .select("dispatcher_id")
-        .ilike("truck_number", `%${term}%`)
-        .not("dispatcher_id", "is", null)
-        .limit(5);
-      
-      if (truckError) throw truckError;
-      
-      if (truckMatches && truckMatches.length > 0) {
-        // Get unique dispatcher IDs
-        const dispatcherIds = [...new Set(truckMatches.map(t => t.dispatcher_id))];
-        
-        // Resolve offices
+      const isNumeric = /^\d+$/.test(term);
+
+      const resolveOfficesFromDispatcherIds = async (dispatcherIds: string[]) => {
+        if (dispatcherIds.length === 0) return [] as string[];
+
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("office")
           .in("user_id", dispatcherIds)
           .not("office", "is", null);
-        
+
         if (profileError) throw profileError;
-        
-        const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
-        
+
+        return [...new Set(profileData?.map((p) => p.office).filter(Boolean) as string[])];
+      };
+
+      // Truck office should be derived from the currently assigned driver(s),
+      // not from trucks.dispatcher_id (which can be stale/incorrect).
+      const resolveOfficesFromTruckRows = async (
+        truckRows: Array<{ driver1_id: string | null; driver2_id: string | null }>
+      ) => {
+        const driverIds = [
+          ...new Set(
+            truckRows
+              .flatMap((t) => [t.driver1_id, t.driver2_id])
+              .filter(Boolean) as string[]
+          ),
+        ];
+
+        if (driverIds.length === 0) return [] as string[];
+
+        const { data: driverData, error: driverError } = await supabase
+          .from("drivers")
+          .select("dispatcher_id")
+          .in("id", driverIds)
+          .not("dispatcher_id", "is", null);
+
+        if (driverError) throw driverError;
+
+        const dispatcherIds = [
+          ...new Set(
+            (driverData ?? []).map((d) => d.dispatcher_id).filter(Boolean) as string[]
+          ),
+        ];
+
+        return resolveOfficesFromDispatcherIds(dispatcherIds);
+      };
+      
+      // 1) If numeric, prefer exact match to avoid collisions like 327 matching 7327
+      if (isNumeric) {
+        const { data: exactTrucks, error: exactTruckError } = await supabase
+          .from("trucks")
+          .select("driver1_id, driver2_id")
+          .eq("truck_number", term)
+          .limit(5);
+
+        if (exactTruckError) throw exactTruckError;
+
+        if (exactTrucks && exactTrucks.length > 0) {
+          const foundOffices = await resolveOfficesFromTruckRows(exactTrucks);
+
+          if (foundOffices.length === 1) return { type: "found", office: foundOffices[0] };
+          if (foundOffices.length > 1) return { type: "ambiguous", offices: foundOffices };
+        }
+      }
+
+      // 2) Fallback: prefix match for numeric; substring match for names/alphanumerics
+      const truckPattern = isNumeric ? `${term}%` : `%${term}%`;
+      const { data: truckMatches, error: truckError } = await supabase
+        .from("trucks")
+        .select("driver1_id, driver2_id")
+        .ilike("truck_number", truckPattern)
+        .limit(10);
+
+      if (truckError) throw truckError;
+
+      if (truckMatches && truckMatches.length > 0) {
+        const foundOffices = await resolveOfficesFromTruckRows(truckMatches);
+
         if (foundOffices.length === 1) {
           return { type: "found", office: foundOffices[0] };
         } else if (foundOffices.length > 1) {
@@ -586,7 +639,7 @@ export function useAutoSwitchOffice({
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedTruckDriver, activeTab, offices, lookupTruckDriverOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [debouncedTruckDriver, activeTab, lookupTruckDriverOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Main effect for Dispatch name filter
   useEffect(() => {
@@ -715,7 +768,7 @@ export function useAutoSwitchOffice({
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedDispatchName, activeTab, offices, lookupDispatcherOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [debouncedDispatchName, activeTab, lookupDispatcherOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Main effect for Load number filter
   useEffect(() => {
@@ -848,7 +901,7 @@ export function useAutoSwitchOffice({
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedLoadNumber, activeTab, offices, lookupLoadOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [debouncedLoadNumber, activeTab, lookupLoadOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Clear the last auto-switch ref when filters are cleared
   useEffect(() => {
