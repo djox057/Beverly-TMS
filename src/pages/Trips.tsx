@@ -928,8 +928,13 @@ const Trips = () => {
   const filteredOrders =
     expandedOrders?.filter((order) => {
       const searchLower = searchFilter.toLowerCase().trim();
+      // Truck number uses exact match; driver name uses partial match
+      const isNumericSearch = /^\d+$/.test(searchLower);
+      const matchesTruck = isNumericSearch
+        ? order.truckNumber?.toLowerCase() === searchLower
+        : order.truckNumber?.toLowerCase().includes(searchLower);
       const matchesSearch = !searchLower || 
-        order.truckNumber?.toLowerCase().includes(searchLower) ||
+        matchesTruck ||
         order.driverName?.toLowerCase().includes(searchLower);
 
       // Filter by internal load number or broker load number
