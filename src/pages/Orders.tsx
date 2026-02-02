@@ -581,6 +581,23 @@ const Orders = () => {
 
   // Phase 2 (progressive archived loading) removed.
 
+  // Load more orders when approaching end of loaded data
+  // MUST be before any early returns to satisfy React's rules of hooks
+  useEffect(() => {
+    // Only trigger for local data (not server-filtered or searched)
+    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    if (!hasMore || isLoadingMore) return;
+    
+    // Calculate if we need more data for upcoming pages
+    const loadedOrdersCount = orders?.length || 0;
+    const ordersNeededForNextPage = (currentPage + 1) * ORDERS_PER_PAGE;
+    
+    // If we need more orders than we have loaded, and there's more to load
+    if (ordersNeededForNextPage > loadedOrdersCount) {
+      console.log(`[Orders] Need ${ordersNeededForNextPage} orders but only have ${loadedOrdersCount}, loading more...`);
+      loadMoreOrders();
+    }
+  }, [currentPage, orders?.length, hasMore, isLoadingMore, hasActiveFilter, searchTerm, loadMoreOrders]);
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
     setSelectedOrderIds(prev => {
@@ -686,23 +703,6 @@ const Orders = () => {
   const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
   const endIndex = startIndex + ORDERS_PER_PAGE;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
-  // Load more orders when approaching end of loaded data
-  useEffect(() => {
-    // Only trigger for local data (not server-filtered or searched)
-    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
-    if (!hasMore || isLoadingMore) return;
-    
-    // Calculate if we need more data for upcoming pages
-    const loadedOrdersCount = orders?.length || 0;
-    const ordersNeededForNextPage = (currentPage + 1) * ORDERS_PER_PAGE;
-    
-    // If we need more orders than we have loaded, and there's more to load
-    if (ordersNeededForNextPage > loadedOrdersCount) {
-      console.log(`[Orders] Need ${ordersNeededForNextPage} orders but only have ${loadedOrdersCount}, loading more...`);
-      loadMoreOrders();
-    }
-  }, [currentPage, orders?.length, hasMore, isLoadingMore, hasActiveFilter, searchTerm, loadMoreOrders]);
 
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
