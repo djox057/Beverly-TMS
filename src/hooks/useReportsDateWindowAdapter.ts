@@ -1188,6 +1188,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Data from date-window with transformation (filtered when individual mode is ON)
     data: filteredData,
     // When viewing other office in Individual Mode, NOT loading - just empty
+    // Only show loading on initial load (no data yet), not when fetching additional windows
     isLoading: isViewingOtherOfficeInIndividualMode 
       ? false 
       : (dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading)),
@@ -1195,7 +1196,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isError: !!dateWindowHook.error,
     error: dateWindowHook.error,
     isSuccess: isViewingOtherOfficeInIndividualMode ? true : (!dateWindowHook.isLoading && !dateWindowHook.error),
-    isFetchingBackground: false,
+    // Use isFetching for background loading indicator (fetching new date window without blocking UI)
+    isFetchingBackground: dateWindowHook.isFetching && !dateWindowHook.isLoading,
     // Flag for UI to show Individual Mode message
     isViewingOtherOfficeInIndividualMode,
     refetch: dateWindowHook.refetch,
