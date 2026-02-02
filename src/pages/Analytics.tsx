@@ -18,6 +18,7 @@ import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -198,7 +199,7 @@ const Analytics = () => {
 
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
-  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "weeksCount">("avgFreight");
+  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "weeksCount" | "debt">("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, {
     totalTrucks: number;
@@ -281,6 +282,9 @@ const Analytics = () => {
   const {
     data: drivers
   } = useDrivers();
+  const {
+    data: driverDebts = {}
+  } = useAllDriverDebts();
   const {
     performanceData,
     updatePerformance
@@ -1788,7 +1792,10 @@ const Analytics = () => {
         if (!matchesName && !matchesTruck) return false;
       }
       return true;
-    }).sort((a, b) => {
+    }).map(driver => ({
+      ...driver,
+      debt: driverDebts[driver.name] || 0
+    })).sort((a, b) => {
       const aValue = a[grossRankingsSortBy];
       const bValue = b[grossRankingsSortBy];
       if (typeof aValue === 'number' && typeof bValue === 'number') {
@@ -1796,7 +1803,7 @@ const Analytics = () => {
       }
       return 0;
     });
-  }, [driverGrossRankings, activeDriverNames, recoveryDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir]);
+  }, [driverGrossRankings, activeDriverNames, recoveryDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir, driverDebts]);
 
   // Filter loads booked today with rate <= 2.00
   const today = new Date();
@@ -1960,7 +1967,7 @@ const Analytics = () => {
           <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
               {/* Hide Driver Gross Rankings and Loads tabs for dispatch-only users */}
-              {!isDispatchOnly && <TabsTrigger value="driver-gross-rankings">Driver Gross Rankings</TabsTrigger>}
+              {!isDispatchOnly && <TabsTrigger value="driver-gross-rankings">Driver Analytics</TabsTrigger>}
               {/* Hidden: Driver Performance tab - keeping code for future use */}
               {/* <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger> */}
               {!isDispatchOnly && <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>}
@@ -2182,7 +2189,7 @@ const Analytics = () => {
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-4">
-                  <CardTitle>Driver Gross Rankings</CardTitle>
+                  <CardTitle>Driver Analytics</CardTitle>
                   <div className="flex flex-wrap gap-2 items-center">
                     <Input placeholder="Search driver or truck..." value={grossRankingsSearch} onChange={e => setGrossRankingsSearch(e.target.value)} className="w-64" />
                     {grossRankingsSearch && <Button variant="outline" size="sm" onClick={() => setGrossRankingsSearch("")}>
@@ -2219,12 +2226,15 @@ const Analytics = () => {
                         <TableHead className="text-right w-[5%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("weeksCount")}>
                           Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
+                        <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("debt")}>
+                          Debt {grossRankingsSortBy === "debt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
                         <TableHead className="w-[9%]">Notice</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? <TableRow>
-                          <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow> : filteredAndSortedRankings.map((driver, index) => {
@@ -2273,6 +2283,9 @@ const Analytics = () => {
                               <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
                               <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
                               <TableCell className="text-right">{driver.weeksCount}</TableCell>
+                              <TableCell className={`text-right ${driver.debt > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                                {driver.debt > 0 ? `$${driver.debt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              </TableCell>
                               <TableCell>
                                 <DriverNoticeDialog driverName={driver.name} initialNotice={driverTiers[driver.name]?.notice || ""} onSave={handleNoticeSave} />
                               </TableCell>
