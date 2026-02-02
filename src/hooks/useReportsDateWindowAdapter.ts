@@ -768,85 +768,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             return;
           }
           
-          console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}`);
+          console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
-          // Patch the adapter cache directly
-          queryClient.setQueriesData(
-            { queryKey: ["adapter-lost-day-notes"], exact: false },
-            (oldData: any[] | undefined) => {
-              if (!oldData) return oldData;
-              
-              if (eventType === "DELETE") {
-                // Remove note by id
-                return oldData.filter((note) => note.id !== oldRecord.id);
-              }
-              
-              if (eventType === "INSERT") {
-                // Append if not already present
-                const exists = oldData.some((note) => note.id === newRecord.id);
-                if (exists) {
-                  // Update instead (in case of race condition)
-                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-                }
-                return [...oldData, newRecord];
-              }
-              
-              if (eventType === "UPDATE") {
-                // Replace existing by id, or by (driver_id, date) composite key
-                const existingIndex = oldData.findIndex((note) => 
-                  note.id === newRecord.id || 
-                  (note.driver_id === newRecord.driver_id && note.date === newRecord.date)
-                );
-                if (existingIndex >= 0) {
-                  const updated = [...oldData];
-                  updated[existingIndex] = newRecord;
-                  return updated;
-                }
-                // If not in cache yet, append it
-                return [...oldData, newRecord];
-              }
-              
-              return oldData;
-            }
-          );
+          // Invalidate the adapter-lost-day-notes query to force a refetch
+          // This ensures the useMemo depending on lostDayNotes will recompute
+          // Use refetchType 'active' to only refetch if the query is currently mounted
+          queryClient.invalidateQueries({ 
+            queryKey: ["adapter-lost-day-notes"], 
+            exact: false,
+            refetchType: 'active'
+          });
           
-          // Also patch the Reports queries so UI updates immediately
-          // (The transformedData useMemo will pick up the change from adapter cache)
-          queryClient.setQueriesData(
-            { queryKey: ["reports"], exact: false },
-            (oldReportsData: any) => {
-              if (!oldReportsData || !Array.isArray(oldReportsData)) return oldReportsData;
-              return oldReportsData.map((group: any) => ({
-                ...group,
-                trucks: (group.trucks || []).map((truck: any) => {
-                  if (truck.driverId !== driverId) return truck;
-                  // Update lost_day_notes for this truck/driver
-                  const existingNotes = truck.lost_day_notes || [];
-                  
-                  if (eventType === "DELETE") {
-                    return {
-                      ...truck,
-                      lost_day_notes: existingNotes.filter((n: any) => n.id !== oldRecord.id),
-                    };
-                  }
-                  
-                  const noteIndex = existingNotes.findIndex((n: any) => 
-                    n.id === newRecord.id || 
-                    (n.driver_id === newRecord.driver_id && n.date === newRecord.date)
-                  );
-                  
-                  if (noteIndex >= 0) {
-                    const updatedNotes = [...existingNotes];
-                    updatedNotes[noteIndex] = newRecord;
-                    return { ...truck, lost_day_notes: updatedNotes };
-                  }
-                  
-                  // Not found, append
-                  return { ...truck, lost_day_notes: [...existingNotes, newRecord] };
-                }),
-              }));
-            }
-          );
+          // Also invalidate the reports query to ensure UI updates
+          queryClient.invalidateQueries({ 
+            queryKey: ["reports"], 
+            exact: false,
+            refetchType: 'none' // Don't refetch legacy reports, just mark stale
+          });
         }
       )
       .subscribe((status) => {
