@@ -247,7 +247,7 @@ const Orders = () => {
 
   // Progressive loading hook - fetches pages directly from server
   const {
-    data: orders,
+    data: currentPageOrdersFromHook,
     isLoading,
     isLoadingMore,
     isLoadingLocked,
@@ -255,13 +255,19 @@ const Orders = () => {
     unlockedCount,
     lockedCount,
     totalCount: totalUnlockedCount,
+    totalPages: serverTotalPages,
     totalLoaded,
     hasMore,
+    currentPage: hookCurrentPage,
+    isCurrentPageLoaded,
     requestPage,
     prefetchNextPage,
     loadedPages,
     isPartialData,
-  } = useOrdersProgressive(orderFilterOptions);
+  } = useOrdersProgressive({
+    ...orderFilterOptions,
+    currentPage,
+  });
 
   // For error handling, use a stable reference
   const error = null; // Progressive hook handles errors internally
@@ -301,25 +307,28 @@ const Orders = () => {
   }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions.bookedBy, orderFilterOptions.dispatcherUserId]);
   
   console.log("🟦 [Orders Page] Progressive loading:", {
-    ordersCount: orders?.length,
+    currentPageOrdersCount: currentPageOrdersFromHook?.length,
     isLoading,
     isLoadingLocked,
     phase: loadingProgress.phase,
     unlockedCount,
     lockedCount,
     isPartialData,
+    isCurrentPageLoaded,
+    currentPage,
+    serverTotalPages,
     searchResultsCount: searchResults?.length,
     filteredServerOrdersCount: filteredServerOrders?.length,
   });
 
   // Log when orders data changes
   useEffect(() => {
-    console.log("🔵 [Orders Page] Orders data changed! New count:", orders?.length);
-    if (orders && orders.length > 0) {
-      console.log("🔵 [Orders Page] First order:", orders[0]);
-      console.log("🔵 [Orders Page] Last order:", orders[orders.length - 1]);
+    console.log("🔵 [Orders Page] Current page orders changed! Count:", currentPageOrdersFromHook?.length, "Page:", currentPage);
+    if (currentPageOrdersFromHook && currentPageOrdersFromHook.length > 0) {
+      console.log("🔵 [Orders Page] First order:", currentPageOrdersFromHook[0]);
+      console.log("🔵 [Orders Page] Last order:", currentPageOrdersFromHook[currentPageOrdersFromHook.length - 1]);
     }
-  }, [orders]);
+  }, [currentPageOrdersFromHook, currentPage]);
   
   const {
     data: companies
@@ -420,7 +429,7 @@ const Orders = () => {
   // Data source selection:
   // 1. Active search → use search results
   // 2. Active filter → use server-side filtered results
-  // 3. No filters → use locally loaded orders
+  // 3. No filters → use current page orders from hook (already just this page)
   const dataSource = useMemo(() => {
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
     if (isActiveSearch) {
@@ -434,8 +443,8 @@ const Orders = () => {
       return filteredServerOrders || [];
     }
     
-    return orders || [];
-  }, [searchTerm, searchResults, orders, hasActiveFilter, filteredServerOrders, isFilteredLoading]);
+    return currentPageOrdersFromHook || [];
+  }, [searchTerm, searchResults, currentPageOrdersFromHook, hasActiveFilter, filteredServerOrders, isFilteredLoading]);
 
   // Filter orders based on search term and filters
   // When server-side filtering is active, skip most client-side filters
@@ -703,20 +712,26 @@ const Orders = () => {
       </div>;
   }
 
-  // Calculate pagination based on total count (not just loaded orders)
-  // Use total unlocked count when we have more to load, otherwise use filtered count
-  const effectiveTotalCount = !hasActiveFilter && !searchTerm && hasMore && totalUnlockedCount 
+  // Calculate pagination based on total count from server
+  // For search/filter modes: use filtered results count
+  // For normal mode: use server's total count (all unlocked orders)
+  const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+  const effectiveTotalCount = !hasActiveFilter && !isActiveSearch && totalUnlockedCount 
     ? totalUnlockedCount 
     : filteredOrders.length;
-  const totalPages = Math.ceil(effectiveTotalCount / ORDERS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
-  const endIndex = startIndex + ORDERS_PER_PAGE;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const totalPages = !hasActiveFilter && !isActiveSearch && serverTotalPages 
+    ? serverTotalPages 
+    : Math.ceil(effectiveTotalCount / ORDERS_PER_PAGE);
+  
+  // For search/filter: use slice. For normal mode: data is already the current page
+  const paginatedOrders = (hasActiveFilter || isActiveSearch) 
+    ? filteredOrders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE)
+    : filteredOrders; // Already contains just the current page's data
 
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
-  const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
+  const uniqueBookedBy = [...new Set(currentPageOrdersFromHook?.map(order => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
   }));
@@ -1163,7 +1178,7 @@ const Orders = () => {
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-xs text-muted-foreground text-center hover:text-foreground hover:underline cursor-pointer transition-colors w-full">
-                          Not Invoiced: {formatCurrency(orders?.filter(o => o.invoiced !== true).reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0)}
+                          Not Invoiced: {formatCurrency(filteredOrders?.filter(o => o.invoiced !== true).reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0)}
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-80 p-4" align="center">
@@ -1171,7 +1186,7 @@ const Orders = () => {
                           <h4 className="font-medium text-sm">Not Invoiced by Company</h4>
                           <div className="space-y-2">
                             {(() => {
-                            const notInvoicedOrders = orders?.filter(o => o.invoiced !== true) || [];
+                            const notInvoicedOrders = filteredOrders?.filter(o => o.invoiced !== true) || [];
                             const byCompany = notInvoicedOrders.reduce((acc, order) => {
                               const company = order.bookedByCompanyName || 'Unknown';
                               if (!acc[company]) {
@@ -1201,7 +1216,7 @@ const Orders = () => {
                           </div>
                           <div className="border-t pt-2 flex justify-between items-center text-sm font-medium">
                             <span>Total</span>
-                            <span>{formatCurrency(orders?.filter(o => o.invoiced !== true).reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0)}</span>
+                            <span>{formatCurrency(filteredOrders?.filter(o => o.invoiced !== true).reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0)}</span>
                           </div>
                         </div>
                       </PopoverContent>
@@ -1753,9 +1768,9 @@ const Orders = () => {
             </div>
 
             {/* Pagination Controls */}
-            {filteredOrders.length > ORDERS_PER_PAGE && <div className="flex items-center justify-between px-6 py-4 border-t">
+                {effectiveTotalCount > ORDERS_PER_PAGE && <div className="flex items-center justify-between px-6 py-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}{" "}
+                  Showing {(currentPage - 1) * ORDERS_PER_PAGE + 1} to {Math.min(currentPage * ORDERS_PER_PAGE, effectiveTotalCount)} of {effectiveTotalCount}{" "}
                   loads
                 </div>
                 <Pagination>
