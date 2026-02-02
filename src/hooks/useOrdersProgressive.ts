@@ -23,8 +23,8 @@ interface UseOrdersProgressiveOptions {
 
 /**
  * Progressive loading hook for /orders page
- * Loads unlocked orders in batches of 100 using cursor-based pagination.
- * When user reaches page N, loads orders for page N+1 in background.
+ * Fetches orders page-by-page directly from the server using offset-based pagination.
+ * Each page is fetched independently when requested.
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
@@ -32,18 +32,17 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const dispatcherUserId = options?.dispatcherUserId ?? null;
 
   const hasFilters = Boolean(bookedBy || dispatcherUserId);
-  const queryKey = hasFilters 
-    ? ["orders", "filtered", bookedBy, dispatcherUserId] 
-    : ["orders"];
   
   // Subscribe to real-time updates
   useOrdersRealtime();
 
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const loadingRef = useRef(false);
-  const lastCursorRef = useRef<string | null>(null);
+  const [currentPageNum, setCurrentPageNum] = useState(1);
+  
+  // Cache for loaded pages: Map<pageNumber, orders[]>
+  const loadedPagesRef = useRef<Map<number, any[]>>(new Map());
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
 
   // Get dispatcher driver IDs if needed
   const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
@@ -59,14 +58,15 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return (assignedDrivers || []).map(d => d.id);
   }, [dispatcherUserId]);
 
-  // Initial load - first batch of orders
-  const query = useQuery({
-    queryKey,
+  // Fetch total count on mount
+  const countQuery = useQuery({
+    queryKey: hasFilters 
+      ? ["orders-count", "filtered", bookedBy, dispatcherUserId] 
+      : ["orders-count"],
     queryFn: async () => {
-      console.log("[OrdersProgressive] Loading initial batch...");
+      console.log("[OrdersProgressive] Fetching total count...");
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
 
-      // First get total count
       let countQuery = supabase
         .from("orders")
         .select("*", { count: "exact", head: true })
@@ -82,55 +82,30 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
       }
 
-      const { count } = await countQuery;
-      setTotalCount(count);
-      console.log(`[OrdersProgressive] Total unlocked orders: ${count}`);
-
-      // Now fetch first batch
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke(
-        "get-all-unlocked-orders",
-        {
-          body: {
-            bookedBy,
-            dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
-            limit: PAGE_SIZE,
-            offset: 0,
-          },
-        }
-      );
-
-      if (edgeError) throw edgeError;
-
-      const rawOrders = edgeData?.orders ?? [];
-      const hasMoreOrders = rawOrders.length === PAGE_SIZE && (count ?? 0) > PAGE_SIZE;
-      setHasMore(hasMoreOrders);
+      const { count, error } = await countQuery;
+      if (error) throw error;
       
-      // Store cursor for next load
-      if (rawOrders.length > 0) {
-        lastCursorRef.current = rawOrders[rawOrders.length - 1].created_at;
-      }
-
-      console.log(`[OrdersProgressive] Loaded ${rawOrders.length} orders, hasMore: ${hasMoreOrders}`);
-      return transformOrders(rawOrders);
+      console.log(`[OrdersProgressive] Total unlocked orders: ${count}`);
+      setTotalCount(count);
+      return count;
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: Infinity,
+    staleTime: 30000, // 30 seconds
   });
 
-  // Load more orders - called when approaching end of loaded data
-  const loadMoreOrders = useCallback(async () => {
-    if (loadingRef.current || !hasMore) return;
+  // Fetch a specific page
+  const fetchPage = useCallback(async (pageNumber: number) => {
+    if (loadedPagesRef.current.has(pageNumber)) {
+      console.log(`[OrdersProgressive] Page ${pageNumber} already loaded`);
+      return loadedPagesRef.current.get(pageNumber)!;
+    }
 
-    loadingRef.current = true;
-    setIsLoadingMore(true);
-
+    setIsLoadingPage(true);
     try {
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
-      const currentOrders = queryClient.getQueryData<any[]>(queryKey) || [];
-      const offset = currentOrders.length;
+      const offset = (pageNumber - 1) * PAGE_SIZE;
 
-      console.log(`[OrdersProgressive] Loading more from offset ${offset}...`);
+      console.log(`[OrdersProgressive] Fetching page ${pageNumber} (offset ${offset})...`);
 
       const { data: edgeData, error: edgeError } = await supabase.functions.invoke(
         "get-all-unlocked-orders",
@@ -147,48 +122,82 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       if (edgeError) throw edgeError;
 
       const rawOrders = edgeData?.orders ?? [];
-      const newOrders = transformOrders(rawOrders);
+      const transformedOrders = transformOrders(rawOrders);
       
-      // Check if we have more
-      const loadedSoFar = offset + rawOrders.length;
-      const hasMoreOrders = rawOrders.length === PAGE_SIZE && loadedSoFar < (totalCount ?? Infinity);
-      setHasMore(hasMoreOrders);
+      // Cache the page
+      loadedPagesRef.current.set(pageNumber, transformedOrders);
+      setLoadedPages(prev => new Set(prev).add(pageNumber));
 
-      // Merge into cache
-      queryClient.setQueryData<any[]>(queryKey, (old) => {
-        if (!old) return newOrders;
-        const existingIds = new Set(old.map(o => o.id));
-        const uniqueNew = newOrders.filter(o => !existingIds.has(o.id));
-        return [...old, ...uniqueNew];
-      });
-
-      console.log(`[OrdersProgressive] Loaded ${rawOrders.length} more orders, total: ${loadedSoFar}, hasMore: ${hasMoreOrders}`);
-    } catch (error) {
-      console.error("[OrdersProgressive] Error loading more:", error);
+      console.log(`[OrdersProgressive] Page ${pageNumber} loaded: ${transformedOrders.length} orders`);
+      return transformedOrders;
     } finally {
-      loadingRef.current = false;
-      setIsLoadingMore(false);
+      setIsLoadingPage(false);
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, hasMore, queryClient, queryKey, totalCount]);
+  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds]);
 
-  const loadedCount = query.data?.length ?? 0;
+  // Load initial page (page 1) on mount
+  const initialPageQuery = useQuery({
+    queryKey: hasFilters 
+      ? ["orders", "page", 1, "filtered", bookedBy, dispatcherUserId] 
+      : ["orders", "page", 1],
+    queryFn: () => fetchPage(1),
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+    enabled: countQuery.isSuccess,
+  });
+
+  // Request a specific page - returns orders for that page
+  const requestPage = useCallback(async (pageNumber: number) => {
+    if (loadedPagesRef.current.has(pageNumber)) {
+      return loadedPagesRef.current.get(pageNumber)!;
+    }
+    return fetchPage(pageNumber);
+  }, [fetchPage]);
+
+  // Prefetch the next page in background
+  const prefetchNextPage = useCallback((currentPage: number) => {
+    const nextPage = currentPage + 1;
+    const maxPage = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 1;
+    
+    if (nextPage <= maxPage && !loadedPagesRef.current.has(nextPage)) {
+      console.log(`[OrdersProgressive] Prefetching page ${nextPage}...`);
+      fetchPage(nextPage).catch(err => 
+        console.error(`[OrdersProgressive] Prefetch failed for page ${nextPage}:`, err)
+      );
+    }
+  }, [fetchPage, totalCount]);
+
+  // Combined data from all loaded pages
+  const allLoadedOrders = useMemo(() => {
+    const orders: any[] = [];
+    const sortedPages = Array.from(loadedPagesRef.current.keys()).sort((a, b) => a - b);
+    for (const pageNum of sortedPages) {
+      orders.push(...(loadedPagesRef.current.get(pageNum) || []));
+    }
+    return orders;
+  }, [loadedPages]); // Re-compute when loadedPages changes
+
+  const loadedCount = allLoadedOrders.length;
+  const hasMore = totalCount ? loadedCount < totalCount : false;
 
   const progress = useMemo<ProgressiveLoadingProgress>(() => {
+    const isLoading = countQuery.isLoading || initialPageQuery.isLoading;
     return {
-      phase: query.isLoading ? 1 : "complete",
+      phase: isLoading ? 1 : "complete",
       unlockedLoaded: loadedCount,
       unlockedTotal: totalCount,
       lockedLoaded: 0,
       lockedTotal: null,
       isLoadingLocked: false,
-      percentComplete: totalCount ? Math.round((loadedCount / totalCount) * 100) : (query.isLoading ? 0 : 100),
+      percentComplete: totalCount ? Math.round((loadedCount / totalCount) * 100) : (isLoading ? 0 : 100),
     };
-  }, [loadedCount, totalCount, query.isLoading]);
+  }, [loadedCount, totalCount, countQuery.isLoading, initialPageQuery.isLoading]);
 
   return {
-    data: query.data ?? [],
-    isLoading: query.isLoading,
-    isLoadingMore,
+    data: allLoadedOrders,
+    isLoading: countQuery.isLoading || initialPageQuery.isLoading,
+    isLoadingMore: isLoadingPage,
     isLoadingLocked: false,
     progress,
     unlockedCount: loadedCount,
@@ -197,8 +206,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     totalCount: totalCount ?? loadedCount,
     totalLoaded: loadedCount,
     hasMore,
-    loadMoreOrders,
-    isPartialData: query.isLoading || hasMore,
+    loadMoreOrders: () => {}, // Legacy - no longer used
+    requestPage,
+    prefetchNextPage,
+    loadedPages,
+    isPartialData: countQuery.isLoading || initialPageQuery.isLoading || hasMore,
     requestLockedOrders: () => {},
     lockedOrdersLoaded: true,
   };
