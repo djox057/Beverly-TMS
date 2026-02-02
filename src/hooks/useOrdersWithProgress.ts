@@ -43,10 +43,11 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const hasFilters = Boolean(bookedBy || dispatcherUserId);
   
-  // Query key changes when filters change
+  // Use a UNIQUE query key for analytics to avoid conflicts with orders page
+  // Analytics always needs ALL data, so it has its own cache
   const queryKey = hasFilters 
-    ? ["orders", "analytics", bookedBy, dispatcherUserId] 
-    : ["orders"];
+    ? ["orders", "analytics-full", bookedBy, dispatcherUserId] 
+    : ["orders", "analytics-full"];
 
   // Subscribe to real-time updates
   useOrdersRealtime();
@@ -70,7 +71,14 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       const startTime = Date.now();
       console.log("[OrdersWithProgress] Starting full fetch via Edge Functions...");
 
-      setProgress(prev => ({ ...prev, isLoadingMore: true }));
+      setProgress({
+        unlockedLoaded: 0,
+        unlockedTotal: null,
+        lockedLoaded: 0,
+        lockedTotal: null,
+        isLoadingMore: true,
+        isComplete: false,
+      });
 
       // Fetch dispatcher driver IDs if filtering
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
@@ -197,8 +205,9 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       return mergedOrders;
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: Infinity,
+    // Allow refetch on mount - analytics needs fresh data
+    refetchOnMount: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes - refetch if stale
   });
 
   // Track mount state
@@ -208,6 +217,23 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       isMountedRef.current = false;
     };
   }, []);
+
+  // Initialize progress from cached data if available
+  useEffect(() => {
+    if (query.data && !progress.isComplete && !query.isFetching) {
+      const unlockedCount = query.data.filter((o: any) => !o.locked).length;
+      const lockedCount = query.data.filter((o: any) => o.locked).length;
+      
+      setProgress({
+        unlockedLoaded: unlockedCount,
+        unlockedTotal: unlockedCount,
+        lockedLoaded: lockedCount,
+        lockedTotal: lockedCount,
+        isLoadingMore: false,
+        isComplete: true,
+      });
+    }
+  }, [query.data, query.isFetching, progress.isComplete]);
 
   return {
     ...query,
