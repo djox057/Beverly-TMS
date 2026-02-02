@@ -363,28 +363,11 @@ const fetchEfsDeductionsForStatement = async (
   const weekStartISO = format(weekStartDate, "yyyy-MM-dd");
   const weekEndISO = format(addDays(weekEndDate, 1), "yyyy-MM-dd"); // Include the end date
   
-  // Fetch cash advances for the driver within the week
-  const { data: cashAdvances, error: cashError } = await supabase
-    .from("driver_cash_advances")
-    .select("amount, requested_at")
-    .eq("driver_id", driverId)
-    .gte("requested_at", weekStartISO)
-    .lt("requested_at", weekEndISO)
-    .order("requested_at", { ascending: true });
-  
-  if (cashError) {
-    console.error("Error fetching cash advances:", cashError);
-  } else if (cashAdvances) {
-    cashAdvances.forEach((ca: any) => {
-      deductions.push({
-        description: "EFS Money Code-Cash advance",
-        date: formatDateDisplay(ca.requested_at),
-        amount: Math.abs(Number(ca.amount) || 0),
-      });
-    });
-  }
+  // NOTE: Cash advances are now managed as driver_expenses (via StatementPreviewDialog deductions)
+  // so we no longer fetch them separately here to avoid double-counting
   
   // Fetch EFS other requests for the driver within the week
+  // EXCLUDE fuel requests since they go to the dedicated fuel section
   const { data: efsOther, error: efsError } = await supabase
     .from("efs_other_requests")
     .select("amount, purpose, requested_at")
@@ -397,6 +380,10 @@ const fetchEfsDeductionsForStatement = async (
     console.error("Error fetching EFS other requests:", efsError);
   } else if (efsOther) {
     efsOther.forEach((efs: any) => {
+      // Skip fuel requests - they are handled in the fuel section via fuel_transactions
+      const purpose = (efs.purpose || "").toLowerCase();
+      if (purpose === "fuel") return;
+      
       deductions.push({
         description: efs.purpose || "EFS Other",
         date: formatDateDisplay(efs.requested_at),
