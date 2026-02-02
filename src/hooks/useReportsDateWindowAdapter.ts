@@ -363,7 +363,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30000,
+    staleTime: 60000, // 1 minute - longer staleTime to prevent refetches overwriting optimistic updates
+    gcTime: 300000, // Keep in cache longer
+    refetchOnWindowFocus: false, // Prevent refetch on window focus from overwriting patches
     enabled: scopeEnabled,
   });
 
@@ -736,6 +738,15 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
 
   // P4: Subscribe to lost_day_notes realtime changes and patch cache directly (no refetch)
+  // Use a stable ref for priorityOffice and modeKeySuffix to build the exact query key
+  // Initialize refs with current values to avoid undefined on first render
+  const priorityOfficeRef = useRef(priorityOffice);
+  const modeKeySuffixRef = useRef(modeKeySuffix);
+  
+  // Update refs synchronously when values change (not in an effect, to avoid timing issues)
+  priorityOfficeRef.current = priorityOffice;
+  modeKeySuffixRef.current = modeKeySuffix;
+  
   useEffect(() => {
     if (!scopeEnabled || driverIdsForScope.length === 0) {
       // Cleanup any existing channel when disabled
@@ -770,53 +781,63 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
-          // Patch the adapter-lost-day-notes cache directly so useMemo recomputes immediately
+          // Build the exact query key to patch
+          const exactQueryKey = ["adapter-lost-day-notes", priorityOfficeRef.current, modeKeySuffixRef.current];
+          
+          // Patch the cache using the exact query key for proper React Query detection
+          // Also use setQueriesData with exact: false as fallback for any variant keys
+          const patchFunction = (oldData: any[] | undefined) => {
+            if (!oldData) return oldData;
+            
+            if (eventType === "DELETE") {
+              return oldData.filter((note) => note.id !== oldRecord.id);
+            }
+            
+            if (eventType === "INSERT") {
+              // Check for duplicate by id first, then by composite key (driver_id + date)
+              const existsById = oldData.some((note) => note.id === newRecord.id);
+              if (existsById) {
+                return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+              }
+              const existsByComposite = oldData.some(
+                (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
+              );
+              if (existsByComposite) {
+                return oldData.map((note) =>
+                  note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
+                );
+              }
+              return [...oldData, newRecord];
+            }
+            
+            if (eventType === "UPDATE") {
+              // Replace by id or by (driver_id, date) composite key
+              const existingById = oldData.some((note) => note.id === newRecord.id);
+              if (existingById) {
+                return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+              }
+              const existingByComposite = oldData.some(
+                (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
+              );
+              if (existingByComposite) {
+                return oldData.map((note) =>
+                  note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
+                );
+              }
+              // Not found: append (shouldn't happen often but safe fallback)
+              return [...oldData, newRecord];
+            }
+            
+            return oldData;
+          };
+          
+          // Primary: patch exact query key
+          queryClient.setQueryData(exactQueryKey, patchFunction);
+          
+          // Secondary: patch all variant keys with setQueriesData as fallback
           queryClient.setQueriesData(
             { queryKey: ["adapter-lost-day-notes"], exact: false },
-            (oldData: any[] | undefined) => {
-              if (!oldData) return oldData;
-              
-              if (eventType === "DELETE") {
-                return oldData.filter((note) => note.id !== oldRecord.id);
-              }
-              
-              if (eventType === "INSERT") {
-                // Check for duplicate by id first, then by composite key (driver_id + date)
-                const existsById = oldData.some((note) => note.id === newRecord.id);
-                if (existsById) {
-                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-                }
-                const existsByComposite = oldData.some(
-                  (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
-                );
-                if (existsByComposite) {
-                  return oldData.map((note) =>
-                    note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
-                  );
-                }
-                return [...oldData, newRecord];
-              }
-              
-              if (eventType === "UPDATE") {
-                // Replace by id or by (driver_id, date) composite key
-                const existingById = oldData.some((note) => note.id === newRecord.id);
-                if (existingById) {
-                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-                }
-                const existingByComposite = oldData.some(
-                  (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
-                );
-                if (existingByComposite) {
-                  return oldData.map((note) =>
-                    note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
-                  );
-                }
-                // Not found: append (shouldn't happen often but safe fallback)
-                return [...oldData, newRecord];
-              }
-              
-              return oldData;
-            }
+            patchFunction
           );
         }
       )
@@ -1259,6 +1280,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dateWindowHook.driverIds,
     dateWindowHook.isLoading,
     trucks,
+    trailers, // Added missing dependency
     drivers,
     dispatchers,
     companies,
