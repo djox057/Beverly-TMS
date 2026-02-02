@@ -1155,6 +1155,7 @@ export type Database = {
           notice_2: string | null
           paid_amount: number | null
           paid_date: string | null
+          repair_id: string | null
           status: string
           trailer_number: string | null
           truck_number: string | null
@@ -1173,6 +1174,7 @@ export type Database = {
           notice_2?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          repair_id?: string | null
           status?: string
           trailer_number?: string | null
           truck_number?: string | null
@@ -1191,6 +1193,7 @@ export type Database = {
           notice_2?: string | null
           paid_amount?: number | null
           paid_date?: string | null
+          repair_id?: string | null
           status?: string
           trailer_number?: string | null
           truck_number?: string | null
@@ -1202,6 +1205,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_expenses_repair_id_fkey"
+            columns: ["repair_id"]
+            isOneToOne: false
+            referencedRelation: "repairs"
             referencedColumns: ["id"]
           },
         ]

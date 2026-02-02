@@ -314,14 +314,14 @@ export function RepairDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[650px] max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
             {repair ? "Edit Repair" : `Add ${repairType === 'truck' ? 'Truck' : 'Trailer'} Repair`}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
           {/* Repair Date */}
           <div className="space-y-2">
             <Label htmlFor="repair_date">Date *</Label>

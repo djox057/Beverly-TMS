@@ -129,8 +129,8 @@ export default function Repairs() {
           {activeTab === 'trailer' && <TableHead className="w-28">Trailer #</TableHead>}
           <TableHead className="w-40">Driver</TableHead>
           <TableHead className="min-w-[150px]">Reason</TableHead>
-          <TableHead className="w-32">Amount</TableHead>
           <TableHead className="min-w-[150px]">Accounting Note</TableHead>
+          <TableHead className="w-32">Amount</TableHead>
           <TableHead className="w-16">Paid</TableHead>
         </TableRow>
       </TableHeader>
@@ -161,10 +161,10 @@ export default function Repairs() {
               {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
               <TableCell>{repair.driver_name || '-'}</TableCell>
               <TableCell>{repair.reason}</TableCell>
-              <TableCell>{formatCurrency(repair.amount)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {repair.accounting_note || '-'}
               </TableCell>
+              <TableCell>{formatCurrency(repair.amount)}</TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={repair.is_paid}

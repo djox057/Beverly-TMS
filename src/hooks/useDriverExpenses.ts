@@ -130,14 +130,15 @@ export function useDriverExpenses(driverId: string | null) {
     mutationFn: async ({ id, ...updates }: Partial<DriverExpense> & { id: string }) => {
       // If amount or paid_amount is being updated, recalculate status
       let finalUpdates = { ...updates };
+      
+      // Fetch current expense to check if it's linked to a repair
+      const { data: current } = await supabase
+        .from("driver_expenses")
+        .select("amount, paid_amount, repair_id")
+        .eq("id", id)
+        .single();
+      
       if (updates.amount !== undefined || updates.paid_amount !== undefined) {
-        // Need to fetch current values if not provided
-        const { data: current } = await supabase
-          .from("driver_expenses")
-          .select("amount, paid_amount")
-          .eq("id", id)
-          .single();
-        
         const amount = updates.amount ?? current?.amount ?? 0;
         const paidAmount = updates.paid_amount !== undefined ? updates.paid_amount : current?.paid_amount;
         finalUpdates.status = calculateExpenseStatus(amount, paidAmount);
@@ -151,10 +152,30 @@ export function useDriverExpenses(driverId: string | null) {
         .single();
 
       if (error) throw error;
+
+      // If this expense is linked to a repair, sync paid status
+      if (current?.repair_id) {
+        const amount = updates.amount ?? current?.amount ?? 0;
+        const paidAmount = updates.paid_amount !== undefined ? updates.paid_amount : current?.paid_amount ?? 0;
+        const isPaid = paidAmount >= amount && amount > 0;
+        
+        await supabase
+          .from("repairs")
+          .update({ 
+            is_paid: isPaid,
+            // Also sync reason and accounting_note if updated
+            ...(updates.explanation !== undefined && { reason: updates.explanation }),
+            ...(updates.notice_1 !== undefined && { accounting_note: updates.notice_1 }),
+            ...(updates.amount !== undefined && { amount: updates.amount }),
+          })
+          .eq("id", current.repair_id);
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["driver-expenses", driverId] });
+      queryClient.invalidateQueries({ queryKey: ["repairs"] });
       toast.success("Expense updated successfully");
     },
     onError: (error) => {
