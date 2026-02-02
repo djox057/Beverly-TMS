@@ -62,13 +62,6 @@ export const DEFAULT_FIXED_EXPENSES: Omit<NewDriverExpense, 'driver_id'>[] = [
     is_fixed: true
   },
   {
-    name: "Equipment deposit",
-    explanation: "one time charge",
-    amount: 200,
-    status: "pending",
-    is_fixed: true
-  },
-  {
     name: "Start Expenses",
     explanation: "Drug Test",
     amount: 90,
