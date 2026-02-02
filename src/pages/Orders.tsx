@@ -245,14 +245,19 @@ const Orders = () => {
     }
   }, [isDispatchOnly, profile?.full_name]);
 
-  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 loads on-demand
+  // Progressive loading hook - loads orders in batches of 100
   const {
     data: orders,
     isLoading,
+    isLoadingMore,
     isLoadingLocked,
     progress: loadingProgress,
     unlockedCount,
     lockedCount,
+    totalCount: totalUnlockedCount,
+    totalLoaded,
+    hasMore,
+    loadMoreOrders,
     isPartialData,
   } = useOrdersProgressive(orderFilterOptions);
 
@@ -672,11 +677,32 @@ const Orders = () => {
       </div>;
   }
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+  // Calculate pagination based on total count (not just loaded orders)
+  // Use total unlocked count when we have more to load, otherwise use filtered count
+  const effectiveTotalCount = !hasActiveFilter && !searchTerm && hasMore && totalUnlockedCount 
+    ? totalUnlockedCount 
+    : filteredOrders.length;
+  const totalPages = Math.ceil(effectiveTotalCount / ORDERS_PER_PAGE);
   const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
   const endIndex = startIndex + ORDERS_PER_PAGE;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Load more orders when approaching end of loaded data
+  useEffect(() => {
+    // Only trigger for local data (not server-filtered or searched)
+    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    if (!hasMore || isLoadingMore) return;
+    
+    // Calculate if we need more data for upcoming pages
+    const loadedOrdersCount = orders?.length || 0;
+    const ordersNeededForNextPage = (currentPage + 1) * ORDERS_PER_PAGE;
+    
+    // If we need more orders than we have loaded, and there's more to load
+    if (ordersNeededForNextPage > loadedOrdersCount) {
+      console.log(`[Orders] Need ${ordersNeededForNextPage} orders but only have ${loadedOrdersCount}, loading more...`);
+      loadMoreOrders();
+    }
+  }, [currentPage, orders?.length, hasMore, isLoadingMore, hasActiveFilter, searchTerm, loadMoreOrders]);
 
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
