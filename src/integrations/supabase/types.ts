@@ -3657,59 +3657,43 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
-      get_assignment_history:
-        | {
-            Args: { p_entity_id: string; p_entity_type: string }
-            Returns: {
-              change_type: string
-              changed_at: string
-              changed_by: string
-              changed_by_name: string
-              driver1_id: string
-              driver1_name: string
-              driver2_id: string
-              driver2_name: string
-              id: string
-              reason: string
-              trailer_id: string
-              trailer_number: string
-              truck_id: string
-              truck_number: string
-            }[]
-          }
-        | {
-            Args: {
-              p_entity_id: string
-              p_entity_type: string
-              p_from_date?: string
-              p_limit?: number
-              p_to_date?: string
-            }
-            Returns: {
-              change_type: string
-              changed_at: string
-              changed_by: string
-              changed_by_name: string
-              driver1_id: string
-              driver1_name: string
-              driver2_id: string
-              driver2_name: string
-              id: string
-              old_driver1_id: string
-              old_driver1_name: string
-              old_driver2_id: string
-              old_driver2_name: string
-              old_trailer_id: string
-              old_trailer_number: string
-              old_truck_id: string
-              old_truck_number: string
-              reason: string
-              trailer_id: string
-              trailer_number: string
-              truck_id: string
-              truck_number: string
-            }[]
-          }
+      get_assignment_history: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_from_date?: string
+          p_limit?: number
+          p_to_date?: string
+        }
+        Returns: {
+          change_type: string
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          dispatcher_id: string
+          dispatcher_name: string
+          driver1_id: string
+          driver1_name: string
+          driver2_id: string
+          driver2_name: string
+          id: string
+          old_dispatcher_id: string
+          old_dispatcher_name: string
+          old_driver1_id: string
+          old_driver1_name: string
+          old_driver2_id: string
+          old_driver2_name: string
+          old_trailer_id: string
+          old_trailer_number: string
+          old_truck_id: string
+          old_truck_number: string
+          reason: string
+          trailer_id: string
+          trailer_number: string
+          truck_id: string
+          truck_number: string
+        }[]
+      }
       get_latest_truck_locations: {
         Args: never
         Returns: {

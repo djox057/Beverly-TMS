@@ -1,13 +1,13 @@
 import { Tenure, formatTenureDateRange, formatTenureDuration } from "@/utils/tenureCalculator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Truck, Container, Calendar, Clock, MessageSquare } from "lucide-react";
+import { User, Truck, Container, Calendar, Clock, MessageSquare, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReactNode } from "react";
 
 interface TenureCardProps {
   tenure: Tenure;
-  entityType: 'driver' | 'truck' | 'trailer';
+  entityType: 'driver' | 'truck' | 'trailer' | 'dispatcher';
   /** Percentage of total timeline this tenure represents (0-100) */
   timelinePercentage?: number;
   /** Custom icon to override default */
@@ -27,6 +27,8 @@ export const TenureCard = ({ tenure, entityType, timelinePercentage, icon }: Ten
         return <Truck className="h-4 w-4" />;
       case 'trailer':
         return <Container className="h-4 w-4" />;
+      case 'dispatcher':
+        return <UserCog className="h-4 w-4" />;
     }
   };
 
@@ -39,6 +41,8 @@ export const TenureCard = ({ tenure, entityType, timelinePercentage, icon }: Ten
           return 'No truck assigned';
         case 'trailer':
           return 'No trailer attached';
+        case 'dispatcher':
+          return 'No dispatcher assigned';
       }
     }
     
@@ -117,7 +121,7 @@ export const TenureCard = ({ tenure, entityType, timelinePercentage, icon }: Ten
 
 interface TenureListProps {
   tenures: Tenure[];
-  entityType: 'driver' | 'truck' | 'trailer';
+  entityType: 'driver' | 'truck' | 'trailer' | 'dispatcher';
   emptyMessage?: string;
 }
 
