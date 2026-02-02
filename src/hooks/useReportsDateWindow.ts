@@ -52,19 +52,20 @@ export const calculateDateWindow = (selectedDate: Date, direction: 'initial' | '
   const baseDate = startOfDay(selectedDate);
   
   if (direction === 'initial') {
-    // Initial load: 2 days before → 3 days after current date
+    // Initial load: 2 days before → 3 days after selected date
+    // This ensures the selected date is always covered
     return {
       startDate: subDays(baseDate, 2),
       endDate: addDays(baseDate, 3),
     };
   } else if (direction === 'past') {
-    // Past navigation: selected date - 1 day
+    // Past navigation: selected date - 1 day buffer
     return {
       startDate: subDays(baseDate, 1),
       endDate: baseDate,
     };
   } else {
-    // Future navigation: selected date + 1 day
+    // Future navigation: selected date + 1 day buffer
     return {
       startDate: baseDate,
       endDate: addDays(baseDate, 1),
@@ -664,9 +665,16 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
 
     const allOrders = new Map<string, any>();
     
-    // Get orders from all cached windows
+    // Get orders from all cached windows for the current mode
     for (const windowKeyStr of loadedWindowsRef.current) {
-      const cachedData = queryClient.getQueryData<{ orders: any[] }>(['reports-date-window', dispatcherId, windowKeyStr]);
+      // Build the full query key matching the query definition
+      const cachedData = queryClient.getQueryData<{ orders: any[] }>([
+        'reports-date-window', 
+        priorityOffice, 
+        windowKeyStr, 
+        individualMode ? 'individual' : 'all', 
+        individualMode ? currentUserDispatcherId : null
+      ]);
       if (cachedData?.orders) {
         for (const order of cachedData.orders) {
           // Use Map to deduplicate, most recent data wins
@@ -683,7 +691,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     }
 
     return Array.from(allOrders.values());
-  }, [data?.orders, dispatcherId, queryClient]);
+  }, [data?.orders, dispatcherId, priorityOffice, individualMode, currentUserDispatcherId, queryClient]);
 
   return {
     orders: data?.orders || [],
