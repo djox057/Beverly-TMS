@@ -345,8 +345,7 @@ const Reports = () => {
     return "Čačak";
   };
   // State for date-window navigation (used when USE_DATE_WINDOW_LOADING is true)
-  // CRITICAL: Use Chicago timezone to be consistent with all date logic on this page
-  const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(() => getChicagoToday());
+  const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
   
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
@@ -1282,8 +1281,7 @@ const Reports = () => {
       return calendarDates[dispatcherId];
     }
     // Default to 2 days before current day to show 6 days
-    // CRITICAL: Use Chicago timezone consistently
-    return addDays(getChicagoToday(), -2);
+    return addDays(new Date(), -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
     setCalendarDates((prev) => ({
@@ -1310,10 +1308,7 @@ const Reports = () => {
       // Center the new window on the visible range (newDate + 2 gives us -2 to +3 coverage)
       const newCenterDate = addDays(newDate, 2);
       console.log(`[Reports] Calendar navigation outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, 'yyyy-MM-dd')}`);
-      // CRITICAL: Use startTransition to prevent UI flash during background data loading
-      startTransition(() => {
-        setSelectedDateForWindow(newCenterDate);
-      });
+      setSelectedDateForWindow(newCenterDate);
     }
   };
   const getStatusColors = (status: string) => {
