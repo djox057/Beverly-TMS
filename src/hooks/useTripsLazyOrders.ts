@@ -20,7 +20,9 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   const queryClient = useQueryClient();
   const [searchedOrders, setSearchedOrders] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState(false);
   const lastSearchRef = useRef<string>("");
+  const lastCompletedSearchRef = useRef<string>("");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if global orders are already cached
@@ -34,6 +36,7 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
       if (searchedOrders.length > 0) {
         setSearchedOrders([]);
       }
+      setPendingSearch(false);
       return;
     }
 
@@ -49,12 +52,21 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
         setSearchedOrders([]);
       }
       lastSearchRef.current = "";
+      lastCompletedSearchRef.current = "";
+      setPendingSearch(false);
       return;
     }
 
-    // Skip if same search
-    if (searchKey === lastSearchRef.current) {
+    // Skip if same search as already completed
+    if (searchKey === lastCompletedSearchRef.current) {
+      setPendingSearch(false);
       return;
+    }
+
+    // Mark as pending search - this will hide old results immediately
+    if (searchKey !== lastSearchRef.current) {
+      setPendingSearch(true);
+      lastSearchRef.current = searchKey;
     }
 
     // Clear any pending timeout
@@ -64,17 +76,19 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
 
     // Debounce the search with 500ms delay
     searchTimeoutRef.current = setTimeout(async () => {
-      lastSearchRef.current = searchKey;
-
       // Priority: truck/driver search first
       if (truckDriverSearch && truckDriverSearch.length >= 2) {
         await searchByTruckOrDriver(truckDriverSearch, setSearchedOrders, setIsSearching);
+        lastCompletedSearchRef.current = searchKey;
+        setPendingSearch(false);
         return;
       }
 
       // Then load number search
       if (loadNumberSearch && loadNumberSearch.length >= 2) {
         await searchByLoadNumber(loadNumberSearch, setSearchedOrders, setIsSearching);
+        lastCompletedSearchRef.current = searchKey;
+        setPendingSearch(false);
       }
     }, 500);
 
@@ -86,8 +100,11 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   }, [searchState?.truckDriverSearch, searchState?.loadNumberSearch, hasGlobalOrders]);
 
   // Determine which orders to return
-  const orders = hasGlobalOrders ? globalOrdersCache : searchedOrders;
-  const isLoading = isSearching;
+  // If there's a pending search, return empty array to avoid flashing old results
+  const orders = hasGlobalOrders 
+    ? globalOrdersCache 
+    : (pendingSearch ? [] : searchedOrders);
+  const isLoading = isSearching || pendingSearch;
   const isLazyMode = !hasGlobalOrders;
 
   return {
