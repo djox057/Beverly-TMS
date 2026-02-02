@@ -11,7 +11,7 @@ export function useAllDriverDebts() {
   return useQuery({
     queryKey: ["all-driver-debts"],
     queryFn: async () => {
-      // Fetch all unpaid/partial expenses
+      // Fetch all unpaid/partial expenses (now includes cash advances)
       const { data: expenses, error: expensesError } = await supabase
         .from("driver_expenses")
         .select("driver_id, amount, paid_amount, status")
@@ -20,16 +20,6 @@ export function useAllDriverDebts() {
       if (expensesError) {
         console.error("Error fetching driver expenses:", expensesError);
         throw expensesError;
-      }
-
-      // Fetch all cash advances
-      const { data: cashAdvances, error: cashAdvError } = await supabase
-        .from("driver_cash_advances")
-        .select("driver_id, amount");
-
-      if (cashAdvError) {
-        console.error("Error fetching cash advances:", cashAdvError);
-        throw cashAdvError;
       }
 
       // Fetch driver names for mapping
@@ -51,19 +41,13 @@ export function useAllDriverDebts() {
       // Calculate debt per driver
       const debtByDriverId: Record<string, number> = {};
 
-      // Add expense debts
+      // Add expense debts (now includes cash advances since they're stored as expenses)
       (expenses || []).forEach(exp => {
         if (!exp.driver_id) return;
         const remaining = exp.amount - (exp.paid_amount || 0);
         if (remaining > 0) {
           debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) + remaining;
         }
-      });
-
-      // Add cash advance debts
-      (cashAdvances || []).forEach(ca => {
-        if (!ca.driver_id) return;
-        debtByDriverId[ca.driver_id] = (debtByDriverId[ca.driver_id] || 0) + ca.amount;
       });
 
       // Build result map by driver name for easier lookup in Analytics

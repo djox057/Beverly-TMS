@@ -25,6 +25,7 @@ export interface DriverExpense {
   is_fixed: boolean;
   created_at: string;
   updated_at: string;
+  cash_advance_id: string | null; // Links to driver_cash_advances table
 }
 
 // Calculate status based on paid_amount vs amount
@@ -194,10 +195,10 @@ export function useDriverExpenses(driverId: string | null) {
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (expenseId: string) => {
-      // First check if this expense is linked to a repair
+      // First check if this expense is linked to a repair or cash advance
       const { data: expense } = await supabase
         .from("driver_expenses")
-        .select("repair_id")
+        .select("repair_id, cash_advance_id")
         .eq("id", expenseId)
         .single();
 
@@ -209,6 +210,14 @@ export function useDriverExpenses(driverId: string | null) {
           .eq("id", expense.repair_id);
         
         if (repairError) throw repairError;
+      } else if (expense?.cash_advance_id) {
+        // If linked to cash advance, delete the cash advance (which will cascade delete the expense)
+        const { error: cashAdvanceError } = await supabase
+          .from("driver_cash_advances")
+          .delete()
+          .eq("id", expense.cash_advance_id);
+        
+        if (cashAdvanceError) throw cashAdvanceError;
       } else {
         // Otherwise just delete the expense directly
         const { error } = await supabase
@@ -221,6 +230,7 @@ export function useDriverExpenses(driverId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["driver-expenses", driverId] });
+      queryClient.invalidateQueries({ queryKey: ["driver-cash-advances", driverId] });
       queryClient.invalidateQueries({ queryKey: ["repairs"] });
       toast.success("Expense deleted successfully");
     },

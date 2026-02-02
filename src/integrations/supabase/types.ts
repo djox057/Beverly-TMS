@@ -1150,6 +1150,7 @@ export type Database = {
       driver_expenses: {
         Row: {
           amount: number
+          cash_advance_id: string | null
           created_at: string
           driver_id: string
           expense_date: string | null
@@ -1169,6 +1170,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          cash_advance_id?: string | null
           created_at?: string
           driver_id: string
           expense_date?: string | null
@@ -1188,6 +1190,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          cash_advance_id?: string | null
           created_at?: string
           driver_id?: string
           expense_date?: string | null
@@ -1206,6 +1209,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "driver_expenses_cash_advance_id_fkey"
+            columns: ["cash_advance_id"]
+            isOneToOne: false
+            referencedRelation: "driver_cash_advances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "driver_expenses_driver_id_fkey"
             columns: ["driver_id"]
