@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileDown, Loader2, DollarSign } from "lucide-react";
+import { FileDown, Loader2, DollarSign, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -58,11 +58,19 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   const [expenses, setExpenses] = useState<DriverExpense[]>([]);
   const [deductionAmounts, setDeductionAmounts] = useState<Record<string, string>>({});
   const [selectedExpenses, setSelectedExpenses] = useState<Set<string>>(new Set());
+  
+  // Inline add expense form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addingExpense, setAddingExpense] = useState(false);
+  const [newExpense, setNewExpense] = useState({ explanation: "", amount: "" });
 
   // Load unpaid expenses when dialog opens
   useEffect(() => {
     if (open && driverId) {
       loadUnpaidExpenses();
+      // Reset add form when dialog opens
+      setShowAddForm(false);
+      setNewExpense({ explanation: "", amount: "" });
     }
   }, [open, driverId]);
 
@@ -87,6 +95,62 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
       toast.error("Failed to load expenses");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle adding a new expense inline
+  const handleAddExpense = async () => {
+    if (!newExpense.explanation.trim() || !newExpense.amount) {
+      toast.error("Please enter both explanation and amount");
+      return;
+    }
+    
+    const amount = parseFloat(newExpense.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    
+    setAddingExpense(true);
+    try {
+      const { data, error } = await supabase
+        .from("driver_expenses")
+        .insert({
+          driver_id: driverId,
+          name: driverName,
+          explanation: newExpense.explanation.trim(),
+          amount: amount,
+          expense_date: getChicagoDate(),
+          truck_number: truckNumber || null,
+          status: "pending",
+          is_fixed: false,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Add to local state and auto-select it
+      setExpenses(prev => [...prev, data]);
+      setSelectedExpenses(prev => new Set([...prev, data.id]));
+      setDeductionAmounts(prev => ({
+        ...prev,
+        [data.id]: amount.toFixed(2),
+      }));
+      
+      // Reset form
+      setNewExpense({ explanation: "", amount: "" });
+      setShowAddForm(false);
+      
+      // Invalidate cache so Stuff page updates
+      queryClient.invalidateQueries({ queryKey: ["driver-expenses", driverId] });
+      
+      toast.success("Expense added and selected for deduction");
+    } catch (err) {
+      console.error("Error adding expense:", err);
+      toast.error("Failed to add expense");
+    } finally {
+      setAddingExpense(false);
     }
   };
 
@@ -255,12 +319,75 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
                   Select expenses to deduct from this week's statement
                 </p>
               </div>
-              {totalDeductions > 0 && (
-                <Badge variant="destructive" className="text-sm">
-                  Total: {formatCurrency(totalDeductions)}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {totalDeductions > 0 && (
+                  <Badge variant="destructive" className="text-sm">
+                    Total: {formatCurrency(totalDeductions)}
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="h-7 px-2"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Add
+                </Button>
+              </div>
             </div>
+            
+            {/* Inline Add Expense Form */}
+            {showAddForm && (
+              <div className="border rounded-lg p-3 mb-3 bg-muted/50">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs">Explanation</Label>
+                    <Input
+                      value={newExpense.explanation}
+                      onChange={(e) => setNewExpense(prev => ({ ...prev, explanation: e.target.value }))}
+                      placeholder="e.g., Toll violation, Equipment damage"
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="w-28">
+                    <Label className="text-xs">Amount</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense(prev => ({ ...prev, amount: e.target.value }))}
+                        placeholder="0.00"
+                        className="pl-7 h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleAddExpense}
+                    disabled={addingExpense}
+                    className="h-8"
+                  >
+                    {addingExpense ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setNewExpense({ explanation: "", amount: "" });
+                    }}
+                    className="h-8 px-2"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
