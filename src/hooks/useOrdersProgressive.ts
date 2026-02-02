@@ -155,25 +155,40 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Load more orders (called when approaching end of loaded data)
   const loadMore = useCallback(async () => {
-    if (isLoadingMoreRef.current || !hasMore || query.isLoading) return;
+    // Use ref to prevent concurrent loads (state updates are async)
+    if (isLoadingMoreRef.current) {
+      console.log("[useOrdersProgressive] Already loading, skipping");
+      return;
+    }
     
-    const currentOrders = query.data || [];
-    if (currentOrders.length === 0) return;
+    if (!hasMore) {
+      console.log("[useOrdersProgressive] No more to load");
+      return;
+    }
+
+    // Get current orders from cache directly (not from query.data to avoid stale closure)
+    const currentOrders = queryClient.getQueryData<any[]>(queryKey) || [];
+    if (currentOrders.length === 0) {
+      console.log("[useOrdersProgressive] No orders in cache yet");
+      return;
+    }
 
     const lastOrder = currentOrders[currentOrders.length - 1];
     const cursor = lastOrder.createdAt;
     
     // Prevent duplicate loads with same cursor
     if (cursor === lastCursorRef.current) {
-      console.log("[useOrdersProgressive] Skipping duplicate cursor");
+      console.log("[useOrdersProgressive] Skipping duplicate cursor:", cursor);
       return;
     }
 
+    // Set cursor BEFORE loading to prevent duplicate requests
+    lastCursorRef.current = cursor;
     isLoadingMoreRef.current = true;
     if (isMountedRef.current) setIsLoadingMore(true);
 
     try {
-      console.log(`[useOrdersProgressive] Loading more after cursor: ${cursor}`);
+      console.log(`[useOrdersProgressive] Loading more after cursor: ${cursor}, current count: ${currentOrders.length}`);
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
 
       let moreQuery = supabase
@@ -217,14 +232,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
       const newOrders = transformOrders(data || []);
       const stillHasMore = newOrders.length === PAGE_SIZE;
-      
-      lastCursorRef.current = cursor;
 
       // Merge into cache
       queryClient.setQueryData<any[]>(queryKey, (old) => {
         if (!old) return newOrders;
         const existingIds = new Set(old.map(o => o.id));
         const uniqueNew = newOrders.filter(o => !existingIds.has(o.id));
+        console.log(`[useOrdersProgressive] Merged ${uniqueNew.length} new orders, total: ${old.length + uniqueNew.length}`);
         return [...old, ...uniqueNew];
       });
 
@@ -232,14 +246,16 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         setHasMore(stillHasMore);
       }
 
-      console.log(`[useOrdersProgressive] Loaded ${newOrders.length} more orders`);
+      console.log(`[useOrdersProgressive] Loaded ${newOrders.length} more orders, hasMore: ${stillHasMore}`);
     } catch (error) {
       console.error("[useOrdersProgressive] Error loading more:", error);
+      // Reset cursor on error so we can retry
+      lastCursorRef.current = null;
     } finally {
       isLoadingMoreRef.current = false;
       if (isMountedRef.current) setIsLoadingMore(false);
     }
-  }, [hasMore, query.isLoading, query.data, queryKey, queryClient, bookedBy, fetchDispatcherDriverIds]);
+  }, [hasMore, queryKey, queryClient, bookedBy, fetchDispatcherDriverIds]);
 
   const progress = useMemo<ProgressiveLoadingProgress>(() => {
     const unlockedLoaded = query.data?.length ?? 0;
