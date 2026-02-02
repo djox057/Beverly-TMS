@@ -198,6 +198,27 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Failed to record cash advance");
     }
 
+    // Also create a driver_expense entry so cash advances work like regular expenses
+    // This enables editing, statement export deductions, and consistent debt tracking
+    const { error: expenseError } = await supabase
+      .from("driver_expenses")
+      .insert({
+        driver_id: driverId,
+        truck_number: truckNumber,
+        name: "Cash Advance",
+        explanation: "Cash Advance",
+        amount,
+        status: "pending",
+        paid_amount: 0,
+        is_fixed: false,
+        cash_advance_id: insertedAdvance.id, // Link to cash advance record
+      });
+
+    if (expenseError) {
+      console.error("Error inserting cash advance expense:", expenseError);
+      // Don't throw - the cash advance record was created, expense is secondary
+    }
+
     // Determine sender email based on company
     let fromEmail = "efs@bfprime.net"; // Default
     if (companyName?.toLowerCase().includes("beverly")) {
