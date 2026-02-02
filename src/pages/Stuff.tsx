@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Search, User, Truck, FileSpreadsheet, UserX } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriverProfile } from "@/components/DriverProfile";
 import { BulkImportDriverExcelDialog } from "@/components/BulkImportDriverExcelDialog";
@@ -15,18 +16,24 @@ export default function Stuff() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   
   const { data: drivers = [], isLoading } = useDrivers();
 
-  // Filter ALL drivers (active + inactive) based on search
+  // Filter drivers based on status and search
   const filteredDrivers = useMemo(() => {
-    // Include all drivers (both active and inactive)
-    const allDrivers = drivers;
+    // Filter by status first
+    let filtered = drivers;
+    if (statusFilter === "active") {
+      filtered = drivers.filter(d => d.is_active !== false);
+    } else if (statusFilter === "inactive") {
+      filtered = drivers.filter(d => d.is_active === false);
+    }
     
-    if (!searchQuery.trim()) return allDrivers;
+    if (!searchQuery.trim()) return filtered;
     
     const query = searchQuery.toLowerCase();
-    return allDrivers.filter((driver) => {
+    return filtered.filter((driver) => {
       const name = driver.name?.toLowerCase() || "";
       const firstName = driver.first_name?.toLowerCase() || "";
       const lastName = driver.last_name?.toLowerCase() || "";
@@ -43,7 +50,7 @@ export default function Stuff() {
         companyName.includes(query)
       );
     });
-  }, [drivers, searchQuery]);
+  }, [drivers, searchQuery, statusFilter]);
 
   // Get selected driver from URL param
   const selectedDriver = useMemo(() => {
@@ -109,15 +116,27 @@ export default function Stuff() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search drivers by name, truck, or phone..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search and Filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search drivers by name, truck, or phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "active" | "inactive" | "all")}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Driver Grid */}
