@@ -607,20 +607,25 @@ export const useReports = (options?: UseReportsOptions) => {
       }
     },
     onMutate: async ({ driverId, date, note, noteType }) => {
-      // Cancel any outgoing refetches for both query keys
+      // Cancel any outgoing refetches for relevant query keys
       await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
       await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
+      await queryClient.cancelQueries({ queryKey: ["adapter-lost-day-notes"] });
 
-      // Snapshot previous values for both queries
+      // Snapshot previous values for both legacy queries and the adapter query
       const previousPriority = queryClient.getQueriesData({ queryKey: ["reports", "priority"] });
       const previousFull = queryClient.getQueryData(["reports", "full"]);
+      const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-lost-day-notes"] });
 
       const now = new Date();
       const nowIso = now.toISOString();
       const lastEdit = now.toLocaleTimeString();
       const editDate = now.toLocaleDateString();
 
-      // Helper to update lost day note in data structure
+      // New note object for cache patch
+      const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
+
+      // Helper to update lost day note in legacy reports data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
@@ -630,7 +635,6 @@ export const useReports = (options?: UseReportsOptions) => {
             // Update lost day notes for this truck/driver (use lost_day_notes to match data structure)
             const existingNotes = truck.lost_day_notes || [];
             const noteIndex = existingNotes.findIndex((n: any) => n.date === date);
-            const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
             const updatedNotes = noteIndex >= 0
               ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
               : [...existingNotes, newNote];
@@ -638,6 +642,7 @@ export const useReports = (options?: UseReportsOptions) => {
             return { 
               ...truck, 
               lost_day_notes: updatedNotes,
+              lostDayNotes: updatedNotes,
               lastEdit,
               editDate,
             };
@@ -645,14 +650,31 @@ export const useReports = (options?: UseReportsOptions) => {
         }));
       };
 
-      // Optimistically update both query caches immediately
+      // Optimistically update legacy query caches
       queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateNoteInData);
       queryClient.setQueryData(["reports", "full"], updateNoteInData);
 
-      return { previousPriority, previousFull };
+      // Optimistically update adapter-lost-day-notes (flat array) so useMemo re-computes immediately
+      queryClient.setQueriesData(
+        { queryKey: ["adapter-lost-day-notes"], exact: false },
+        (oldData: any[] | undefined) => {
+          if (!oldData) return oldData;
+          const existingIndex = oldData.findIndex(
+            (n) => n.driver_id === driverId && n.date === date
+          );
+          if (existingIndex >= 0) {
+            const updated = [...oldData];
+            updated[existingIndex] = { ...updated[existingIndex], ...newNote };
+            return updated;
+          }
+          return [...oldData, newNote];
+        }
+      );
+
+      return { previousPriority, previousFull, previousAdapterNotes };
     },
     onError: (err, variables, context) => {
-      // Rollback both caches on error
+      // Rollback all caches on error
       if (context?.previousPriority) {
         context.previousPriority.forEach(([queryKey, data]: [any, any]) => {
           queryClient.setQueryData(queryKey, data);
@@ -661,12 +683,13 @@ export const useReports = (options?: UseReportsOptions) => {
       if (context?.previousFull) {
         queryClient.setQueryData(["reports", "full"], context.previousFull);
       }
+      if (context?.previousAdapterNotes) {
+        context.previousAdapterNotes.forEach(([queryKey, data]: [any, any]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
     },
-    onSuccess: () => {
-      // Invalidate both queries to ensure cache is synced with database
-      queryClient.invalidateQueries({ queryKey: ["reports", "priority"] });
-      queryClient.invalidateQueries({ queryKey: ["reports", "full"] });
-    },
+    // Real-time subscription handles final cache update - no invalidation needed
   });
 
   const updatePickupDropArrival = useMutation({

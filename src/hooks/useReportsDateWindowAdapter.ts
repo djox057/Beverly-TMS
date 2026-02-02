@@ -770,21 +770,54 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
-          // Invalidate the adapter-lost-day-notes query to force a refetch
-          // This ensures the useMemo depending on lostDayNotes will recompute
-          // Use refetchType 'active' to only refetch if the query is currently mounted
-          queryClient.invalidateQueries({ 
-            queryKey: ["adapter-lost-day-notes"], 
-            exact: false,
-            refetchType: 'active'
-          });
-          
-          // Also invalidate the reports query to ensure UI updates
-          queryClient.invalidateQueries({ 
-            queryKey: ["reports"], 
-            exact: false,
-            refetchType: 'none' // Don't refetch legacy reports, just mark stale
-          });
+          // Patch the adapter-lost-day-notes cache directly so useMemo recomputes immediately
+          queryClient.setQueriesData(
+            { queryKey: ["adapter-lost-day-notes"], exact: false },
+            (oldData: any[] | undefined) => {
+              if (!oldData) return oldData;
+              
+              if (eventType === "DELETE") {
+                return oldData.filter((note) => note.id !== oldRecord.id);
+              }
+              
+              if (eventType === "INSERT") {
+                // Check for duplicate by id first, then by composite key (driver_id + date)
+                const existsById = oldData.some((note) => note.id === newRecord.id);
+                if (existsById) {
+                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+                }
+                const existsByComposite = oldData.some(
+                  (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
+                );
+                if (existsByComposite) {
+                  return oldData.map((note) =>
+                    note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
+                  );
+                }
+                return [...oldData, newRecord];
+              }
+              
+              if (eventType === "UPDATE") {
+                // Replace by id or by (driver_id, date) composite key
+                const existingById = oldData.some((note) => note.id === newRecord.id);
+                if (existingById) {
+                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+                }
+                const existingByComposite = oldData.some(
+                  (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
+                );
+                if (existingByComposite) {
+                  return oldData.map((note) =>
+                    note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
+                  );
+                }
+                // Not found: append (shouldn't happen often but safe fallback)
+                return [...oldData, newRecord];
+              }
+              
+              return oldData;
+            }
+          );
         }
       )
       .subscribe((status) => {
