@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3, FileSpreadsheet, Filter } from "lucide-react";
 import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { AddDriverExpenseDialog } from "./AddDriverExpenseDialog";
@@ -64,6 +64,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
   const [editingExpense, setEditingExpense] = useState<DriverExpense | null>(null);
   const [showDebtGraph, setShowDebtGraph] = useState(false);
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
@@ -202,34 +203,42 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
 
   // Combine expenses with cash advances for display
   // Sort: fixed expenses (Start Expenses) first, then by created_at
-  const allItems = [
-    ...expenses,
-    ...cashAdvances.map((ca) => ({
-      id: `ca-${ca.id}`,
-      driver_id: driver.id,
-      truck_number: ca.truck_number,
-      trailer_number: null,
-      name: driver.name || "Driver",
-      explanation: "Cash Advance",
-      expense_date: ca.requested_at.split("T")[0],
-      amount: ca.amount,
-      status: "paid",
-      paid_date: ca.requested_at.split("T")[0],
-      paid_amount: ca.amount,
-      notice_1: null,
-      notice_2: null,
-      is_fixed: false,
-      created_at: ca.requested_at,
-      updated_at: ca.requested_at,
-      isCashAdvance: true,
-    })),
-  ].sort((a, b) => {
-    // Fixed expenses always come first
-    if (a.is_fixed && !b.is_fixed) return -1;
-    if (!a.is_fixed && b.is_fixed) return 1;
-    // Within same category, sort by created_at
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
+  const allItems = useMemo(() => {
+    let items = [
+      ...expenses,
+      ...cashAdvances.map((ca) => ({
+        id: `ca-${ca.id}`,
+        driver_id: driver.id,
+        truck_number: ca.truck_number,
+        trailer_number: null,
+        name: driver.name || "Driver",
+        explanation: "Cash Advance",
+        expense_date: ca.requested_at.split("T")[0],
+        amount: ca.amount,
+        status: "paid",
+        paid_date: ca.requested_at.split("T")[0],
+        paid_amount: ca.amount,
+        notice_1: null,
+        notice_2: null,
+        is_fixed: false,
+        created_at: ca.requested_at,
+        updated_at: ca.requested_at,
+        isCashAdvance: true,
+      })),
+    ];
+
+    // Apply unpaid filter if enabled
+    if (showUnpaidOnly) {
+      items = items.filter(item => item.status === 'pending' || item.status === 'partial');
+    }
+
+    // Sort: fixed expenses first, then by created_at
+    return items.sort((a, b) => {
+      if (a.is_fixed && !b.is_fixed) return -1;
+      if (!a.is_fixed && b.is_fixed) return 1;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }, [expenses, cashAdvances, driver.id, driver.name, showUnpaidOnly]);
 
   return (
     <div className="space-y-6">
@@ -482,6 +491,14 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg">Expenses & Cash Advances</CardTitle>
           <div className="flex gap-2">
+            <Button 
+              variant={showUnpaidOnly ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowUnpaidOnly(!showUnpaidOnly)}
+            >
+              <Filter className="h-4 w-4 mr-1" />
+              {showUnpaidOnly ? "Show All" : "Unpaid Only"}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowImportExcelDialog(true)}>
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Import Excel
