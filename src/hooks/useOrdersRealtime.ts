@@ -76,7 +76,8 @@ export function useOrdersRealtime() {
     ) => {
       // Get all queries that start with "orders"
       const cache = queryClient.getQueryCache();
-      const orderQueries = cache.findAll({ queryKey: ["orders"] });
+      // IMPORTANT: exact=false so this matches both ["orders"] and ["orders","filtered",...]
+      const orderQueries = cache.findAll({ queryKey: ["orders"], exact: false });
 
       console.log(`[Realtime] Updating ${orderQueries.length} orders caches for order ${orderId}`);
 
