@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.clear-weekly-plans]
 verify_jwt = false
+
+[functions.cleanup-zero-canceled-orders]
+verify_jwt = false
