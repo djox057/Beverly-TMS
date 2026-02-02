@@ -473,7 +473,7 @@ const Trips = () => {
   const queryClient = useQueryClient();
 
   // Cell selection for Excel-like sum/average functionality
-  const { selectedValues, toggleCell, clearSelection, isSelected } = useCellSelection();
+  const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
 
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
   const canMoveLoads = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
@@ -4525,7 +4525,16 @@ const Trips = () => {
                                 )}
                               </div>
                             </TableCell>
-                          <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
+                          <TableCell 
+                            className={`py-3 cursor-pointer select-none transition-colors ${
+                              isSelected(`week-miles-${week.weekStart}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={() => toggleCell(`week-miles-${week.weekStart}`, weekTotal.miles, "miles")}
+                          >
+                            {weekTotal.miles.toLocaleString()}
+                          </TableCell>
                           <TableCell colSpan={2} className="py-3"></TableCell>
                           <TableCell 
                             className={`py-3 cursor-pointer select-none transition-colors ${
@@ -4533,7 +4542,7 @@ const Trips = () => {
                                 ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
                                 : "hover:bg-muted/50"
                             }`}
-                            onClick={() => toggleCell(`week-driver-${week.weekStart}`, weekTotal.driverPay, "driverPay")}
+                            onClick={() => toggleCell(`week-driver-${week.weekStart}`, weekTotal.driverPay, "driverPay", weekTotal.miles)}
                           >
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.driverPay)}
@@ -4545,7 +4554,7 @@ const Trips = () => {
                                 ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
                                 : "hover:bg-muted/50"
                             }`}
-                            onClick={() => toggleCell(`week-freight-${week.weekStart}`, weekTotal.freightAmount, "freightAmount")}
+                            onClick={() => toggleCell(`week-freight-${week.weekStart}`, weekTotal.freightAmount, "freightAmount", weekTotal.miles)}
                           >
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.freightAmount)}
@@ -4804,7 +4813,17 @@ const Trips = () => {
                                   {order.deliveryState}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell 
+                                className={`cursor-pointer select-none transition-colors ${
+                                  isSelected(`order-miles-${order.virtualId ?? order.id}`) 
+                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
+                                    : "hover:bg-muted/50"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCell(`order-miles-${order.virtualId ?? order.id}`, Number(order.mileage) || 0, "miles");
+                                }}
+                              >
                                 <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
                               </TableCell>
                               <TableCell>
@@ -4821,7 +4840,7 @@ const Trips = () => {
                                 }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleCell(`order-driver-${order.virtualId ?? order.id}`, Number(order.totalDriverPay) || 0, "driverPay");
+                                  toggleCell(`order-driver-${order.virtualId ?? order.id}`, Number(order.totalDriverPay) || 0, "driverPay", Number(order.mileage) || 0);
                                 }}
                               >
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
@@ -4836,7 +4855,7 @@ const Trips = () => {
                                 }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleCell(`order-freight-${order.virtualId ?? order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount");
+                                  toggleCell(`order-freight-${order.virtualId ?? order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount", Number(order.mileage) || 0);
                                 }}
                               >
                                 <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
@@ -5159,7 +5178,7 @@ const Trips = () => {
       )}
 
       {/* Cell Selection Summary - Excel-like sum/average popup */}
-      <CellSelectionSummary selectedValues={selectedValues} onClear={clearSelection} />
+      <CellSelectionSummary selectedCellsArray={selectedCellsArray} onClear={clearSelection} />
     </div>
   );
 };
