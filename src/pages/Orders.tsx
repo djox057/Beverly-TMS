@@ -398,6 +398,22 @@ const Orders = () => {
     if (driverFilter !== "all-drivers" && !driverId) return null;
     if (brokerFilter !== "all-brokers" && !brokerId) return null;
     
+    // For date ranges, ensure the "to" date includes the full day
+    // by setting it to 23:59:59.999 of that day
+    let deliveryDateTo: string | undefined;
+    if (dateRange?.to) {
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      deliveryDateTo = endOfDay.toISOString();
+    }
+    
+    let pickupDateTo: string | undefined;
+    if (pickupDateRange?.to) {
+      const endOfDay = new Date(pickupDateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      pickupDateTo = endOfDay.toISOString();
+    }
+    
     return {
       companyId,
       truckCompanyId,
@@ -408,9 +424,9 @@ const Orders = () => {
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
       deliveryDateFrom: dateRange?.from?.toISOString(),
-      deliveryDateTo: dateRange?.to?.toISOString(),
+      deliveryDateTo,
       pickupDateFrom: pickupDateRange?.from?.toISOString(),
-      pickupDateTo: pickupDateRange?.to?.toISOString(),
+      pickupDateTo,
     };
   }, [hasActiveFilter, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange, companies, trucks, drivers, brokers]);
 
