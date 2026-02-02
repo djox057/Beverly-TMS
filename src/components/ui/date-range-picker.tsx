@@ -27,6 +27,30 @@ export function DateRangePicker({
   className,
   disabled = false,
 }: DateRangePickerProps) {
+  // Handle calendar date selection to set same-day range on single click
+  const handleDateChange = (newDate: DateRange | undefined) => {
+    if (!newDate) {
+      onDateChange?.(undefined);
+      return;
+    }
+
+    // If only 'from' is selected (first click), set 'to' to the same date
+    if (newDate.from && !newDate.to) {
+      const from = new Date(newDate.from);
+      const to = new Date(newDate.from);
+      onDateChange?.({ from, to });
+    } else {
+      // Second click - use the full range
+      onDateChange?.(newDate);
+    }
+  };
+
+  // Display logic: show single date if from === to, otherwise show range
+  const isSameDay = date?.from && date?.to && 
+    date.from.getFullYear() === date.to.getFullYear() &&
+    date.from.getMonth() === date.to.getMonth() &&
+    date.from.getDate() === date.to.getDate();
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -43,7 +67,9 @@ export function DateRangePicker({
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
-              date.to ? (
+              isSameDay ? (
+                format(date.from, "LLL dd, y")
+              ) : date.to ? (
                 <>
                   {format(date.from, "LLL dd, y")} -{" "}
                   {format(date.to, "LLL dd, y")}
@@ -62,7 +88,7 @@ export function DateRangePicker({
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={onDateChange}
+            onSelect={handleDateChange}
             numberOfMonths={2}
             className="p-3 pointer-events-auto"
           />
