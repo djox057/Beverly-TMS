@@ -24,7 +24,6 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useBrokers } from "@/hooks/useBrokers";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
-import { OrdersLoadingProgress, OrdersLoadingBadge } from "@/components/OrdersLoadingProgress";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -255,8 +254,6 @@ const Orders = () => {
     unlockedCount,
     lockedCount,
     isPartialData,
-    requestLockedOrders,
-    lockedOrdersLoaded
   } = useOrdersProgressive(orderFilterOptions);
 
   // For error handling, use a stable reference
@@ -577,18 +574,7 @@ const Orders = () => {
   // Note: Server-side filtering is now handled by useFilteredOrdersSearch
   // The old client-side filter loading logic has been replaced
 
-  // Trigger loading more locked orders when user paginates near the end of loaded data
-  // Calculate how many orders we need for current page
-  const ordersNeededForCurrentView = currentPage * ORDERS_PER_PAGE;
-  const ordersCurrentlyLoaded = unlockedCount + (loadingProgress.lockedLoaded || 0);
-  const needsMoreData = ordersNeededForCurrentView > ordersCurrentlyLoaded - ORDERS_PER_PAGE;
-  useEffect(() => {
-    // Load more locked orders if we're approaching the end of loaded data
-    if (needsMoreData && !isLoadingLocked && unlockedCount > 0 && !lockedOrdersLoaded) {
-      console.log(`[Orders] Need more data: need ${ordersNeededForCurrentView}, have ${ordersCurrentlyLoaded}`);
-      requestLockedOrders();
-    }
-  }, [needsMoreData, isLoadingLocked, unlockedCount, lockedOrdersLoaded, ordersNeededForCurrentView, ordersCurrentlyLoaded, requestLockedOrders]);
+  // Phase 2 (progressive archived loading) removed.
 
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
@@ -1794,9 +1780,6 @@ const Orders = () => {
                   </PaginationContent>
                 </Pagination>
               </div>}
-
-            {/* Progressive Loading Progress Indicator */}
-            {loadingProgress.phase !== "complete" && !isSearching && !debouncedSearchTerm}
 
             {/* Server-side search indicator */}
             {isSearching && <div className="flex items-center justify-center gap-2 px-6 py-4 border-t bg-muted/30">
