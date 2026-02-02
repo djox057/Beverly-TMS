@@ -54,8 +54,11 @@ export function useAutoSwitchOffice({
   // Flag to prevent re-triggering after auto-switch - tracks filter value AND target office
   const lastAutoSwitchRef = useRef<{ filter: string; value: string; targetOffice: string } | null>(null);
   
-  // Timestamp to prevent rapid re-searches after tab switch
+  // Timestamp to prevent rapid re-searches after tab switch (increased to 2000ms to allow row clicks)
   const lastSwitchTimeRef = useRef<number>(0);
+  
+  // Track when a local match exists - stop auto-switching entirely until filter changes
+  const localMatchFoundRef = useRef<{ filter: string; value: string; office: string } | null>(null);
 
   // State for ambiguous matches (to show indicator in UI)
   const [ambiguousMatch, setAmbiguousMatch] = useState<{
@@ -389,6 +392,7 @@ export function useAutoSwitchOffice({
     if (!debouncedTruckDriver) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
       setTruckSearchStatus("idle");
+      localMatchFoundRef.current = null;
       return;
     }
     
@@ -396,6 +400,13 @@ export function useAutoSwitchOffice({
     const isNumeric = /^\d+$/.test(debouncedTruckDriver.trim());
     const minLength = isNumeric ? 3 : 2;
     if (debouncedTruckDriver.trim().length < minLength) return;
+    
+    // If we already found a local match for this exact search, don't re-search ever
+    const localMatch = localMatchFoundRef.current;
+    if (localMatch?.filter === "truck" && localMatch?.value === debouncedTruckDriver) {
+      setTruckSearchStatus("found");
+      return;
+    }
     
     // Prevent loops: check if we already switched for this exact filter value AND we're on the target office
     const lastSwitch = lastAutoSwitchRef.current;
@@ -405,16 +416,17 @@ export function useAutoSwitchOffice({
       return;
     }
     
-    // Prevent rapid re-triggering after tab switch (wait 500ms)
+    // Prevent rapid re-triggering after tab switch (2000ms to allow clicking on rows)
     const timeSinceLastSwitch = Date.now() - lastSwitchTimeRef.current;
-    if (timeSinceLastSwitch < 500) {
+    if (timeSinceLastSwitch < 2000) {
       return;
     }
     
     if (isSearchingRef.current) return;
     
-    // Local check - if match exists in CURRENT TAB, don't switch
+    // Local check - if match exists in CURRENT TAB, don't switch and REMEMBER this
     if (hasLocalMatch("truck", debouncedTruckDriver)) {
+      localMatchFoundRef.current = { filter: "truck", value: debouncedTruckDriver, office: activeTab };
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
       setTruckSearchStatus("found");
       return;
@@ -468,11 +480,19 @@ export function useAutoSwitchOffice({
     if (!debouncedDispatchName) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
       setDispatchSearchStatus("idle");
+      localMatchFoundRef.current = null;
       return;
     }
     
     // Minimum 2 chars
     if (debouncedDispatchName.trim().length < 2) return;
+    
+    // If we already found a local match for this exact search, don't re-search
+    const localMatch = localMatchFoundRef.current;
+    if (localMatch?.filter === "dispatch" && localMatch?.value === debouncedDispatchName) {
+      setDispatchSearchStatus("found");
+      return;
+    }
     
     // Prevent loops: check if we already switched for this exact filter value AND we're on the target office
     const lastSwitch = lastAutoSwitchRef.current;
@@ -481,16 +501,17 @@ export function useAutoSwitchOffice({
       return;
     }
     
-    // Prevent rapid re-triggering after tab switch
+    // Prevent rapid re-triggering after tab switch (2000ms)
     const timeSinceLastSwitch = Date.now() - lastSwitchTimeRef.current;
-    if (timeSinceLastSwitch < 500) {
+    if (timeSinceLastSwitch < 2000) {
       return;
     }
     
     if (isSearchingRef.current) return;
     
-    // Local check
+    // Local check - remember if found locally
     if (hasLocalMatch("dispatch", debouncedDispatchName)) {
+      localMatchFoundRef.current = { filter: "dispatch", value: debouncedDispatchName, office: activeTab };
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
       setDispatchSearchStatus("found");
       return;
@@ -544,11 +565,19 @@ export function useAutoSwitchOffice({
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
       setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
+      localMatchFoundRef.current = null;
       return;
     }
     
     // Minimum 3 chars for load numbers
     if (debouncedLoadNumber.trim().length < 3) return;
+    
+    // If we already found a local match for this exact search, don't re-search
+    const localMatch = localMatchFoundRef.current;
+    if (localMatch?.filter === "load" && localMatch?.value === debouncedLoadNumber) {
+      setLoadSearchStatus("found");
+      return;
+    }
     
     // Prevent loops: check if we already switched for this exact filter value AND we're on the target office
     const lastSwitch = lastAutoSwitchRef.current;
@@ -557,16 +586,17 @@ export function useAutoSwitchOffice({
       return;
     }
     
-    // Prevent rapid re-triggering after tab switch
+    // Prevent rapid re-triggering after tab switch (2000ms)
     const timeSinceLastSwitch = Date.now() - lastSwitchTimeRef.current;
-    if (timeSinceLastSwitch < 500) {
+    if (timeSinceLastSwitch < 2000) {
       return;
     }
     
     if (isSearchingRef.current) return;
     
-    // Local check
+    // Local check - remember if found locally
     if (hasLocalMatch("load", debouncedLoadNumber)) {
+      localMatchFoundRef.current = { filter: "load", value: debouncedLoadNumber, office: activeTab };
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
       setLoadSearchStatus("found");
       return;
