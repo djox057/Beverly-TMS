@@ -59,6 +59,12 @@ export function useAutoSwitchOffice({
   
   // Track when a local match exists - stop auto-switching entirely until filter changes
   const localMatchFoundRef = useRef<{ filter: string; value: string; office: string } | null>(null);
+  
+  // Track the previous activeTab to detect MANUAL tab switches (vs auto-switch)
+  const prevActiveTabRef = useRef<string>(activeTab);
+  
+  // Track when user manually switched tabs - should block auto-switch for this search term
+  const manualTabSwitchRef = useRef<{ filter: string; value: string } | null>(null);
 
   // State for ambiguous matches (to show indicator in UI)
   const [ambiguousMatch, setAmbiguousMatch] = useState<{
@@ -387,12 +393,36 @@ export function useAutoSwitchOffice({
     }
   }, []);
 
+  // Detect manual tab switches (user clicked a tab, not auto-switch)
+  useEffect(() => {
+    const prevTab = prevActiveTabRef.current;
+    const lastSwitch = lastAutoSwitchRef.current;
+    
+    // If tab changed and it wasn't from our auto-switch
+    if (prevTab !== activeTab && lastSwitch?.targetOffice !== activeTab) {
+      // User manually switched tabs - block auto-switch for current search terms
+      if (debouncedTruckDriver && debouncedTruckDriver.trim().length >= 2) {
+        manualTabSwitchRef.current = { filter: "truck", value: debouncedTruckDriver };
+      } else if (debouncedDispatchName && debouncedDispatchName.trim().length >= 2) {
+        manualTabSwitchRef.current = { filter: "dispatch", value: debouncedDispatchName };
+      } else if (debouncedLoadNumber && debouncedLoadNumber.trim().length >= 3) {
+        manualTabSwitchRef.current = { filter: "load", value: debouncedLoadNumber };
+      }
+    }
+    
+    prevActiveTabRef.current = activeTab;
+  }, [activeTab, debouncedTruckDriver, debouncedDispatchName, debouncedLoadNumber]);
+
   // Main effect for Truck/Driver filter
   useEffect(() => {
     if (!debouncedTruckDriver) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
       setTruckSearchStatus("idle");
       localMatchFoundRef.current = null;
+      // Clear manual switch block when filter is cleared
+      if (manualTabSwitchRef.current?.filter === "truck") {
+        manualTabSwitchRef.current = null;
+      }
       return;
     }
     
@@ -400,6 +430,13 @@ export function useAutoSwitchOffice({
     const isNumeric = /^\d+$/.test(debouncedTruckDriver.trim());
     const minLength = isNumeric ? 3 : 2;
     if (debouncedTruckDriver.trim().length < minLength) return;
+    
+    // If user manually switched tabs while this search was active, don't auto-switch back
+    const manualSwitch = manualTabSwitchRef.current;
+    if (manualSwitch?.filter === "truck" && manualSwitch?.value === debouncedTruckDriver) {
+      setTruckSearchStatus("idle");
+      return;
+    }
     
     // If we already found a local match for this exact search, don't re-search ever
     const localMatch = localMatchFoundRef.current;
@@ -481,11 +518,22 @@ export function useAutoSwitchOffice({
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
       setDispatchSearchStatus("idle");
       localMatchFoundRef.current = null;
+      // Clear manual switch block when filter is cleared
+      if (manualTabSwitchRef.current?.filter === "dispatch") {
+        manualTabSwitchRef.current = null;
+      }
       return;
     }
     
     // Minimum 2 chars
     if (debouncedDispatchName.trim().length < 2) return;
+    
+    // If user manually switched tabs while this search was active, don't auto-switch back
+    const manualSwitch = manualTabSwitchRef.current;
+    if (manualSwitch?.filter === "dispatch" && manualSwitch?.value === debouncedDispatchName) {
+      setDispatchSearchStatus("idle");
+      return;
+    }
     
     // If we already found a local match for this exact search, don't re-search
     const localMatch = localMatchFoundRef.current;
@@ -566,11 +614,22 @@ export function useAutoSwitchOffice({
       setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
       localMatchFoundRef.current = null;
+      // Clear manual switch block when filter is cleared
+      if (manualTabSwitchRef.current?.filter === "load") {
+        manualTabSwitchRef.current = null;
+      }
       return;
     }
     
     // Minimum 3 chars for load numbers
     if (debouncedLoadNumber.trim().length < 3) return;
+    
+    // If user manually switched tabs while this search was active, don't auto-switch back
+    const manualSwitch = manualTabSwitchRef.current;
+    if (manualSwitch?.filter === "load" && manualSwitch?.value === debouncedLoadNumber) {
+      setLoadSearchStatus("idle");
+      return;
+    }
     
     // If we already found a local match for this exact search, don't re-search
     const localMatch = localMatchFoundRef.current;
