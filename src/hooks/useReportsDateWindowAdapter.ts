@@ -637,6 +637,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // P3: Subscribe to truck_notes realtime changes and patch cache directly (no refetch)
   const truckNotesChannelRef = useRef<RealtimeChannel | null>(null);
+  // P4: Subscribe to lost_day_notes realtime changes and patch cache directly
+  const lostDayNotesChannelRef = useRef<RealtimeChannel | null>(null);
   const driverIdsSetRef = useRef<Set<string>>(new Set());
   
   // Keep driver IDs in a ref to avoid stale closures in subscription callback
@@ -729,6 +731,137 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         console.log(`[adapter] Unsubscribing from truck_notes realtime for office: ${priorityOffice}`);
         supabase.removeChannel(truckNotesChannelRef.current);
         truckNotesChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
+
+  // P4: Subscribe to lost_day_notes realtime changes and patch cache directly (no refetch)
+  useEffect(() => {
+    if (!scopeEnabled || driverIdsForScope.length === 0) {
+      // Cleanup any existing channel when disabled
+      if (lostDayNotesChannelRef.current) {
+        supabase.removeChannel(lostDayNotesChannelRef.current);
+        lostDayNotesChannelRef.current = null;
+      }
+      return;
+    }
+    
+    // Avoid duplicate subscriptions
+    if (lostDayNotesChannelRef.current) return;
+    
+    const channelName = `adapter-lost-day-notes-realtime-${priorityOffice || 'default'}`;
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lost_day_notes" },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const driverId = newRecord?.driver_id || oldRecord?.driver_id;
+          const eventType = payload.eventType;
+          
+          // Scope filtering: ignore events for drivers not in current scope
+          if (!driverId || !driverIdsSetRef.current.has(driverId)) {
+            console.log(`[adapter] lost_day_notes realtime: ${eventType} ignored - driver ${driverId} not in scope`);
+            return;
+          }
+          
+          console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}`);
+          
+          // Patch the adapter cache directly
+          queryClient.setQueriesData(
+            { queryKey: ["adapter-lost-day-notes"], exact: false },
+            (oldData: any[] | undefined) => {
+              if (!oldData) return oldData;
+              
+              if (eventType === "DELETE") {
+                // Remove note by id
+                return oldData.filter((note) => note.id !== oldRecord.id);
+              }
+              
+              if (eventType === "INSERT") {
+                // Append if not already present
+                const exists = oldData.some((note) => note.id === newRecord.id);
+                if (exists) {
+                  // Update instead (in case of race condition)
+                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
+                }
+                return [...oldData, newRecord];
+              }
+              
+              if (eventType === "UPDATE") {
+                // Replace existing by id, or by (driver_id, date) composite key
+                const existingIndex = oldData.findIndex((note) => 
+                  note.id === newRecord.id || 
+                  (note.driver_id === newRecord.driver_id && note.date === newRecord.date)
+                );
+                if (existingIndex >= 0) {
+                  const updated = [...oldData];
+                  updated[existingIndex] = newRecord;
+                  return updated;
+                }
+                // If not in cache yet, append it
+                return [...oldData, newRecord];
+              }
+              
+              return oldData;
+            }
+          );
+          
+          // Also patch the Reports queries so UI updates immediately
+          // (The transformedData useMemo will pick up the change from adapter cache)
+          queryClient.setQueriesData(
+            { queryKey: ["reports"], exact: false },
+            (oldReportsData: any) => {
+              if (!oldReportsData || !Array.isArray(oldReportsData)) return oldReportsData;
+              return oldReportsData.map((group: any) => ({
+                ...group,
+                trucks: (group.trucks || []).map((truck: any) => {
+                  if (truck.driverId !== driverId) return truck;
+                  // Update lost_day_notes for this truck/driver
+                  const existingNotes = truck.lost_day_notes || [];
+                  
+                  if (eventType === "DELETE") {
+                    return {
+                      ...truck,
+                      lost_day_notes: existingNotes.filter((n: any) => n.id !== oldRecord.id),
+                    };
+                  }
+                  
+                  const noteIndex = existingNotes.findIndex((n: any) => 
+                    n.id === newRecord.id || 
+                    (n.driver_id === newRecord.driver_id && n.date === newRecord.date)
+                  );
+                  
+                  if (noteIndex >= 0) {
+                    const updatedNotes = [...existingNotes];
+                    updatedNotes[noteIndex] = newRecord;
+                    return { ...truck, lost_day_notes: updatedNotes };
+                  }
+                  
+                  // Not found, append
+                  return { ...truck, lost_day_notes: [...existingNotes, newRecord] };
+                }),
+              }));
+            }
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`[adapter] Subscribed to lost_day_notes realtime for office: ${priorityOffice}`);
+        }
+      });
+    
+    lostDayNotesChannelRef.current = channel;
+    
+    return () => {
+      if (lostDayNotesChannelRef.current) {
+        console.log(`[adapter] Unsubscribing from lost_day_notes realtime for office: ${priorityOffice}`);
+        supabase.removeChannel(lostDayNotesChannelRef.current);
+        lostDayNotesChannelRef.current = null;
       }
     };
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
