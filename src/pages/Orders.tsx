@@ -245,7 +245,7 @@ const Orders = () => {
     }
   }, [isDispatchOnly, profile?.full_name]);
 
-  // Progressive loading hook - loads orders in batches of 100
+  // Progressive loading hook - fetches pages directly from server
   const {
     data: orders,
     isLoading,
@@ -257,7 +257,9 @@ const Orders = () => {
     totalCount: totalUnlockedCount,
     totalLoaded,
     hasMore,
-    loadMoreOrders,
+    requestPage,
+    prefetchNextPage,
+    loadedPages,
     isPartialData,
   } = useOrdersProgressive(orderFilterOptions);
 
@@ -581,23 +583,30 @@ const Orders = () => {
 
   // Phase 2 (progressive archived loading) removed.
 
-  // Load more orders when approaching end of loaded data
+  // Prefetch next page when user navigates - fetches page directly from server
   // MUST be before any early returns to satisfy React's rules of hooks
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
     if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
-    if (!hasMore || isLoadingMore) return;
     
-    // Calculate if we need more data for upcoming pages
-    const loadedOrdersCount = orders?.length || 0;
-    const ordersNeededForNextPage = (currentPage + 1) * ORDERS_PER_PAGE;
+    // Prefetch the next page in background for smooth navigation
+    prefetchNextPage(currentPage);
+  }, [currentPage, hasActiveFilter, searchTerm, prefetchNextPage]);
+
+  // Request current page data if not already loaded
+  useEffect(() => {
+    // Only trigger for local data (not server-filtered or searched)
+    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    if (isLoadingMore) return;
     
-    // If we need more orders than we have loaded, and there's more to load
-    if (ordersNeededForNextPage > loadedOrdersCount) {
-      console.log(`[Orders] Need ${ordersNeededForNextPage} orders but only have ${loadedOrdersCount}, loading more...`);
-      loadMoreOrders();
+    // Check if current page is loaded
+    if (!loadedPages.has(currentPage)) {
+      console.log(`[Orders] Requesting page ${currentPage}...`);
+      requestPage(currentPage).catch(err => 
+        console.error(`[Orders] Failed to load page ${currentPage}:`, err)
+      );
     }
-  }, [currentPage, orders?.length, hasMore, isLoadingMore, hasActiveFilter, searchTerm, loadMoreOrders]);
+  }, [currentPage, loadedPages, hasActiveFilter, searchTerm, isLoadingMore, requestPage]);
   // Selection helpers
   const toggleOrderSelection = (orderId: string) => {
     setSelectedOrderIds(prev => {
