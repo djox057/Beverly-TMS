@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Edit3, Check, X } from 'lucide-react';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+
+const CHICAGO_TZ = 'America/Chicago';
+const getChicagoNow = () => toZonedTime(new Date(), CHICAGO_TZ);
 
 interface EditingState {
   truckId: string;
@@ -64,10 +68,10 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
   onEditingChange
 }) => {
   const [startDate, setStartDate] = useState(() => {
-    // Try to start from pickup or delivery date if available
+    // Try to start from pickup or delivery date if available, using Chicago timezone
     const pickupDate = truckData.pickup.date !== '—' ? new Date(truckData.pickup.date) : null;
     const deliveryDate = truckData.delivery.date !== '—' ? new Date(truckData.delivery.date) : null;
-    const refDate = pickupDate || deliveryDate || new Date();
+    const refDate = pickupDate || deliveryDate || getChicagoNow();
     return startOfWeek(refDate, { weekStartsOn: 1 }); // Start week on Monday
   });
 
