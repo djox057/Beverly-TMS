@@ -1,184 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAssignmentHistory, AssignmentHistoryEntry, extractDatePart } from "@/hooks/useAssignmentHistory";
-import { format } from "date-fns";
-import { Loader2, ArrowRight } from "lucide-react";
-
-interface DriverTenure {
-  driverName: string;
-  startDate: string;
-  endDate: string | null; // null means still current
-  changedByName: string | null;
-}
-
-/**
- * Process driver history entries to calculate date ranges for each driver's tenure on a truck.
- * Returns a list of tenures sorted by start date descending (most recent first).
- */
-const calculateDriverTenures = (driverHistory: AssignmentHistoryEntry[]): DriverTenure[] => {
-  if (!driverHistory || driverHistory.length === 0) return [];
-  
-  const tenures: DriverTenure[] = [];
-  
-  // Sort chronologically (oldest first) to process in order
-  const sorted = [...driverHistory].sort((a, b) => 
-    new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
-  );
-  
-  // Track active drivers by slot (driver1, driver2) and when they started
-  const activeDriver1: { name: string; startDate: string; changedByName: string | null } | null = null;
-  const activeDriver2: { name: string; startDate: string; changedByName: string | null } | null = null;
-  let currentDriver1: typeof activeDriver1 = null;
-  let currentDriver2: typeof activeDriver2 = null;
-  
-  for (const entry of sorted) {
-    const entryDate = extractDatePart(entry.changed_at);
-    const newDriver1 = entry.driver1_name;
-    const newDriver2 = entry.driver2_name;
-    
-    // Check driver1 slot - if changed, end previous tenure
-    if (currentDriver1 && currentDriver1.name !== newDriver1) {
-      tenures.push({
-        driverName: currentDriver1.name,
-        startDate: currentDriver1.startDate,
-        endDate: entryDate,
-        changedByName: currentDriver1.changedByName,
-      });
-      currentDriver1 = null;
-    }
-    
-    // Check driver2 slot - if changed, end previous tenure
-    if (currentDriver2 && currentDriver2.name !== newDriver2) {
-      tenures.push({
-        driverName: currentDriver2.name,
-        startDate: currentDriver2.startDate,
-        endDate: entryDate,
-        changedByName: currentDriver2.changedByName,
-      });
-      currentDriver2 = null;
-    }
-    
-    // Start new tenure for driver1 if new driver assigned
-    if (newDriver1 && (!currentDriver1 || currentDriver1.name !== newDriver1)) {
-      currentDriver1 = {
-        name: newDriver1,
-        startDate: entryDate,
-        changedByName: entry.changed_by_name,
-      };
-    } else if (!newDriver1) {
-      currentDriver1 = null;
-    }
-    
-    // Start new tenure for driver2 if new driver assigned
-    if (newDriver2 && (!currentDriver2 || currentDriver2.name !== newDriver2)) {
-      currentDriver2 = {
-        name: newDriver2,
-        startDate: entryDate,
-        changedByName: entry.changed_by_name,
-      };
-    } else if (!newDriver2) {
-      currentDriver2 = null;
-    }
-  }
-  
-  // Add still-active drivers (current assignments) - endDate = null means "Current"
-  if (currentDriver1) {
-    tenures.push({
-      driverName: currentDriver1.name,
-      startDate: currentDriver1.startDate,
-      endDate: null,
-      changedByName: currentDriver1.changedByName,
-    });
-  }
-  if (currentDriver2) {
-    tenures.push({
-      driverName: currentDriver2.name,
-      startDate: currentDriver2.startDate,
-      endDate: null,
-      changedByName: currentDriver2.changedByName,
-    });
-  }
-  
-  // Merge overlapping/consecutive tenures for the same driver
-  const mergedTenures = mergeSameDriverTenures(tenures);
-  
-  // Sort by start date descending (most recent first)
-  return mergedTenures.sort((a, b) => {
-    const dateA = new Date(a.startDate).getTime();
-    const dateB = new Date(b.startDate).getTime();
-    return dateB - dateA;
-  });
-};
-
-/**
- * Merge overlapping or consecutive tenures for the same driver.
- * If a driver has multiple entries (e.g., from slot changes or brief gaps), combine them.
- * Uses a generous threshold (7 days) to merge tenures that are close together,
- * which handles brief unassignment/reassignment cycles within the same day or week.
- */
-const mergeSameDriverTenures = (tenures: DriverTenure[]): DriverTenure[] => {
-  if (tenures.length === 0) return [];
-  
-  // Group by driver name
-  const byDriver = new Map<string, DriverTenure[]>();
-  for (const tenure of tenures) {
-    const existing = byDriver.get(tenure.driverName) || [];
-    existing.push(tenure);
-    byDriver.set(tenure.driverName, existing);
-  }
-  
-  const merged: DriverTenure[] = [];
-  
-  // Merge threshold: 7 days in milliseconds
-  // This handles cases where a driver is briefly unassigned and reassigned
-  const MERGE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
-  
-  for (const [driverName, driverTenures] of byDriver) {
-    // Sort by start date ascending
-    const sorted = [...driverTenures].sort((a, b) => 
-      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    );
-    
-    let current = { ...sorted[0] };
-    
-    for (let i = 1; i < sorted.length; i++) {
-      const next = sorted[i];
-      const currentEnd = current.endDate ? new Date(current.endDate).getTime() : Infinity;
-      const nextStart = new Date(next.startDate).getTime();
-      
-      // If overlapping or within threshold, merge
-      if (nextStart <= currentEnd + MERGE_THRESHOLD_MS) {
-        // Extend current tenure to include next
-        if (next.endDate === null) {
-          current.endDate = null; // Current driver
-        } else if (current.endDate !== null) {
-          const currentEndTime = new Date(current.endDate).getTime();
-          const nextEndTime = new Date(next.endDate).getTime();
-          if (nextEndTime > currentEndTime) {
-            current.endDate = next.endDate;
-          }
-        }
-      } else {
-        // No overlap, push current and start new
-        merged.push(current);
-        current = { ...next };
-      }
-    }
-    
-    merged.push(current);
-  }
-  
-  return merged;
-};
-
-/**
- * Format a date string (YYYY-MM-DD) to MM/DD/YYYY
- */
-const formatTenureDate = (dateStr: string): string => {
-  const [year, month, day] = dateStr.split('-');
-  return `${month}/${day}/${year}`;
-};
+import { useAssignmentHistory } from "@/hooks/useAssignmentHistory";
+import { calculateTenures, calculateCombinedDriverTenures, Tenure } from "@/utils/tenureCalculator";
+import { TenureList } from "@/components/TenureCard";
+import { Loader2 } from "lucide-react";
+import { useMemo } from "react";
 
 interface AssignmentHistoryDialogProps {
   entityType: 'truck' | 'trailer' | 'driver';
@@ -197,303 +24,107 @@ export const AssignmentHistoryDialog = ({
 }: AssignmentHistoryDialogProps) => {
   const { data: history, isLoading } = useAssignmentHistory(entityType, entityId);
 
-  const getChangeTypeLabel = (changeType: string, tabType?: 'trailer' | 'driver' | 'truck' | 'all') => {
-    // When in a specific tab, show simple labels for combined changes
-    if (tabType === 'trailer' && changeType === 'assignment_change') {
-      return 'Trailer Change';
-    }
-    if (tabType === 'driver' && changeType === 'assignment_change') {
-      return 'Driver Change';
-    }
-    if (tabType === 'truck' && changeType === 'assignment_change') {
-      return 'Truck Change';
+  // Calculate tenures based on entity type
+  const { driverTenures, trailerTenures, truckTenures } = useMemo(() => {
+    if (!history || history.length === 0) {
+      return { driverTenures: [], trailerTenures: [], truckTenures: [] };
     }
 
-    if (entityType === 'driver') {
-      const labels: Record<string, string> = {
-        'driver_assignment': 'Truck Change',
-        'trailer_assignment': 'Trailer Change',
-        'assignment_change': 'Truck & Trailer Change',
-        'truck_assignment': 'Truck Change',
-        'trailer_update': 'Trailer Change',
-        'driver_update': 'Truck Change',
-        'truck_update': 'Truck Change',
-      };
-      return labels[changeType] || changeType.replace(/_/g, ' ');
-    } else if (entityType === 'truck') {
-      const labels: Record<string, string> = {
-        'driver_assignment': 'Driver Change',
-        'trailer_assignment': 'Trailer Change',
-        'assignment_change': 'Driver & Trailer Change',
-        'truck_assignment': 'Truck Change',
-        'trailer_update': 'Trailer Change',
-        'driver_update': 'Driver Change',
-        'truck_update': 'Truck Update',
-      };
-      return labels[changeType] || changeType.replace(/_/g, ' ');
-    } else if (entityType === 'trailer') {
-      const labels: Record<string, string> = {
-        'driver_assignment': 'Driver Change',
-        'trailer_assignment': 'Truck Change',
-        'assignment_change': 'Truck & Driver Change',
-        'truck_assignment': 'Truck Change',
-        'trailer_update': 'Truck Change',
-        'driver_update': 'Driver Change',
-        'truck_update': 'Truck Change',
-      };
-      return labels[changeType] || changeType.replace(/_/g, ' ');
-    }
-    
-    return changeType.replace(/_/g, ' ');
-  };
+    return {
+      driverTenures: calculateCombinedDriverTenures(history),
+      trailerTenures: calculateTenures(history, 'trailer'),
+      truckTenures: calculateTenures(history, 'truck'),
+    };
+  }, [history]);
 
-  /**
-   * HARDENED: Format change description using explicit before/after values
-   * This is deterministic and doesn't rely on array position comparisons
-   */
-  const formatChangeDescription = (entry: AssignmentHistoryEntry, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
-    const changes: React.ReactNode[] = [];
-    
-    if (showType === 'trailer' || showType === 'all') {
-      const oldTrailer = entry.old_trailer_number;
-      const newTrailer = entry.trailer_number;
-      
-      if (oldTrailer !== newTrailer || oldTrailer || newTrailer) {
-        changes.push(
-          <div key="trailer" className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium">Trailer:</span>
-            <span className="text-muted-foreground">{oldTrailer || 'None'}</span>
-            <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="font-semibold">{newTrailer || 'None'}</span>
-          </div>
-        );
-      }
-    }
-    
-    if (showType === 'truck' || showType === 'all') {
-      const oldTruck = entry.old_truck_number;
-      const newTruck = entry.truck_number;
-      
-      if (oldTruck !== newTruck || oldTruck || newTruck) {
-        changes.push(
-          <div key="truck" className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium">Truck:</span>
-            <span className="text-muted-foreground">{oldTruck || 'None'}</span>
-            <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="font-semibold">{newTruck || 'None'}</span>
-          </div>
-        );
-      }
-    }
-    
-    if (showType === 'driver' || showType === 'all') {
-      // Build driver text with both drivers
-      const buildDriverText = (d1: string | null, d2: string | null) => {
-        if (!d1 && !d2) return 'None';
-        if (d1 && d2) return `${d1} / ${d2}`;
-        return d1 || d2 || 'None';
-      };
-      
-      const oldDriver = buildDriverText(entry.old_driver1_name, entry.old_driver2_name);
-      const newDriver = buildDriverText(entry.driver1_name, entry.driver2_name);
-      
-      if (oldDriver !== newDriver) {
-        changes.push(
-          <div key="driver" className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium">Driver:</span>
-            <span className="text-muted-foreground">{oldDriver}</span>
-            <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="font-semibold">{newDriver}</span>
-          </div>
-        );
-      }
-    }
-    
-    // Fallback for entries without old_ values (legacy data)
-    if (changes.length === 0) {
-      const parts = [];
-      if (showType === 'trailer' || showType === 'all') {
-        parts.push(`Trailer: ${entry.trailer_number || 'None'}`);
-      }
-      if (showType === 'truck' || showType === 'all') {
-        parts.push(`Truck: ${entry.truck_number || 'None'}`);
-      }
-      if (showType === 'driver' || showType === 'all') {
-        parts.push(`Driver: ${entry.driver1_name || 'None'}${entry.driver2_name ? ` / ${entry.driver2_name}` : ''}`);
-      }
-      return <div className="text-sm">{parts.join(' • ')}</div>;
-    }
+  const renderTenureContent = (tenures: Tenure[], tenureEntityType: 'driver' | 'truck' | 'trailer') => (
+    <ScrollArea className="h-[400px] pr-4">
+      <TenureList 
+        tenures={tenures} 
+        entityType={tenureEntityType}
+        emptyMessage={`No ${tenureEntityType} history found`}
+      />
+    </ScrollArea>
+  );
 
-    return <div className="space-y-1">{changes}</div>;
-  };
-
-  const isTrailerChange = (changeType: string) => {
-    return changeType === 'trailer_assignment' || changeType === 'trailer_update';
-  };
-
-  const isDriverChange = (changeType: string) => {
-    return changeType === 'driver_assignment' || changeType === 'driver_update';
-  };
-
-  const isTruckChange = (changeType: string) => {
-    return changeType === 'truck_assignment' || changeType === 'truck_update' || changeType === 'driver_assignment';
-  };
-
-  const trailerHistory = history?.filter(entry => 
-    isTrailerChange(entry.change_type) || entry.change_type === 'assignment_change'
-  ) || [];
-
-  const driverHistory = history?.filter(entry => 
-    isDriverChange(entry.change_type) || entry.change_type === 'assignment_change'
-  ) || [];
-
-  const truckHistory = history?.filter(entry => 
-    isTruckChange(entry.change_type) || entry.change_type === 'assignment_change'
-  ) || [];
-
-  const renderDriverTenureList = (items: AssignmentHistoryEntry[] | undefined) => {
-    const tenures = calculateDriverTenures(items || []);
-    
-    if (tenures.length === 0) {
+  const renderContent = () => {
+    if (isLoading) {
       return (
-        <div className="text-center py-8 text-muted-foreground">
-          No driver history found
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       );
     }
 
-    return (
-      <ScrollArea className="h-[400px] pr-4">
-        <div className="space-y-4">
-          {tenures.map((tenure, index) => (
-            <div
-              key={`${tenure.driverName}-${tenure.startDate}-${index}`}
-              className="border rounded-lg p-4 bg-card"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="font-semibold text-sm mb-1 text-primary">
-                    Driver Change
-                  </div>
-                  <div className="text-sm mb-2">
-                    <span className="font-semibold">{tenure.driverName}</span>
-                    <span className="text-muted-foreground ml-2">
-                      ({formatTenureDate(tenure.startDate)} - {tenure.endDate ? formatTenureDate(tenure.endDate) : 'Current'})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-    );
-  };
-
-  const renderHistoryList = (items: typeof history, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
-    if (!items || items.length === 0) {
+    if (!history || history.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
-          No history found
+          No assignment history found
         </div>
       );
     }
 
-    return (
-      <ScrollArea className="h-[400px] pr-4">
-        <div className="space-y-4">
-          {items.map((entry) => (
-            <div
-              key={entry.id}
-              className="border rounded-lg p-4 bg-card"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="font-semibold text-sm mb-1 text-primary">
-                    {getChangeTypeLabel(entry.change_type, showType)}
-                  </div>
-                  <div className="text-sm mb-2">
-                    {formatChangeDescription(entry, showType)}
-                  </div>
-                  {entry.reason && (
-                    <div className="text-sm text-muted-foreground mb-2 italic">
-                      Reason: {entry.reason}
-                    </div>
-                  )}
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>
-                      Changed: {format(new Date(entry.changed_at), "MMM dd, yyyy 'at' h:mm a")}
-                    </div>
-                    {entry.changed_by_name && (
-                      <div>By: {entry.changed_by_name}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-    );
+    switch (entityType) {
+      case 'truck':
+        return (
+          <Tabs defaultValue="drivers" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="drivers">Driver Tenures</TabsTrigger>
+              <TabsTrigger value="trailers">Trailer Tenures</TabsTrigger>
+            </TabsList>
+            <TabsContent value="drivers" className="mt-4">
+              {renderTenureContent(driverTenures, 'driver')}
+            </TabsContent>
+            <TabsContent value="trailers" className="mt-4">
+              {renderTenureContent(trailerTenures, 'trailer')}
+            </TabsContent>
+          </Tabs>
+        );
+
+      case 'driver':
+        return (
+          <Tabs defaultValue="trucks" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="trucks">Truck Tenures</TabsTrigger>
+              <TabsTrigger value="trailers">Trailer Tenures</TabsTrigger>
+            </TabsList>
+            <TabsContent value="trucks" className="mt-4">
+              {renderTenureContent(truckTenures, 'truck')}
+            </TabsContent>
+            <TabsContent value="trailers" className="mt-4">
+              {renderTenureContent(trailerTenures, 'trailer')}
+            </TabsContent>
+          </Tabs>
+        );
+
+      case 'trailer':
+        return (
+          <Tabs defaultValue="trucks" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="trucks">Truck Tenures</TabsTrigger>
+              <TabsTrigger value="drivers">Driver Tenures</TabsTrigger>
+            </TabsList>
+            <TabsContent value="trucks" className="mt-4">
+              {renderTenureContent(truckTenures, 'truck')}
+            </TabsContent>
+            <TabsContent value="drivers" className="mt-4">
+              {renderTenureContent(driverTenures, 'driver')}
+            </TabsContent>
+          </Tabs>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Assignment History - {entityName}</DialogTitle>
         </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : entityType === 'truck' ? (
-          <Tabs defaultValue="driver" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="driver">Driver Changes</TabsTrigger>
-              <TabsTrigger value="trailer">Trailer Changes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="driver" className="mt-4">
-              {renderDriverTenureList(driverHistory)}
-            </TabsContent>
-            <TabsContent value="trailer" className="mt-4">
-              {renderHistoryList(trailerHistory, 'trailer')}
-            </TabsContent>
-          </Tabs>
-        ) : entityType === 'trailer' ? (
-          <Tabs defaultValue="truck" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="truck">Truck Changes</TabsTrigger>
-              <TabsTrigger value="driver">Driver Changes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="truck" className="mt-4">
-              {renderHistoryList(truckHistory, 'truck')}
-            </TabsContent>
-            <TabsContent value="driver" className="mt-4">
-              {renderHistoryList(driverHistory, 'driver')}
-            </TabsContent>
-          </Tabs>
-        ) : entityType === 'driver' ? (
-          <Tabs defaultValue="truck" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="truck">Truck Changes</TabsTrigger>
-              <TabsTrigger value="trailer">Trailer Changes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="truck" className="mt-4">
-              {renderHistoryList(truckHistory, 'truck')}
-            </TabsContent>
-            <TabsContent value="trailer" className="mt-4">
-              {renderHistoryList(trailerHistory, 'trailer')}
-            </TabsContent>
-          </Tabs>
-        ) : !history || history.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No assignment history found
-          </div>
-        ) : (
-          renderHistoryList(history, 'all')
-        )}
+        {renderContent()}
       </DialogContent>
     </Dialog>
   );
