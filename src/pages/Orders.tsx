@@ -280,7 +280,7 @@ const Orders = () => {
     }
   }, [isDispatchOnly, profile?.full_name]);
 
-  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 background loads locked
+  // Progressive loading hook - Phase 1 shows unlocked immediately, Phase 2 loads on-demand
   const { 
     data: orders, 
     isLoading, 
@@ -289,6 +289,8 @@ const Orders = () => {
     unlockedCount,
     lockedCount,
     isPartialData,
+    requestLockedOrders,
+    lockedOrdersLoaded,
   } = useOrdersProgressive(orderFilterOptions);
   
   // For error handling, use a stable reference
@@ -648,6 +650,17 @@ const Orders = () => {
   const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
   const endIndex = startIndex + ORDERS_PER_PAGE;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Trigger loading locked orders when user tries to paginate beyond current data
+  // or when they're on the last pages and we have more data available
+  const isNearEndOfUnlockedData = startIndex + ORDERS_PER_PAGE >= unlockedCount && !lockedOrdersLoaded;
+  
+  useEffect(() => {
+    if (isNearEndOfUnlockedData && !isLoadingLocked && unlockedCount > 0) {
+      console.log("[Orders] Near end of unlocked data, requesting locked orders");
+      requestLockedOrders();
+    }
+  }, [isNearEndOfUnlockedData, isLoadingLocked, unlockedCount, requestLockedOrders]);
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map((order) => order.bookedByCompanyName) || [])].filter(Boolean);
@@ -1949,7 +1962,7 @@ const Orders = () => {
 
             {/* Progressive Loading Progress Indicator */}
             {loadingProgress.phase !== "complete" && !isSearching && !debouncedSearchTerm && (
-              <OrdersLoadingProgress {...loadingProgress} />
+              <OrdersLoadingProgress {...loadingProgress} onLoadArchived={requestLockedOrders} />
             )}
 
             {/* Server-side search indicator */}

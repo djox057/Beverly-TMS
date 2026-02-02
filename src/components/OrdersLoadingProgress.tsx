@@ -1,5 +1,6 @@
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle2, Database, FileStack } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckCircle2, FileStack, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface OrdersLoadingProgressProps {
@@ -10,6 +11,7 @@ interface OrdersLoadingProgressProps {
   lockedTotal: number | null;
   isLoadingLocked: boolean;
   percentComplete: number;
+  onLoadArchived?: () => void;
 }
 
 export const OrdersLoadingProgress = ({
@@ -20,12 +22,13 @@ export const OrdersLoadingProgress = ({
   lockedTotal,
   isLoadingLocked,
   percentComplete,
+  onLoadArchived,
 }: OrdersLoadingProgressProps) => {
   const phase1Complete = phase !== 1;
   const phase2Complete = phase === "complete";
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-md p-3 w-64">
+    <div className="fixed bottom-4 right-4 z-50 bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-md p-3 w-72">
       <div className="space-y-2">
         {/* Phase 1: Unlocked Orders */}
         <div className="flex items-center gap-2">
@@ -67,15 +70,35 @@ export const OrdersLoadingProgress = ({
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium truncate">Archived</span>
               <span className="text-muted-foreground">
-                {lockedLoaded.toLocaleString()}
-                {lockedTotal !== null && ` / ${lockedTotal.toLocaleString()}`}
+                {isLoadingLocked ? (
+                  "Loading..."
+                ) : phase2Complete ? (
+                  lockedLoaded.toLocaleString()
+                ) : (
+                  "Not loaded"
+                )}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <Progress value={percentComplete} className="h-1.5" />
+        {/* Load Archived Button - only show when phase 2 hasn't started */}
+        {phase === 2 && !isLoadingLocked && lockedLoaded === 0 && onLoadArchived && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full mt-2 h-7 text-xs"
+            onClick={onLoadArchived}
+          >
+            <Download className="h-3 w-3 mr-1.5" />
+            Load Archived Orders
+          </Button>
+        )}
+
+        {/* Progress Bar - only show when loading */}
+        {(phase === 1 || isLoadingLocked) && (
+          <Progress value={percentComplete} className="h-1.5" />
+        )}
       </div>
     </div>
   );
@@ -95,12 +118,18 @@ export const OrdersLoadingBadge = ({
 
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-sm">
-      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+      {phase === 1 || isLoadingLocked ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+      ) : (
+        <FileStack className="h-3.5 w-3.5 text-muted-foreground" />
+      )}
       <span className="text-muted-foreground">
         {phase === 1 ? (
-          <>Loading {unlockedLoaded.toLocaleString()} active orders...</>
+          <>Loading {unlockedLoaded.toLocaleString()} active...</>
+        ) : isLoadingLocked ? (
+          <>Loading archived ({percentComplete}%)</>
         ) : (
-          <>Background: {lockedLoaded.toLocaleString()} archived ({percentComplete}%)</>
+          <>{unlockedLoaded.toLocaleString()} active loaded</>
         )}
       </span>
     </div>
