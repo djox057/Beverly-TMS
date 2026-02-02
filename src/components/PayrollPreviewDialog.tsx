@@ -27,7 +27,7 @@ interface PayrollPreviewDialogProps {
   dispatcherBonus?: number;
   perDayRate?: number;
   onEmailSent: () => void;
-  previewOnly?: boolean; // When true, hide send button and sick day editing
+  previewOnly?: boolean; // When true, hide send button and PTO editing
 }
 
 export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
@@ -54,17 +54,17 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sickDaySelections, setSickDaySelections] = useState<Record<string, boolean>>({});
-  const [usedSickDaysThisYear, setUsedSickDaysThisYear] = useState(0);
-  const [existingSickDays, setExistingSickDays] = useState<string[]>([]);
+  const [ptoSelections, setPtoSelections] = useState<Record<string, boolean>>({});
+  const [usedPtoDaysThisYear, setUsedPtoDaysThisYear] = useState(0);
+  const [existingPtoDays, setExistingPtoDays] = useState<string[]>([]);
 
   const year = parseInt(selectedMonth.split("-")[0], 10);
-  const maxSickDays = 3;
+  const maxPtoDays = 3;
 
-  // Load existing sick days for this year
+  // Load existing PTO days for this year
   useEffect(() => {
     if (open && dispatcherUserId) {
-      loadSickDays();
+      loadPtoDays();
     }
     return () => {
       if (pdfUrl) {
@@ -80,7 +80,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     }
   }, [open]);
 
-  const loadSickDays = async () => {
+  const loadPtoDays = async () => {
     try {
       const { data, error } = await supabase
         .from("dispatcher_sick_days" as any)
@@ -90,30 +90,30 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
       if (error) throw error;
 
-      const sickDates = (data || []).map((d: any) => d.sick_date);
-      setExistingSickDays(sickDates);
-      setUsedSickDaysThisYear(sickDates.length);
+      const ptoDates = (data || []).map((d: any) => d.sick_date);
+      setExistingPtoDays(ptoDates);
+      setUsedPtoDaysThisYear(ptoDates.length);
 
-      // Initialize selections - pre-check dates that are already marked as sick days
+      // Initialize selections - pre-check dates that are already marked as PTO
       const monthPrefix = selectedMonth; // YYYY-MM
       const initialSelections: Record<string, boolean> = {};
       lostDayDates.forEach(date => {
         // Convert MM/DD format to full date for comparison
         const [month, day] = date.split("/");
         const fullDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-        initialSelections[date] = sickDates.includes(fullDate);
+        initialSelections[date] = ptoDates.includes(fullDate);
       });
-      setSickDaySelections(initialSelections);
+      setPtoSelections(initialSelections);
     } catch (err) {
-      console.error("Error loading sick days:", err);
+      console.error("Error loading PTO days:", err);
     }
   };
 
   const generatePreview = async () => {
     setLoading(true);
     try {
-      // Get selected sick day dates (MM/DD format)
-      const selectedSickDayDates = Object.entries(sickDaySelections)
+      // Get selected PTO dates (MM/DD format)
+      const selectedPtoDates = Object.entries(ptoSelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
 
@@ -130,8 +130,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         extraDaysAmount,
         dispatcherBonus,
         perDayRate,
-        sickDayDates: selectedSickDayDates,
-        totalSickDaysAvailable: maxSickDays,
+        sickDayDates: selectedPtoDates,
+        totalSickDaysAvailable: maxPtoDays,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -144,28 +144,28 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     }
   };
 
-  // Regenerate preview when sick day selections change
+  // Regenerate preview when PTO selections change
   useEffect(() => {
     if (open && !loading) {
       generatePreview();
     }
-  }, [sickDaySelections]);
+  }, [ptoSelections]);
 
-  const handleSickDayToggle = (date: string, checked: boolean) => {
-    const currentSelectedCount = Object.values(sickDaySelections).filter(Boolean).length;
-    const alreadyUsedBeforeThisMonth = existingSickDays.filter(d => {
+  const handlePtoToggle = (date: string, checked: boolean) => {
+    const currentSelectedCount = Object.values(ptoSelections).filter(Boolean).length;
+    const alreadyUsedBeforeThisMonth = existingPtoDays.filter(d => {
       const dateMonth = d.substring(0, 7); // YYYY-MM
       return dateMonth !== selectedMonth;
     }).length;
 
     const totalIfChecked = alreadyUsedBeforeThisMonth + currentSelectedCount + (checked ? 1 : -1);
 
-    if (checked && totalIfChecked > maxSickDays) {
-      toast.error(`Maximum ${maxSickDays} sick days per year. You have ${alreadyUsedBeforeThisMonth} already used.`);
+    if (checked && totalIfChecked > maxPtoDays) {
+      toast.error(`Maximum ${maxPtoDays} PTO days per year. You have ${alreadyUsedBeforeThisMonth} already used.`);
       return;
     }
 
-    setSickDaySelections(prev => ({
+    setPtoSelections(prev => ({
       ...prev,
       [date]: checked,
     }));
@@ -180,15 +180,15 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         return;
       }
 
-      // Save sick day selections
-      const selectedSickDays = Object.entries(sickDaySelections)
+      // Save PTO selections
+      const selectedPtoDays = Object.entries(ptoSelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => {
           const [month, day] = date.split("/");
           return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
         });
 
-      // Remove any existing sick days for this month first
+      // Remove any existing PTO days for this month first
       const monthStart = `${selectedMonth}-01`;
       const monthEnd = `${selectedMonth}-31`;
       await supabase
@@ -198,12 +198,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .gte("sick_date", monthStart)
         .lte("sick_date", monthEnd);
 
-      // Insert new sick days
-      if (selectedSickDays.length > 0) {
+      // Insert new PTO days
+      if (selectedPtoDays.length > 0) {
         const { error: insertError } = await supabase
           .from("dispatcher_sick_days" as any)
           .insert(
-            selectedSickDays.map(date => ({
+            selectedPtoDays.map(date => ({
               user_id: dispatcherUserId,
               sick_date: date,
               year,
@@ -214,12 +214,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         if (insertError) throw insertError;
       }
 
-      // Get selected sick day dates (MM/DD format)
-      const selectedSickDayDates = Object.entries(sickDaySelections)
+      // Get selected PTO dates (MM/DD format)
+      const selectedPtoDates = Object.entries(ptoSelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
 
-      // Generate the final PDF with sick day data
+      // Generate the final PDF with PTO data
       const pdfBlob = await generatePayrollPdf({
         employeeName: dispatcherName,
         payPeriod,
@@ -233,8 +233,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         extraDaysAmount,
         dispatcherBonus,
         perDayRate,
-        sickDayDates: selectedSickDayDates,
-        totalSickDaysAvailable: maxSickDays,
+        sickDayDates: selectedPtoDates,
+        totalSickDaysAvailable: maxPtoDays,
       });
 
       // Convert to bytes
@@ -290,8 +290,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     }
   };
 
-  const remainingSickDays = maxSickDays - usedSickDaysThisYear;
-  const currentMonthSickDaysSelected = Object.values(sickDaySelections).filter(Boolean).length;
+  const remainingPtoDays = maxPtoDays - usedPtoDaysThisYear;
+  const currentMonthPtoSelected = Object.values(ptoSelections).filter(Boolean).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -323,21 +323,21 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
             )}
           </div>
 
-          {/* Sick Days Panel - only show if there are days off AND not in preview-only mode */}
+          {/* PTO Panel - only show if there are days off AND not in preview-only mode */}
           {!previewOnly && lostDayDates.length > 0 && (
             <div className="w-64 border rounded-lg p-4 space-y-4">
               <div>
-                <h3 className="font-semibold text-sm">Mark as Sick Days</h3>
+                <h3 className="font-semibold text-sm">Mark as PTO</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Sick days don't reduce salary. {remainingSickDays} of {maxSickDays} remaining this year.
+                  PTO days don't reduce salary. {remainingPtoDays} of {maxPtoDays} remaining this year.
                 </p>
               </div>
 
-              {remainingSickDays <= 0 && currentMonthSickDaysSelected === 0 && (
+              {remainingPtoDays <= 0 && currentMonthPtoSelected === 0 && (
                 <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
                   <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
                   <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                    No sick days remaining for this year.
+                    No PTO days remaining for this year.
                   </p>
                 </div>
               )}
@@ -347,13 +347,13 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                 {lostDayDates.map(date => (
                   <div key={date} className="flex items-center gap-2">
                     <Checkbox
-                      id={`sick-${date}`}
-                      checked={sickDaySelections[date] || false}
-                      onCheckedChange={(checked) => handleSickDayToggle(date, checked as boolean)}
-                      disabled={!sickDaySelections[date] && remainingSickDays - currentMonthSickDaysSelected <= 0}
+                      id={`pto-${date}`}
+                      checked={ptoSelections[date] || false}
+                      onCheckedChange={(checked) => handlePtoToggle(date, checked as boolean)}
+                      disabled={!ptoSelections[date] && remainingPtoDays - currentMonthPtoSelected <= 0}
                     />
-                    <Label htmlFor={`sick-${date}`} className="text-sm cursor-pointer">
-                      {date} {sickDaySelections[date] && <span className="text-green-600">(Sick Day)</span>}
+                    <Label htmlFor={`pto-${date}`} className="text-sm cursor-pointer">
+                      {date} {ptoSelections[date] && <span className="text-green-600">(PTO)</span>}
                     </Label>
                   </div>
                 ))}

@@ -28,8 +28,8 @@ interface PayrollData {
   extraDaysAmount: number; // Additional amount earned from extra days
   dispatcherBonus?: number; // Monthly performance bonus (1st place $1000, etc.)
   perDayRate?: number; // Per-workday rate for lost days calculation
-  sickDayDates?: string[]; // Dates marked as sick days
-  totalSickDaysAvailable?: number; // Max sick days per year (3)
+  sickDayDates?: string[]; // Dates marked as PTO
+  totalSickDaysAvailable?: number; // Max PTO days per year (3)
 }
 
 const BLACK_COLOR = "000000";
@@ -270,7 +270,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     );
   }
 
-  // Sick days row (if any sick days used) - shows $0.00
+  // PTO row (if any PTO days used) - shows $0.00
   if (hasSickDays) {
     tableRows.push(
       new TableRow({
@@ -282,7 +282,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} sick days`, size: TABLE_SIZE })],
+                children: [new TextRun({ text: `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
