@@ -220,12 +220,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     }
   }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, unlockedCount, lockedCount]);
 
-  // Load initial page (page 1) on mount
-  const initialPageQuery = useQuery({
+  // Query for the current page - dynamically loads the page the user is viewing
+  const currentPageQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders", "page", 1, "filtered", bookedBy, dispatcherUserId] 
-      : ["orders", "page", 1],
-    queryFn: () => fetchPage(1),
+      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId] 
+      : ["orders", "page", currentPage],
+    queryFn: () => fetchPage(currentPage),
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
@@ -253,10 +253,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     }
   }, [fetchPage, totalCount]);
 
-  // Return ONLY the current page's data
+  // Return ONLY the current page's data - use query data directly to ensure reactivity
   const currentPageOrders = useMemo(() => {
-    return loadedPagesRef.current.get(currentPage) || [];
-  }, [currentPage, loadedPages]);
+    // The query data is the most up-to-date source for the current page
+    // This ensures we re-render when the query completes
+    return currentPageQuery.data || loadedPagesRef.current.get(currentPage) || [];
+  }, [currentPage, loadedPages, currentPageQuery.data]);
 
   // Calculate total pages based on combined count
   const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : 1;
@@ -279,7 +281,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const hasMore = currentPage < totalPages;
 
   const progress = useMemo<ProgressiveLoadingProgress>(() => {
-    const isLoading = countsQuery.isLoading || initialPageQuery.isLoading;
+    const isLoading = countsQuery.isLoading || currentPageQuery.isLoading;
     const isInLockedTerritory = (currentPage - 1) * PAGE_SIZE >= unlockedCount;
     
     return {
@@ -291,11 +293,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       isLoadingLocked: isLoadingPage && currentPageSpansLocked,
       percentComplete: totalCount ? Math.round((totalLoaded / totalCount) * 100) : (isLoading ? 0 : 100),
     };
-  }, [totalLoaded, unlockedCount, lockedCount, totalCount, countsQuery.isLoading, initialPageQuery.isLoading, isLoadingPage, currentPage, currentPageSpansLocked]);
+  }, [totalLoaded, unlockedCount, lockedCount, totalCount, countsQuery.isLoading, currentPageQuery.isLoading, isLoadingPage, currentPage, currentPageSpansLocked]);
 
   return {
     data: currentPageOrders,
-    isLoading: countsQuery.isLoading || initialPageQuery.isLoading,
+    isLoading: countsQuery.isLoading || currentPageQuery.isLoading,
     isLoadingMore: isLoadingPage,
     isLoadingLocked: isLoadingPage && currentPageSpansLocked,
     progress,
@@ -311,7 +313,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     requestPage,
     prefetchNextPage,
     loadedPages,
-    isPartialData: countsQuery.isLoading || initialPageQuery.isLoading || !isCurrentPageLoaded,
+    isPartialData: countsQuery.isLoading || currentPageQuery.isLoading || !isCurrentPageLoaded,
     requestLockedOrders: () => {}, // Legacy - handled automatically now
     lockedOrdersLoaded: true,
   };
