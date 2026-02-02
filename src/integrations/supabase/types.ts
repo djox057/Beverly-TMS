@@ -1150,7 +1150,7 @@ export type Database = {
           explanation: string
           id: string
           is_fixed: boolean
-          name: string
+          name: string | null
           notice_1: string | null
           notice_2: string | null
           paid_amount: number | null
@@ -1169,7 +1169,7 @@ export type Database = {
           explanation: string
           id?: string
           is_fixed?: boolean
-          name: string
+          name?: string | null
           notice_1?: string | null
           notice_2?: string | null
           paid_amount?: number | null
@@ -1188,7 +1188,7 @@ export type Database = {
           explanation?: string
           id?: string
           is_fixed?: boolean
-          name?: string
+          name?: string | null
           notice_1?: string | null
           notice_2?: string | null
           paid_amount?: number | null

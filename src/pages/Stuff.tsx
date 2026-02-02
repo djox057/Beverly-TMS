@@ -1,29 +1,32 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Truck, FileSpreadsheet } from "lucide-react";
+import { Search, User, Truck, FileSpreadsheet, UserX } from "lucide-react";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DriverProfile } from "@/components/DriverProfile";
 import { BulkImportDriverExcelDialog } from "@/components/BulkImportDriverExcelDialog";
 
 export default function Stuff() {
+  const { driverId } = useParams<{ driverId: string }>();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
   
   const { data: drivers = [], isLoading } = useDrivers();
 
-  // Filter active drivers based on search
+  // Filter ALL drivers (active + inactive) based on search
   const filteredDrivers = useMemo(() => {
-    const activeDrivers = drivers.filter((d) => d.is_active !== false);
+    // Include all drivers (both active and inactive)
+    const allDrivers = drivers;
     
-    if (!searchQuery.trim()) return activeDrivers;
+    if (!searchQuery.trim()) return allDrivers;
     
     const query = searchQuery.toLowerCase();
-    return activeDrivers.filter((driver) => {
+    return allDrivers.filter((driver) => {
       const name = driver.name?.toLowerCase() || "";
       const firstName = driver.first_name?.toLowerCase() || "";
       const lastName = driver.last_name?.toLowerCase() || "";
@@ -42,13 +45,23 @@ export default function Stuff() {
     });
   }, [drivers, searchQuery]);
 
-  // Get selected driver data
+  // Get selected driver from URL param
   const selectedDriver = useMemo(() => {
-    if (!selectedDriverId) return null;
-    return drivers.find((d) => d.id === selectedDriverId) || null;
-  }, [drivers, selectedDriverId]);
+    if (!driverId) return null;
+    return drivers.find((d) => d.id === driverId) || null;
+  }, [drivers, driverId]);
 
-  // If a driver is selected, show their profile
+  // Handle back navigation
+  const handleBack = () => {
+    navigate("/stuff");
+  };
+
+  // Handle driver selection
+  const handleSelectDriver = (id: string) => {
+    navigate(`/stuff/${id}`);
+  };
+
+  // If a driver is selected via URL, show their profile
   if (selectedDriver) {
     return (
       <div className="p-6">
@@ -71,7 +84,7 @@ export default function Stuff() {
             weeks_count: selectedDriver.weeks_count,
             agreement_start_date: selectedDriver.agreement_start_date,
           }}
-          onBack={() => setSelectedDriverId(null)}
+          onBack={handleBack}
         />
       </div>
     );
@@ -118,18 +131,27 @@ export default function Stuff() {
             {filteredDrivers.map((driver) => (
               <Card
                 key={driver.id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => setSelectedDriverId(driver.id)}
+                className={`cursor-pointer hover:bg-muted/50 transition-colors ${driver.is_active === false ? 'opacity-60' : ''}`}
+                onClick={() => handleSelectDriver(driver.id)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <User className="h-5 w-5 text-primary" />
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${driver.is_active === false ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                      {driver.is_active === false ? (
+                        <UserX className="h-5 w-5 text-destructive" />
+                      ) : (
+                        <User className="h-5 w-5 text-primary" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">
-                        {driver.name || `${driver.first_name} ${driver.last_name}`}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold truncate">
+                          {driver.name || `${driver.first_name} ${driver.last_name}`}
+                        </h3>
+                        {driver.is_active === false && (
+                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         {driver.truck_info?.truck_number && (
                           <Badge variant="outline" className="text-xs">
