@@ -28,7 +28,7 @@ import {
 import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
-import { useOrders } from "@/hooks/useOrders";
+import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
@@ -442,8 +442,6 @@ const Trips = () => {
     ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
     : { bookedBy: null, dispatcherUserId: null };
 
-  const { data: orders, isLoading } = useOrders(orderFilterOptions);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilter, setSearchFilter] = useState(() => {
     return localStorage.getItem("trips_searchFilter") || "";
@@ -451,6 +449,12 @@ const Trips = () => {
   const [loadNumberSearch, setLoadNumberSearch] = useState("");
   const [invoicedDateFilter, setInvoicedDateFilter] = useState<Date | undefined>(undefined);
   const itemsPerPage = 50;
+
+  // Use lazy loading hook - only fetches on search if no global orders cached
+  const { data: orders, isLoading, isLazyMode, hasGlobalOrders } = useTripsLazyOrders(
+    orderFilterOptions,
+    { truckDriverSearch: searchFilter, loadNumberSearch }
+  );
 
   const queryClient = useQueryClient();
 
@@ -4219,6 +4223,7 @@ const Trips = () => {
     return items;
   };
 
+  // Show loading skeleton only when actively searching
   if (isLoading) {
     return (
       <div className="w-full px-2 py-6 space-y-6">
@@ -4246,6 +4251,64 @@ const Trips = () => {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Show empty state when in lazy mode and no search active
+  const hasActiveSearch = (searchFilter?.trim().length >= 2) || (loadNumberSearch?.trim().length >= 2);
+  const showEmptyPrompt = isLazyMode && !hasActiveSearch && (!orders || orders.length === 0);
+
+  if (showEmptyPrompt) {
+    return (
+      <div className="w-full px-2 py-4 md:py-6 space-y-4 md:space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl md:text-3xl font-bold">Trips</h1>
+        </div>
+
+        <Card className="bg-background">
+          <CardHeader>
+            <CardTitle>Filter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-4">
+              <div className="relative w-full max-w-[200px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Truck # / Driver..."
+                  value={searchFilter}
+                  onChange={(e) => {
+                    setSearchFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-8"
+                />
+              </div>
+              <div className="relative w-full max-w-[200px]">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Internal# / Broker Load#..."
+                  value={loadNumberSearch}
+                  onChange={(e) => {
+                    setLoadNumberSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-background">
+          <CardContent className="py-16 text-center">
+            <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Search for Trips</h3>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Enter a truck number or driver name to load their trips, or search by load number to find a specific order.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
