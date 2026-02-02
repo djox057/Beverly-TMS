@@ -3,19 +3,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Truck, Container, Calendar, Clock, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
 
 interface TenureCardProps {
   tenure: Tenure;
   entityType: 'driver' | 'truck' | 'trailer';
   /** Percentage of total timeline this tenure represents (0-100) */
   timelinePercentage?: number;
+  /** Custom icon to override default */
+  icon?: ReactNode;
 }
 
-export const TenureCard = ({ tenure, entityType, timelinePercentage }: TenureCardProps) => {
+export const TenureCard = ({ tenure, entityType, timelinePercentage, icon }: TenureCardProps) => {
   const isCurrent = tenure.endDate === null;
   const isGap = tenure.isGap;
   
   const getIcon = () => {
+    if (icon) return icon;
     switch (entityType) {
       case 'driver':
         return <User className="h-4 w-4" />;
