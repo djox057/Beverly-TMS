@@ -19,6 +19,9 @@ import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { useOrdersProgressive } from "@/hooks/useOrdersProgressive";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useDrivers } from "@/hooks/useDrivers";
+import { useTrucks } from "@/hooks/useTrucks";
+import { useBrokers } from "@/hooks/useBrokers";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { OrdersLoadingProgress, OrdersLoadingBadge } from "@/components/OrdersLoadingProgress";
@@ -318,6 +321,18 @@ const Orders = () => {
     data: companies
   } = useCompanies();
 
+  const {
+    data: drivers
+  } = useDrivers();
+
+  const {
+    data: trucks
+  } = useTrucks();
+
+  const {
+    data: brokers
+  } = useBrokers();
+
   // Detect if any filter is active that requires server-side filtering
   const hasActiveFilter = useMemo(() => {
     return (
@@ -348,20 +363,27 @@ const Orders = () => {
       ? companies?.find(c => c.name === truckCompanyFilter)?.id
       : undefined;
     
-    // Find truck ID from truck number
-    const truckId = truckFilter !== "all-trucks" 
-      ? orders?.find(o => o.truckNumber === truckFilter)?.truck?.id
+    // Map UI filter values (names/numbers) to stable IDs from canonical tables.
+    // This avoids empty `{}` filters caused by partial order datasets / manual values.
+    const truckId = truckFilter !== "all-trucks"
+      ? trucks?.find(t => t.truck_number === truckFilter)?.id
       : undefined;
-    
-    // Find driver ID from driver name
+
     const driverId = driverFilter !== "all-drivers"
-      ? orders?.find(o => o.driverName === driverFilter)?.driver1?.id
+      ? drivers?.find(d => d.name === driverFilter)?.id
       : undefined;
-    
-    // Find broker ID from broker name  
+
     const brokerId = brokerFilter !== "all-brokers"
-      ? orders?.find(o => o.brokerName === brokerFilter)?.broker?.id
+      ? brokers?.find(b => b.name === brokerFilter)?.id
       : undefined;
+
+    // If a DB-backed filter is selected but we can't resolve its ID yet, don't query.
+    // (Prevents calling search-orders with {} which returns unfiltered rows.)
+    if (companyFilter !== "all-companies" && !companyId) return null;
+    if (truckCompanyFilter !== "all-truck-companies" && !truckCompanyId) return null;
+    if (truckFilter !== "all-trucks" && !truckId) return null;
+    if (driverFilter !== "all-drivers" && !driverId) return null;
+    if (brokerFilter !== "all-brokers" && !brokerId) return null;
     
     return {
       companyId,
@@ -377,7 +399,7 @@ const Orders = () => {
       pickupDateFrom: pickupDateRange?.from?.toISOString(),
       pickupDateTo: pickupDateRange?.to?.toISOString(),
     };
-  }, [hasActiveFilter, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange, companies, orders]);
+  }, [hasActiveFilter, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, brokerFilter, lockedNotInvoicedFilter, invoicedFilter, dateRange, pickupDateRange, companies, trucks, drivers, brokers]);
 
   // Trigger server-side filtered search when filters change
   const debouncedServerFilters = useDebounce(serverFilters, 400);
@@ -402,14 +424,10 @@ const Orders = () => {
       return searchResults || [];
     }
     
-    // When filters are active, use server-side filtered results
-    if (hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0) {
-      return filteredServerOrders;
-    }
-    
-    // While loading filtered results, show existing orders to prevent flash
-    if (hasActiveFilter && isFilteredLoading) {
-      return orders || [];
+    // When filters are active, ONLY show server-side filtered results.
+    // (Never show unfiltered local orders, even while loading.)
+    if (hasActiveFilter) {
+      return filteredServerOrders || [];
     }
     
     return orders || [];
@@ -674,15 +692,15 @@ const Orders = () => {
   const endIndex = startIndex + ORDERS_PER_PAGE;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
-  // Get unique companies and booked by values for filters
-  const uniqueCompanies = [...new Set(orders?.map(order => order.bookedByCompanyName) || [])].filter(Boolean);
-  const uniqueTruckCompanies = [...new Set(orders?.map(order => order.driverCompanyName) || [])].filter(Boolean);
+  // Filter option sources (canonical tables → stable IDs for server-side filtering)
+  const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
+  const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
-  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {
+  const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
   }));
-  const uniqueDrivers = [...new Set(orders?.map(order => order.driverName) || [])].filter(Boolean).sort();
-  const uniqueBrokers = [...new Set(orders?.map(order => order.brokerName) || [])].filter(Boolean).sort();
+  const uniqueDrivers = (drivers || []).map((d: any) => d.name).filter(Boolean).sort();
+  const uniqueBrokers = (brokers || []).map((b: any) => b.name).filter(Boolean).sort();
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
