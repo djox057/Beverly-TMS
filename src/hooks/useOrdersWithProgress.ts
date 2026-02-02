@@ -18,7 +18,7 @@ interface UseOrdersWithProgressOptions {
   dispatcherUserId?: string | null;
 }
 
-const LOCKED_BATCH_SIZE = 500; // Larger batches for faster loading
+const LOCKED_BATCH_SIZE = 1000; // Larger batches for faster loading
 
 /**
  * Hook for Analytics page that loads ALL orders with progress tracking.
