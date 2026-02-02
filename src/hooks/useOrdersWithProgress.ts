@@ -202,6 +202,10 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       const mergedOrders = transformOrders([...allUnlockedOrders, ...deduplicatedLockedOrders]);
       console.log(`[OrdersWithProgress] ✅ COMPLETE: ${allUnlockedOrders.length} unlocked + ${deduplicatedLockedOrders.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
 
+      // CRITICAL: Also populate the main ["orders"] cache so Orders/Trips pages benefit from this fetch
+      queryClient.setQueryData(["orders"], mergedOrders);
+      console.log("[OrdersWithProgress] Synced to main ['orders'] cache for Orders/Trips pages");
+
       return mergedOrders;
     },
     refetchOnWindowFocus: false,
