@@ -1,164 +1,166 @@
 
-# Tenure-Based Assignment History Redesign
+# Backend Documentation Plan
 
 ## Overview
-Transform the assignment history from an event-log view to a **tenure-based timeline** that shows continuous date ranges when equipment was assigned together. This provides a clearer "who was on what, and when" view.
 
-## Current State
-- History shows individual **change events** (e.g., "Driver: None → John Smith")
-- Users see a list of timestamps with before/after snapshots
-- For trucks, there's already partial tenure calculation for drivers (merging within 7-day gaps)
+This plan outlines the creation of a comprehensive markdown documentation file that explains the entire backend architecture of the BF Prime Dispatch application. The app uses Supabase as its Backend-as-a-Service (BaaS) with Deno Edge Functions for serverless compute.
 
-## New Design
+## Document Structure
 
-### Truck History Dialog
-Shows two tabs with tenure timelines:
+The documentation will be organized into the following sections:
 
-**Driver Tenures Tab**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  John Smith                                                  │
-│  01/15/2026 - Current (18 days)                             │
-│  ─────────────────────────────────────────────────── ▓▓▓▓▓  │
-├─────────────────────────────────────────────────────────────┤
-│  Mike Johnson                                                │
-│  11/20/2025 - 01/14/2026 (56 days)                          │
-│  ─────────────────── ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │
-│  Reason ended: Driver requested transfer                     │
-├─────────────────────────────────────────────────────────────┤
-│  No driver assigned                                          │
-│  11/01/2025 - 11/19/2025 (19 days)                          │
-│  ───── ░░░░░░░░░░░░░░░░░░░░                                 │
-└─────────────────────────────────────────────────────────────┘
+### 1. Architecture Overview
+- Technology stack: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+- How the frontend connects to the backend via `@supabase/supabase-js`
+- Environment configuration and connection details
+
+### 2. Database Schema
+A complete breakdown of all 60+ tables organized by domain:
+
+**Core Entities:**
+- `drivers` - Driver profiles with compliance data (CDL, medical, HOS)
+- `trucks` - Fleet vehicles with assignments and maintenance tracking
+- `trailers` - Trailer inventory and status
+- `orders` - Load/shipment records with full pricing breakdown
+- `companies` - Trucking companies (BF Prime, United, BG Inc, Beverly Freight)
+- `brokers` - Freight broker directory
+
+**User & Auth:**
+- `profiles` - User profile data linked to auth.users
+- `user_roles` - Role-based access control (dispatch, admin, supervisor, etc.)
+
+**Operations:**
+- `pickup_drops` - Multi-stop pickup/delivery locations per order
+- `order_transfers` - Load handoffs between drivers
+- `order_files` - Document attachments (rate confirmations, BOLs, PODs)
+- `recovery_history` - Breakdown recovery operations
+
+**Analytics & Tracking:**
+- `daily_driver_stats` - Historical lost day/home time records
+- `dispatcher_daily_driver_counts` - Fleet size snapshots
+- `analytics_dispatcher_period` - Performance aggregations
+- `truck_locations` - GPS positions from Samsara
+
+**Financial:**
+- `driver_expenses` - Deductions and debts
+- `driver_cash_advances` - Cash advance requests
+- `fuel_transactions` - EFS fuel card data
+- `repairs` - Equipment repair costs
+- `dispatcher_salary_payments` - Payroll records
+
+**Compliance & Safety:**
+- `driver_drug_tests` - Drug test records
+- `hos_requests` - Hours of Service edit requests
+- `driver_pii_audit_log` - PII access logging
+
+### 3. Database Functions & Triggers
+Document all PostgreSQL functions:
+- `handle_new_user()` - Creates profile and assigns default role on signup
+- `has_role()` - Permission checking
+- `log_truck_assignment_changes()` - Audit trail for fleet assignments
+- `log_driver_dispatcher_changes()` - Tracks dispatcher reassignments
+- `save_truck_note_history()` - Note version history
+- `create_order_with_unique_load_number()` - Atomic order creation with company-scoped load numbers
+- `get_assignment_history()` - Query assignment audit trail
+- `capture_original_delivery_datetime()` - Tracks reschedules
+
+### 4. Edge Functions
+Complete documentation of all 40+ Deno edge functions organized by category:
+
+**AI/Document Processing:**
+- `extract-order-fields` - Gemini AI PDF parsing for rate confirmations
+- `generate-load-confirmation` - PDF form filling with pdf-lib
+
+**External Integrations:**
+- `samsara-locations` - Real-time GPS from Samsara telematics
+- `hos-sync` - Transit Tracking API for HOS data
+- `calculate-mapbox-route` - Mapbox Directions API for mileage
+- `geocode-address` - Address to coordinates conversion
+
+**Communication:**
+- `send-sms` - RingCentral SMS messaging
+- `send-payroll-email` - Resend email with PDF attachments
+- `send-password-reset` - Custom password reset flow
+- `send-load-confirmation-email` - Driver load sheets
+- `send-efs-request` / `send-cash-advance-request` - EFS card requests
+- `telegram-webhook` / `setup-telegram-webhook` - HOS request notifications
+
+**User Management:**
+- `create-user` - Admin user creation
+- `delete-user` - User removal
+- `update-user-role` - Role modifications
+- `logout-all-users` - Force sign-out all sessions
+
+**Scheduled Jobs (CRON):**
+- `record-daily-driver-stats` - Daily lost day calculations
+- `record-dispatcher-driver-counts` - Daily fleet snapshots
+- `cleanup-yard-arrivals` - Housekeeping
+- `clear-weekly-plans` - Weekly plan reset
+- `check-delivery-etas` - Late delivery detection
+- `process-afterhours-schedule` - Shift scheduling
+
+**Data Operations:**
+- `search-orders` - Advanced order search with pagination
+- `get-all-unlocked-orders` / `get-all-locked-orders` - Bulk order retrieval
+- `calculate-distances-batch` - Batch mileage calculations
+- `recalculate-load-miles` - Mile recalculation
+
+### 5. Authentication & Authorization
+- Supabase Auth with email/password
+- Role-based access control (RBAC) with 11 roles
+- Role hierarchy: admin > manager > supervisor > dispatch
+- `hasRole()` permission checks in frontend
+- Service role key usage in edge functions
+
+### 6. Storage Buckets
+Document all 9 storage buckets:
+- `order-files` - Rate confirmations, BOLs, PODs, invoices
+- `driver-files` - Driver documents
+- `truck-files` / `trailer-files` - Equipment documents
+- `efs-receipts` - Fuel receipts
+- `email-attachments` - Public email assets
+- `archived-orders` - Historical order backups
+- `company-files` - Company documents
+- `Profilne` - PDF templates
+
+### 7. Real-time Subscriptions
+- How `useDriversRealtime`, `useTrucksRealtime`, `useOrdersRealtime` work
+- Supabase Realtime channels for live updates
+
+### 8. Security Configuration
+- Row Level Security (RLS) considerations
+- Edge function JWT verification settings in `config.toml`
+- PII audit logging for sensitive driver data
+
+### 9. Third-Party Integrations
+- **Samsara** - Vehicle telematics and GPS
+- **Transit Tracking** - HOS/ELD data
+- **Mapbox** - Geocoding and route calculation
+- **RingCentral** - SMS messaging
+- **Resend** - Transactional email
+- **Telegram** - HOS request notifications
+- **Google Gemini** - AI document extraction
+
+## File Location
+
+The documentation will be created at:
+```
+docs/BACKEND_ARCHITECTURE.md
 ```
 
-**Trailer Tenures Tab**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Trailer #53-2847                                            │
-│  12/01/2025 - Current (63 days)                             │
-│  ─────────────────────────────────────────────────── ▓▓▓▓▓  │
-├─────────────────────────────────────────────────────────────┤
-│  Trailer #53-1923                                            │
-│  10/15/2025 - 11/30/2025 (47 days)                          │
-│  ─────────────────── ▓▓▓▓▓▓▓▓▓▓▓▓▓                          │
-│  Reason ended: Trailer sent for repair                       │
-└─────────────────────────────────────────────────────────────┘
-```
+## Technical Details
 
-### Driver History Dialog
-Shows two tabs with tenure timelines:
+The documentation will include:
+- Mermaid diagrams for entity relationships
+- Code examples for common patterns
+- Configuration snippets
+- API endpoint documentation for edge functions
+- Data flow diagrams for key operations
 
-**Truck Tenures Tab**
-- Shows which trucks this driver has been assigned to, with date ranges
-- "Current" badge for active assignment
+## Implementation Approach
 
-**Trailer Tenures Tab**  
-- Shows which trailers this driver has worked with, with date ranges
-
-### Trailer History Dialog
-Shows two tabs:
-
-**Truck Tenures Tab**
-- Shows which trucks this trailer has been attached to
-
-**Driver Tenures Tab**
-- Shows which drivers have operated with this trailer
-
-## Technical Implementation
-
-### 1. Create Tenure Calculation Utility
-New file: `src/utils/tenureCalculator.ts`
-
-```typescript
-interface Tenure {
-  entityId: string | null;
-  entityName: string | null;
-  startDate: string;           // YYYY-MM-DD
-  endDate: string | null;      // null = Current
-  durationDays: number;
-  endReason: string | null;    // From assignment_history.reason
-  changedByName: string | null;
-}
-
-// Calculate tenures for a given relationship type
-function calculateTenures(
-  history: AssignmentHistoryEntry[],
-  tenureType: 'driver1' | 'driver2' | 'trailer' | 'truck'
-): Tenure[]
-```
-
-**Algorithm:**
-1. Sort history chronologically (oldest first)
-2. Track "current state" for the entity slot
-3. When state changes:
-   - Close previous tenure with end date and reason
-   - Open new tenure with start date
-4. Merge consecutive tenures for same entity within 7-day threshold
-5. Mark final tenure as "Current" if entity still assigned
-
-### 2. Update Database RPC (Optional Enhancement)
-The current `get_assignment_history` RPC returns raw events. We could add a new RPC `get_assignment_tenures` that performs tenure calculation in SQL for better performance, but the client-side approach is simpler to implement first.
-
-### 3. Redesign AssignmentHistoryDialog Component
-
-**New Component Structure:**
-```text
-AssignmentHistoryDialog.tsx
-├── TenureCard.tsx          (displays single tenure with timeline bar)
-├── TenureList.tsx          (list of TenureCards with scroll)
-└── TenureEmptyState.tsx    (no history message)
-```
-
-**TenureCard Features:**
-- Entity name (driver name, truck#, trailer#) 
-- Date range: "MM/DD/YYYY - MM/DD/YYYY" or "MM/DD/YYYY - Current"
-- Duration in days/weeks
-- Visual progress bar showing relative position in timeline
-- "Reason ended" if available
-- "Current" badge with green styling for active assignments
-- Show "No driver/trailer assigned" periods as gaps
-
-### 4. File Changes Summary
-
-| File | Change |
-|------|--------|
-| `src/utils/tenureCalculator.ts` | **NEW** - Tenure calculation logic |
-| `src/components/AssignmentHistoryDialog.tsx` | **MAJOR** - Complete UI redesign |
-| `src/components/TenureCard.tsx` | **NEW** - Individual tenure display |
-| `src/hooks/useAssignmentHistory.ts` | Minor - Increase default limit if needed |
-
-### 5. UI/UX Details
-
-**Tenure Card Design:**
-- Clean card with subtle border
-- Large entity name as primary text
-- Date range as secondary text with duration in parentheses
-- Green "Current" badge for active assignments
-- Gray text for ended assignments
-- Optional: Mini timeline bar showing relative position
-
-**Timeline Visualization (Optional):**
-- Horizontal bar under each tenure
-- Filled portion represents tenure duration relative to oldest entry
-- Helps users visually understand overlap and gaps
-
-**Sorting:**
-- Most recent tenures first (descending by start date)
-- "Current" assignment always at top
-
-### 6. Edge Cases to Handle
-
-1. **Same-day changes**: Multiple assignments in one day - show each as separate entry
-2. **Gap periods**: When entity was unassigned - optionally show as "No assignment" blocks
-3. **Legacy data**: History entries without `old_*` columns - handle gracefully
-4. **Team drivers**: Show both driver1 and driver2 slots separately or combined
-5. **Deleted entities**: Show "Unknown Driver" or "Deleted Trailer #X" using existing fallback patterns
-
-## Benefits
-
-1. **Clarity**: Users immediately see "John drove this truck for 56 days"
-2. **Context**: Reasons for changes are attached to the tenure that ended
-3. **Visual**: Duration shown in days/weeks, not just timestamps
-4. **Simpler**: Fewer cards to scroll through (tenures vs events)
-5. **Actionable**: Easy to spot short tenures that might indicate problems
+1. Create the `docs/` directory if it doesn't exist
+2. Write comprehensive markdown with proper headings and navigation
+3. Include practical examples from the actual codebase
+4. Document each edge function's purpose, inputs, outputs, and dependencies
+5. Explain the data model relationships with foreign key references
