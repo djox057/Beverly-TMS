@@ -2238,10 +2238,28 @@ const Analytics = () => {
                           Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("currentDebt")}>
-                          Current Debt {grossRankingsSortBy === "currentDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">Current Debt {grossRankingsSortBy === "currentDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>All debt without yearly expenses</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableHead>
                         <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("totalDebt")}>
-                          Total Debt {grossRankingsSortBy === "totalDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">Total Debt {grossRankingsSortBy === "totalDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>All debt including yearly expenses</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableHead>
                         <TableHead className="w-[9%]">Notice</TableHead>
                       </TableRow>
