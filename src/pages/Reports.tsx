@@ -1451,7 +1451,8 @@ const Reports = () => {
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, "yyyy-MM-dd");
       const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-      const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
+      // NOTE: Some code paths may provide `date` as an ISO timestamp string; normalize to YYYY-MM-DD.
+      const lostDayNote = allLostDayNotes.find((note: any) => String(note?.date || "").slice(0, 10) === dateStr);
 
       // If no existing note, check if this is 1 day in future
       if (!lostDayNote) {
@@ -1487,7 +1488,8 @@ const Reports = () => {
     } => {
       const dateStr = format(date, "yyyy-MM-dd");
       const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-      const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
+      // NOTE: Some code paths may provide `date` as an ISO timestamp string; normalize to YYYY-MM-DD.
+      const lostDayNote = allLostDayNotes.find((note: any) => String(note?.date || "").slice(0, 10) === dateStr);
       const note = lostDayNote?.note?.toLowerCase();
       if (note === "game over - yard")
         return {
@@ -2098,7 +2100,7 @@ const Reports = () => {
                   const dayStr = format(day, "yyyy-MM-dd");
                   const allLostDayNotesDelivery: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
                   const homeTimeNote = allLostDayNotesDelivery.find(
-                    (note: any) => note.date === dayStr && note.note_type === "home_time",
+                    (note: any) => String(note?.date || "").slice(0, 10) === dayStr && note.note_type === "home_time",
                   );
                   const hasHomeTime = !!homeTimeNote;
 
@@ -2275,8 +2277,9 @@ const Reports = () => {
               ) : (
                 (() => {
                   const dateStr = format(day, "yyyy-MM-dd");
-                  const homeTimeNote = truck.lost_day_notes?.find(
-                    (note: any) => note.date === dateStr && note.note_type === "home_time",
+                  const allLostDayNotesPickup: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+                  const homeTimeNote = allLostDayNotesPickup.find(
+                    (note: any) => String(note?.date || "").slice(0, 10) === dateStr && note.note_type === "home_time",
                   );
                   const hasHomeTime = !!homeTimeNote;
                   const hasDeliveryThisDay = allDeliveryOrders.length > 0;
@@ -2290,7 +2293,9 @@ const Reports = () => {
                         if (isMissingPickup) {
                           const currentNote = getLostDayNote(day);
                           const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-                          const lostDayNoteData = allLostDayNotes.find((note: any) => note.date === dateStr);
+                          const lostDayNoteData = allLostDayNotes.find(
+                            (note: any) => String(note?.date || "").slice(0, 10) === dateStr,
+                          );
                           const isCurrentlyHomeTime = lostDayNoteData?.note_type === "home_time";
                           const actualNoteValue = lostDayNoteData?.note || "";
 
