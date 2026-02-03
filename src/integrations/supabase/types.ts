@@ -3575,7 +3575,10 @@ export type Database = {
           created_at: string
           driver_id: string
           id: string
+          is_admin_unlocked: boolean
           plan_text: string
+          unlocked_at: string | null
+          unlocked_by: string | null
           updated_at: string
           updated_by: string | null
           week_start: string
@@ -3584,7 +3587,10 @@ export type Database = {
           created_at?: string
           driver_id: string
           id?: string
+          is_admin_unlocked?: boolean
           plan_text?: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
           updated_at?: string
           updated_by?: string | null
           week_start: string
@@ -3593,7 +3599,10 @@ export type Database = {
           created_at?: string
           driver_id?: string
           id?: string
+          is_admin_unlocked?: boolean
           plan_text?: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
           updated_at?: string
           updated_by?: string | null
           week_start?: string

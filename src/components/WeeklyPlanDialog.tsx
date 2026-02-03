@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Unlock } from "lucide-react";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -35,10 +36,15 @@ function getCurrentWeekMonday(): string {
 
 /**
  * Check if editing is allowed based on Chicago time rules:
- * - Editable: Monday 6:45 AM - 1:00 PM Chicago time
- * - Locked: After 1:00 PM Monday until next Monday 6:44 AM
+ * - Editable: Monday 6:45 AM - 11:00 AM Chicago time (unless admin-unlocked)
+ * - Locked: After 11:00 AM Monday until next Monday 6:44 AM
  */
-function getEditingStatus(): { canEdit: boolean; reason: string } {
+function getEditingStatus(isAdminUnlocked: boolean): { canEdit: boolean; reason: string } {
+  // If admin has unlocked this plan, allow editing
+  if (isAdminUnlocked) {
+    return { canEdit: true, reason: "" };
+  }
+
   const chicagoNow = getChicagoNow();
   const dayOfWeek = chicagoNow.getDay(); // 0 = Sunday, 1 = Monday
   const hours = chicagoNow.getHours();
@@ -46,7 +52,7 @@ function getEditingStatus(): { canEdit: boolean; reason: string } {
   const totalMinutes = hours * 60 + minutes;
 
   const startEditMinutes = 6 * 60 + 45; // 6:45 AM = 405 minutes
-  const endEditMinutes = 13 * 60; // 1:00 PM = 780 minutes
+  const endEditMinutes = 11 * 60; // 11:00 AM = 660 minutes
 
   if (dayOfWeek === 1) {
     // Monday
@@ -55,12 +61,12 @@ function getEditingStatus(): { canEdit: boolean; reason: string } {
     } else if (totalMinutes < startEditMinutes) {
       return { canEdit: false, reason: "Editing available at 6:45 AM" };
     } else {
-      return { canEdit: false, reason: "Locked after 1:00 PM" };
+      return { canEdit: false, reason: "Locked after 11:00 AM" };
     }
   }
 
   // Not Monday - locked
-  return { canEdit: false, reason: "Editing only on Monday 6:45 AM - 1:00 PM" };
+  return { canEdit: false, reason: "Editing only on Monday 6:45 AM - 11:00 AM" };
 }
 
 /**
@@ -72,8 +78,8 @@ export function getWeeklyPlanIconColor(hasPlan: boolean): "yellow" | "red" | "gr
   const hours = chicagoNow.getHours();
   const totalMinutes = hours * 60 + chicagoNow.getMinutes();
   
-  // After 1:00 PM Monday (780 minutes) until end of week
-  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 13 * 60;
+  // After 11:00 AM Monday (660 minutes) until end of week
+  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 11 * 60;
   const isPastMonday = dayOfWeek > 1 || dayOfWeek === 0; // Tue-Sun
 
   if (hasPlan) {
@@ -94,14 +100,18 @@ export function WeeklyPlanDialog({
   driverName,
 }: WeeklyPlanDialogProps) {
   const { toast } = useToast();
+  const { hasRole } = useAuthContext();
   const [planText, setPlanText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTogglingLock, setIsTogglingLock] = useState(false);
   const [existingPlanId, setExistingPlanId] = useState<string | null>(null);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const isSavingRef = useRef(false); // Track saving state for realtime guard
 
+  const isAdmin = hasRole("admin");
   const weekStart = useMemo(() => getCurrentWeekMonday(), []);
-  const editingStatus = useMemo(() => getEditingStatus(), []);
+  const editingStatus = useMemo(() => getEditingStatus(isAdminUnlocked), [isAdminUnlocked]);
 
   // Fetch existing plan when dialog opens
   useEffect(() => {
@@ -136,12 +146,14 @@ export function WeeklyPlanDialog({
             if (data.week_start === weekStart) {
               setPlanText(data.plan_text || "");
               setExistingPlanId(data.id);
+              setIsAdminUnlocked(data.is_admin_unlocked || false);
             }
           } else if (payload.eventType === "DELETE") {
             const data = payload.old as any;
             if (data.week_start === weekStart) {
               setPlanText("");
               setExistingPlanId(null);
+              setIsAdminUnlocked(false);
             }
           }
         }
@@ -168,9 +180,11 @@ export function WeeklyPlanDialog({
       if (data) {
         setPlanText(data.plan_text || "");
         setExistingPlanId(data.id);
+        setIsAdminUnlocked((data as any).is_admin_unlocked || false);
       } else {
         setPlanText("");
         setExistingPlanId(null);
+        setIsAdminUnlocked(false);
       }
     } catch (error) {
       console.error("Error fetching weekly plan:", error);
@@ -261,13 +275,86 @@ export function WeeklyPlanDialog({
     }
   };
 
+  const handleToggleLock = async () => {
+    if (!isAdmin) return;
+
+    setIsTogglingLock(true);
+    isSavingRef.current = true;
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      const newUnlockedState = !isAdminUnlocked;
+
+      if (existingPlanId) {
+        // Update existing plan
+        const { error } = await supabase
+          .from("weekly_plans")
+          .update({
+            is_admin_unlocked: newUnlockedState,
+            unlocked_by: newUnlockedState ? userId : null,
+            unlocked_at: newUnlockedState ? new Date().toISOString() : null,
+          })
+          .eq("id", existingPlanId);
+
+        if (error) throw error;
+      } else {
+        // Create plan record just for the unlock state
+        const { data, error } = await supabase
+          .from("weekly_plans")
+          .insert({
+            driver_id: driverId,
+            week_start: weekStart,
+            plan_text: "",
+            is_admin_unlocked: newUnlockedState,
+            unlocked_by: newUnlockedState ? userId : null,
+            unlocked_at: newUnlockedState ? new Date().toISOString() : null,
+            updated_by: userId,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setExistingPlanId(data.id);
+        }
+      }
+
+      setIsAdminUnlocked(newUnlockedState);
+      toast({
+        title: newUnlockedState ? "Unlocked" : "Locked",
+        description: newUnlockedState 
+          ? "Weekly plan unlocked for editing" 
+          : "Weekly plan locked",
+      });
+    } catch (error) {
+      console.error("Error toggling lock:", error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle lock state",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingLock(false);
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 500);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Weekly Plan - {driverName}
-            {!editingStatus.canEdit && (
+            {isAdminUnlocked && (
+              <span className="flex items-center gap-1 text-sm font-normal text-green-600">
+                <Unlock className="h-4 w-4" />
+                Admin unlocked
+              </span>
+            )}
+            {!editingStatus.canEdit && !isAdminUnlocked && (
               <span className="flex items-center gap-1 text-sm font-normal text-muted-foreground">
                 <Lock className="h-4 w-4" />
                 {editingStatus.reason}
@@ -277,8 +364,27 @@ export function WeeklyPlanDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Week starting: {format(new Date(weekStart), "MMMM d, yyyy")}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Week starting: {format(new Date(weekStart), "MMMM d, yyyy")}
+            </div>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleLock}
+                disabled={isTogglingLock}
+              >
+                {isTogglingLock ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : isAdminUnlocked ? (
+                  <Lock className="h-4 w-4 mr-2" />
+                ) : (
+                  <Unlock className="h-4 w-4 mr-2" />
+                )}
+                {isAdminUnlocked ? "Lock" : "Unlock"}
+              </Button>
+            )}
           </div>
 
           {isLoading ? (
