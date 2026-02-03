@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Send, Loader2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Send, Loader2, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generatePayrollPdf } from "@/utils/payrollPdfGenerator";
+import { generatePayrollPdf, PayrollAdjustment } from "@/utils/payrollPdfGenerator";
 
 interface PayrollPreviewDialogProps {
   open: boolean;
@@ -57,6 +58,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [ptoSelections, setPtoSelections] = useState<Record<string, boolean>>({});
   const [usedPtoDaysThisYear, setUsedPtoDaysThisYear] = useState(0);
   const [existingPtoDays, setExistingPtoDays] = useState<string[]>([]);
+  
+  // Custom adjustments (extra pay and charges)
+  const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>([]);
+  const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
+  const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
+  const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
 
   const year = parseInt(selectedMonth.split("-")[0], 10);
   const maxPtoDays = 3;
@@ -132,6 +139,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
+        adjustments,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -144,12 +152,38 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     }
   };
 
-  // Regenerate preview when PTO selections change
+  // Regenerate preview when PTO selections or adjustments change
   useEffect(() => {
     if (open && !loading) {
       generatePreview();
     }
-  }, [ptoSelections]);
+  }, [ptoSelections, adjustments]);
+
+  const handleAddAdjustment = () => {
+    const amount = parseFloat(newAdjustmentAmount);
+    if (!newAdjustmentReason.trim()) {
+      toast.error("Please enter a reason");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    setAdjustments(prev => [...prev, {
+      type: newAdjustmentType,
+      reason: newAdjustmentReason.trim(),
+      amount,
+    }]);
+
+    // Reset form
+    setNewAdjustmentReason("");
+    setNewAdjustmentAmount("");
+  };
+
+  const handleRemoveAdjustment = (index: number) => {
+    setAdjustments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handlePtoToggle = (date: string, checked: boolean) => {
     const currentSelectedCount = Object.values(ptoSelections).filter(Boolean).length;
@@ -219,7 +253,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
 
-      // Generate the final PDF with PTO data
+      // Generate the final PDF with PTO data and adjustments
       const pdfBlob = await generatePayrollPdf({
         employeeName: dispatcherName,
         payPeriod,
@@ -235,6 +269,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
+        adjustments,
       });
 
       // Convert to bytes
@@ -323,40 +358,134 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
             )}
           </div>
 
-          {/* PTO Panel - only show if there are days off AND not in preview-only mode */}
-          {!previewOnly && lostDayDates.length > 0 && (
-            <div className="w-64 border rounded-lg p-4 space-y-4">
+          {/* Right Panel - PTO and Adjustments */}
+          {!previewOnly && (
+            <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
+              {/* PTO Section - only show if there are days off */}
+              {lostDayDates.length > 0 && (
+                <>
+                  <div>
+                    <h3 className="font-semibold text-sm">Mark as PTO</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PTO days don't reduce salary. {remainingPtoDays} of {maxPtoDays} remaining this year.
+                    </p>
+                  </div>
+
+                  {remainingPtoDays <= 0 && currentMonthPtoSelected === 0 && (
+                    <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
+                      <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                      <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                        No PTO days remaining for this year.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Days off:</p>
+                    {lostDayDates.map(date => (
+                      <div key={date} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`pto-${date}`}
+                          checked={ptoSelections[date] || false}
+                          onCheckedChange={(checked) => handlePtoToggle(date, checked as boolean)}
+                          disabled={!ptoSelections[date] && remainingPtoDays - currentMonthPtoSelected <= 0}
+                        />
+                        <Label htmlFor={`pto-${date}`} className="text-sm cursor-pointer">
+                          {date} {ptoSelections[date] && <span className="text-green-600">(PTO)</span>}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="border-t pt-4" />
+                </>
+              )}
+
+              {/* Adjustments Section */}
               <div>
-                <h3 className="font-semibold text-sm">Mark as PTO</h3>
+                <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PTO days don't reduce salary. {remainingPtoDays} of {maxPtoDays} remaining this year.
+                  Add additional payments or deductions.
                 </p>
               </div>
 
-              {remainingPtoDays <= 0 && currentMonthPtoSelected === 0 && (
-                <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
-                  <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
-                  <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                    No PTO days remaining for this year.
-                  </p>
+              {/* Existing adjustments list */}
+              {adjustments.length > 0 && (
+                <div className="space-y-2">
+                  {adjustments.map((adj, index) => (
+                    <div 
+                      key={index} 
+                      className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                        adj.type === "addition" 
+                          ? "bg-green-50 dark:bg-green-900/20" 
+                          : "bg-red-50 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate font-medium">{adj.reason}</p>
+                        <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
+                          {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => handleRemoveAdjustment(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Days off:</p>
-                {lostDayDates.map(date => (
-                  <div key={date} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`pto-${date}`}
-                      checked={ptoSelections[date] || false}
-                      onCheckedChange={(checked) => handlePtoToggle(date, checked as boolean)}
-                      disabled={!ptoSelections[date] && remainingPtoDays - currentMonthPtoSelected <= 0}
-                    />
-                    <Label htmlFor={`pto-${date}`} className="text-sm cursor-pointer">
-                      {date} {ptoSelections[date] && <span className="text-green-600">(PTO)</span>}
-                    </Label>
-                  </div>
-                ))}
+              {/* Add new adjustment form */}
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant={newAdjustmentType === "addition" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewAdjustmentType("addition")}
+                  >
+                    Extra Pay
+                  </Button>
+                  <Button
+                    variant={newAdjustmentType === "charge" ? "destructive" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewAdjustmentType("charge")}
+                  >
+                    Charge
+                  </Button>
+                </div>
+
+                <Input
+                  placeholder="Reason"
+                  value={newAdjustmentReason}
+                  onChange={(e) => setNewAdjustmentReason(e.target.value)}
+                  className="h-8 text-sm"
+                />
+
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={newAdjustmentAmount}
+                    onChange={(e) => setNewAdjustmentAmount(e.target.value)}
+                    className="h-8 text-sm flex-1"
+                    min="0"
+                    step="0.01"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddAdjustment}
+                    disabled={!newAdjustmentReason.trim() || !newAdjustmentAmount}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}

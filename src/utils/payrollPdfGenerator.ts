@@ -1,5 +1,12 @@
 import jsPDF from "jspdf";
 
+// Export the adjustment type for use in other components
+export interface PayrollAdjustment {
+  type: "addition" | "charge";
+  reason: string;
+  amount: number;
+}
+
 interface PayrollData {
   employeeName: string;
   payPeriod: string;
@@ -15,6 +22,7 @@ interface PayrollData {
   perDayRate?: number; // Per-workday rate for lost days calculation
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
+  adjustments?: PayrollAdjustment[]; // Extra pay and charges
 }
 
 const BLACK_COLOR = "#000000";
@@ -38,13 +46,22 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
   
+  // Custom adjustments
+  const adjustments = data.adjustments || [];
+  const totalAdditions = adjustments
+    .filter(a => a.type === "addition")
+    .reduce((sum, a) => sum + a.amount, 0);
+  const totalCharges = adjustments
+    .filter(a => a.type === "charge")
+    .reduce((sum, a) => sum + a.amount, 0);
+  
   // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
   const extraDaysAdd = hasExtraDays ? data.extraDaysAmount : 0;
   const daysOffDeduction = nonSickDaysOff * perDayRate;
   
   const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0);
+    extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0) + totalAdditions - totalCharges;
 
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
@@ -260,6 +277,27 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
       "#FFFFFF", 
       LIGHT_BLUE_BG
     );
+  }
+
+  // Custom adjustments rows (additions and charges)
+  for (const adjustment of adjustments) {
+    if (adjustment.type === "addition") {
+      drawRow(
+        adjustment.reason || "Extra Pay",
+        `$${adjustment.amount.toFixed(2)}`,
+        "#FFFFFF",
+        LIGHT_BLUE_BG
+      );
+    } else {
+      drawRow(
+        adjustment.reason || "Charge",
+        `-$${adjustment.amount.toFixed(2)}`,
+        "#FFFFFF",
+        LIGHT_BLUE_BG,
+        false,
+        BLACK_COLOR
+      );
+    }
   }
 
   // Check amount row
