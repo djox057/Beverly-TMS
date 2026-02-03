@@ -61,7 +61,6 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   
   // Custom adjustments (extra pay and charges)
   const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>([]);
-  const [showAdjustmentsForm, setShowAdjustmentsForm] = useState(false);
   const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
@@ -403,26 +402,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               )}
 
               {/* Adjustments Section */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
-                  {adjustments.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {adjustments.length} adjustment{adjustments.length !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setShowAdjustmentsForm(!showAdjustmentsForm)}
-                >
-                  <Plus className={`h-4 w-4 transition-transform ${showAdjustmentsForm ? 'rotate-45' : ''}`} />
-                </Button>
+              <div>
+                <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add additional payments or deductions.
+                </p>
               </div>
 
-              {/* Existing adjustments list - always show if there are any */}
+              {/* Existing adjustments list */}
               {adjustments.length > 0 && (
                 <div className="space-y-2">
                   {adjustments.map((adj, index) => (
@@ -453,55 +440,53 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                 </div>
               )}
 
-              {/* Add new adjustment form - only show when expanded */}
-              {showAdjustmentsForm && (
-                <div className="space-y-3 pt-2 border-t">
-                  <div className="flex gap-2">
-                    <Button
-                      variant={newAdjustmentType === "addition" ? "default" : "outline"}
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setNewAdjustmentType("addition")}
-                    >
-                      Extra Pay
-                    </Button>
-                    <Button
-                      variant={newAdjustmentType === "charge" ? "destructive" : "outline"}
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => setNewAdjustmentType("charge")}
-                    >
-                      Charge
-                    </Button>
-                  </div>
-
-                  <Input
-                    placeholder="Reason"
-                    value={newAdjustmentReason}
-                    onChange={(e) => setNewAdjustmentReason(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      value={newAdjustmentAmount}
-                      onChange={(e) => setNewAdjustmentAmount(e.target.value)}
-                      className="h-8 text-sm flex-1"
-                      min="0"
-                      step="0.01"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={handleAddAdjustment}
-                      disabled={!newAdjustmentReason.trim() || !newAdjustmentAmount}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {/* Add new adjustment form */}
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant={newAdjustmentType === "addition" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewAdjustmentType("addition")}
+                  >
+                    Extra Pay
+                  </Button>
+                  <Button
+                    variant={newAdjustmentType === "charge" ? "destructive" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewAdjustmentType("charge")}
+                  >
+                    Charge
+                  </Button>
                 </div>
-              )}
+
+                <Input
+                  placeholder="Reason"
+                  value={newAdjustmentReason}
+                  onChange={(e) => setNewAdjustmentReason(e.target.value)}
+                  className="h-8 text-sm"
+                />
+
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={newAdjustmentAmount}
+                    onChange={(e) => setNewAdjustmentAmount(e.target.value)}
+                    className="h-8 text-sm flex-1"
+                    min="0"
+                    step="0.01"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleAddAdjustment}
+                    disabled={!newAdjustmentReason.trim() || !newAdjustmentAmount}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
