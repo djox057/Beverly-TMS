@@ -102,7 +102,10 @@ async function getTransitDataForKey(apiKey: string): Promise<TransitRecord[]> {
     
     const data = await fetchDataWithToken(token);
     if (data && data.length) {
+      // Log all truck numbers from this key for debugging
+      const truckNumbers = data.map(r => r.name).filter(Boolean).sort();
       console.log(`Got ${data.length} records with key ${apiKey.slice(0, 10)}...`);
+      console.log(`Truck numbers from key ${apiKey.slice(0, 10)}...: ${truckNumbers.join(', ')}`);
       return data;
     }
     return [];
@@ -131,7 +134,7 @@ function createTruckLookupMap(apiData: TransitRecord[]): Record<string, TransitR
   
   apiData.forEach(record => {
     if (record && record.name) {
-      // Remove # characters and trim spaces from truck number
+      // Normalize truck number: remove # and other common prefixes, trim spaces
       const truckNum = record.name.toString().replace(/#/g, '').trim();
       const prev = apiDataMap[truckNum];
 
@@ -197,10 +200,13 @@ serve(async (req) => {
     // Fetch data from all API keys
     const allApiData = await getAllTransitData(apiKeys);
     
-    // Create single lookup map from all data
+    // Create single lookup map from all data (keyed by truck number)
     const truckLookupMap = createTruckLookupMap(allApiData);
     
-    console.log(`Created lookup map with ${Object.keys(truckLookupMap).length} trucks from ${allApiData.length} total records`);
+    // Log ALL truck numbers from API for debugging
+    const allTruckNumbers = Object.keys(truckLookupMap).sort();
+    console.log(`Created lookup map with ${allTruckNumbers.length} trucks from ${allApiData.length} total records`);
+    console.log(`All truck numbers from API: ${allTruckNumbers.join(', ')}`);
 
     // Get trucks and their assigned drivers from database
     const { data: trucks, error: trucksError } = await supabase
@@ -232,7 +238,6 @@ serve(async (req) => {
     let updatedCount = 0;
 
     console.log(`Processing ${trucks.length} trucks from database`);
-    console.log(`Available assets in lookup map: ${Object.keys(truckLookupMap).slice(0, 30).join(', ')}...`);
 
     for (const truck of trucks) {
       // Get drivers to update
