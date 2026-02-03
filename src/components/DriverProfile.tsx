@@ -13,7 +13,7 @@ import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 // Fixed weekly charges (same for all drivers)
@@ -421,46 +421,42 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                     <p className="text-lg font-bold">{paymentsMade} / {totalPayments}</p>
                   </CardContent>
                 </Card>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card className={`cursor-help ${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                        <CardContent className="p-4">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <TrendingDown className="h-3 w-3" />
-                            Current Debt
-                          </p>
-                          <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                            {formatCurrency(currentDebt)}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>All debt without yearly expenses</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Card className={`cursor-help ${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                        <CardContent className="p-4">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <TrendingDown className="h-3 w-3" />
-                            Total Debt
-                          </p>
-                          <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                            {formatCurrency(totalDebt)}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>All debt including yearly expenses</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Card className={`cursor-pointer ${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <TrendingDown className="h-3 w-3" />
+                          Current Debt
+                        </p>
+                        <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                          {formatCurrency(currentDebt)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <p className="text-sm">All debt without yearly expenses</p>
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Card className={`cursor-pointer ${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                      <CardContent className="p-4">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <TrendingDown className="h-3 w-3" />
+                          Total Debt
+                        </p>
+                        <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {formatCurrency(totalDebt)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <p className="text-sm">All debt including yearly expenses</p>
+                  </PopoverContent>
+                </Popover>
               </div>
             );
           })()}
