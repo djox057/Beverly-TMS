@@ -361,17 +361,21 @@ const Billboard = () => {
   const getCurrentListAndTitle = () => {
     switch (activeView) {
       case "gross5":
-        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross", startRank: 1 };
+        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross(5+ trucks)", startRank: 1 };
       case "gross10":
-        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross", startRank: 6 };
+        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross(5+ trucks)", startRank: 6 };
       case "rpm5":
-        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM", startRank: 1 };
+        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM(5+ trucks)", startRank: 1 };
       case "rpm10":
-        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM", startRank: 6 };
+        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM(5+ trucks)", startRank: 6 };
       case "monthlyRpm5":
-        return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel}`, startRank: 1 };
+        return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1 };
       case "monthlyGross5":
-        return { list: top5MonthlyGross, title: `Top 5 Dispatchers by Gross - ${monthLabel}`, startRank: 1 };
+        return {
+          list: top5MonthlyGross,
+          title: `Top 5 Dispatchers by Gross - ${monthLabel} (5+ trucks)`,
+          startRank: 1,
+        };
     }
   };
 
