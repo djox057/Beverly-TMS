@@ -338,9 +338,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 flex gap-4">
+        <div className="flex-1 min-h-0 flex gap-2">
           {/* PDF Preview */}
-          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100 relative">
+          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100">
             {loading ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -357,19 +357,19 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                 No preview available
               </div>
             )}
-            
-            {/* Add Adjustment Button - positioned at top right of preview */}
-            {!previewOnly && !showAdjustmentsForm && (
-              <Button
-                size="icon"
-                className="absolute top-2 right-2 h-8 w-8"
-                onClick={() => setShowAdjustmentsForm(true)}
-                title="Add Extra Pay / Charge"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
           </div>
+          
+          {/* Add Adjustment Button - positioned to the right of preview */}
+          {!previewOnly && !showAdjustmentsForm && lostDayDates.length === 0 && (
+            <Button
+              size="icon"
+              className="h-8 w-8 shrink-0 self-start"
+              onClick={() => setShowAdjustmentsForm(true)}
+              title="Add Extra Pay / Charge"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
 
           {/* Right Panel - PTO and Adjustments */}
           {!previewOnly && (showAdjustmentsForm || lostDayDates.length > 0) && (
