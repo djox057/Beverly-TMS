@@ -416,9 +416,16 @@ const Analytics = () => {
         }
 
         // Calculate total days in the date range (for proper averaging)
+        // Cap at today to avoid dividing by future days that have no data yet
         const startDate = new Date(fromDate);
         const endDate = new Date(toDate);
-        const totalDaysInRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const today = new Date();
+        today.setHours(23, 59, 59, 999); // End of today
+        const effectiveEndDate = endDate > today ? today : endDate;
+        // If the range is entirely in the future, use 1 to avoid division issues
+        const totalDaysInRange = effectiveEndDate >= startDate 
+          ? Math.ceil((effectiveEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 
+          : 1;
 
         // Aggregate counts by dispatcher with totalDaysInRange for correct averaging
         const countsMap: Record<string, {
