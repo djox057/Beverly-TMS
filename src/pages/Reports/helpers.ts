@@ -265,7 +265,8 @@ export const getLostDayNote = (truck: any, date: Date): string => {
   const dateStr = format(date, "yyyy-MM-dd");
   // Check both snake_case and camelCase versions for compatibility with legacy and date-window adapter
   const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-  const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
+  // NOTE: Some code paths may provide `date` as an ISO timestamp string; always normalize to YYYY-MM-DD.
+  const lostDayNote = allLostDayNotes.find((note: any) => String(note?.date || "").slice(0, 10) === dateStr);
 
   if (!lostDayNote) {
     const today = new Date();
@@ -297,7 +298,8 @@ export const isGameOverDay = (truck: any, date: Date): { isGameOver: boolean; ty
   const dateStr = format(date, "yyyy-MM-dd");
   // Check both snake_case and camelCase versions for compatibility
   const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-  const lostDayNote = allLostDayNotes.find((note: any) => note.date === dateStr);
+  // NOTE: Some code paths may provide `date` as an ISO timestamp string; always normalize to YYYY-MM-DD.
+  const lostDayNote = allLostDayNotes.find((note: any) => String(note?.date || "").slice(0, 10) === dateStr);
   const note = lostDayNote?.note?.toLowerCase();
 
   if (note === "game over - yard") return { isGameOver: true, type: "yard" };
