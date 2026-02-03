@@ -52,7 +52,7 @@ function getEditingStatus(isAdminUnlocked: boolean): { canEdit: boolean; reason:
   const totalMinutes = hours * 60 + minutes;
 
   const startEditMinutes = 6 * 60 + 45; // 6:45 AM = 405 minutes
-  const endEditMinutes = 11 * 60; // 11:00 AM = 660 minutes
+  const endEditMinutes = 16 * 60; // 4:00 PM = 960 minutes
 
   if (dayOfWeek === 1) {
     // Monday
@@ -61,12 +61,12 @@ function getEditingStatus(isAdminUnlocked: boolean): { canEdit: boolean; reason:
     } else if (totalMinutes < startEditMinutes) {
       return { canEdit: false, reason: "Editing available at 6:45 AM" };
     } else {
-      return { canEdit: false, reason: "Locked after 11:00 AM" };
+      return { canEdit: false, reason: "Locked after 4:00 PM" };
     }
   }
 
   // Not Monday - locked
-  return { canEdit: false, reason: "Editing only on Monday 6:45 AM - 11:00 AM" };
+  return { canEdit: false, reason: "Editing only on Monday 6:45 AM - 4:00 PM" };
 }
 
 /**
@@ -78,8 +78,8 @@ export function getWeeklyPlanIconColor(hasPlan: boolean): "yellow" | "red" | "gr
   const hours = chicagoNow.getHours();
   const totalMinutes = hours * 60 + chicagoNow.getMinutes();
   
-  // After 11:00 AM Monday (660 minutes) until end of week
-  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 11 * 60;
+  // After 4:00 PM Monday (960 minutes) until end of week
+  const isAfterDeadline = dayOfWeek === 1 && totalMinutes >= 16 * 60;
   const isPastMonday = dayOfWeek > 1 || dayOfWeek === 0; // Tue-Sun
 
   if (hasPlan) {
