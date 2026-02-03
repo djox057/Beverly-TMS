@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { NewDriverExpense, DriverExpense, calculateExpenseStatus } from "@/hooks/useDriverExpenses";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NewDriverExpense, DriverExpense, calculateExpenseStatus, ExpenseType } from "@/hooks/useDriverExpenses";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 // Extract last segment of a name (e.g., "Aleksandar Ilic-Morgan" -> "Morgan")
@@ -56,6 +57,7 @@ export function AddDriverExpenseDialog({
     notice_2: initialData?.notice_2 || "",
     truck_number: initialData?.truck_number || truckNumber || "",
     trailer_number: initialData?.trailer_number || trailerNumber || "",
+    expense_type: initialData?.expense_type || "expense" as ExpenseType,
   });
 
   const [formData, setFormData] = useState(getInitialFormData);
@@ -94,6 +96,7 @@ export function AddDriverExpenseDialog({
       truck_number: formData.truck_number || null,
       trailer_number: formData.trailer_number || null,
       is_fixed: initialData?.is_fixed || false,
+      expense_type: formData.expense_type,
     });
 
     onOpenChange(false);
@@ -127,7 +130,7 @@ export function AddDriverExpenseDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="explanation">Explanation</Label>
               <Input
@@ -137,6 +140,22 @@ export function AddDriverExpenseDialog({
                 placeholder="Expense explanation"
                 required
               />
+            </div>
+            <div>
+              <Label htmlFor="expense_type">Type</Label>
+              <Select
+                value={formData.expense_type}
+                onValueChange={(value: ExpenseType) => setFormData({ ...formData, expense_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                  <SelectItem value="credit">Credit</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Added By</Label>

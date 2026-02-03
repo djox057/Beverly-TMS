@@ -1726,6 +1726,37 @@ const Trips = () => {
         deductionsRow++;
       });
 
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      // Credits go to credits section, expenses/yearly go to deductions section
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (after existing credits, rows 27-31)
+        let creditsRowCD = 27;
+        credits.forEach(() => creditsRowCD++); // Skip existing credits
+        creditDeductions.forEach((credit) => {
+          if (creditsRowCD > 31) return;
+          worksheet.getCell(`C${creditsRowCD}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRowCD}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${creditsRowCD}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRowCD++;
+        });
+        
+        // Write expense/yearly deductions
+        expenseDeductions.forEach((deduction) => {
+          if (deductionsRow > 40) return;
+          worksheet.getCell(`C${deductionsRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${deductionsRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${deductionsRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          deductionsRow++;
+        });
+      }
+
       // Fetch and write fuel transactions (rows 45-54 based on template structure)
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         firstOrder.truckNumber || "",
@@ -2117,9 +2148,25 @@ const Trips = () => {
       });
 
       // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
-      // Use "Scheduled Deductions:" header if any exist
-      if (scheduledDeductions.length > 0 && negativeRow <= 43) {
-        scheduledDeductions.forEach((deduction) => {
+      // Credits go to credits section, expenses/yearly go to deductions section
+      if (scheduledDeductions.length > 0) {
+        // Separate credits from deductions
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (after existing credits)
+        creditDeductions.forEach((credit) => {
+          if (creditsRow > 31) return; // Credits section ends at 31
+          worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${creditsRow}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRow++;
+        });
+        
+        // Write expense/yearly deductions to deductions section
+        expenseDeductions.forEach((deduction) => {
           if (negativeRow > 43) return; // Deductions section ends at 43
           worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
           worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
@@ -2523,6 +2570,36 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      // Credits go to credits section, expenses/yearly go to deductions section
+      const endDateFormattedBF = format(weekEndDate, "M/d/yy");
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (rows 27-31 for Beverly)
+        creditDeductions.forEach((credit) => {
+          if (creditsRow > 31) return;
+          worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRow}`).value = endDateFormattedBF;
+          const amtCell = worksheet.getCell(`J${creditsRow}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRow++;
+        });
+        
+        // Write expense/yearly deductions
+        expenseDeductions.forEach((deduction) => {
+          if (negativeRow > 44) return;
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = endDateFormattedBF;
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
+
       // Fetch and write fuel transactions (rows 49-63 for Beverly Freight)
       // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
@@ -2896,6 +2973,35 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      // Credits go to credits section, expenses/yearly go to deductions section
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (rows 19-21 for BG Inc)
+        creditDeductions.forEach((credit) => {
+          if (creditsRow > 21) return;
+          worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${creditsRow}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRow++;
+        });
+        
+        // Write expense/yearly deductions
+        expenseDeductions.forEach((deduction) => {
+          if (negativeRow > 32) return;
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
+
       // Fetch and write fuel transactions (rows 38-44 for BG Inc)
       // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
@@ -3239,6 +3345,34 @@ const Trips = () => {
         amtCell.numFmt = "$#,##0.00";
         negativeRow++;
       });
+
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      // Credits go to credits section, expenses/yearly go to deductions section
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (will be added to rows 36-38 below)
+        // Store for later when we write the credits section
+        creditDeductions.forEach((credit) => {
+          credits.push({
+            type: `Credit: ${credit.explanation}`,
+            deliveryDate: format(weekEndDate, "M/d/yy"),
+            amount: credit.deductionAmount,
+          });
+        });
+        
+        // Write expense/yearly deductions
+        expenseDeductions.forEach((deduction) => {
+          if (negativeRow > 33) return;
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = format(weekEndDate, "M/d/yy");
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
 
       // Fetch and write fuel transactions (rows 39-54)
       const fuelTransactions = await fetchFuelTransactionsForStatement(
@@ -3675,6 +3809,34 @@ const Trips = () => {
         amtCell.numFmt = "$#,##0.00";
         negativeRow++;
       });
+
+      // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
+        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        
+        // Write credits to credits section (rows 52-54 for BF Prime United)
+        creditDeductions.forEach((credit) => {
+          if (creditsRow > 54) return;
+          worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${creditsRow}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRow++;
+        });
+        
+        // Write expense/yearly deductions
+        expenseDeductions.forEach((deduction) => {
+          if (negativeRow > 47) return;
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
 
       // Fetch and write fuel transactions (rows 23-34 for BF Prime United)
       // Uses new logic: prev week last delivery to current week last delivery - 1

@@ -12,9 +12,10 @@ export function useAllDriverDebts() {
     queryKey: ["all-driver-debts"],
     queryFn: async () => {
       // Fetch all unpaid/partial expenses (now includes cash advances)
+      // Also fetch expense_type to handle credits differently
       const { data: expenses, error: expensesError } = await supabase
         .from("driver_expenses")
-        .select("driver_id, amount, paid_amount, status")
+        .select("driver_id, amount, paid_amount, status, expense_type")
         .neq("status", "paid");
 
       if (expensesError) {
@@ -39,6 +40,7 @@ export function useAllDriverDebts() {
       });
 
       // Calculate debt per driver
+      // Credits (expense_type = 'credit') subtract from debt, others add to debt
       const debtByDriverId: Record<string, number> = {};
 
       // Add expense debts (now includes cash advances since they're stored as expenses)
@@ -46,7 +48,12 @@ export function useAllDriverDebts() {
         if (!exp.driver_id) return;
         const remaining = exp.amount - (exp.paid_amount || 0);
         if (remaining > 0) {
-          debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) + remaining;
+          // Credits subtract from debt, expenses/yearly add to debt
+          if (exp.expense_type === 'credit') {
+            debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) - remaining;
+          } else {
+            debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) + remaining;
+          }
         }
       });
 
