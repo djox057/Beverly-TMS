@@ -69,10 +69,15 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const year = parseInt(selectedMonth.split("-")[0], 10);
   const maxPtoDays = 3;
 
-  // Load existing PTO days for this year
+  // Load existing PTO days for this year and reset adjustments when dialog opens
   useEffect(() => {
     if (open && dispatcherUserId) {
       loadPtoDays();
+      // Reset adjustments when dialog opens for a new dispatcher
+      setAdjustments([]);
+      setShowAdjustmentsForm(false);
+      setNewAdjustmentReason("");
+      setNewAdjustmentAmount("");
     }
     return () => {
       if (pdfUrl) {
