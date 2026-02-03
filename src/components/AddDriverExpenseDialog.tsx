@@ -72,10 +72,14 @@ export function AddDriverExpenseDialog({
   const isEditing = !!initialData;
   
   // Calculate auto-status for display
-  const calculatedStatus = calculateExpenseStatus(
-    parseFloat(formData.amount) || 0,
-    formData.paid_amount ? parseFloat(formData.paid_amount) : null
-  );
+  // Company expenses are always shown as "Company Expense"
+  const isCompanyExpense = formData.expense_type === 'company_expense';
+  const calculatedStatus = isCompanyExpense 
+    ? 'company_expense' 
+    : calculateExpenseStatus(
+        parseFloat(formData.amount) || 0,
+        formData.paid_amount ? parseFloat(formData.paid_amount) : null
+      );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +158,7 @@ export function AddDriverExpenseDialog({
                   <SelectItem value="expense">Expense</SelectItem>
                   <SelectItem value="yearly">Yearly</SelectItem>
                   <SelectItem value="credit">Credit</SelectItem>
+                  <SelectItem value="company_expense">Company Expense</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -194,15 +199,19 @@ export function AddDriverExpenseDialog({
                   variant={
                     calculatedStatus === "paid" ? "default" : 
                     calculatedStatus === "partial" ? "secondary" : 
+                    calculatedStatus === "company_expense" ? "default" :
                     "outline"
                   }
                   className={
                     calculatedStatus === "paid" ? "bg-green-500" : 
                     calculatedStatus === "partial" ? "bg-yellow-500 text-black" : 
+                    calculatedStatus === "company_expense" ? "bg-purple-500" :
                     ""
                   }
                 >
-                  {calculatedStatus.charAt(0).toUpperCase() + calculatedStatus.slice(1)}
+                  {calculatedStatus === 'company_expense' 
+                    ? 'Company Expense' 
+                    : calculatedStatus.charAt(0).toUpperCase() + calculatedStatus.slice(1)}
                 </Badge>
               </div>
             </div>

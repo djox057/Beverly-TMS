@@ -76,7 +76,10 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
     
     unpaidExpenses.forEach(e => {
       const remaining = e.amount - (e.paid_amount || 0);
-      if (e.expense_type === 'credit') {
+      if (e.expense_type === 'company_expense') {
+        // Company expenses don't count toward any debt
+        return;
+      } else if (e.expense_type === 'credit') {
         current -= remaining; // Credits subtract from both
         total -= remaining;
       } else if (e.expense_type === 'yearly') {
@@ -174,6 +177,8 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
     switch (status.toLowerCase()) {
       case "paid":
         return "bg-green-500/10 text-green-600 border-green-500/20";
+      case "company_expense":
+        return "bg-purple-500/10 text-purple-600 border-purple-500/20";
       case "pending":
         return "bg-amber-500/10 text-amber-600 border-amber-500/20";
       case "partial":
@@ -529,7 +534,13 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                     expense: 'bg-muted text-muted-foreground',
                     yearly: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
                     credit: 'bg-green-500/10 text-green-600 border-green-500/20',
+                    company_expense: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
                   };
+                  // For company_expense type, override status display
+                  const displayStatus = expenseType === 'company_expense' ? 'Company Expense' : item.status;
+                  const statusColorClass = expenseType === 'company_expense' 
+                    ? 'bg-purple-500/10 text-purple-600 border-purple-500/20' 
+                    : getStatusColor(item.status);
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">
@@ -549,8 +560,8 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                         {formatCurrency(item.amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(item.status)} variant="outline">
-                          {item.status}
+                        <Badge className={statusColorClass} variant="outline">
+                          {displayStatus}
                         </Badge>
                       </TableCell>
                       <TableCell>

@@ -51,7 +51,10 @@ export function useAllDriverDebts() {
           debtByDriverId[exp.driver_id] = { currentDebt: 0, totalDebt: 0 };
         }
 
-        if (exp.expense_type === 'credit') {
+        if (exp.expense_type === 'company_expense') {
+          // Company expenses don't count toward any debt
+          return;
+        } else if (exp.expense_type === 'credit') {
           // Credits subtract from both
           debtByDriverId[exp.driver_id].currentDebt -= remaining;
           debtByDriverId[exp.driver_id].totalDebt -= remaining;
