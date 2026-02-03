@@ -1130,8 +1130,8 @@ const Analytics = () => {
     // Get dispatcher user_id from the profile - name can be either full_name or user_id
     const dispatcherUserId = dispatcherProfile?.user_id;
     const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
-    // Use totalDaysInRange for averaging (missing days count as 0)
-    const avgTrucks = truckCountData && truckCountData.totalDaysInRange > 0 ? truckCountData.totalTrucks / truckCountData.totalDaysInRange : 0;
+    // Use daysCount (actual recorded days) for averaging to avoid dilution by missing/future days
+    const avgTrucks = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
 
     // Validate userId is a valid UUID before storing
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1271,10 +1271,10 @@ const Analytics = () => {
       totalTruckDays += counts.totalTrucks;
       totalDriverDays += counts.totalDrivers;
 
-      // Average per dispatcher = totalTrucks / totalDaysInRange (missing days treated as 0)
-      if (counts.totalDaysInRange > 0) {
-        totalAvgTrucks += counts.totalTrucks / counts.totalDaysInRange;
-        totalAvgDrivers += counts.totalDrivers / counts.totalDaysInRange;
+      // Average per dispatcher = totalTrucks / daysCount (actual recorded days)
+      if (counts.daysCount > 0) {
+        totalAvgTrucks += counts.totalTrucks / counts.daysCount;
+        totalAvgDrivers += counts.totalDrivers / counts.daysCount;
       }
     });
 
@@ -2095,8 +2095,8 @@ const Analytics = () => {
                   const dispatcherOwnStats = isDispatchOnly && dispatcherStats.length === 1 ? dispatcherStats[0] : null;
                   const dispatcherTruckData = dispatcherOwnStats?.userId ? dispatcherTruckCounts[dispatcherOwnStats.userId] : null;
 
-                  // Calculate dispatcher-specific averages
-                  const dispatcherAvgTrucks = dispatcherTruckData && dispatcherTruckData.totalDaysInRange > 0 ? dispatcherTruckData.totalTrucks / dispatcherTruckData.totalDaysInRange : 0;
+                  // Calculate dispatcher-specific averages using actual recorded days
+                  const dispatcherAvgTrucks = dispatcherTruckData && dispatcherTruckData.daysCount > 0 ? dispatcherTruckData.totalTrucks / dispatcherTruckData.daysCount : 0;
                   const dispatcherTotalTruckDays = dispatcherTruckData?.totalTrucks || 0;
                   const daysInPeriod = dateRange?.from ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
                   const weeksInPeriod = Math.max(1, daysInPeriod / 7);
