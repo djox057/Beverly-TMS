@@ -356,11 +356,31 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
+  // Create a stable JSON string of driver IDs for lost_day_notes query key
+  // This ensures the query refetches when driver scope changes and avoids stale closure issues
+  const driverIdsForLostNotes = useMemo(() => {
+    return JSON.stringify(driverIdsForScope);
+  }, [driverIdsForScope]);
+
   const { data: lostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", priorityOffice, modeKeySuffix],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("lost_day_notes").select("*").in("driver_id", driverIdsForScope);
+    queryKey: ["adapter-lost-day-notes", priorityOffice, modeKeySuffix, driverIdsForLostNotes],
+    queryFn: async ({ queryKey }) => {
+      // Extract driver IDs from query key to avoid stale closure
+      const driverIdsJson = queryKey[3] as string;
+      const driverIds: string[] = driverIdsJson ? JSON.parse(driverIdsJson) : [];
+      
+      if (driverIds.length === 0) {
+        console.log('[adapter] No driver IDs for lost_day_notes, returning empty');
+        return [];
+      }
+      
+      console.log(`[adapter] Fetching lost_day_notes for ${driverIds.length} drivers`);
+      const { data, error } = await supabase
+        .from("lost_day_notes")
+        .select("*")
+        .in("driver_id", driverIds);
       if (error) throw error;
+      console.log(`[adapter] Fetched ${data?.length || 0} lost_day_notes`);
       return data || [];
     },
     staleTime: 60000, // 1 minute - longer staleTime to prevent refetches overwriting optimistic updates
