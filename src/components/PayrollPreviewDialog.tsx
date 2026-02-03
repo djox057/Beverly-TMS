@@ -61,6 +61,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   
   // Custom adjustments (extra pay and charges)
   const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>([]);
+  const [showAdjustmentsForm, setShowAdjustmentsForm] = useState(false);
   const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
@@ -339,7 +340,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
         <div className="flex-1 min-h-0 flex gap-4">
           {/* PDF Preview */}
-          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100">
+          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100 relative">
             {loading ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -356,10 +357,22 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                 No preview available
               </div>
             )}
+            
+            {/* Add Adjustment Button - positioned at top right of preview */}
+            {!previewOnly && !showAdjustmentsForm && (
+              <Button
+                size="icon"
+                className="absolute top-2 right-2 h-8 w-8"
+                onClick={() => setShowAdjustmentsForm(true)}
+                title="Add Extra Pay / Charge"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           {/* Right Panel - PTO and Adjustments */}
-          {!previewOnly && (
+          {!previewOnly && (showAdjustmentsForm || lostDayDates.length > 0) && (
             <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
               {/* PTO Section - only show if there are days off */}
               {lostDayDates.length > 0 && (
@@ -397,96 +410,110 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     ))}
                   </div>
                   
-                  <div className="border-t pt-4" />
+                  {showAdjustmentsForm && <div className="border-t pt-4" />}
                 </>
               )}
 
-              {/* Adjustments Section */}
-              <div>
-                <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Add additional payments or deductions.
-                </p>
-              </div>
-
-              {/* Existing adjustments list */}
-              {adjustments.length > 0 && (
-                <div className="space-y-2">
-                  {adjustments.map((adj, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex items-center justify-between p-2 rounded-md text-sm ${
-                        adj.type === "addition" 
-                          ? "bg-green-50 dark:bg-green-900/20" 
-                          : "bg-red-50 dark:bg-red-900/20"
-                      }`}
+              {/* Adjustments Section - only show when toggled */}
+              {showAdjustmentsForm && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Add additional payments or deductions.
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => setShowAdjustmentsForm(false)}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate font-medium">{adj.reason}</p>
-                        <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
-                          {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
-                        </p>
-                      </div>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  {/* Existing adjustments list */}
+                  {adjustments.length > 0 && (
+                    <div className="space-y-2">
+                      {adjustments.map((adj, index) => (
+                        <div 
+                          key={index} 
+                          className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                            adj.type === "addition" 
+                              ? "bg-green-50 dark:bg-green-900/20" 
+                              : "bg-red-50 dark:bg-red-900/20"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{adj.reason}</p>
+                            <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
+                              {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => handleRemoveAdjustment(index)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add new adjustment form */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0"
-                        onClick={() => handleRemoveAdjustment(index)}
+                        variant={newAdjustmentType === "addition" ? "default" : "outline"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setNewAdjustmentType("addition")}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        Extra Pay
+                      </Button>
+                      <Button
+                        variant={newAdjustmentType === "charge" ? "destructive" : "outline"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setNewAdjustmentType("charge")}
+                      >
+                        Charge
                       </Button>
                     </div>
-                  ))}
-                </div>
+
+                    <Input
+                      placeholder="Reason"
+                      value={newAdjustmentReason}
+                      onChange={(e) => setNewAdjustmentReason(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={newAdjustmentAmount}
+                        onChange={(e) => setNewAdjustmentAmount(e.target.value)}
+                        className="h-8 text-sm flex-1"
+                        min="0"
+                        step="0.01"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleAddAdjustment}
+                        disabled={!newAdjustmentReason.trim() || !newAdjustmentAmount}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
               )}
-
-              {/* Add new adjustment form */}
-              <div className="space-y-3 pt-2">
-                <div className="flex gap-2">
-                  <Button
-                    variant={newAdjustmentType === "addition" ? "default" : "outline"}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setNewAdjustmentType("addition")}
-                  >
-                    Extra Pay
-                  </Button>
-                  <Button
-                    variant={newAdjustmentType === "charge" ? "destructive" : "outline"}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setNewAdjustmentType("charge")}
-                  >
-                    Charge
-                  </Button>
-                </div>
-
-                <Input
-                  placeholder="Reason"
-                  value={newAdjustmentReason}
-                  onChange={(e) => setNewAdjustmentReason(e.target.value)}
-                  className="h-8 text-sm"
-                />
-
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Amount"
-                    value={newAdjustmentAmount}
-                    onChange={(e) => setNewAdjustmentAmount(e.target.value)}
-                    className="h-8 text-sm flex-1"
-                    min="0"
-                    step="0.01"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleAddAdjustment}
-                    disabled={!newAdjustmentReason.trim() || !newAdjustmentAmount}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
         </div>
