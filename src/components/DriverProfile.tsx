@@ -12,7 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 // Fixed weekly charges (same for all drivers)
@@ -420,28 +421,46 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                     <p className="text-lg font-bold">{paymentsMade} / {totalPayments}</p>
                   </CardContent>
                 </Card>
-                <Card className={`${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <TrendingDown className="h-3 w-3" />
-                      Current Debt
-                    </p>
-                    <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                      {formatCurrency(currentDebt)}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className={`${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <TrendingDown className="h-3 w-3" />
-                      Total Debt
-                    </p>
-                    <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                      {formatCurrency(totalDebt)}
-                    </p>
-                  </CardContent>
-                </Card>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card className={`cursor-help ${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                        <CardContent className="p-4">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <TrendingDown className="h-3 w-3" />
+                            Current Debt
+                          </p>
+                          <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            {formatCurrency(currentDebt)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>All debt without yearly expenses</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card className={`cursor-help ${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                        <CardContent className="p-4">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <TrendingDown className="h-3 w-3" />
+                            Total Debt
+                          </p>
+                          <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                            {formatCurrency(totalDebt)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>All debt including yearly expenses</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             );
           })()}
@@ -454,7 +473,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="week" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip 
+                  <RechartsTooltip 
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                     formatter={(value: number) => [formatCurrency(value), 'Debt']}
                   />
