@@ -10,7 +10,7 @@ const Billboard = () => {
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
   const [activeView, setActiveView] = useState<
-    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5"
+    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"
   >("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -190,17 +190,27 @@ const Billboard = () => {
     return [...monthlyDispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
   }, [monthlyDispatcherStats]);
 
+  // Worst monthly RPM list (ascending order, filtered by 4.8+ trucks)
+  const worstMonthlyByRPM = useMemo(() => {
+    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8 && d.totalMiles > 0);
+    const list = qualified.length > 0 ? qualified : [...monthlyDispatcherStats].filter((d) => d.totalMiles > 0);
+    return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
+  }, [monthlyDispatcherStats]);
+
   const top5MonthlyRPM = sortedMonthlyByRPM.slice(0, 5);
   const top5MonthlyGross = sortedMonthlyByGross.slice(0, 5);
+  const worst5MonthlyRPM = worstMonthlyByRPM.slice(0, 5);
 
-  // View order now has 6 pages
-  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyGross5"> = [
+  // View order now has 8 pages
+  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"> = [
     "rpm5",
     "rpm10",
     "gross5",
     "gross10",
     "monthlyRpm5",
     "monthlyGross5",
+    "worstRpm5",
+    "worstMonthlyRpm5",
   ];
 
   // Rotate views every 20 seconds with smooth transition (6 views)
@@ -324,11 +334,19 @@ const Billboard = () => {
     return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [dispatcherStats]);
 
+  // Worst RPM list (ascending order, filtered by 4.8+ trucks)
+  const worstByRPM = useMemo(() => {
+    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8 && d.totalMiles > 0);
+    const list = qualified.length > 0 ? qualified : [...dispatcherStats].filter((d) => d.totalMiles > 0);
+    return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
+  }, [dispatcherStats]);
+
   // Top 5 and 6-10 slices
   const top5ByGross = sortedByGross.slice(0, 5);
   const top10ByGross = sortedByGross.slice(5, 10);
   const top5ByRPM = sortedByRPM.slice(0, 5);
   const top10ByRPM = sortedByRPM.slice(5, 10);
+  const worst5ByRPM = worstByRPM.slice(0, 5);
 
   // Calculate overall RPM for this week
   const overallRPM = useMemo(() => {
@@ -358,16 +376,19 @@ const Billboard = () => {
   // Month label for monthly views
   const monthLabel = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
+  // Helper to determine if the current view is an RPM view (show miles instead of gross)
+  const isRpmView = activeView === "rpm5" || activeView === "rpm10" || activeView === "monthlyRpm5" || activeView === "worstRpm5" || activeView === "worstMonthlyRpm5";
+
   const getCurrentListAndTitle = () => {
     switch (activeView) {
       case "gross5":
-        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross(5+ trucks)", startRank: 1 };
+        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross (5+ trucks)", startRank: 1 };
       case "gross10":
-        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross(5+ trucks)", startRank: 6 };
+        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross (5+ trucks)", startRank: 6 };
       case "rpm5":
-        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM(5+ trucks)", startRank: 1 };
+        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM (5+ trucks)", startRank: 1 };
       case "rpm10":
-        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM(5+ trucks)", startRank: 6 };
+        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM (5+ trucks)", startRank: 6 };
       case "monthlyRpm5":
         return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1 };
       case "monthlyGross5":
@@ -376,6 +397,10 @@ const Billboard = () => {
           title: `Top 5 Dispatchers by Gross - ${monthLabel} (5+ trucks)`,
           startRank: 1,
         };
+      case "worstRpm5":
+        return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (5+ trucks)", startRank: 1 };
+      case "worstMonthlyRpm5":
+        return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1 };
     }
   };
 
@@ -425,20 +450,25 @@ const Billboard = () => {
                   </span>
                 </div>
 
-                {/* Gross + RPM (hide Gross for monthly RPM view only) */}
+                {/* Gross or Miles + RPM */}
                 <div className="flex items-center gap-14">
-                  {activeView !== "monthlyRpm5" && (
-                    <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                      <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
-                    </div>
-                  )}
                   <div className="text-right">
                     <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
                     <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
                       {formatRPM(dispatcher.ratePerMile)}
                     </p>
                   </div>
+                  {isRpmView ? (
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">Total Miles</p>
+                      <p className="text-4xl font-bold text-primary">{dispatcher.totalMiles.toLocaleString()}</p>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
+                      <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -456,14 +486,14 @@ const Billboard = () => {
                     <span className="text-4xl font-semibold text-muted-foreground">—</span>
                   </div>
                   <div className="flex items-center gap-14">
-                    {activeView !== "monthlyRpm5" && (
-                      <div className="text-right">
-                        <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                        <p className="text-4xl font-bold text-muted-foreground">—</p>
-                      </div>
-                    )}
                     <div className="text-right">
                       <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
+                      <p className="text-4xl font-bold text-muted-foreground">—</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-base text-muted-foreground uppercase tracking-wide">
+                        {isRpmView ? "Total Miles" : "Gross"}
+                      </p>
                       <p className="text-4xl font-bold text-muted-foreground">—</p>
                     </div>
                   </div>
