@@ -283,14 +283,14 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   for (const adjustment of adjustments) {
     if (adjustment.type === "addition") {
       drawRow(
-        adjustment.reason || "Extra Pay",
+        `Extra pay: ${adjustment.reason || "Extra Pay"}`,
         `$${adjustment.amount.toFixed(2)}`,
         "#FFFFFF",
         LIGHT_BLUE_BG
       );
     } else {
       drawRow(
-        adjustment.reason || "Charge",
+        `Charge: ${adjustment.reason || "Charge"}`,
         `-$${adjustment.amount.toFixed(2)}`,
         "#FFFFFF",
         LIGHT_BLUE_BG,
