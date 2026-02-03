@@ -8,6 +8,8 @@ function getChicagoDate(): string {
   return formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM-dd");
 }
 
+export type ExpenseType = 'expense' | 'yearly' | 'credit';
+
 export interface DriverExpense {
   id: string;
   driver_id: string;
@@ -23,6 +25,7 @@ export interface DriverExpense {
   notice_1: string | null;
   notice_2: string | null;
   is_fixed: boolean;
+  expense_type: ExpenseType;
   created_at: string;
   updated_at: string;
   cash_advance_id: string | null; // Links to driver_cash_advances table
@@ -50,6 +53,7 @@ export interface NewDriverExpense {
   notice_1?: string | null;
   notice_2?: string | null;
   is_fixed?: boolean;
+  expense_type?: ExpenseType;
 }
 
 // Default fixed expenses for new drivers

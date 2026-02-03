@@ -66,10 +66,19 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
 
   // Calculate total debt from unpaid expenses (now includes cash advances as expenses)
+  // Credits (expense_type = 'credit') subtract from debt
   const { totalDebt, debtHistory } = useMemo(() => {
     // Calculate unpaid expense debt (includes cash advances since they're now expenses)
     const unpaidExpenses = expenses.filter(e => e.status !== 'paid');
-    const total = unpaidExpenses.reduce((sum, e) => sum + (e.amount - (e.paid_amount || 0)), 0);
+    let total = 0;
+    unpaidExpenses.forEach(e => {
+      const remaining = e.amount - (e.paid_amount || 0);
+      if (e.expense_type === 'credit') {
+        total -= remaining; // Credits subtract
+      } else {
+        total += remaining; // Expenses/yearly add
+      }
+    });
 
     // Build weekly debt history (mock data based on weeks_count for now)
     const weeksCount = driver.weeks_count || 0;
@@ -468,6 +477,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">TRUCK/TRL</TableHead>
+                <TableHead className="w-[80px]">TYPE</TableHead>
                 <TableHead className="w-[100px]">NAME</TableHead>
                 <TableHead>EXPLANATION</TableHead>
                 <TableHead className="w-[100px]">DATE</TableHead>
@@ -483,23 +493,34 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">
+                  <TableCell colSpan={12} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : allItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No expenses found
                   </TableCell>
                 </TableRow>
               ) : (
                 allItems.map((item) => {
                   const isCashAdvance = !!item.cash_advance_id;
+                  const expenseType = item.expense_type || 'expense';
+                  const typeColors: Record<string, string> = {
+                    expense: 'bg-muted text-muted-foreground',
+                    yearly: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+                    credit: 'bg-green-500/10 text-green-600 border-green-500/20',
+                  };
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">
                         {item.truck_number || "-"}/{item.trailer_number || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={typeColors[expenseType]} variant="outline">
+                          {expenseType.charAt(0).toUpperCase() + expenseType.slice(1)}
+                        </Badge>
                       </TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.explanation}</TableCell>

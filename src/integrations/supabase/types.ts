@@ -1154,6 +1154,7 @@ export type Database = {
           created_at: string
           driver_id: string
           expense_date: string | null
+          expense_type: string
           explanation: string
           id: string
           is_fixed: boolean
@@ -1174,6 +1175,7 @@ export type Database = {
           created_at?: string
           driver_id: string
           expense_date?: string | null
+          expense_type?: string
           explanation: string
           id?: string
           is_fixed?: boolean
@@ -1194,6 +1196,7 @@ export type Database = {
           created_at?: string
           driver_id?: string
           expense_date?: string | null
+          expense_type?: string
           explanation?: string
           id?: string
           is_fixed?: boolean

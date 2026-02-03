@@ -35,6 +35,7 @@ export interface ScheduledDeduction {
   totalAmount: number;
   remainingAmount: number;
   deductionAmount: number;
+  expenseType: 'expense' | 'yearly' | 'credit';
 }
 
 interface StatementPreviewDialogProps {
@@ -99,7 +100,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setExpenses(data || []);
+      setExpenses((data || []) as DriverExpense[]);
       
       // Reset selections
       setSelectedExpenses(new Set());
@@ -145,7 +146,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
       if (error) throw error;
       
       // Add to local state and auto-select it
-      setExpenses(prev => [...prev, data]);
+      setExpenses(prev => [...prev, data as DriverExpense]);
       setSelectedExpenses(prev => new Set([...prev, data.id]));
       setDeductionAmounts(prev => ({
         ...prev,
@@ -224,18 +225,38 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
           totalAmount: expense.amount,
           remainingAmount: expense.remainingAmount,
           deductionAmount,
+          expenseType: expense.expense_type || 'expense',
         };
       })
       .filter((d): d is ScheduledDeduction => d !== null);
   };
 
-  // Calculate total deductions
+  // Separate expenses and credits for display
+  const { regularExpenses, creditExpenses } = useMemo(() => {
+    const regular = expensesWithRemaining.filter(e => e.expense_type !== 'credit');
+    const credits = expensesWithRemaining.filter(e => e.expense_type === 'credit');
+    return { regularExpenses: regular, creditExpenses: credits };
+  }, [expensesWithRemaining]);
+
+  // Calculate total deductions (excludes credits which go to credits section)
   const totalDeductions = useMemo(() => {
     return Array.from(selectedExpenses).reduce((total, expenseId) => {
+      const expense = expensesWithRemaining.find(e => e.id === expenseId);
+      if (!expense || expense.expense_type === 'credit') return total;
       const amount = parseFloat(deductionAmounts[expenseId] || "0");
       return total + (isNaN(amount) ? 0 : amount);
     }, 0);
-  }, [selectedExpenses, deductionAmounts]);
+  }, [selectedExpenses, deductionAmounts, expensesWithRemaining]);
+
+  // Calculate total credits
+  const totalCredits = useMemo(() => {
+    return Array.from(selectedExpenses).reduce((total, expenseId) => {
+      const expense = expensesWithRemaining.find(e => e.id === expenseId);
+      if (!expense || expense.expense_type !== 'credit') return total;
+      const amount = parseFloat(deductionAmounts[expenseId] || "0");
+      return total + (isNaN(amount) ? 0 : amount);
+    }, 0);
+  }, [selectedExpenses, deductionAmounts, expensesWithRemaining]);
 
   // Handle export with deductions
   const handleExport = async () => {
@@ -328,15 +349,20 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
           <div className="border rounded-lg p-4 flex-1 min-h-0 flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-semibold text-sm">Scheduled Deductions</h3>
+                <h3 className="font-semibold text-sm">Scheduled Deductions & Credits</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Select expenses to deduct from this week's statement
+                  Select expenses to deduct or credits to add to this week's statement
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {totalCredits > 0 && (
+                  <Badge className="bg-green-500 text-sm">
+                    Credits: {formatCurrency(totalCredits)}
+                  </Badge>
+                )}
                 {totalDeductions > 0 && (
                   <Badge variant="destructive" className="text-sm">
-                    Total: {formatCurrency(totalDeductions)}
+                    Deductions: {formatCurrency(totalDeductions)}
                   </Badge>
                 )}
                 <Button
@@ -438,6 +464,18 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
                             >
                               {expense.explanation}
                             </Label>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                expense.expense_type === 'credit' 
+                                  ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+                                  : expense.expense_type === 'yearly'
+                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                  : ''
+                              }`}
+                            >
+                              {expense.expense_type === 'credit' ? 'Credit' : expense.expense_type === 'yearly' ? 'Yearly' : 'Expense'}
+                            </Badge>
                             <Badge variant="outline" className="text-xs">
                               {expense.status === "partial" ? "Partial" : "Unpaid"}
                             </Badge>
@@ -461,7 +499,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
                         {selectedExpenses.has(expense.id) && (
                           <div className="flex items-center gap-2 shrink-0">
                             <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                              Deduct:
+                              {expense.expense_type === 'credit' ? 'Credit:' : 'Deduct:'}
                             </Label>
                             <div className="relative w-28">
                               <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
