@@ -8,7 +8,7 @@ function getChicagoDate(): string {
   return formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM-dd");
 }
 
-export type ExpenseType = 'expense' | 'yearly' | 'credit';
+export type ExpenseType = 'expense' | 'yearly' | 'credit' | 'company_expense';
 
 export interface DriverExpense {
   id: string;
@@ -108,12 +108,19 @@ export function useDriverExpenses(driverId: string | null) {
 
   const addExpenseMutation = useMutation({
     mutationFn: async (expense: NewDriverExpense) => {
-      // Auto-calculate status based on paid_amount vs amount
-      const status = calculateExpenseStatus(expense.amount, expense.paid_amount);
+      // Company expenses always have status "company_expense" and are fully paid
+      const status = expense.expense_type === 'company_expense'
+        ? 'company_expense'
+        : calculateExpenseStatus(expense.amount, expense.paid_amount);
+      
+      // Company expenses are always fully paid
+      const finalExpense = expense.expense_type === 'company_expense'
+        ? { ...expense, status, paid_amount: expense.amount }
+        : { ...expense, status };
       
       const { data, error } = await supabase
         .from("driver_expenses")
-        .insert({ ...expense, status })
+        .insert(finalExpense)
         .select()
         .single();
 
