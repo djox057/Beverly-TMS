@@ -65,18 +65,25 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
 
-  // Calculate total debt from unpaid expenses (now includes cash advances as expenses)
+  // Calculate debt from unpaid expenses (now includes cash advances as expenses)
   // Credits (expense_type = 'credit') subtract from debt
-  const { totalDebt, debtHistory } = useMemo(() => {
+  // currentDebt excludes yearly expenses, totalDebt includes everything
+  const { currentDebt, totalDebt, debtHistory } = useMemo(() => {
     // Calculate unpaid expense debt (includes cash advances since they're now expenses)
     const unpaidExpenses = expenses.filter(e => e.status !== 'paid');
-    let total = 0;
+    let current = 0; // Excludes yearly
+    let total = 0;   // Includes everything
+    
     unpaidExpenses.forEach(e => {
       const remaining = e.amount - (e.paid_amount || 0);
       if (e.expense_type === 'credit') {
-        total -= remaining; // Credits subtract
+        current -= remaining; // Credits subtract from both
+        total -= remaining;
+      } else if (e.expense_type === 'yearly') {
+        total += remaining; // Yearly only adds to total
       } else {
-        total += remaining; // Expenses/yearly add
+        current += remaining; // Regular expenses add to both
+        total += remaining;
       }
     });
 
@@ -94,7 +101,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       });
     }
 
-    return { totalDebt: total, debtHistory: history };
+    return { currentDebt: current, totalDebt: total, debtHistory: history };
   }, [expenses, driver.weeks_count]);
 
   // Initialize default expenses on first view
@@ -389,7 +396,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
               : 0;
             
             return (
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-5 gap-4">
                 <Card className="bg-muted/30">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground">Weekly Fixed</p>
@@ -408,13 +415,24 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                     <p className="text-lg font-bold">{paymentsMade} / {totalPayments}</p>
                   </CardContent>
                 </Card>
-                <Card className={`${totalDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                <Card className={`${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <TrendingDown className="h-3 w-3" />
                       Current Debt
                     </p>
-                    <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                      {formatCurrency(currentDebt)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className={`${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <TrendingDown className="h-3 w-3" />
+                      Total Debt
+                    </p>
+                    <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
                       {formatCurrency(totalDebt)}
                     </p>
                   </CardContent>
