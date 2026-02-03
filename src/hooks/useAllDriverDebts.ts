@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-interface DriverDebt {
-  driverId: string;
-  driverName: string;
-  totalDebt: number;
+interface DriverDebtData {
+  currentDebt: number; // Excludes yearly expenses
+  totalDebt: number;   // Includes everything
 }
 
 export function useAllDriverDebts() {
@@ -12,7 +11,7 @@ export function useAllDriverDebts() {
     queryKey: ["all-driver-debts"],
     queryFn: async () => {
       // Fetch all unpaid/partial expenses (now includes cash advances)
-      // Also fetch expense_type to handle credits differently
+      // Also fetch expense_type to handle credits and yearly differently
       const { data: expenses, error: expensesError } = await supabase
         .from("driver_expenses")
         .select("driver_id, amount, paid_amount, status, expense_type")
@@ -40,31 +39,43 @@ export function useAllDriverDebts() {
       });
 
       // Calculate debt per driver
-      // Credits (expense_type = 'credit') subtract from debt, others add to debt
-      const debtByDriverId: Record<string, number> = {};
+      // Credits subtract from debt, yearly only adds to total (not current)
+      const debtByDriverId: Record<string, { currentDebt: number; totalDebt: number }> = {};
 
-      // Add expense debts (now includes cash advances since they're stored as expenses)
       (expenses || []).forEach(exp => {
         if (!exp.driver_id) return;
         const remaining = exp.amount - (exp.paid_amount || 0);
-        if (remaining > 0) {
-          // Credits subtract from debt, expenses/yearly add to debt
-          if (exp.expense_type === 'credit') {
-            debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) - remaining;
-          } else {
-            debtByDriverId[exp.driver_id] = (debtByDriverId[exp.driver_id] || 0) + remaining;
-          }
+        if (remaining <= 0) return;
+
+        if (!debtByDriverId[exp.driver_id]) {
+          debtByDriverId[exp.driver_id] = { currentDebt: 0, totalDebt: 0 };
+        }
+
+        if (exp.expense_type === 'credit') {
+          // Credits subtract from both
+          debtByDriverId[exp.driver_id].currentDebt -= remaining;
+          debtByDriverId[exp.driver_id].totalDebt -= remaining;
+        } else if (exp.expense_type === 'yearly') {
+          // Yearly only adds to total
+          debtByDriverId[exp.driver_id].totalDebt += remaining;
+        } else {
+          // Regular expenses add to both
+          debtByDriverId[exp.driver_id].currentDebt += remaining;
+          debtByDriverId[exp.driver_id].totalDebt += remaining;
         }
       });
 
       // Build result map by driver name for easier lookup in Analytics
-      const debtByDriverName: Record<string, number> = {};
+      const debtByDriverName: Record<string, DriverDebtData> = {};
       Object.entries(debtByDriverId).forEach(([driverId, debt]) => {
         const name = driverIdToName[driverId];
         if (name) {
-          // Normalize the name for matching
           const normalizedName = name.trim();
-          debtByDriverName[normalizedName] = (debtByDriverName[normalizedName] || 0) + debt;
+          if (!debtByDriverName[normalizedName]) {
+            debtByDriverName[normalizedName] = { currentDebt: 0, totalDebt: 0 };
+          }
+          debtByDriverName[normalizedName].currentDebt += debt.currentDebt;
+          debtByDriverName[normalizedName].totalDebt += debt.totalDebt;
         }
       });
 

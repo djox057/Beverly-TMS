@@ -199,7 +199,7 @@ const Analytics = () => {
 
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
-  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "weeksCount" | "debt">("avgFreight");
+  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "weeksCount" | "currentDebt" | "totalDebt">("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, {
     totalTrucks: number;
@@ -1799,10 +1799,14 @@ const Analytics = () => {
         if (!matchesName && !matchesTruck) return false;
       }
       return true;
-    }).map(driver => ({
-      ...driver,
-      debt: driverDebts[driver.name] || 0
-    })).sort((a, b) => {
+    }).map(driver => {
+      const debtData = driverDebts[driver.name];
+      return {
+        ...driver,
+        currentDebt: debtData?.currentDebt || 0,
+        totalDebt: debtData?.totalDebt || 0
+      };
+    }).sort((a, b) => {
       const aValue = a[grossRankingsSortBy];
       const bValue = b[grossRankingsSortBy];
       if (typeof aValue === 'number' && typeof bValue === 'number') {
@@ -2233,8 +2237,11 @@ const Analytics = () => {
                         <TableHead className="text-right w-[5%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("weeksCount")}>
                           Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
-                        <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("debt")}>
-                          Debt {grossRankingsSortBy === "debt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("currentDebt")}>
+                          Current Debt {grossRankingsSortBy === "currentDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
+                        <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("totalDebt")}>
+                          Total Debt {grossRankingsSortBy === "totalDebt" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
                         <TableHead className="w-[9%]">Notice</TableHead>
                       </TableRow>
@@ -2290,8 +2297,11 @@ const Analytics = () => {
                               <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
                               <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
                               <TableCell className="text-right">{driver.weeksCount}</TableCell>
-                              <TableCell className={`text-right ${driver.debt > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                                {driver.debt > 0 ? `$${driver.debt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              <TableCell className={`text-right ${driver.currentDebt > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                                {driver.currentDebt > 0 ? `$${driver.currentDebt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                              </TableCell>
+                              <TableCell className={`text-right ${driver.totalDebt > 0 ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
+                                {driver.totalDebt > 0 ? `$${driver.totalDebt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                               </TableCell>
                               <TableCell>
                                 <DriverNoticeDialog driverName={driver.name} initialNotice={driverTiers[driver.name]?.notice || ""} onSave={handleNoticeSave} />
