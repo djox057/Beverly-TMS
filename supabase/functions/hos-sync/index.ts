@@ -128,32 +128,57 @@ async function getAllTransitData(apiKeys: string[]): Promise<TransitRecord[]> {
   return mergedData;
 }
 
+// Normalize truck number for matching (remove leading zeros, special chars)
+function normalizeTruckNumber(truckNum: string): string {
+  // Remove #, spaces, and leading zeros
+  return truckNum.toString().replace(/#/g, '').trim().replace(/^0+/, '') || '0';
+}
+
 // Create lookup map with most recent valid HOS data for each truck
-function createTruckLookupMap(apiData: TransitRecord[]): Record<string, TransitRecord> {
-  const apiDataMap: Record<string, TransitRecord> = {};
+// Stores both original and normalized versions for flexible matching
+function createTruckLookupMap(apiData: TransitRecord[]): { 
+  byOriginal: Record<string, TransitRecord>,
+  byNormalized: Record<string, TransitRecord>
+} {
+  const byOriginal: Record<string, TransitRecord> = {};
+  const byNormalized: Record<string, TransitRecord> = {};
   
   apiData.forEach(record => {
     if (record && record.name) {
-      // Normalize truck number: remove # and other common prefixes, trim spaces
-      const truckNum = record.name.toString().replace(/#/g, '').trim();
-      const prev = apiDataMap[truckNum];
-
-      // Prefer valid HOS records, or most recent if both are valid/invalid
+      const originalNum = record.name.toString().replace(/#/g, '').trim();
+      const normalizedNum = normalizeTruckNumber(originalNum);
+      
+      // Store by original
+      const prevOrig = byOriginal[originalNum];
       if (
-        !prev ||
-        (isValidHosRecord(record) && !isValidHosRecord(prev)) ||
-        (isValidHosRecord(record) && isValidHosRecord(prev) &&
+        !prevOrig ||
+        (isValidHosRecord(record) && !isValidHosRecord(prevOrig)) ||
+        (isValidHosRecord(record) && isValidHosRecord(prevOrig) &&
           new Date(record.hosUtcTimestamp || record.utcTimestamp || 0) > 
-          new Date(prev.hosUtcTimestamp || prev.utcTimestamp || 0)) ||
-        (!isValidHosRecord(prev) && !isValidHosRecord(record) &&
-          new Date(record.utcTimestamp || 0) > new Date(prev.utcTimestamp || 0))
+          new Date(prevOrig.hosUtcTimestamp || prevOrig.utcTimestamp || 0)) ||
+        (!isValidHosRecord(prevOrig) && !isValidHosRecord(record) &&
+          new Date(record.utcTimestamp || 0) > new Date(prevOrig.utcTimestamp || 0))
       ) {
-        apiDataMap[truckNum] = record;
+        byOriginal[originalNum] = record;
+      }
+      
+      // Store by normalized (without leading zeros)
+      const prevNorm = byNormalized[normalizedNum];
+      if (
+        !prevNorm ||
+        (isValidHosRecord(record) && !isValidHosRecord(prevNorm)) ||
+        (isValidHosRecord(record) && isValidHosRecord(prevNorm) &&
+          new Date(record.hosUtcTimestamp || record.utcTimestamp || 0) > 
+          new Date(prevNorm.hosUtcTimestamp || prevNorm.utcTimestamp || 0)) ||
+        (!isValidHosRecord(prevNorm) && !isValidHosRecord(record) &&
+          new Date(record.utcTimestamp || 0) > new Date(prevNorm.utcTimestamp || 0))
+      ) {
+        byNormalized[normalizedNum] = record;
       }
     }
   });
 
-  return apiDataMap;
+  return { byOriginal, byNormalized };
 }
 
 serve(async (req) => {
@@ -200,13 +225,12 @@ serve(async (req) => {
     // Fetch data from all API keys
     const allApiData = await getAllTransitData(apiKeys);
     
-    // Create single lookup map from all data (keyed by truck number)
-    const truckLookupMap = createTruckLookupMap(allApiData);
+    // Create lookup maps from all data (keyed by truck number - both original and normalized)
+    const { byOriginal, byNormalized } = createTruckLookupMap(allApiData);
     
-    // Log ALL truck numbers from API for debugging
-    const allTruckNumbers = Object.keys(truckLookupMap).sort();
+    // Log truck numbers from API for debugging
+    const allTruckNumbers = Object.keys(byOriginal).sort();
     console.log(`Created lookup map with ${allTruckNumbers.length} trucks from ${allApiData.length} total records`);
-    console.log(`All truck numbers from API: ${allTruckNumbers.join(', ')}`);
 
     // Get trucks and their assigned drivers from database
     const { data: trucks, error: trucksError } = await supabase
@@ -245,7 +269,10 @@ serve(async (req) => {
       
       for (const driver of driversToUpdate) {
         if (driver && typeof driver === 'object' && 'id' in driver && 'name' in driver) {
-          const hosData = truckLookupMap[truck.truck_number];
+          // Try exact match first, then normalized match (handles leading zeros)
+          const truckNum = truck.truck_number;
+          const normalizedTruckNum = normalizeTruckNumber(truckNum);
+          let hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
           
           if (hosData && isValidHosRecord(hosData)) {
             console.log(`✅ Found VALID HOS data for driver ${driver.name} on truck ${truck.truck_number}:`, {
