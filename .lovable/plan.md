@@ -1,56 +1,167 @@
 
-# Fix Analytics Avg Trucks/Drivers Calculation
+# Billboard Page: Optimize Data Loading with 30-Day Filter
 
-## Problem
-The "Avg # Trucks" metric shows incorrect values (e.g., 2.8 instead of 7.0) for incomplete periods. This happens because the calculation divides by the **total days in the date range** instead of the **actual days with recorded data**.
+## Problem Summary
+The Billboard page currently uses `useOrders()` which fetches all orders via two Edge Functions:
+- `get-all-unlocked-orders`: Fetches ALL unlocked orders (works correctly with batching)
+- `get-all-locked-orders`: Only fetches **100 locked orders** by default (bug - missing batching loop)
 
-### Root Cause
-The daily driver count snapshot runs at 8 PM. When viewing a current month or week:
-- The date range includes today, but today's snapshot hasn't run yet
-- Missing days are treated as "0 trucks" in the average
-- Example: Feb 1-3 range has 3 days, but only Feb 1-2 have data
-  - Current: `(7+7+0) / 3 = 4.67` or worse with larger ranges
-  - Expected: `(7+7) / 2 = 7.0`
+With ~11,700+ locked orders, most dispatchers' historical data is missing, causing incomplete statistics.
 
-## Solution
-Change the averaging formula to use `daysCount` (actual recorded days) instead of `totalDaysInRange`.
+## Solution: Create Dedicated Billboard Edge Function
 
-### Code Changes
+Instead of fixing the existing functions to load all ~12,000 orders, we'll create a new optimized Edge Function specifically for Billboard that:
+1. Filters orders at the database level to only include those with **delivery_datetime in the last 30 days**
+2. Fetches both locked AND unlocked orders in a single request
+3. Uses batched fetching to ensure all matching orders are retrieved
 
-**File: `src/pages/Analytics.tsx`**
+This approach:
+- Reduces data transfer from ~12,000 orders to ~1,500-2,000 orders
+- Ensures complete data for all dispatchers within the 30-day window
+- Faster load times (~2-3 seconds vs 10+ seconds)
 
-1. **Line 1134** - Update the averaging calculation:
+---
 
-   Current:
-   ```typescript
-   const avgTrucks = truckCountData && truckCountData.totalDaysInRange > 0 
-     ? truckCountData.totalTrucks / truckCountData.totalDaysInRange 
-     : 0;
-   ```
+## Implementation Details
 
-   Change to:
-   ```typescript
-   const avgTrucks = truckCountData && truckCountData.daysCount > 0 
-     ? truckCountData.totalTrucks / truckCountData.daysCount 
-     : 0;
-   ```
+### Task 1: Create New Edge Function `get-billboard-orders`
 
-2. **Similar change for avgDrivers** (if present) - Apply the same fix using `daysCount`.
+**New file**: `supabase/functions/get-billboard-orders/index.ts`
 
-3. **Clean up unused variables** - The `totalDaysInRange` calculation (lines 418-428) can be simplified or removed since it's no longer used for the average.
+This function will:
+- Calculate the 30-day cutoff date server-side
+- Query orders where `delivery_datetime >= 30 days ago`
+- Fetch both locked and unlocked orders (no filter on locked status)
+- Use batched fetching (1000 orders per batch) with a while loop
+- Include all related data (pickup_drops, order_files, order_transfers, etc.)
 
-## Technical Details
+Key query logic:
+```text
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+const cutoffDate = thirtyDaysAgo.toISOString();
 
-The `dispatcherTruckCounts` state already tracks both values:
-- `totalTrucks`: Sum of all truck counts for the dispatcher
-- `daysCount`: Number of days with actual recorded data
-- `totalDaysInRange`: Number of calendar days in the selected range (currently used but incorrect)
+// Query with delivery_datetime filter
+query = supabase
+  .from("orders")
+  .select(`...all relations...`)
+  .gte("delivery_datetime", cutoffDate)
+  .order("delivery_datetime", { ascending: false });
+```
 
-After this fix:
-- A dispatcher with 7 trucks on Feb 1 and Feb 2 will show **7.0 avg trucks**
-- The average reflects actual fleet size, not diluted by future/missing days
-- Works correctly for both complete months and in-progress periods
+### Task 2: Update Supabase Config
 
-## Impact
-- Analytics page: "Avg # Trucks" and "Avg # Drivers" columns
-- Fleet metrics in header (uses same data source)
+**File**: `supabase/config.toml`
+
+Add the new function configuration:
+```toml
+[functions.get-billboard-orders]
+verify_jwt = false
+```
+
+### Task 3: Create Custom Hook `useBillboardOrders`
+
+**New file**: `src/hooks/useBillboardOrders.ts`
+
+This hook will:
+- Call the new `get-billboard-orders` Edge Function
+- Transform the response using existing `transformOrders` utility
+- Return orders, loading state, and error handling
+
+```text
+export const useBillboardOrders = () => {
+  return useQuery({
+    queryKey: ["orders", "billboard"],
+    queryFn: async () => {
+      const response = await supabase.functions.invoke("get-billboard-orders");
+      if (response.error) throw response.error;
+      return transformOrders(response.data.orders || []);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+```
+
+### Task 4: Update Billboard Page
+
+**File**: `src/pages/Billboard.tsx`
+
+Change the import and hook usage:
+```text
+// Before:
+import { useOrders } from "@/hooks/useOrders";
+const { orders, isLoading } = useOrders();
+
+// After:
+import { useBillboardOrders } from "@/hooks/useBillboardOrders";
+const { orders, isLoading } = useBillboardOrders();
+```
+
+---
+
+## Additional Updates (From Previous Request)
+
+While implementing the 30-day filter, we'll also address the previous requirements:
+
+### Pages 7 and 8 Ranking Display
+
+Change worst performer rankings to show actual position in the full list:
+
+**Current**: Ranks displayed as 1, 2, 3, 4, 5
+**Updated**: Ranks displayed as (total - 4) through (total) (e.g., 50, 51, 52, 53, 54)
+
+```text
+// Line ~401-403 in Billboard.tsx
+case "worstRpm5":
+  return { 
+    list: worst5ByRPM, 
+    title: "Worst 5 Dispatchers by RPM This Week (3+ trucks)", 
+    startRank: Math.max(1, worstByRPM.length - 4)  // Changed from 1
+  };
+case "worstMonthlyRpm5":
+  return { 
+    list: worst5MonthlyRPM, 
+    title: `Worst 5 Dispatchers by RPM - ${monthLabel} (3+ trucks)`, 
+    startRank: Math.max(1, worstMonthlyByRPM.length - 4)  // Changed from 1
+  };
+```
+
+### Truck Filter Threshold
+
+Change worst RPM filter from 4.8+ trucks to 3+ trucks:
+
+```text
+// Lines ~195 and ~339
+// Before:
+const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8 && d.totalMiles > 0);
+
+// After:
+const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0);
+```
+
+### Update Title Text
+
+Update "(5+ trucks)" to "(3+ trucks)" in the title strings for worst views.
+
+---
+
+## Files Changed Summary
+
+| File | Action |
+|------|--------|
+| `supabase/functions/get-billboard-orders/index.ts` | Create new Edge Function |
+| `supabase/config.toml` | Add function config |
+| `src/hooks/useBillboardOrders.ts` | Create new hook |
+| `src/pages/Billboard.tsx` | Update hook import, fix truck filter to 3+, fix worst rankings |
+
+---
+
+## Expected Results
+
+After implementation:
+1. Billboard loads only orders from last 30 days (~1,500-2,000 orders instead of 12,000+)
+2. All dispatchers with activity in the last 30 days will have complete data
+3. Pages 7 and 8 show actual rank positions (50-54 instead of 1-5)
+4. Worst RPM views filter for dispatchers with 3+ average trucks
+5. Significantly faster page load time
+
