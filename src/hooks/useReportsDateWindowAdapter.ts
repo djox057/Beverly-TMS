@@ -29,6 +29,112 @@ interface UseReportsDateWindowAdapterOptions {
 }
 
 /**
+ * Order files caching (module-scope)
+ *
+ * Problem: order_files were being refetched for *all* accumulated orders whenever
+ * a new date window was loaded (queryKey depended on full order-id set).
+ *
+ * Fix: keep a persistent cache keyed by order_id and only fetch metadata for
+ * order IDs we have not loaded yet.
+ */
+type OrderFileLite = {
+  id: string;
+  order_id: string;
+  file_category: string | null;
+  file_name: string | null;
+  file_path: string | null;
+};
+
+const orderFilesCacheByOrderId = new Map<string, OrderFileLite[]>();
+const orderFilesLoadedOrderIds = new Set<string>();
+let orderFilesFetchInFlight: Promise<void> | null = null;
+
+const clearOrderFilesCache = () => {
+  orderFilesCacheByOrderId.clear();
+  orderFilesLoadedOrderIds.clear();
+};
+
+const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
+  if (!orderId) return;
+  orderFilesCacheByOrderId.delete(orderId);
+  orderFilesLoadedOrderIds.delete(orderId);
+};
+
+const getCachedOrderFilesFlat = (orderIds: string[]): OrderFileLite[] => {
+  const all: OrderFileLite[] = [];
+  for (const id of orderIds) {
+    const files = orderFilesCacheByOrderId.get(id);
+    if (files && files.length) all.push(...files);
+  }
+  return all;
+};
+
+const fetchAndCacheOrderFilesForOrders = async (orderIds: string[]) => {
+  const unique = Array.from(new Set(orderIds)).filter(Boolean);
+  const missing = unique.filter((id) => !orderFilesLoadedOrderIds.has(id));
+  if (missing.length === 0) return;
+
+  // Ensure only one fetch pipeline runs at a time to avoid duplicate storms
+  if (orderFilesFetchInFlight) {
+    await orderFilesFetchInFlight;
+    const stillMissing = missing.filter((id) => !orderFilesLoadedOrderIds.has(id));
+    if (stillMissing.length === 0) return;
+  }
+
+  const run = async () => {
+    const ORDER_ID_BATCH_SIZE = 300;
+    const RESULT_PAGE_SIZE = 1000;
+
+    for (let i = 0; i < missing.length; i += ORDER_ID_BATCH_SIZE) {
+      const batchOrderIds = missing.slice(i, i + ORDER_ID_BATCH_SIZE);
+      const batchFiles: OrderFileLite[] = [];
+
+      // Paginate result rows for this batch (PostgREST cap)
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("order_files")
+          .select("id, order_id, file_category, file_name, file_path")
+          .in("order_id", batchOrderIds)
+          .order("id", { ascending: true })
+          .range(offset, offset + RESULT_PAGE_SIZE - 1);
+
+        if (error) {
+          console.error("[adapter] Error fetching order_files batch:", error);
+          break;
+        }
+
+        const rows = (data || []) as OrderFileLite[];
+        if (rows.length) batchFiles.push(...rows);
+
+        hasMore = rows.length === RESULT_PAGE_SIZE;
+        offset += RESULT_PAGE_SIZE;
+      }
+
+      // Group results by order_id and mark all requested order IDs as loaded (even if 0 files)
+      const byOrderId = new Map<string, OrderFileLite[]>();
+      for (const f of batchFiles) {
+        const arr = byOrderId.get(f.order_id) || [];
+        arr.push(f);
+        byOrderId.set(f.order_id, arr);
+      }
+
+      for (const oid of batchOrderIds) {
+        orderFilesCacheByOrderId.set(oid, byOrderId.get(oid) || []);
+        orderFilesLoadedOrderIds.add(oid);
+      }
+    }
+  };
+
+  orderFilesFetchInFlight = run().finally(() => {
+    orderFilesFetchInFlight = null;
+  });
+  await orderFilesFetchInFlight;
+};
+
+/**
  * Helper to get transfer-aware stops for a driver
  * Copied from useReports.ts to maintain consistency
  */
@@ -206,6 +312,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       
       if (modeChanged) {
         console.log(`[adapter] Individual mode changed: ${prevModeKey.individualMode} -> ${currentModeKey.individualMode}, invalidating queries`);
+
+        // Individual-mode toggle is a full context switch; clear order_files cache to avoid stale bloat
+        clearOrderFilesCache();
         
         // Invalidate all adapter queries to force refetch with new scope
         queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
@@ -214,6 +323,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         queryClient.invalidateQueries({ queryKey: ['adapter-truck-notes'] });
         queryClient.invalidateQueries({ queryKey: ['adapter-lost-day-notes'] });
         queryClient.invalidateQueries({ queryKey: ['adapter-last-loads'] });
+        queryClient.invalidateQueries({ queryKey: ['adapter-order-files'] });
       }
     }
     
@@ -395,93 +505,45 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return dateWindowHook.orders.map((o) => o.id);
   }, [dateWindowHook.orders]);
 
-  // Create a robust hash of all order IDs to prevent cache collisions between offices
-  // Uses a simple but effective string hash function
-  const orderIdsHash = useMemo(() => {
-    if (windowOrderIds.length === 0) return "";
-    // Sort IDs to ensure consistent hashing regardless of order
-    const sortedIds = [...windowOrderIds].sort();
-    const str = sortedIds.join(",");
-    // Simple hash: djb2 algorithm
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.charCodeAt(i);
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return `${windowOrderIds.length}-${Math.abs(hash).toString(36)}`;
-  }, [windowOrderIds]);
-
-  // Store order IDs as JSON in query key to avoid stale closure issues
-  const orderIdsForQuery = useMemo(() => {
-    return JSON.stringify(windowOrderIds);
-  }, [windowOrderIds]);
-
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
-  // P1: Paginate result rows with stable ordering to avoid PostgREST 1000-row cap
-  const { data: orderFiles, isLoading: isOrderFilesLoading } = useQuery({
-    queryKey: ["adapter-order-files", priorityOffice, orderIdsHash, orderIdsForQuery],
-    queryFn: async ({ queryKey }) => {
-      // Extract order IDs from query key to avoid stale closure
-      const orderIdsJson = queryKey[3] as string;
-      const orderIds: string[] = orderIdsJson ? JSON.parse(orderIdsJson) : [];
-      
-      if (orderIds.length === 0) return [];
-      
-      // Fetch in batches of order IDs, AND paginate result rows per batch
-      const ORDER_ID_BATCH_SIZE = 300; // Smaller batch to reduce result rows per request
-      const RESULT_PAGE_SIZE = 1000;
-      const allFiles: any[] = [];
-      let truncationWarnings = 0;
-      
-      for (let i = 0; i < orderIds.length; i += ORDER_ID_BATCH_SIZE) {
-        const batch = orderIds.slice(i, i + ORDER_ID_BATCH_SIZE);
-        
-        // Paginate result rows for this batch
-        let offset = 0;
-        let hasMore = true;
-        
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from("order_files")
-            .select("id, order_id, file_category, file_name, file_path")
-            .in("order_id", batch)
-            .order("id", { ascending: true }) // Stable ordering for pagination
-            .range(offset, offset + RESULT_PAGE_SIZE - 1);
-          
-          if (error) {
-            console.error("[adapter] Error fetching order_files batch:", error);
-            break;
-          }
-          
-          if (data) {
-            allFiles.push(...data);
-            
-            // P1: Warn if we hit exactly the page size (strong signal of truncation)
-            if (data.length === RESULT_PAGE_SIZE) {
-              truncationWarnings++;
-              console.warn(
-                `[adapter] order_files batch returned exactly ${RESULT_PAGE_SIZE} rows - paginating to fetch more (batch ${Math.floor(i / ORDER_ID_BATCH_SIZE) + 1}, page ${Math.floor(offset / RESULT_PAGE_SIZE) + 1})`
-              );
-            }
-            
-            // Continue if we got a full page
-            hasMore = data.length === RESULT_PAGE_SIZE;
-            offset += RESULT_PAGE_SIZE;
-          } else {
-            hasMore = false;
-          }
-        }
-      }
-      
-      if (truncationWarnings > 0) {
-        console.log(`[adapter] Successfully paginated through ${truncationWarnings} truncated batches`);
-      }
-      console.log(`[adapter] Fetched ${allFiles.length} order_files for ${orderIds.length} orders`);
-      return allFiles;
+
+  // IMPORTANT: stable queryKey so we don't refetch everything when one order is added.
+  // We fetch-and-cache only missing order IDs and return a flat list for the current window.
+  const {
+    data: orderFiles,
+    isLoading: isOrderFilesLoading,
+    isFetching: isOrderFilesFetching,
+    refetch: refetchOrderFiles,
+  } = useQuery({
+    queryKey: ["adapter-order-files", priorityOffice, modeKeySuffix],
+    queryFn: async () => {
+      if (windowOrderIds.length === 0) return [];
+      await fetchAndCacheOrderFilesForOrders(windowOrderIds);
+      return getCachedOrderFilesFlat(windowOrderIds);
     },
     staleTime: 30000,
     enabled: scopeEnabled && windowOrderIds.length > 0,
   });
+
+  // When new orders are injected (windowOrderIds grows), trigger a background refetch
+  // to pick up missing order_files. This avoids the previous full refetch keyed on IDs.
+  const lastOrderCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (!scopeEnabled) return;
+    if (windowOrderIds.length === 0) {
+      lastOrderCountRef.current = 0;
+      return;
+    }
+    const prevCount = lastOrderCountRef.current;
+    lastOrderCountRef.current = windowOrderIds.length;
+    if (windowOrderIds.length <= prevCount) return;
+    if (isOrderFilesFetching) return;
+
+    const hasMissing = windowOrderIds.some((id) => !orderFilesLoadedOrderIds.has(id));
+    if (!hasMissing) return;
+
+    refetchOrderFiles();
+  }, [scopeEnabled, windowOrderIds.length, isOrderFilesFetching, refetchOrderFiles, windowOrderIds]);
 
   // Track drivers who have orders in the date window
   const driversWithOrdersInWindow = useMemo(() => {
@@ -633,6 +695,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         (payload) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           console.log(`[adapter] order_files realtime: ${payload.eventType} for order ${orderId}`);
+
+          // Ensure next refetch actually reloads this order's files
+          invalidateOrderFilesCacheForOrder(orderId);
           
           // Invalidate adapter-order-files queries (only active ones to avoid refetch storms)
           queryClient.invalidateQueries({
