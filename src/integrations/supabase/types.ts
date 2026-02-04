@@ -350,6 +350,7 @@ export type Database = {
           created_at: string
           credit_limit_amount: number | null
           credit_status: string
+          credit_used_amount: number | null
           id: string
           mc_number: string
           name: string
@@ -360,6 +361,7 @@ export type Database = {
           created_at?: string
           credit_limit_amount?: number | null
           credit_status?: string
+          credit_used_amount?: number | null
           id?: string
           mc_number: string
           name: string
@@ -370,6 +372,7 @@ export type Database = {
           created_at?: string
           credit_limit_amount?: number | null
           credit_status?: string
+          credit_used_amount?: number | null
           id?: string
           mc_number?: string
           name?: string
