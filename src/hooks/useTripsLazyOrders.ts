@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { transformOrders } from "@/utils/ordersTransform";
 import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface SearchState {
   truckDriverSearch: string;
@@ -22,8 +23,7 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   const queryClient = useQueryClient();
   const [searchedOrders, setSearchedOrders] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const lastSearchRef = useRef<string>("");
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSearchKeyRef = useRef<string>("");
   
   // CRITICAL: Maintain last valid data to prevent flickering during transitions
   const lastValidDataRef = useRef<any[]>([]);
@@ -32,63 +32,75 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   const globalOrdersCache = queryClient.getQueryData<any[]>(["orders"]);
   const hasGlobalOrders = !!globalOrdersCache && globalOrdersCache.length > 0;
 
-  // Effect to handle search changes - simplified to avoid re-render loops
-  useEffect(() => {
-    // If we have global orders, don't do lazy loading
-    if (hasGlobalOrders) {
-      if (searchedOrders.length > 0) {
-        setSearchedOrders([]);
-      }
-      return;
-    }
+  // Debounce search inputs to prevent rapid state changes
+  const debouncedTruckDriverSearch = useDebounce(searchState?.truckDriverSearch?.trim() || "", 500);
+  const debouncedLoadNumberSearch = useDebounce(searchState?.loadNumberSearch?.trim() || "", 500);
 
-    const truckDriverSearch = searchState?.truckDriverSearch?.trim() || "";
-    const loadNumberSearch = searchState?.loadNumberSearch?.trim() || "";
-
-    // Build a search key to track what we're searching for
+  // Memoized search function to prevent flickering
+  const performSearch = useCallback(async (truckDriverSearch: string, loadNumberSearch: string) => {
     const searchKey = `${truckDriverSearch}|${loadNumberSearch}`;
+    
+    // Skip if same search or if we have global orders
+    if (searchKey === lastSearchKeyRef.current || hasGlobalOrders) {
+      return;
+    }
 
-    // If no search, clear results
+    // If no search terms, clear results without flickering
     if (!truckDriverSearch && !loadNumberSearch) {
+      lastSearchKeyRef.current = "";
+      // Only clear if we actually have results to clear
       if (searchedOrders.length > 0) {
         setSearchedOrders([]);
+        lastValidDataRef.current = [];
       }
-      lastSearchRef.current = "";
       return;
     }
 
-    // Skip if same search
-    if (searchKey === lastSearchRef.current) {
-      return;
-    }
+    lastSearchKeyRef.current = searchKey;
+    setIsSearching(true);
 
-    // Clear any pending timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    // Debounce the search with 500ms delay
-    searchTimeoutRef.current = setTimeout(async () => {
-      lastSearchRef.current = searchKey;
+    try {
+      let results: any[] = [];
 
       // Priority: truck/driver search first
       if (truckDriverSearch && truckDriverSearch.length >= 2) {
-        await searchByTruckOrDriver(truckDriverSearch, setSearchedOrders, setIsSearching);
-        return;
+        results = await searchByTruckOrDriver(truckDriverSearch);
       }
-
       // Then load number search
-      if (loadNumberSearch && loadNumberSearch.length >= 2) {
-        await searchByLoadNumber(loadNumberSearch, setSearchedOrders, setIsSearching);
+      else if (loadNumberSearch && loadNumberSearch.length >= 2) {
+        results = await searchByLoadNumber(loadNumberSearch);
       }
-    }, 500);
 
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+      // Only update if this is still the current search (stale response protection)
+      if (lastSearchKeyRef.current === searchKey) {
+        setSearchedOrders(results);
+        if (results.length > 0) {
+          lastValidDataRef.current = results;
+        }
       }
-    };
-  }, [searchState?.truckDriverSearch, searchState?.loadNumberSearch, hasGlobalOrders]);
+    } catch (error) {
+      console.error("Search error:", error);
+      // On error, keep showing last valid data
+    } finally {
+      // Only clear loading if this is still the current search
+      if (lastSearchKeyRef.current === searchKey) {
+        setIsSearching(false);
+      }
+    }
+  }, [hasGlobalOrders, searchedOrders.length]);
+
+  // Effect to trigger search when debounced values change
+  useEffect(() => {
+    if (hasGlobalOrders) {
+      // Clear any lazy-loaded results when global orders are available
+      if (searchedOrders.length > 0) {
+        setSearchedOrders([]);
+      }
+      return;
+    }
+
+    performSearch(debouncedTruckDriverSearch, debouncedLoadNumberSearch);
+  }, [debouncedTruckDriverSearch, debouncedLoadNumberSearch, hasGlobalOrders, performSearch]);
 
   // Determine which orders to return
   const rawOrders = hasGlobalOrders ? globalOrdersCache : searchedOrders;
@@ -103,8 +115,8 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
       return rawOrders;
     }
     // During loading transitions, keep showing the last valid data
-    // But if we're not loading and have no data, return empty
-    if (!isLoading && lastSearchRef.current === "") {
+    // But if we're not loading and search is cleared, return empty
+    if (!isLoading && lastSearchKeyRef.current === "") {
       lastValidDataRef.current = [];
       return [];
     }
@@ -119,121 +131,93 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   };
 };
 
-// Moved outside component to avoid re-creation
-async function searchByTruckOrDriver(
-  searchTerm: string,
-  setSearchedOrders: React.Dispatch<React.SetStateAction<any[]>>,
-  setIsSearching: React.Dispatch<React.SetStateAction<boolean>>
-) {
+// Helper function to search by truck or driver - returns results directly
+async function searchByTruckOrDriver(searchTerm: string): Promise<any[]> {
   if (!searchTerm || searchTerm.length < 2) {
-    setSearchedOrders([]);
-    return;
+    return [];
   }
 
-  setIsSearching(true);
+  const searchLower = searchTerm.toLowerCase().trim();
 
-  try {
-    const searchLower = searchTerm.toLowerCase().trim();
+  // First, find matching trucks and drivers
+  const [trucksResult, driversResult] = await Promise.all([
+    supabase
+      .from("trucks")
+      .select("id, truck_number")
+      .ilike("truck_number", `%${searchLower}%`)
+      .limit(10),
+    supabase
+      .from("drivers")
+      .select("id, name")
+      .ilike("name", `%${searchLower}%`)
+      .limit(10),
+  ]);
 
-    // First, find matching trucks and drivers
-    const [trucksResult, driversResult] = await Promise.all([
-      supabase
-        .from("trucks")
-        .select("id, truck_number")
-        .ilike("truck_number", `%${searchLower}%`)
-        .limit(10),
-      supabase
-        .from("drivers")
-        .select("id, name")
-        .ilike("name", `%${searchLower}%`)
-        .limit(10),
-    ]);
+  const truckIds = (trucksResult.data || []).map((t) => t.id);
+  const driverIds = (driversResult.data || []).map((d) => d.id);
 
-    const truckIds = (trucksResult.data || []).map((t) => t.id);
-    const driverIds = (driversResult.data || []).map((d) => d.id);
-
-    if (truckIds.length === 0 && driverIds.length === 0) {
-      setSearchedOrders([]);
-      setIsSearching(false);
-      return;
-    }
-
-    // Build the filter conditions
-    const conditions: string[] = [];
-    if (truckIds.length > 0) {
-      conditions.push(`truck_id.in.(${truckIds.join(",")})`);
-    }
-    if (driverIds.length > 0) {
-      conditions.push(`driver1_id.in.(${driverIds.join(",")})`);
-      conditions.push(`driver2_id.in.(${driverIds.join(",")})`);
-    }
-    const orFilter = conditions.join(",");
-
-    // Fetch orders
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select(getOrderSelectQuery())
-      .or(orFilter)
-      .order("delivery_datetime", { ascending: false, nullsFirst: false })
-      .limit(1000);
-
-    if (error) {
-      console.error("Error fetching orders by truck/driver:", error);
-      setSearchedOrders([]);
-    } else {
-      setSearchedOrders(transformOrders(orders || []));
-    }
-  } catch (error) {
-    console.error("Search error:", error);
-    setSearchedOrders([]);
-  } finally {
-    setIsSearching(false);
+  if (truckIds.length === 0 && driverIds.length === 0) {
+    return [];
   }
+
+  // Build the filter conditions
+  const conditions: string[] = [];
+  if (truckIds.length > 0) {
+    conditions.push(`truck_id.in.(${truckIds.join(",")})`);
+  }
+  if (driverIds.length > 0) {
+    conditions.push(`driver1_id.in.(${driverIds.join(",")})`);
+    conditions.push(`driver2_id.in.(${driverIds.join(",")})`);
+  }
+  const orFilter = conditions.join(",");
+
+  // Fetch orders
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select(getOrderSelectQuery())
+    .or(orFilter)
+    .order("delivery_datetime", { ascending: false, nullsFirst: false })
+    .limit(1000);
+
+  if (error) {
+    console.error("Error fetching orders by truck/driver:", error);
+    return [];
+  }
+
+  return transformOrders(orders || []);
 }
 
-async function searchByLoadNumber(
-  loadNumber: string,
-  setSearchedOrders: React.Dispatch<React.SetStateAction<any[]>>,
-  setIsSearching: React.Dispatch<React.SetStateAction<boolean>>
-) {
+// Helper function to search by load number - returns results directly
+async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   if (!loadNumber || loadNumber.length < 2) {
-    return;
+    return [];
   }
 
-  setIsSearching(true);
+  const searchLower = loadNumber.toLowerCase().trim();
+  const parsedNumber = parseInternalLoadNumber(searchLower);
 
-  try {
-    const searchLower = loadNumber.toLowerCase().trim();
-    const parsedNumber = parseInternalLoadNumber(searchLower);
+  let query = supabase
+    .from("orders")
+    .select(getOrderSelectQuery())
+    .limit(50);
 
-    let query = supabase
-      .from("orders")
-      .select(getOrderSelectQuery())
-      .limit(50);
-
-    // Try both internal_load_number (exact) and broker_load_number (ilike)
-    if (parsedNumber !== null) {
-      query = query.or(
-        `internal_load_number.eq.${parsedNumber},broker_load_number.ilike.%${searchLower}%`
-      );
-    } else {
-      query = query.ilike("broker_load_number", `%${searchLower}%`);
-    }
-
-    const { data: orders, error } = await query;
-
-    if (error) {
-      console.error("Error fetching order by load number:", error);
-      setSearchedOrders([]);
-    } else {
-      setSearchedOrders(transformOrders(orders || []));
-    }
-  } catch (error) {
-    console.error("Load number search error:", error);
-    setSearchedOrders([]);
-  } finally {
-    setIsSearching(false);
+  // Try both internal_load_number (exact) and broker_load_number (ilike)
+  if (parsedNumber !== null) {
+    query = query.or(
+      `internal_load_number.eq.${parsedNumber},broker_load_number.ilike.%${searchLower}%`
+    );
+  } else {
+    query = query.ilike("broker_load_number", `%${searchLower}%`);
   }
+
+  const { data: orders, error } = await query;
+
+  if (error) {
+    console.error("Error fetching order by load number:", error);
+    return [];
+  }
+
+  return transformOrders(orders || []);
 }
 
 function getOrderSelectQuery() {
