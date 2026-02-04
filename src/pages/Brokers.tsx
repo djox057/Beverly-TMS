@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAuth } from "@/hooks/useAuth";
+import { BrokerCreditStatus } from "@/components/BrokerCreditStatus";
 interface BrokerFormData {
   name: string;
   mc_number: string;
@@ -216,17 +217,7 @@ const Brokers = () => {
     setIsEditDialogOpen(true);
   };
 
-  const getCreditStatusDisplay = (broker: any) => {
-    const status = broker.credit_status || "buy";
-    if (status === "buy") {
-      return <span className="inline-flex items-center gap-1 text-green-600"><DollarSign className="h-3 w-3" />Buy</span>;
-    } else if (status === "no_buy") {
-      return <span className="inline-flex items-center gap-1 text-red-600"><Ban className="h-3 w-3" />No Buy</span>;
-    } else if (status === "credit_limit") {
-      return <span className="inline-flex items-center gap-1 text-amber-600"><CreditCard className="h-3 w-3" />${broker.credit_limit_amount?.toLocaleString() || 0}</span>;
-    }
-    return status;
-  };
+  // getCreditStatusDisplay removed - now using BrokerCreditStatus component
 
   const exportToExcel = () => {
     const exportData = filteredBrokers.map(broker => ({
@@ -382,7 +373,7 @@ const Brokers = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-mono">{broker.mc_number}</TableCell>
-                        <TableCell>{getCreditStatusDisplay(broker)}</TableCell>
+                        <TableCell><BrokerCreditStatus broker={broker} /></TableCell>
                         <TableCell className="max-w-xs">{broker.address}</TableCell>
                         {!isDispatchOnly && (
                           <TableCell>
