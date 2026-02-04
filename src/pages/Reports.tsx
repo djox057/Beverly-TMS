@@ -49,6 +49,7 @@ import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 // NOTE: Reports must call exactly ONE reports hook. The adapter internally toggles legacy/date-window.
 import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING } from "@/hooks/useReportsDateWindowAdapter";
+import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
@@ -420,6 +421,18 @@ const Reports = () => {
 
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
+
+  // Dispatcher-specific lazy loading for calendar navigation
+  // This loads orders immediately when a specific dispatcher's calendar is navigated
+  const { loadOrdersForDate: loadDispatcherOrders, isLoading: isDispatcherLoading } = useDispatcherLazyOrders({
+    onOrdersLoaded: (dispatcherId, orders) => {
+      console.log(`[Reports] Dispatcher ${dispatcherId} loaded ${orders.length} orders via lazy loading`);
+      // Invalidate the reports query to pick up new orders
+      if (orders.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ['reports-date-window-stable'], exact: false });
+      }
+    }
+  });
 
   // Delete lost day note mutation
   const deleteLostDayNote = useMutation({
@@ -1296,34 +1309,21 @@ const Reports = () => {
     // Default to 2 days before current day (Chicago time) to show 6 days
     return addDays(getChicagoToday(), -2);
   };
-  const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
-    // Only update the per-dispatcher calendar position - DO NOT trigger global data reload
-    // Orders will be loaded on-demand when the calendar navigates to a new window
+  const handleCalendarDateChange = useCallback((dispatcherId: string, newDate: Date) => {
+    // Update the per-dispatcher calendar position
     setCalendarDates((prev) => ({
       ...prev,
       [dispatcherId]: newDate,
     }));
 
-    // Check if this date range needs loading and update the global window if needed
-    // This uses a more conservative check - only update if we're going significantly outside
-    const visibleWindowEnd = addDays(newDate, 5);
-    const loadedWindowStart = addDays(selectedDateForWindow, -2);
-    const loadedWindowEnd = addDays(selectedDateForWindow, 3);
-
-    // Only trigger a load if the calendar is more than 1 day outside the current window
-    // This prevents excessive reloading while still ensuring data availability
-    const isSignificantlyOutside =
-      newDate < addDays(loadedWindowStart, -1) || visibleWindowEnd > addDays(loadedWindowEnd, 1);
-
-    if (isSignificantlyOutside) {
-      // Center the new window on the visible range
-      const newCenterDate = addDays(newDate, 2);
-      console.log(
-        `[Reports] Calendar navigation significantly outside loaded window, updating selectedDateForWindow to ${format(newCenterDate, "yyyy-MM-dd")}`,
-      );
-      setSelectedDateForWindow(newCenterDate);
-    }
-  };
+    // Immediately trigger dispatcher-specific loading for the new visible date range
+    // This loads only the orders for THIS dispatcher's drivers, not globally
+    console.log(`[Reports] Calendar navigation for dispatcher ${dispatcherId} to ${format(newDate, "yyyy-MM-dd")}`);
+    
+    // Load orders for the start and end of the visible 6-day range
+    loadDispatcherOrders(dispatcherId, newDate);
+    loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+  }, [loadDispatcherOrders]);
   const getStatusColors = (status: string) => {
     switch (status) {
       case "In Transit":
@@ -3312,8 +3312,11 @@ const Reports = () => {
                                   >
                                     <ChevronLeft className="h-3 w-3" />
                                   </button>
-                                  <div className="text-xs font-medium text-foreground mx-2">
+                                  <div className="text-xs font-medium text-foreground mx-2 flex items-center gap-1">
                                     {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
+                                    {isDispatcherLoading(group.dispatcherId) && (
+                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                    )}
                                   </div>
                                   <button
                                     onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))}
