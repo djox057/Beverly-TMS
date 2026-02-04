@@ -28,7 +28,7 @@ import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
-import DataManagement from "./pages/DataManagement";
+
 import Repairs from "./pages/Repairs";
 import FuelReports from "./pages/FuelReports";
 import EfsRequests from "./pages/EfsRequests";
@@ -201,11 +201,6 @@ const AppContent = () => {
         <Route path="/trips" element={
           <ProtectedRoute excludedRoles={['afterhours', 'driver']}>
             <Layout><Trips /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/data-management" element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout><DataManagement /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/stuff" element={
