@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { transformOrders } from "@/utils/ordersTransform";
 import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
@@ -15,6 +15,8 @@ interface SearchState {
  * - If not loaded and no search, returns empty
  * - When searching by truck#/driver name, fetches all their orders
  * - When searching by load#, fetches that specific order
+ * 
+ * Uses lastValidDataRef pattern to prevent flickering during data transitions.
  */
 export const useTripsLazyOrders = (searchState?: SearchState) => {
   const queryClient = useQueryClient();
@@ -22,6 +24,9 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   const [isSearching, setIsSearching] = useState(false);
   const lastSearchRef = useRef<string>("");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // CRITICAL: Maintain last valid data to prevent flickering during transitions
+  const lastValidDataRef = useRef<any[]>([]);
 
   // Check if global orders are already cached
   const globalOrdersCache = queryClient.getQueryData<any[]>(["orders"]);
@@ -86,12 +91,28 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   }, [searchState?.truckDriverSearch, searchState?.loadNumberSearch, hasGlobalOrders]);
 
   // Determine which orders to return
-  const orders = hasGlobalOrders ? globalOrdersCache : searchedOrders;
+  const rawOrders = hasGlobalOrders ? globalOrdersCache : searchedOrders;
   const isLoading = isSearching;
   const isLazyMode = !hasGlobalOrders;
 
+  // CRITICAL: Use stable data pattern to prevent flickering
+  // Only update lastValidDataRef when we have actual data
+  const stableOrders = useMemo(() => {
+    if (rawOrders && rawOrders.length > 0) {
+      lastValidDataRef.current = rawOrders;
+      return rawOrders;
+    }
+    // During loading transitions, keep showing the last valid data
+    // But if we're not loading and have no data, return empty
+    if (!isLoading && lastSearchRef.current === "") {
+      lastValidDataRef.current = [];
+      return [];
+    }
+    return lastValidDataRef.current;
+  }, [rawOrders, isLoading]);
+
   return {
-    data: orders,
+    data: stableOrders,
     isLoading,
     isLazyMode,
     hasGlobalOrders,
