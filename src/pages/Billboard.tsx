@@ -1,10 +1,10 @@
 import { useMemo, useEffect, useState } from "react";
-import { useOrders } from "@/hooks/useOrders";
+import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const Billboard = () => {
-  const { orders, isLoading } = useOrders();
+  const { data: orders, isLoading } = useBillboardOrders();
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
@@ -190,9 +190,9 @@ const Billboard = () => {
     return [...monthlyDispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
   }, [monthlyDispatcherStats]);
 
-  // Worst monthly RPM list (ascending order, filtered by 4.8+ trucks)
+  // Worst monthly RPM list (ascending order, filtered by 3+ trucks)
   const worstMonthlyByRPM = useMemo(() => {
-    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8 && d.totalMiles > 0);
+    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0);
     const list = qualified.length > 0 ? qualified : [...monthlyDispatcherStats].filter((d) => d.totalMiles > 0);
     return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
   }, [monthlyDispatcherStats]);
@@ -334,9 +334,9 @@ const Billboard = () => {
     return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [dispatcherStats]);
 
-  // Worst RPM list (ascending order, filtered by 4.8+ trucks)
+  // Worst RPM list (ascending order, filtered by 3+ trucks)
   const worstByRPM = useMemo(() => {
-    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8 && d.totalMiles > 0);
+    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0);
     const list = qualified.length > 0 ? qualified : [...dispatcherStats].filter((d) => d.totalMiles > 0);
     return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
   }, [dispatcherStats]);
@@ -398,9 +398,9 @@ const Billboard = () => {
           startRank: 1,
         };
       case "worstRpm5":
-        return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (5+ trucks)", startRank: 1 };
+        return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (3+ trucks)", startRank: Math.max(1, worstByRPM.length - 4) };
       case "worstMonthlyRpm5":
-        return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1 };
+        return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (3+ trucks)`, startRank: Math.max(1, worstMonthlyByRPM.length - 4) };
     }
   };
 

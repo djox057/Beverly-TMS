@@ -63,3 +63,5 @@ verify_jwt = false
 [functions.clear-weekly-plans]
 verify_jwt = false
 
+[functions.get-billboard-orders]
+verify_jwt = false
