@@ -1146,10 +1146,9 @@ const Trips = () => {
                entry.change_type === 'assignment_change';
       });
     
-    // CONSOLIDATE: Group consecutive same-entity assignments on the same day into one entry
-    // This prevents showing 10 rows for what is effectively 1 change
-    const consolidatedEntries: typeof filtered = [];
-    const seenByDayAndEntity = new Map<string, typeof filtered[0]>();
+    // CONSOLIDATE: Group by date + outcome state (the new driver/truck assigned)
+    // This collapses multiple events on same day with same result into 1 row
+    const seenByDayAndOutcome = new Map<string, typeof filtered[0]>();
     
     // Sort chronologically first (oldest to newest) for proper consolidation
     const sortedFiltered = [...filtered].sort((a, b) => 
@@ -1160,34 +1159,25 @@ const Trips = () => {
       const datePart = extractDatePart(entry.changed_at);
       if (!datePart) continue;
       
-      // Create a key based on date and the change (what entity was assigned/removed)
-      // This consolidates multiple events on the same day for the same entity change
-      const entityKey = filterInfo.filterType === 'truck' 
-        ? `${datePart}-d1:${entry.driver1_id || 'none'}-d2:${entry.driver2_id || 'none'}-t:${entry.trailer_id || 'none'}`
-        : `${datePart}-truck:${entry.truck_id || 'none'}`;
+      // Build description to use as dedup key - same description = same visual row
+      const description = buildChangeDescription(entry, filterInfo.filterType || 'truck');
       
-      // Keep only the most recent entry per day for each entity combination
-      // OR keep entries with different reasons (they represent distinct events)
-      const existingEntry = seenByDayAndEntity.get(entityKey);
+      // Key = date + description (the visual outcome)
+      // This ensures "Assigned Courtney Harris" on same day appears only once
+      const outcomeKey = `${datePart}|${description}`;
+      
+      // Keep the entry with a reason, or just the latest one
+      const existingEntry = seenByDayAndOutcome.get(outcomeKey);
       if (!existingEntry) {
-        seenByDayAndEntity.set(entityKey, entry);
-      } else {
-        // If new entry has a reason and old doesn't, prefer new entry
-        // Otherwise keep the latest one (already the case since we're iterating chronologically)
-        if (entry.reason && !existingEntry.reason) {
-          seenByDayAndEntity.set(entityKey, entry);
-        } else if (entry.reason && existingEntry.reason && entry.reason !== existingEntry.reason) {
-          // Both have different reasons - keep both as separate entries
-          const newKey = `${entityKey}-${entry.id}`;
-          seenByDayAndEntity.set(newKey, entry);
-        } else {
-          // Same or no reason - update to latest (overwrite)
-          seenByDayAndEntity.set(entityKey, entry);
-        }
+        seenByDayAndOutcome.set(outcomeKey, entry);
+      } else if (entry.reason && !existingEntry.reason) {
+        // Prefer entry with a reason
+        seenByDayAndOutcome.set(outcomeKey, entry);
       }
+      // If both have same outcome and existing already has reason (or neither has), keep existing
     }
     
-    consolidatedEntries.push(...seenByDayAndEntity.values());
+    const consolidatedEntries = [...seenByDayAndOutcome.values()];
     
     // Group by week (Tuesday start) using normalized date parsing
     const byWeek: { [weekKey: string]: typeof filtered } = {};
