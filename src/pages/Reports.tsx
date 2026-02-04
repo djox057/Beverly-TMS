@@ -3310,11 +3310,8 @@ const Reports = () => {
                                   >
                                     <ChevronLeft className="h-3 w-3" />
                                   </button>
-                                  <div className="text-xs font-medium text-foreground mx-2 flex items-center gap-1">
+                                  <div className="text-xs font-medium text-foreground mx-2">
                                     {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
-                                    {isDispatcherLoading(group.dispatcherId) && (
-                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                    )}
                                   </div>
                                   <button
                                     onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))}
