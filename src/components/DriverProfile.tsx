@@ -612,31 +612,17 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
-                          {/* Delete button logic:
-                              - Fixed (Start) expenses: only admin/manager/accounting
-                              - Yearly expenses: only admin/manager/accounting
-                              - Cash advances: only admin
-                              - Regular expenses: everyone can delete
-                          */}
-                          {(() => {
-                            const isFixedOrYearly = item.is_fixed || expenseType === 'yearly';
-                            const canDelete = isFixedOrYearly 
-                              ? canDeleteFixedOrYearly 
-                              : (!isCashAdvance || isAdmin);
-                            
-                            if (!canDelete) return null;
-                            
-                            return (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => setDeleteConfirmExpense(item)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            );
-                          })()}
+                          {/* Delete button: only admin/manager/accounting can delete any expense */}
+                          {canDeleteFixedOrYearly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => setDeleteConfirmExpense(item)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
