@@ -222,15 +222,20 @@ const handler = async (req: Request): Promise<Response> => {
       // Don't throw - the cash advance record was created, expense is secondary
     }
 
-    // Determine sender email based on company
+    // Determine sender email based on company (order matters - check more specific first)
     let fromEmail = "efs@bfprime.net"; // Default
-    if (companyName?.toLowerCase().includes("beverly")) {
+    const normalizedCompany = companyName?.toUpperCase() || "";
+    if (normalizedCompany.includes("BEVERLY FREIGHT")) {
       fromEmail = "efs@beverlyfreight.net";
-    } else if (companyName?.toLowerCase().includes("united")) {
+    } else if (normalizedCompany.includes("UNITED ENTERPRISE")) {
+      fromEmail = "efs@unitedenterprisesolutions.net";
+    } else if (normalizedCompany.includes("BF PRIME UNITED")) {
       fromEmail = "efs@bfprimeunited.net";
-    } else if (companyName?.toLowerCase().includes("bg prime")) {
+    } else if (normalizedCompany.includes("BG PRIME")) {
       fromEmail = "efs@bgprime.net";
-    } else if (companyName?.toLowerCase().includes("ap silver")) {
+    } else if (normalizedCompany.includes("BF PRIME")) {
+      fromEmail = "efs@bfprime.net";
+    } else if (normalizedCompany.includes("AP SILVER")) {
       fromEmail = "efs@apsilvertrans.net";
     }
 
