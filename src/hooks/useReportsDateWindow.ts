@@ -722,7 +722,12 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       }
       globalLoadedWindows.add(windowKey);
       
-      console.log(`[useReportsDateWindow] Loaded ${allOrders.length} orders for window ${windowKey}, total accumulated: ${globalAccumulatedOrders.size}`);
+      // CRITICAL: Increment version and notify listeners so the UI re-renders
+      // This ensures accumulatedOrders memo updates when orders are loaded via queryFn
+      globalOrdersVersion++;
+      versionListeners.forEach(listener => listener());
+      
+      console.log(`[useReportsDateWindow] Loaded ${allOrders.length} orders for window ${windowKey}, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
       
       return { orders: allOrders, windowKey };
     },
