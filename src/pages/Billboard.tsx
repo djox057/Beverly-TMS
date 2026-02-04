@@ -382,29 +382,30 @@ const Billboard = () => {
   const getCurrentListAndTitle = () => {
     switch (activeView) {
       case "gross5":
-        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross (5+ trucks)", startRank: 1 };
+        return { list: top5ByGross, title: "Top 5 Dispatchers by Gross (5+ trucks)", startRank: 1, descending: false };
       case "gross10":
-        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross (5+ trucks)", startRank: 6 };
+        return { list: top10ByGross, title: "Top 10 Dispatchers by Gross (5+ trucks)", startRank: 6, descending: false };
       case "rpm5":
-        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM (5+ trucks)", startRank: 1 };
+        return { list: top5ByRPM, title: "Top 5 Dispatchers by RPM (5+ trucks)", startRank: 1, descending: false };
       case "rpm10":
-        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM (5+ trucks)", startRank: 6 };
+        return { list: top10ByRPM, title: "Top 10 Dispatchers by RPM (5+ trucks)", startRank: 6, descending: false };
       case "monthlyRpm5":
-        return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1 };
+        return { list: top5MonthlyRPM, title: `Top 5 Dispatchers by RPM - ${monthLabel} (5+ trucks)`, startRank: 1, descending: false };
       case "monthlyGross5":
         return {
           list: top5MonthlyGross,
           title: `Top 5 Dispatchers by Gross - ${monthLabel} (5+ trucks)`,
           startRank: 1,
+          descending: false,
         };
       case "worstRpm5":
-        return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (3+ trucks)", startRank: Math.max(1, worstByRPM.length - 4) };
+        return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (3+ trucks)", startRank: worstByRPM.length, descending: true };
       case "worstMonthlyRpm5":
-        return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (3+ trucks)`, startRank: Math.max(1, worstMonthlyByRPM.length - 4) };
+        return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (3+ trucks)`, startRank: worstMonthlyByRPM.length, descending: true };
     }
   };
 
-  const { list: currentList, title: currentTitle, startRank } = getCurrentListAndTitle();
+  const { list: currentList, title: currentTitle, startRank, descending } = getCurrentListAndTitle();
 
   if (isLoading) {
     return (
@@ -439,7 +440,7 @@ const Billboard = () => {
               >
                 {/* Rank + Name + Office */}
                 <div className="flex items-center gap-5">
-                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{startRank + index}</span>
+                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{descending ? startRank - index : startRank + index}</span>
                   <span className="text-4xl font-semibold text-foreground">
                     {dispatcher.displayName}
                     {dispatcher.office && (
