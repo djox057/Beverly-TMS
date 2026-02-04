@@ -94,7 +94,7 @@ export function useDriverExpenses(driverId: string | null) {
         .from("driver_expenses")
         .select("*")
         .eq("driver_id", driverId)
-        .order("created_at", { ascending: true });
+        .order("expense_date", { ascending: true, nullsFirst: true });
 
       if (error) {
         console.error("Error fetching driver expenses:", error);
