@@ -193,7 +193,7 @@ export const Sidebar = () => {
       return true;
     });
     
-    // Admin role: all navigation + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests + User Management + Data Management
+    // Admin role: all navigation + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests + User Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
@@ -201,7 +201,6 @@ export const Sidebar = () => {
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
-        { name: "Data Management", href: "/data-management", icon: Settings },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
