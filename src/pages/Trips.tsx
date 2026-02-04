@@ -1045,13 +1045,15 @@ const Trips = () => {
     filterInfo.entityId
   );
 
-  // Fetch terminated drivers for showing in Trips as red rows
-  const { data: terminatedDrivers = [] } = useQuery({
-    queryKey: ["terminated-drivers-for-trips", filterInfo.filterType, filterInfo.entityId],
+  // Fetch terminated drivers AND their notes in a SINGLE query for faster display
+  // This eliminates the delay caused by sequential queries
+  const { data: terminatedDriversWithNotes = [] } = useQuery({
+    queryKey: ["terminated-drivers-with-notes-for-trips", filterInfo.filterType, filterInfo.entityId, assignmentHistory.length],
     queryFn: async () => {
       // Only fetch when filtering by driver or truck
       if (!filterInfo.filterType || !filterInfo.entityId) return [];
       
+      // Fetch drivers with their termination notes in a single query
       let query = supabase
         .from("drivers")
         .select(`
@@ -1059,7 +1061,12 @@ const Trips = () => {
           name,
           first_name,
           last_name,
-          termination_date
+          termination_date,
+          driver_termination_notes (
+            id,
+            note,
+            created_at
+          )
         `)
         .eq("is_active", false)
         .not("termination_date", "is", null);
@@ -1076,8 +1083,10 @@ const Trips = () => {
         return [];
       }
       
+      let filteredData = data || [];
+      
       // If filtering by truck, we need to find drivers that were assigned to that truck
-      if (filterInfo.filterType === 'truck' && data) {
+      if (filterInfo.filterType === 'truck' && filteredData.length > 0) {
         // Get drivers that were ever assigned to this truck from assignment history
         const driverIdsFromHistory = assignmentHistory
           .filter(h => h.driver1_id || h.driver2_id || h.old_driver1_id || h.old_driver2_id)
@@ -1085,51 +1094,44 @@ const Trips = () => {
           .filter(Boolean);
         
         const uniqueDriverIds = [...new Set(driverIdsFromHistory)];
-        return data.filter(d => uniqueDriverIds.includes(d.id));
+        filteredData = filteredData.filter(d => uniqueDriverIds.includes(d.id));
       }
       
-      return data || [];
+      return filteredData;
     },
     enabled: !!filterInfo.filterType && !!filterInfo.entityId,
+    staleTime: 30000, // Cache for 30 seconds
   });
 
-  // Fetch termination notes for terminated drivers
-  const terminatedDriverIds = terminatedDrivers.map(d => d.id);
-  const { data: terminationNotes = [] } = useQuery({
-    queryKey: ["termination-notes-for-trips", terminatedDriverIds],
-    queryFn: async () => {
-      if (terminatedDriverIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("driver_termination_notes")
-        .select("id, driver_id, note")
-        .in("driver_id", terminatedDriverIds)
-        .order("created_at", { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching termination notes:", error);
-        return [];
-      }
-      
-      return data || [];
-    },
-    enabled: terminatedDriverIds.length > 0,
-  });
+  // Extract terminated drivers list (for backwards compatibility)
+  const terminatedDrivers = useMemo(() => {
+    return terminatedDriversWithNotes.map(d => ({
+      id: d.id,
+      name: d.name,
+      first_name: d.first_name,
+      last_name: d.last_name,
+      termination_date: d.termination_date,
+    }));
+  }, [terminatedDriversWithNotes]);
 
-  // Create a map of driver_id to their most recent termination note
+  // Create a map of driver_id to their most recent termination note (extracted from combined query)
   const terminationNotesByDriverId = useMemo(() => {
     const map: Record<string, string> = {};
-    terminationNotes.forEach(note => {
-      // Only keep the first (most recent) note per driver
-      if (!map[note.driver_id]) {
-        map[note.driver_id] = note.note;
+    terminatedDriversWithNotes.forEach(driver => {
+      const notes = driver.driver_termination_notes as any[] || [];
+      if (notes.length > 0) {
+        // Sort by created_at descending and take the first (most recent)
+        const sortedNotes = [...notes].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        map[driver.id] = sortedNotes[0].note;
       }
     });
     return map;
-  }, [terminationNotes]);
+  }, [terminatedDriversWithNotes]);
 
   // Filter and format history entries based on filter type, grouped by week
-  // HARDENED: Includes trailer_assignment for visibility, uses deterministic filtering
+  // HARDENED: Uses tenure-style consolidation to show 1 entry per change, not many raw events
   const historyEntriesByWeek = useMemo(() => {
     if (!filterInfo.filterType || assignmentHistory.length === 0) return {};
     
@@ -1143,11 +1145,53 @@ const Trips = () => {
                entry.change_type === 'trailer_assignment' ||
                entry.change_type === 'assignment_change';
       });
-    // Note: No .slice() here - the RPC now has a default limit of 100
+    
+    // CONSOLIDATE: Group consecutive same-entity assignments on the same day into one entry
+    // This prevents showing 10 rows for what is effectively 1 change
+    const consolidatedEntries: typeof filtered = [];
+    const seenByDayAndEntity = new Map<string, typeof filtered[0]>();
+    
+    // Sort chronologically first (oldest to newest) for proper consolidation
+    const sortedFiltered = [...filtered].sort((a, b) => 
+      new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+    );
+    
+    for (const entry of sortedFiltered) {
+      const datePart = extractDatePart(entry.changed_at);
+      if (!datePart) continue;
+      
+      // Create a key based on date and the change (what entity was assigned/removed)
+      // This consolidates multiple events on the same day for the same entity change
+      const entityKey = filterInfo.filterType === 'truck' 
+        ? `${datePart}-d1:${entry.driver1_id || 'none'}-d2:${entry.driver2_id || 'none'}-t:${entry.trailer_id || 'none'}`
+        : `${datePart}-truck:${entry.truck_id || 'none'}`;
+      
+      // Keep only the most recent entry per day for each entity combination
+      // OR keep entries with different reasons (they represent distinct events)
+      const existingEntry = seenByDayAndEntity.get(entityKey);
+      if (!existingEntry) {
+        seenByDayAndEntity.set(entityKey, entry);
+      } else {
+        // If new entry has a reason and old doesn't, prefer new entry
+        // Otherwise keep the latest one (already the case since we're iterating chronologically)
+        if (entry.reason && !existingEntry.reason) {
+          seenByDayAndEntity.set(entityKey, entry);
+        } else if (entry.reason && existingEntry.reason && entry.reason !== existingEntry.reason) {
+          // Both have different reasons - keep both as separate entries
+          const newKey = `${entityKey}-${entry.id}`;
+          seenByDayAndEntity.set(newKey, entry);
+        } else {
+          // Same or no reason - update to latest (overwrite)
+          seenByDayAndEntity.set(entityKey, entry);
+        }
+      }
+    }
+    
+    consolidatedEntries.push(...seenByDayAndEntity.values());
     
     // Group by week (Tuesday start) using normalized date parsing
     const byWeek: { [weekKey: string]: typeof filtered } = {};
-    filtered.forEach(entry => {
+    consolidatedEntries.forEach(entry => {
       // HARDENED: Use extractDatePart for consistent timezone-neutral parsing
       const datePart = extractDatePart(entry.changed_at);
       if (!datePart) return;
