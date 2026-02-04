@@ -4,12 +4,13 @@
  * This hook provides dispatcher-specific date-range loading:
  * - Only loads orders for the specific dispatcher's drivers
  * - Loads incrementally as each dispatcher's calendar navigates
- * - Maintains per-dispatcher loaded ranges to avoid redundant fetches
+ * - Injects loaded orders directly into globalAccumulatedOrders for display
  */
 
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, subDays } from "date-fns";
+import { injectOrdersIntoGlobalStore } from "./useReportsDateWindow";
 
 // Per-dispatcher loaded date ranges
 type LoadedRanges = Map<string, Set<string>>; // dispatcherId -> Set of "YYYY-MM-DD" dates
@@ -252,8 +253,14 @@ export const useDispatcherLazyOrders = (options?: DispatcherLazyOrdersOptions) =
     try {
       const orders = await fetchOrdersForDispatcher(dispatcherId, targetDate);
       
-      // Store the orders
+      // Store the orders locally for this dispatcher
       storeOrders(dispatcherId, orders);
+      
+      // CRITICAL: Inject orders into the global accumulated store for display
+      // This makes them immediately available to the Reports UI
+      if (orders.length > 0) {
+        injectOrdersIntoGlobalStore(orders);
+      }
       
       // Mark dates as loaded
       markDatesLoaded(dispatcherId, targetDate);

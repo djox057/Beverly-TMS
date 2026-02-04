@@ -424,13 +424,11 @@ const Reports = () => {
 
   // Dispatcher-specific lazy loading for calendar navigation
   // This loads orders immediately when a specific dispatcher's calendar is navigated
+  // Orders are injected directly into globalAccumulatedOrders, triggering re-renders via version subscription
   const { loadOrdersForDate: loadDispatcherOrders, isLoading: isDispatcherLoading } = useDispatcherLazyOrders({
     onOrdersLoaded: (dispatcherId, orders) => {
       console.log(`[Reports] Dispatcher ${dispatcherId} loaded ${orders.length} orders via lazy loading`);
-      // Invalidate the reports query to pick up new orders
-      if (orders.length > 0) {
-        queryClient.invalidateQueries({ queryKey: ['reports-date-window-stable'], exact: false });
-      }
+      // No need to invalidate queries - the version subscription in useReportsDateWindow handles re-renders
     }
   });
 

@@ -11,7 +11,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { format, addDays, subDays, startOfDay } from "date-fns";
 
 // Helper to check if a date string matches today (no timezone conversion)
@@ -547,6 +547,46 @@ const globalAccumulatedOrders = new Map<string, any>();
 const globalLoadedWindows = new Set<string>();
 let lastIndividualMode: boolean | undefined = undefined;
 
+// Version counter to trigger re-renders when orders are injected externally
+let globalOrdersVersion = 0;
+const versionListeners = new Set<() => void>();
+
+/**
+ * Inject orders directly into the global accumulated orders store
+ * Used by dispatcher-specific lazy loading to merge newly loaded orders
+ */
+export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
+  for (const order of orders) {
+    globalAccumulatedOrders.set(order.id, order);
+  }
+  globalOrdersVersion++;
+  console.log(`[useReportsDateWindow] Injected ${orders.length} orders, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
+  // Notify all listeners to trigger re-renders
+  versionListeners.forEach(listener => listener());
+};
+
+/**
+ * Get the current size of accumulated orders (for triggering re-renders)
+ */
+export const getGlobalAccumulatedOrdersSize = (): number => {
+  return globalAccumulatedOrders.size;
+};
+
+/**
+ * Subscribe to global orders version changes (for triggering re-renders)
+ */
+export const subscribeToGlobalOrdersVersion = (listener: () => void): (() => void) => {
+  versionListeners.add(listener);
+  return () => versionListeners.delete(listener);
+};
+
+/**
+ * Get current global orders version
+ */
+export const getGlobalOrdersVersion = (): number => {
+  return globalOrdersVersion;
+};
+
 /**
  * Main hook for date-window based reports data loading
  * 
@@ -673,10 +713,19 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     placeholderData: (prev) => prev,
   });
 
+  // Subscribe to global orders version changes to trigger re-renders when orders are injected
+  const [ordersVersion, setOrdersVersion] = useState(globalOrdersVersion);
+  useEffect(() => {
+    const unsubscribe = subscribeToGlobalOrdersVersion(() => {
+      setOrdersVersion(globalOrdersVersion);
+    });
+    return unsubscribe;
+  }, []);
+
   // Get all accumulated orders
   const accumulatedOrders = useMemo(() => {
     return Array.from(globalAccumulatedOrders.values());
-  }, [globalAccumulatedOrders.size, windowKey]); // windowKey dependency triggers re-render after loading
+  }, [ordersVersion, windowKey]); // ordersVersion triggers re-render when orders are injected externally
 
   // Function to prefetch adjacent date windows
   const prefetchAdjacentWindows = useCallback(async () => {
