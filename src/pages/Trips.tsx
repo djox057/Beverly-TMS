@@ -47,6 +47,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
+import { calculateTenures, calculateCombinedDriverTenures, Tenure, formatTenureDateRange, formatTenureDuration } from "@/utils/tenureCalculator";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -1130,68 +1131,33 @@ const Trips = () => {
     return map;
   }, [terminatedDriversWithNotes]);
 
-  // Filter and format history entries based on filter type, grouped by week
-  // HARDENED: Uses tenure-style consolidation to show 1 entry per change, not many raw events
+  // Convert assignment history into tenure-based entries (like truck history dialog)
+  // This shows 1 entry per tenure period, not individual events
   const historyEntriesByWeek = useMemo(() => {
     if (!filterInfo.filterType || assignmentHistory.length === 0) return {};
     
-    const filtered = assignmentHistory
-      .filter(entry => {
-        // Include all relevant change types:
-        // - driver_assignment: driver was assigned/unassigned
-        // - trailer_assignment: trailer was changed (now included for visibility)
-        // - assignment_change: both driver and trailer changed together
-        return entry.change_type === 'driver_assignment' || 
-               entry.change_type === 'trailer_assignment' ||
-               entry.change_type === 'assignment_change';
-      });
-    
-    // CONSOLIDATE: Group by date + outcome state (the new driver/truck assigned)
-    // This collapses multiple events on same day with same result into 1 row
-    const seenByDayAndOutcome = new Map<string, typeof filtered[0]>();
-    
-    // Sort chronologically first (oldest to newest) for proper consolidation
-    const sortedFiltered = [...filtered].sort((a, b) => 
-      new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+    // Filter to relevant change types
+    const filtered = assignmentHistory.filter(entry => 
+      entry.change_type === 'driver_assignment' || 
+      entry.change_type === 'trailer_assignment' ||
+      entry.change_type === 'assignment_change'
     );
     
-    for (const entry of sortedFiltered) {
-      const datePart = extractDatePart(entry.changed_at);
-      if (!datePart) continue;
-      
-      // Build description to use as dedup key - same description = same visual row
-      const description = buildChangeDescription(entry, filterInfo.filterType || 'truck');
-      
-      // Key = date + description (the visual outcome)
-      // This ensures "Assigned Courtney Harris" on same day appears only once
-      const outcomeKey = `${datePart}|${description}`;
-      
-      // Keep the entry with a reason, or just the latest one
-      const existingEntry = seenByDayAndOutcome.get(outcomeKey);
-      if (!existingEntry) {
-        seenByDayAndOutcome.set(outcomeKey, entry);
-      } else if (entry.reason && !existingEntry.reason) {
-        // Prefer entry with a reason
-        seenByDayAndOutcome.set(outcomeKey, entry);
-      }
-      // If both have same outcome and existing already has reason (or neither has), keep existing
-    }
+    // Calculate tenures using the same logic as truck history dialog
+    const tenures: Tenure[] = filterInfo.filterType === 'truck'
+      ? calculateCombinedDriverTenures(filtered)  // For truck, show driver tenures
+      : calculateTenures(filtered, 'truck');       // For driver, show truck tenures
     
-    const consolidatedEntries = [...seenByDayAndOutcome.values()];
-    
-    // Group by week (Tuesday start) using normalized date parsing
-    const byWeek: { [weekKey: string]: typeof filtered } = {};
-    consolidatedEntries.forEach(entry => {
-      // HARDENED: Use extractDatePart for consistent timezone-neutral parsing
-      const datePart = extractDatePart(entry.changed_at);
-      if (!datePart) return;
+    // Group tenures by week (using start date)
+    const byWeek: { [weekKey: string]: Tenure[] } = {};
+    tenures.forEach(tenure => {
+      if (!tenure.startDate) return;
       
-      // Create date at noon to avoid DST issues
-      const entryDate = new Date(datePart + 'T12:00:00');
+      const entryDate = new Date(tenure.startDate + 'T12:00:00');
       const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
       const weekKey = format(weekStart, "yyyy-MM-dd");
       if (!byWeek[weekKey]) byWeek[weekKey] = [];
-      byWeek[weekKey].push(entry);
+      byWeek[weekKey].push(tenure);
     });
     
     return byWeek;
@@ -1285,32 +1251,35 @@ const Trips = () => {
     const weekGroups = Object.keys(groups)
       .sort((a, b) => b.localeCompare(a))
       .map((weekKey) => {
-        // Get history entries for this week
-        const weekHistoryEntries = historyEntriesByWeek[weekKey] || [];
+        // Get tenure entries for this week (already consolidated like truck history dialog)
+        const weekTenures = historyEntriesByWeek[weekKey] || [];
         
-        // HARDENED: Convert history entries using deterministic buildChangeDescription
-        // Uses before/after values from DB instead of comparing array positions
-        const historyAsItems = weekHistoryEntries.map((entry) => {
-          // HARDENED: Use extractDatePart for consistent timezone-neutral parsing
-          const datePart = extractDatePart(entry.changed_at);
+        // Convert tenures to display items
+        const historyAsItems = weekTenures.map((tenure: Tenure) => {
+          // Build description based on filter type
+          const entityLabel = filterInfo.filterType === 'truck' ? 'Driver' : 'Truck';
+          const entityName = tenure.entityName || 'Unassigned';
+          const isCurrent = tenure.endDate === null;
+          const dateRange = formatTenureDateRange(tenure);
+          const duration = formatTenureDuration(tenure.durationDays);
           
-          // HARDENED: Use deterministic buildChangeDescription with before/after values
-          const changeDescription = buildChangeDescription(
-            entry, 
-            filterInfo.filterType || 'driver'
-          );
+          // Format: "Assigned to [Entity] [Name]" with tenure info
+          const changeDescription = isCurrent 
+            ? `${entityLabel}: ${entityName} (Current - ${duration})`
+            : `${entityLabel}: ${entityName} (${dateRange} - ${duration})`;
           
           return {
             _isHistoryEntry: true,
-            // HARDENED: Use stable unique ID from database (not index-based)
-            _historyId: entry.id,
-            _historyDate: datePart,
-            _historyDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
+            // Use tenure start date + entity as unique ID
+            _historyId: `${tenure.startDate}-${tenure.entityId || 'none'}`,
+            _historyDate: tenure.startDate,
+            _historyDateDisplay: tenure.startDate ? format(new Date(tenure.startDate + 'T12:00:00'), 'MM/dd/yyyy') : '',
             _changeDescription: changeDescription,
-            _reason: entry.reason,
-            _changedAt: entry.changed_at, // Store full timestamp for secondary sorting
+            _reason: tenure.endReason,
+            _changedAt: tenure.startDate, // Use start date for sorting
+            _changedByName: tenure.changedByName,
             // For sorting purposes - treat as the date
-            deliveryDate: datePart,
+            deliveryDate: tenure.startDate,
           };
         });
         
