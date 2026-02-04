@@ -373,7 +373,13 @@ const Brokers = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-mono">{broker.mc_number}</TableCell>
-                        <TableCell><BrokerCreditStatus broker={broker} /></TableCell>
+                        <TableCell>
+                          <BrokerCreditStatus 
+                            broker={broker} 
+                            canEdit={roles.includes('admin') || roles.includes('accounting')}
+                            onUpdate={refetch}
+                          />
+                        </TableCell>
                         <TableCell className="max-w-xs">{broker.address}</TableCell>
                         {!isDispatchOnly && (
                           <TableCell>
