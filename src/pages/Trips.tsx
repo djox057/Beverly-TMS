@@ -4415,37 +4415,8 @@ const Trips = () => {
     return items;
   };
 
-  // Show loading skeleton only when actively searching
-  if (isLoading) {
-    return (
-      <div className="w-full px-2 py-6 space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-10 w-32 bg-muted animate-pulse rounded" />
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="border rounded-lg p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="h-6 w-64 bg-muted animate-pulse rounded" />
-                <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="h-20 bg-muted animate-pulse rounded" />
-                <div className="h-20 bg-muted animate-pulse rounded" />
-                <div className="h-20 bg-muted animate-pulse rounded" />
-                <div className="h-20 bg-muted animate-pulse rounded" />
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // NOTE: Removed loading skeleton - we now show "0 trips" during loading instead of flickering skeletons
+  // The UI will display current data (or empty state) while new data loads in the background
 
   // Show empty state when in lazy mode and no search active
   const hasActiveSearch = (searchFilter?.trim().length >= 2) || (loadNumberSearch?.trim().length >= 2);
