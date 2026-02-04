@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight, Download, DollarSign, Ban, CreditCard } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import * as XLSX from "xlsx";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,8 @@ interface BrokerFormData {
   name: string;
   mc_number: string;
   address: string;
+  credit_status: "buy" | "no_buy" | "credit_limit";
+  credit_limit_amount: number | null;
 }
 const ITEMS_PER_PAGE = 100;
 const Brokers = () => {
@@ -29,7 +32,9 @@ const Brokers = () => {
   const [formData, setFormData] = useState<BrokerFormData>({
     name: "",
     mc_number: "",
-    address: ""
+    address: "",
+    credit_status: "buy",
+    credit_limit_amount: null
   });
   const {
     toast
@@ -86,7 +91,9 @@ const Brokers = () => {
     setFormData({
       name: "",
       mc_number: "",
-      address: ""
+      address: "",
+      credit_status: "buy",
+      credit_limit_amount: null
     });
     setEditingBroker(null);
   };
@@ -202,15 +209,32 @@ const Brokers = () => {
     setFormData({
       name: broker.name || "",
       mc_number: broker.mc_number || "",
-      address: broker.address || ""
+      address: broker.address || "",
+      credit_status: broker.credit_status || "buy",
+      credit_limit_amount: broker.credit_limit_amount || null
     });
     setIsEditDialogOpen(true);
+  };
+
+  const getCreditStatusDisplay = (broker: any) => {
+    const status = broker.credit_status || "buy";
+    if (status === "buy") {
+      return <span className="inline-flex items-center gap-1 text-green-600"><DollarSign className="h-3 w-3" />Buy</span>;
+    } else if (status === "no_buy") {
+      return <span className="inline-flex items-center gap-1 text-red-600"><Ban className="h-3 w-3" />No Buy</span>;
+    } else if (status === "credit_limit") {
+      return <span className="inline-flex items-center gap-1 text-amber-600"><CreditCard className="h-3 w-3" />${broker.credit_limit_amount?.toLocaleString() || 0}</span>;
+    }
+    return status;
   };
 
   const exportToExcel = () => {
     const exportData = filteredBrokers.map(broker => ({
       "Company Name": broker.name || "",
       "MC Number": broker.mc_number || "",
+      "Credit Status": broker.credit_status === "credit_limit" 
+        ? `Credit Limit: $${broker.credit_limit_amount?.toLocaleString() || 0}` 
+        : broker.credit_status === "no_buy" ? "No Buy" : "Buy",
       "Address": broker.address || ""
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -269,6 +293,44 @@ const Brokers = () => {
               })} placeholder="123 Main St, City, State ZIP" required />
               </div>
 
+              <div className="space-y-2">
+                <Label>Credit Status *</Label>
+                <Select value={formData.credit_status} onValueChange={(value: "buy" | "no_buy" | "credit_limit") => {
+                  setFormData({
+                    ...formData,
+                    credit_status: value,
+                    credit_limit_amount: value === "credit_limit" ? formData.credit_limit_amount : null
+                  });
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select credit status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buy">Buy</SelectItem>
+                    <SelectItem value="no_buy">No Buy</SelectItem>
+                    <SelectItem value="credit_limit">Credit Limit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.credit_status === "credit_limit" && (
+                <div className="space-y-2">
+                  <Label htmlFor="credit_limit_amount">Credit Limit Amount *</Label>
+                  <Input 
+                    id="credit_limit_amount" 
+                    type="number" 
+                    min="1"
+                    value={formData.credit_limit_amount || ""} 
+                    onChange={e => setFormData({
+                      ...formData,
+                      credit_limit_amount: e.target.value ? parseFloat(e.target.value) : null
+                    })} 
+                    placeholder="10000" 
+                    required 
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -301,13 +363,14 @@ const Brokers = () => {
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>MC Number</TableHead>
+                  <TableHead>Credit Status</TableHead>
                   <TableHead>Address</TableHead>
                   {!isDispatchOnly && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody className="h-full">
                 {paginatedBrokers.length === 0 ? <TableRow>
-                    <TableCell colSpan={isDispatchOnly ? 3 : 4} className="text-center py-8 text-muted-foreground h-[500px]">
+                    <TableCell colSpan={isDispatchOnly ? 4 : 5} className="text-center py-8 text-muted-foreground h-[500px]">
                       {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
                   </TableRow> : <>
@@ -319,6 +382,7 @@ const Brokers = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-mono">{broker.mc_number}</TableCell>
+                        <TableCell>{getCreditStatusDisplay(broker)}</TableCell>
                         <TableCell className="max-w-xs">{broker.address}</TableCell>
                         {!isDispatchOnly && (
                           <TableCell>
@@ -355,7 +419,7 @@ const Brokers = () => {
                     {Array.from({
                   length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length)
                 }).map((_, i) => <TableRow key={`empty-${i}`} className="h-[57px]">
-                        <TableCell colSpan={isDispatchOnly ? 3 : 4}>&nbsp;</TableCell>
+                        <TableCell colSpan={isDispatchOnly ? 4 : 5}>&nbsp;</TableCell>
                       </TableRow>)}
                   </>}
               </TableBody>
@@ -415,6 +479,44 @@ const Brokers = () => {
               address: e.target.value
             })} placeholder="123 Main St, City, State ZIP" required />
             </div>
+
+            <div className="space-y-2">
+              <Label>Credit Status *</Label>
+              <Select value={formData.credit_status} onValueChange={(value: "buy" | "no_buy" | "credit_limit") => {
+                setFormData({
+                  ...formData,
+                  credit_status: value,
+                  credit_limit_amount: value === "credit_limit" ? formData.credit_limit_amount : null
+                });
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select credit status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="buy">Buy</SelectItem>
+                  <SelectItem value="no_buy">No Buy</SelectItem>
+                  <SelectItem value="credit_limit">Credit Limit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.credit_status === "credit_limit" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit_credit_limit_amount">Credit Limit Amount *</Label>
+                <Input 
+                  id="edit_credit_limit_amount" 
+                  type="number" 
+                  min="1"
+                  value={formData.credit_limit_amount || ""} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    credit_limit_amount: e.target.value ? parseFloat(e.target.value) : null
+                  })} 
+                  placeholder="10000" 
+                  required 
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>

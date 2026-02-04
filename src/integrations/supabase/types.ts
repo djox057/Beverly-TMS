@@ -348,6 +348,8 @@ export type Database = {
         Row: {
           address: string
           created_at: string
+          credit_limit_amount: number | null
+          credit_status: string
           id: string
           mc_number: string
           name: string
@@ -356,6 +358,8 @@ export type Database = {
         Insert: {
           address: string
           created_at?: string
+          credit_limit_amount?: number | null
+          credit_status?: string
           id?: string
           mc_number: string
           name: string
@@ -364,6 +368,8 @@ export type Database = {
         Update: {
           address?: string
           created_at?: string
+          credit_limit_amount?: number | null
+          credit_status?: string
           id?: string
           mc_number?: string
           name?: string
