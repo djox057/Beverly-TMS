@@ -647,13 +647,32 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     refetchOnWindowFocus: false,
   });
 
+  // Use a ref to avoid stale closure issues with driverIds in the queryFn
+  // This ensures the queryFn always reads the current value when it runs
+  const driverIdsRef = useRef<string[]>([]);
+  const currentWindowRef = useRef(currentWindow);
+  
+  useEffect(() => {
+    driverIdsRef.current = initialData?.driverIds || [];
+  }, [initialData?.driverIds]);
+  
+  useEffect(() => {
+    currentWindowRef.current = currentWindow;
+  }, [currentWindow]);
+
   // Effect to load orders for the current window when it changes
   // This is the key to incremental loading without full refetches
   const { isFetching, refetch } = useQuery({
     queryKey: ['reports-date-window-orders', windowKey, individualMode ? 'individual' : 'all'],
     queryFn: async () => {
-      const driverIds = initialData?.driverIds || [];
-      if (driverIds.length === 0) return { orders: [], windowKey };
+      // Read from ref to avoid stale closure issues
+      const driverIds = driverIdsRef.current;
+      const windowToLoad = currentWindowRef.current;
+      
+      if (driverIds.length === 0) {
+        console.log(`[useReportsDateWindow] No driver IDs available, skipping orders fetch`);
+        return { orders: [], windowKey };
+      }
       
       // Skip if already loaded this window
       if (globalLoadedWindows.has(windowKey)) {
@@ -661,17 +680,19 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         return { orders: [], windowKey, skipped: true };
       }
       
-      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}`);
+      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers`);
       
       // Fetch all order types for this window
-      const unlockedOrders = await fetchOrdersForDateWindow(driverIds, currentWindow);
-      const lockedOrders = await fetchLockedOrdersForDateWindow(driverIds, currentWindow);
+      const unlockedOrders = await fetchOrdersForDateWindow(driverIds, windowToLoad);
+      const lockedOrders = await fetchLockedOrdersForDateWindow(driverIds, windowToLoad);
+      
+      console.log(`[useReportsDateWindow] Fetched ${unlockedOrders.length} unlocked, ${lockedOrders.length} locked orders`);
       
       const unlockedIds = new Set(unlockedOrders.map(o => o.id));
       const deduplicatedLocked = lockedOrders.filter(o => !unlockedIds.has(o.id));
       
       const existingIds = new Set([...unlockedIds, ...deduplicatedLocked.map(o => o.id)]);
-      const gapFillOrders = await fetchGapFillOrders(driverIds, currentWindow, existingIds);
+      const gapFillOrders = await fetchGapFillOrders(driverIds, windowToLoad, existingIds);
       
       const combinedOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
       
@@ -712,6 +733,28 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     // Keep previous data to prevent flashing
     placeholderData: (prev) => prev,
   });
+
+  // CRITICAL: When driverIds become available and window hasn't been loaded yet,
+  // trigger a refetch to ensure orders are loaded. This handles the case where
+  // the query ran before driverIds were ready due to stale closure.
+  const hasTriggeredInitialFetchRef = useRef(false);
+  useEffect(() => {
+    const driverIds = initialData?.driverIds || [];
+    if (driverIds.length > 0 && !globalLoadedWindows.has(windowKey) && !hasTriggeredInitialFetchRef.current) {
+      hasTriggeredInitialFetchRef.current = true;
+      console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
+      refetch();
+    }
+  }, [initialData?.driverIds, windowKey, refetch]);
+  
+  // Reset the trigger flag when window changes
+  useEffect(() => {
+    if (globalLoadedWindows.has(windowKey)) {
+      hasTriggeredInitialFetchRef.current = true; // Already loaded
+    } else {
+      hasTriggeredInitialFetchRef.current = false; // Need to load this new window
+    }
+  }, [windowKey]);
 
   // Subscribe to global orders version changes to trigger re-renders when orders are injected
   const [ordersVersion, setOrdersVersion] = useState(globalOrdersVersion);
