@@ -8,11 +8,27 @@ const isConflictError = (error: any): boolean => {
   return status === 409 || /already exists|conflict/i.test(msg);
 };
 
-const removePathSeparators = (name: string): string => name.replace(/[\\/]/g, "_");
+/**
+ * Sanitizes a filename for Supabase Storage by:
+ * - Replacing path separators (/ and \) with underscores
+ * - Replacing characters that cause issues in storage: # % & { } < > * ? $ ! ' " : @ + ` | =
+ * - Preserving hyphens, dots, spaces, parentheses, and brackets which are safe
+ */
+const sanitizeFileName = (name: string): string => {
+  return name
+    // Replace path separators
+    .replace(/[\\/]/g, "_")
+    // Replace problematic special characters with underscores
+    .replace(/[#%&{}<>*?$!'":@+`|=]/g, "_")
+    // Collapse multiple underscores into one
+    .replace(/_+/g, "_")
+    // Remove leading/trailing underscores
+    .replace(/^_+|_+$/g, "");
+};
 
 const addCopySuffix = (fileName: string, copyNumber: number): string => {
   if (copyNumber <= 1) return fileName;
-  const safe = removePathSeparators(fileName);
+  const safe = sanitizeFileName(fileName);
   const lastDot = safe.lastIndexOf(".");
   const hasExt = lastDot > 0 && lastDot < safe.length - 1;
   const base = hasExt ? safe.slice(0, lastDot) : safe;
@@ -32,7 +48,7 @@ export const uploadOrderFilePreserveName = async (params: {
 }): Promise<string> => {
   const { orderId, folder, file, maxTries = 50 } = params;
 
-  const originalName = removePathSeparators(file.name);
+  const originalName = sanitizeFileName(file.name);
 
   for (let attempt = 1; attempt <= maxTries; attempt++) {
     const candidateName = addCopySuffix(originalName, attempt);
