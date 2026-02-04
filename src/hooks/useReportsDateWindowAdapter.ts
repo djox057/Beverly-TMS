@@ -903,17 +903,39 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return map;
   }, [orderFiles, lastLoadsData?.files]);
 
+  // Track whether we have ever successfully transformed data for stability
+  const lastValidDataRef = useRef<any[] | null>(null);
+  
+  // Track if supporting data is ready (trucks, drivers, etc.)
+  const isSupportingDataReady = !!(trucks && drivers && dispatchers && companies);
+  
   // Transform date-window orders into the expected Reports shape
+  // KEY FIX: Return previous valid data during loading to prevent flickering
   const transformedData = useMemo(() => {
     if (!USE_DATE_WINDOW_LOADING) return null;
-    if (dateWindowHook.isLoading) return null;
-    if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) return [];
-    if (!dateWindowHook.orders) return [];
-    if (!trucks || !drivers || !dispatchers || !companies) return null;
     
-    // Wait for order_files to load before transforming
-    // This prevents rendering with empty files during the query cascade
-    if (windowOrderIds.length > 0 && isOrderFilesLoading) return null;
+    // If we have no driver scope yet, return empty (not null)
+    if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) {
+      return dateWindowHook.isLoading ? null : [];
+    }
+    
+    // During initial load with no previous data, return null to show skeleton
+    if (dateWindowHook.isLoading && lastValidDataRef.current === null) return null;
+    
+    // If supporting data isn't ready and no previous data, show skeleton
+    if (!isSupportingDataReady && lastValidDataRef.current === null) return null;
+    
+    // If orders not ready and no previous data, show skeleton  
+    if (!dateWindowHook.orders && lastValidDataRef.current === null) return null;
+    
+    // STABILITY: During any loading phase with existing data, keep showing previous data
+    // This prevents flickering when navigating to new dates
+    if ((dateWindowHook.isLoading || dateWindowHook.isFetching || !isSupportingDataReady) && lastValidDataRef.current !== null) {
+      return lastValidDataRef.current;
+    }
+    
+    // Wait for order_files only on initial load - during navigation keep previous data
+    if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) return null;
 
     // Enrich orders with order_files before processing
     const orders = dateWindowHook.orders.map((order) => ({
@@ -1294,13 +1316,17 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       });
     }
 
+    // Store as last valid data for stability during future loading states
+    lastValidDataRef.current = groupedData;
+    
     return groupedData;
   }, [
     dateWindowHook.orders,
     dateWindowHook.driverIds,
     dateWindowHook.isLoading,
+    dateWindowHook.isFetching,
     trucks,
-    trailers, // Added missing dependency
+    trailers,
     drivers,
     dispatchers,
     companies,
@@ -1312,6 +1338,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isOrderFilesLoading,
     windowOrderIds,
     lastLoadsData,
+    isSupportingDataReady,
   ]);
 
   // Individual mode filtering already applied at database level in useReportsDateWindow
@@ -1330,20 +1357,27 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return legacyReportsHook;
   }
 
+  // Determine if we're in a true loading state (no data to show yet)
+  // Once we have valid data, we should NOT show loading - use background indicator instead
+  const hasValidData = lastValidDataRef.current !== null && lastValidDataRef.current.length > 0;
+  const isInitialLoad = !hasValidData && (dateWindowHook.isLoading || !isSupportingDataReady);
+  const isLoadingOrderFiles = !hasValidData && windowOrderIds.length > 0 && isOrderFilesLoading;
+
   return {
     // Data from date-window with transformation (filtered when individual mode is ON)
     data: filteredData,
-    // When viewing other office in Individual Mode, NOT loading - just empty
-    // Only show loading on initial load (no data yet), not when fetching additional windows
+    // Only show loading skeleton on initial load when we have NO data to display
+    // Once data exists, keep showing it (background fetching handled separately)
     isLoading: isViewingOtherOfficeInIndividualMode 
       ? false 
-      : (dateWindowHook.isLoading || (windowOrderIds.length > 0 && isOrderFilesLoading)),
-    isPending: isViewingOtherOfficeInIndividualMode ? false : dateWindowHook.isLoading,
+      : (isInitialLoad || isLoadingOrderFiles),
+    isPending: isViewingOtherOfficeInIndividualMode ? false : isInitialLoad,
     isError: !!dateWindowHook.error,
     error: dateWindowHook.error,
     isSuccess: isViewingOtherOfficeInIndividualMode ? true : (!dateWindowHook.isLoading && !dateWindowHook.error),
     // Use isFetching for background loading indicator (fetching new date window without blocking UI)
-    isFetchingBackground: dateWindowHook.isFetching && !dateWindowHook.isLoading,
+    // Show when we have data but are loading more (date navigation)
+    isFetchingBackground: hasValidData && (dateWindowHook.isFetching || isOrderFilesLoading),
     // Flag for UI to show Individual Mode message
     isViewingOtherOfficeInIndividualMode,
     refetch: dateWindowHook.refetch,

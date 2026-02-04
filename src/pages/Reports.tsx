@@ -3213,9 +3213,16 @@ const Reports = () => {
           </div>
 
           {/* Only render the active tab content */}
-          <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
+          <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto relative">
+            {/* Background loading indicator - shown when navigating to new dates */}
+            {isFetchingBackground && !isLoading && (
+              <div className="absolute top-0 left-0 right-0 h-1 bg-primary/20 overflow-hidden z-10">
+                <div className="h-full w-1/3 bg-primary animate-pulse" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
+              </div>
+            )}
             {isLoading || groupedReports == null || !hasDataForActiveTab ? (
               <LoadingSkeleton />
+
             ) : isViewingOtherOfficeInIndividualMode ? (
               <div className="p-4">
                 <div className="text-center py-12">
