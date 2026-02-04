@@ -15,6 +15,16 @@ import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Fixed weekly charges (same for all drivers)
 const FIXED_WEEKLY_CHARGES = {
@@ -54,6 +64,9 @@ interface DriverProfileProps {
 export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const { roles } = useAuthContext();
   const isAdmin = roles.includes("admin");
+  const isManager = roles.includes("manager");
+  const isAccounting = roles.includes("accounting");
+  const canDeleteFixedOrYearly = isAdmin || isManager || isAccounting;
   
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
   const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
@@ -62,6 +75,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [editingExpense, setEditingExpense] = useState<DriverExpense | null>(null);
   const [showDebtGraph, setShowDebtGraph] = useState(false);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
+  const [deleteConfirmExpense, setDeleteConfirmExpense] = useState<DriverExpense | null>(null);
 
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
@@ -598,17 +612,31 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
-                          {/* Delete button - non-fixed expenses and cash advances (admin only for cash advances) */}
-                          {!item.is_fixed && (!isCashAdvance || isAdmin) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => deleteExpense(item.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
+                          {/* Delete button logic:
+                              - Fixed (Start) expenses: only admin/manager/accounting
+                              - Yearly expenses: only admin/manager/accounting
+                              - Cash advances: only admin
+                              - Regular expenses: everyone can delete
+                          */}
+                          {(() => {
+                            const isFixedOrYearly = item.is_fixed || expenseType === 'yearly';
+                            const canDelete = isFixedOrYearly 
+                              ? canDeleteFixedOrYearly 
+                              : (!isCashAdvance || isAdmin);
+                            
+                            if (!canDelete) return null;
+                            
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => setDeleteConfirmExpense(item)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            );
+                          })()}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -654,6 +682,40 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         driverId={driver.id}
         driverName={driver.name || `${driver.first_name} ${driver.last_name}`}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmExpense} onOpenChange={(open) => !open && setDeleteConfirmExpense(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this expense?
+              {deleteConfirmExpense && (
+                <div className="mt-2 p-3 bg-muted rounded-md">
+                  <p className="font-medium">{deleteConfirmExpense.name}</p>
+                  <p className="text-sm">{deleteConfirmExpense.explanation}</p>
+                  <p className="text-sm font-semibold mt-1">{formatCurrency(deleteConfirmExpense.amount)}</p>
+                </div>
+              )}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmExpense) {
+                  deleteExpense(deleteConfirmExpense.id);
+                  setDeleteConfirmExpense(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
