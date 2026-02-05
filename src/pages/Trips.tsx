@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X, Trash2 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
@@ -555,7 +555,32 @@ const Trips = () => {
     },
   });
 
-  // Fetch paid status from database
+  // State for delete assignment history confirmation
+  const [deleteHistoryConfirmDialog, setDeleteHistoryConfirmDialog] = useState<{
+    historyEntryIds: string[];
+    description: string;
+  } | null>(null);
+
+  // Mutation to delete assignment history entries (admin only)
+  const deleteAssignmentHistoryMutation = useMutation({
+    mutationFn: async (historyEntryIds: string[]) => {
+      const { error } = await supabase
+        .from("assignment_history")
+        .delete()
+        .in("id", historyEntryIds);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignment-history"] });
+      toast.success("Assignment history entry deleted");
+      setDeleteHistoryConfirmDialog(null);
+    },
+    onError: (error) => {
+      console.error("Error deleting assignment history:", error);
+      toast.error("Failed to delete assignment history entry");
+    },
+  });
   const { data: paidWeeksData } = useQuery({
     queryKey: ["trips-paid-status"],
     queryFn: async () => {
@@ -1315,6 +1340,8 @@ const Trips = () => {
             _entityType: filterInfo.filterType === 'truck' ? 'driver' : 'truck',
             _entityName: tenure.entityName || 'Unassigned',
             _entityId: tenure.entityId,
+            // Store the underlying history entry IDs for deletion
+            _historyEntryIds: tenure.historyEntryIds || [],
           };
         });
         
@@ -4828,10 +4855,26 @@ const Trips = () => {
                                       {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
                                     </div>
                                   </TableCell>
-                                  <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
+                                  <TableCell colSpan={canSeePaidColumn ? 7 : 6} className="text-sm">
                                     {order._reason || "—"}
                                   </TableCell>
-                                  <TableCell></TableCell>
+                                  <TableCell className="text-center">
+                                    {/* Delete button for admins */}
+                                    {hasRole("admin") && order._historyEntryIds && order._historyEntryIds.length > 0 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                        onClick={() => setDeleteHistoryConfirmDialog({
+                                          historyEntryIds: order._historyEntryIds,
+                                          description: order._changeDescription,
+                                        })}
+                                        title="Delete assignment history entry"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </TableCell>
                                 </TableRow>
                                 {/* Render inline driver trips content when expanded */}
                                 {isExpanded && canShowNestedTrips && (
@@ -5338,6 +5381,35 @@ const Trips = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmOrderPaidToggle}>
               Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Assignment History Confirmation Dialog (Admin Only) */}
+      <AlertDialog 
+        open={!!deleteHistoryConfirmDialog} 
+        onOpenChange={(open) => !open && setDeleteHistoryConfirmDialog(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Assignment History?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the history entry: "{deleteHistoryConfirmDialog?.description}"?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deleteHistoryConfirmDialog?.historyEntryIds) {
+                  deleteAssignmentHistoryMutation.mutate(deleteHistoryConfirmDialog.historyEntryIds);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
