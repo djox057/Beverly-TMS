@@ -429,7 +429,7 @@ export function NestedDriverTripsInlineContent({
                   </div>
 
                   {/* Column headers - EXACT Trips header columns */}
-                  <div className={gridRowClass("bg-yellow-100/50 dark:bg-yellow-800/30 text-xs border-b")}> 
+                  <div className={gridRowClass("bg-card text-xs border-y-2 border-foreground relative z-10")}>
                     {showMoveColumn && <div className={cn(cellBase, "py-1.5")} />}
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Truck#</div>
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Driver</div>
