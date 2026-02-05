@@ -97,7 +97,7 @@ export function NestedDriverTripsInlineContent({
 
   const gridRowClass = useCallback(
     (...extra: (string | undefined | false)[]) =>
-      cn("grid items-center w-max min-w-full gap-0", gridColsClass, ...extra),
+      cn("grid items-center gap-0", gridColsClass, ...extra),
     [gridColsClass],
   );
 
@@ -339,13 +339,10 @@ export function NestedDriverTripsInlineContent({
 
   return (
     <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={colSpan} className="p-0 bg-yellow-50/50 dark:bg-yellow-900/20">
-        <div className="relative py-2">
-          {/* Yellow accent border: flush-left decoration that does NOT indent grid */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500" aria-hidden="true" />
-
+      <TableCell colSpan={colSpan} className="p-0">
+        <div className="bg-yellow-50/50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500 py-2">
           {/* Header */}
-          <div className="flex items-center justify-between mb-2 px-4">
+          <div className="flex items-center justify-between py-2 px-4 bg-muted/30 border-b border-border mb-2">
             <div className="font-semibold text-sm">Trips for {driverName}</div>
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleOpenInTrips}>
               <ExternalLink className="h-3 w-3" />
