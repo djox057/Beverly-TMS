@@ -73,6 +73,7 @@ export function useOrdersSearch() {
     if (!searchTerm || searchTerm.trim().length < 2) {
       setActiveSearchTerm(null);
       setActiveOptions(null);
+      setIsSearching(false);
       latestSearchKeyRef.current = "";
       return;
     }
@@ -198,6 +199,7 @@ export function useOrdersSearch() {
       // Stale response check: discard if user typed a new search
       if (latestSearchKeyRef.current !== searchKey) {
         console.log("[useOrdersSearch] Discarding stale response for:", searchKey);
+        // Don't clear isSearching here - a newer search is in progress
         return;
       }
 
@@ -211,6 +213,9 @@ export function useOrdersSearch() {
       // Transform to UI shape and store in React Query cache
       const transformed = transformOrders(data || []);
       queryClient.setQueryData(newQueryKey, transformed);
+      
+      // Clear loading state after successful search
+      setIsSearching(false);
     } catch (err) {
       // Only update error state if this is still the current search
       if (latestSearchKeyRef.current === searchKey) {
@@ -219,14 +224,10 @@ export function useOrdersSearch() {
         if (queryKey) {
           queryClient.setQueryData(queryKey, null);
         }
-      }
-    } finally {
-      // Only clear loading state if this is still the current search
-      if (latestSearchKeyRef.current === searchKey) {
         setIsSearching(false);
       }
     }
-  }, [queryClient]);
+  }, [queryClient, queryKey]);
 
   const clearSearch = useCallback(() => {
     // Fully reset all search state to prevent stale async responses from interfering
