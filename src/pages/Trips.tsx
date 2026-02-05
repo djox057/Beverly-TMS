@@ -48,6 +48,7 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
 import { calculateTenures, calculateCombinedDriverTenures, Tenure, formatTenureDateRange, formatTenureDuration } from "@/utils/tenureCalculator";
+import { NestedDriverTripsDropdown } from "@/components/NestedDriverTripsDropdown";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -1280,6 +1281,10 @@ const Trips = () => {
             _changedByName: tenure.changedByName,
             // For sorting purposes - treat as the date
             deliveryDate: tenure.startDate,
+            // Store entity info for nested trips dropdown (when filtering by truck, entity is driver)
+            _entityType: filterInfo.filterType === 'truck' ? 'driver' : 'truck',
+            _entityName: entityName,
+            _entityId: tenure.entityId,
           };
         });
         
@@ -4769,7 +4774,16 @@ const Trips = () => {
                                   {order._historyDateDisplay}
                                 </TableCell>
                                 <TableCell colSpan={4} className="text-sm font-medium">
-                                  {order._changeDescription}
+                                  <div className="flex items-center gap-2">
+                                    <span>{order._changeDescription}</span>
+                                    {/* Show dropdown to view driver's trips when filtering by truck */}
+                                    {order._entityType === 'driver' && order._entityName && order._entityName !== 'Unassigned' && (
+                                      <NestedDriverTripsDropdown 
+                                        driverName={order._entityName} 
+                                        driverId={order._entityId}
+                                      />
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
                                   {order._reason || "—"}
