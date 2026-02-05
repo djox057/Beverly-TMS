@@ -1,23 +1,42 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { transformOrders } from "@/utils/ordersTransform";
+
+/**
+ * Generate a stable query key for search results.
+ * Uses ["orders", "search", ...] so useOrdersRealtime can patch it.
+ */
+function getSearchQueryKey(searchTerm: string, bookedBy?: string | null, dispatcherUserId?: string | null): (string | null | undefined)[] {
+  return ["orders", "search", searchTerm, bookedBy, dispatcherUserId];
+}
 
 /**
  * Server-side search hook for orders.
  * When user types a search term, this queries the DATABASE directly.
  * This ensures ANY order in the database can be found - never "invisible".
  * 
- * Real-time updates for search results are handled by the global useOrdersRealtime hook
- * which updates all ["orders"] cache keys including search results when they match.
+ * Real-time updates are enabled by storing results in React Query cache
+ * which is patched by useOrdersRealtime.
  */
 export function useOrdersSearch() {
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const queryClient = useQueryClient();
+  
+  // Track active search state
+  const [activeSearchTerm, setActiveSearchTerm] = useState<string | null>(null);
+  const [activeOptions, setActiveOptions] = useState<{ bookedBy?: string | null; dispatcherUserId?: string | null } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
   
   // Stale response protection: track the latest search key (term + filters)
   const latestSearchKeyRef = useRef<string>("");
+
+  // Generate current query key
+  const queryKey = useMemo(() => {
+    if (!activeSearchTerm) return null;
+    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId);
+  }, [activeSearchTerm, activeOptions]);
 
   const searchOrders = useCallback(async (
     searchTerm: string,
@@ -28,7 +47,11 @@ export function useOrdersSearch() {
   ) => {
     // Clear search results if no search term
     if (!searchTerm || searchTerm.trim().length < 2) {
-      setSearchResults(null);
+      if (queryKey) {
+        queryClient.removeQueries({ queryKey });
+      }
+      setActiveSearchTerm(null);
+      setActiveOptions(null);
       latestSearchKeyRef.current = "";
       return;
     }
@@ -38,6 +61,11 @@ export function useOrdersSearch() {
     // Create a search key combining term and filters for stale response protection
     const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}`;
     latestSearchKeyRef.current = searchKey;
+    
+    // Set active search state to generate the query key
+    setActiveSearchTerm(term);
+    setActiveOptions(options || null);
+    const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId);
     
     console.log("[useOrdersSearch] Starting search for:", term, "searchKey:", searchKey);
     
@@ -159,15 +187,15 @@ export function useOrdersSearch() {
 
       console.log("[useOrdersSearch] Results count:", data?.length || 0);
 
-      // Transform to UI shape
+      // Transform to UI shape and store in React Query cache for realtime patching
       const transformed = transformOrders(data || []);
-      setSearchResults(transformed);
+      queryClient.setQueryData(newQueryKey, transformed);
     } catch (err) {
       // Only update error state if this is still the current search
       if (latestSearchKeyRef.current === searchKey) {
         console.error("[useOrdersSearch] Error:", err);
         setSearchError(err instanceof Error ? err : new Error("Search failed"));
-        setSearchResults(null);
+        queryClient.setQueryData(newQueryKey, null);
       }
     } finally {
       // Only clear loading state if this is still the current search
@@ -175,15 +203,25 @@ export function useOrdersSearch() {
         setIsSearching(false);
       }
     }
-  }, []);
+  }, [queryClient, queryKey]);
 
   const clearSearch = useCallback(() => {
+    // Clear the React Query cache for the current search
+    if (queryKey) {
+      queryClient.removeQueries({ queryKey });
+    }
     // Fully reset all search state to prevent stale async responses from interfering
     latestSearchKeyRef.current = "";
+    setActiveSearchTerm(null);
+    setActiveOptions(null);
     setIsSearching(false);
-    setSearchResults(null);
     setSearchError(null);
-  }, []);
+  }, [queryClient, queryKey]);
+
+  // Get search results from React Query cache
+  const searchResults = queryKey 
+    ? (queryClient.getQueryData<any[] | null>(queryKey) ?? null)
+    : null;
 
   return {
     searchResults,
