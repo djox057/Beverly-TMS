@@ -15,15 +15,15 @@ export type TripsGridVariant = "base" | "move" | "paid" | "movePaid";
  * - Broker Name: 140px
  * - Broker Load#: 110px
  * - Driver Pay: 90px
- * - Freight Amt: 100px
+ * - Freight Amt: 120px
  * - (optional) Paid: 40px
  * - Actions: 80px
  */
 export const tripsGridCols: Record<TripsGridVariant, string> = {
-  base: "grid-cols-[80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_100px_80px]",
-  move: "grid-cols-[32px_80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_100px_80px]",
-  paid: "grid-cols-[80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_100px_40px_80px]",
-  movePaid: "grid-cols-[32px_80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_100px_40px_80px]",
+  base: "grid-cols-[80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_120px_80px]",
+  move: "grid-cols-[32px_80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_120px_80px]",
+  paid: "grid-cols-[80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_120px_40px_80px]",
+  movePaid: "grid-cols-[32px_80px_120px_70px_110px_140px_115px_140px_70px_140px_110px_90px_120px_40px_80px]",
 };
 
 export function getTripsGridVariant(opts: {

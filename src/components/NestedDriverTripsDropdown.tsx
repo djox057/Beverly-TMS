@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronUp, Loader2, ExternalLink, Edit, CalendarClock, AlertCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -63,6 +64,10 @@ interface NestedDriverTripsInlineContentProps {
   driverName: string;
   driverId?: string;
   onSearchDriver?: (driverName: string) => void;
+  /** Make nested Edit match the main Trips rows */
+  onEditOrder?: (orderId: string) => void;
+  /** Reuse the main Trips paid-toggle confirmation flow */
+  onOrderPaidToggle?: (orderId: string, currentPaid: boolean, loadNumber: string) => void;
   colSpan: number;
   /** Match Trips page columns when the optional drag column exists */
   showMoveColumn?: boolean;
@@ -74,6 +79,8 @@ export function NestedDriverTripsInlineContent({
   driverName,
   driverId,
   onSearchDriver,
+  onEditOrder,
+  onOrderPaidToggle,
   colSpan,
   showMoveColumn = false,
   showPaidColumn = false,
@@ -419,6 +426,7 @@ export function NestedDriverTripsInlineContent({
 
                     {showPaidColumn && <div className={cn(cellBase, "py-2 text-center")} />}
 
+
                     {/* Actions (blank in week bar) */}
                     <div className={cn(cellBase, "py-2")} />
                   </div>
@@ -471,7 +479,7 @@ export function NestedDriverTripsInlineContent({
                       <div
                         className={cn(
                           cellBase,
-                          "text-right cursor-pointer select-none transition-colors px-4 rounded-sm",
+                          "text-right cursor-pointer select-none transition-colors rounded-sm",
                           isSelected(`nested-order-miles-${order.id}`)
                             ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500"
                             : "hover:bg-muted/50",
@@ -495,7 +503,7 @@ export function NestedDriverTripsInlineContent({
                       <div
                         className={cn(
                           cellBase,
-                          "text-right cursor-pointer select-none transition-colors px-4 rounded-sm",
+                          "text-right cursor-pointer select-none transition-colors rounded-sm",
                           isSelected(`nested-order-driver-${order.id}`)
                             ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500"
                             : "hover:bg-muted/50",
@@ -517,7 +525,7 @@ export function NestedDriverTripsInlineContent({
                       <div
                         className={cn(
                           cellBase,
-                          "text-right cursor-pointer select-none transition-colors px-4 rounded-sm",
+                          "text-right cursor-pointer select-none transition-colors rounded-sm",
                           isSelected(`nested-order-freight-${order.id}`)
                             ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500"
                             : "hover:bg-muted/50",
@@ -537,7 +545,26 @@ export function NestedDriverTripsInlineContent({
                         </span>
                       </div>
 
-                      {showPaidColumn && <div className={cn(cellBase, "text-center")}></div>}
+                      {showPaidColumn && (
+                        <div className={cn(cellBase, "text-center")}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-center">
+                            <Checkbox
+                              checked={(order as any).paid === true}
+                              disabled={!onOrderPaidToggle}
+                              onCheckedChange={() =>
+                                onOrderPaidToggle?.(
+                                  order.id,
+                                  (order as any).paid === true,
+                                  String((order as any).loadNumber ?? (order as any).internalLoadNumber ?? "")
+                                )
+                              }
+                              aria-label={`Mark load ${String((order as any).loadNumber ?? "")} as ${(order as any).paid ? "unpaid" : "paid"}`}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Actions */}
                       <div className={cn(cellBase, "flex items-center justify-center gap-0.5")}> 
@@ -547,7 +574,13 @@ export function NestedDriverTripsInlineContent({
                           className="h-6 w-6 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.location.href = `/orders/${order.id}/edit`;
+                            if (onEditOrder) {
+                              onEditOrder(order.id);
+                              return;
+                            }
+                            // Fallback: keep behavior consistent with Trips rows
+                            localStorage.setItem("returnToTrips", "true");
+                            window.location.href = `/edit-order/${order.id}`;
                           }}
                         >
                           <Edit className="h-3.5 w-3.5" />
