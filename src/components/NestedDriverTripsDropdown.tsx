@@ -350,9 +350,9 @@ export function NestedDriverTripsInlineContent({
   };
 
   return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={colSpan} className="p-0">
-        <div className="bg-yellow-50/50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500 py-2 relative">
+    <TableRow className="hover:bg-transparent border-l-4 border-l-yellow-500">
+      <TableCell colSpan={colSpan} className="p-0 bg-yellow-50/50 dark:bg-yellow-900/20">
+        <div className="py-2 relative">
           {/* Header - aligned with table content */}
           <div className="flex items-center justify-between mb-2 px-4">
             <div className="font-semibold text-sm">
@@ -381,160 +381,154 @@ export function NestedDriverTripsInlineContent({
             <div className="space-y-3 px-4">
               {groupedByWeek.map((week) => (
                 <div key={week.weekStart} className="border rounded-lg overflow-hidden bg-card">
-                  {/* Week header */}
-                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between font-semibold">
-                    <span className="text-sm">
+                  {/* Week header - using grid for alignment */}
+                  <div className="bg-muted/50 px-3 py-2 border-b grid grid-cols-[80px_80px_100px_1fr_100px_1fr_80px_140px_120px_100px_100px_80px] gap-1 items-center">
+                    <div className="col-span-6 font-semibold text-sm">
                       Week: {format(week.weekStartDate, "MMM d")} - {format(week.weekEndDate, "MMM d, yyyy")}
-                    </span>
-                    <div className="flex gap-6 text-xs">
-                      <span 
-                        className={`cursor-pointer select-none px-1 rounded ${
-                          isSelected(`week-miles-${week.weekStart}`) 
-                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
-                            : "hover:bg-muted"
-                        }`}
-                        onClick={() => toggleCell(`week-miles-${week.weekStart}`, week.totals.miles, "miles")}
-                      >
-                        {week.totals.miles.toLocaleString()} mi
-                      </span>
-                      <span 
-                        className={`text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
-                          isSelected(`week-driver-${week.weekStart}`) 
-                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
-                            : "hover:bg-muted"
-                        }`}
-                        onClick={() => toggleCell(`week-driver-${week.weekStart}`, week.totals.driverPay, "driverPay", week.totals.miles)}
-                      >
-                        {formatCurrency(week.totals.driverPay)}
-                      </span>
-                      <span 
-                        className={`text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
-                          isSelected(`week-freight-${week.weekStart}`) 
-                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
-                            : "hover:bg-muted"
-                        }`}
-                        onClick={() => toggleCell(`week-freight-${week.weekStart}`, week.totals.freightAmount, "freightAmount", week.totals.miles)}
-                      >
-                        {formatCurrency(week.totals.freightAmount)}
-                      </span>
                     </div>
+                    <div 
+                      className={`text-right text-xs cursor-pointer select-none px-1 rounded ${
+                        isSelected(`week-miles-${week.weekStart}`) 
+                          ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                          : "hover:bg-muted"
+                      }`}
+                      onClick={() => toggleCell(`week-miles-${week.weekStart}`, week.totals.miles, "miles")}
+                    >
+                      {week.totals.miles.toLocaleString()} mi
+                    </div>
+                    <div className="col-span-2"></div>
+                    <div 
+                      className={`text-right text-xs text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
+                        isSelected(`week-driver-${week.weekStart}`) 
+                          ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                          : "hover:bg-muted"
+                      }`}
+                      onClick={() => toggleCell(`week-driver-${week.weekStart}`, week.totals.driverPay, "driverPay", week.totals.miles)}
+                    >
+                      {formatCurrency(week.totals.driverPay)}
+                    </div>
+                    <div 
+                      className={`text-right text-xs text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
+                        isSelected(`week-freight-${week.weekStart}`) 
+                          ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                          : "hover:bg-muted"
+                      }`}
+                      onClick={() => toggleCell(`week-freight-${week.weekStart}`, week.totals.freightAmount, "freightAmount", week.totals.miles)}
+                    >
+                      {formatCurrency(week.totals.freightAmount)}
+                    </div>
+                    <div></div>
                   </div>
                   
-                  {/* Orders table */}
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-xs bg-yellow-100/50 dark:bg-yellow-800/30">
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[70px]">Truck#</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[80px]">Load#</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[90px]">Pickup Date</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Pickup City</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[90px]">Delivery Date</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Delivery City</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8 w-[60px]">Miles</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[120px]">Broker</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[100px]">Broker Load#</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8 w-[90px]">Driver Pay</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8 w-[90px]">Freight</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8 w-[90px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {week.orders.map((order: any, orderIndex: number) => (
-                        <TableRow 
-                          key={order.id} 
-                          className={`text-xs h-12 ${getRowClassName(order, orderIndex)}`}
+                  {/* Column headers */}
+                  <div className="grid grid-cols-[80px_80px_100px_1fr_100px_1fr_80px_140px_120px_100px_100px_80px] gap-1 bg-yellow-100/50 dark:bg-yellow-800/30 text-xs px-3 py-1.5 border-b">
+                    <div className="font-medium">Truck#</div>
+                    <div className="font-medium">Load#</div>
+                    <div className="font-medium">Pickup Date</div>
+                    <div className="font-medium">Pickup City</div>
+                    <div className="font-medium">Delivery Date</div>
+                    <div className="font-medium">Delivery City</div>
+                    <div className="font-medium text-right">Miles</div>
+                    <div className="font-medium">Broker</div>
+                    <div className="font-medium">Broker Load#</div>
+                    <div className="font-medium text-right">Driver Pay</div>
+                    <div className="font-medium text-right">Freight</div>
+                    <div className="font-medium">Actions</div>
+                  </div>
+                  
+                  {/* Orders rows */}
+                  {week.orders.map((order: any, orderIndex: number) => (
+                    <div 
+                      key={order.id} 
+                      className={`grid grid-cols-[80px_80px_100px_1fr_100px_1fr_80px_140px_120px_100px_100px_80px] gap-1 text-xs h-12 items-center px-3 border-b last:border-b-0 ${getRowClassName(order, orderIndex)}`}
+                    >
+                      <div className="font-medium truncate">
+                        {order.truckNumber || "—"}
+                      </div>
+                      <div className="font-medium">
+                        {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
+                      </div>
+                      <div>
+                        {formatDateDisplay(order.pickupDate)}
+                      </div>
+                      <div className="truncate">
+                        <span>{order.pickupCity}</span>
+                        {order.pickupState && <span className="text-muted-foreground">, {order.pickupState}</span>}
+                      </div>
+                      <div>
+                        {formatDateDisplay(order.deliveryDate)}
+                      </div>
+                      <div className="truncate">
+                        <span>{order.deliveryCity}</span>
+                        {order.deliveryState && <span className="text-muted-foreground">, {order.deliveryState}</span>}
+                      </div>
+                      <div 
+                        className={`text-right cursor-pointer select-none transition-colors px-1 rounded ${
+                          isSelected(`nested-order-miles-${order.id}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted/50"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCell(`nested-order-miles-${order.id}`, Number(order.mileage) || 0, "miles");
+                        }}
+                      >
+                        {(order.mileage || 0).toLocaleString()}
+                      </div>
+                      <div className="truncate" title={order.brokerName || ""}>
+                        {order.brokerName || "—"}
+                      </div>
+                      <div className="truncate" title={order.brokerLoadNumber || ""}>
+                        {order.brokerLoadNumber || "—"}
+                      </div>
+                      <div 
+                        className={`text-right cursor-pointer select-none transition-colors px-1 rounded ${
+                          isSelected(`nested-order-driver-${order.id}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted/50"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCell(`nested-order-driver-${order.id}`, Number(order.totalDriverPay) || 0, "driverPay", Number(order.mileage) || 0);
+                        }}
+                      >
+                        <span className="text-green-600 dark:text-green-400">
+                          {formatCurrency(order.totalDriverPay || 0)}
+                        </span>
+                      </div>
+                      <div 
+                        className={`text-right cursor-pointer select-none transition-colors px-1 rounded ${
+                          isSelected(`nested-order-freight-${order.id}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted/50"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCell(`nested-order-freight-${order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount", Number(order.mileage) || 0);
+                        }}
+                      >
+                        <span className="text-green-600 dark:text-green-400">
+                          {formatCurrency(order.totalFreightAmountNoLumper || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `/orders/${order.id}/edit`;
+                          }}
                         >
-                          <TableCell className="py-1 px-2 font-medium">
-                            {order.truckNumber || "—"}
-                          </TableCell>
-                          <TableCell className="py-1 px-2 font-medium">
-                            {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
-                          </TableCell>
-                          <TableCell className="py-1 px-2">
-                            {formatDateDisplay(order.pickupDate)}
-                          </TableCell>
-                          <TableCell className="py-1 px-2">
-                            <span>{order.pickupCity}</span>
-                            {order.pickupState && <span className="text-muted-foreground">, {order.pickupState}</span>}
-                          </TableCell>
-                          <TableCell className="py-1 px-2">
-                            {formatDateDisplay(order.deliveryDate)}
-                          </TableCell>
-                          <TableCell className="py-1 px-2">
-                            <span>{order.deliveryCity}</span>
-                            {order.deliveryState && <span className="text-muted-foreground">, {order.deliveryState}</span>}
-                          </TableCell>
-                          <TableCell 
-                            className={`py-1 px-2 text-right cursor-pointer select-none transition-colors ${
-                              isSelected(`nested-order-miles-${order.id}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCell(`nested-order-miles-${order.id}`, Number(order.mileage) || 0, "miles");
-                            }}
-                          >
-                            {(order.mileage || 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="py-1 px-2 truncate max-w-[120px]" title={order.brokerName || ""}>
-                            {order.brokerName || "—"}
-                          </TableCell>
-                          <TableCell className="py-1 px-2 truncate max-w-[100px]" title={order.brokerLoadNumber || ""}>
-                            {order.brokerLoadNumber || "—"}
-                          </TableCell>
-                          <TableCell 
-                            className={`py-1 px-2 text-right cursor-pointer select-none transition-colors ${
-                              isSelected(`nested-order-driver-${order.id}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCell(`nested-order-driver-${order.id}`, Number(order.totalDriverPay) || 0, "driverPay", Number(order.mileage) || 0);
-                            }}
-                          >
-                            <span className="text-green-600 dark:text-green-400">
-                              {formatCurrency(order.totalDriverPay || 0)}
-                            </span>
-                          </TableCell>
-                          <TableCell 
-                            className={`py-1 px-2 text-right cursor-pointer select-none transition-colors ${
-                              isSelected(`nested-order-freight-${order.id}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCell(`nested-order-freight-${order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount", Number(order.mileage) || 0);
-                            }}
-                          >
-                            <span className="text-green-600 dark:text-green-400">
-                              {formatCurrency(order.totalFreightAmountNoLumper || 0)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-1 px-2">
-                            <div className="flex items-center gap-0.5">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.location.href = `/orders/${order.id}/edit`;
-                                }}
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </Button>
-                              {renderAdditionalPayIcon(order)}
-                              {renderRescheduledIcon(order)}
-                              {renderMissingPodIcon(order)}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        {renderAdditionalPayIcon(order)}
+                        {renderRescheduledIcon(order)}
+                        {renderMissingPodIcon(order)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
