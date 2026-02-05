@@ -48,7 +48,7 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
 import { calculateTenures, calculateCombinedDriverTenures, Tenure, formatTenureDateRange, formatTenureDuration } from "@/utils/tenureCalculator";
-import { NestedDriverTripsDropdown } from "@/components/NestedDriverTripsDropdown";
+import { NestedDriverTripsDropdown, NestedDriverTripsInlineContent } from "@/components/NestedDriverTripsDropdown";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -463,6 +463,21 @@ const Trips = () => {
 
   // Cell selection for Excel-like sum/average functionality
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
+
+  // Track expanded nested driver trips
+  const [expandedNestedTrips, setExpandedNestedTrips] = useState<Set<string>>(new Set());
+  
+  const toggleNestedTrips = useCallback((historyId: string) => {
+    setExpandedNestedTrips(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(historyId)) {
+        newSet.delete(historyId);
+      } else {
+        newSet.add(historyId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
   const canMoveLoads = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
@@ -4764,36 +4779,59 @@ const Trips = () => {
                               {week.orders.map((order, orderIndex) => {
                           // Check if this is a history entry (merged in during grouping)
                           if (order._isHistoryEntry) {
+                            const historyKey = `history-${week.weekStart}-${order._historyId}`;
+                            const isExpanded = expandedNestedTrips.has(historyKey);
+                            const canShowNestedTrips = order._entityType === 'driver' && order._entityName && order._entityName !== 'Unassigned';
+                            const totalColSpan = canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13);
+                            
                             return (
-                              <TableRow 
-                                key={`history-${week.weekStart}-${order._historyId}`}
-                                className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
-                              >
-                                {canMoveLoads && <TableCell></TableCell>}
-                                <TableCell className="text-sm font-semibold">
-                                  {order._historyDateDisplay}
-                                </TableCell>
-                                <TableCell colSpan={4} className="text-sm font-medium">
-                                  <div className="flex items-center gap-2">
-                                    <span>{order._changeDescription}</span>
-                                    {/* Show dropdown to view driver's trips when filtering by truck */}
-                                    {order._entityType === 'driver' && order._entityName && order._entityName !== 'Unassigned' && (
-                                      <NestedDriverTripsDropdown 
-                                        driverName={order._entityName} 
-                                        driverId={order._entityId}
-                                        onSearchDriver={(name) => {
-                                          setSearchFilter(name);
-                                          setCurrentPage(1);
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
-                                  {order._reason || "—"}
-                                </TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
+                              <Fragment key={historyKey}>
+                                <TableRow 
+                                  className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
+                                >
+                                  {canMoveLoads && <TableCell></TableCell>}
+                                  <TableCell className="text-sm font-semibold">
+                                    {order._historyDateDisplay}
+                                  </TableCell>
+                                  <TableCell colSpan={4} className="text-sm font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <span>{order._changeDescription}</span>
+                                      {/* Show toggle button to expand driver's trips inline */}
+                                      {canShowNestedTrips && (
+                                        <NestedDriverTripsDropdown 
+                                          driverName={order._entityName} 
+                                          driverId={order._entityId}
+                                          onSearchDriver={(name) => {
+                                            setSearchFilter(name);
+                                            setCurrentPage(1);
+                                          }}
+                                          isOpen={isExpanded}
+                                          onToggle={() => toggleNestedTrips(historyKey)}
+                                        />
+                                      )}
+                                      {/* Show dash for non-driver entries */}
+                                      {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
+                                    {order._reason || "—"}
+                                  </TableCell>
+                                  <TableCell></TableCell>
+                                </TableRow>
+                                {/* Render inline driver trips content when expanded */}
+                                {isExpanded && canShowNestedTrips && (
+                                  <NestedDriverTripsInlineContent
+                                    driverName={order._entityName}
+                                    driverId={order._entityId}
+                                    onSearchDriver={(name) => {
+                                      setSearchFilter(name);
+                                      setCurrentPage(1);
+                                      toggleNestedTrips(historyKey);
+                                    }}
+                                    colSpan={totalColSpan}
+                                  />
+                                )}
+                              </Fragment>
                             );
                           }
                           
