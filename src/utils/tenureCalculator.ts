@@ -15,6 +15,8 @@ export interface Tenure {
   // Cross-reference fields for contextual display
   oldTruckNumber?: string | null;  // For driver tenures: the truck they switched from
   newTruckNumber?: string | null;  // For driver tenures: the truck they switched to
+  // IDs of assignment_history entries that contributed to this tenure (for deletion)
+  historyEntryIds: string[];
 }
 
 export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck' | 'dispatcher';
@@ -85,7 +87,7 @@ const mergeSimilarTenures = (tenures: Tenure[]): Tenure[] => {
   );
 
   const merged: Tenure[] = [];
-  let current = { ...sorted[0] };
+  let current = { ...sorted[0], historyEntryIds: [...sorted[0].historyEntryIds] };
 
   for (let i = 1; i < sorted.length; i++) {
     const next = sorted[i];
@@ -93,7 +95,7 @@ const mergeSimilarTenures = (tenures: Tenure[]): Tenure[] => {
     // Skip gaps when checking for same entity
     if (current.isGap || next.isGap) {
       merged.push(current);
-      current = { ...next };
+      current = { ...next, historyEntryIds: [...next.historyEntryIds] };
       continue;
     }
 
@@ -103,7 +105,7 @@ const mergeSimilarTenures = (tenures: Tenure[]): Tenure[] => {
     
     if (!sameEntity) {
       merged.push(current);
-      current = { ...next };
+      current = { ...next, historyEntryIds: [...next.historyEntryIds] };
       continue;
     }
 
@@ -121,9 +123,11 @@ const mergeSimilarTenures = (tenures: Tenure[]): Tenure[] => {
       if (next.endReason) {
         current.endReason = next.endReason;
       }
+      // Combine history entry IDs from both tenures
+      current.historyEntryIds = [...current.historyEntryIds, ...next.historyEntryIds];
     } else {
       merged.push(current);
-      current = { ...next };
+      current = { ...next, historyEntryIds: [...next.historyEntryIds] };
     }
   }
 
@@ -179,6 +183,7 @@ export const calculateTenures = (
     oldEntityName: string | null;
     oldTruckNumber: string | null;
     newTruckNumber: string | null;
+    historyEntryIds: string[];
   } | null = null;
 
   for (const entry of dedupedSorted) {
@@ -207,6 +212,7 @@ export const calculateTenures = (
           oldEntityName: currentTenure.oldEntityName,
           oldTruckNumber: currentTenure.oldTruckNumber,
           newTruckNumber: currentTenure.newTruckNumber,
+          historyEntryIds: currentTenure.historyEntryIds,
         });
       }
 
@@ -222,10 +228,14 @@ export const calculateTenures = (
           // Cross-reference: capture truck info for driver tenures
           oldTruckNumber: entry.old_truck_number,
           newTruckNumber: entry.truck_number,
+          historyEntryIds: [entry.id],
         };
       } else {
         currentTenure = null;
       }
+    } else if (currentTenure) {
+      // Same entity - add this entry's ID to the tenure
+      currentTenure.historyEntryIds.push(entry.id);
     }
   }
 
@@ -247,6 +257,7 @@ export const calculateTenures = (
         oldEntityName: currentTenure.oldEntityName,
         oldTruckNumber: currentTenure.oldTruckNumber,
         newTruckNumber: currentTenure.newTruckNumber,
+        historyEntryIds: currentTenure.historyEntryIds,
       });
     }
   }
