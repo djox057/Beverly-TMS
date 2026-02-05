@@ -87,18 +87,15 @@ export function NestedDriverTripsDropdown({
   onToggle 
 }: NestedDriverTripsDropdownProps) {
   return (
-    <>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="h-6 px-2 text-xs gap-1 hover:bg-yellow-200 dark:hover:bg-yellow-800"
-        onClick={onToggle}
-      >
-        {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        View Trips
-      </Button>
-      {!isOpen && <span className="text-muted-foreground ml-2">—</span>}
-    </>
+    <Button 
+      variant="ghost" 
+      size="sm" 
+      className="h-6 px-2 text-xs gap-1 hover:bg-yellow-200 dark:hover:bg-yellow-800"
+      onClick={onToggle}
+    >
+      {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      View Trips
+    </Button>
   );
 }
 
@@ -357,7 +354,7 @@ export function NestedDriverTripsInlineContent({
       <TableCell colSpan={colSpan} className="p-0">
         <div className="bg-yellow-50/50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500 py-2 relative">
           {/* Header - aligned with table content */}
-          <div className="flex items-center justify-between mb-2 pl-2 pr-4">
+          <div className="flex items-center justify-between mb-2 px-4">
             <div className="font-semibold text-sm">
               Trips for {driverName}
             </div>
@@ -381,7 +378,7 @@ export function NestedDriverTripsInlineContent({
               No trips found for this driver
             </div>
           ) : (
-            <div className="space-y-3 pl-2 pr-4">
+            <div className="space-y-3 px-4">
               {groupedByWeek.map((week) => (
                 <div key={week.weekStart} className="border rounded-lg overflow-hidden bg-card">
                   {/* Week header */}
@@ -445,7 +442,7 @@ export function NestedDriverTripsInlineContent({
                       {week.orders.map((order: any, orderIndex: number) => (
                         <TableRow 
                           key={order.id} 
-                          className={`text-xs h-8 ${getRowClassName(order, orderIndex)}`}
+                          className={`text-xs h-12 ${getRowClassName(order, orderIndex)}`}
                         >
                           <TableCell className="py-1 px-2 font-medium">
                             {order.truckNumber || "—"}
@@ -524,7 +521,7 @@ export function NestedDriverTripsInlineContent({
                                 className="h-6 w-6 p-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.open(`/orders/${order.id}/edit`, '_blank');
+                                  window.location.href = `/orders/${order.id}/edit`;
                                 }}
                               >
                                 <Edit className="h-3.5 w-3.5" />
