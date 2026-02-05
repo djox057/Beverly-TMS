@@ -12,6 +12,9 @@ export interface Tenure {
   isGap: boolean;              // True if this represents an unassigned period
   oldEntityId?: string | null;    // Previous entity before this tenure
   oldEntityName?: string | null;  // Previous entity name before this tenure
+  // Cross-reference fields for contextual display
+  oldTruckNumber?: string | null;  // For driver tenures: the truck they switched from
+  newTruckNumber?: string | null;  // For driver tenures: the truck they switched to
 }
 
 export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck' | 'dispatcher';
@@ -174,6 +177,8 @@ export const calculateTenures = (
     changedByName: string | null;
     oldEntityId: string | null;
     oldEntityName: string | null;
+    oldTruckNumber: string | null;
+    newTruckNumber: string | null;
   } | null = null;
 
   for (const entry of dedupedSorted) {
@@ -200,6 +205,8 @@ export const calculateTenures = (
           isGap: !currentTenure.entityId && !currentTenure.entityName,
           oldEntityId: currentTenure.oldEntityId,
           oldEntityName: currentTenure.oldEntityName,
+          oldTruckNumber: currentTenure.oldTruckNumber,
+          newTruckNumber: currentTenure.newTruckNumber,
         });
       }
 
@@ -212,6 +219,9 @@ export const calculateTenures = (
           changedByName: entry.changed_by_name,
           oldEntityId: oldEntity.id,
           oldEntityName: oldEntity.name,
+          // Cross-reference: capture truck info for driver tenures
+          oldTruckNumber: entry.old_truck_number,
+          newTruckNumber: entry.truck_number,
         };
       } else {
         currentTenure = null;
@@ -235,6 +245,8 @@ export const calculateTenures = (
         isGap: false,
         oldEntityId: currentTenure.oldEntityId,
         oldEntityName: currentTenure.oldEntityName,
+        oldTruckNumber: currentTenure.oldTruckNumber,
+        newTruckNumber: currentTenure.newTruckNumber,
       });
     }
   }
