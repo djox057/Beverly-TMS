@@ -223,6 +223,9 @@ const Analytics = () => {
     paid_amount: number;
     paid_at: string | null;
   }>>({});
+  // Salary sorting state
+  const [salarySortBy, setSalarySortBy] = useState<"name" | "salary">("name");
+  const [salarySortDir, setSalarySortDir] = useState<"asc" | "desc">("asc");
   const [prevMonthPayments, setPrevMonthPayments] = useState<Record<string, {
     paid_amount: number;
     calculated_salary: number;
@@ -1616,6 +1619,32 @@ const Analytics = () => {
     }
   };
 
+  // Handle sorting for Salaries tab
+  const handleSalarySort = (column: "name" | "salary") => {
+    if (salarySortBy === column) {
+      setSalarySortDir(prev => prev === "desc" ? "asc" : "desc");
+    } else {
+      setSalarySortBy(column);
+      setSalarySortDir(column === "name" ? "asc" : "desc"); // Default to asc for name, desc for salary
+    }
+  };
+
+  // Create sorted dispatcher stats for salaries tab
+  const sortedDispatcherStatsForSalaries = useMemo(() => {
+    const stats = [...dispatcherStats];
+    return stats.sort((a, b) => {
+      if (salarySortBy === "name") {
+        const comparison = a.name.localeCompare(b.name);
+        return salarySortDir === "asc" ? comparison : -comparison;
+      } else {
+        // Sort by calculated salary (totalFreight * 0.01 + cut * 0.05)
+        const salaryA = a.totalFreight * 0.01 + a.cut * 0.05;
+        const salaryB = b.totalFreight * 0.01 + b.cut * 0.05;
+        return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
+      }
+    });
+  }, [dispatcherStats, salarySortBy, salarySortDir]);
+
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
     if (grossRankingsSortBy === column) {
@@ -2684,12 +2713,16 @@ const Analytics = () => {
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>}
                             </TableHead>}
-                          <TableHead>Dispatcher</TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("name")}>
+                            Dispatcher {salarySortBy === "name" && (salarySortDir === "asc" ? "↑" : "↓")}
+                          </TableHead>
                           <TableHead className="text-right">Total Freight</TableHead>
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                         <TableHead className="text-right">Days Off</TableHead>
-                        <TableHead className="text-right">Salary</TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
+                            Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
+                          </TableHead>
                         <TableHead className="text-right">Paid</TableHead>
                       </TableRow>
                       </TableHeader>
@@ -2697,7 +2730,7 @@ const Analytics = () => {
                         {(() => {
                       // Build calculated salaries map for the bulk action
                       const calculatedSalaries: Record<string, number> = {};
-                      return dispatcherStats.map((stat, index) => {
+                      return sortedDispatcherStatsForSalaries.map((stat, index) => {
                         // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
                         const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
                         const lostDays = stat.userId ? lostDaysByUser[stat.userId] || 0 : 0;
