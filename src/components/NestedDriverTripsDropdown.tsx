@@ -38,6 +38,17 @@ const formatDateDisplay = (dateStr: string | null | undefined) => {
   }
 };
 
+// Helper to extract date part (YYYY-MM-DD) from datetime string
+const extractDatePart = (dateStr: string | null | undefined): string | null => {
+  if (!dateStr) return null;
+  try {
+    const normalizedStr = String(dateStr).replace(" ", "T");
+    return normalizedStr.split("T")[0] || null;
+  } catch (e) {
+    return null;
+  }
+};
+
 // Toggle button component (controlled)
 export function NestedDriverTripsDropdown({ 
   driverName, 
@@ -73,6 +84,8 @@ interface NestedDriverTripsInlineContentProps {
   showMoveColumn?: boolean;
   /** Match Trips page columns when the optional Paid column exists */
   showPaidColumn?: boolean;
+  /** YYYY-MM-DD format - only show orders with delivery <= this date */
+  assignmentDate?: string;
 }
 
 export function NestedDriverTripsInlineContent({
@@ -84,6 +97,7 @@ export function NestedDriverTripsInlineContent({
   colSpan,
   showMoveColumn = false,
   showPaidColumn = false,
+  assignmentDate,
 }: NestedDriverTripsInlineContentProps) {
   // Use the EXACT same selection hook + summary UI as the main Trips page
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
@@ -168,12 +182,22 @@ export function NestedDriverTripsInlineContent({
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     return orders.filter((order) => {
+      // Existing non-zero filter
       const miles = Number(order.mileage) || 0;
       const driverPay = Number(order.totalDriverPay) || 0;
       const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
-      return !(miles === 0 && driverPay === 0 && freightAmount === 0);
+      if (miles === 0 && driverPay === 0 && freightAmount === 0) return false;
+      
+      // Filter by assignment date if provided - only show orders delivered on or before assignment date
+      if (assignmentDate && order.deliveryDate) {
+        const deliveryDatePart = extractDatePart(order.deliveryDate);
+        if (!deliveryDatePart) return true; // Don't filter on invalid dates
+        if (deliveryDatePart > assignmentDate) return false; // Exclude orders after assignment date
+      }
+      
+      return true;
     });
-  }, [orders]);
+  }, [orders, assignmentDate]);
 
   const groupedByWeek = useMemo(() => {
     if (!filteredOrders || filteredOrders.length === 0) return [];
@@ -429,7 +453,7 @@ export function NestedDriverTripsInlineContent({
                   </div>
 
                   {/* Column headers - EXACT Trips header columns */}
-                  <div className={gridRowClass("bg-card text-xs border-y-2 border-foreground relative z-10")}>
+                  <div className={gridRowClass("bg-card text-xs border-b border-border")}>
                     {showMoveColumn && <div className={cn(cellBase, "py-1.5")} />}
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Truck#</div>
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Driver</div>

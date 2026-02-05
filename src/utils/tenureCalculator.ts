@@ -10,6 +10,8 @@ export interface Tenure {
   endReason: string | null;    // From assignment_history.reason
   changedByName: string | null;
   isGap: boolean;              // True if this represents an unassigned period
+  oldEntityId?: string | null;    // Previous entity before this tenure
+  oldEntityName?: string | null;  // Previous entity name before this tenure
 }
 
 export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck' | 'dispatcher';
@@ -35,6 +37,27 @@ const getEntityFromEntry = (
       return { id: entry.truck_id, name: entry.truck_number };
     case 'dispatcher':
       return { id: entry.dispatcher_id, name: entry.dispatcher_name };
+  }
+};
+
+/**
+ * Extract OLD entity info from a history entry based on tenure type
+ */
+const getOldEntityFromEntry = (
+  entry: AssignmentHistoryEntry,
+  tenureType: TenureType
+): { id: string | null; name: string | null } => {
+  switch (tenureType) {
+    case 'driver1':
+      return { id: entry.old_driver1_id, name: entry.old_driver1_name };
+    case 'driver2':
+      return { id: entry.old_driver2_id, name: entry.old_driver2_name };
+    case 'trailer':
+      return { id: entry.old_trailer_id, name: entry.old_trailer_number };
+    case 'truck':
+      return { id: entry.old_truck_id, name: entry.old_truck_number };
+    case 'dispatcher':
+      return { id: entry.old_dispatcher_id, name: entry.old_dispatcher_name };
   }
 };
 
@@ -149,11 +172,14 @@ export const calculateTenures = (
     entityName: string | null;
     startDate: string;
     changedByName: string | null;
+    oldEntityId: string | null;
+    oldEntityName: string | null;
   } | null = null;
 
   for (const entry of dedupedSorted) {
     const entryDate = extractDatePart(entry.changed_at);
     const entity = getEntityFromEntry(entry, tenureType);
+    const oldEntity = getOldEntityFromEntry(entry, tenureType);
     
     // Check if entity changed
     const entityChanged = !currentTenure || 
@@ -172,6 +198,8 @@ export const calculateTenures = (
           endReason: entry.reason || null, // Reason from the NEW entry explains why previous ended
           changedByName: currentTenure.changedByName,
           isGap: !currentTenure.entityId && !currentTenure.entityName,
+          oldEntityId: currentTenure.oldEntityId,
+          oldEntityName: currentTenure.oldEntityName,
         });
       }
 
@@ -182,6 +210,8 @@ export const calculateTenures = (
           entityName: entity.name,
           startDate: entryDate,
           changedByName: entry.changed_by_name,
+          oldEntityId: oldEntity.id,
+          oldEntityName: oldEntity.name,
         };
       } else {
         currentTenure = null;
@@ -203,6 +233,8 @@ export const calculateTenures = (
         endReason: null,
         changedByName: currentTenure.changedByName,
         isGap: false,
+        oldEntityId: currentTenure.oldEntityId,
+        oldEntityName: currentTenure.oldEntityName,
       });
     }
   }
