@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { ChevronDown, Loader2, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,11 +10,11 @@ import { transformOrders } from "@/utils/ordersTransform";
 import { formatCurrency } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import { useNavigate } from "react-router-dom";
 
 interface NestedDriverTripsDropdownProps {
   driverName: string;
   driverId?: string;
+  onSearchDriver?: (driverName: string) => void;
 }
 
 // Helper to format datetime strings without timezone conversion
@@ -33,9 +32,8 @@ const formatDateDisplay = (dateStr: string | null | undefined) => {
   }
 };
 
-export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriverTripsDropdownProps) {
+export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver }: NestedDriverTripsDropdownProps) {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
 
   // Fetch orders for this driver when popover opens
   const { data: orders, isLoading } = useQuery({
@@ -52,6 +50,7 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
           driver1:driver1_id (id, name, company_id, companies:company_id(name)),
           driver2:driver2_id (id, name),
           order_files (*),
+          brokers:broker_id (id, name),
           order_transfers (
             id,
             sequence_number,
@@ -144,8 +143,9 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
           (acc, order) => ({
             miles: acc.miles + (Number(order.mileage) || 0),
             driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
+            freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
           }),
-          { miles: 0, driverPay: 0 }
+          { miles: 0, driverPay: 0, freightAmount: 0 }
         );
 
         return {
@@ -159,13 +159,10 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
   }, [orders]);
 
   const handleOpenInTrips = () => {
-    // Navigate to trips page with the driver name in search
-    navigate(`/trips`);
-    // Set the search filter in localStorage so Trips page picks it up
-    localStorage.setItem("trips_searchFilter", driverName);
+    if (onSearchDriver) {
+      onSearchDriver(driverName);
+    }
     setOpen(false);
-    // Trigger page reload to pick up the new filter
-    window.location.reload();
   };
 
   return (
@@ -181,7 +178,7 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[700px] p-0 bg-popover" 
+        className="w-[950px] p-0 bg-popover" 
         align="start"
         side="bottom"
         sideOffset={4}
@@ -201,7 +198,7 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
           </Button>
         </div>
         
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[450px]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -214,29 +211,37 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
             <div className="p-2 space-y-3">
               {groupedByWeek.map((week) => (
                 <div key={week.weekStart} className="border rounded-lg overflow-hidden">
-                  {/* Week header */}
-                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
-                    <span className="text-sm font-medium">
+                  {/* Week header - matches Trips page style */}
+                  <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between font-semibold">
+                    <span className="text-sm">
                       Week: {format(week.weekStartDate, "MMM d")} - {format(week.weekEndDate, "MMM d, yyyy")}
                     </span>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
+                    <div className="flex gap-6 text-xs">
                       <span>{week.totals.miles.toLocaleString()} mi</span>
                       <span className="text-green-600 dark:text-green-400 font-medium">
                         {formatCurrency(week.totals.driverPay)}
                       </span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        {formatCurrency(week.totals.freightAmount)}
+                      </span>
                     </div>
                   </div>
                   
-                  {/* Orders table */}
+                  {/* Orders table - matches Trips page columns */}
                   <Table>
                     <TableHeader>
-                      <TableRow className="text-xs">
-                        <TableHead className="py-1 px-2">Load #</TableHead>
-                        <TableHead className="py-1 px-2">Truck</TableHead>
-                        <TableHead className="py-1 px-2">Pickup</TableHead>
-                        <TableHead className="py-1 px-2">Delivery</TableHead>
-                        <TableHead className="py-1 px-2 text-right">Miles</TableHead>
-                        <TableHead className="py-1 px-2 text-right">Pay</TableHead>
+                      <TableRow className="text-xs bg-yellow-200/50 dark:bg-yellow-800/50">
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Truck#</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Load#</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Pickup Date</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Pickup City</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Delivery Date</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Delivery City</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Miles</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Broker</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Broker Load#</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Driver Pay</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Freight</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -245,29 +250,43 @@ export function NestedDriverTripsDropdown({ driverName, driverId }: NestedDriver
                           key={order.id} 
                           className="text-xs hover:bg-muted/50 cursor-pointer"
                           onClick={() => {
-                            navigate(`/orders/${order.id}/edit`);
-                            setOpen(false);
+                            window.open(`/orders/${order.id}/edit`, '_blank');
                           }}
                         >
+                          <TableCell className="py-1.5 px-2">
+                            {order.truckNumber}
+                          </TableCell>
                           <TableCell className="py-1.5 px-2 font-medium">
                             {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
                           </TableCell>
                           <TableCell className="py-1.5 px-2">
-                            {order.truckNumber}
+                            {formatDateDisplay(order.pickupDate)}
                           </TableCell>
                           <TableCell className="py-1.5 px-2">
-                            <div>{formatDateDisplay(order.pickupDate)}</div>
-                            <div className="text-muted-foreground">{order.pickupCity}, {order.pickupState}</div>
+                            <span>{order.pickupCity}</span>
+                            {order.pickupState && <span className="text-muted-foreground">, {order.pickupState}</span>}
                           </TableCell>
                           <TableCell className="py-1.5 px-2">
-                            <div>{formatDateDisplay(order.deliveryDate)}</div>
-                            <div className="text-muted-foreground">{order.deliveryCity}, {order.deliveryState}</div>
+                            {formatDateDisplay(order.deliveryDate)}
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2">
+                            <span>{order.deliveryCity}</span>
+                            {order.deliveryState && <span className="text-muted-foreground">, {order.deliveryState}</span>}
                           </TableCell>
                           <TableCell className="py-1.5 px-2 text-right">
                             {(order.mileage || 0).toLocaleString()}
                           </TableCell>
+                          <TableCell className="py-1.5 px-2 truncate max-w-[100px]" title={order.brokerName}>
+                            {order.brokerName || "-"}
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2 truncate max-w-[80px]" title={order.brokerLoadNumber}>
+                            {order.brokerLoadNumber || "-"}
+                          </TableCell>
                           <TableCell className="py-1.5 px-2 text-right text-green-600 dark:text-green-400">
                             {formatCurrency(order.totalDriverPay || 0)}
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2 text-right text-green-600 dark:text-green-400">
+                            {formatCurrency(order.totalFreightAmountNoLumper || 0)}
                           </TableCell>
                         </TableRow>
                       ))}
