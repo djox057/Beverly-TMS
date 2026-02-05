@@ -29,6 +29,10 @@ interface PayrollPreviewDialogProps {
   perDayRate?: number;
   onEmailSent: () => void;
   previewOnly?: boolean; // When true, hide send button and PTO editing
+  isDeletedUser?: boolean; // When true, add future month salary/bonus rows
+  futureSalary1Percent?: number; // Salary 1% for next month
+  futureBonus5Percent?: number; // Bonus 5% for next month
+  futureMonthLabel?: string; // e.g., "February"
 }
 
 export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
@@ -51,6 +55,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   perDayRate = 0,
   onEmailSent,
   previewOnly = false,
+  isDeletedUser = false,
+  futureSalary1Percent = 0,
+  futureBonus5Percent = 0,
+  futureMonthLabel = "",
 }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -146,6 +154,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
         adjustments,
+        isDeletedUser,
+        futureMonthLabel,
+        futureSalary1Percent,
+        futureBonus5Percent,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -276,6 +288,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
         adjustments,
+        isDeletedUser,
+        futureMonthLabel,
+        futureSalary1Percent,
+        futureBonus5Percent,
       });
 
       // Convert to bytes

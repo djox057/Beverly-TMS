@@ -20,7 +20,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -254,6 +254,10 @@ const Analytics = () => {
     extraDaysAmount: number;
     dispatcherBonus: number;
     perDayRate: number;
+    isDeletedUser?: boolean;
+    futureMonthLabel?: string;
+    futureSalary1Percent?: number;
+    futureBonus5Percent?: number;
   } | null>(null);
 
   // Check if user has only dispatch role (same logic as Orders page)
@@ -1629,59 +1633,10 @@ const Analytics = () => {
     }
   };
 
-  // Helper to check if a user is deleted (has @deleted.user email)
-  const isDeletedUser = useCallback((name: string) => {
-    const profile = dispatcherProfiles[name];
-    return profile?.email?.includes("@deleted.user") || false;
-  }, [dispatcherProfiles]);
-
-  // Create sorted dispatcher stats for salaries tab with separate rows for deleted users
+  // Create sorted dispatcher stats for salaries tab
   const sortedDispatcherStatsForSalaries = useMemo(() => {
     const stats = [...dispatcherStats];
-    
-    // Expand deleted users into multiple rows if they have unpaid future salaries
-    const expandedStats: Array<typeof stats[0] & { 
-      salaryRowType?: "current" | "future_salary" | "future_bonus";
-      futureMonthLabel?: string;
-    }> = [];
-    
-    stats.forEach(stat => {
-      const isDeleted = isDeletedUser(stat.name);
-      const payment = stat.userId ? salaryPayments[stat.userId] : null;
-      const isPaid = payment && payment.paid_at;
-      
-      if (isDeleted && !isPaid && selectedMonth && selectedMonth !== "all") {
-        // For deleted users with unpaid salaries, create separate rows
-        // Current month row with both Salary 1% and Bonus 5%
-        expandedStats.push({ ...stat, salaryRowType: "current" });
-        
-        // Future month (February 2026) separate rows
-        const [yearStr, monthStr] = selectedMonth.split("-");
-        const year = parseInt(yearStr, 10);
-        const monthNum = parseInt(monthStr, 10);
-        const nextMonthDate = new Date(year, monthNum, 1); // monthNum is already 1-indexed, so this gives next month
-        const futureMonthLabel = format(nextMonthDate, "MMMM");
-        
-        // Salary 1% for next month
-        expandedStats.push({ 
-          ...stat, 
-          salaryRowType: "future_salary",
-          futureMonthLabel
-        });
-        
-        // Bonus 5% for next month
-        expandedStats.push({ 
-          ...stat, 
-          salaryRowType: "future_bonus",
-          futureMonthLabel
-        });
-      } else {
-        // Regular users or paid deleted users - single row
-        expandedStats.push(stat);
-      }
-    });
-    
-    return expandedStats.sort((a, b) => {
+    return stats.sort((a, b) => {
       if (salarySortBy === "name") {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
@@ -1692,7 +1647,7 @@ const Analytics = () => {
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir, isDeletedUser, salaryPayments, selectedMonth]);
+  }, [dispatcherStats, salarySortBy, salarySortDir]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
@@ -2806,33 +2761,9 @@ const Analytics = () => {
                         }
 
                         // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
-                        const salary1Percent = stat.totalFreight * 0.01;
-                        const bonus5Percent = stat.cut * 0.05;
-                        const baseRate = salary1Percent + bonus5Percent;
-                        
-                        // For deleted user rows, calculate display values based on row type
-                        const rowType = (stat as any).salaryRowType as "current" | "future_salary" | "future_bonus" | undefined;
-                        const futureMonthLabel = (stat as any).futureMonthLabel as string | undefined;
-                        
-                        let displaySalary = baseRate;
-                        let displayName = stat.name;
-                        let displayFreight = stat.totalFreight;
-                        let displayCut = stat.cut;
-                        
-                        if (rowType === "current") {
-                          // Current month: show full Salary 1% and Bonus 5%
-                          displayName = `${stat.name} - Salary 1% and Bonus 5%`;
-                        } else if (rowType === "future_salary") {
-                          // Future month: Salary 1% only
-                          displayName = `${stat.name} - Salary 1% for ${futureMonthLabel}`;
-                          displaySalary = salary1Percent;
-                          displayCut = 0; // Don't show commission for salary-only row
-                        } else if (rowType === "future_bonus") {
-                          // Future month: Bonus 5% only
-                          displayName = `${stat.name} - Bonus 5% for ${futureMonthLabel}`;
-                          displaySalary = bonus5Percent;
-                          displayFreight = 0; // Don't show freight for bonus-only row
-                        }
+                        const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                        // For display, just show the base rate (no adjustments for extra/lost days)
+                        const displaySalary = baseRate;
 
                         // Get dispatcher bonus for this month
                         const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
@@ -2840,8 +2771,7 @@ const Analytics = () => {
                         const bonusRank = bonusInfo?.rank ?? 0;
 
                         // Store for bulk action - store baseRate only (Total Freight * 0.01 + Total Comm. * 0.05)
-                        // Only store for the main row (not future rows)
-                        if (stat.userId && !rowType) {
+                        if (stat.userId) {
                           calculatedSalaries[stat.userId] = baseRate;
                         }
 
@@ -2849,9 +2779,9 @@ const Analytics = () => {
                         const payment = stat.userId ? salaryPayments[stat.userId] : null;
                         const isPaid = payment && payment.paid_at;
 
-                        // Helper to render rank icon - only show for main rows
+                        // Helper to render rank icon
                         const renderRankIcon = () => {
-                          if (!bonusRank || rowType) return null;
+                          if (!bonusRank) return null;
                           const iconClass = "h-5 w-5";
                           switch (bonusRank) {
                             case 1:
@@ -2868,21 +2798,17 @@ const Analytics = () => {
                               return null;
                           }
                         };
-                        
-                        // Unique key for the row
-                        const rowKey = rowType ? `${stat.name}-${rowType}` : stat.name;
-                        
-                        return <TableRow key={rowKey} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                        return <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
                                 {/* Hide selection checkbox for dispatch-only users */}
                                 {!isDispatchOnly && <TableCell className="w-[50px]">
-                                    {salarySelectionMode && stat.userId && !rowType ? <Checkbox checked={selectedDispatcherIds.has(stat.userId)} onCheckedChange={() => toggleDispatcherSelection(stat.userId!)} /> : null}
+                                    {salarySelectionMode && stat.userId ? <Checkbox checked={selectedDispatcherIds.has(stat.userId)} onCheckedChange={() => toggleDispatcherSelection(stat.userId!)} /> : null}
                                   </TableCell>}
                                 <TableCell className="font-medium">
                                   <div className="flex items-center gap-2">
                                     {renderRankIcon()}
-                                    {displayName}
-                                    {/* Hide download button for dispatch-only users and for future rows, but show send/preview for all */}
-                                    {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && !rowType && <TooltipProvider>
+                                    {stat.name}
+                                    {/* Hide download button for dispatch-only users, but show send/preview for all */}
+                                    {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => {
@@ -2962,6 +2888,13 @@ const Analytics = () => {
                                       const isBeograd = stat.office === "BEOGRAD";
                                       const foodAllowanceForPreview = isBeograd ? 0 : 70;
 
+                                      // Check if this is a deleted user
+                                      const isDeletedUserFlag = dispatcherProfile?.email?.includes("@deleted.user") || false;
+                                      
+                                      // Calculate future month data for deleted users
+                                      const nextMonthDate = new Date(year, monthNum + 1, 1);
+                                      const futureMonthLabel = format(nextMonthDate, "MMMM");
+
                                       // Open preview dialog with all the data
                                       setPayrollPreviewData({
                                         dispatcherName: stat.name,
@@ -2977,7 +2910,11 @@ const Analytics = () => {
                                         lostDayDates: lostDayDatesForDoc,
                                         extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
                                         dispatcherBonus: bonusAmount,
-                                        perDayRate
+                                        perDayRate,
+                                        isDeletedUser: isDeletedUserFlag,
+                                        futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
+                                        futureSalary1Percent: isDeletedUserFlag ? stat.totalFreight * 0.01 : undefined,
+                                        futureBonus5Percent: isDeletedUserFlag ? stat.cut * 0.05 : undefined,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
@@ -3021,6 +2958,13 @@ const Analytics = () => {
                                       const isBeograd = stat.office === "BEOGRAD";
                                       const foodAllowanceForPreview = isBeograd ? 0 : 70;
 
+                                      // Check if this is a deleted user
+                                      const isDeletedUserFlag = dispatcherProfile?.email?.includes("@deleted.user") || false;
+                                      
+                                      // Calculate future month data for deleted users
+                                      const nextMonthDate = new Date(year, monthNum + 1, 1);
+                                      const futureMonthLabel = format(nextMonthDate, "MMMM");
+
                                       // Open preview dialog with all the data
                                       setPayrollPreviewData({
                                         dispatcherName: stat.name,
@@ -3036,7 +2980,11 @@ const Analytics = () => {
                                         lostDayDates: lostDayDatesForDoc,
                                         extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
                                         dispatcherBonus: bonusAmount,
-                                        perDayRate
+                                        perDayRate,
+                                        isDeletedUser: isDeletedUserFlag,
+                                        futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
+                                        futureSalary1Percent: isDeletedUserFlag ? stat.totalFreight * 0.01 : undefined,
+                                        futureBonus5Percent: isDeletedUserFlag ? stat.cut * 0.05 : undefined,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
@@ -3051,22 +2999,24 @@ const Analytics = () => {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {rowType === "future_bonus" ? "—" : `$${displayFreight.toLocaleString(undefined, {
+                                  $
+                                  {stat.totalFreight.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
-                            })}`}
+                            })}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {rowType === "future_salary" ? "—" : `$${displayCut.toLocaleString(undefined, {
+                                  $
+                                  {stat.cut.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
-                            })}`}
+                            })}
                                 </TableCell>
                                 <TableCell className="text-right text-green-600">
-                                  {rowType ? "—" : (extraDays > 0 ? `+${extraDays}` : extraDays)}
+                                  {extraDays > 0 ? `+${extraDays}` : extraDays}
                                 </TableCell>
                                 <TableCell className="text-right text-red-600">
-                                  {rowType ? "—" : (lostDays > 0 ? `-${lostDays}` : lostDays)}
+                                  {lostDays > 0 ? `-${lostDays}` : lostDays}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <span>
@@ -3077,17 +3027,15 @@ const Analytics = () => {
                               })}
                                   </span>
                                 </TableCell>
-                                {/* Paid column - read-only for dispatchers, show dash for future rows */}
+                                {/* Paid column - read-only for dispatchers */}
                                 <TableCell className="text-right">
-                                  {rowType ? <span className="text-muted-foreground">—</span> : (
-                                    isPaid ? <span className="text-green-600 font-medium">
+                                  {isPaid ? <span className="text-green-600 font-medium">
                                       $
                                       {payment.paid_amount.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
-                                    </span> : <span className="text-muted-foreground">—</span>
-                                  )}
+                                    </span> : <span className="text-muted-foreground">—</span>}
                                 </TableCell>
                               </TableRow>;
                       });
@@ -3189,32 +3137,56 @@ const Analytics = () => {
       }))} selectedMonth={selectedMonth !== "all" ? selectedMonth : format(new Date(), "yyyy-MM")} />
 
         {/* Payroll Preview Dialog */}
-        {payrollPreviewData && <PayrollPreviewDialog open={payrollPreviewOpen} onOpenChange={setPayrollPreviewOpen} dispatcherName={payrollPreviewData.dispatcherName} dispatcherUserId={payrollPreviewData.dispatcherUserId} recipientEmail={payrollPreviewData.recipientEmail} payPeriod={payrollPreviewData.payPeriod} selectedMonth={selectedMonth} salary1Percent={payrollPreviewData.salary1Percent} bonus5Percent={payrollPreviewData.bonus5Percent} foodAllowance={payrollPreviewData.foodAllowance} extraDays={payrollPreviewData.extraDays} lostDays={payrollPreviewData.lostDays} extraDayDates={payrollPreviewData.extraDayDates} lostDayDates={payrollPreviewData.lostDayDates} extraDaysAmount={payrollPreviewData.extraDaysAmount} dispatcherBonus={payrollPreviewData.dispatcherBonus} perDayRate={payrollPreviewData.perDayRate} previewOnly={isDispatchOnly} onEmailSent={() => {
-        // Refresh salary payments data
-        queryClient.invalidateQueries({
-          queryKey: ["dispatcher_salary_payments"]
-        });
-        // Refetch salary payments for the current month
-        if (selectedMonth && selectedMonth !== "all") {
-          supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", selectedMonth).then(({
-            data
-          }) => {
-            if (data) {
-              const paymentsMap: Record<string, {
-                paid_amount: number;
-                paid_at: string | null;
-              }> = {};
-              data.forEach((payment: any) => {
-                paymentsMap[payment.user_id] = {
-                  paid_amount: payment.paid_amount,
-                  paid_at: payment.paid_at
-                };
+        {payrollPreviewData && <PayrollPreviewDialog 
+          open={payrollPreviewOpen} 
+          onOpenChange={setPayrollPreviewOpen} 
+          dispatcherName={payrollPreviewData.dispatcherName} 
+          dispatcherUserId={payrollPreviewData.dispatcherUserId} 
+          recipientEmail={payrollPreviewData.recipientEmail} 
+          payPeriod={payrollPreviewData.payPeriod} 
+          selectedMonth={selectedMonth} 
+          salary1Percent={payrollPreviewData.salary1Percent} 
+          bonus5Percent={payrollPreviewData.bonus5Percent} 
+          foodAllowance={payrollPreviewData.foodAllowance} 
+          extraDays={payrollPreviewData.extraDays} 
+          lostDays={payrollPreviewData.lostDays} 
+          extraDayDates={payrollPreviewData.extraDayDates} 
+          lostDayDates={payrollPreviewData.lostDayDates} 
+          extraDaysAmount={payrollPreviewData.extraDaysAmount} 
+          dispatcherBonus={payrollPreviewData.dispatcherBonus} 
+          perDayRate={payrollPreviewData.perDayRate} 
+          previewOnly={isDispatchOnly}
+          isDeletedUser={payrollPreviewData.isDeletedUser}
+          futureMonthLabel={payrollPreviewData.futureMonthLabel}
+          futureSalary1Percent={payrollPreviewData.futureSalary1Percent}
+          futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
+          onEmailSent={() => {
+            // Refresh salary payments data
+            queryClient.invalidateQueries({
+              queryKey: ["dispatcher_salary_payments"]
+            });
+            // Refetch salary payments for the current month
+            if (selectedMonth && selectedMonth !== "all") {
+              supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", selectedMonth).then(({
+                data
+              }) => {
+                if (data) {
+                  const paymentsMap: Record<string, {
+                    paid_amount: number;
+                    paid_at: string | null;
+                  }> = {};
+                  data.forEach((payment: any) => {
+                    paymentsMap[payment.user_id] = {
+                      paid_amount: payment.paid_amount,
+                      paid_at: payment.paid_at
+                    };
+                  });
+                  setSalaryPayments(paymentsMap);
+                }
               });
-              setSalaryPayments(paymentsMap);
             }
-          });
-        }
-      }} />}
+          }} 
+        />}
       </div>
     </div>;
 };

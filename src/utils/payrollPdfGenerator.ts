@@ -23,6 +23,10 @@ interface PayrollData {
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
   adjustments?: PayrollAdjustment[]; // Extra pay and charges
+  isDeletedUser?: boolean; // If true, add future month salary/bonus rows
+  futureMonthLabel?: string; // e.g., "February" for the next month
+  futureSalary1Percent?: number; // Salary 1% for next month
+  futureBonus5Percent?: number; // Bonus 5% for next month
 }
 
 const BLACK_COLOR = "#000000";
@@ -300,10 +304,39 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
     }
   }
 
+  // Future month rows for deleted users
+  const futureSalary = data.isDeletedUser && data.futureSalary1Percent ? data.futureSalary1Percent : 0;
+  const futureBonus = data.isDeletedUser && data.futureBonus5Percent ? data.futureBonus5Percent : 0;
+  
+  if (data.isDeletedUser && data.futureMonthLabel) {
+    // Salary 1% for next month
+    if (futureSalary > 0) {
+      drawRow(
+        `Salary 1% for ${data.futureMonthLabel}`,
+        `$${futureSalary.toFixed(2)}`,
+        "#FFFFFF",
+        LIGHT_BLUE_BG
+      );
+    }
+    
+    // Bonus 5% for next month
+    if (futureBonus > 0) {
+      drawRow(
+        `Bonus 5% for ${data.futureMonthLabel}`,
+        `$${futureBonus.toFixed(2)}`,
+        "#FFFFFF",
+        LIGHT_BLUE_BG
+      );
+    }
+  }
+
+  // Recalculate check amount to include future salary/bonus
+  const totalCheckAmount = checkAmount + futureSalary + futureBonus;
+
   // Check amount row
   drawRow(
     "Check amount:", 
-    `$${checkAmount.toFixed(2)}`, 
+    `$${totalCheckAmount.toFixed(2)}`, 
     null, 
     "#FFFFFF", 
     false, 
