@@ -353,7 +353,7 @@ Return ONLY valid JSON. No markdown, no explanations.`;
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.58.0");
+        const { createClient } = await import("npm:@supabase/supabase-js@2.49.1");
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const normalizeText = (text: string): string => {
