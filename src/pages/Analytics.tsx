@@ -20,7 +20,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -1629,10 +1629,59 @@ const Analytics = () => {
     }
   };
 
-  // Create sorted dispatcher stats for salaries tab
+  // Helper to check if a user is deleted (has @deleted.user email)
+  const isDeletedUser = useCallback((name: string) => {
+    const profile = dispatcherProfiles[name];
+    return profile?.email?.includes("@deleted.user") || false;
+  }, [dispatcherProfiles]);
+
+  // Create sorted dispatcher stats for salaries tab with separate rows for deleted users
   const sortedDispatcherStatsForSalaries = useMemo(() => {
     const stats = [...dispatcherStats];
-    return stats.sort((a, b) => {
+    
+    // Expand deleted users into multiple rows if they have unpaid future salaries
+    const expandedStats: Array<typeof stats[0] & { 
+      salaryRowType?: "current" | "future_salary" | "future_bonus";
+      futureMonthLabel?: string;
+    }> = [];
+    
+    stats.forEach(stat => {
+      const isDeleted = isDeletedUser(stat.name);
+      const payment = stat.userId ? salaryPayments[stat.userId] : null;
+      const isPaid = payment && payment.paid_at;
+      
+      if (isDeleted && !isPaid && selectedMonth && selectedMonth !== "all") {
+        // For deleted users with unpaid salaries, create separate rows
+        // Current month row with both Salary 1% and Bonus 5%
+        expandedStats.push({ ...stat, salaryRowType: "current" });
+        
+        // Future month (February 2026) separate rows
+        const [yearStr, monthStr] = selectedMonth.split("-");
+        const year = parseInt(yearStr, 10);
+        const monthNum = parseInt(monthStr, 10);
+        const nextMonthDate = new Date(year, monthNum, 1); // monthNum is already 1-indexed, so this gives next month
+        const futureMonthLabel = format(nextMonthDate, "MMMM");
+        
+        // Salary 1% for next month
+        expandedStats.push({ 
+          ...stat, 
+          salaryRowType: "future_salary",
+          futureMonthLabel
+        });
+        
+        // Bonus 5% for next month
+        expandedStats.push({ 
+          ...stat, 
+          salaryRowType: "future_bonus",
+          futureMonthLabel
+        });
+      } else {
+        // Regular users or paid deleted users - single row
+        expandedStats.push(stat);
+      }
+    });
+    
+    return expandedStats.sort((a, b) => {
       if (salarySortBy === "name") {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
@@ -1643,7 +1692,7 @@ const Analytics = () => {
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir]);
+  }, [dispatcherStats, salarySortBy, salarySortDir, isDeletedUser, salaryPayments, selectedMonth]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
@@ -2757,9 +2806,33 @@ const Analytics = () => {
                         }
 
                         // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
-                        const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                        // For display, just show the base rate (no adjustments for extra/lost days)
-                        const displaySalary = baseRate;
+                        const salary1Percent = stat.totalFreight * 0.01;
+                        const bonus5Percent = stat.cut * 0.05;
+                        const baseRate = salary1Percent + bonus5Percent;
+                        
+                        // For deleted user rows, calculate display values based on row type
+                        const rowType = (stat as any).salaryRowType as "current" | "future_salary" | "future_bonus" | undefined;
+                        const futureMonthLabel = (stat as any).futureMonthLabel as string | undefined;
+                        
+                        let displaySalary = baseRate;
+                        let displayName = stat.name;
+                        let displayFreight = stat.totalFreight;
+                        let displayCut = stat.cut;
+                        
+                        if (rowType === "current") {
+                          // Current month: show full Salary 1% and Bonus 5%
+                          displayName = `${stat.name} - Salary 1% and Bonus 5%`;
+                        } else if (rowType === "future_salary") {
+                          // Future month: Salary 1% only
+                          displayName = `${stat.name} - Salary 1% for ${futureMonthLabel}`;
+                          displaySalary = salary1Percent;
+                          displayCut = 0; // Don't show commission for salary-only row
+                        } else if (rowType === "future_bonus") {
+                          // Future month: Bonus 5% only
+                          displayName = `${stat.name} - Bonus 5% for ${futureMonthLabel}`;
+                          displaySalary = bonus5Percent;
+                          displayFreight = 0; // Don't show freight for bonus-only row
+                        }
 
                         // Get dispatcher bonus for this month
                         const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
@@ -2767,7 +2840,8 @@ const Analytics = () => {
                         const bonusRank = bonusInfo?.rank ?? 0;
 
                         // Store for bulk action - store baseRate only (Total Freight * 0.01 + Total Comm. * 0.05)
-                        if (stat.userId) {
+                        // Only store for the main row (not future rows)
+                        if (stat.userId && !rowType) {
                           calculatedSalaries[stat.userId] = baseRate;
                         }
 
@@ -2775,9 +2849,9 @@ const Analytics = () => {
                         const payment = stat.userId ? salaryPayments[stat.userId] : null;
                         const isPaid = payment && payment.paid_at;
 
-                        // Helper to render rank icon
+                        // Helper to render rank icon - only show for main rows
                         const renderRankIcon = () => {
-                          if (!bonusRank) return null;
+                          if (!bonusRank || rowType) return null;
                           const iconClass = "h-5 w-5";
                           switch (bonusRank) {
                             case 1:
@@ -2794,17 +2868,21 @@ const Analytics = () => {
                               return null;
                           }
                         };
-                        return <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                        
+                        // Unique key for the row
+                        const rowKey = rowType ? `${stat.name}-${rowType}` : stat.name;
+                        
+                        return <TableRow key={rowKey} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
                                 {/* Hide selection checkbox for dispatch-only users */}
                                 {!isDispatchOnly && <TableCell className="w-[50px]">
-                                    {salarySelectionMode && stat.userId ? <Checkbox checked={selectedDispatcherIds.has(stat.userId)} onCheckedChange={() => toggleDispatcherSelection(stat.userId!)} /> : null}
+                                    {salarySelectionMode && stat.userId && !rowType ? <Checkbox checked={selectedDispatcherIds.has(stat.userId)} onCheckedChange={() => toggleDispatcherSelection(stat.userId!)} /> : null}
                                   </TableCell>}
                                 <TableCell className="font-medium">
                                   <div className="flex items-center gap-2">
                                     {renderRankIcon()}
-                                    {stat.name}
-                                    {/* Hide download button for dispatch-only users, but show send/preview for all */}
-                                    {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TooltipProvider>
+                                    {displayName}
+                                    {/* Hide download button for dispatch-only users and for future rows, but show send/preview for all */}
+                                    {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && !rowType && <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => {
@@ -2973,24 +3051,22 @@ const Analytics = () => {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  $
-                                  {stat.totalFreight.toLocaleString(undefined, {
+                                  {rowType === "future_bonus" ? "—" : `$${displayFreight.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
-                            })}
+                            })}`}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  $
-                                  {stat.cut.toLocaleString(undefined, {
+                                  {rowType === "future_salary" ? "—" : `$${displayCut.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
-                            })}
+                            })}`}
                                 </TableCell>
                                 <TableCell className="text-right text-green-600">
-                                  {extraDays > 0 ? `+${extraDays}` : extraDays}
+                                  {rowType ? "—" : (extraDays > 0 ? `+${extraDays}` : extraDays)}
                                 </TableCell>
                                 <TableCell className="text-right text-red-600">
-                                  {lostDays > 0 ? `-${lostDays}` : lostDays}
+                                  {rowType ? "—" : (lostDays > 0 ? `-${lostDays}` : lostDays)}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <span>
@@ -3001,15 +3077,17 @@ const Analytics = () => {
                               })}
                                   </span>
                                 </TableCell>
-                                {/* Paid column - read-only for dispatchers */}
+                                {/* Paid column - read-only for dispatchers, show dash for future rows */}
                                 <TableCell className="text-right">
-                                  {isPaid ? <span className="text-green-600 font-medium">
+                                  {rowType ? <span className="text-muted-foreground">—</span> : (
+                                    isPaid ? <span className="text-green-600 font-medium">
                                       $
                                       {payment.paid_amount.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
-                                    </span> : <span className="text-muted-foreground">—</span>}
+                                    </span> : <span className="text-muted-foreground">—</span>
+                                  )}
                                 </TableCell>
                               </TableRow>;
                       });
