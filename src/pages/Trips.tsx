@@ -4781,6 +4781,10 @@ const Trips = () => {
                                       <NestedDriverTripsDropdown 
                                         driverName={order._entityName} 
                                         driverId={order._entityId}
+                                        onSearchDriver={(name) => {
+                                          setSearchFilter(name);
+                                          setCurrentPage(1);
+                                        }}
                                       />
                                     )}
                                   </div>
