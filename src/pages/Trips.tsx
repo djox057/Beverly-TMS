@@ -1286,18 +1286,20 @@ const Trips = () => {
           if (filterInfo.filterType === 'truck') {
             // Filtering by truck - showing driver changes
             const driverName = tenure.entityName || 'Unassigned';
-            if (tenure.oldEntityName) {
-              changeDescription = `Driver change: ${driverName}, switched from truck ${tenure.oldEntityName} (${durationText})`;
+            // Use oldTruckNumber for the truck the driver came from
+            if (tenure.oldTruckNumber) {
+              changeDescription = `Driver change: ${driverName}, switched from truck ${tenure.oldTruckNumber} (${durationText})`;
             } else {
               changeDescription = `Driver change: ${driverName} (${durationText})`;
             }
           } else {
             // Filtering by driver - showing truck changes
             const newTruck = tenure.entityName || 'Unassigned';
+            // oldEntityName here is the previous truck number
             if (tenure.oldEntityName && tenure.oldEntityName !== newTruck) {
-              changeDescription = `Truck change to ${newTruck} from ${tenure.oldEntityName}`;
+              changeDescription = `Truck change to ${newTruck} from ${tenure.oldEntityName} (${durationText})`;
             } else {
-              changeDescription = `Truck: ${newTruck} (${duration})`;
+              changeDescription = `Truck: ${newTruck} (${durationText})`;
             }
           }
           
