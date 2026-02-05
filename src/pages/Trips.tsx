@@ -1284,18 +1284,14 @@ const Trips = () => {
           let changeDescription: string;
           
           if (filterInfo.filterType === 'truck') {
-            // Filtering by truck - showing driver changes
+            // Filtering by truck - showing driver changes on this truck
+            // Note: We don't have info about driver's previous truck when querying by truck
             const driverName = tenure.entityName || 'Unassigned';
-            // Use oldTruckNumber for the truck the driver came from
-            if (tenure.oldTruckNumber) {
-              changeDescription = `Driver change: ${driverName}, switched from truck ${tenure.oldTruckNumber} (${durationText})`;
-            } else {
-              changeDescription = `Driver change: ${driverName} (${durationText})`;
-            }
+            changeDescription = `Driver change: ${driverName} (${durationText})`;
           } else {
-            // Filtering by driver - showing truck changes
+            // Filtering by driver - showing truck changes for this driver
             const newTruck = tenure.entityName || 'Unassigned';
-            // oldEntityName here is the previous truck number
+            // For driver filter, oldEntityName is the previous truck number from old_truck_number
             if (tenure.oldEntityName && tenure.oldEntityName !== newTruck) {
               changeDescription = `Truck change to ${newTruck} from ${tenure.oldEntityName} (${durationText})`;
             } else {
