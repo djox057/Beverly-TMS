@@ -73,6 +73,8 @@ interface NestedDriverTripsInlineContentProps {
   showMoveColumn?: boolean;
   /** Match Trips page columns when the optional Paid column exists */
   showPaidColumn?: boolean;
+  /** Only show trips with delivery date on or before this date (YYYY-MM-DD) */
+  assignmentDate?: string;
 }
 
 export function NestedDriverTripsInlineContent({
@@ -84,6 +86,7 @@ export function NestedDriverTripsInlineContent({
   colSpan,
   showMoveColumn = false,
   showPaidColumn = false,
+  assignmentDate,
 }: NestedDriverTripsInlineContentProps) {
   // Use the EXACT same selection hook + summary UI as the main Trips page
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
@@ -171,9 +174,20 @@ export function NestedDriverTripsInlineContent({
       const miles = Number(order.mileage) || 0;
       const driverPay = Number(order.totalDriverPay) || 0;
       const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
-      return !(miles === 0 && driverPay === 0 && freightAmount === 0);
+      // Exclude zero-value loads
+      if (miles === 0 && driverPay === 0 && freightAmount === 0) return false;
+      
+      // Filter by assignment date if provided - only show trips with delivery date <= assignment date
+      if (assignmentDate && order.deliveryDate) {
+        const deliveryDateStr = String(order.deliveryDate).replace(" ", "T").split("T")[0];
+        if (deliveryDateStr && deliveryDateStr > assignmentDate) {
+          return false;
+        }
+      }
+      
+      return true;
     });
-  }, [orders]);
+  }, [orders, assignmentDate]);
 
   const groupedByWeek = useMemo(() => {
     if (!filteredOrders || filteredOrders.length === 0) return [];
@@ -429,7 +443,7 @@ export function NestedDriverTripsInlineContent({
                   </div>
 
                   {/* Column headers - EXACT Trips header columns */}
-                  <div className={gridRowClass("bg-card text-xs border-y-2 border-foreground relative z-10")}>
+                  <div className={gridRowClass("bg-card text-xs relative z-10")}>
                     {showMoveColumn && <div className={cn(cellBase, "py-1.5")} />}
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Truck#</div>
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Driver</div>

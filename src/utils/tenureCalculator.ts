@@ -10,6 +10,9 @@ export interface Tenure {
   endReason: string | null;    // From assignment_history.reason
   changedByName: string | null;
   isGap: boolean;              // True if this represents an unassigned period
+  // Previous entity info (what they switched from)
+  previousEntityId: string | null;
+  previousEntityName: string | null;
 }
 
 export type TenureType = 'driver1' | 'driver2' | 'trailer' | 'truck' | 'dispatcher';
@@ -149,6 +152,8 @@ export const calculateTenures = (
     entityName: string | null;
     startDate: string;
     changedByName: string | null;
+    previousEntityId: string | null;
+    previousEntityName: string | null;
   } | null = null;
 
   for (const entry of dedupedSorted) {
@@ -161,6 +166,10 @@ export const calculateTenures = (
       currentTenure.entityName !== entity.name;
 
     if (entityChanged) {
+      // Track previous entity before closing
+      const prevEntityId = currentTenure?.entityId || null;
+      const prevEntityName = currentTenure?.entityName || null;
+      
       // Close previous tenure
       if (currentTenure) {
         tenures.push({
@@ -172,6 +181,8 @@ export const calculateTenures = (
           endReason: entry.reason || null, // Reason from the NEW entry explains why previous ended
           changedByName: currentTenure.changedByName,
           isGap: !currentTenure.entityId && !currentTenure.entityName,
+          previousEntityId: currentTenure.previousEntityId,
+          previousEntityName: currentTenure.previousEntityName,
         });
       }
 
@@ -182,6 +193,8 @@ export const calculateTenures = (
           entityName: entity.name,
           startDate: entryDate,
           changedByName: entry.changed_by_name,
+          previousEntityId: prevEntityId,
+          previousEntityName: prevEntityName,
         };
       } else {
         currentTenure = null;
@@ -203,6 +216,8 @@ export const calculateTenures = (
         endReason: null,
         changedByName: currentTenure.changedByName,
         isGap: false,
+        previousEntityId: currentTenure.previousEntityId,
+        previousEntityName: currentTenure.previousEntityName,
       });
     }
   }
