@@ -339,8 +339,8 @@ export function NestedDriverTripsInlineContent({
 
   return (
     <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={colSpan} className="p-0 border-l-4 border-l-yellow-500 bg-background">
-        <div className="py-2">
+      <TableCell colSpan={colSpan} className="p-0 border-l-4 border-l-yellow-500">
+        <div className="bg-background py-2">
           {/* Header */}
           <div className="flex items-center justify-between py-2 px-4 border-b border-border">
             <div className="font-semibold text-sm">Trips for {driverName}</div>
@@ -359,7 +359,7 @@ export function NestedDriverTripsInlineContent({
           ) : (
             <div className="space-y-3 px-2 pt-2">
               {groupedByWeek.map((week) => (
-                <div key={week.weekStart} className="border rounded-lg overflow-hidden bg-card">
+                <div key={week.weekStart} className="border rounded-lg bg-card">
                   {/* Week summary bar - EXACT Trips header columns */}
                   <div className={gridRowClass("bg-muted/50 border-b text-xs")}>
                     {showMoveColumn && <div className={cellBase} />}
