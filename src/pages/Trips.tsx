@@ -4829,8 +4829,6 @@ const Trips = () => {
                                       toggleNestedTrips(historyKey);
                                     }}
                                     colSpan={totalColSpan}
-                                    showMoveColumn={canMoveLoads}
-                                    showPaidColumn={canSeePaidColumn}
                                   />
                                 )}
                               </Fragment>
