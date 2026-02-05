@@ -126,12 +126,12 @@ export function NestedDriverTripsInlineContent({
         .select(`
           *,
           pickup_drops (*),
-          trucks:truck_id (id, truck_number),
-          trailers:trailer_id (id, trailer_number),
-          driver1:driver1_id (id, name, company_id, companies:company_id(name)),
-          driver2:driver2_id (id, name),
+          truck:trucks!orders_truck_id_fkey (id, truck_number),
+          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+          driver2:drivers!orders_driver2_id_fkey (id, name),
           order_files (*),
-          brokers:broker_id (id, name),
+          broker:brokers (id, name),
           order_transfers (
             id,
             sequence_number,
@@ -142,10 +142,10 @@ export function NestedDriverTripsInlineContent({
             miles,
             driver_price,
             transfer_datetime,
-            driver1:driver1_id (id, name),
-            driver2:driver2_id (id, name),
-            truck:truck_id (id, truck_number),
-            trailer:trailer_id (id, trailer_number),
+            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number),
             manual_driver_name,
             manual_truck_number,
             manual_trailer_number
@@ -355,9 +355,9 @@ export function NestedDriverTripsInlineContent({
   return (
     <TableRow className="hover:bg-transparent">
       <TableCell colSpan={colSpan} className="p-0">
-        <div className="bg-yellow-50/50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500 py-2">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2 px-4">
+        <div className="bg-yellow-50/50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500 py-2 relative">
+          {/* Header - aligned with table content */}
+          <div className="flex items-center justify-between mb-2 pl-2 pr-4">
             <div className="font-semibold text-sm">
               Trips for {driverName}
             </div>
@@ -372,20 +372,6 @@ export function NestedDriverTripsInlineContent({
             </Button>
           </div>
           
-          {/* Cell selection summary */}
-          {hasSelection && (
-            <div className="mx-4 mb-2 px-2 py-1 bg-blue-50 dark:bg-blue-950 rounded text-xs flex items-center gap-4">
-              <span className="font-medium">Selection:</span>
-              <span>Sum: {formatCurrency(summary.totalSum)}</span>
-              <span>Avg: {formatCurrency(summary.average)}</span>
-              <span>Miles: {summary.totalMiles.toLocaleString()}</span>
-              {summary.totalMiles > 0 && <span>RPM: ${summary.rpm.toFixed(2)}</span>}
-              <Button variant="ghost" size="sm" className="h-5 px-2 text-xs ml-auto" onClick={clearSelection}>
-                Clear
-              </Button>
-            </div>
-          )}
-          
           {isLoading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -395,7 +381,7 @@ export function NestedDriverTripsInlineContent({
               No trips found for this driver
             </div>
           ) : (
-            <div className="space-y-3 px-4">
+            <div className="space-y-3 pl-2 pr-4">
               {groupedByWeek.map((week) => (
                 <div key={week.weekStart} className="border rounded-lg overflow-hidden bg-card">
                   {/* Week header */}
@@ -554,6 +540,38 @@ export function NestedDriverTripsInlineContent({
                   </Table>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* Cell selection summary - fixed bottom right */}
+          {hasSelection && (
+            <div className="fixed bottom-4 right-4 z-50 bg-card/95 backdrop-blur-sm border border-border rounded-md shadow-lg p-3 min-w-[280px]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-sm">Cell Selection Summary</span>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearSelection}>
+                  Clear
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sum:</span>
+                  <span className="font-medium">{formatCurrency(summary.totalSum)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Average:</span>
+                  <span className="font-medium">{formatCurrency(summary.average)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Miles:</span>
+                  <span className="font-medium">{summary.totalMiles.toLocaleString()}</span>
+                </div>
+                {summary.totalMiles > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">RPM:</span>
+                    <span className="font-medium">${summary.rpm.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
