@@ -1,15 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, Loader2, ExternalLink } from "lucide-react";
+import { ChevronDown, Loader2, ExternalLink, Edit, CalendarClock, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 import { formatCurrency } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import moneyStackIcon from "@/assets/money-stack.png";
 
 interface NestedDriverTripsDropdownProps {
   driverName: string;
@@ -32,8 +33,61 @@ const formatDateDisplay = (dateStr: string | null | undefined) => {
   }
 };
 
+// Cell selection hook for the popup
+function useNestedCellSelection() {
+  const [selectedCells, setSelectedCells] = useState<Map<string, { value: number; type: string; miles?: number }>>(new Map());
+
+  const toggleCell = useCallback((cellId: string, value: number, type: string, miles?: number) => {
+    setSelectedCells((prev) => {
+      const newMap = new Map(prev);
+      if (newMap.has(cellId)) {
+        newMap.delete(cellId);
+      } else {
+        newMap.set(cellId, { value, type, miles });
+      }
+      return newMap;
+    });
+  }, []);
+
+  const isSelected = useCallback((cellId: string) => selectedCells.has(cellId), [selectedCells]);
+
+  const clearSelection = useCallback(() => setSelectedCells(new Map()), []);
+
+  const summary = useMemo(() => {
+    let totalSum = 0;
+    let totalMiles = 0;
+    let count = 0;
+
+    selectedCells.forEach(({ value, type, miles }) => {
+      if (type === "miles") {
+        totalMiles += value;
+      } else {
+        totalSum += value;
+        if (miles) totalMiles += miles;
+      }
+      count++;
+    });
+
+    const average = count > 0 ? totalSum / count : 0;
+    const rpm = totalMiles > 0 ? totalSum / totalMiles : 0;
+
+    return { totalSum, average, totalMiles, rpm, count };
+  }, [selectedCells]);
+
+  return { toggleCell, isSelected, clearSelection, summary, hasSelection: selectedCells.size > 0 };
+}
+
 export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver }: NestedDriverTripsDropdownProps) {
   const [open, setOpen] = useState(false);
+  const { toggleCell, isSelected, clearSelection, summary, hasSelection } = useNestedCellSelection();
+
+  // Clear selection when popup closes
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      clearSelection();
+    }
+  };
 
   // Fetch orders for this driver when popover opens
   const { data: orders, isLoading } = useQuery({
@@ -100,13 +154,24 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
     staleTime: 30000,
   });
 
+  // Filter out orders with 0 miles, 0 driver pay, and 0 freight
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    return orders.filter(order => {
+      const miles = Number(order.mileage) || 0;
+      const driverPay = Number(order.totalDriverPay) || 0;
+      const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
+      return !(miles === 0 && driverPay === 0 && freightAmount === 0);
+    });
+  }, [orders]);
+
   // Group orders by week
   const groupedByWeek = useMemo(() => {
-    if (!orders || orders.length === 0) return [];
+    if (!filteredOrders || filteredOrders.length === 0) return [];
 
     const groups: { [key: string]: any[] } = {};
 
-    orders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       if (order.deliveryDate) {
         try {
           const normalizedStr = String(order.deliveryDate).replace(" ", "T");
@@ -156,7 +221,7 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
           totals,
         };
       });
-  }, [orders]);
+  }, [filteredOrders]);
 
   const handleOpenInTrips = () => {
     if (onSearchDriver) {
@@ -165,8 +230,117 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
     setOpen(false);
   };
 
+  // Get row class based on order state (matching Trips page logic)
+  const getRowClassName = (order: any, orderIndex: number) => {
+    const isRecovery = order.isRecovery;
+    const freightAmount = Number(order.freightAmount) || 0;
+    const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
+    const hasAdditionalPay = totalFreight > freightAmount;
+    const hasReducedPay = totalFreight < freightAmount;
+
+    const hasOrangeCondition =
+      order.canceled ||
+      ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
+
+    const isEvenRow = orderIndex % 2 === 1;
+    const alternatingBg = isEvenRow ? "bg-muted/50 dark:bg-muted/30" : "bg-background";
+
+    if (isRecovery) {
+      return "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)]";
+    }
+    if (hasReducedPay) {
+      return "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)]";
+    }
+    if (hasAdditionalPay) {
+      return "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)]";
+    }
+    if (hasOrangeCondition) {
+      return "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)]";
+    }
+    return alternatingBg;
+  };
+
+  // Render additional pay/charge icon
+  const renderAdditionalPayIcon = (order: any) => {
+    const freightAmount = Number(order.freightAmount) || 0;
+    const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
+    const difference = totalFreight - freightAmount;
+    
+    if (difference === 0) return null;
+    
+    const isPositive = difference > 0;
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="p-0.5 h-6 w-6">
+            <img 
+              src={moneyStackIcon} 
+              alt={isPositive ? "Additional pay" : "Reduced pay"} 
+              className={`h-4 w-4 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+            />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2 max-w-xs text-xs" align="start">
+          <div className="font-semibold mb-1">
+            {isPositive ? "Additional Pay" : "Reduced Pay"}
+          </div>
+          <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
+            {isPositive ? "+" : ""}{formatCurrency(difference)}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Render rescheduled icon
+  const renderRescheduledIcon = (order: any) => {
+    if (!(order as any).dateChangeNotes || (order as any).dateChangeNotes.trim() === "") {
+      return null;
+    }
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="p-0.5 h-6 w-6">
+            <CalendarClock className="h-4 w-4 text-orange-500" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2 max-w-xs text-xs" align="start">
+          <div className="font-semibold mb-1">Rescheduled</div>
+          <div className="text-muted-foreground whitespace-pre-wrap">
+            {(order as any).dateChangeNotes}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // Render missing POD icon
+  const renderMissingPodIcon = (order: any) => {
+    if (order.canceled || (order.podFiles && order.podFiles.length > 0)) {
+      return null;
+    }
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="p-0.5 h-6 w-6">
+            <AlertCircle className="h-4 w-4 text-red-600 fill-red-100" strokeWidth={2.5} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2 max-w-xs text-xs" align="start">
+          <div className="font-semibold text-red-500">POD Missing</div>
+          <div className="text-muted-foreground">
+            No proof of delivery uploaded.
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button 
           variant="ghost" 
@@ -178,7 +352,7 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[950px] p-0 bg-popover" 
+        className="w-[calc(100vw-280px)] max-w-[1600px] min-w-[900px] p-0 bg-popover" 
         align="start"
         side="bottom"
         sideOffset={4}
@@ -198,12 +372,26 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
           </Button>
         </div>
         
-        <ScrollArea className="h-[450px]">
+        {/* Cell selection summary */}
+        {hasSelection && (
+          <div className="px-3 py-2 border-b bg-blue-50 dark:bg-blue-950 text-xs flex items-center gap-4">
+            <span className="font-medium">Selection:</span>
+            <span>Sum: {formatCurrency(summary.totalSum)}</span>
+            <span>Avg: {formatCurrency(summary.average)}</span>
+            <span>Miles: {summary.totalMiles.toLocaleString()}</span>
+            {summary.totalMiles > 0 && <span>RPM: ${summary.rpm.toFixed(2)}</span>}
+            <Button variant="ghost" size="sm" className="h-5 px-2 text-xs ml-auto" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
+        )}
+        
+        <ScrollArea className="h-[500px]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : orders && orders.length === 0 ? (
+          ) : filteredOrders && filteredOrders.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               No trips found for this driver
             </div>
@@ -217,11 +405,34 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
                       Week: {format(week.weekStartDate, "MMM d")} - {format(week.weekEndDate, "MMM d, yyyy")}
                     </span>
                     <div className="flex gap-6 text-xs">
-                      <span>{week.totals.miles.toLocaleString()} mi</span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
+                      <span 
+                        className={`cursor-pointer select-none px-1 rounded ${
+                          isSelected(`week-miles-${week.weekStart}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted"
+                        }`}
+                        onClick={() => toggleCell(`week-miles-${week.weekStart}`, week.totals.miles, "miles")}
+                      >
+                        {week.totals.miles.toLocaleString()} mi
+                      </span>
+                      <span 
+                        className={`text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
+                          isSelected(`week-driver-${week.weekStart}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted"
+                        }`}
+                        onClick={() => toggleCell(`week-driver-${week.weekStart}`, week.totals.driverPay, "driverPay", week.totals.miles)}
+                      >
                         {formatCurrency(week.totals.driverPay)}
                       </span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
+                      <span 
+                        className={`text-green-600 dark:text-green-400 font-medium cursor-pointer select-none px-1 rounded ${
+                          isSelected(`week-freight-${week.weekStart}`) 
+                            ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500" 
+                            : "hover:bg-muted"
+                        }`}
+                        onClick={() => toggleCell(`week-freight-${week.weekStart}`, week.totals.freightAmount, "freightAmount", week.totals.miles)}
+                      >
                         {formatCurrency(week.totals.freightAmount)}
                       </span>
                     </div>
@@ -231,27 +442,25 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
                   <Table>
                     <TableHeader>
                       <TableRow className="text-xs bg-yellow-200/50 dark:bg-yellow-800/50">
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Truck#</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Load#</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Pickup Date</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Pickup City</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Delivery Date</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Delivery City</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Miles</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Broker</TableHead>
-                        <TableHead className="py-1.5 px-2 whitespace-nowrap">Broker Load#</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Driver Pay</TableHead>
-                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">Freight</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Truck#</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Load#</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Pickup Date</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Pickup City</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Delivery Date</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Delivery City</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8">Miles</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Broker</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Broker Load#</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8">Driver Pay</TableHead>
+                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap h-8">Freight</TableHead>
+                        <TableHead className="py-1.5 px-2 whitespace-nowrap h-8">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {week.orders.map((order: any) => (
+                      {week.orders.map((order: any, orderIndex: number) => (
                         <TableRow 
                           key={order.id} 
-                          className="text-xs hover:bg-muted/50 cursor-pointer"
-                          onClick={() => {
-                            window.open(`/orders/${order.id}/edit`, '_blank');
-                          }}
+                          className={`text-xs h-10 ${getRowClassName(order, orderIndex)}`}
                         >
                           <TableCell className="py-1.5 px-2">
                             {order.truckNumber}
@@ -273,7 +482,17 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
                             <span>{order.deliveryCity}</span>
                             {order.deliveryState && <span className="text-muted-foreground">, {order.deliveryState}</span>}
                           </TableCell>
-                          <TableCell className="py-1.5 px-2 text-right">
+                          <TableCell 
+                            className={`py-1.5 px-2 text-right cursor-pointer select-none transition-colors ${
+                              isSelected(`order-miles-${order.id}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCell(`order-miles-${order.id}`, Number(order.mileage) || 0, "miles");
+                            }}
+                          >
                             {(order.mileage || 0).toLocaleString()}
                           </TableCell>
                           <TableCell className="py-1.5 px-2 truncate max-w-[100px]" title={order.brokerName}>
@@ -282,11 +501,53 @@ export function NestedDriverTripsDropdown({ driverName, driverId, onSearchDriver
                           <TableCell className="py-1.5 px-2 truncate max-w-[80px]" title={order.brokerLoadNumber}>
                             {order.brokerLoadNumber || "-"}
                           </TableCell>
-                          <TableCell className="py-1.5 px-2 text-right text-green-600 dark:text-green-400">
-                            {formatCurrency(order.totalDriverPay || 0)}
+                          <TableCell 
+                            className={`py-1.5 px-2 text-right cursor-pointer select-none transition-colors ${
+                              isSelected(`order-driver-${order.id}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCell(`order-driver-${order.id}`, Number(order.totalDriverPay) || 0, "driverPay", Number(order.mileage) || 0);
+                            }}
+                          >
+                            <span className="text-green-600 dark:text-green-400">
+                              {formatCurrency(order.totalDriverPay || 0)}
+                            </span>
                           </TableCell>
-                          <TableCell className="py-1.5 px-2 text-right text-green-600 dark:text-green-400">
-                            {formatCurrency(order.totalFreightAmountNoLumper || 0)}
+                          <TableCell 
+                            className={`py-1.5 px-2 text-right cursor-pointer select-none transition-colors ${
+                              isSelected(`order-freight-${order.id}`) 
+                                ? "bg-blue-200 dark:bg-blue-800 ring-1 ring-blue-500 ring-inset" 
+                                : "hover:bg-muted/50"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCell(`order-freight-${order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount", Number(order.mileage) || 0);
+                            }}
+                          >
+                            <span className="text-green-600 dark:text-green-400">
+                              {formatCurrency(order.totalFreightAmountNoLumper || 0)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-1.5 px-2">
+                            <div className="flex items-center gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`/orders/${order.id}/edit`, '_blank');
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              {renderAdditionalPayIcon(order)}
+                              {renderRescheduledIcon(order)}
+                              {renderMissingPodIcon(order)}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
