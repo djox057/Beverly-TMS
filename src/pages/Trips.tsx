@@ -1160,9 +1160,14 @@ const Trips = () => {
     );
     
     // Calculate tenures using the same logic as truck history dialog
-    const tenures: Tenure[] = filterInfo.filterType === 'truck'
+    let tenures: Tenure[] = filterInfo.filterType === 'truck'
       ? calculateCombinedDriverTenures(filtered)  // For truck, show driver tenures
       : calculateTenures(filtered, 'truck');       // For driver, show truck tenures
+    
+    // Filter out assignments that lasted 1 day or less (unless current)
+    tenures = tenures.filter(tenure => 
+      tenure.endDate === null || tenure.durationDays >= 2
+    );
     
     // Group tenures by week (using start date)
     const byWeek: { [weekKey: string]: Tenure[] } = {};
@@ -1272,17 +1277,29 @@ const Trips = () => {
         
         // Convert tenures to display items
         const historyAsItems = weekTenures.map((tenure: Tenure) => {
-          // Build description based on filter type
-          const entityLabel = filterInfo.filterType === 'truck' ? 'Driver' : 'Truck';
-          const entityName = tenure.entityName || 'Unassigned';
           const isCurrent = tenure.endDate === null;
-          const dateRange = formatTenureDateRange(tenure);
           const duration = formatTenureDuration(tenure.durationDays);
+          const durationText = isCurrent ? `current-${duration}` : duration;
           
-          // Format: "Assigned to [Entity] [Name]" with tenure info
-          const changeDescription = isCurrent 
-            ? `${entityLabel}: ${entityName} (Current - ${duration})`
-            : `${entityLabel}: ${entityName} (${dateRange} - ${duration})`;
+          let changeDescription: string;
+          
+          if (filterInfo.filterType === 'truck') {
+            // Filtering by truck - showing driver changes
+            const driverName = tenure.entityName || 'Unassigned';
+            if (tenure.oldEntityName) {
+              changeDescription = `Driver change: ${driverName}, switched from truck ${tenure.oldEntityName} (${durationText})`;
+            } else {
+              changeDescription = `Driver change: ${driverName} (${durationText})`;
+            }
+          } else {
+            // Filtering by driver - showing truck changes
+            const newTruck = tenure.entityName || 'Unassigned';
+            if (tenure.oldEntityName && tenure.oldEntityName !== newTruck) {
+              changeDescription = `Truck change to ${newTruck} from ${tenure.oldEntityName}`;
+            } else {
+              changeDescription = `Truck: ${newTruck} (${duration})`;
+            }
+          }
           
           return {
             _isHistoryEntry: true,
@@ -1298,7 +1315,7 @@ const Trips = () => {
             deliveryDate: tenure.startDate,
             // Store entity info for nested trips dropdown (when filtering by truck, entity is driver)
             _entityType: filterInfo.filterType === 'truck' ? 'driver' : 'truck',
-            _entityName: entityName,
+            _entityName: tenure.entityName || 'Unassigned',
             _entityId: tenure.entityId,
           };
         });
@@ -4823,6 +4840,7 @@ const Trips = () => {
                                   <NestedDriverTripsInlineContent
                                     driverName={order._entityName}
                                     driverId={order._entityId}
+                                    assignmentDate={order._historyDate}
                                     onSearchDriver={(name) => {
                                       setSearchFilter(name);
                                       setCurrentPage(1);
