@@ -121,6 +121,28 @@ export const calculateTenures = (
     new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
   );
 
+  // Deduplicate: keep only one entry per day per entity to prevent multiple rows
+  // when multiple assignment events fire on the same day for the same entity
+  const deduped: AssignmentHistoryEntry[] = [];
+  const seenDayEntity = new Map<string, AssignmentHistoryEntry>();
+  
+  for (const entry of sorted) {
+    const datePart = extractDatePart(entry.changed_at);
+    const entity = getEntityFromEntry(entry, tenureType);
+    const key = `${datePart}|${entity.id || 'null'}|${entity.name || 'null'}`;
+    
+    // Keep entry with reason if one exists, otherwise latest
+    const existing = seenDayEntity.get(key);
+    if (!existing || (entry.reason && !existing.reason)) {
+      seenDayEntity.set(key, entry);
+    }
+  }
+  
+  // Rebuild sorted array from deduplicated entries
+  const dedupedSorted = Array.from(seenDayEntity.values()).sort((a, b) =>
+    new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+  );
+
   const tenures: Tenure[] = [];
   let currentTenure: {
     entityId: string | null;
@@ -129,7 +151,7 @@ export const calculateTenures = (
     changedByName: string | null;
   } | null = null;
 
-  for (const entry of sorted) {
+  for (const entry of dedupedSorted) {
     const entryDate = extractDatePart(entry.changed_at);
     const entity = getEntityFromEntry(entry, tenureType);
     
