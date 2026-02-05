@@ -37,7 +37,7 @@ import { format, startOfWeek } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import crownImage from "@/assets/crown.png";
 const isWeekday = (date: Date) => {
@@ -688,69 +688,59 @@ const Analytics = () => {
     return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
   };
 
-  // Fetch salary payments for the selected month AND previous month
-  useEffect(() => {
-    const fetchSalaryPayments = async () => {
+  // Fetch salary payments for the selected month AND previous month using useQuery for caching
+  const { data: salaryPaymentsData } = useQuery({
+    queryKey: ["salary-payments", selectedMonth],
+    queryFn: async () => {
       if (!selectedMonth || selectedMonth === "all") {
-        setSalaryPayments({});
-        setPrevMonthPayments({});
-        return;
+        return { current: {}, previous: {} };
       }
-      try {
-        // Fetch current month payments
-        const {
-          data,
-          error
-        } = await supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", selectedMonth);
-        if (error) {
-          console.error("Error fetching salary payments:", error);
-          return;
-        }
-        const paymentsMap: Record<string, {
-          paid_amount: number;
-          paid_at: string | null;
-        }> = {};
-        if (data && Array.isArray(data)) {
-          data.forEach((record: any) => {
-            paymentsMap[record.user_id] = {
-              paid_amount: Number(record.paid_amount) || 0,
-              paid_at: record.paid_at
-            };
-          });
-        }
-        setSalaryPayments(paymentsMap);
+      
+      // Fetch current and previous month in parallel
+      const prevMonth = getPreviousMonth(selectedMonth);
+      const [currentResult, prevResult] = await Promise.all([
+        supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", selectedMonth),
+        prevMonth 
+          ? supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", prevMonth)
+          : Promise.resolve({ data: null, error: null })
+      ]);
+      
+      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null }> = {};
+      if (currentResult.data && Array.isArray(currentResult.data)) {
+        currentResult.data.forEach((record: any) => {
+          paymentsMap[record.user_id] = {
+            paid_amount: Number(record.paid_amount) || 0,
+            paid_at: record.paid_at
+          };
+        });
+      }
+      
+      const prevMap: Record<string, { paid_amount: number; calculated_salary: number }> = {};
+      if (prevResult.data && Array.isArray(prevResult.data)) {
+        prevResult.data.forEach((record: any) => {
+          prevMap[record.user_id] = {
+            paid_amount: Number(record.paid_amount) || 0,
+            calculated_salary: Number(record.calculated_salary) || Number(record.paid_amount) || 0
+          };
+        });
+      }
+      
+      return { current: paymentsMap, previous: prevMap };
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    enabled: !!selectedMonth && selectedMonth !== "all",
+  });
 
-        // Fetch previous month payments to calculate adjustments
-        const prevMonth = getPreviousMonth(selectedMonth);
-        if (prevMonth) {
-          const {
-            data: prevData,
-            error: prevError
-          } = await supabase.from("dispatcher_salary_payments" as any).select("*").eq("month", prevMonth);
-          if (!prevError && prevData && Array.isArray(prevData)) {
-            const prevMap: Record<string, {
-              paid_amount: number;
-              calculated_salary: number;
-            }> = {};
-            prevData.forEach((record: any) => {
-              prevMap[record.user_id] = {
-                paid_amount: Number(record.paid_amount) || 0,
-                calculated_salary: Number(record.calculated_salary) || Number(record.paid_amount) || 0
-              };
-            });
-            setPrevMonthPayments(prevMap);
-          } else {
-            setPrevMonthPayments({});
-          }
-        } else {
-          setPrevMonthPayments({});
-        }
-      } catch (error) {
-        console.error("Error in fetchSalaryPayments:", error);
-      }
-    };
-    fetchSalaryPayments();
-  }, [selectedMonth]);
+  // Update state from query data
+  useEffect(() => {
+    if (salaryPaymentsData) {
+      setSalaryPayments(salaryPaymentsData.current);
+      setPrevMonthPayments(salaryPaymentsData.previous);
+    } else if (!selectedMonth || selectedMonth === "all") {
+      setSalaryPayments({});
+      setPrevMonthPayments({});
+    }
+  }, [salaryPaymentsData, selectedMonth]);
 
   // Fetch dispatcher bonuses for the selected month
   useEffect(() => {
@@ -2894,6 +2884,35 @@ const Analytics = () => {
                                       // Calculate future month data for deleted users
                                       const nextMonthDate = new Date(year, monthNum + 1, 1);
                                       const futureMonthLabel = format(nextMonthDate, "MMMM");
+                                      
+                                      // For deleted users, calculate next month's values from orders
+                                      // Find the next month's date range
+                                      const nextMonthStart = new Date(year, monthNum + 1, 1);
+                                      const nextMonthEnd = new Date(year, monthNum + 2, 0);
+                                      
+                                      // Calculate next month freight/cut for this dispatcher
+                                      let nextMonthFreight = 0;
+                                      let nextMonthDriverRate = 0;
+                                      if (isDeletedUserFlag && orders) {
+                                        orders.forEach(order => {
+                                          const orderDispatcher = order.bookedBy || "";
+                                          if (orderDispatcher !== stat.name) return;
+                                          
+                                          const deliveryDateStr = order.deliveryDate || order.deliveryDatetime;
+                                          if (!deliveryDateStr) return;
+                                          
+                                          const dateStr = String(deliveryDateStr).split("T")[0].split(" ")[0];
+                                          const [oYear, oMonth, oDay] = dateStr.split("-").map(Number);
+                                          if (!oYear || !oMonth || !oDay) return;
+                                          
+                                          const deliveryDate = new Date(oYear, oMonth - 1, oDay);
+                                          if (deliveryDate >= nextMonthStart && deliveryDate <= nextMonthEnd) {
+                                            nextMonthFreight += Number(order.totalFreightAmountNoLumper) || 0;
+                                            nextMonthDriverRate += getEffectiveDriverPay(order);
+                                          }
+                                        });
+                                      }
+                                      const nextMonthCut = nextMonthFreight - nextMonthDriverRate;
 
                                       // Open preview dialog with all the data
                                       setPayrollPreviewData({
@@ -2913,8 +2932,8 @@ const Analytics = () => {
                                         perDayRate,
                                         isDeletedUser: isDeletedUserFlag,
                                         futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
-                                        futureSalary1Percent: isDeletedUserFlag ? stat.totalFreight * 0.01 : undefined,
-                                        futureBonus5Percent: isDeletedUserFlag ? stat.cut * 0.05 : undefined,
+                                        futureSalary1Percent: isDeletedUserFlag ? nextMonthFreight * 0.01 : undefined,
+                                        futureBonus5Percent: isDeletedUserFlag ? nextMonthCut * 0.05 : undefined,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
@@ -2964,6 +2983,35 @@ const Analytics = () => {
                                       // Calculate future month data for deleted users
                                       const nextMonthDate = new Date(year, monthNum + 1, 1);
                                       const futureMonthLabel = format(nextMonthDate, "MMMM");
+                                      
+                                      // For deleted users, calculate next month's values from orders
+                                      // Find the next month's date range
+                                      const nextMonthStart = new Date(year, monthNum + 1, 1);
+                                      const nextMonthEnd = new Date(year, monthNum + 2, 0);
+                                      
+                                      // Calculate next month freight/cut for this dispatcher
+                                      let nextMonthFreight = 0;
+                                      let nextMonthDriverRate = 0;
+                                      if (isDeletedUserFlag && orders) {
+                                        orders.forEach(order => {
+                                          const orderDispatcher = order.bookedBy || "";
+                                          if (orderDispatcher !== stat.name) return;
+                                          
+                                          const deliveryDateStr = order.deliveryDate || order.deliveryDatetime;
+                                          if (!deliveryDateStr) return;
+                                          
+                                          const dateStr = String(deliveryDateStr).split("T")[0].split(" ")[0];
+                                          const [oYear, oMonth, oDay] = dateStr.split("-").map(Number);
+                                          if (!oYear || !oMonth || !oDay) return;
+                                          
+                                          const deliveryDate = new Date(oYear, oMonth - 1, oDay);
+                                          if (deliveryDate >= nextMonthStart && deliveryDate <= nextMonthEnd) {
+                                            nextMonthFreight += Number(order.totalFreightAmountNoLumper) || 0;
+                                            nextMonthDriverRate += getEffectiveDriverPay(order);
+                                          }
+                                        });
+                                      }
+                                      const nextMonthCut = nextMonthFreight - nextMonthDriverRate;
 
                                       // Open preview dialog with all the data
                                       setPayrollPreviewData({
@@ -2983,8 +3031,8 @@ const Analytics = () => {
                                         perDayRate,
                                         isDeletedUser: isDeletedUserFlag,
                                         futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
-                                        futureSalary1Percent: isDeletedUserFlag ? stat.totalFreight * 0.01 : undefined,
-                                        futureBonus5Percent: isDeletedUserFlag ? stat.cut * 0.05 : undefined,
+                                        futureSalary1Percent: isDeletedUserFlag ? nextMonthFreight * 0.01 : undefined,
+                                        futureBonus5Percent: isDeletedUserFlag ? nextMonthCut * 0.05 : undefined,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
