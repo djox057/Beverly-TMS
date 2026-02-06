@@ -1,129 +1,132 @@
 
 
-# Phase 3D: Eliminate RLS Amplification on Trucks/Drivers/Weekly Plans
+# Phase 3E: Eliminate ALL Remaining 14-Join Queries
 
-## Root Cause (Confirmed)
+## Problem
 
-The 504 timeouts and 70-100% CPU are caused by **RLS policy amplification through lateral joins**. Here is the exact chain:
+The Phase 3C/3D fixes only covered `useOrdersRealtime`, `useOrdersSearch`, `useOrdersProgressive`, `useTrucks`, `useDrivers`, and `useDashboard`. But **6 more hooks** still fire massive lateral-join queries through RLS, causing the same "statement timeout" cascade that saturates CPU to 100%.
 
-1. `useTrucks.ts` fetches 268 trucks with 4 lateral joins (trailers, driver1, driver2, company)
-2. Each joined table has its own RLS SELECT policy that calls `has_any_role()`
-3. `has_any_role()` calls `auth_user_roles()` which queries the `user_roles` table
-4. PostgreSQL evaluates RLS on EVERY row of EVERY joined table
-5. Result: a single truck list fetch triggers ~1,300 RLS evaluations (268 trucks x 5 tables), each querying `user_roles`
+The database logs confirm: statement timeouts are STILL happening dozens per second.
 
-With 50 concurrent users, that is **65,000 user_roles lookups per page load**. This saturates the connection pool and causes the timeout cascade.
+## Remaining Offenders (in order of severity)
 
-The same pattern affects:
-- `useDrivers.ts` -- fetches all 659 drivers + all 268 trucks (with trailer join)
-- `useWeeklyPlans.ts` -- queries with `driver_id.in.(...)` containing hundreds of IDs
-- `useDashboard.ts` -- 4 separate `COUNT(*)` queries, each evaluating RLS per row
-- `useReportsDateWindowAdapter.ts` -- fetches all trucks with `select("*")`
+### 1. `useReports.ts` - Trucks query (line 918-929) -- CRITICAL
+Fires every 2 minutes (refetchInterval: 120000). Fetches ALL trucks with 4 lateral joins:
+- `driver1:drivers(15+ columns, company:companies(...))`
+- `driver2:drivers(15+ columns, company:companies(...))`
+- `trailer:trailer_id(...)`
+- `company:companies(...)`
 
-## Solution: Apply Flat + Batch Pattern to All Remaining Heavy Queries
+With 268 trucks, this triggers ~1,300+ RLS evaluations per call. Two instances run (priority + background), so this alone fires ~2,600 RLS evaluations every 2 minutes.
 
-The same fix that worked for orders: replace multi-join queries with flat fetches + separate batch lookups. This reduces RLS evaluations from O(rows x joins) to O(rows) per table.
+### 2. `useReports.ts` - Orders query (line 975-1111) -- CRITICAL
+Fires every 2 minutes. Fetches ALL unlocked orders (600+) with 10 lateral joins including nested company sub-joins. Each order triggers 10+ RLS lookups = ~6,000+ RLS evaluations per call. Batched in 1000s, but each batch is a monster query.
 
-### Fix 1: Rewrite `useTrucks.ts` (THE BIGGEST OFFENDER)
+### 3. `useUnlockedOrdersPagination.ts` (line 53 + 155-191)
+Full 14-join query on every page load. `select("*")` count query evaluates all columns through RLS.
 
-Remove the 4-way lateral join. Fetch trucks flat, then batch-fetch related entities.
+### 4. `useTripsLazyOrders.ts` (line 223-260)
+Full 14-join query triggered on every Trips page search.
 
-**Before (1 query, 4 joins, ~1,300 RLS evaluations):**
+### 5. `NestedDriverTripsDropdown.tsx` (line 125-155)
+10-join query triggered when expanding driver trips dropdown (used in Reports and Trips pages).
+
+### 6. `useLumperMissingRevisedRC.ts` (line 34-45)
+Joins drivers, trucks, and order_files. Smaller but still contributes to RLS overhead.
+
+## Solution: Convert All to Flat + Batch Pattern
+
+### Fix 1: `useReports.ts` Trucks Query
+Replace the 4-join trucks query with flat fetch + parallel batch lookups (same pattern as the useTrucks fix from Phase 3D).
+
+Before:
 ```
-select *, trailer:trailers(...), driver1:drivers!...(...), driver2:drivers!...(...), company:companies(...)
-from trucks order by truck_number
+select *, driver1:drivers!...(15 cols, company:companies(...)), driver2:drivers!...(...), trailer:trailer_id(...), company:companies(...)
+from trucks
 ```
 
-**After (5 simple queries, ~268 + ~268 + ~268 + ~268 + ~50 RLS evaluations, all in parallel):**
+After:
 ```
 -- Query 1: Flat trucks
-select * from trucks order by truck_number
+select * from trucks order by id
 
--- Query 2-5: Batch fetch by collected IDs (parallel)
-select id, trailer_number, trailer_type from trailers where id in (...)
-select id, name, dispatcher_id, company_id from drivers where id in (...)
+-- Parallel batch queries:
+select id, name, phone, email, ... from drivers where id in (driver1_ids + driver2_ids)
+select id, name from companies where id in (company_ids)
+select id, trailer_number, dot_inspection_date from trailers where id in (trailer_ids)
+-- Assemble manually
+```
+
+### Fix 2: `useReports.ts` Orders Query
+Replace the 10-join orders query with the same flat + batch pattern already used in `useReportsDateWindow.ts`. The orders query at line 975-1111 still has joins for broker, company, truck, trailer, driver1, driver2. Convert to flat fetch + batch entity lookups.
+
+Before:
+```
+select id, ..., pickup_drops(...), order_files(...), order_transfers(...),
+  broker:brokers(...), company:companies!...(...), truck:trucks!...(company:companies(...)),
+  trailer:trailers!...(...), driver1:drivers!...(company:companies(...)), driver2:drivers!...(company:companies(...))
+from orders where locked = false
+```
+
+After:
+```
+-- Query 1: Flat orders (with pickup_drops, order_files, order_transfers as separate queries)
+select [flat columns] from orders where locked = false
+
+-- Parallel relation queries by order_id:
+select * from pickup_drops where order_id in (...)
+select id, file_category, file_name, file_path from order_files where order_id in (...)
+select id, ... from order_transfers where order_id in (...)
+
+-- Parallel entity queries by collected IDs:
+select id, name, ... from brokers where id in (...)
 select id, name from companies where id in (...)
-select user_id, full_name, email from profiles
+select id, truck_number from trucks where id in (...)
+select id, trailer_number from trailers where id in (...)
+select id, name, company_id from drivers where id in (...)
 ```
 
-### Fix 2: Rewrite `useDrivers.ts`
+### Fix 3: `useUnlockedOrdersPagination.ts`
+- Change `select("*", { count: "exact", head: true })` to `select("id", ...)`
+- Replace 14-join query with flat + batch pattern
 
-Same pattern. Currently fetches all drivers with company join, then all trucks with trailer join. Replace with flat fetches.
+### Fix 4: `useTripsLazyOrders.ts`
+Replace `getOrderSelectQuery()` (14-join) with flat + batch pattern for the search results (limited to 50 orders).
 
-### Fix 3: Optimize `useDashboard.ts` Counts
+### Fix 5: `NestedDriverTripsDropdown.tsx`
+Replace 10-join query with flat + batch pattern (limited to 50 orders).
 
-Change all 4 count queries from `select('*', { count: 'exact', head: true })` to `select('id', { count: 'exact', head: true })`. This avoids PostgREST evaluating RLS on joined columns.
-
-### Fix 4: Optimize `useReportsDateWindowAdapter.ts` Trucks Query
-
-The adapter query at line 361-365 fetches `select("*")` from trucks. Change to only select needed columns: `select("id, truck_number, driver1_id, driver2_id, trailer_id, is_active, status, company_id, latitude, longitude, last_location_update, location_city, location_state")`.
-
-### Fix 5: Fix `useReportsDateWindow.ts` fetchDriverIdsForOffice
-
-The trucks query at line 480-488 uses a join to drivers:
-```
-select id, driver1_id, driver2_id, driver1:drivers!trucks_driver1_id_fkey(id, dispatcher_id)
-from trucks where is_active = true
-```
-This joins drivers table (triggering drivers RLS). Replace with flat fetch + separate driver lookup.
+### Fix 6: `useLumperMissingRevisedRC.ts`
+Replace joined query with flat orders fetch + separate driver/truck lookups.
 
 ## Technical Details
 
-### File: `src/hooks/useTrucks.ts`
+All fixes follow the identical pattern:
 
-Replace the paginated join query with:
-```typescript
-// Stage 1: Flat trucks fetch
-const { data: allTrucks } = await supabase
-  .from('trucks')
-  .select('*')
-  .order('truck_number');
-
-// Stage 2: Collect unique IDs
-const trailerIds = [...new Set(allTrucks.filter(t => t.trailer_id).map(t => t.trailer_id))];
-const driverIds = [...new Set(allTrucks.flatMap(t => [t.driver1_id, t.driver2_id]).filter(Boolean))];
-const companyIds = [...new Set(allTrucks.filter(t => t.company_id).map(t => t.company_id))];
-
-// Stage 3: Parallel batch fetches
-const [trailersData, driversData, companiesData, dispatchers] = await Promise.all([
-  supabase.from('trailers').select('id, trailer_number, trailer_type').in('id', trailerIds),
-  supabase.from('drivers').select('id, name, dispatcher_id, company_id').in('id', driverIds),
-  supabase.from('companies').select('id, name').in('id', companyIds),
-  supabase.from('profiles').select('user_id, full_name, email'),
-]);
-
-// Stage 4: Build Maps and assemble
+```text
+Stage 1: Flat fetch (single table, no joins)
+  |
+Stage 2: Collect unique IDs from results
+  |
+Stage 3: Parallel batch fetch entities (Promise.all)
+  |
+Stage 4: Build lookup Maps and manually assemble objects
 ```
-
-### File: `src/hooks/useDrivers.ts`
-
-Same pattern -- flat drivers fetch, then separate trucks + trailers + profiles + companies fetches. Remove the inline truck-with-trailer-join.
-
-### File: `src/hooks/useDashboard.ts`
-
-4 line changes: `select('*', ...)` to `select('id', ...)`.
-
-### File: `src/hooks/useReportsDateWindowAdapter.ts`
-
-Line 363: Change `select("*")` to `select("id, truck_number, driver1_id, driver2_id, trailer_id, is_active, status, company_id, latitude, longitude, last_location_update, location_city, location_state")`.
-
-### File: `src/hooks/useReportsDateWindow.ts`
-
-Line 480-488: Replace the join query with flat truck fetch + separate driver dispatcher lookup.
 
 ## Files Changed
 
-| File | Change |
-|---|---|
-| `src/hooks/useTrucks.ts` | Replace 4-join query with flat + batch pattern |
-| `src/hooks/useDrivers.ts` | Replace truck+trailer join with flat + batch pattern |
-| `src/hooks/useDashboard.ts` | Change `select('*')` to `select('id')` in all 4 count queries |
-| `src/hooks/useReportsDateWindowAdapter.ts` | Reduce trucks `select("*")` to only needed columns |
-| `src/hooks/useReportsDateWindow.ts` | Replace trucks+drivers join with flat + batch |
+| File | Change | Impact |
+|---|---|---|
+| `src/hooks/useReports.ts` | Replace trucks 4-join + orders 10-join with flat + batch | Eliminates ~8,600 RLS evaluations per 2-min cycle |
+| `src/hooks/useUnlockedOrdersPagination.ts` | Replace 14-join + optimize count | Eliminates ~1,400 RLS evaluations per page load |
+| `src/hooks/useTripsLazyOrders.ts` | Replace 14-join getOrderSelectQuery() | Eliminates ~700 RLS evaluations per search |
+| `src/components/NestedDriverTripsDropdown.tsx` | Replace 10-join query | Eliminates ~500 RLS evaluations per dropdown open |
+| `src/hooks/useLumperMissingRevisedRC.ts` | Replace joined query | Minor RLS reduction |
 
-## Expected Impact
+## Expected Outcome
 
-- RLS evaluations per user page load: from ~1,300 to ~268 (trucks) + ~268 (trailers) + ~150 (drivers) = ~686 (47% reduction per table fetch)
-- More importantly: no more lateral join amplification where PostgreSQL re-evaluates RLS on joined tables
-- With 50 users: from ~65,000 user_roles lookups to ~34,300 per cycle
-- Combined with Phase 3C fixes: CPU should stabilize under 20% at 50 users
+- ALL client-side PostgREST queries become single-table index lookups
+- Zero lateral joins going through RLS from the frontend
+- Statement timeouts should stop completely
+- CPU should stabilize at 5-15% with 50+ users
+- The "works for a few minutes then crashes" pattern stops because polling queries no longer cascade into timeouts
