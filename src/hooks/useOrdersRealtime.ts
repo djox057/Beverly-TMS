@@ -4,9 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { transformOrders } from "@/utils/ordersTransform";
 
+// Flat column list - NO joins (matches edge function pattern)
+const ORDER_COLUMNS = `
+  id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+  created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+  canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+  is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+  deleted_truck_number, deleted_trailer_number, deleted_driver1_name, deleted_driver2_name,
+  freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+  tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver,
+  late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver,
+  wrong_address_fee, wrong_address_fee_driver, escort_fee,
+  other_charges, other_charges_driver, booked_by,
+  original_truck_id, original_trailer_id
+`;
+
 /**
  * Hook that subscribes to real-time changes on orders and related tables.
  * Updates ALL matching React Query caches directly via setQueryData to avoid expensive refetches.
+ * 
+ * Phase 3C: Uses flat fetch + parallel batch queries instead of 14-join monster query.
  */
 export function useOrdersRealtime() {
   const queryClient = useQueryClient();
@@ -18,55 +35,163 @@ export function useOrdersRealtime() {
     if (isSubscribedRef.current) return;
     isSubscribedRef.current = true;
 
-    // Helper to fetch a single order with all joins including order_files for document indicators
+    /**
+     * Fetch a single order using flat + parallel batch pattern.
+     * Each query is a trivial index lookup — no lateral joins, no RLS subquery storm.
+     */
     const fetchSingleOrder = async (orderId: string) => {
-      const { data, error } = await supabase
+      // Stage 1: Flat order fetch
+      const { data: order, error: orderError } = await supabase
         .from("orders")
-        .select(
-          `
-          *,
-          pickup_drops (*),
-          order_files (id, file_category, file_name, file_path),
-          order_transfers (
-            *,
-            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
-            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
-            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
-            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
-          ),
-          recovery_history (
-            *,
-            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
-            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
-            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
-            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
-          ),
-          broker:brokers (id, name, mc_number, address),
-          company:companies!orders_company_id_fkey (id, name),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-        `
-        )
+        .select(ORDER_COLUMNS)
         .eq("id", orderId)
         .single();
 
-      if (error) {
-        console.error("[Realtime] Error fetching order:", error);
+      if (orderError || !order) {
+        console.error("[Realtime] Error fetching order:", orderError);
         return null;
       }
-      return data;
+
+      // Stage 2: Parallel relation fetches (all by order_id — trivial index lookups)
+      const [pickupDropsRes, orderFilesRes, transfersRes, recoveryRes] = await Promise.all([
+        supabase.from("pickup_drops").select("*").eq("order_id", orderId),
+        supabase.from("order_files").select("id, file_category, file_name, file_path").eq("order_id", orderId),
+        supabase.from("order_transfers").select("*").eq("order_id", orderId),
+        supabase.from("recovery_history").select("*").eq("order_id", orderId),
+      ]);
+
+      // Stage 3: Parallel entity fetches (by primary key — instant)
+      const entityPromises: Promise<any>[] = [];
+      const entityKeys: string[] = [];
+
+      const addEntityFetch = (table: string, id: string | null, columns: string, key: string) => {
+        if (id) {
+          entityPromises.push(supabase.from(table as any).select(columns).eq("id", id).maybeSingle() as any);
+          entityKeys.push(key);
+        }
+      };
+
+      addEntityFetch("trucks", order.truck_id, "id, truck_number, company_id", "truck");
+      addEntityFetch("trailers", order.trailer_id, "id, trailer_number", "trailer");
+      addEntityFetch("drivers", order.driver1_id, "id, name, company_id", "driver1");
+      addEntityFetch("drivers", order.driver2_id, "id, name, company_id", "driver2");
+      addEntityFetch("brokers", order.broker_id, "id, name, mc_number, address", "broker");
+      addEntityFetch("companies", order.company_id, "id, name", "company");
+      addEntityFetch("companies", order.booked_by_company_id, "id, name", "booked_by_company");
+      addEntityFetch("drivers", order.original_driver1_id, "id, name", "original_driver1");
+      addEntityFetch("drivers", order.original_driver2_id, "id, name", "original_driver2");
+      addEntityFetch("trucks", order.original_truck_id, "id, truck_number", "original_truck");
+      addEntityFetch("trailers", order.original_trailer_id, "id, trailer_number", "original_trailer");
+
+      const entityResults = await Promise.all(entityPromises);
+      const entities: Record<string, any> = {};
+      entityKeys.forEach((key, i) => {
+        entities[key] = entityResults[i]?.data || null;
+      });
+
+      // Enrich truck and drivers with company info
+      const companyIds = new Set<string>();
+      if (entities.truck?.company_id) companyIds.add(entities.truck.company_id);
+      if (entities.driver1?.company_id) companyIds.add(entities.driver1.company_id);
+      if (entities.driver2?.company_id) companyIds.add(entities.driver2.company_id);
+      // Remove already-fetched company IDs
+      if (order.company_id) companyIds.delete(order.company_id);
+      if (order.booked_by_company_id) companyIds.delete(order.booked_by_company_id);
+
+      let extraCompanies: Record<string, any> = {};
+      if (companyIds.size > 0) {
+        const { data: cos } = await supabase.from("companies").select("id, name").in("id", Array.from(companyIds));
+        if (cos) cos.forEach(c => { extraCompanies[c.id] = c; });
+      }
+
+      // Also merge already-fetched companies
+      if (entities.company) extraCompanies[entities.company.id] = entities.company;
+      if (entities.booked_by_company) extraCompanies[entities.booked_by_company.id] = entities.booked_by_company;
+
+      // Attach company to truck and drivers
+      if (entities.truck) entities.truck.company = extraCompanies[entities.truck.company_id] || null;
+      if (entities.driver1) entities.driver1.company = extraCompanies[entities.driver1.company_id] || null;
+      if (entities.driver2) entities.driver2.company = extraCompanies[entities.driver2.company_id] || null;
+
+      // Enrich transfer records with driver/truck/trailer names
+      const transfers = transfersRes.data || [];
+      if (transfers.length > 0) {
+        const tDriverIds = new Set<string>();
+        const tTruckIds = new Set<string>();
+        const tTrailerIds = new Set<string>();
+        for (const t of transfers) {
+          if (t.driver1_id) tDriverIds.add(t.driver1_id);
+          if (t.driver2_id) tDriverIds.add(t.driver2_id);
+          if (t.truck_id) tTruckIds.add(t.truck_id);
+          if (t.trailer_id) tTrailerIds.add(t.trailer_id);
+        }
+        const [tDrivers, tTrucks, tTrailers] = await Promise.all([
+          tDriverIds.size > 0 ? supabase.from("drivers").select("id, name").in("id", Array.from(tDriverIds)) : { data: [] },
+          tTruckIds.size > 0 ? supabase.from("trucks").select("id, truck_number").in("id", Array.from(tTruckIds)) : { data: [] },
+          tTrailerIds.size > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", Array.from(tTrailerIds)) : { data: [] },
+        ]);
+        const dMap = new Map(((tDrivers as any).data || []).map((d: any) => [d.id, d]));
+        const tkMap = new Map(((tTrucks as any).data || []).map((t: any) => [t.id, t]));
+        const tlMap = new Map(((tTrailers as any).data || []).map((t: any) => [t.id, t]));
+        for (const t of transfers) {
+          (t as any).driver1 = dMap.get(t.driver1_id) || null;
+          (t as any).driver2 = dMap.get(t.driver2_id) || null;
+          (t as any).truck = tkMap.get(t.truck_id) || null;
+          (t as any).trailer = tlMap.get(t.trailer_id) || null;
+        }
+      }
+
+      // Enrich recovery_history
+      const recoveries = recoveryRes.data || [];
+      if (recoveries.length > 0) {
+        const rDriverIds = new Set<string>();
+        const rTruckIds = new Set<string>();
+        const rTrailerIds = new Set<string>();
+        for (const r of recoveries) {
+          if (r.recovery_driver1_id) rDriverIds.add(r.recovery_driver1_id);
+          if (r.recovery_driver2_id) rDriverIds.add(r.recovery_driver2_id);
+          if (r.recovery_truck_id) rTruckIds.add(r.recovery_truck_id);
+          if (r.recovery_trailer_id) rTrailerIds.add(r.recovery_trailer_id);
+        }
+        const [rDrivers, rTrucks, rTrailers] = await Promise.all([
+          rDriverIds.size > 0 ? supabase.from("drivers").select("id, name").in("id", Array.from(rDriverIds)) : { data: [] },
+          rTruckIds.size > 0 ? supabase.from("trucks").select("id, truck_number").in("id", Array.from(rTruckIds)) : { data: [] },
+          rTrailerIds.size > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", Array.from(rTrailerIds)) : { data: [] },
+        ]);
+        const dMap2 = new Map(((rDrivers as any).data || []).map((d: any) => [d.id, d]));
+        const tkMap2 = new Map(((rTrucks as any).data || []).map((t: any) => [t.id, t]));
+        const tlMap2 = new Map(((rTrailers as any).data || []).map((t: any) => [t.id, t]));
+        for (const r of recoveries) {
+          (r as any).recovery_driver1 = dMap2.get(r.recovery_driver1_id) || null;
+          (r as any).recovery_driver2 = dMap2.get(r.recovery_driver2_id) || null;
+          (r as any).recovery_truck = tkMap2.get(r.recovery_truck_id) || null;
+          (r as any).recovery_trailer = tlMap2.get(r.recovery_trailer_id) || null;
+        }
+      }
+
+      // Assemble the full order object matching the old join shape
+      return {
+        ...order,
+        pickup_drops: pickupDropsRes.data || [],
+        order_files: orderFilesRes.data || [],
+        order_transfers: transfers,
+        recovery_history: recoveries,
+        broker: entities.broker,
+        company: entities.company,
+        booked_by_company: entities.booked_by_company,
+        truck: entities.truck,
+        trailer: entities.trailer,
+        driver1: entities.driver1,
+        driver2: entities.driver2,
+        original_driver1: entities.original_driver1,
+        original_driver2: entities.original_driver2,
+        original_truck: entities.original_truck,
+        original_trailer: entities.original_trailer,
+      };
     };
 
-    // Transform raw order to match the UI shape (single source of truth)
+    // Transform raw order to match the UI shape
     const transformOrder = (order: any) => transformOrders([order])[0];
-
 
     // Update ALL orders caches that start with ["orders"]
     const updateAllOrdersCaches = (
@@ -74,9 +199,7 @@ export function useOrdersRealtime() {
       transformedOrder: any | null,
       isDelete: boolean = false
     ) => {
-      // Get all queries that start with "orders"
       const cache = queryClient.getQueryCache();
-      // IMPORTANT: exact=false so this matches both ["orders"] and ["orders","filtered",...]
       const orderQueries = cache.findAll({ queryKey: ["orders"], exact: false });
 
       console.log(`[Realtime] Updating ${orderQueries.length} orders caches for order ${orderId}`);
@@ -93,12 +216,10 @@ export function useOrdersRealtime() {
 
           const existingIndex = old.findIndex((o) => o.id === orderId);
           if (existingIndex >= 0) {
-            // Update existing order
             const updated = [...old];
             updated[existingIndex] = transformedOrder;
             return updated;
           } else {
-            // Insert new order at the beginning
             return [transformedOrder, ...old];
           }
         });
@@ -121,7 +242,6 @@ export function useOrdersRealtime() {
         return;
       }
 
-      // For INSERT and UPDATE, fetch the full order with joins
       if (!orderId) return;
 
       const fullOrder = await fetchSingleOrder(orderId);
@@ -134,7 +254,7 @@ export function useOrdersRealtime() {
       updateAllOrdersCaches(orderId, transformedOrder);
     };
 
-    // Handle related table changes (pickup_drops, order_transfers, order_files)
+    // Handle related table changes
     const handleRelatedTableChange = async (
       payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
     ) => {
@@ -147,15 +267,13 @@ export function useOrdersRealtime() {
 
       console.log(`[Realtime] Related table change for order:`, orderId, `table:`, tableName);
 
-      // For order_files changes, also invalidate the Reports adapter cache
       if (tableName === 'order_files') {
         queryClient.invalidateQueries({ 
           queryKey: ["adapter-order-files"],
-          refetchType: 'active'  // Only refetch currently mounted queries
+          refetchType: 'active'
         });
       }
 
-      // Fetch the full updated order
       const fullOrder = await fetchSingleOrder(orderId);
       if (!fullOrder) return;
 
@@ -164,29 +282,12 @@ export function useOrdersRealtime() {
     };
 
     // Create channel and subscribe
-    // Create channel and subscribe (orders, pickup_drops, order_transfers, order_files)
     const channel = supabase
       .channel("orders-realtime-global")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        handleOrderChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pickup_drops" },
-        handleRelatedTableChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_transfers" },
-        handleRelatedTableChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_files" },
-        handleRelatedTableChange
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, handleOrderChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, handleRelatedTableChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, handleRelatedTableChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_files" }, handleRelatedTableChange)
       .subscribe((status) => {
         console.log("[Realtime] Subscription status:", status);
       });
