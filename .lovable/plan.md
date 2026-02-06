@@ -1,134 +1,58 @@
 
+# Fix: Reports page not loading orders for non-primary offices
 
-# Phase 3F: Stop the Realtime Cascade Loop and Remaining Joins
+## Root Cause
 
-## Root Cause: Realtime Event Cascade
+In `useReportsDateWindow.ts`, two mechanisms prevent orders from loading when switching offices:
 
-The screenshot proves it: **2,431 GET requests** to `/orders?select=*,pickup_drops(...)` in 10 minutes = ~4 requests per second. This is an infinite cascade loop, not normal polling.
+1. **`globalLoadedWindows` is not office-scoped** (line 560, 692): This module-level `Set` tracks loaded date ranges using only the date key (e.g., `"2026-02-04_2026-02-09"`). When Office A loads today's window, it marks this key as loaded. When switching to Office B, the same key is already in the set, so the fetch is **skipped entirely** -- Office B's drivers' orders are never fetched.
 
-Here is the cascade chain:
+2. **Orders query key missing office scope** (line 680): The React Query key `['reports-date-window-orders', windowKey, 'all']` does not include the office name. So React Query serves the cached (skipped) result from Office A when Office B requests the same date window.
 
-```text
-Any order change in the database
-  |
-  +--> useOrdersRealtime: fetches single order (10+ parallel queries)
-  +--> useDashboard: invalidateQueries -> refetches 4 count queries + recent orders with joins
-  +--> useRecoveryTrucks: invalidateQueries -> refetches ALL trucks + orders with pickup_drops joins
-  +--> useYardLoadsFromOrders: (if active) refetches with 7 joins
-  |
-  v
-  Each refetch creates database load, which combined with RLS evaluation, causes timeouts
-  Timeouts cause retries (React Query default: 3 retries)
-  Retries create more load -> more timeouts -> more retries
-  The system enters a self-sustaining overload loop
+**Why it works after navigating +1 day and back:** The date window key changes (different dates), bypassing both caches, which triggers a fresh fetch using the now-correct `driverIdsRef` (populated by the stable query which IS office-scoped).
+
+**Why the user's own office works:** It's the first office loaded, so the `globalLoadedWindows` set is empty and the fetch proceeds normally.
+
+## Fix
+
+Two changes in `src/hooks/useReportsDateWindow.ts`:
+
+### Change 1: Scope `globalLoadedWindows` entries by office context
+
+Instead of storing just `windowKey` (date range), store `scopedWindowKey` that includes the office/mode context:
+
+```typescript
+// Line 692 area - before:
+if (globalLoadedWindows.has(windowKey)) { ... }
+
+// After:
+const scopedWindowKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+if (globalLoadedWindows.has(scopedWindowKey)) { ... }
 ```
 
-Additionally, the `useTrucksRealtime` and `useDriversRealtime` hooks listen to overlapping tables (`trucks`, `drivers`, `trailers`, `companies`), so a single driver change triggers BOTH hooks, each running their own expensive fetch sequences.
+### Change 2: Include office in the orders query key
 
-## Fixes (in priority order)
+```typescript
+// Line 680 - before:
+queryKey: ['reports-date-window-orders', windowKey, individualMode ? 'individual' : 'all']
 
-### Fix 1: Remove `invalidateQueries` from ALL realtime subscriptions
+// After:
+queryKey: ['reports-date-window-orders', windowKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all']
+```
 
-Replace `invalidateQueries` (which triggers expensive refetches) with direct cache patching (`setQueryData`) or simply debounce/throttle the invalidation. Specifically:
+### Change 3: Update all references to windowKey in globalLoadedWindows
 
-- **`useRecoveryTrucks.ts`**: Remove the realtime subscription entirely. It subscribes to ALL `orders` changes just to refetch recovery trucks. Replace with 30-second staleTime (already has staleTime: 30000) and no realtime. Recovery data doesn't need instant updates.
-- **`useDashboard.ts`**: Remove the realtime subscriptions on `orders`, `trucks`, `drivers`, `brokers`. Dashboard stats don't need instant updates. Use staleTime + refetchInterval instead (e.g., every 60 seconds).
-- **`useYardLoadsFromOrders.ts`**: Already uses refetchInterval: 120000. No changes needed, but the joined query must be converted to flat+batch.
-
-### Fix 2: Convert remaining joined queries to flat+batch
-
-These are the hooks still using lateral joins:
-
-**`useYardLoadsFromOrders.ts`** (7 joins, polls every 2 min):
-Replace with flat orders fetch + parallel batch fetches for trailers, brokers, companies, drivers, trucks, and pickup_drops.
-
-**`useRecoveryTrucks.ts`** (6 joins on trucks + pickup_drops join on orders):
-Replace with flat trucks fetch + batch entities. Replace orders query with flat + separate pickup_drops fetch.
-
-**`useDashboard.ts` `fetchRecentOrders`** (2 joins: trucks + pickup_drops):
-Replace with flat orders fetch + batch truck lookup + separate pickup_drops query.
-
-**`useExpiringAlerts.ts`** (3 joins on trucks: driver1 with company, driver2, company):
-Replace with flat trucks fetch + batch driver/company lookups.
-
-**`useRepairs.ts`** (3 joins: trucks, trailers, drivers):
-Replace with flat repairs fetch + batch entity lookups.
-
-**`useTrucksRealtime.ts`** (4 joins in fetchSingleTruck):
-Replace with flat truck fetch + parallel entity lookups.
-
-**`useDriversRealtime.ts`** (company join + truck/trailer join):
-Replace with flat driver fetch + separate truck and company lookups.
-
-**`useAvailableTrucks.ts`** (1 join: drivers):
-Replace with flat trucks fetch + batch driver lookup.
-
-### Fix 3: Fix remaining `select("*")` count queries
-
-**`useYardLoadsCount.ts`**: Change `select("*", { count: "exact", head: true })` to `select("id", { count: "exact", head: true })`.
-
-### Fix 4: Remove `fetchPreviousWeekLastDelivery` inner join in Trips.tsx
-
-The `pickup_drops!inner(datetime, type)` join at line 120 should be replaced with a separate pickup_drops query.
+The same scoped key must be used consistently at:
+- Line 692 (skip check in queryFn)
+- Line 737 (marking window as loaded after fetch)
+- Line 762 (initial fetch trigger effect)
+- Line 771-773 (reset trigger flag effect)
+- Lines 802, 809 (prefetch adjacent windows)
 
 ## Technical Details
 
-### File: `src/hooks/useRecoveryTrucks.ts`
-- Remove entire realtime subscription (lines 8-50)
-- Replace trucks query (lines 56-69) with flat + batch
-- Replace orders query (lines 85-94) with flat + separate pickup_drops
-- Add refetchInterval: 60000 for periodic refresh
+### File: `src/hooks/useReportsDateWindow.ts`
 
-### File: `src/hooks/useDashboard.ts`
-- Remove realtime subscriptions from `useDashboardStats` (lines 86-112) and `useRecentOrders` (lines 131-148)
-- Replace `fetchRecentOrders` joined query (lines 60-76) with flat + batch
-- Add refetchInterval: 60000 to both hooks
+The `scopedWindowKey` will be computed in the hook body and used everywhere `windowKey` currently appears in relation to `globalLoadedWindows`. The `windowKey` itself stays unchanged for its original purpose (identifying date ranges). A new variable `scopedWindowKey` combines office + mode + dates.
 
-### File: `src/hooks/useYardLoadsFromOrders.ts`
-- Replace 7-join query (lines 68-128) with flat orders fetch + parallel batch fetches
-- Keep existing refetchInterval: 120000
-
-### File: `src/hooks/useYardLoadsCount.ts`
-- Line 10: Change `select("*"` to `select("id"`
-
-### File: `src/hooks/useExpiringAlerts.ts`
-- Replace trucks query (lines 10-18) with flat + batch
-
-### File: `src/hooks/useRepairs.ts`
-- Replace repairs query (lines 67-75) with flat + batch
-
-### File: `src/hooks/useTrucksRealtime.ts`
-- Replace `fetchSingleTruck` (lines 23-91) with flat truck fetch + parallel entity lookups
-
-### File: `src/hooks/useDriversRealtime.ts`
-- Replace `fetchSingleDriver` (lines 23-116) with flat driver fetch + separate entity lookups
-- Remove the `user_roles` + `profiles` round-trip in `has_account` check (lines 83-101); use cached data from the main drivers query instead
-
-### File: `src/hooks/useAvailableTrucks.ts`
-- Replace trucks+drivers join with flat + batch
-
-### File: `src/pages/Trips.tsx`
-- Replace `fetchPreviousWeekLastDelivery` (lines 114-123) pickup_drops!inner join with flat + separate query
-
-## Files Changed
-
-| File | Change | Impact |
-|---|---|---|
-| `src/hooks/useRecoveryTrucks.ts` | Remove realtime sub + flat+batch queries | Stops biggest loop contributor |
-| `src/hooks/useDashboard.ts` | Remove realtime subs + flat+batch fetchRecentOrders + add refetchInterval | Stops cascade amplifier |
-| `src/hooks/useYardLoadsFromOrders.ts` | Flat+batch query | Eliminates 7-join RLS amplification |
-| `src/hooks/useYardLoadsCount.ts` | select("id") instead of select("*") | Minor optimization |
-| `src/hooks/useExpiringAlerts.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
-| `src/hooks/useRepairs.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
-| `src/hooks/useTrucksRealtime.ts` | Flat+batch fetchSingleTruck | Eliminates 4-join per realtime event |
-| `src/hooks/useDriversRealtime.ts` | Flat+batch fetchSingleDriver | Eliminates joins + user_roles storm |
-| `src/hooks/useAvailableTrucks.ts` | Flat+batch query | Eliminates 1-join RLS amplification |
-| `src/pages/Trips.tsx` | Replace pickup_drops!inner join | Eliminates join in per-truck query |
-
-## Expected Outcome
-
-- The realtime cascade loop is broken by removing `invalidateQueries` from subscriptions
-- ALL remaining client-side queries become single-table index lookups
-- Zero lateral joins remain anywhere in the frontend
-- CPU should drop to 5-10% with 1 user and stay under 30% with 50+ users
-- The "works for a few minutes then crashes" pattern stops permanently
+No other files need changes. The adapter and UI components consume `accumulatedOrders` which will now correctly contain orders from all offices as each office's window is loaded independently.
