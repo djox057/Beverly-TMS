@@ -2553,12 +2553,12 @@ export const useReports = (options?: UseReportsOptions) => {
     queryKey: ["reports", "priority", priorityOffice],
     queryFn: () => queryWithTimeout(() => fetchReportsData(priorityOffice || null)),
     enabled: !disableFetch, // Disabled when used for mutations-only
-    retry: 2,
+    retry: 1,
     retryDelay: 1000,
     staleTime: 300000,
     gcTime: 600000,
     refetchOnWindowFocus: false,
-    refetchInterval: disableFetch ? false : 30000,
+    refetchInterval: disableFetch ? false : 120000,
   });
 
   // Background query - loads ALL data after priority is ready
@@ -2566,12 +2566,12 @@ export const useReports = (options?: UseReportsOptions) => {
     queryKey: ["reports", "full"],
     queryFn: () => queryWithTimeout(() => fetchReportsData(null)),
     enabled: !disableFetch && priorityQuery.isSuccess, // Only start after priority loads, disabled when mutations-only
-    retry: 3,
+    retry: 1,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 300000,
     gcTime: 600000,
     refetchOnWindowFocus: false,
-    refetchInterval: disableFetch ? false : 60000, // Slower refresh for background
+    refetchInterval: disableFetch ? false : 300000,
   });
 
   // Merge: use background data if available, otherwise priority data
