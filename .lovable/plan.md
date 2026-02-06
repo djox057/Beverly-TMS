@@ -1,111 +1,147 @@
 
 
-# Phase 3: Performance Optimization
+# Phase 3B: Fix CPU Spikes on Reports Page
 
-## What This Fixes
-Statement timeouts are still occurring on two specific queries: the locked-orders Edge Function (14 nested joins on 12k+ rows) and the lumper missing-RC query (no index on `lumper > 0`). This phase eliminates both.
+## Root Cause (Confirmed via Code Audit)
 
-## Step 1: Database Indexes (Immediate Relief)
+The CPU spikes are caused by three compounding issues, confirmed by reading the actual source code:
 
-Add three targeted partial indexes to support the heaviest query patterns:
+1. **Duplicate Realtime Subscriptions**: `useReports.ts` (line 219) subscribes to 6 tables via `reports-consolidated` channel even when `disableFetch: true`. Meanwhile, `useReportsDateWindowAdapter.ts` has its own realtime subscriptions for `truck_notes` (line 753) and `lost_day_notes` (line 835). Every DB change fires on both channels.
 
-| Index | Purpose |
-|---|---|
-| `idx_orders_locked_true_created` on `orders(created_at DESC) WHERE locked = true` | Covers the locked-orders Edge Function, which currently does a sequential scan on 12k+ rows |
-| `idx_orders_lumper_created` on `orders(created_at) WHERE lumper > 0` | Covers `useLumperMissingRevisedRC` which filters on `lumper > 0` with no index |
-| `idx_orders_locked_driver1_pickup` on `orders(driver1_id, pickup_datetime DESC) WHERE locked = true` | Covers Reports page locked-orders-by-driver fetches |
+2. **Loading ALL Drivers Organization-Wide**: `useReportsDateWindow.ts` line 631 calls `fetchDriverIdsForOffice(null, ...)` -- the `null` means it fetches all dispatchers across all offices, then loads all their drivers. The adapter then filters by `priorityOffice` in JS at line 1350. This means every supporting query (trucks, drivers, truck_notes, lost_day_notes) fetches data for the entire company.
 
-No indexes will be dropped -- production stats confirmed all existing indexes are actively used.
+3. **Unstable `useMemo` Dependencies**: The 450-line transformation at line 979 has 16 dependencies (lines 1388-1407). Several are problematic:
+   - `windowOrderIds` (line 1404): Recreated by its own `useMemo` every time `dateWindowHook.orders` changes reference, even if the IDs are identical
+   - `isSupportingDataReady` (line 1406): A boolean computed inline at line 975 (`!!(trucks && drivers && dispatchers && companies)`) -- this creates a new boolean evaluation every render, but since it's a primitive it's actually stable. However, it being in the dep array alongside truly unstable deps amplifies re-runs.
+   - `lastLoadsData` (line 1405): Object reference from `useQuery` that changes when the query refetches
+   - `orderFilesMap` (line 1400): A new `Map` object created every time `orderFiles` or `lastLoadsData?.files` changes
 
-## Step 2: Slim `get-all-locked-orders` Edge Function
+## Fix 1: Disable Legacy Realtime When `disableFetch: true`
 
-Current state: `SELECT *` with 14 nested joins (broker, company, truck with company sub-join, trailer, driver1 with company, driver2 with company, original_driver1/2, original_truck/trailer, recovery_history with 4 sub-joins, order_transfers with 4 sub-joins, pickup_drops, order_files). Each join creates lateral subqueries multiplied across 12k+ locked rows.
+**File: `src/hooks/useReports.ts`, line 219**
 
-New two-stage approach:
-1. Fetch flat order columns only (no joins) with pagination
-2. Collect all order IDs from the batch
-3. Three parallel `.in()` batch queries for `pickup_drops`, `order_files`, and `order_transfers` (flat columns only, no sub-joins)
-4. Group results by `order_id` using a Map, attach to orders before returning
-
-All other joins removed entirely (broker, company, truck, trailer, driver1/2, original_*, recovery_history) -- callers already resolve these from cached data in `useDrivers`, `useTrucks`, etc., and `transformOrders` gracefully handles missing join data via `deleted_*` fallback fields.
-
-Performance logging will be added at each stage to verify the "under 1s" target.
-
-## Step 3: Slim `get-all-unlocked-orders` Edge Function
-
-Identical refactor as Step 2 -- same 14-join query structure, same two-stage pattern. Fewer rows (~660 unlocked) but same CPU cost per row.
-
-## Step 4: Deduplicate `truck_notes` and Add Unique Constraint
-
-Production data shows 2 drivers with duplicate notes (one has 38 duplicates, one has 3). The root cause is the upsert code in `useReports.ts` which does not use `onConflict` -- it checks for existence and inserts, creating a race condition window.
-
-Migration will:
-1. Delete all but the most recently updated note per driver
-2. Add `UNIQUE(driver_id)` constraint
-3. Update the mutation code in `useReports.ts` to use proper upsert with `onConflict: 'driver_id'`
-
-## What We Are NOT Doing
-
-- **Dropping indexes**: Production stats show all existing indexes are heavily used
-- **Removing the legacy `useReports.ts` fetch path**: It is already fully guarded by `disableFetch: true` when the date-window adapter is active (confirmed in code). No additional guard needed.
-- **Staged rollout with v2 Edge Functions**: The response shape stays compatible -- `transformOrders` already handles missing join data via null checks and `deleted_*` fallbacks. A direct update is safe.
-
-## Technical Details
-
-### Edge Function batch pattern (Steps 2/3)
+Add early return when `disableFetch` is true:
 
 ```text
-// Stage 1: Flat orders
-const { data: orders } = await supabase
-  .from("orders")
-  .select("id, load_number, internal_load_number, ...")  // flat columns only
-  .eq("locked", true)
-  .range(offset, offset + limit - 1);
+useEffect(() => {
+    // When disableFetch is true, the date-window adapter handles its own
+    // realtime subscriptions. Don't create a duplicate channel.
+    if (disableFetch) return;
+    
+    let timeoutId: NodeJS.Timeout;
+    // ... rest of existing subscription code
+}, [queryClient, disableFetch]);
+```
 
-// Stage 2: Batch relations using .in()
-const orderIds = orders.map(o => o.id);
+This eliminates the duplicate `reports-consolidated` channel that fires invalidations for `["reports", "priority"]` -- a query key that doesn't even exist when date-window loading is active.
 
-const [pickupDrops, orderFiles, transfers] = await Promise.all([
-  supabase.from("pickup_drops").select("...").in("order_id", orderIds),
-  supabase.from("order_files").select("...").in("order_id", orderIds),
-  supabase.from("order_transfers").select("...").in("order_id", orderIds),
+## Fix 2: Scope Driver Loading to Current Office
+
+**File: `src/hooks/useReportsDateWindow.ts`**
+
+Two changes:
+
+### 2a. Pass `priorityOffice` instead of `null` (line 631)
+
+```text
+const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
+    priorityOffice,  // was: null
+    individualMode ? currentUserDispatcherId : null
+);
+```
+
+### 2b. Add `priorityOffice` to the stable query key (line 619)
+
+```text
+const stableQueryKey = useMemo(() => [
+    'reports-date-window-stable',
+    priorityOffice || 'all-offices',
+    individualMode ? 'individual' : 'all',
+    individualMode ? currentUserDispatcherId : 'all-dispatchers',
+], [priorityOffice, individualMode, currentUserDispatcherId]);
+```
+
+This ensures each office tab has its own cache entry. When switching tabs, React Query fetches only that office's drivers instead of reusing the full company dataset.
+
+**Edge case handling**: When `priorityOffice` is `null` (no office selected), the existing `fetchDriverIdsForOffice` function already handles this by loading all dispatchers -- so no fallback is needed.
+
+## Fix 3: Stabilize `useMemo` Dependencies (Audited)
+
+After auditing the dependency array (lines 1388-1407), the main instability sources are:
+
+- `windowOrderIds`: New array reference on every orders change even if IDs are identical
+- `lastLoadsData`: Object reference changes on refetch even if data is same
+- `orderFilesMap`: New Map on every `orderFiles` reference change
+
+**File: `src/hooks/useReportsDateWindowAdapter.ts`**
+
+### 3a. Stabilize `windowOrderIds` with a string comparison
+
+Replace the current `windowOrderIds` memo (line 503) with one that only updates when the actual ID set changes:
+
+```text
+const windowOrderIdsRef = useRef<string[]>([]);
+const windowOrderIds = useMemo(() => {
+    if (!dateWindowHook.orders || dateWindowHook.orders.length === 0) {
+        if (windowOrderIdsRef.current.length === 0) return windowOrderIdsRef.current;
+        windowOrderIdsRef.current = [];
+        return windowOrderIdsRef.current;
+    }
+    const newIds = dateWindowHook.orders.map((o) => o.id);
+    // Only create new reference if IDs actually changed
+    const prev = windowOrderIdsRef.current;
+    if (prev.length === newIds.length && prev.every((id, i) => id === newIds[i])) {
+        return prev;
+    }
+    windowOrderIdsRef.current = newIds;
+    return newIds;
+}, [dateWindowHook.orders]);
+```
+
+### 3b. Remove `isSupportingDataReady` and `windowOrderIds` from the main useMemo dependency array
+
+`isSupportingDataReady` is only used for early-return guards at the top of the useMemo. Since it's derived from `trucks`, `drivers`, `dispatchers`, and `companies` (which are already in the dependency array), it's redundant as a dependency.
+
+`windowOrderIds` is not used inside the transformation body at all -- it's only used for the order_files fetch. Remove it from the dependency array.
+
+Updated dependency array (line 1388):
+
+```text
+}, [
+    dateWindowHook.orders,
+    dateWindowHook.driverIds,
+    dateWindowHook.isLoading,
+    dateWindowHook.isFetching,
+    trucks,
+    trailers,
+    drivers,
+    dispatchers,
+    companies,
+    truckNotes,
+    lostDayNotes,
+    orderFilesMap,
+    priorityOffice,
+    dispatcherId,
+    isOrderFilesLoading,
+    lastLoadsData,
 ]);
-
-// Stage 3: Group and attach
-const pdMap = new Map();
-for (const pd of pickupDrops.data) {
-  if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
-  pdMap.get(pd.order_id).push(pd);
-}
-// ... same for files and transfers
-
-orders.forEach(order => {
-  order.pickup_drops = pdMap.get(order.id) || [];
-  order.order_files = ofMap.get(order.id) || [];
-  order.order_transfers = otMap.get(order.id) || [];
-});
 ```
 
-### Rollback SQL (if indexes cause issues)
+(Removed: `windowOrderIds`, `isSupportingDataReady`)
 
-```text
-DROP INDEX CONCURRENTLY IF EXISTS idx_orders_locked_true_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_orders_lumper_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_orders_locked_driver1_pickup;
-```
-
-### Files Changed
+## Files Changed
 
 | File | Change |
 |---|---|
-| Migration SQL | 3 new indexes + truck_notes dedup + unique constraint |
-| `supabase/functions/get-all-locked-orders/index.ts` | Replace 14-join SELECT with two-stage flat+batch pattern |
-| `supabase/functions/get-all-unlocked-orders/index.ts` | Same refactor |
-| `src/hooks/useReports.ts` | Change truck_notes insert to upsert with `onConflict: 'driver_id'` |
+| `src/hooks/useReports.ts` | Guard realtime `useEffect` with `if (disableFetch) return` |
+| `src/hooks/useReportsDateWindow.ts` | Pass `priorityOffice` to `fetchDriverIdsForOffice`, add to query key |
+| `src/hooks/useReportsDateWindowAdapter.ts` | Stabilize `windowOrderIds` ref, remove redundant deps from main useMemo |
 
-### Implementation Order
+## Expected Outcome
 
-1. Database migration (indexes + truck_notes) -- immediate timeout relief, zero risk
-2. Edge Function refactoring (both functions) -- main performance improvement
-3. useReports.ts upsert fix -- prevents future duplicates
+- Fix 1: Eliminates duplicate realtime channel (6 table subscriptions removed)
+- Fix 2: Reduces dataset from 300+ drivers to 30-50 per office tab; all downstream queries (trucks, drivers, notes) shrink proportionally
+- Fix 3: Prevents 2-3 unnecessary re-runs of the 450-line transformation per realtime event
+
+Combined effect: CPU spikes should drop from 45-77% to under 15%.
 
