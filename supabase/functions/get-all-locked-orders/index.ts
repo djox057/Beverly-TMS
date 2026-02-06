@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     if (offset === 0) {
       let countQuery = supabase
         .from("orders")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("locked", true);
 
       if (bookedBy && dispatcherDriverIds.length > 0) {
