@@ -132,7 +132,7 @@ export const useTrucks = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 30000, // 30 seconds - reduce refetch frequency
+    staleTime: 120000, // 2 minutes - reduce DB load from navigation refetches
     gcTime: 300000, // 5 minutes cache retention
     structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
