@@ -64,14 +64,10 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
   const { data: repairs = [], isLoading } = useQuery({
     queryKey: ['repairs', repairType],
     queryFn: async () => {
+      // Stage 1: Flat repairs fetch
       let query = supabase
         .from('repairs')
-        .select(`
-          *,
-          trucks:truck_id(truck_number),
-          trailers:trailer_id(trailer_number),
-          drivers:driver_id(name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (repairType) {
@@ -79,14 +75,30 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
+      if (!data || data.length === 0) return [] as Repair[];
 
-      return (data || []).map((repair: any) => ({
+      // Stage 2: Batch fetch related entities
+      const truckIds = [...new Set(data.map(r => r.truck_id).filter(Boolean))] as string[];
+      const trailerIds = [...new Set(data.map(r => r.trailer_id).filter(Boolean))] as string[];
+      const driverIds = [...new Set(data.map(r => r.driver_id).filter(Boolean))] as string[];
+
+      const [trucksRes, trailersRes, driversRes] = await Promise.all([
+        truckIds.length > 0 ? supabase.from('trucks').select('id, truck_number').in('id', truckIds) : { data: [] },
+        trailerIds.length > 0 ? supabase.from('trailers').select('id, trailer_number').in('id', trailerIds) : { data: [] },
+        driverIds.length > 0 ? supabase.from('drivers').select('id, name').in('id', driverIds) : { data: [] },
+      ]);
+
+      const truckMap = new Map((trucksRes.data || []).map(t => [t.id, t]));
+      const trailerMap = new Map((trailersRes.data || []).map(t => [t.id, t]));
+      const driverMap = new Map((driversRes.data || []).map(d => [d.id, d]));
+
+      // Stage 3: Assemble
+      return data.map((repair) => ({
         ...repair,
-        truck_number: repair.trucks?.truck_number || null,
-        trailer_number: repair.trailers?.trailer_number || null,
-        driver_name: repair.drivers?.name || null,
+        truck_number: truckMap.get(repair.truck_id)?.truck_number || null,
+        trailer_number: trailerMap.get(repair.trailer_id)?.trailer_number || null,
+        driver_name: driverMap.get(repair.driver_id)?.name || null,
       })) as Repair[];
     },
   });

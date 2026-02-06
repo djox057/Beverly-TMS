@@ -5,28 +5,37 @@ export const useAvailableTrucks = (forRecovery?: boolean) => {
   return useQuery({
     queryKey: ['available-trucks', forRecovery],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Stage 1: Flat trucks fetch
+      const { data: trucks, error } = await supabase
         .from('trucks')
-        .select(`
-          id, 
-          truck_number, 
-          driver1_id,
-          trailer_id,
-          is_active,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id)
-        `)
-        .eq('is_active', true) // Only return active trucks
+        .select('id, truck_number, driver1_id, trailer_id, is_active')
+        .eq('is_active', true)
         .order('truck_number', { ascending: true });
       
       if (error) throw error;
-      
-      // For recovery loads, show all active trucks that have drivers assigned
-      // For normal use, show active trucks without drivers
-      if (forRecovery) {
-        return data?.filter(truck => truck.driver1_id !== null) || [];
-      }
-      
-      return data || [];
+      if (!trucks || trucks.length === 0) return [];
+
+      // For recovery loads, filter to trucks with drivers
+      const filtered = forRecovery
+        ? trucks.filter(truck => truck.driver1_id !== null)
+        : trucks;
+
+      if (filtered.length === 0) return [];
+
+      // Stage 2: Batch fetch drivers for filtered trucks
+      const driverIds = [...new Set(filtered.map(t => t.driver1_id).filter(Boolean))] as string[];
+
+      const driversRes = driverIds.length > 0
+        ? await supabase.from('drivers').select('id, name, dispatcher_id').in('id', driverIds)
+        : { data: [] };
+
+      const driverMap = new Map((driversRes.data || []).map(d => [d.id, d]));
+
+      // Stage 3: Assemble (match original joined shape)
+      return filtered.map(truck => ({
+        ...truck,
+        driver1: driverMap.get(truck.driver1_id) || null,
+      }));
     },
   });
 };

@@ -6,6 +6,7 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 /**
  * Hook that subscribes to real-time changes on trucks and related tables.
  * Uses setQueryData to patch cache directly - no full refetch needed.
+ * All fetches use flat+batch pattern (no joins) to avoid RLS amplification.
  */
 export function useTrucksRealtime() {
   const queryClient = useQueryClient();
@@ -13,222 +14,128 @@ export function useTrucksRealtime() {
   const isSubscribedRef = useRef(false);
 
   useEffect(() => {
-    // Only subscribe once globally
     if (isSubscribedRef.current) return;
     isSubscribedRef.current = true;
 
     const QUERY_KEY = ["trucks", "v2"];
 
-    // Fetch a single truck with all necessary joins (same shape as list query)
+    // Flat+batch single truck fetch (no joins)
     const fetchSingleTruck = async (truckId: string) => {
       const { data: truck, error } = await supabase
         .from("trucks")
-        .select(`
-          *,
-          trailer:trailers(id, trailer_number, trailer_type),
-          driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id, company_id),
-          driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id, company_id),
-          company:companies(id, name)
-        `)
+        .select("*")
         .eq("id", truckId)
         .maybeSingle();
 
-      if (error) {
-        console.error("[TrucksRealtime] Error fetching truck:", error);
-        return null;
-      }
+      if (error || !truck) return null;
 
-      if (!truck) return null;
+      // Parallel batch fetch for related entities
+      const driverIds = [truck.driver1_id, truck.driver2_id].filter(Boolean) as string[];
 
-      // Fetch dispatcher info
-      const dispatcherId = truck.driver1?.dispatcher_id;
+      const [driversRes, trailerRes, companyRes] = await Promise.all([
+        driverIds.length > 0
+          ? supabase.from("drivers").select("id, name, dispatcher_id, company_id").in("id", driverIds)
+          : { data: [] },
+        truck.trailer_id
+          ? supabase.from("trailers").select("id, trailer_number, trailer_type").eq("id", truck.trailer_id).maybeSingle()
+          : { data: null },
+        truck.company_id
+          ? supabase.from("companies").select("id, name").eq("id", truck.company_id).maybeSingle()
+          : { data: null },
+      ]);
+
+      const drivers = driversRes.data || [];
+      const driver1 = drivers.find(d => d.id === truck.driver1_id) || null;
+      const driver2 = drivers.find(d => d.id === truck.driver2_id) || null;
+
+      // Fetch dispatcher if driver1 has one
       let dispatcher = null;
-      if (dispatcherId) {
-        const { data: dispatcherData } = await supabase
+      if (driver1?.dispatcher_id) {
+        const { data } = await supabase
           .from("profiles")
           .select("user_id, full_name, email")
-          .eq("user_id", dispatcherId)
+          .eq("user_id", driver1.dispatcher_id)
           .maybeSingle();
-        dispatcher = dispatcherData;
+        dispatcher = data;
       }
 
-      // Fetch companies for drivers
-      const { data: companies } = await supabase
-        .from("companies")
-        .select("id, name");
+      // Fetch driver companies
+      const driverCompanyIds = [...new Set(drivers.map(d => d.company_id).filter(Boolean))] as string[];
+      const driverCompaniesRes = driverCompanyIds.length > 0
+        ? await supabase.from("companies").select("id, name").in("id", driverCompanyIds)
+        : { data: [] };
+      const companyMap = new Map((driverCompaniesRes.data || []).map(c => [c.id, c]));
 
-      // Enrich driver1 with company
-      let driver1WithCompany: any = truck.driver1;
-      if (truck.driver1 && companies) {
-        const driverCompany = companies.find((c) => c.id === truck.driver1.company_id);
-        if (driverCompany) {
-          driver1WithCompany = { ...truck.driver1, company: driverCompany };
-        }
-      }
-
-      // Enrich driver2 with company
-      let driver2WithCompany: any = truck.driver2;
-      if (truck.driver2 && companies) {
-        const driverCompany = companies.find((c) => c.id === truck.driver2.company_id);
-        if (driverCompany) {
-          driver2WithCompany = { ...truck.driver2, company: driverCompany };
-        }
-      }
+      const driver1WithCompany = driver1 ? { ...driver1, company: companyMap.get(driver1.company_id) || null } : null;
+      const driver2WithCompany = driver2 ? { ...driver2, company: companyMap.get(driver2.company_id) || null } : null;
 
       return {
         ...truck,
+        trailer: trailerRes.data || null,
         driver1: driver1WithCompany,
         driver2: driver2WithCompany,
+        company: driver1WithCompany?.company || companyRes.data || null,
         dispatcher: dispatcher
-          ? {
-              id: dispatcher.user_id,
-              full_name: dispatcher.full_name,
-              email: dispatcher.email,
-            }
+          ? { id: dispatcher.user_id, full_name: dispatcher.full_name, email: dispatcher.email }
           : null,
-        company: driver1WithCompany?.company || truck.company,
       };
     };
 
-    // Update cache with the transformed truck
-    const updateCache = (
-      truckId: string,
-      transformedTruck: any | null,
-      isDelete: boolean = false
-    ) => {
+    const updateCache = (truckId: string, transformedTruck: any | null, isDelete = false) => {
       queryClient.setQueryData(QUERY_KEY, (old: any[] | undefined) => {
         if (!old) return isDelete ? old : transformedTruck ? [transformedTruck] : old;
-
-        if (isDelete) {
-          console.log(`[TrucksRealtime] Removing truck ${truckId} from cache`);
-          return old.filter((t) => t.id !== truckId);
-        }
-
+        if (isDelete) return old.filter((t) => t.id !== truckId);
         if (!transformedTruck) return old;
-
-        const existingIndex = old.findIndex((t) => t.id === truckId);
-        if (existingIndex >= 0) {
-          console.log(`[TrucksRealtime] Updating truck ${truckId} in cache`);
-          const updated = [...old];
-          updated[existingIndex] = transformedTruck;
-          return updated;
-        } else {
-          console.log(`[TrucksRealtime] Inserting new truck ${truckId} into cache`);
-          return [...old, transformedTruck];
-        }
+        const idx = old.findIndex((t) => t.id === truckId);
+        if (idx >= 0) { const u = [...old]; u[idx] = transformedTruck; return u; }
+        return [...old, transformedTruck];
       });
     };
 
-    // Handle truck changes
-    const handleTruckChange = async (
-      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-    ) => {
-      const eventType = payload.eventType;
-      const newRecord = payload.new as any;
-      const oldRecord = payload.old as any;
-      const truckId = newRecord?.id || oldRecord?.id;
-
-      console.log(`[TrucksRealtime] Truck ${eventType}:`, truckId);
-
-      if (eventType === "DELETE") {
-        updateCache(oldRecord.id, null, true);
-        return;
-      }
-
+    const handleTruckChange = async (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
+      const newRec = payload.new as any;
+      const oldRec = payload.old as any;
+      const truckId = newRec?.id || oldRec?.id;
+      if (payload.eventType === "DELETE") { updateCache(oldRec.id, null, true); return; }
       if (!truckId) return;
-
-      const fullTruck = await fetchSingleTruck(truckId);
-      if (!fullTruck) {
-        console.warn("[TrucksRealtime] Could not fetch truck, falling back to invalidation");
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-        return;
-      }
-
-      updateCache(truckId, fullTruck);
+      const full = await fetchSingleTruck(truckId);
+      if (full) updateCache(truckId, full);
     };
 
-    // Handle related table changes (trailers, drivers, companies)
-    const handleRelatedTableChange = async (
-      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-    ) => {
-      const newRecord = payload.new as any;
-      const oldRecord = payload.old as any;
-      const recordId = newRecord?.id || oldRecord?.id;
+    const handleRelatedTableChange = async (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
+      const newRec = payload.new as any;
+      const oldRec = payload.old as any;
+      const recordId = newRec?.id || oldRec?.id;
       const tableName = (payload as any).table || "";
+      const cached = queryClient.getQueryData<any[]>(QUERY_KEY);
+      if (!cached) return;
 
-      console.log(`[TrucksRealtime] Related table change:`, tableName, recordId);
-
-      // For related table changes, we need to find affected trucks and update them
-      const cachedTrucks = queryClient.getQueryData<any[]>(QUERY_KEY);
-      if (!cachedTrucks) return;
-
-      let affectedTruckIds: string[] = [];
-
+      let affected: string[] = [];
       if (tableName === "trailers") {
-        affectedTruckIds = cachedTrucks
-          .filter((t) => t.trailer?.id === recordId || t.trailer_id === recordId)
-          .map((t) => t.id);
+        affected = cached.filter(t => t.trailer?.id === recordId || t.trailer_id === recordId).map(t => t.id);
       } else if (tableName === "drivers") {
-        affectedTruckIds = cachedTrucks
-          .filter(
-            (t) =>
-              t.driver1?.id === recordId ||
-              t.driver2?.id === recordId ||
-              t.driver1_id === recordId ||
-              t.driver2_id === recordId
-          )
-          .map((t) => t.id);
+        affected = cached.filter(t => t.driver1?.id === recordId || t.driver2?.id === recordId || t.driver1_id === recordId || t.driver2_id === recordId).map(t => t.id);
       } else if (tableName === "companies") {
-        affectedTruckIds = cachedTrucks
-          .filter(
-            (t) =>
-              t.company?.id === recordId ||
-              t.driver1?.company_id === recordId ||
-              t.driver2?.company_id === recordId
-          )
-          .map((t) => t.id);
+        affected = cached.filter(t => t.company?.id === recordId || t.driver1?.company_id === recordId || t.driver2?.company_id === recordId).map(t => t.id);
       }
 
-      // Update each affected truck
-      for (const truckId of affectedTruckIds) {
-        const fullTruck = await fetchSingleTruck(truckId);
-        if (fullTruck) {
-          updateCache(truckId, fullTruck);
-        }
+      for (const id of affected) {
+        const full = await fetchSingleTruck(id);
+        if (full) updateCache(id, full);
       }
     };
 
-    // Create channel and subscribe
     const channel = supabase
       .channel("trucks-realtime-advanced")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trucks" },
-        handleTruckChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trailers" },
-        handleRelatedTableChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "drivers" },
-        handleRelatedTableChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "companies" },
-        handleRelatedTableChange
-      )
-      .subscribe((status) => {
-        console.log("[TrucksRealtime] Subscription status:", status);
-      });
+      .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, handleTruckChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "trailers" }, handleRelatedTableChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, handleRelatedTableChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "companies" }, handleRelatedTableChange)
+      .subscribe();
 
     channelRef.current = channel;
 
     return () => {
-      console.log("[TrucksRealtime] Unsubscribing from trucks channel");
       isSubscribedRef.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
