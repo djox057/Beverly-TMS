@@ -196,7 +196,8 @@ export const useYardLoadsFromOrders = () => {
         } as YardLoadOrder;
       });
     },
-    staleTime: 30000,
-    refetchInterval: 30000,
+    staleTime: 120000,
+    refetchInterval: 120000,
+    retry: 1,
   });
 };

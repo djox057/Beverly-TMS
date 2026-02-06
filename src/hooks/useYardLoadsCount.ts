@@ -18,7 +18,8 @@ export const useYardLoadsCount = () => {
 
       return count || 0;
     },
-    staleTime: 30000, // Cache for 30 seconds
-    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 300000,
+    refetchInterval: 300000,
+    retry: false,
   });
 };
