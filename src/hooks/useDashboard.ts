@@ -27,25 +27,25 @@ const fetchDashboardStats = async (): Promise<DashboardStats> => {
   // Get active orders count
   const { count: activeOrdersCount } = await supabase
     .from('orders')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .in('status', ['pending', 'in_transit', 'loading']);
 
   // Get available trucks count
   const { count: availableTrucksCount } = await supabase
     .from('trucks')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('status', 'available');
 
   // Get total drivers count
   const { count: activeDriversCount } = await supabase
     .from('drivers')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('is_active', true);
 
   // Get total brokers count
   const { count: totalBrokersCount } = await supabase
     .from('brokers')
-    .select('*', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true });
 
   return {
     activeOrders: activeOrdersCount || 0,
