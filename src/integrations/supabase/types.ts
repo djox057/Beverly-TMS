@@ -3690,6 +3690,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auth_user_roles: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json
@@ -3744,6 +3748,10 @@ export type Database = {
           truck_id: string
           truck_number: string
         }[]
+      }
+      has_any_role: {
+        Args: { roles: Database["public"]["Enums"]["app_role"][] }
+        Returns: boolean
       }
       has_role: {
         Args: {
