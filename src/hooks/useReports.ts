@@ -10,7 +10,6 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
   return Promise.race([queryFn(), timeoutPromise]);
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
-import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 
 // Helper to compute transfer-aware pickup/delivery for a driver's segment
 interface TransferSegmentInfo {
@@ -218,10 +217,6 @@ export const useReports = (options?: UseReportsOptions) => {
   // Set up real-time subscriptions with debouncing
   // Only invalidate priority query for real-time updates to avoid triggering expensive full reloads
   useEffect(() => {
-    // When disableFetch is true, the date-window adapter handles its own
-    // realtime subscriptions. Don't create a duplicate channel.
-    if (disableFetch) return;
-
     let timeoutId: NodeJS.Timeout;
 
     const debouncedInvalidate = () => {
@@ -294,7 +289,7 @@ export const useReports = (options?: UseReportsOptions) => {
       clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, disableFetch]);
+  }, [queryClient]);
 
   const updateTruckStatus = useMutation({
     mutationFn: async ({ truckId, status }: { truckId: string; status: string }) => {
@@ -388,22 +383,42 @@ export const useReports = (options?: UseReportsOptions) => {
       // Client-side timestamp (DB has no guarantee of updated_at triggers)
       const nowIso = new Date().toISOString();
 
-      // Upsert directly - unique constraint on driver_id handles conflicts
-
-      // Upsert with onConflict on driver_id (unique constraint)
-      const { error } = await supabase
+      // First check if a note already exists for this driver
+      const { data: existingNotes, error: fetchError } = await supabase
         .from("truck_notes")
-        .upsert({
+        .select("id, truck_id")
+        .eq("driver_id", driverId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+
+      const existingNote = existingNotes && existingNotes.length > 0 ? existingNotes[0] : null;
+
+      if (existingNote) {
+        // Update existing note - don't update truck_id since notes are driver-based
+        const { error } = await supabase
+          .from("truck_notes")
+          .update({
+            note,
+            updated_by: user.id,
+            updated_at: nowIso,
+          })
+          .eq("id", existingNote.id);
+
+        if (error) throw error;
+      } else {
+        // Create new note - truck_id can be null for unassigned drivers
+        const { error } = await supabase.from("truck_notes").insert({
           truck_id: actualTruckId,
           driver_id: driverId,
           note,
           updated_by: user.id,
           updated_at: nowIso,
-        }, {
-          onConflict: "driver_id",
         });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
     },
     onMutate: async ({ truckId, note, driverId }) => {
       // Cancel any outgoing refetches for all relevant query keys
@@ -916,76 +931,33 @@ export const useReports = (options?: UseReportsOptions) => {
     // Fetch ALL trucks upfront - filtering by truck.dispatcher_id misses trucks where 
     // driver.dispatcher_id differs from truck.dispatcher_id. JS filtering is faster than 
     // additional database queries and ensures complete data for priority office.
-    // Fetch trucks FLAT (no joins) - eliminates RLS amplification from lateral joins
-    const { data: trucksFlat, error: trucksError } = await supabase
+    const trucksQuery = supabase
       .from("trucks")
-      .select("*")
+      .select(
+        `
+        *,
+        driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
+        driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
+        trailer:trailer_id(trailer_number, dot_inspection_date),
+        company:companies(name)
+      `,
+      )
       .order("id", { ascending: true });
 
+    const { data: trucksRaw, error: trucksError } = await trucksQuery;
+
     if (trucksError) throw trucksError;
-
-    // Collect unique IDs for batch fetching
-    const truckDriverIdsBatch = new Set<string>();
-    const truckTrailerIdsBatch = new Set<string>();
-    const truckCompanyIdsBatch = new Set<string>();
-    (trucksFlat || []).forEach(t => {
-      if (t.driver1_id) truckDriverIdsBatch.add(t.driver1_id);
-      if (t.driver2_id) truckDriverIdsBatch.add(t.driver2_id);
-      if (t.trailer_id) truckTrailerIdsBatch.add(t.trailer_id);
-      if (t.company_id) truckCompanyIdsBatch.add(t.company_id);
-    });
-
-    // Parallel batch fetches for truck relations
-    const [truckDriversRes, truckTrailersRes, truckCompaniesRes] = await Promise.all([
-      truckDriverIdsBatch.size > 0
-        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id").in("id", Array.from(truckDriverIdsBatch))
-        : { data: [], error: null },
-      truckTrailerIdsBatch.size > 0
-        ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date").in("id", Array.from(truckTrailerIdsBatch))
-        : { data: [], error: null },
-      truckCompanyIdsBatch.size > 0
-        ? supabase.from("companies").select("id, name").in("id", Array.from(truckCompanyIdsBatch))
-        : { data: [], error: null },
-    ]);
-
-    // Build lookup maps
-    const truckDriverMap = new Map((truckDriversRes.data || []).map((d: any) => [d.id, d]));
-    const truckTrailerMap = new Map((truckTrailersRes.data || []).map((t: any) => [t.id, t]));
-    const truckCompanyMap = new Map((truckCompaniesRes.data || []).map((c: any) => [c.id, c]));
-
-    // Fetch company info for drivers (for driver.company sub-object)
-    const driverCompanyIds = new Set<string>();
-    (truckDriversRes.data || []).forEach((d: any) => {
-      if (d.company_id) driverCompanyIds.add(d.company_id);
-    });
-    const missingCompanyIds = Array.from(driverCompanyIds).filter(id => !truckCompanyMap.has(id));
-    if (missingCompanyIds.length > 0) {
-      const { data: extraCompanies } = await supabase.from("companies").select("id, name").in("id", missingCompanyIds);
-      (extraCompanies || []).forEach((c: any) => truckCompanyMap.set(c.id, c));
-    }
-
-    // Assemble truck objects with relations (matching old join shape)
-    let trucks = (trucksFlat || []).map(truck => {
-      const driver1Raw = truckDriverMap.get(truck.driver1_id) || null;
-      const driver2Raw = truckDriverMap.get(truck.driver2_id) || null;
-      const trailer = truckTrailerMap.get(truck.trailer_id) || null;
-      const truckCompany = truckCompanyMap.get(truck.company_id) || null;
-
-      const driver1 = driver1Raw ? { ...driver1Raw, company: truckCompanyMap.get(driver1Raw.company_id) || null } : null;
-      const driver2 = driver2Raw ? { ...driver2Raw, company: truckCompanyMap.get(driver2Raw.company_id) || null } : null;
-
-      return {
-        ...truck,
-        driver1,
-        driver2,
-        trailer,
-        company: driver1?.company || truckCompany || null,
-      };
-    });
-
+    
+    // Map trucks and filter by driver's dispatcher_id for priority office loading
+    // This ensures we get trucks where the driver belongs to the office, not just truck.dispatcher_id
+    let trucks = trucksRaw?.map((truck) => ({
+      ...truck,
+      company: truck.driver1?.company || truck.company || null,
+    }));
+    
     // Filter trucks by driver's dispatcher for priority office loading
     if (filterDispatcherIds && filterDispatcherIds.length > 0 && trucks) {
-      trucks = trucks.filter(truck =>
+      trucks = trucks.filter(truck => 
         truck.driver1?.dispatcher_id && filterDispatcherIds.includes(truck.driver1.dispatcher_id)
       );
     }
@@ -1016,16 +988,149 @@ export const useReports = (options?: UseReportsOptions) => {
       const UNLOCKED_BATCH_SIZE = 1000;
 
       // Build query factory (so we can re-run it with different ranges)
-      // Flat orders query - no joins to eliminate RLS amplification
       const buildUnlockedOrdersQuery = () =>
         supabase
           .from("orders")
-          .select("*")
+          .select(`
+            id,
+            load_number,
+            internal_load_number,
+            broker_load_number,
+            status,
+            notes,
+            date_change_notes,
+            created_at,
+            updated_at,
+            pickup_datetime,
+            pickup_end_datetime,
+            delivery_datetime,
+            delivery_end_datetime,
+            canceled,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            trailer_id,
+            broker_id,
+            company_id,
+            booked_by_company_id,
+            is_recovery,
+            locked,
+            mileage,
+            loaded_miles,
+            dh_miles,
+            original_driver1_id,
+            original_driver2_id,
+            deleted_truck_number,
+            deleted_trailer_number,
+            deleted_driver1_name,
+            deleted_driver2_name,
+            freight_amount,
+            driver_price,
+            detention,
+            detention_driver,
+            layover,
+            layover_driver,
+            tonu,
+            tonu_driver,
+            extra_stop,
+            extra_stop_driver,
+            lumper,
+            lumper_driver,
+            late_fee,
+            late_fee_driver,
+            no_tracking_fee,
+            no_tracking_fee_driver,
+            wrong_address_fee,
+            wrong_address_fee_driver,
+            escort_fee,
+            other_charges,
+            other_charges_driver,
+            booked_by,
+            pickup_drops (
+              id,
+              type,
+              address,
+              city,
+              state,
+              zip_code,
+              datetime,
+              end_datetime,
+              sequence_number,
+              arrived_at,
+              checked_out_at,
+              going_to_at
+            ),
+            order_files (
+              id,
+              file_category,
+              file_name,
+              file_path
+            ),
+            order_transfers (
+              id,
+              sequence_number,
+              driver1_id,
+              driver2_id,
+              truck_id,
+              trailer_id,
+              miles,
+              driver_price,
+              transfer_city,
+              transfer_state,
+              transfer_address,
+              transfer_datetime
+            ),
+            broker:brokers (
+              id,
+              name,
+              mc_number,
+              address
+            ),
+            company:companies!orders_company_id_fkey (
+              id,
+              name
+            ),
+            booked_by_company:companies!orders_booked_by_company_id_fkey (
+              id,
+              name
+            ),
+            truck:trucks!orders_truck_id_fkey (
+              id,
+              truck_number,
+              company:companies (
+                id,
+                name
+              )
+            ),
+            trailer:trailers!orders_trailer_id_fkey (
+              id,
+              trailer_number
+            ),
+            driver1:drivers!orders_driver1_id_fkey (
+              id,
+              name,
+              company_id,
+              company:companies (
+                id,
+                name
+              )
+            ),
+            driver2:drivers!orders_driver2_id_fkey (
+              id,
+              name,
+              company_id,
+              company:companies (
+                id,
+                name
+              )
+            )
+          `)
           .eq("locked", false)
           .or(
             `delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`,
           )
           .order("delivery_datetime", { ascending: false, nullsFirst: true })
+          // Tiebreaker for stable pagination
           .order("id", { ascending: true });
 
       // Note: For priority office loading, we still filter orders in JS after fetching
@@ -1047,10 +1152,6 @@ export const useReports = (options?: UseReportsOptions) => {
         // Last page
         if (page.length < UNLOCKED_BATCH_SIZE) break;
       }
-
-      // Batch-fetch all order relations (flat+batch pattern - eliminates RLS amplification)
-      console.log(`[useReports] 🔄 Enriching ${unlockedOrdersRaw.length} orders with relations...`);
-      unlockedOrdersRaw = await enrichOrdersWithRelations(unlockedOrdersRaw);
 
       const totalPickupDropsFromDB =
         unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;

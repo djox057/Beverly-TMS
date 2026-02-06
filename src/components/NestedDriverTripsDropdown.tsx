@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 import { cn, formatCurrency } from "@/lib/utils";
-import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import moneyStackIcon from "@/assets/money-stack.png";
@@ -123,10 +122,38 @@ export function NestedDriverTripsInlineContent({
   const { data: orders, isLoading } = useQuery({
     queryKey: ["nested-driver-trips-inline", driverName, driverId],
     queryFn: async () => {
-      // Flat fetch - no joins to eliminate RLS amplification
       let query = supabase
         .from("orders")
-        .select("*")
+        .select(
+          `
+          *,
+          pickup_drops (*),
+          truck:trucks!orders_truck_id_fkey (id, truck_number),
+          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+          driver2:drivers!orders_driver2_id_fkey (id, name),
+          order_files (*),
+          broker:brokers (id, name),
+          order_transfers (
+            id,
+            sequence_number,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            trailer_id,
+            miles,
+            driver_price,
+            transfer_datetime,
+            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number),
+            manual_driver_name,
+            manual_truck_number,
+            manual_trailer_number
+          )
+        `,
+        )
         .order("delivery_datetime", { ascending: false })
         .limit(50);
 
@@ -141,9 +168,7 @@ export function NestedDriverTripsInlineContent({
         return [];
       }
 
-      // Batch-fetch all relations (flat+batch pattern)
-      const enrichedData = await enrichOrdersWithRelations(data || []);
-      const transformed = transformOrders(enrichedData);
+      const transformed = transformOrders(data || []);
 
       return transformed.filter((order) => {
         const orderDriverName = order.driverName?.toLowerCase() || "";

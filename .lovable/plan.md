@@ -1,134 +1,117 @@
 
 
-# Phase 3F: Stop the Realtime Cascade Loop and Remaining Joins
+# Fix CPU Spikes: RLS Policy Optimization
 
-## Root Cause: Realtime Event Cascade
+## The Problem
 
-The screenshot proves it: **2,431 GET requests** to `/orders?select=*,pickup_drops(...)` in 10 minutes = ~4 requests per second. This is an infinite cascade loop, not normal polling.
+Your app has **51 active users** (mostly on the Reports page — 223 pageviews today). The usage spikes that freeze the app for 1-2 minutes are caused by a massive hidden cost in your database: **Row-Level Security (RLS) policies**.
 
-Here is the cascade chain:
+### What's happening under the hood
+
+Every time a user fetches data, PostgreSQL checks RLS policies **for every single row**. Your policies use a `has_role()` function that queries the `user_roles` table. Here's the math:
 
 ```text
-Any order change in the database
-  |
-  +--> useOrdersRealtime: fetches single order (10+ parallel queries)
-  +--> useDashboard: invalidateQueries -> refetches 4 count queries + recent orders with joins
-  +--> useRecoveryTrucks: invalidateQueries -> refetches ALL trucks + orders with pickup_drops joins
-  +--> useYardLoadsFromOrders: (if active) refetches with 7 joins
-  |
-  v
-  Each refetch creates database load, which combined with RLS evaluation, causes timeouts
-  Timeouts cause retries (React Query default: 3 retries)
-  Retries create more load -> more timeouts -> more retries
-  The system enters a self-sustaining overload loop
+Orders table: 30 has_role() calls across 16 policies
+User fetches 1,000 orders = 30,000 subqueries to user_roles
+x 50 active users = 1,500,000 subqueries per refresh cycle
+x refreshes every 2 min = millions of lookups per minute
 ```
 
-Additionally, the `useTrucksRealtime` and `useDriversRealtime` hooks listen to overlapping tables (`trucks`, `drivers`, `trailers`, `companies`), so a single driver change triggers BOTH hooks, each running their own expensive fetch sequences.
+The database stats confirm this: the `user_roles` table has **2.2 billion index lookups** — an astronomically high number for a table with only 111 rows.
 
-## Fixes (in priority order)
+The worst offenders by has_role() call count:
+- `orders`: 30 calls across 16 policies
+- `drivers`: 31 calls across 17 policies
+- `trucks`: 29 calls across 19 policies
+- `pickup_drops`: 26 calls across 14 policies
 
-### Fix 1: Remove `invalidateQueries` from ALL realtime subscriptions
+### Why it causes "spikes" not constant slowness
 
-Replace `invalidateQueries` (which triggers expensive refetches) with direct cache patching (`setQueryData`) or simply debounce/throttle the invalidation. Specifically:
+When multiple users navigate to Reports simultaneously (e.g., after a break or shift start), all their queries hit the database at once. Each query triggers thousands of RLS subqueries, saturating the CPU for 1-2 minutes until the backlog clears.
 
-- **`useRecoveryTrucks.ts`**: Remove the realtime subscription entirely. It subscribes to ALL `orders` changes just to refetch recovery trucks. Replace with 30-second staleTime (already has staleTime: 30000) and no realtime. Recovery data doesn't need instant updates.
-- **`useDashboard.ts`**: Remove the realtime subscriptions on `orders`, `trucks`, `drivers`, `brokers`. Dashboard stats don't need instant updates. Use staleTime + refetchInterval instead (e.g., every 60 seconds).
-- **`useYardLoadsFromOrders.ts`**: Already uses refetchInterval: 120000. No changes needed, but the joined query must be converted to flat+batch.
+## Solution
 
-### Fix 2: Convert remaining joined queries to flat+batch
+Replace the per-row `has_role()` subquery approach with a **single cached role lookup** per query. Instead of checking `user_roles` 30 times per row, we check it **once** at the start of the query and cache the result.
 
-These are the hooks still using lateral joins:
+### Step 1: Create an optimized role-checking function
 
-**`useYardLoadsFromOrders.ts`** (7 joins, polls every 2 min):
-Replace with flat orders fetch + parallel batch fetches for trailers, brokers, companies, drivers, trucks, and pickup_drops.
+Create a new function `auth_user_roles()` that returns the user's roles as an array. PostgreSQL can evaluate this once per statement and reuse the result:
 
-**`useRecoveryTrucks.ts`** (6 joins on trucks + pickup_drops join on orders):
-Replace with flat trucks fetch + batch entities. Replace orders query with flat + separate pickup_drops fetch.
+```sql
+CREATE OR REPLACE FUNCTION public.auth_user_roles()
+RETURNS app_role[]
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT COALESCE(array_agg(role), ARRAY[]::app_role[])
+  FROM public.user_roles
+  WHERE user_id = auth.uid();
+$$;
+```
 
-**`useDashboard.ts` `fetchRecentOrders`** (2 joins: trucks + pickup_drops):
-Replace with flat orders fetch + batch truck lookup + separate pickup_drops query.
+Then create helper functions that use this cached array:
 
-**`useExpiringAlerts.ts`** (3 joins on trucks: driver1 with company, driver2, company):
-Replace with flat trucks fetch + batch driver/company lookups.
+```sql
+CREATE OR REPLACE FUNCTION public.has_any_role(roles app_role[])
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT auth_user_roles() && roles;
+$$;
+```
 
-**`useRepairs.ts`** (3 joins: trucks, trailers, drivers):
-Replace with flat repairs fetch + batch entity lookups.
+### Step 2: Replace RLS policies on the heaviest tables
 
-**`useTrucksRealtime.ts`** (4 joins in fetchSingleTruck):
-Replace with flat truck fetch + parallel entity lookups.
+Rewrite policies on the top 5 tables (orders, drivers, trucks, pickup_drops, companies) to use the new array-based check instead of multiple `has_role()` calls.
 
-**`useDriversRealtime.ts`** (company join + truck/trailer join):
-Replace with flat driver fetch + separate truck and company lookups.
+Before (current — 8 subqueries per row):
+```sql
+USING (
+  has_role(auth.uid(), 'dispatch') OR 
+  has_role(auth.uid(), 'afterhours') OR 
+  has_role(auth.uid(), 'manager') OR 
+  has_role(auth.uid(), 'admin') OR 
+  has_role(auth.uid(), 'accounting') OR
+  has_role(auth.uid(), 'supervisor') OR 
+  has_role(auth.uid(), 'safety') OR 
+  has_role(auth.uid(), 'maintenance')
+)
+```
 
-**`useAvailableTrucks.ts`** (1 join: drivers):
-Replace with flat trucks fetch + batch driver lookup.
+After (optimized — 1 lookup cached across all rows):
+```sql
+USING (
+  has_any_role(ARRAY['dispatch','afterhours','manager',
+    'admin','accounting','supervisor','safety','maintenance']::app_role[])
+)
+```
 
-### Fix 3: Fix remaining `select("*")` count queries
+### Step 3: Additional polling optimizations
 
-**`useYardLoadsCount.ts`**: Change `select("*", { count: "exact", head: true })` to `select("id", { count: "exact", head: true })`.
+Increase stale times for hooks that still poll aggressively:
 
-### Fix 4: Remove `fetchPreviousWeekLastDelivery` inner join in Trips.tsx
+| Hook | Current staleTime | New staleTime | Change |
+|------|------------------|---------------|--------|
+| `useDrivers.ts` | 5min but `refetchOnMount: 'always'` | 5min with `refetchOnMount: true` | Stop bypassing cache |
+| `useTrucks.ts` | 30s | 2 min | Reduce refetch on navigation |
+| `useTrailers.ts` | 30s | 2 min | Reduce refetch on navigation |
 
-The `pickup_drops!inner(datetime, type)` join at line 120 should be replaced with a separate pickup_drops query.
+### Expected Impact
 
-## Technical Details
+| Metric | Before | After |
+|--------|--------|-------|
+| user_roles lookups per 1000-row query | ~30,000 | ~1 |
+| CPU during multi-user spike | 100% (frozen) | Under 30% |
+| Reports page load time | 5-15 seconds | Under 2 seconds |
 
-### File: `src/hooks/useRecoveryTrucks.ts`
-- Remove entire realtime subscription (lines 8-50)
-- Replace trucks query (lines 56-69) with flat + batch
-- Replace orders query (lines 85-94) with flat + separate pickup_drops
-- Add refetchInterval: 60000 for periodic refresh
+### Technical Notes
 
-### File: `src/hooks/useDashboard.ts`
-- Remove realtime subscriptions from `useDashboardStats` (lines 86-112) and `useRecentOrders` (lines 131-148)
-- Replace `fetchRecentOrders` joined query (lines 60-76) with flat + batch
-- Add refetchInterval: 60000 to both hooks
+- The `STABLE` marker tells PostgreSQL the function returns the same result within a single statement, enabling it to cache the result
+- `SECURITY DEFINER` ensures the function runs with the correct permissions
+- No application code changes are needed for RLS — the policies are transparent to the frontend
+- The migration will DROP and re-CREATE the affected policies in a single transaction to avoid any window of no security
+- The old `has_role()` function is kept for backward compatibility but won't be called on hot paths
 
-### File: `src/hooks/useYardLoadsFromOrders.ts`
-- Replace 7-join query (lines 68-128) with flat orders fetch + parallel batch fetches
-- Keep existing refetchInterval: 120000
-
-### File: `src/hooks/useYardLoadsCount.ts`
-- Line 10: Change `select("*"` to `select("id"`
-
-### File: `src/hooks/useExpiringAlerts.ts`
-- Replace trucks query (lines 10-18) with flat + batch
-
-### File: `src/hooks/useRepairs.ts`
-- Replace repairs query (lines 67-75) with flat + batch
-
-### File: `src/hooks/useTrucksRealtime.ts`
-- Replace `fetchSingleTruck` (lines 23-91) with flat truck fetch + parallel entity lookups
-
-### File: `src/hooks/useDriversRealtime.ts`
-- Replace `fetchSingleDriver` (lines 23-116) with flat driver fetch + separate entity lookups
-- Remove the `user_roles` + `profiles` round-trip in `has_account` check (lines 83-101); use cached data from the main drivers query instead
-
-### File: `src/hooks/useAvailableTrucks.ts`
-- Replace trucks+drivers join with flat + batch
-
-### File: `src/pages/Trips.tsx`
-- Replace `fetchPreviousWeekLastDelivery` (lines 114-123) pickup_drops!inner join with flat + separate query
-
-## Files Changed
-
-| File | Change | Impact |
-|---|---|---|
-| `src/hooks/useRecoveryTrucks.ts` | Remove realtime sub + flat+batch queries | Stops biggest loop contributor |
-| `src/hooks/useDashboard.ts` | Remove realtime subs + flat+batch fetchRecentOrders + add refetchInterval | Stops cascade amplifier |
-| `src/hooks/useYardLoadsFromOrders.ts` | Flat+batch query | Eliminates 7-join RLS amplification |
-| `src/hooks/useYardLoadsCount.ts` | select("id") instead of select("*") | Minor optimization |
-| `src/hooks/useExpiringAlerts.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
-| `src/hooks/useRepairs.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
-| `src/hooks/useTrucksRealtime.ts` | Flat+batch fetchSingleTruck | Eliminates 4-join per realtime event |
-| `src/hooks/useDriversRealtime.ts` | Flat+batch fetchSingleDriver | Eliminates joins + user_roles storm |
-| `src/hooks/useAvailableTrucks.ts` | Flat+batch query | Eliminates 1-join RLS amplification |
-| `src/pages/Trips.tsx` | Replace pickup_drops!inner join | Eliminates join in per-truck query |
-
-## Expected Outcome
-
-- The realtime cascade loop is broken by removing `invalidateQueries` from subscriptions
-- ALL remaining client-side queries become single-table index lookups
-- Zero lateral joins remain anywhere in the frontend
-- CPU should drop to 5-10% with 1 user and stay under 30% with 50+ users
-- The "works for a few minutes then crashes" pattern stops permanently

@@ -500,21 +500,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   // Get order IDs from date window for order_files fetch
-  // Stabilized: only creates a new reference when the actual ID set changes
-  const windowOrderIdsRef = useRef<string[]>([]);
   const windowOrderIds = useMemo(() => {
-    if (!dateWindowHook.orders || dateWindowHook.orders.length === 0) {
-      if (windowOrderIdsRef.current.length === 0) return windowOrderIdsRef.current;
-      windowOrderIdsRef.current = [];
-      return windowOrderIdsRef.current;
-    }
-    const newIds = dateWindowHook.orders.map((o) => o.id);
-    const prev = windowOrderIdsRef.current;
-    if (prev.length === newIds.length && prev.every((id, i) => id === newIds[i])) {
-      return prev;
-    }
-    windowOrderIdsRef.current = newIds;
-    return newIds;
+    if (!dateWindowHook.orders || dateWindowHook.orders.length === 0) return [];
+    return dateWindowHook.orders.map((o) => o.id);
   }, [dateWindowHook.orders]);
 
   // Fetch order_files for all orders in the date window (minimal fields for coloring)
@@ -1413,7 +1401,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     priorityOffice,
     dispatcherId,
     isOrderFilesLoading,
+    windowOrderIds,
     lastLoadsData,
+    isSupportingDataReady,
   ]);
 
   // Individual mode filtering already applied at database level in useReportsDateWindow

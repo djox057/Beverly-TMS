@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
-import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 
 const PAGE_SIZE = 100;
 
@@ -51,7 +50,7 @@ export function useUnlockedOrdersPagination(options?: {
     try {
       let countQuery = supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("locked", false);
 
       // Apply dispatcher filtering if needed
@@ -151,12 +150,47 @@ export function useUnlockedOrdersPagination(options?: {
       }
 
       // Fetch next page of unlocked orders using cursor
-      // Flat query - no joins to eliminate RLS amplification
       let query = supabase
         .from("orders")
-        .select("*")
+        .select(`
+          *,
+          pickup_drops (
+            id, type, address, city, state, zip_code, datetime, end_datetime,
+            sequence_number, arrived_at, checked_out_at, going_to_at,
+            company_name, contact_name, contact_phone, special_instructions
+          ),
+          order_files (id, file_category, file_name, file_path),
+          order_transfers (
+            id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id,
+            miles, driver_price, manual_driver_name, manual_truck_number,
+            manual_trailer_number, transfer_date, transfer_city, transfer_state,
+            transfer_address, transfer_datetime, transfer_latitude, transfer_longitude,
+            driver1:drivers!order_transfers_driver1_id_fkey (id, name),
+            driver2:drivers!order_transfers_driver2_id_fkey (id, name),
+            truck:trucks!order_transfers_truck_id_fkey (id, truck_number),
+            trailer:trailers!order_transfers_trailer_id_fkey (id, trailer_number)
+          ),
+          recovery_history (
+            id, recovery_driver1_id, recovery_driver2_id, recovery_truck_id, recovery_trailer_id,
+            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (id, name),
+            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (id, name),
+            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (id, truck_number),
+            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (id, trailer_number)
+          ),
+          broker:brokers (id, name, mc_number, address),
+          company:companies!orders_company_id_fkey (id, name),
+          booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
+          truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
+          trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
+          driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
+          driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
+          original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
+          original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
+          original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
+          original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
+        `)
         .eq("locked", false)
-        .lt("created_at", cursor)
+        .lt("created_at", cursor) // Cursor: older than last loaded
         .order("created_at", { ascending: false })
         .limit(PAGE_SIZE);
 
@@ -181,9 +215,7 @@ export function useUnlockedOrdersPagination(options?: {
         throw error;
       }
 
-      // Batch-fetch all relations (flat+batch pattern)
-      const enrichedData = await enrichOrdersWithRelations(data || []);
-      const newOrders = transformOrders(enrichedData);
+      const newOrders = transformOrders(data || []);
       const hasMore = newOrders.length === PAGE_SIZE;
 
       // Merge new orders into cache (append to unlocked section)

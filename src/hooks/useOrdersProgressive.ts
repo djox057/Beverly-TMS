@@ -87,14 +87,14 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Get unlocked count
       let unlockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("locked", false);
       unlockedCountQuery = buildFilter(unlockedCountQuery);
       
       // Get locked count
       let lockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
 

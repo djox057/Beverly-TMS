@@ -7,7 +7,7 @@ export const useYardLoadsCount = () => {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true })
         .is("driver1_id", null)
         .is("truck_id", null);
 

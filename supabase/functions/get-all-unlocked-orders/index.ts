@@ -6,70 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Flat column list for orders - NO joins
-const ORDER_COLUMNS = `
-  id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-  created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-  canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-  is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-  deleted_truck_number, deleted_trailer_number, deleted_driver1_name, deleted_driver2_name,
-  freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-  tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver,
-  late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver,
-  wrong_address_fee, wrong_address_fee_driver, escort_fee,
-  other_charges, other_charges_driver, booked_by,
-  original_truck_id, original_trailer_id
-`;
-
-// Helper to split array into chunks
-function chunk<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
-}
-
-// Helper to collect unique non-null IDs from orders
-function collectUniqueIds(orders: any[], ...fields: string[]): string[] {
-  const ids = new Set<string>();
-  for (const order of orders) {
-    for (const field of fields) {
-      if (order[field]) ids.add(order[field]);
-    }
-  }
-  return Array.from(ids);
-}
-
-// Helper to batch fetch and build a Map by id
-async function batchFetchById(
-  supabase: any,
-  table: string,
-  ids: string[],
-  selectColumns: string,
-  chunkSize = 200
-): Promise<Map<string, any>> {
-  if (ids.length === 0) return new Map();
-  
-  const chunks = chunk(ids, chunkSize);
-  const results = await Promise.all(
-    chunks.map(c => supabase.from(table).select(selectColumns).in("id", c))
-  );
-  
-  const map = new Map<string, any>();
-  for (const r of results) {
-    if (r.error) {
-      console.error(`[get-all-unlocked-orders] Error fetching ${table}:`, r.error.message);
-      continue;
-    }
-    for (const item of r.data || []) {
-      map.set(item.id, item);
-    }
-  }
-  return map;
-}
-
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -78,11 +16,13 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     console.log("[get-all-unlocked-orders] Starting bulk fetch...");
 
+    // Create Supabase client with service role for optimal performance
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse optional filters
+    // Parse optional filters from request body
     let bookedBy: string | null = null;
     let dispatcherDriverIds: string[] = [];
     let limit: number | null = null;
@@ -96,18 +36,19 @@ Deno.serve(async (req) => {
         limit = body.limit || null;
         offset = body.offset || 0;
       } catch {
-        // No body or invalid JSON
+        // No body or invalid JSON - proceed without filters
       }
     }
 
     console.log(`[get-all-unlocked-orders] limit=${limit}, offset=${offset}`);
 
-    // Step 1: Total count
+    // Step 1: Fetch total count first for verification
     let countQuery = supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .eq("locked", false);
 
+    // Apply filters to count
     if (bookedBy && dispatcherDriverIds.length > 0) {
       countQuery = countQuery.or(
         `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
@@ -119,6 +60,7 @@ Deno.serve(async (req) => {
     }
 
     const { count: totalCount, error: countError } = await countQuery;
+    
     if (countError) {
       console.error("[get-all-unlocked-orders] Count error:", countError);
       throw countError;
@@ -126,21 +68,165 @@ Deno.serve(async (req) => {
 
     console.log(`[get-all-unlocked-orders] Total unlocked orders: ${totalCount}`);
 
-    // Step 2: Fetch FLAT orders in batches (no joins)
+    // Step 2: Fetch orders with limit/offset or all in batches
     const BATCH_SIZE = limit ?? 1000;
     let allOrders: any[] = [];
     let currentOffset = offset;
 
-    const stage1Start = Date.now();
-
     while (true) {
       let query = supabase
         .from("orders")
-        .select(ORDER_COLUMNS)
+        .select(`
+          *,
+          pickup_drops (
+            id,
+            type,
+            address,
+            city,
+            state,
+            zip_code,
+            datetime,
+            end_datetime,
+            sequence_number,
+            arrived_at,
+            checked_out_at,
+            going_to_at,
+            company_name,
+            contact_name,
+            contact_phone,
+            special_instructions
+          ),
+          order_files (
+            id,
+            file_category,
+            file_name,
+            file_path
+          ),
+          order_transfers (
+            id,
+            sequence_number,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            trailer_id,
+            miles,
+            driver_price,
+            manual_driver_name,
+            manual_truck_number,
+            manual_trailer_number,
+            transfer_date,
+            transfer_city,
+            transfer_state,
+            transfer_address,
+            transfer_datetime,
+            transfer_latitude,
+            transfer_longitude,
+            driver1:drivers!order_transfers_driver1_id_fkey (
+              id,
+              name
+            ),
+            driver2:drivers!order_transfers_driver2_id_fkey (
+              id,
+              name
+            ),
+            truck:trucks!order_transfers_truck_id_fkey (
+              id,
+              truck_number
+            ),
+            trailer:trailers!order_transfers_trailer_id_fkey (
+              id,
+              trailer_number
+            )
+          ),
+          recovery_history (
+            id,
+            recovery_driver1_id,
+            recovery_driver2_id,
+            recovery_truck_id,
+            recovery_trailer_id,
+            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
+              id,
+              name
+            ),
+            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
+              id,
+              name
+            ),
+            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
+              id,
+              truck_number
+            ),
+            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
+              id,
+              trailer_number
+            )
+          ),
+          broker:brokers (
+            id,
+            name,
+            mc_number,
+            address
+          ),
+          company:companies!orders_company_id_fkey (
+            id,
+            name
+          ),
+          booked_by_company:companies!orders_booked_by_company_id_fkey (
+            id,
+            name
+          ),
+          truck:trucks!orders_truck_id_fkey (
+            id,
+            truck_number,
+            company:companies (
+              id,
+              name
+            )
+          ),
+          trailer:trailers!orders_trailer_id_fkey (
+            id,
+            trailer_number
+          ),
+          driver1:drivers!orders_driver1_id_fkey (
+            id,
+            name,
+            company_id,
+            company:companies (
+              id,
+              name
+            )
+          ),
+          driver2:drivers!orders_driver2_id_fkey (
+            id,
+            name,
+            company_id,
+            company:companies (
+              id,
+              name
+            )
+          ),
+          original_driver1:drivers!orders_original_driver1_id_fkey (
+            id,
+            name
+          ),
+          original_driver2:drivers!orders_original_driver2_id_fkey (
+            id,
+            name
+          ),
+          original_truck:trucks!orders_original_truck_id_fkey (
+            id,
+            truck_number
+          ),
+          original_trailer:trailers!orders_original_trailer_id_fkey (
+            id,
+            trailer_number
+          )
+        `)
         .eq("locked", false)
         .order("created_at", { ascending: false })
         .range(currentOffset, currentOffset + BATCH_SIZE - 1);
 
+      // Apply filters
       if (bookedBy && dispatcherDriverIds.length > 0) {
         query = query.or(
           `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
@@ -158,134 +244,32 @@ Deno.serve(async (req) => {
         throw batchError;
       }
 
-      if (!batch || batch.length === 0) break;
+      if (!batch || batch.length === 0) {
+        break;
+      }
 
       allOrders = allOrders.concat(batch);
       console.log(`[get-all-unlocked-orders] Fetched batch: ${batch.length}, total: ${allOrders.length}`);
 
       // If limit was specified, only fetch one batch
-      if (limit !== null) break;
-      if (batch.length < BATCH_SIZE) break;
+      if (limit !== null) {
+        break;
+      }
+
+      if (batch.length < BATCH_SIZE) {
+        break;
+      }
 
       currentOffset += BATCH_SIZE;
     }
 
-    const stage1Time = Date.now() - stage1Start;
-    console.log(`[get-all-unlocked-orders] Stage 1 (flat orders): ${allOrders.length} in ${stage1Time}ms`);
-
-    // Step 3: Batch fetch child relations (pickup_drops, order_files, order_transfers)
-    const orderIds = allOrders.map((o: any) => o.id);
-    const CHUNK_SIZE = 200; // Reduced from 500 to prevent URL length errors
-
-    if (orderIds.length > 0) {
-      const stage2Start = Date.now();
-      const chunks = chunk(orderIds, CHUNK_SIZE);
-
-      const [pickupDropsResults, orderFilesResults, orderTransfersResults] = await Promise.all([
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("pickup_drops")
-            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions")
-            .in("order_id", c)
-        )),
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("order_files")
-            .select("id, order_id, file_category, file_name, file_path")
-            .in("order_id", c)
-        )),
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("order_transfers")
-            .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude")
-            .in("order_id", c)
-        )),
-      ]);
-
-      const allPickupDrops = pickupDropsResults.flatMap(r => r.data || []);
-      const allOrderFiles = orderFilesResults.flatMap(r => r.data || []);
-      const allOrderTransfers = orderTransfersResults.flatMap(r => r.data || []);
-
-      for (const r of [...pickupDropsResults, ...orderFilesResults, ...orderTransfersResults]) {
-        if (r.error) console.error("[get-all-unlocked-orders] Relation fetch error:", r.error.message);
-      }
-
-      const stage2Time = Date.now() - stage2Start;
-      console.log(`[get-all-unlocked-orders] Stage 2 (child relations): ${allPickupDrops.length} PDs, ${allOrderFiles.length} files, ${allOrderTransfers.length} transfers in ${stage2Time}ms`);
-
-      // Group by order_id
-      const pdMap = new Map<string, any[]>();
-      for (const pd of allPickupDrops) {
-        const arr = pdMap.get(pd.order_id); if (arr) arr.push(pd); else pdMap.set(pd.order_id, [pd]);
-      }
-      const ofMap = new Map<string, any[]>();
-      for (const f of allOrderFiles) {
-        const arr = ofMap.get(f.order_id); if (arr) arr.push(f); else ofMap.set(f.order_id, [f]);
-      }
-      const otMap = new Map<string, any[]>();
-      for (const t of allOrderTransfers) {
-        const arr = otMap.get(t.order_id); if (arr) arr.push(t); else otMap.set(t.order_id, [t]);
-      }
-
-      for (const order of allOrders) {
-        order.pickup_drops = pdMap.get(order.id) || [];
-        order.order_files = ofMap.get(order.id) || [];
-        order.order_transfers = otMap.get(order.id) || [];
-      }
-    }
-
-    // Step 4: Batch fetch entity relations (trucks, drivers, brokers, companies, trailers)
-    // This provides the nested objects that transformOrders expects
-    const stage3Start = Date.now();
-
-    const truckIds = collectUniqueIds(allOrders, "truck_id", "original_truck_id");
-    const driverIds = collectUniqueIds(allOrders, "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
-    const brokerIds = collectUniqueIds(allOrders, "broker_id");
-    const companyIds = collectUniqueIds(allOrders, "company_id", "booked_by_company_id");
-    const trailerIds = collectUniqueIds(allOrders, "trailer_id", "original_trailer_id");
-
-    const [trucksMap, driversMap, brokersMap, companiesMap, trailersMap] = await Promise.all([
-      batchFetchById(supabase, "trucks", truckIds, "id, truck_number, company_id"),
-      batchFetchById(supabase, "drivers", driverIds, "id, name, company_id"),
-      batchFetchById(supabase, "brokers", brokerIds, "id, name, mc_number, address"),
-      batchFetchById(supabase, "companies", companyIds, "id, name"),
-      batchFetchById(supabase, "trailers", trailerIds, "id, trailer_number"),
-    ]);
-
-    // Enrich trucks with company name
-    for (const [, truck] of trucksMap) {
-      if (truck.company_id && companiesMap.has(truck.company_id)) {
-        truck.company = companiesMap.get(truck.company_id);
-      }
-    }
-
-    // Enrich drivers with company
-    for (const [, driver] of driversMap) {
-      if (driver.company_id && companiesMap.has(driver.company_id)) {
-        driver.company = companiesMap.get(driver.company_id);
-      }
-    }
-
-    // Attach entity objects to orders
-    for (const order of allOrders) {
-      order.truck = trucksMap.get(order.truck_id) || null;
-      order.trailer = trailersMap.get(order.trailer_id) || null;
-      order.driver1 = driversMap.get(order.driver1_id) || null;
-      order.driver2 = driversMap.get(order.driver2_id) || null;
-      order.broker = brokersMap.get(order.broker_id) || null;
-      order.company = companiesMap.get(order.company_id) || null;
-      order.booked_by_company = companiesMap.get(order.booked_by_company_id) || null;
-      order.original_truck = trucksMap.get(order.original_truck_id) || null;
-      order.original_trailer = trailersMap.get(order.original_trailer_id) || null;
-      order.original_driver1 = driversMap.get(order.original_driver1_id) || null;
-      order.original_driver2 = driversMap.get(order.original_driver2_id) || null;
-    }
-
-    const stage3Time = Date.now() - stage3Start;
-    console.log(`[get-all-unlocked-orders] Stage 3 (entities): ${truckIds.length} trucks, ${driverIds.length} drivers, ${brokerIds.length} brokers, ${companyIds.length} companies in ${stage3Time}ms`);
-
     const fetchTime = Date.now() - startTime;
-    console.log(`[get-all-unlocked-orders] TOTAL: ${allOrders.length} orders in ${fetchTime}ms`);
+    console.log(`[get-all-unlocked-orders] Completed: ${allOrders.length} orders in ${fetchTime}ms`);
+
+    // Verify data integrity
+    if (totalCount !== null && allOrders.length !== totalCount) {
+      console.warn(`[get-all-unlocked-orders] Count mismatch: expected ${totalCount}, got ${allOrders.length}`);
+    }
 
     return new Response(
       JSON.stringify({
