@@ -1,147 +1,94 @@
 
+# Phase 3C: Fix Statement Timeout Storm (Root Cause)
 
-# Phase 3B: Fix CPU Spikes on Reports Page
+## Root Cause Analysis
 
-## Root Cause (Confirmed via Code Audit)
+The database is flooded with "canceling statement due to statement timeout" errors -- dozens per second. This is NOT caused by the edge functions (those use service role and are fast). The timeout storm comes from **three client-side hooks** that execute expensive PostgREST queries with 14+ lateral joins through RLS:
 
-The CPU spikes are caused by three compounding issues, confirmed by reading the actual source code:
+### Source 1: `useOrdersRealtime.ts` (lines 22-55) -- THE BIGGEST OFFENDER
+Every time ANY order, pickup_drop, order_transfer, or order_file changes in the database, this hook calls `fetchSingleOrder()` which executes a massive SELECT with 14 joins:
+- `pickup_drops (*)`
+- `order_transfers (*, driver1, driver2, truck, trailer)` -- 4 sub-joins
+- `recovery_history (*, recovery_driver1, recovery_driver2, recovery_truck, recovery_trailer)` -- 4 sub-joins  
+- `broker, company, booked_by_company, truck (with company), trailer, driver1 (with company), driver2 (with company), original_driver1, original_driver2, original_truck, original_trailer`
 
-1. **Duplicate Realtime Subscriptions**: `useReports.ts` (line 219) subscribes to 6 tables via `reports-consolidated` channel even when `disableFetch: true`. Meanwhile, `useReportsDateWindowAdapter.ts` has its own realtime subscriptions for `truck_notes` (line 753) and `lost_day_notes` (line 835). Every DB change fires on both channels.
+With 10+ users online, every order edit triggers this fetch for EACH user. At peak, this creates dozens of concurrent 14-join queries through RLS, each timing out and holding connections.
 
-2. **Loading ALL Drivers Organization-Wide**: `useReportsDateWindow.ts` line 631 calls `fetchDriverIdsForOffice(null, ...)` -- the `null` means it fetches all dispatchers across all offices, then loads all their drivers. The adapter then filters by `priorityOffice` in JS at line 1350. This means every supporting query (trucks, drivers, truck_notes, lost_day_notes) fetches data for the entire company.
+### Source 2: `useOrdersSearch.ts` (lines 91-129)
+Same 14-join monster query, triggered every time a user types in the search box (after 2 characters). Multiple dispatchers searching simultaneously = more timeout-prone queries.
 
-3. **Unstable `useMemo` Dependencies**: The 450-line transformation at line 979 has 16 dependencies (lines 1388-1407). Several are problematic:
-   - `windowOrderIds` (line 1404): Recreated by its own `useMemo` every time `dateWindowHook.orders` changes reference, even if the IDs are identical
-   - `isSupportingDataReady` (line 1406): A boolean computed inline at line 975 (`!!(trucks && drivers && dispatchers && companies)`) -- this creates a new boolean evaluation every render, but since it's a primitive it's actually stable. However, it being in the dep array alongside truly unstable deps amplifies re-runs.
-   - `lastLoadsData` (line 1405): Object reference from `useQuery` that changes when the query refetches
-   - `orderFilesMap` (line 1400): A new `Map` object created every time `orderFiles` or `lastLoadsData?.files` changes
+### Source 3: `useOrdersProgressive.ts` (lines 88-99)
+Two `COUNT(*)` queries with `select("*", { count: "exact", head: true })` on every page load. These scan the full orders table through RLS.
 
-## Fix 1: Disable Legacy Realtime When `disableFetch: true`
+## The Fix: Replace 14-Join Queries with Flat + Batch Pattern
 
-**File: `src/hooks/useReports.ts`, line 219**
+Apply the same Stage 1 (flat) -> Stage 2 (batch relations) pattern that already works in the edge functions to all three client-side hooks.
 
-Add early return when `disableFetch` is true:
+### Fix 1: Slim down `useOrdersRealtime.ts` fetchSingleOrder
 
-```text
-useEffect(() => {
-    // When disableFetch is true, the date-window adapter handles its own
-    // realtime subscriptions. Don't create a duplicate channel.
-    if (disableFetch) return;
-    
-    let timeoutId: NodeJS.Timeout;
-    // ... rest of existing subscription code
-}, [queryClient, disableFetch]);
+Replace the 14-join SELECT with a flat order fetch + parallel batch fetches for relations. Since this is a single order, the batching is trivial (1 ID per query).
+
 ```
+// BEFORE: 14 lateral joins (causes timeout under load)
+.select(`*, pickup_drops (*), order_transfers (*, driver1:drivers!..., ...), ...`)
 
-This eliminates the duplicate `reports-consolidated` channel that fires invalidations for `["reports", "priority"]` -- a query key that doesn't even exist when date-window loading is active.
-
-## Fix 2: Scope Driver Loading to Current Office
-
-**File: `src/hooks/useReportsDateWindow.ts`**
-
-Two changes:
-
-### 2a. Pass `priorityOffice` instead of `null` (line 631)
-
-```text
-const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
-    priorityOffice,  // was: null
-    individualMode ? currentUserDispatcherId : null
-);
-```
-
-### 2b. Add `priorityOffice` to the stable query key (line 619)
-
-```text
-const stableQueryKey = useMemo(() => [
-    'reports-date-window-stable',
-    priorityOffice || 'all-offices',
-    individualMode ? 'individual' : 'all',
-    individualMode ? currentUserDispatcherId : 'all-dispatchers',
-], [priorityOffice, individualMode, currentUserDispatcherId]);
-```
-
-This ensures each office tab has its own cache entry. When switching tabs, React Query fetches only that office's drivers instead of reusing the full company dataset.
-
-**Edge case handling**: When `priorityOffice` is `null` (no office selected), the existing `fetchDriverIdsForOffice` function already handles this by loading all dispatchers -- so no fallback is needed.
-
-## Fix 3: Stabilize `useMemo` Dependencies (Audited)
-
-After auditing the dependency array (lines 1388-1407), the main instability sources are:
-
-- `windowOrderIds`: New array reference on every orders change even if IDs are identical
-- `lastLoadsData`: Object reference changes on refetch even if data is same
-- `orderFilesMap`: New Map on every `orderFiles` reference change
-
-**File: `src/hooks/useReportsDateWindowAdapter.ts`**
-
-### 3a. Stabilize `windowOrderIds` with a string comparison
-
-Replace the current `windowOrderIds` memo (line 503) with one that only updates when the actual ID set changes:
-
-```text
-const windowOrderIdsRef = useRef<string[]>([]);
-const windowOrderIds = useMemo(() => {
-    if (!dateWindowHook.orders || dateWindowHook.orders.length === 0) {
-        if (windowOrderIdsRef.current.length === 0) return windowOrderIdsRef.current;
-        windowOrderIdsRef.current = [];
-        return windowOrderIdsRef.current;
-    }
-    const newIds = dateWindowHook.orders.map((o) => o.id);
-    // Only create new reference if IDs actually changed
-    const prev = windowOrderIdsRef.current;
-    if (prev.length === newIds.length && prev.every((id, i) => id === newIds[i])) {
-        return prev;
-    }
-    windowOrderIdsRef.current = newIds;
-    return newIds;
-}, [dateWindowHook.orders]);
-```
-
-### 3b. Remove `isSupportingDataReady` and `windowOrderIds` from the main useMemo dependency array
-
-`isSupportingDataReady` is only used for early-return guards at the top of the useMemo. Since it's derived from `trucks`, `drivers`, `dispatchers`, and `companies` (which are already in the dependency array), it's redundant as a dependency.
-
-`windowOrderIds` is not used inside the transformation body at all -- it's only used for the order_files fetch. Remove it from the dependency array.
-
-Updated dependency array (line 1388):
-
-```text
-}, [
-    dateWindowHook.orders,
-    dateWindowHook.driverIds,
-    dateWindowHook.isLoading,
-    dateWindowHook.isFetching,
-    trucks,
-    trailers,
-    drivers,
-    dispatchers,
-    companies,
-    truckNotes,
-    lostDayNotes,
-    orderFilesMap,
-    priorityOffice,
-    dispatcherId,
-    isOrderFilesLoading,
-    lastLoadsData,
+// AFTER: Flat fetch + parallel relation queries
+const order = await supabase.from("orders").select(FLAT_COLUMNS).eq("id", orderId).single();
+const [pickupDrops, orderFiles, orderTransfers, ...] = await Promise.all([
+  supabase.from("pickup_drops").select("*").eq("order_id", orderId),
+  supabase.from("order_files").select("id, file_category, file_name, file_path").eq("order_id", orderId),
+  supabase.from("order_transfers").select("*").eq("order_id", orderId),
 ]);
+// Fetch entity lookups (truck, driver, broker, company) individually
+const [truck, driver1, driver2, broker, company] = await Promise.all([
+  order.truck_id ? supabase.from("trucks").select("id, truck_number, company_id").eq("id", order.truck_id).single() : null,
+  order.driver1_id ? supabase.from("drivers").select("id, name, company_id").eq("id", order.driver1_id).single() : null,
+  // ... etc
+]);
+// Manually assemble the nested object
 ```
 
-(Removed: `windowOrderIds`, `isSupportingDataReady`)
+Each individual query is trivially fast (index lookup, no joins, no RLS subquery storm).
+
+### Fix 2: Slim down `useOrdersSearch.ts`
+
+Same approach -- replace the 14-join SELECT with flat + batch. Search results are limited to 100 orders, so the batch fetches are small.
+
+```
+// Stage 1: Flat order search (fast, index-friendly)
+const { data: flatOrders } = await supabase
+  .from("orders")
+  .select(FLAT_COLUMNS)
+  .or(searchFilter)
+  .limit(100);
+
+// Stage 2: Batch fetch relations for the 100 results
+const orderIds = flatOrders.map(o => o.id);
+const [pickupDrops, orderFiles, transfers] = await Promise.all([...]);
+
+// Stage 3: Batch fetch entities (trucks, drivers, brokers, companies)
+const truckIds = collectUniqueIds(flatOrders, "truck_id");
+const [trucksMap, driversMap, brokersMap, ...] = await Promise.all([...]);
+
+// Assemble and transform
+```
+
+### Fix 3: Optimize `useOrdersProgressive.ts` count queries
+
+Replace `select("*", { count: "exact", head: true })` with `select("id", { count: "exact", head: true })`. Using `*` forces PostgREST to evaluate all columns through RLS even though `head: true` discards the rows. Using `id` is sufficient for counting.
 
 ## Files Changed
 
 | File | Change |
 |---|---|
-| `src/hooks/useReports.ts` | Guard realtime `useEffect` with `if (disableFetch) return` |
-| `src/hooks/useReportsDateWindow.ts` | Pass `priorityOffice` to `fetchDriverIdsForOffice`, add to query key |
-| `src/hooks/useReportsDateWindowAdapter.ts` | Stabilize `windowOrderIds` ref, remove redundant deps from main useMemo |
+| `src/hooks/useOrdersRealtime.ts` | Replace 14-join `fetchSingleOrder` with flat + parallel batch pattern |
+| `src/hooks/useOrdersSearch.ts` | Replace 14-join search query with flat + batch pattern |
+| `src/hooks/useOrdersProgressive.ts` | Change `select("*")` to `select("id")` in count queries |
 
 ## Expected Outcome
 
-- Fix 1: Eliminates duplicate realtime channel (6 table subscriptions removed)
-- Fix 2: Reduces dataset from 300+ drivers to 30-50 per office tab; all downstream queries (trucks, drivers, notes) shrink proportionally
-- Fix 3: Prevents 2-3 unnecessary re-runs of the 450-line transformation per realtime event
-
-Combined effect: CPU spikes should drop from 45-77% to under 15%.
-
+- Each individual query completes in under 50ms (single-table index lookups)
+- No more 14-join queries going through RLS
+- Statement timeouts stop immediately
+- CPU drops from 99% to under 10% at steady state
+- All relational data (truck#, driver, broker, company) still displays correctly
