@@ -1,6 +1,5 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 
 export interface DashboardStats {
   activeOrders: number;
@@ -24,67 +23,62 @@ export interface RecentOrder {
 }
 
 const fetchDashboardStats = async (): Promise<DashboardStats> => {
-  // Get active orders count
-  const { count: activeOrdersCount } = await supabase
-    .from('orders')
-    .select('id', { count: 'exact', head: true })
-    .in('status', ['pending', 'in_transit', 'loading']);
-
-  // Get available trucks count
-  const { count: availableTrucksCount } = await supabase
-    .from('trucks')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'available');
-
-  // Get total drivers count
-  const { count: activeDriversCount } = await supabase
-    .from('drivers')
-    .select('id', { count: 'exact', head: true })
-    .eq('is_active', true);
-
-  // Get total brokers count
-  const { count: totalBrokersCount } = await supabase
-    .from('brokers')
-    .select('id', { count: 'exact', head: true });
+  const [activeOrdersRes, availableTrucksRes, activeDriversRes, totalBrokersRes] = await Promise.all([
+    supabase.from('orders').select('id', { count: 'exact', head: true }).in('status', ['pending', 'in_transit', 'loading']),
+    supabase.from('trucks').select('id', { count: 'exact', head: true }).eq('status', 'available'),
+    supabase.from('drivers').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('brokers').select('id', { count: 'exact', head: true }),
+  ]);
 
   return {
-    activeOrders: activeOrdersCount || 0,
-    availableTrucks: availableTrucksCount || 0,
-    activeDrivers: activeDriversCount || 0,
-    totalBrokers: totalBrokersCount || 0,
+    activeOrders: activeOrdersRes.count || 0,
+    availableTrucks: availableTrucksRes.count || 0,
+    activeDrivers: activeDriversRes.count || 0,
+    totalBrokers: totalBrokersRes.count || 0,
   };
 };
 
 const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
-  const { data, error } = await supabase
+  // Stage 1: Flat orders fetch
+  const { data: orders, error } = await supabase
     .from('orders')
-    .select(`
-      id,
-      load_number,
-      status,
-      updated_at,
-      trucks!truck_id(truck_number),
-      pickup_drops!left(
-        address,
-        city,
-        state,
-        type
-      )
-    `)
+    .select('id, load_number, status, updated_at, truck_id')
     .eq('canceled', false)
     .order('updated_at', { ascending: false })
     .limit(5);
 
   if (error) throw error;
+  if (!orders || orders.length === 0) return [];
 
-  return (data || []).map(order => {
-    const pickupStop = order.pickup_drops?.find(pd => pd.type === 'pickup');
-    const deliveryStop = order.pickup_drops?.find(pd => pd.type === 'delivery');
-    
+  // Stage 2: Batch fetch trucks and pickup_drops
+  const truckIds = [...new Set(orders.map(o => o.truck_id).filter(Boolean))] as string[];
+  const orderIds = orders.map(o => o.id);
+
+  const [trucksRes, pickupDropsRes] = await Promise.all([
+    truckIds.length > 0
+      ? supabase.from('trucks').select('id, truck_number').in('id', truckIds)
+      : { data: [] },
+    supabase.from('pickup_drops').select('order_id, address, city, state, type').in('order_id', orderIds),
+  ]);
+
+  const truckMap = new Map((trucksRes.data || []).map(t => [t.id, t]));
+  const pickupDropsByOrder = new Map<string, any[]>();
+  for (const pd of (pickupDropsRes.data || [])) {
+    const arr = pickupDropsByOrder.get(pd.order_id) || [];
+    arr.push(pd);
+    pickupDropsByOrder.set(pd.order_id, arr);
+  }
+
+  // Stage 3: Assemble
+  return orders.map(order => {
+    const drops = pickupDropsByOrder.get(order.id) || [];
+    const pickupStop = drops.find(pd => pd.type === 'pickup');
+    const deliveryStop = drops.find(pd => pd.type === 'delivery');
+
     return {
       id: order.id,
       load_number: order.load_number,
-      truck_number: order.trucks?.truck_number || null,
+      truck_number: truckMap.get(order.truck_id)?.truck_number || null,
       status: order.status,
       pickup_address: pickupStop?.address || null,
       delivery_address: deliveryStop?.address || null,
@@ -98,71 +92,21 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
 };
 
 export const useDashboardStats = () => {
-  const queryClient = useQueryClient();
-
-  // Set up real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("dashboard-stats-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trucks" },
-        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "drivers" },
-        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "brokers" },
-        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
+    staleTime: 60000,
+    refetchInterval: 60000,
+    retry: 1,
   });
 };
 
 export const useRecentOrders = () => {
-  const queryClient = useQueryClient();
-
-  // Set up real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("recent-orders-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => queryClient.invalidateQueries({ queryKey: ["recent-orders"] })
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pickup_drops" },
-        () => queryClient.invalidateQueries({ queryKey: ["recent-orders"] })
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   return useQuery({
     queryKey: ['recent-orders'],
     queryFn: fetchRecentOrders,
+    staleTime: 60000,
+    refetchInterval: 60000,
+    retry: 1,
   });
 };
