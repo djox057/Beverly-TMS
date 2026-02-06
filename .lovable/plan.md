@@ -1,132 +1,134 @@
 
 
-# Phase 3E: Eliminate ALL Remaining 14-Join Queries
+# Phase 3F: Stop the Realtime Cascade Loop and Remaining Joins
 
-## Problem
+## Root Cause: Realtime Event Cascade
 
-The Phase 3C/3D fixes only covered `useOrdersRealtime`, `useOrdersSearch`, `useOrdersProgressive`, `useTrucks`, `useDrivers`, and `useDashboard`. But **6 more hooks** still fire massive lateral-join queries through RLS, causing the same "statement timeout" cascade that saturates CPU to 100%.
+The screenshot proves it: **2,431 GET requests** to `/orders?select=*,pickup_drops(...)` in 10 minutes = ~4 requests per second. This is an infinite cascade loop, not normal polling.
 
-The database logs confirm: statement timeouts are STILL happening dozens per second.
+Here is the cascade chain:
 
-## Remaining Offenders (in order of severity)
-
-### 1. `useReports.ts` - Trucks query (line 918-929) -- CRITICAL
-Fires every 2 minutes (refetchInterval: 120000). Fetches ALL trucks with 4 lateral joins:
-- `driver1:drivers(15+ columns, company:companies(...))`
-- `driver2:drivers(15+ columns, company:companies(...))`
-- `trailer:trailer_id(...)`
-- `company:companies(...)`
-
-With 268 trucks, this triggers ~1,300+ RLS evaluations per call. Two instances run (priority + background), so this alone fires ~2,600 RLS evaluations every 2 minutes.
-
-### 2. `useReports.ts` - Orders query (line 975-1111) -- CRITICAL
-Fires every 2 minutes. Fetches ALL unlocked orders (600+) with 10 lateral joins including nested company sub-joins. Each order triggers 10+ RLS lookups = ~6,000+ RLS evaluations per call. Batched in 1000s, but each batch is a monster query.
-
-### 3. `useUnlockedOrdersPagination.ts` (line 53 + 155-191)
-Full 14-join query on every page load. `select("*")` count query evaluates all columns through RLS.
-
-### 4. `useTripsLazyOrders.ts` (line 223-260)
-Full 14-join query triggered on every Trips page search.
-
-### 5. `NestedDriverTripsDropdown.tsx` (line 125-155)
-10-join query triggered when expanding driver trips dropdown (used in Reports and Trips pages).
-
-### 6. `useLumperMissingRevisedRC.ts` (line 34-45)
-Joins drivers, trucks, and order_files. Smaller but still contributes to RLS overhead.
-
-## Solution: Convert All to Flat + Batch Pattern
-
-### Fix 1: `useReports.ts` Trucks Query
-Replace the 4-join trucks query with flat fetch + parallel batch lookups (same pattern as the useTrucks fix from Phase 3D).
-
-Before:
-```
-select *, driver1:drivers!...(15 cols, company:companies(...)), driver2:drivers!...(...), trailer:trailer_id(...), company:companies(...)
-from trucks
+```text
+Any order change in the database
+  |
+  +--> useOrdersRealtime: fetches single order (10+ parallel queries)
+  +--> useDashboard: invalidateQueries -> refetches 4 count queries + recent orders with joins
+  +--> useRecoveryTrucks: invalidateQueries -> refetches ALL trucks + orders with pickup_drops joins
+  +--> useYardLoadsFromOrders: (if active) refetches with 7 joins
+  |
+  v
+  Each refetch creates database load, which combined with RLS evaluation, causes timeouts
+  Timeouts cause retries (React Query default: 3 retries)
+  Retries create more load -> more timeouts -> more retries
+  The system enters a self-sustaining overload loop
 ```
 
-After:
-```
--- Query 1: Flat trucks
-select * from trucks order by id
+Additionally, the `useTrucksRealtime` and `useDriversRealtime` hooks listen to overlapping tables (`trucks`, `drivers`, `trailers`, `companies`), so a single driver change triggers BOTH hooks, each running their own expensive fetch sequences.
 
--- Parallel batch queries:
-select id, name, phone, email, ... from drivers where id in (driver1_ids + driver2_ids)
-select id, name from companies where id in (company_ids)
-select id, trailer_number, dot_inspection_date from trailers where id in (trailer_ids)
--- Assemble manually
-```
+## Fixes (in priority order)
 
-### Fix 2: `useReports.ts` Orders Query
-Replace the 10-join orders query with the same flat + batch pattern already used in `useReportsDateWindow.ts`. The orders query at line 975-1111 still has joins for broker, company, truck, trailer, driver1, driver2. Convert to flat fetch + batch entity lookups.
+### Fix 1: Remove `invalidateQueries` from ALL realtime subscriptions
 
-Before:
-```
-select id, ..., pickup_drops(...), order_files(...), order_transfers(...),
-  broker:brokers(...), company:companies!...(...), truck:trucks!...(company:companies(...)),
-  trailer:trailers!...(...), driver1:drivers!...(company:companies(...)), driver2:drivers!...(company:companies(...))
-from orders where locked = false
-```
+Replace `invalidateQueries` (which triggers expensive refetches) with direct cache patching (`setQueryData`) or simply debounce/throttle the invalidation. Specifically:
 
-After:
-```
--- Query 1: Flat orders (with pickup_drops, order_files, order_transfers as separate queries)
-select [flat columns] from orders where locked = false
+- **`useRecoveryTrucks.ts`**: Remove the realtime subscription entirely. It subscribes to ALL `orders` changes just to refetch recovery trucks. Replace with 30-second staleTime (already has staleTime: 30000) and no realtime. Recovery data doesn't need instant updates.
+- **`useDashboard.ts`**: Remove the realtime subscriptions on `orders`, `trucks`, `drivers`, `brokers`. Dashboard stats don't need instant updates. Use staleTime + refetchInterval instead (e.g., every 60 seconds).
+- **`useYardLoadsFromOrders.ts`**: Already uses refetchInterval: 120000. No changes needed, but the joined query must be converted to flat+batch.
 
--- Parallel relation queries by order_id:
-select * from pickup_drops where order_id in (...)
-select id, file_category, file_name, file_path from order_files where order_id in (...)
-select id, ... from order_transfers where order_id in (...)
+### Fix 2: Convert remaining joined queries to flat+batch
 
--- Parallel entity queries by collected IDs:
-select id, name, ... from brokers where id in (...)
-select id, name from companies where id in (...)
-select id, truck_number from trucks where id in (...)
-select id, trailer_number from trailers where id in (...)
-select id, name, company_id from drivers where id in (...)
-```
+These are the hooks still using lateral joins:
 
-### Fix 3: `useUnlockedOrdersPagination.ts`
-- Change `select("*", { count: "exact", head: true })` to `select("id", ...)`
-- Replace 14-join query with flat + batch pattern
+**`useYardLoadsFromOrders.ts`** (7 joins, polls every 2 min):
+Replace with flat orders fetch + parallel batch fetches for trailers, brokers, companies, drivers, trucks, and pickup_drops.
 
-### Fix 4: `useTripsLazyOrders.ts`
-Replace `getOrderSelectQuery()` (14-join) with flat + batch pattern for the search results (limited to 50 orders).
+**`useRecoveryTrucks.ts`** (6 joins on trucks + pickup_drops join on orders):
+Replace with flat trucks fetch + batch entities. Replace orders query with flat + separate pickup_drops fetch.
 
-### Fix 5: `NestedDriverTripsDropdown.tsx`
-Replace 10-join query with flat + batch pattern (limited to 50 orders).
+**`useDashboard.ts` `fetchRecentOrders`** (2 joins: trucks + pickup_drops):
+Replace with flat orders fetch + batch truck lookup + separate pickup_drops query.
 
-### Fix 6: `useLumperMissingRevisedRC.ts`
-Replace joined query with flat orders fetch + separate driver/truck lookups.
+**`useExpiringAlerts.ts`** (3 joins on trucks: driver1 with company, driver2, company):
+Replace with flat trucks fetch + batch driver/company lookups.
+
+**`useRepairs.ts`** (3 joins: trucks, trailers, drivers):
+Replace with flat repairs fetch + batch entity lookups.
+
+**`useTrucksRealtime.ts`** (4 joins in fetchSingleTruck):
+Replace with flat truck fetch + parallel entity lookups.
+
+**`useDriversRealtime.ts`** (company join + truck/trailer join):
+Replace with flat driver fetch + separate truck and company lookups.
+
+**`useAvailableTrucks.ts`** (1 join: drivers):
+Replace with flat trucks fetch + batch driver lookup.
+
+### Fix 3: Fix remaining `select("*")` count queries
+
+**`useYardLoadsCount.ts`**: Change `select("*", { count: "exact", head: true })` to `select("id", { count: "exact", head: true })`.
+
+### Fix 4: Remove `fetchPreviousWeekLastDelivery` inner join in Trips.tsx
+
+The `pickup_drops!inner(datetime, type)` join at line 120 should be replaced with a separate pickup_drops query.
 
 ## Technical Details
 
-All fixes follow the identical pattern:
+### File: `src/hooks/useRecoveryTrucks.ts`
+- Remove entire realtime subscription (lines 8-50)
+- Replace trucks query (lines 56-69) with flat + batch
+- Replace orders query (lines 85-94) with flat + separate pickup_drops
+- Add refetchInterval: 60000 for periodic refresh
 
-```text
-Stage 1: Flat fetch (single table, no joins)
-  |
-Stage 2: Collect unique IDs from results
-  |
-Stage 3: Parallel batch fetch entities (Promise.all)
-  |
-Stage 4: Build lookup Maps and manually assemble objects
-```
+### File: `src/hooks/useDashboard.ts`
+- Remove realtime subscriptions from `useDashboardStats` (lines 86-112) and `useRecentOrders` (lines 131-148)
+- Replace `fetchRecentOrders` joined query (lines 60-76) with flat + batch
+- Add refetchInterval: 60000 to both hooks
+
+### File: `src/hooks/useYardLoadsFromOrders.ts`
+- Replace 7-join query (lines 68-128) with flat orders fetch + parallel batch fetches
+- Keep existing refetchInterval: 120000
+
+### File: `src/hooks/useYardLoadsCount.ts`
+- Line 10: Change `select("*"` to `select("id"`
+
+### File: `src/hooks/useExpiringAlerts.ts`
+- Replace trucks query (lines 10-18) with flat + batch
+
+### File: `src/hooks/useRepairs.ts`
+- Replace repairs query (lines 67-75) with flat + batch
+
+### File: `src/hooks/useTrucksRealtime.ts`
+- Replace `fetchSingleTruck` (lines 23-91) with flat truck fetch + parallel entity lookups
+
+### File: `src/hooks/useDriversRealtime.ts`
+- Replace `fetchSingleDriver` (lines 23-116) with flat driver fetch + separate entity lookups
+- Remove the `user_roles` + `profiles` round-trip in `has_account` check (lines 83-101); use cached data from the main drivers query instead
+
+### File: `src/hooks/useAvailableTrucks.ts`
+- Replace trucks+drivers join with flat + batch
+
+### File: `src/pages/Trips.tsx`
+- Replace `fetchPreviousWeekLastDelivery` (lines 114-123) pickup_drops!inner join with flat + separate query
 
 ## Files Changed
 
 | File | Change | Impact |
 |---|---|---|
-| `src/hooks/useReports.ts` | Replace trucks 4-join + orders 10-join with flat + batch | Eliminates ~8,600 RLS evaluations per 2-min cycle |
-| `src/hooks/useUnlockedOrdersPagination.ts` | Replace 14-join + optimize count | Eliminates ~1,400 RLS evaluations per page load |
-| `src/hooks/useTripsLazyOrders.ts` | Replace 14-join getOrderSelectQuery() | Eliminates ~700 RLS evaluations per search |
-| `src/components/NestedDriverTripsDropdown.tsx` | Replace 10-join query | Eliminates ~500 RLS evaluations per dropdown open |
-| `src/hooks/useLumperMissingRevisedRC.ts` | Replace joined query | Minor RLS reduction |
+| `src/hooks/useRecoveryTrucks.ts` | Remove realtime sub + flat+batch queries | Stops biggest loop contributor |
+| `src/hooks/useDashboard.ts` | Remove realtime subs + flat+batch fetchRecentOrders + add refetchInterval | Stops cascade amplifier |
+| `src/hooks/useYardLoadsFromOrders.ts` | Flat+batch query | Eliminates 7-join RLS amplification |
+| `src/hooks/useYardLoadsCount.ts` | select("id") instead of select("*") | Minor optimization |
+| `src/hooks/useExpiringAlerts.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
+| `src/hooks/useRepairs.ts` | Flat+batch query | Eliminates 3-join RLS amplification |
+| `src/hooks/useTrucksRealtime.ts` | Flat+batch fetchSingleTruck | Eliminates 4-join per realtime event |
+| `src/hooks/useDriversRealtime.ts` | Flat+batch fetchSingleDriver | Eliminates joins + user_roles storm |
+| `src/hooks/useAvailableTrucks.ts` | Flat+batch query | Eliminates 1-join RLS amplification |
+| `src/pages/Trips.tsx` | Replace pickup_drops!inner join | Eliminates join in per-truck query |
 
 ## Expected Outcome
 
-- ALL client-side PostgREST queries become single-table index lookups
-- Zero lateral joins going through RLS from the frontend
-- Statement timeouts should stop completely
-- CPU should stabilize at 5-15% with 50+ users
-- The "works for a few minutes then crashes" pattern stops because polling queries no longer cascade into timeouts
+- The realtime cascade loop is broken by removing `invalidateQueries` from subscriptions
+- ALL remaining client-side queries become single-table index lookups
+- Zero lateral joins remain anywhere in the frontend
+- CPU should drop to 5-10% with 1 user and stay under 30% with 50+ users
+- The "works for a few minutes then crashes" pattern stops permanently
