@@ -476,16 +476,29 @@ const fetchDriverIdsForOffice = async (
     return { driverIds: [], dispatcherIds: [] };
   }
 
-  // Step 2: Fetch trucks with their driver1 relationship
+  // Step 2: Fetch trucks flat (no join to drivers — avoids RLS amplification)
   const { data: trucks, error } = await supabase
     .from("trucks")
-    .select(`
-      id,
-      driver1_id,
-      driver2_id,
-      driver1:drivers!trucks_driver1_id_fkey(id, dispatcher_id)
-    `)
+    .select("id, driver1_id, driver2_id")
     .eq("is_active", true);
+
+  if (error) {
+    console.error('[useReportsDateWindow] Error fetching trucks:', error);
+    throw error;
+  }
+
+  // Step 2b: Fetch driver dispatcher mappings separately (flat, no join)
+  const truckDriverIds = [...new Set((trucks || []).map(t => t.driver1_id).filter(Boolean))] as string[];
+  let driverDispatcherMap = new Map<string, string>();
+  if (truckDriverIds.length > 0) {
+    const { data: driverDispatchers } = await supabase
+      .from("drivers")
+      .select("id, dispatcher_id")
+      .in("id", truckDriverIds);
+    for (const d of driverDispatchers || []) {
+      if (d.dispatcher_id) driverDispatcherMap.set(d.id, d.dispatcher_id);
+    }
+  }
 
   if (error) {
     console.error('[useReportsDateWindow] Error fetching trucks with drivers:', error);
@@ -497,13 +510,13 @@ const fetchDriverIdsForOffice = async (
   const driverIdsSet = new Set<string>();
   
   for (const truck of trucks || []) {
-    const driver1 = truck.driver1 as any;
+    const driverDispatcherId = truck.driver1_id ? driverDispatcherMap.get(truck.driver1_id) : null;
     // Check if driver's dispatcher is in this office
-    if (driver1?.dispatcher_id && filterDispatcherIds.includes(driver1.dispatcher_id) && driver1?.id) {
-      driverIdsSet.add(driver1.id);
+    if (driverDispatcherId && filterDispatcherIds.includes(driverDispatcherId) && truck.driver1_id) {
+      driverIdsSet.add(truck.driver1_id);
     }
     // Also include driver2 if exists on matching trucks
-    if (driver1?.dispatcher_id && filterDispatcherIds.includes(driver1.dispatcher_id) && truck.driver2_id) {
+    if (driverDispatcherId && filterDispatcherIds.includes(driverDispatcherId) && truck.driver2_id) {
       driverIdsSet.add(truck.driver2_id);
     }
   }
@@ -618,9 +631,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // This prevents refetching when navigating calendars - we load incrementally instead
   const stableQueryKey = useMemo(() => [
     'reports-date-window-stable',
+    priorityOffice || 'all-offices',
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId : 'all-dispatchers',
-  ], [individualMode, currentUserDispatcherId]);
+  ], [priorityOffice, individualMode, currentUserDispatcherId]);
 
   // Primary query: loads the initial date window on mount
   // Does NOT refetch when selectedDate changes - we handle that separately
@@ -629,7 +643,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     queryFn: async () => {
       // Get driver IDs for current mode (individual or all offices)
       const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
-        null, // Don't filter by office - we load all and filter in UI
+        priorityOffice, // Scope to current office tab to reduce dataset size
         individualMode ? currentUserDispatcherId : null
       );
       

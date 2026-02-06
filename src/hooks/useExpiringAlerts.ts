@@ -7,14 +7,10 @@ export const useExpiringTrucks = () => {
   return useQuery({
     queryKey: ['expiring-trucks'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Stage 1: Flat trucks fetch
+      const { data: trucks, error } = await supabase
         .from('trucks')
-        .select(`
-          *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, company:companies!company_id(id, name)),
-          driver2:drivers!trucks_driver2_id_fkey(id, name),
-          company:company_id(id, name)
-        `)
+        .select('*')
         .order('truck_number');
       
       if (error) throw error;
@@ -22,12 +18,10 @@ export const useExpiringTrucks = () => {
       const now = new Date();
       const twoMonthsFromNow = new Date(now.getTime() + TWO_MONTHS_MS);
       
-      return data?.filter(truck => {
+      const filteredTrucks = trucks?.filter(truck => {
         const dotDate = truck.dot_inspection_date ? new Date(truck.dot_inspection_date) : null;
         const plateDate = truck.plate_expiration_date ? new Date(truck.plate_expiration_date) : null;
         const insuranceDate = truck.insurance_expiration_date ? new Date(truck.insurance_expiration_date) : null;
-        
-        // Include truck if it has any maintenance date set (oil change, tires swap, maintenance check)
         const hasMaintenanceDate = truck.oil_change_date || truck.tires_swap_date || truck.maintenance_check_date;
         
         return (
@@ -37,6 +31,42 @@ export const useExpiringTrucks = () => {
           (insuranceDate && insuranceDate <= twoMonthsFromNow)
         );
       }) || [];
+
+      if (filteredTrucks.length === 0) return [];
+
+      // Stage 2: Batch fetch drivers and companies for filtered trucks only
+      const driverIds = [...new Set(filteredTrucks.flatMap(t => [t.driver1_id, t.driver2_id].filter(Boolean)))] as string[];
+      const companyIds = [...new Set(filteredTrucks.map(t => t.company_id).filter(Boolean))] as string[];
+
+      const [driversRes, companiesRes] = await Promise.all([
+        driverIds.length > 0
+          ? supabase.from('drivers').select('id, name, company_id').in('id', driverIds)
+          : { data: [] },
+        companyIds.length > 0
+          ? supabase.from('companies').select('id, name').in('id', companyIds)
+          : { data: [] },
+      ]);
+
+      // Also fetch driver companies
+      const driverCompanyIds = [...new Set((driversRes.data || []).map(d => d.company_id).filter(Boolean))] as string[];
+      const driverCompaniesRes = driverCompanyIds.length > 0
+        ? await supabase.from('companies').select('id, name').in('id', driverCompanyIds)
+        : { data: [] };
+
+      const driverMap = new Map((driversRes.data || []).map(d => [d.id, d]));
+      const companyMap = new Map([...(companiesRes.data || []), ...(driverCompaniesRes.data || [])].map(c => [c.id, c]));
+
+      // Stage 3: Assemble (match original joined shape)
+      return filteredTrucks.map(truck => {
+        const driver1 = driverMap.get(truck.driver1_id);
+        const driver2 = driverMap.get(truck.driver2_id);
+        return {
+          ...truck,
+          driver1: driver1 ? { ...driver1, company: companyMap.get(driver1.company_id) || null } : null,
+          driver2: driver2 || null,
+          company: companyMap.get(truck.company_id) || null,
+        };
+      });
     },
   });
 };

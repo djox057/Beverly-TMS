@@ -111,14 +111,10 @@ const fetchPreviousWeekLastDelivery = async (
 
   // Query orders for this truck with deliveries in the previous week
   // NOTE: We don't rely on order.status here because delivery completion is represented by delivery_datetime.
+  // Flat fetch (no joins) to avoid RLS amplification
   const { data: orders, error } = await supabase
     .from("orders")
-    .select(`
-      id,
-      delivery_datetime,
-      truck_id,
-      pickup_drops!inner(datetime, type)
-    `)
+    .select("id, delivery_datetime, truck_id")
     .eq("truck_id", truckId)
     .not("delivery_datetime", "is", null);
 

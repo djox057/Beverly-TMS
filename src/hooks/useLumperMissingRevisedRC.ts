@@ -26,52 +26,56 @@ export function useLumperMissingRevisedRC() {
   const { data: lumperRequests = [], isLoading, refetch } = useQuery({
     queryKey: ["lumper-missing-revised-rc"],
     queryFn: async () => {
-      // Fetch all orders with lumper > 0, including order_files to check for RC uploads
-      // Only check orders created on/after January 9, 2026
-      // Don't filter by lumper_revised_rc_path since file might be deleted
+      // Flat fetch - no joins to eliminate RLS amplification
       const { data, error } = await supabase
         .from("orders")
-        .select(`
-          id,
-          internal_load_number,
-          lumper,
-          pickup_datetime,
-          driver1_id,
-          driver2_id,
-          driver1:drivers!orders_driver1_id_fkey(id, name),
-          driver2:drivers!orders_driver2_id_fkey(id, name),
-          truck:trucks!orders_truck_id_fkey(truck_number),
-          order_files(id, file_category, file_name)
-        `)
+        .select("id, internal_load_number, lumper, pickup_datetime, driver1_id, driver2_id, truck_id")
         .gt("lumper", 0)
         .gte("created_at", "2026-01-09T00:00:00Z")
         .order("pickup_datetime", { ascending: false });
 
       if (error) throw error;
-      
+      if (!data || data.length === 0) return [] as LumperMissingRevisedRC[];
+
+      // Batch-fetch related entities
+      const orderIds = data.map(o => o.id);
+      const driverIds = [...new Set(data.flatMap(o => [o.driver1_id, o.driver2_id]).filter(Boolean))] as string[];
+      const truckIds = [...new Set(data.map(o => o.truck_id).filter(Boolean))] as string[];
+
+      const [driversRes, trucksRes, filesRes] = await Promise.all([
+        driverIds.length > 0 ? supabase.from("drivers").select("id, name").in("id", driverIds) : { data: [] },
+        truckIds.length > 0 ? supabase.from("trucks").select("id, truck_number").in("id", truckIds) : { data: [] },
+        supabase.from("order_files").select("id, order_id, file_category, file_name").in("order_id", orderIds),
+      ]);
+
+      const driverMap = new Map((driversRes.data || []).map((d: any) => [d.id, d]));
+      const truckMap = new Map((trucksRes.data || []).map((t: any) => [t.id, t]));
+      const filesByOrder = new Map<string, any[]>();
+      for (const f of (filesRes.data || [])) {
+        const arr = filesByOrder.get(f.order_id) || [];
+        arr.push(f);
+        filesByOrder.set(f.order_id, arr);
+      }
+
       // Filter to only include orders that are truly missing revised RC
-      // An order is complete if EITHER:
-      // - Has 2+ RC files (original + revised), OR
-      // - Has at least 1 file in "ADDITIONAL" category
-      const ordersWithMissingRC = (data || []).filter((order) => {
-        const orderFiles = order.order_files || [];
+      const ordersWithMissingRC = data.filter((order) => {
+        const orderFiles = filesByOrder.get(order.id) || [];
         const rcFileCount = orderFiles.filter((file: any) => file.file_category === "RC").length;
         const hasAdditionalFile = orderFiles.some((file: any) => file.file_category === "ADDITIONAL");
-        // Complete if has 2+ RC files OR has an additional file
         return rcFileCount < 2 && !hasAdditionalFile;
       });
-      
+
       return ordersWithMissingRC.map((order) => ({
         id: order.id,
         driver1_id: order.driver1_id,
-        driver1_name: (order.driver1 as any)?.name || "Unknown",
+        driver1_name: driverMap.get(order.driver1_id)?.name || "Unknown",
         driver2_id: order.driver2_id,
-        driver2_name: (order.driver2 as any)?.name || null,
-        truck_number: (order.truck as any)?.truck_number || null,
+        driver2_name: driverMap.get(order.driver2_id)?.name || null,
+        truck_number: truckMap.get(order.truck_id)?.truck_number || null,
         internal_load_number: order.internal_load_number,
         lumper: order.lumper || 0,
         pickup_datetime: order.pickup_datetime,
-        lumper_revised_rc_path: null, // Not fetched anymore, rely on RC file count
+        lumper_revised_rc_path: null,
       })) as LumperMissingRevisedRC[];
     },
     staleTime: 30 * 1000,
