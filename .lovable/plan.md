@@ -1,65 +1,111 @@
 
-# RLS Policy Optimization - Phase 2
 
-## Problem
-The Phase 1 optimization consolidated policies on the 5 core tables (companies, drivers, trucks, orders, pickup_drops), but **~50 other tables** still use the old `has_role()` pattern, which triggers individual `user_roles` lookups per role per row. The `user_roles` table has accumulated **2.5 billion index scans** -- the single highest-scanned table in the entire database. Statement timeouts are still occurring on complex queries involving `order_files` and `pickup_drops` joins.
+# Phase 3: Performance Optimization
 
-## Approach
-Consolidate RLS policies on the **next-highest-impact tables** using the same `has_any_role()` pattern from Phase 1. Prioritized by query volume and policy count:
+## What This Fixes
+Statement timeouts are still occurring on two specific queries: the locked-orders Edge Function (14 nested joins on 12k+ rows) and the lumper missing-RC query (no index on `lumper > 0`). This phase eliminates both.
 
-### Batch 1 - Highest Impact (queried on every page load)
-| Table | Current Policies | Target | Index Scans |
-|-------|-----------------|--------|-------------|
-| order_files | 19 | ~5 | 5.8M |
-| trailers | 19 | ~5 | 993K |
-| brokers | 11 | ~4 | 833K |
-| user_roles | 15 | ~4 | 2.5B |
-| profiles | 14 | ~4 | 6.2M |
+## Step 1: Database Indexes (Immediate Relief)
 
-### Batch 2 - Medium Impact (queried on Reports/Trips)
-| Table | Current Policies | Target |
-|-------|-----------------|--------|
-| truck_notes | 13 | ~4 |
-| lost_day_notes | 10 | ~4 |
-| truck_files | 22 | ~5 |
-| trailer_files | 22 | ~5 |
-| driver_files | 16 | ~5 |
+Add three targeted partial indexes to support the heaviest query patterns:
 
-### Batch 3 - Lower Impact (less frequently queried)
-| Table | Current Policies | Target |
-|-------|-----------------|--------|
-| order_transfers | 5 | ~4 |
-| recovery_history | 8 | ~4 |
-| dispatcher_status | 8 | ~4 |
-| truck_locations | 10 | ~4 |
-| driver_sensitive_pii | 10 | ~4 |
-| driver_performance | 10 | ~4 |
-| driver_drug_tests | 9 | ~4 |
-| Remaining ~25 tables | 2-8 each | ~2-4 each |
+| Index | Purpose |
+|---|---|
+| `idx_orders_locked_true_created` on `orders(created_at DESC) WHERE locked = true` | Covers the locked-orders Edge Function, which currently does a sequential scan on 12k+ rows |
+| `idx_orders_lumper_created` on `orders(created_at) WHERE lumper > 0` | Covers `useLumperMissingRevisedRC` which filters on `lumper > 0` with no index |
+| `idx_orders_locked_driver1_pickup` on `orders(driver1_id, pickup_datetime DESC) WHERE locked = true` | Covers Reports page locked-orders-by-driver fetches |
+
+No indexes will be dropped -- production stats confirmed all existing indexes are actively used.
+
+## Step 2: Slim `get-all-locked-orders` Edge Function
+
+Current state: `SELECT *` with 14 nested joins (broker, company, truck with company sub-join, trailer, driver1 with company, driver2 with company, original_driver1/2, original_truck/trailer, recovery_history with 4 sub-joins, order_transfers with 4 sub-joins, pickup_drops, order_files). Each join creates lateral subqueries multiplied across 12k+ locked rows.
+
+New two-stage approach:
+1. Fetch flat order columns only (no joins) with pagination
+2. Collect all order IDs from the batch
+3. Three parallel `.in()` batch queries for `pickup_drops`, `order_files`, and `order_transfers` (flat columns only, no sub-joins)
+4. Group results by `order_id` using a Map, attach to orders before returning
+
+All other joins removed entirely (broker, company, truck, trailer, driver1/2, original_*, recovery_history) -- callers already resolve these from cached data in `useDrivers`, `useTrucks`, etc., and `transformOrders` gracefully handles missing join data via `deleted_*` fallback fields.
+
+Performance logging will be added at each stage to verify the "under 1s" target.
+
+## Step 3: Slim `get-all-unlocked-orders` Edge Function
+
+Identical refactor as Step 2 -- same 14-join query structure, same two-stage pattern. Fewer rows (~660 unlocked) but same CPU cost per row.
+
+## Step 4: Deduplicate `truck_notes` and Add Unique Constraint
+
+Production data shows 2 drivers with duplicate notes (one has 38 duplicates, one has 3). The root cause is the upsert code in `useReports.ts` which does not use `onConflict` -- it checks for existence and inserts, creating a race condition window.
+
+Migration will:
+1. Delete all but the most recently updated note per driver
+2. Add `UNIQUE(driver_id)` constraint
+3. Update the mutation code in `useReports.ts` to use proper upsert with `onConflict: 'driver_id'`
+
+## What We Are NOT Doing
+
+- **Dropping indexes**: Production stats show all existing indexes are heavily used
+- **Removing the legacy `useReports.ts` fetch path**: It is already fully guarded by `disableFetch: true` when the date-window adapter is active (confirmed in code). No additional guard needed.
+- **Staged rollout with v2 Edge Functions**: The response shape stays compatible -- `transformOrders` already handles missing join data via null checks and `deleted_*` fallbacks. A direct update is safe.
 
 ## Technical Details
 
-For each table, the migration will:
-1. Drop all existing individual `has_role()` policies
-2. Create consolidated policies using `has_any_role()` with role arrays
-3. Preserve any special-case policies (e.g., driver self-access, supervisor office filtering)
+### Edge Function batch pattern (Steps 2/3)
 
-Example transformation for `order_files` (19 policies to ~5):
 ```text
-BEFORE: 9 separate SELECT policies (one per role)
-AFTER:  1 "Roles can view order_files" + 1 "Drivers can view own order files"
+// Stage 1: Flat orders
+const { data: orders } = await supabase
+  .from("orders")
+  .select("id, load_number, internal_load_number, ...")  // flat columns only
+  .eq("locked", true)
+  .range(offset, offset + limit - 1);
 
-BEFORE: 5 separate INSERT/UPDATE/DELETE policies
-AFTER:  1 each for INSERT, UPDATE, DELETE using has_any_role()
+// Stage 2: Batch relations using .in()
+const orderIds = orders.map(o => o.id);
+
+const [pickupDrops, orderFiles, transfers] = await Promise.all([
+  supabase.from("pickup_drops").select("...").in("order_id", orderIds),
+  supabase.from("order_files").select("...").in("order_id", orderIds),
+  supabase.from("order_transfers").select("...").in("order_id", orderIds),
+]);
+
+// Stage 3: Group and attach
+const pdMap = new Map();
+for (const pd of pickupDrops.data) {
+  if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
+  pdMap.get(pd.order_id).push(pd);
+}
+// ... same for files and transfers
+
+orders.forEach(order => {
+  order.pickup_drops = pdMap.get(order.id) || [];
+  order.order_files = ofMap.get(order.id) || [];
+  order.order_transfers = otMap.get(order.id) || [];
+});
 ```
 
-## Execution Plan
-- Run migrations in batches to avoid deadlocks (learned from Phase 1)
-- Batch 1 first (biggest performance win), then Batch 2, then Batch 3
-- Each batch as a single migration with all DROP + CREATE statements
-- Total estimated reduction: ~300 policies down to ~120, eliminating hundreds of millions of redundant `user_roles` lookups per day
+### Rollback SQL (if indexes cause issues)
 
-## Risk Mitigation
-- Each migration is atomic (all-or-nothing within a transaction)
-- Policies are recreated in the same transaction as drops, so there is no window without access control
-- The `has_any_role()` function is already proven on the 5 core tables from Phase 1
+```text
+DROP INDEX CONCURRENTLY IF EXISTS idx_orders_locked_true_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_orders_lumper_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_orders_locked_driver1_pickup;
+```
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| Migration SQL | 3 new indexes + truck_notes dedup + unique constraint |
+| `supabase/functions/get-all-locked-orders/index.ts` | Replace 14-join SELECT with two-stage flat+batch pattern |
+| `supabase/functions/get-all-unlocked-orders/index.ts` | Same refactor |
+| `src/hooks/useReports.ts` | Change truck_notes insert to upsert with `onConflict: 'driver_id'` |
+
+### Implementation Order
+
+1. Database migration (indexes + truck_notes) -- immediate timeout relief, zero risk
+2. Edge Function refactoring (both functions) -- main performance improvement
+3. useReports.ts upsert fix -- prevents future duplicates
+
