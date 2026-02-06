@@ -383,42 +383,22 @@ export const useReports = (options?: UseReportsOptions) => {
       // Client-side timestamp (DB has no guarantee of updated_at triggers)
       const nowIso = new Date().toISOString();
 
-      // First check if a note already exists for this driver
-      const { data: existingNotes, error: fetchError } = await supabase
+      // Upsert directly - unique constraint on driver_id handles conflicts
+
+      // Upsert with onConflict on driver_id (unique constraint)
+      const { error } = await supabase
         .from("truck_notes")
-        .select("id, truck_id")
-        .eq("driver_id", driverId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-
-      if (fetchError) throw fetchError;
-
-      const existingNote = existingNotes && existingNotes.length > 0 ? existingNotes[0] : null;
-
-      if (existingNote) {
-        // Update existing note - don't update truck_id since notes are driver-based
-        const { error } = await supabase
-          .from("truck_notes")
-          .update({
-            note,
-            updated_by: user.id,
-            updated_at: nowIso,
-          })
-          .eq("id", existingNote.id);
-
-        if (error) throw error;
-      } else {
-        // Create new note - truck_id can be null for unassigned drivers
-        const { error } = await supabase.from("truck_notes").insert({
+        .upsert({
           truck_id: actualTruckId,
           driver_id: driverId,
           note,
           updated_by: user.id,
           updated_at: nowIso,
+        }, {
+          onConflict: "driver_id",
         });
 
-        if (error) throw error;
-      }
+      if (error) throw error;
     },
     onMutate: async ({ truckId, note, driverId }) => {
       // Cancel any outgoing refetches for all relevant query keys
