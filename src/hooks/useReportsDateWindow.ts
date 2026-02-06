@@ -677,7 +677,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // Effect to load orders for the current window when it changes
   // This is the key to incremental loading without full refetches
   const { isFetching, refetch } = useQuery({
-    queryKey: ['reports-date-window-orders', windowKey, individualMode ? 'individual' : 'all'],
+    queryKey: ['reports-date-window-orders', windowKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all'],
     queryFn: async () => {
       // Read from ref to avoid stale closure issues
       const driverIds = driverIdsRef.current;
@@ -689,8 +689,9 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       }
       
       // Skip if already loaded this window
-      if (globalLoadedWindows.has(windowKey)) {
-        console.log(`[useReportsDateWindow] Window ${windowKey} already loaded, skipping`);
+      const scopedWindowKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+      if (globalLoadedWindows.has(scopedWindowKey)) {
+        console.log(`[useReportsDateWindow] Window ${scopedWindowKey} already loaded, skipping`);
         return { orders: [], windowKey, skipped: true };
       }
       
@@ -734,7 +735,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       for (const order of allOrders) {
         globalAccumulatedOrders.set(order.id, order);
       }
-      globalLoadedWindows.add(windowKey);
+      const scopedWindowKeyForMark = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+      globalLoadedWindows.add(scopedWindowKeyForMark);
       
       // CRITICAL: Increment version and notify listeners so the UI re-renders
       // This ensures accumulatedOrders memo updates when orders are loaded via queryFn
@@ -759,7 +761,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const hasTriggeredInitialFetchRef = useRef(false);
   useEffect(() => {
     const driverIds = initialData?.driverIds || [];
-    if (driverIds.length > 0 && !globalLoadedWindows.has(windowKey) && !hasTriggeredInitialFetchRef.current) {
+    const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+    if (driverIds.length > 0 && !globalLoadedWindows.has(scopedKey) && !hasTriggeredInitialFetchRef.current) {
       hasTriggeredInitialFetchRef.current = true;
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
@@ -768,7 +771,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   
   // Reset the trigger flag when window changes
   useEffect(() => {
-    if (globalLoadedWindows.has(windowKey)) {
+    const scopedKeyForReset = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+    if (globalLoadedWindows.has(scopedKeyForReset)) {
       hasTriggeredInitialFetchRef.current = true; // Already loaded
     } else {
       hasTriggeredInitialFetchRef.current = false; // Need to load this new window
@@ -799,16 +803,19 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     const pastKey = getWindowKey(pastWindow);
     const futureKey = getWindowKey(futureWindow);
 
-    if (!globalLoadedWindows.has(pastKey)) {
+    const scopedPastKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${pastKey}`;
+    const scopedFutureKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${futureKey}`;
+
+    if (!globalLoadedWindows.has(scopedPastKey)) {
       queryClient.prefetchQuery({
-        queryKey: ['reports-date-window-orders', pastKey, individualMode ? 'individual' : 'all'],
+        queryKey: ['reports-date-window-orders', pastKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all'],
         staleTime: 60000,
       });
     }
 
-    if (!globalLoadedWindows.has(futureKey)) {
+    if (!globalLoadedWindows.has(scopedFutureKey)) {
       queryClient.prefetchQuery({
-        queryKey: ['reports-date-window-orders', futureKey, individualMode ? 'individual' : 'all'],
+        queryKey: ['reports-date-window-orders', futureKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all'],
         staleTime: 60000,
       });
     }
