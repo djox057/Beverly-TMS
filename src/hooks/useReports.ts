@@ -217,6 +217,10 @@ export const useReports = (options?: UseReportsOptions) => {
   // Set up real-time subscriptions with debouncing
   // Only invalidate priority query for real-time updates to avoid triggering expensive full reloads
   useEffect(() => {
+    // When disableFetch is true, the date-window adapter handles its own
+    // realtime subscriptions. Don't create a duplicate channel.
+    if (disableFetch) return;
+
     let timeoutId: NodeJS.Timeout;
 
     const debouncedInvalidate = () => {
@@ -289,7 +293,7 @@ export const useReports = (options?: UseReportsOptions) => {
       clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, disableFetch]);
 
   const updateTruckStatus = useMutation({
     mutationFn: async ({ truckId, status }: { truckId: string; status: string }) => {

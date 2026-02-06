@@ -618,9 +618,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // This prevents refetching when navigating calendars - we load incrementally instead
   const stableQueryKey = useMemo(() => [
     'reports-date-window-stable',
+    priorityOffice || 'all-offices',
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId : 'all-dispatchers',
-  ], [individualMode, currentUserDispatcherId]);
+  ], [priorityOffice, individualMode, currentUserDispatcherId]);
 
   // Primary query: loads the initial date window on mount
   // Does NOT refetch when selectedDate changes - we handle that separately
@@ -629,7 +630,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     queryFn: async () => {
       // Get driver IDs for current mode (individual or all offices)
       const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
-        null, // Don't filter by office - we load all and filter in UI
+        priorityOffice, // Scope to current office tab to reduce dataset size
         individualMode ? currentUserDispatcherId : null
       );
       
