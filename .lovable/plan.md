@@ -1,58 +1,57 @@
 
-# Fix: Reports page not loading orders for non-primary offices
 
-## Root Cause
+# Fix: Integer Overflow in `create_order_with_unique_load_number` RPC
 
-In `useReportsDateWindow.ts`, two mechanisms prevent orders from loading when switching offices:
+## Problem
 
-1. **`globalLoadedWindows` is not office-scoped** (line 560, 692): This module-level `Set` tracks loaded date ranges using only the date key (e.g., `"2026-02-04_2026-02-09"`). When Office A loads today's window, it marks this key as loaded. When switching to Office B, the same key is already in the set, so the fetch is **skipped entirely** -- Office B's drivers' orders are never fetched.
+The RPC function `create_order_with_unique_load_number` uses `::integer` casts for `loaded_miles`, `dh_miles`, and `mileage`, but the actual columns are `numeric(10,2)`. When OCR sends garbage like `8530063736` (a phone number misread as mileage), the cast fails and triggers retry storms that spike CPU to 100%.
 
-2. **Orders query key missing office scope** (line 680): The React Query key `['reports-date-window-orders', windowKey, 'all']` does not include the office name. So React Query serves the cached (skipped) result from Office A when Office B requests the same date window.
+## Solution
 
-**Why it works after navigating +1 day and back:** The date window key changes (different dates), bypassing both caches, which triggers a fresh fetch using the now-correct `driverIdsRef` (populated by the stable query which IS office-scoped).
+A single migration that replaces the three `::integer` casts with a safe pattern: validate the input is actually numeric before casting, otherwise insert NULL.
 
-**Why the user's own office works:** It's the first office loaded, so the `globalLoadedWindows` set is empty and the fetch proceeds normally.
+### Pattern
 
-## Fix
-
-Two changes in `src/hooks/useReportsDateWindow.ts`:
-
-### Change 1: Scope `globalLoadedWindows` entries by office context
-
-Instead of storing just `windowKey` (date range), store `scopedWindowKey` that includes the office/mode context:
-
-```typescript
-// Line 692 area - before:
-if (globalLoadedWindows.has(windowKey)) { ... }
-
-// After:
-const scopedWindowKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-if (globalLoadedWindows.has(scopedWindowKey)) { ... }
+```sql
+CASE
+  WHEN NULLIF(order_data->>'mileage', '') ~ '^[0-9]+(\.[0-9]+)?$'
+  THEN (order_data->>'mileage')::numeric
+  ELSE NULL
+END
 ```
 
-### Change 2: Include office in the orders query key
-
-```typescript
-// Line 680 - before:
-queryKey: ['reports-date-window-orders', windowKey, individualMode ? 'individual' : 'all']
-
-// After:
-queryKey: ['reports-date-window-orders', windowKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all']
-```
-
-### Change 3: Update all references to windowKey in globalLoadedWindows
-
-The same scoped key must be used consistently at:
-- Line 692 (skip check in queryFn)
-- Line 737 (marking window as loaded after fetch)
-- Line 762 (initial fetch trigger effect)
-- Line 771-773 (reset trigger flag effect)
-- Lines 802, 809 (prefetch adjacent windows)
+This applies to all three fields: `loaded_miles`, `dh_miles`, `mileage`.
 
 ## Technical Details
 
-### File: `src/hooks/useReportsDateWindow.ts`
+### File: New migration `supabase/migrations/[timestamp]_fix_rpc_integer_overflow.sql`
 
-The `scopedWindowKey` will be computed in the hook body and used everywhere `windowKey` currently appears in relation to `globalLoadedWindows`. The `windowKey` itself stays unchanged for its original purpose (identifying date ranges). A new variable `scopedWindowKey` combines office + mode + dates.
+The migration will `CREATE OR REPLACE FUNCTION public.create_order_with_unique_load_number(order_data jsonb)` with the exact same body, changing only the three lines:
 
-No other files need changes. The adapter and UI components consume `accumulatedOrders` which will now correctly contain orders from all offices as each office's window is loaded independently.
+```sql
+-- Before (lines in the INSERT VALUES):
+NULLIF(order_data->>'loaded_miles', '')::integer,
+NULLIF(order_data->>'dh_miles', '')::integer,
+NULLIF(order_data->>'mileage', '')::integer,
+
+-- After:
+CASE WHEN NULLIF(order_data->>'loaded_miles', '') ~ '^[0-9]+(\.[0-9]+)?$'
+     THEN (order_data->>'loaded_miles')::numeric ELSE NULL END,
+CASE WHEN NULLIF(order_data->>'dh_miles', '') ~ '^[0-9]+(\.[0-9]+)?$'
+     THEN (order_data->>'dh_miles')::numeric ELSE NULL END,
+CASE WHEN NULLIF(order_data->>'mileage', '') ~ '^[0-9]+(\.[0-9]+)?$'
+     THEN (order_data->>'mileage')::numeric ELSE NULL END,
+```
+
+### Why this is safe
+
+- The target columns are already `numeric(10,2)` -- no type mismatch.
+- The regex `^[0-9]+(\.[0-9]+)?$` only allows plain numbers (with optional decimal). Anything else (phone numbers, text, special characters) becomes NULL.
+- NULL is safe for all three columns (they are nullable).
+- No other code in the function uses these values after insertion (no loops, no offsets).
+- `numeric(10,2)` columns will round the value automatically if needed.
+
+### No other files change
+
+The frontend already sends these values as strings in the JSON payload. The RPC handles parsing. No app-side changes needed.
+
