@@ -1,57 +1,68 @@
 
 
-# Fix: Integer Overflow in `create_order_with_unique_load_number` RPC
+# Fix: Orders Search Infinite Loop and CPU Storm
 
 ## Problem
 
-The RPC function `create_order_with_unique_load_number` uses `::integer` casts for `loaded_miles`, `dh_miles`, and `mileage`, but the actual columns are `numeric(10,2)`. When OCR sends garbage like `8530063736` (a phone number misread as mileage), the cast fails and triggers retry storms that spike CPU to 100%.
+The search bar on the /orders page creates a self-sustaining infinite loop firing thousands of database queries, causing statement timeouts and `ERR_INSUFFICIENT_RESOURCES`. The root cause is a circular dependency where `searchOrders` depends on `queryKey`, but also updates the state that `queryKey` derives from.
 
-## Solution
+## Changes
 
-A single migration that replaces the three `::integer` casts with a safe pattern: validate the input is actually numeric before casting, otherwise insert NULL.
+### 1. Stabilize callbacks in `src/hooks/useOrdersSearch.ts`
 
-### Pattern
+- Remove reactive `queryKey` useMemo -- replace with `activeQueryKeyRef` (useRef)
+- Add `failedTermsRef` (useRef Set) to block re-searching terms that just timed out
+- Remove `queryKey` from `searchOrders` and `clearSearch` dependency arrays: `[queryClient, queryKey]` becomes `[queryClient]`
+- Use `activeQueryKeyRef.current` inside `clearSearch` and for `searchResults` lookup
+- Clear `failedTermsRef` when user types a different term
+- On timeout error (code `57014`), add term to `failedTermsRef`
 
-```sql
-CASE
-  WHEN NULLIF(order_data->>'mileage', '') ~ '^[0-9]+(\.[0-9]+)?$'
-  THEN (order_data->>'mileage')::numeric
-  ELSE NULL
-END
+Key before/after:
+
+```text
+BEFORE (circular):
+  queryKey = useMemo(() => [...], [activeSearchTerm, activeOptions])
+  searchOrders = useCallback(() => { setActiveSearchTerm(term); ... }, [queryClient, queryKey])
+  searchResults = queryClient.getQueryData(queryKey)
+
+AFTER (stable):
+  activeQueryKeyRef = useRef(null)
+  failedTermsRef = useRef(new Set())
+  searchOrders = useCallback((term, options) => {
+    if (term !== activeSearchTerm) failedTermsRef.current.clear()
+    if (failedTermsRef.current.has(term)) return  // block retry
+    activeQueryKeyRef.current = newQueryKey
+    setActiveSearchTerm(term)
+    ...
+  }, [queryClient])
+  clearSearch = useCallback(() => {
+    if (activeQueryKeyRef.current) queryClient.removeQueries(...)
+    activeQueryKeyRef.current = null
+    ...
+  }, [queryClient])
+  searchResults = activeQueryKeyRef.current
+    ? queryClient.getQueryData(activeQueryKeyRef.current)
+    : undefined
 ```
 
-This applies to all three fields: `loaded_miles`, `dh_miles`, `mileage`.
+### 2. Memoize filter options in `src/pages/Orders.tsx`
 
-## Technical Details
+- Wrap `orderFilterOptions` in `useMemo` with deps `[shouldFilterByUser, profile?.full_name, profile?.user_id]`
+- Simplify the search `useEffect` deps to `[searchTerm, searchOrders, clearSearch, orderFilterOptions]`
 
-### File: New migration `supabase/migrations/[timestamp]_fix_rpc_integer_overflow.sql`
+### 3. Add trigram index (database migration)
 
-The migration will `CREATE OR REPLACE FUNCTION public.create_order_with_unique_load_number(order_data jsonb)` with the exact same body, changing only the three lines:
-
-```sql
--- Before (lines in the INSERT VALUES):
-NULLIF(order_data->>'loaded_miles', '')::integer,
-NULLIF(order_data->>'dh_miles', '')::integer,
-NULLIF(order_data->>'mileage', '')::integer,
-
--- After:
-CASE WHEN NULLIF(order_data->>'loaded_miles', '') ~ '^[0-9]+(\.[0-9]+)?$'
-     THEN (order_data->>'loaded_miles')::numeric ELSE NULL END,
-CASE WHEN NULLIF(order_data->>'dh_miles', '') ~ '^[0-9]+(\.[0-9]+)?$'
-     THEN (order_data->>'dh_miles')::numeric ELSE NULL END,
-CASE WHEN NULLIF(order_data->>'mileage', '') ~ '^[0-9]+(\.[0-9]+)?$'
-     THEN (order_data->>'mileage')::numeric ELSE NULL END,
+```text
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_orders_broker_load_number_trgm
+  ON orders USING gin (broker_load_number gin_trgm_ops);
 ```
 
-### Why this is safe
+This makes `ilike %term%` use an index scan instead of a full table scan through RLS on 12k+ rows.
 
-- The target columns are already `numeric(10,2)` -- no type mismatch.
-- The regex `^[0-9]+(\.[0-9]+)?$` only allows plain numbers (with optional decimal). Anything else (phone numbers, text, special characters) becomes NULL.
-- NULL is safe for all three columns (they are nullable).
-- No other code in the function uses these values after insertion (no loops, no offsets).
-- `numeric(10,2)` columns will round the value automatically if needed.
+## Execution Order
 
-### No other files change
-
-The frontend already sends these values as strings in the JSON payload. The RPC handles parsing. No app-side changes needed.
+1. Apply the database migration first (index creation)
+2. Update `useOrdersSearch.ts` (core fix)
+3. Update `Orders.tsx` (stabilize consumer)
 
