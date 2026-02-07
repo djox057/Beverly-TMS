@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -61,30 +61,15 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   const queryClient = useQueryClient();
   
   // Track current filters and pagination
-  const [activeFilters, setActiveFilters] = useState<SearchFilters | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const offsetRef = useRef(0);
   const isLoadingRef = useRef(false);
-
-  // Generate query key from active filters
-  const queryKey = useMemo(() => {
-    if (!activeFilters) return null;
-    return getFilterQueryKey(activeFilters);
-  }, [activeFilters]);
-
-  // Use React Query for the filtered results - this enables real-time patching
-  const { data: orders = [], isLoading: isQueryLoading } = useQuery({
-    queryKey: queryKey || ["orders", "filtered", "inactive"],
-    queryFn: async () => {
-      // This should never be called directly - we populate via setQueryData
-      return [];
-    },
-    enabled: false, // We manually control data via setQueryData
-    staleTime: Infinity,
-  });
+  // Stable refs to break reactive dependency chains
+  const activeQueryKeyRef = useRef<(string | boolean | undefined)[] | null>(null);
+  const activeFiltersRef = useRef<SearchFilters | null>(null);
+  const hasMoreRef = useRef(false);
 
   const search = useCallback(async (filters: SearchFilters) => {
     if (isLoadingRef.current) return;
@@ -92,9 +77,10 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     isLoadingRef.current = true;
     offsetRef.current = 0;
     
-    // Set active filters to generate the query key
-    setActiveFilters(filters);
     const newQueryKey = getFilterQueryKey(filters);
+    // Update refs BEFORE any async work
+    activeQueryKeyRef.current = newQueryKey;
+    activeFiltersRef.current = filters;
     
     console.log("[FilteredSearch] Starting search with filters:", filters);
     
@@ -122,7 +108,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         queryClient.setQueryData(newQueryKey, transformed);
         
         setTotalCount(response.totalCount);
-        setHasMore(response.hasMore);
+        hasMoreRef.current = response.hasMore;
         offsetRef.current = response.orders.length;
         
         console.log(`[FilteredSearch] Found ${transformed.length} orders (total: ${response.totalCount})`);
@@ -131,26 +117,34 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
       console.error("[FilteredSearch] Search failed:", error);
       queryClient.setQueryData(newQueryKey, []);
       setTotalCount(null);
-      setHasMore(false);
+      hasMoreRef.current = false;
     } finally {
       isLoadingRef.current = false;
     }
   }, [queryClient]);
 
   const loadMore = useCallback(async () => {
-    if (isLoadingRef.current || !hasMore || !activeFilters || !queryKey) return;
+    if (isLoadingRef.current || !hasMoreRef.current || !activeFiltersRef.current || !activeQueryKeyRef.current) {
+      if (!activeQueryKeyRef.current) {
+        console.warn('[FilteredSearch] loadMore called but no active query');
+      }
+      return;
+    }
     
     isLoadingRef.current = true;
     setIsLoadingMore(true);
     
     console.log(`[FilteredSearch] Loading more: offset=${offsetRef.current}`);
     
+    const currentQueryKey = activeQueryKeyRef.current;
+    const currentFilters = activeFiltersRef.current;
+    
     try {
       const { data: response, error } = await supabase.functions.invoke(
         "search-orders",
         {
           body: {
-            filters: activeFilters,
+            filters: currentFilters,
             offset: offsetRef.current,
             limit: BATCH_SIZE,
           },
@@ -166,11 +160,11 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         const transformed = transformOrders(response.orders);
         
         // Append to existing React Query cache
-        queryClient.setQueryData(queryKey, (old: any[] | undefined) => {
+        queryClient.setQueryData(currentQueryKey, (old: any[] | undefined) => {
           return [...(old || []), ...transformed];
         });
         
-        setHasMore(response.hasMore);
+        hasMoreRef.current = response.hasMore;
         offsetRef.current += response.orders.length;
         
         console.log(`[FilteredSearch] Loaded ${transformed.length} more orders`);
@@ -181,29 +175,31 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
       isLoadingRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [hasMore, activeFilters, queryKey, queryClient]);
+  }, [queryClient]);
 
   const reset = useCallback(() => {
     // Clear the React Query cache for the current filter
-    if (queryKey) {
-      queryClient.removeQueries({ queryKey });
+    if (activeQueryKeyRef.current) {
+      console.log('[FilteredSearch] Clearing cached query');
+      queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
     }
-    setActiveFilters(null);
+    activeQueryKeyRef.current = null;
+    activeFiltersRef.current = null;
+    hasMoreRef.current = false;
     setTotalCount(null);
-    setHasMore(false);
     offsetRef.current = 0;
-  }, [queryKey, queryClient]);
+  }, [queryClient]);
 
-  // Get data from React Query cache
-  const cachedOrders = queryKey 
-    ? (queryClient.getQueryData<any[]>(queryKey) || [])
+  // Get data from React Query cache using stable ref
+  const cachedOrders = activeQueryKeyRef.current 
+    ? (queryClient.getQueryData<any[]>(activeQueryKeyRef.current) || [])
     : [];
 
   return {
     orders: cachedOrders,
     totalCount,
     isLoading: isLoadingRef.current || isLoadingMore,
-    hasMore,
+    hasMore: hasMoreRef.current,
     loadMore,
     search,
     reset,
