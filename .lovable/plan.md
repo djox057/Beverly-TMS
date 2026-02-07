@@ -1,68 +1,56 @@
 
 
-# Fix: Orders Search Infinite Loop and CPU Storm
+# Fix: Stabilize `useFilteredOrdersSearch.ts` Callbacks
 
 ## Problem
 
-The search bar on the /orders page creates a self-sustaining infinite loop firing thousands of database queries, causing statement timeouts and `ERR_INSUFFICIENT_RESOURCES`. The root cause is a circular dependency where `searchOrders` depends on `queryKey`, but also updates the state that `queryKey` derives from.
+The `loadMore` and `reset` callbacks depend on reactive `queryKey` (derived from `activeFilters` state), creating the same circular dependency pattern that caused the search infinite loop. While `isLoadingRef` guards reduce the risk, the architecture is fragile under rapid filter toggling.
 
-## Changes
+## Changes to `src/hooks/useFilteredOrdersSearch.ts`
 
-### 1. Stabilize callbacks in `src/hooks/useOrdersSearch.ts`
+### Remove reactive `queryKey` useMemo (lines 72-76)
 
-- Remove reactive `queryKey` useMemo -- replace with `activeQueryKeyRef` (useRef)
-- Add `failedTermsRef` (useRef Set) to block re-searching terms that just timed out
-- Remove `queryKey` from `searchOrders` and `clearSearch` dependency arrays: `[queryClient, queryKey]` becomes `[queryClient]`
-- Use `activeQueryKeyRef.current` inside `clearSearch` and for `searchResults` lookup
-- Clear `failedTermsRef` when user types a different term
-- On timeout error (code `57014`), add term to `failedTermsRef`
+Replace with three stable refs:
+- `activeQueryKeyRef` -- tracks current query key
+- `activeFiltersRef` -- tracks current filters for `loadMore`
+- `hasMoreRef` -- tracks pagination state for `loadMore`
 
-Key before/after:
+### Update `search` callback (line 89)
+
+Add ref assignments before state updates:
+```text
+activeQueryKeyRef.current = newQueryKey;
+activeFiltersRef.current = filters;
+```
+Also sync `hasMoreRef.current` in success/error paths.
+
+### Stabilize `loadMore` callback (lines 140-184)
+
+- Guard: check `activeQueryKeyRef.current`, `activeFiltersRef.current`, and `hasMoreRef.current` instead of reactive state
+- Read filters from `activeFiltersRef.current` instead of `activeFilters`
+- Write to cache using `activeQueryKeyRef.current` instead of `queryKey`
+- Deps: `[queryClient]` (was `[hasMore, activeFilters, queryKey, queryClient]`)
+
+### Stabilize `reset` callback (lines 186-195)
+
+- Use `activeQueryKeyRef.current` for `removeQueries`
+- Clear all refs: `activeQueryKeyRef.current = null`, `activeFiltersRef.current = null`, `hasMoreRef.current = false`
+- Deps: `[queryClient]` (was `[queryKey, queryClient]`)
+
+### Update `cachedOrders` lookup (lines 198-200)
 
 ```text
-BEFORE (circular):
-  queryKey = useMemo(() => [...], [activeSearchTerm, activeOptions])
-  searchOrders = useCallback(() => { setActiveSearchTerm(term); ... }, [queryClient, queryKey])
-  searchResults = queryClient.getQueryData(queryKey)
-
-AFTER (stable):
-  activeQueryKeyRef = useRef(null)
-  failedTermsRef = useRef(new Set())
-  searchOrders = useCallback((term, options) => {
-    if (term !== activeSearchTerm) failedTermsRef.current.clear()
-    if (failedTermsRef.current.has(term)) return  // block retry
-    activeQueryKeyRef.current = newQueryKey
-    setActiveSearchTerm(term)
-    ...
-  }, [queryClient])
-  clearSearch = useCallback(() => {
-    if (activeQueryKeyRef.current) queryClient.removeQueries(...)
-    activeQueryKeyRef.current = null
-    ...
-  }, [queryClient])
-  searchResults = activeQueryKeyRef.current
-    ? queryClient.getQueryData(activeQueryKeyRef.current)
-    : undefined
+BEFORE: queryKey ? queryClient.getQueryData(queryKey) : []
+AFTER:  activeQueryKeyRef.current ? queryClient.getQueryData(activeQueryKeyRef.current) : []
 ```
 
-### 2. Memoize filter options in `src/pages/Orders.tsx`
+## How to Test
 
-- Wrap `orderFilterOptions` in `useMemo` with deps `[shouldFilterByUser, profile?.full_name, profile?.user_id]`
-- Simplify the search `useEffect` deps to `[searchTerm, searchOrders, clearSearch, orderFilterOptions]`
-
-### 3. Add trigram index (database migration)
-
-```text
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX IF NOT EXISTS idx_orders_broker_load_number_trgm
-  ON orders USING gin (broker_load_number gin_trgm_ops);
-```
-
-This makes `ilike %term%` use an index scan instead of a full table scan through RLS on 12k+ rows.
-
-## Execution Order
-
-1. Apply the database migration first (index creation)
-2. Update `useOrdersSearch.ts` (core fix)
-3. Update `Orders.tsx` (stabilize consumer)
+1. Open `/orders` page, open DevTools Network tab
+2. Apply a filter (e.g., select a Company) -- should see exactly 1 `search-orders` call
+3. Click "Load More" if available -- exactly 1 additional call
+4. Clear filters (reset) -- no new network requests, view reverts to paginated data
+5. Rapidly toggle filters 5+ times -- at most 1 request per change, no `57014` errors
+6. Apply filter then immediately reset before results load -- no orphaned queries, no errors
+7. CPU stays under 30% throughout all interactions
 
