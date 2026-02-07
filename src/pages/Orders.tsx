@@ -136,13 +136,13 @@ const Orders = () => {
   // This includes orders they booked AND orders for drivers assigned to them
   // Use null instead of undefined to prevent double fetch when profile loads
   const shouldFilterByUser = individualMode || isDispatchOnly;
-  const orderFilterOptions = shouldFilterByUser ? {
+  const orderFilterOptions = useMemo(() => shouldFilterByUser ? {
     bookedBy: profile?.full_name || null,
     dispatcherUserId: profile?.user_id || null
   } : {
     bookedBy: null,
     dispatcherUserId: null
-  };
+  }, [shouldFilterByUser, profile?.full_name, profile?.user_id]);
 
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("admin") && !hasRole("manager") && !hasRole("accounting") && !hasRole("supervisor");
@@ -304,7 +304,7 @@ const Orders = () => {
     } else {
       clearSearch();
     }
-  }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions.bookedBy, orderFilterOptions.dispatcherUserId]);
+  }, [debouncedSearchTerm, searchOrders, clearSearch, orderFilterOptions]);
   
   console.log("🟦 [Orders Page] Progressive loading:", {
     currentPageOrdersCount: currentPageOrdersFromHook?.length,

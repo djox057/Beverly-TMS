@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
@@ -49,6 +49,7 @@ async function batchFetchMap(table: string, ids: string[], columns: string): Pro
 /**
  * Server-side search hook for orders.
  * Phase 3C: Uses flat fetch + batch pattern instead of 14-join query.
+ * Fixed: Removed circular queryKey dependency that caused infinite render loops.
  */
 export function useOrdersSearch() {
   const queryClient = useQueryClient();
@@ -58,11 +59,11 @@ export function useOrdersSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
   const latestSearchKeyRef = useRef<string>("");
-
-  const queryKey = useMemo(() => {
-    if (!activeSearchTerm) return null;
-    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId);
-  }, [activeSearchTerm, activeOptions]);
+  
+  // Refs to break the circular dependency: searchOrders no longer depends on reactive queryKey
+  const activeQueryKeyRef = useRef<(string | null | undefined)[] | null>(null);
+  const failedTermsRef = useRef<Set<string>>(new Set());
+  const activeSearchTermRef = useRef<string | null>(null);
 
   const searchOrders = useCallback(async (
     searchTerm: string,
@@ -72,9 +73,11 @@ export function useOrdersSearch() {
     }
   ) => {
     if (!searchTerm || searchTerm.trim().length < 2) {
-      if (queryKey) {
-        queryClient.removeQueries({ queryKey });
+      if (activeQueryKeyRef.current) {
+        queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
+        activeQueryKeyRef.current = null;
       }
+      activeSearchTermRef.current = null;
       setActiveSearchTerm(null);
       setActiveOptions(null);
       latestSearchKeyRef.current = "";
@@ -83,11 +86,25 @@ export function useOrdersSearch() {
 
     const term = searchTerm.trim().toLowerCase();
     const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}`;
+    
+    // Clear failed terms when user types a different term
+    if (term !== activeSearchTermRef.current) {
+      failedTermsRef.current.clear();
+    }
+    
+    // Block retry on previously failed (timed-out) term
+    if (failedTermsRef.current.has(term)) {
+      console.warn(`[useOrdersSearch] Skipping search for "${term}" - previous timeout`);
+      return;
+    }
+    
     latestSearchKeyRef.current = searchKey;
+    activeSearchTermRef.current = term;
     
     setActiveSearchTerm(term);
     setActiveOptions(options || null);
     const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId);
+    activeQueryKeyRef.current = newQueryKey;
     
     console.log("[useOrdersSearch] Starting search for:", term);
     
@@ -95,6 +112,9 @@ export function useOrdersSearch() {
     setSearchError(null);
 
     try {
+      // Cancel any in-flight search queries to reduce backend load
+      queryClient.cancelQueries({ queryKey: ["orders", "search"] });
+      
       // Get dispatcher driver IDs if needed
       let dispatcherDriverIds: string[] = [];
       if (options?.dispatcherUserId) {
@@ -275,9 +295,16 @@ export function useOrdersSearch() {
 
       const transformed = transformOrders(assembledOrders);
       queryClient.setQueryData(newQueryKey, transformed);
-    } catch (err) {
+    } catch (err: any) {
       if (latestSearchKeyRef.current === searchKey) {
         console.error("[useOrdersSearch] Error:", err);
+        
+        // Track timed-out terms to prevent infinite retry loops
+        if (err?.code === '57014' || err?.message?.includes('statement timeout')) {
+          failedTermsRef.current.add(term);
+          console.warn(`[useOrdersSearch] Term "${term}" timed out - blocking retries`);
+        }
+        
         setSearchError(err instanceof Error ? err : new Error("Search failed"));
         queryClient.setQueryData(newQueryKey, null);
       }
@@ -286,21 +313,24 @@ export function useOrdersSearch() {
         setIsSearching(false);
       }
     }
-  }, [queryClient, queryKey]);
+  }, [queryClient]); // Stable deps - no queryKey!
 
   const clearSearch = useCallback(() => {
-    if (queryKey) {
-      queryClient.removeQueries({ queryKey });
+    if (activeQueryKeyRef.current) {
+      queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
+      activeQueryKeyRef.current = null;
     }
     latestSearchKeyRef.current = "";
+    activeSearchTermRef.current = null;
     setActiveSearchTerm(null);
     setActiveOptions(null);
     setIsSearching(false);
     setSearchError(null);
-  }, [queryClient, queryKey]);
+  }, [queryClient]); // Stable deps - no queryKey!
 
-  const searchResults = queryKey 
-    ? (queryClient.getQueryData<any[] | null>(queryKey) ?? null)
+  // Use ref-based query key for reading results (avoids reactive dependency)
+  const searchResults = activeQueryKeyRef.current 
+    ? (queryClient.getQueryData<any[] | null>(activeQueryKeyRef.current) ?? null)
     : null;
 
   return {

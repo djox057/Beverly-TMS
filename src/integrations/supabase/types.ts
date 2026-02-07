@@ -3769,6 +3769,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
     }
     Enums: {
