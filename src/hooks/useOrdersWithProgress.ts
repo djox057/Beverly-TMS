@@ -125,7 +125,10 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
 
       console.log("[OrdersWithProgress] Starting locked orders fetch (all batches)...");
 
-      while (hasMoreLocked) {
+      let batchAttempts = 0;
+      const MAX_BATCH_ATTEMPTS = 20; // Safety limit to prevent infinite loops
+      while (hasMoreLocked && batchAttempts < MAX_BATCH_ATTEMPTS) {
+        batchAttempts++;
         const { data: lockedResponse, error: lockedError } = await supabase.functions.invoke(
           "get-all-locked-orders",
           {
@@ -212,6 +215,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
     // Allow refetch on mount - analytics needs fresh data
     refetchOnMount: true,
     staleTime: 5 * 60 * 1000, // 5 minutes - refetch if stale
+    retry: 1, // Limit retries to prevent timeout storms
   });
 
   // Track mount state

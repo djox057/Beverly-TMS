@@ -77,6 +77,12 @@ export function useAutoSwitchOffice({
     load?: string;
   }>({});
 
+  // Circuit breaker: track consecutive DB errors to back off during overload
+  const dbErrorCountRef = useRef(0);
+  const dbErrorBackoffUntilRef = useRef(0);
+  const MAX_CONSECUTIVE_ERRORS = 3;
+  const ERROR_BACKOFF_MS = 30000; // 30s backoff after max errors
+
   // State for ambiguous matches (to show indicator in UI)
   const [ambiguousMatch, setAmbiguousMatch] = useState<{
     filter: "truck" | "dispatch" | "load";
@@ -608,11 +614,30 @@ export function useAutoSwitchOffice({
       return;
     }
     
+    // Circuit breaker: skip DB lookup if too many consecutive errors
+    if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS && Date.now() < dbErrorBackoffUntilRef.current) {
+      console.warn(`[AutoSwitch] Circuit breaker active, skipping truck DB lookup until ${new Date(dbErrorBackoffUntilRef.current).toLocaleTimeString()}`);
+      setTruckSearchStatus("not_found");
+      lastSearchedTermsRef.current.truck = debouncedTruckDriver;
+      return;
+    }
+    
     const search = async () => {
       isSearchingRef.current = true;
       setTruckSearchStatus("searching");
       try {
         const result = await lookupTruckDriverOffice(debouncedTruckDriver);
+
+        // Reset circuit breaker on successful DB call (even if not_found)
+        if (result.type !== "error") {
+          dbErrorCountRef.current = 0;
+        } else {
+          dbErrorCountRef.current++;
+          if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+            dbErrorBackoffUntilRef.current = Date.now() + ERROR_BACKOFF_MS;
+            console.warn(`[AutoSwitch] Circuit breaker tripped after ${MAX_CONSECUTIVE_ERRORS} errors, backing off for ${ERROR_BACKOFF_MS / 1000}s`);
+          }
+        }
 
         if (result.type === "found") {
           const targetOffice = normalizeToKnownOffice(result.office);
@@ -646,7 +671,6 @@ export function useAutoSwitchOffice({
         }
 
         if (result.type === "found") {
-          // Found but in current tab already, or office didn't map to a known tab
           setTruckSearchStatus("found");
           setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
         } else {
@@ -744,11 +768,27 @@ export function useAutoSwitchOffice({
       return;
     }
     
+    // Circuit breaker
+    if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS && Date.now() < dbErrorBackoffUntilRef.current) {
+      setDispatchSearchStatus("not_found");
+      lastSearchedTermsRef.current.dispatch = debouncedDispatchName;
+      return;
+    }
+    
     const search = async () => {
       isSearchingRef.current = true;
       setDispatchSearchStatus("searching");
       try {
         const result = await lookupDispatcherOffice(debouncedDispatchName);
+
+        if (result.type !== "error") {
+          dbErrorCountRef.current = 0;
+        } else {
+          dbErrorCountRef.current++;
+          if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+            dbErrorBackoffUntilRef.current = Date.now() + ERROR_BACKOFF_MS;
+          }
+        }
 
         if (result.type === "found") {
           const targetOffice = normalizeToKnownOffice(result.office);
@@ -782,7 +822,6 @@ export function useAutoSwitchOffice({
         }
 
         if (result.type === "found") {
-          // Found but in current tab already, or office didn't map to a known tab
           setDispatchSearchStatus("found");
           setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
         } else {
@@ -881,11 +920,27 @@ export function useAutoSwitchOffice({
       return;
     }
     
+    // Circuit breaker
+    if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS && Date.now() < dbErrorBackoffUntilRef.current) {
+      setLoadSearchStatus("not_found");
+      lastSearchedTermsRef.current.load = debouncedLoadNumber;
+      return;
+    }
+    
     const search = async () => {
       isSearchingRef.current = true;
       setLoadSearchStatus("searching");
       try {
         const result = await lookupLoadOffice(debouncedLoadNumber);
+
+        if (result.type !== "error") {
+          dbErrorCountRef.current = 0;
+        } else {
+          dbErrorCountRef.current++;
+          if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+            dbErrorBackoffUntilRef.current = Date.now() + ERROR_BACKOFF_MS;
+          }
+        }
 
         if (result.type === "found") {
           const targetOffice = normalizeToKnownOffice(result.office);
@@ -920,7 +975,6 @@ export function useAutoSwitchOffice({
         }
 
         if (result.type === "found") {
-          // Found but in current tab already, or office didn't map to a known tab
           setLoadSearchStatus("found");
           setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);

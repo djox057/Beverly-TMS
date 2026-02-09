@@ -659,6 +659,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     staleTime: 300000, // 5 minutes - driver list rarely changes
     gcTime: 600000,
     refetchOnWindowFocus: false,
+    retry: 1, // Limit retries to prevent timeout storms
   });
 
   // Use a ref to avoid stale closure issues with driverIds in the queryFn
@@ -751,6 +752,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
+    retry: 1, // Limit retries to prevent timeout storms
     // Keep previous data to prevent flashing
     placeholderData: (prev) => prev,
   });
