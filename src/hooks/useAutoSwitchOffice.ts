@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useDebounce } from "@/hooks/useDebounce";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
@@ -40,13 +39,10 @@ export function useAutoSwitchOffice({
 }) {
   const { individualMode } = useIndividualMode();
   
-  // Different debounce based on mode - longer for individual mode to give user time to type
-  const debounceDelay = individualMode ? 600 : 300;
-  
-  // Debounce all filters
-  const debouncedTruckDriver = useDebounce(truckDriverFilter, debounceDelay);
-  const debouncedDispatchName = useDebounce(dispatchNameFilter, debounceDelay);
-  const debouncedLoadNumber = useDebounce(loadNumberFilter, debounceDelay);
+  // Values are already debounced by the caller (useReportsFilters at 300ms)
+  const debouncedTruckDriver = truckDriverFilter;
+  const debouncedDispatchName = dispatchNameFilter;
+  const debouncedLoadNumber = loadNumberFilter;
 
   // Prevent loops: flag to indicate we're in a search operation
   const isSearchingRef = useRef(false);
