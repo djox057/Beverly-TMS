@@ -407,6 +407,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return data || [];
     },
     staleTime: 30000,
+    refetchInterval: 60000, // Refresh HOS data every 60 seconds
     enabled: scopeEnabled,
   });
 
