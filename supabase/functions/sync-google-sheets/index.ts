@@ -84,20 +84,12 @@ async function ensureSheetTabs(
 ): Promise<Map<string, number>> {
   const existing = await getExistingSheets(token, spreadsheetId);
   const existingMap = new Map(existing.map((s) => [s.title, s.sheetId]));
-  const requests: any[] = [];
-
-  // Delete tabs not in desired list
-  for (const sheet of existing) {
-    if (!desiredTabs.includes(sheet.title)) {
-      requests.push({ deleteSheet: { sheetId: sheet.sheetId } });
-    }
-  }
-
-  // Add missing tabs
+  // Add missing tabs first (so we never end up with zero sheets)
+  const addRequests: any[] = [];
   let nextId = Math.max(0, ...existing.map((s) => s.sheetId)) + 1;
   for (const tab of desiredTabs) {
     if (!existingMap.has(tab)) {
-      requests.push({
+      addRequests.push({
         addSheet: { properties: { title: tab, sheetId: nextId } },
       });
       existingMap.set(tab, nextId);
@@ -105,8 +97,20 @@ async function ensureSheetTabs(
     }
   }
 
-  if (requests.length > 0) {
-    await sheetsRequest(token, spreadsheetId, ":batchUpdate", "POST", { requests });
+  if (addRequests.length > 0) {
+    await sheetsRequest(token, spreadsheetId, ":batchUpdate", "POST", { requests: addRequests });
+  }
+
+  // Now delete tabs not in desired list (safe because desired tabs exist)
+  const deleteRequests: any[] = [];
+  for (const sheet of existing) {
+    if (!desiredTabs.includes(sheet.title)) {
+      deleteRequests.push({ deleteSheet: { sheetId: sheet.sheetId } });
+    }
+  }
+
+  if (deleteRequests.length > 0) {
+    await sheetsRequest(token, spreadsheetId, ":batchUpdate", "POST", { requests: deleteRequests });
   }
 
   // Refresh map after mutations
