@@ -155,6 +155,10 @@ export function useOrdersRealtime() {
           if (!transformedOrder) return old;
           const idx = old.findIndex((o) => o.id === orderId);
           if (idx >= 0) { const u = [...old]; u[idx] = transformedOrder; return u; }
+          // Only insert NEW orders into unfiltered caches
+          const qk = query.queryKey as string[];
+          const isFilteredOrSearch = qk.length > 1 && (qk[1] === 'filtered' || qk[1] === 'search' || qk[1] === 'page');
+          if (isFilteredOrSearch) return old;
           return [transformedOrder, ...old];
         });
       });
