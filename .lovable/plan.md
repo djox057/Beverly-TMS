@@ -1,69 +1,69 @@
 
 
-## Fix: Reports Search Bars Causing Database CPU Spikes
+## Fix: Infinite Retry Loop for "Not Found" Search Terms
 
-### Root Cause
+### Problem
 
-The `hasActiveSearch` flag in Reports.tsx is computed from **raw (non-debounced)** filter values. Every keystroke recalculates this flag, which flows into `useReportsDateWindowAdapter` as a prop. When in Individual Mode viewing another office, this flag toggles `shouldBypassIndividualMode` and `isViewingOtherOfficeInIndividualMode`, which changes query parameters on every keystroke -- potentially triggering expensive database refetches before the debounce settles.
+When you type a value in the Reports search bars that doesn't match anything (truck number, driver name, dispatcher, or load number), the auto-switch engine keeps hitting the database forever in an infinite loop.
 
-Additionally, the `useAutoSwitchOffice` hook creates its **own separate debounced copies** of all three filter values (with a different delay: 600ms in individual mode vs 300ms). This means there are **two independent debounce pipelines** for the same filter values, doubling the potential for DB queries.
+**Why it happens:** The three search effects in `useAutoSwitchOffice` have guards to prevent re-searching when a result IS found (via `lastAutoSwitchRef`, `localMatchFoundRef`). But when the result is "not_found" or "error", NO ref is set to block the next run. Since `activeTab` is in the dependency array, any background data update or re-render re-triggers the effect, which hits the DB again, finds nothing, and repeats forever.
 
-### Plan
+### Solution
 
-**1. Debounce `hasActiveSearch` in Reports.tsx**
+Add a `lastSearchedTermRef` to track terms that have already been searched (regardless of result), preventing duplicate DB lookups for the same value.
 
-Change the `hasActiveSearch` computation to use the already-debounced filter values instead of raw values:
+### Changes
 
+**File: `src/hooks/useAutoSwitchOffice.ts`**
+
+1. Add a new ref to track already-searched terms:
 ```typescript
-// Before (fires on every keystroke):
-const hasActiveSearch = !!(
-  loadNumberFilter.trim().length >= 3 ||
-  truckDriverFilter.trim().length >= 2 ||
-  dispatchNameFilter.trim().length >= 2
-);
-
-// After (only fires after debounce settles):
-const hasActiveSearch = !!(
-  debouncedLoadNumberFilter.trim().length >= 3 ||
-  debouncedTruckDriverFilter.trim().length >= 2 ||
-  debouncedDispatchNameFilter.trim().length >= 2
-);
+// Track terms that have already been searched via DB to prevent infinite retries
+const lastSearchedTermsRef = useRef<{
+  truck?: string;
+  dispatch?: string;
+  load?: string;
+}>({});
 ```
 
-**File:** `src/pages/Reports.tsx` (lines 363-367)
-
-**2. Eliminate duplicate debouncing in `useAutoSwitchOffice`**
-
-The hook currently receives raw filter values and creates its own debounced copies (lines 47-49). Instead, pass the already-debounced values from `useReportsFilters` and remove the internal `useDebounce` calls.
-
-**File:** `src/hooks/useAutoSwitchOffice.ts`
-- Remove the 3 internal `useDebounce` calls
-- Rename params to indicate they're already debounced
-- Update all references from `debouncedTruckDriver` / `debouncedDispatchName` / `debouncedLoadNumber` to use the passed-in values directly
-
-**File:** `src/pages/Reports.tsx`
-- Update the `useAutoSwitchOffice` call to pass debounced values:
+2. In each of the 3 main effects (truck at ~line 519, dispatch at ~line 652, load at ~line 781), add a guard BEFORE the DB lookup:
 ```typescript
-const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
-  truckDriverFilter: debouncedTruckDriverFilter,
-  dispatchNameFilter: debouncedDispatchNameFilter,
-  loadNumberFilter: debouncedLoadNumberFilter,
-  activeTab,
-  setActiveTab,
-  offices,
-  groupedReports,
-});
+// Already searched this exact term - don't hit DB again
+if (lastSearchedTermsRef.current.truck === debouncedTruckDriver) {
+  return;
+}
 ```
 
-### Technical Details
+3. After the DB search completes (inside the `search()` async function), record the term:
+```typescript
+// In the finally block of each search():
+lastSearchedTermsRef.current.truck = debouncedTruckDriver;
+```
 
-- The `useReportsFilters` hook already debounces all 3 filters at 300ms
-- `useAutoSwitchOffice` was independently debouncing them again at 300ms (or 600ms in individual mode)
-- This created a window where the first debounce fires, triggers state changes, then the second debounce fires 0-300ms later, triggering more state changes
-- Each DB lookup in auto-switch does 2-4 chained queries (trucks -> drivers -> profiles), so duplicate triggers multiply the load significantly
-- Using pre-debounced values eliminates one entire round of DB queries per keystroke sequence
+4. Clear the tracked term when the filter is cleared (in the empty-filter guard at top of each effect):
+```typescript
+if (!debouncedTruckDriver) {
+  // ... existing cleanup ...
+  delete lastSearchedTermsRef.current.truck;
+  return;
+}
+```
+
+This pattern mirrors what `useOrdersSearch` does with `failedTermsRef` - once a term has been searched, it won't be searched again until the user types something different.
+
+### Other Search Bars Audit
+
+| Location | Hook | Has retry protection? | Issue? |
+|---|---|---|---|
+| Reports search bars | `useAutoSwitchOffice` | No | **YES - fixing now** |
+| Orders search bar | `useOrdersSearch` | Yes (`failedTermsRef`) | No |
+| Orders filtered search | `useFilteredOrdersSearch` | Manual trigger only | No |
+| Trips search bars | `useTripsLazyOrders` | Yes (`lastSearchKeyRef`) | No |
+| Brokers search | Client-side filter | N/A | No |
+| Broker combobox | Client-side filter | N/A | No |
+
+Only the Reports auto-switch engine has this infinite retry bug. All other search bars are safe.
 
 ### Files Modified
-1. `src/pages/Reports.tsx` -- use debounced values for `hasActiveSearch` and pass debounced values to `useAutoSwitchOffice`
-2. `src/hooks/useAutoSwitchOffice.ts` -- remove internal `useDebounce` calls, use values directly
+1. `src/hooks/useAutoSwitchOffice.ts` - Add `lastSearchedTermsRef` guard to prevent infinite DB lookups for not-found terms
 
