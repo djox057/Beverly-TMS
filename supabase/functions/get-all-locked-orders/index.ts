@@ -17,7 +17,9 @@ const ORDER_COLUMNS = `
   tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver,
   late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver,
   wrong_address_fee, wrong_address_fee_driver, escort_fee,
-  other_charges, other_charges_driver, booked_by,
+  other_charges, other_charges_driver, other_charges_reason,
+  other_additionals, other_additionals_driver, other_additionals_reason,
+  additional_miles, booked_by,
   original_truck_id, original_trailer_id
 `;
 
