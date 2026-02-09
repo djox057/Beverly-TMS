@@ -361,9 +361,9 @@ const Reports = () => {
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
   const hasActiveSearch = !!(
-    loadNumberFilter.trim().length >= 3 ||
-    truckDriverFilter.trim().length >= 2 ||
-    dispatchNameFilter.trim().length >= 2
+    debouncedLoadNumberFilter.trim().length >= 3 ||
+    debouncedTruckDriverFilter.trim().length >= 2 ||
+    debouncedDispatchNameFilter.trim().length >= 2
   );
 
   // Reports.tsx must call exactly ONE reports hook consistently.
@@ -410,9 +410,9 @@ const Reports = () => {
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
-    truckDriverFilter,
-    dispatchNameFilter,
-    loadNumberFilter,
+    truckDriverFilter: debouncedTruckDriverFilter,
+    dispatchNameFilter: debouncedDispatchNameFilter,
+    loadNumberFilter: debouncedLoadNumberFilter,
     activeTab,
     setActiveTab,
     offices,
