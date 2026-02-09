@@ -219,7 +219,7 @@ serve(async (req) => {
           const normalizedTruckNum = normalizeTruckNumber(truckNum);
           const hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
           
-          if (hosData && isValidHosRecord(hosData)) {
+          if (hosData) {
             updates.push({
               id: driver.id as string,
               drive: hosData.minsTillDriving || 0,
