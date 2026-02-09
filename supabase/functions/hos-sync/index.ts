@@ -219,7 +219,8 @@ serve(async (req) => {
           const normalizedTruckNum = normalizeTruckNumber(truckNum);
           const hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
           
-          if (hosData) {
+          if (hosData && isValidHosRecord(hosData)) {
+            // Valid HOS data from API — update with real values
             updates.push({
               id: driver.id as string,
               drive: hosData.minsTillDriving || 0,
@@ -227,6 +228,20 @@ serve(async (req) => {
               break: hosData.minsTillBreak || 0,
               cycle: hosData.minsTillCycle || 0,
               status: hosData.statusAbbreviation || null,
+              updated: timestamp
+            });
+          } else if (hosData && !isValidHosRecord(hosData)) {
+            // API knows this truck but returned zeroed/invalid HOS data.
+            // This typically means the driver completed a full reset.
+            // Update status but preserve the last valid timer values
+            // by only writing status + timestamp (not zeroing timers).
+            updates.push({
+              id: driver.id as string,
+              drive: -1,
+              shift: -1,
+              break: -1,
+              cycle: -1,
+              status: hosData.statusAbbreviation || 'OFF',
               updated: timestamp
             });
           }
