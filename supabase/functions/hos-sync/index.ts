@@ -238,7 +238,7 @@ serve(async (req) => {
     let updatedCount = 0;
     if (updates.length > 0) {
       const { data: count, error: rpcError } = await supabase.rpc('bulk_update_hos', {
-        updates: JSON.stringify(updates)
+        updates: updates
       });
       
       if (rpcError) {
