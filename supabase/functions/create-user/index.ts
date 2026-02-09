@@ -33,21 +33,15 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Verify the user token using getClaims
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token)
+    // Verify the user token using getUser
+    const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser(token)
     
-    if (claimsError || !claimsData?.claims) {
-      console.error('Token verification error:', claimsError)
-      throw new Error(`Invalid token: ${claimsError?.message || 'No claims found'}`)
+    if (authError || !authUser) {
+      console.error('Token verification error:', authError)
+      throw new Error(`Invalid token: ${authError?.message || 'No user found'}`)
     }
     
-    const userId = claimsData.claims.sub
-    if (!userId) {
-      throw new Error('No user ID found in token')
-    }
-    
-    // Create a user object with the ID from claims
-    const user = { id: userId }
+    const user = { id: authUser.id }
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(
