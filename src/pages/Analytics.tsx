@@ -222,6 +222,7 @@ const Analytics = () => {
   const [salaryPayments, setSalaryPayments] = useState<Record<string, {
     paid_amount: number;
     paid_at: string | null;
+    additionals?: any[] | null;
   }>>({});
   // Salary sorting state
   const [salarySortBy, setSalarySortBy] = useState<"name" | "salary">("name");
@@ -705,12 +706,13 @@ const Analytics = () => {
           : Promise.resolve({ data: null, error: null })
       ]);
       
-      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null }> = {};
+      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null; additionals: any[] | null }> = {};
       if (currentResult.data && Array.isArray(currentResult.data)) {
         currentResult.data.forEach((record: any) => {
           paymentsMap[record.user_id] = {
             paid_amount: Number(record.paid_amount) || 0,
-            paid_at: record.paid_at
+            paid_at: record.paid_at,
+            additionals: record.additionals || null,
           };
         });
       }
@@ -2714,6 +2716,7 @@ const Analytics = () => {
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                         <TableHead className="text-right">Days Off</TableHead>
+                        <TableHead className="text-right">Additionals</TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
                           </TableHead>
@@ -3067,6 +3070,31 @@ const Analytics = () => {
                                   {lostDays > 0 ? `-${lostDays}` : lostDays}
                                 </TableCell>
                                 <TableCell className="text-right">
+                                  {(() => {
+                                    const adj = payment?.additionals as any[] | null;
+                                    if (!adj || adj.length === 0) return <span className="text-muted-foreground">—</span>;
+                                    const total = adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className={total >= 0 ? "text-green-600 cursor-help" : "text-red-600 cursor-help"}>
+                                              {total >= 0 ? "+" : ""}${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {adj.map((a: any, i: number) => (
+                                              <div key={i} className="text-xs">
+                                                {a.type === "addition" ? "+" : "-"}${a.amount.toFixed(2)} — {a.reason}
+                                              </div>
+                                            ))}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })()}
+                                </TableCell>
+                                <TableCell className="text-right">
                                   <span>
                                     $
                                     {displaySalary.toLocaleString(undefined, {
@@ -3115,6 +3143,7 @@ const Analytics = () => {
                               -
                               {dispatcherStats.reduce((sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0), 0)}
                             </TableCell>
+                            <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               $
@@ -3222,11 +3251,13 @@ const Analytics = () => {
                   const paymentsMap: Record<string, {
                     paid_amount: number;
                     paid_at: string | null;
+                    additionals?: any[] | null;
                   }> = {};
                   data.forEach((payment: any) => {
                     paymentsMap[payment.user_id] = {
                       paid_amount: payment.paid_amount,
-                      paid_at: payment.paid_at
+                      paid_at: payment.paid_at,
+                      additionals: payment.additionals || null,
                     };
                   });
                   setSalaryPayments(paymentsMap);
