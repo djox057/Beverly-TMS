@@ -102,6 +102,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
+    retry: 1, // Limit retries to prevent timeout storms
   });
 
   return {
