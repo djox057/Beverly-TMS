@@ -3694,6 +3694,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"][]
       }
+      bulk_update_hos: { Args: { updates: Json }; Returns: number }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json

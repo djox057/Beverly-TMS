@@ -23,32 +23,28 @@ interface TransitRecord {
   utcTimestamp?: string;
 }
 
+interface HosUpdate {
+  id: string;
+  drive: number;
+  shift: number;
+  break: number;
+  cycle: number;
+  status: string | null;
+  updated: string;
+}
+
 // Get bearer token using client_key
 async function getBearerToken(clientKey: string): Promise<string | null> {
   try {
-    console.log(`Attempting auth for key ${clientKey.slice(0, 10)}...`);
     const response = await fetch(AUTH_URL, {
       method: 'GET',
-      headers: {
-        'client_key': clientKey,
-        'Accept': 'application/json'
-      }
+      headers: { 'client_key': clientKey, 'Accept': 'application/json' }
     });
-
-    console.log(`Auth response status for key ${clientKey.slice(0, 10)}...: ${response.status}`);
-    
-    if (response.status !== 200) {
-      const errorText = await response.text();
-      console.log(`Auth failed for key ${clientKey.slice(0, 10)}... - Status: ${response.status}, Error: ${errorText}`);
-      return null;
-    }
-
+    if (response.status !== 200) return null;
     const json = await response.json();
-    const token = json.token || null;
-    console.log(`Auth ${token ? 'successful' : 'failed'} for key ${clientKey.slice(0, 10)}...`);
-    return token;
+    return json.token || null;
   } catch (error) {
-    console.error(`Error getting token for key ${clientKey.slice(0, 10)}...:`, error);
+    console.error(`Auth error for key ${clientKey.slice(0, 10)}...:`, error);
     return null;
   }
 }
@@ -56,20 +52,11 @@ async function getBearerToken(clientKey: string): Promise<string | null> {
 // Fetch data using bearer token
 async function fetchDataWithToken(token: string): Promise<TransitRecord[]> {
   try {
-    const url = `${API_URL}?additionalInfo=true`;
-    const response = await fetch(url, {
+    const response = await fetch(`${API_URL}?additionalInfo=true`, {
       method: 'GET',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
     });
-
-    if (response.status !== 200) {
-      console.log(`Data fetch failed - Status: ${response.status}`);
-      return [];
-    }
-
+    if (response.status !== 200) return [];
     const json = await response.json();
     return Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
   } catch (error) {
@@ -91,51 +78,29 @@ function isValidHosRecord(record: TransitRecord): boolean {
   );
 }
 
-// Get data from Transit Tracking API for a single key
-async function getTransitDataForKey(apiKey: string): Promise<TransitRecord[]> {
-  try {
-    const token = await getBearerToken(apiKey);
-    if (!token) {
-      console.log(`Failed to get token for key ${apiKey.slice(0, 10)}...`);
-      return [];
-    }
-    
-    const data = await fetchDataWithToken(token);
-    if (data && data.length) {
-      // Log all truck numbers from this key for debugging
-      const truckNumbers = data.map(r => r.name).filter(Boolean).sort();
-      console.log(`Got ${data.length} records with key ${apiKey.slice(0, 10)}...`);
-      console.log(`Truck numbers from key ${apiKey.slice(0, 10)}...: ${truckNumbers.join(', ')}`);
-      return data;
-    }
-    return [];
-  } catch (error) {
-    console.error(`Error processing key ${apiKey.slice(0, 10)}...:`, error);
-    return [];
-  }
-}
-
-// Get all data from Transit Tracking API (for general keys)
+// Get all data from Transit Tracking API
 async function getAllTransitData(apiKeys: string[]): Promise<TransitRecord[]> {
   const mergedData: TransitRecord[] = [];
-  
   for (const key of apiKeys) {
-    const data = await getTransitDataForKey(key);
-    mergedData.push(...data);
+    try {
+      const token = await getBearerToken(key);
+      if (!token) continue;
+      const data = await fetchDataWithToken(token);
+      if (data.length) mergedData.push(...data);
+    } catch (error) {
+      console.error(`Error processing key ${key.slice(0, 10)}...:`, error);
+    }
   }
-  
-  console.log(`Total records fetched from general keys: ${mergedData.length}`);
+  console.log(`Total records fetched: ${mergedData.length}`);
   return mergedData;
 }
 
-// Normalize truck number for matching (remove leading zeros, special chars)
+// Normalize truck number for matching
 function normalizeTruckNumber(truckNum: string): string {
-  // Remove #, spaces, and leading zeros
   return truckNum.toString().replace(/#/g, '').trim().replace(/^0+/, '') || '0';
 }
 
 // Create lookup map with most recent valid HOS data for each truck
-// Stores both original and normalized versions for flexible matching
 function createTruckLookupMap(apiData: TransitRecord[]): { 
   byOriginal: Record<string, TransitRecord>,
   byNormalized: Record<string, TransitRecord>
@@ -143,96 +108,85 @@ function createTruckLookupMap(apiData: TransitRecord[]): {
   const byOriginal: Record<string, TransitRecord> = {};
   const byNormalized: Record<string, TransitRecord> = {};
   
-  apiData.forEach(record => {
-    if (record && record.name) {
-      const originalNum = record.name.toString().replace(/#/g, '').trim();
-      const normalizedNum = normalizeTruckNumber(originalNum);
-      
-      // Store by original
-      const prevOrig = byOriginal[originalNum];
+  for (const record of apiData) {
+    if (!record?.name) continue;
+    const originalNum = record.name.toString().replace(/#/g, '').trim();
+    const normalizedNum = normalizeTruckNumber(originalNum);
+    
+    for (const [key, map] of [
+      [originalNum, byOriginal], 
+      [normalizedNum, byNormalized]
+    ] as [string, Record<string, TransitRecord>][]) {
+      const prev = map[key];
       if (
-        !prevOrig ||
-        (isValidHosRecord(record) && !isValidHosRecord(prevOrig)) ||
-        (isValidHosRecord(record) && isValidHosRecord(prevOrig) &&
+        !prev ||
+        (isValidHosRecord(record) && !isValidHosRecord(prev)) ||
+        (isValidHosRecord(record) && isValidHosRecord(prev) &&
           new Date(record.hosUtcTimestamp || record.utcTimestamp || 0) > 
-          new Date(prevOrig.hosUtcTimestamp || prevOrig.utcTimestamp || 0)) ||
-        (!isValidHosRecord(prevOrig) && !isValidHosRecord(record) &&
-          new Date(record.utcTimestamp || 0) > new Date(prevOrig.utcTimestamp || 0))
+          new Date(prev.hosUtcTimestamp || prev.utcTimestamp || 0)) ||
+        (!isValidHosRecord(prev) && !isValidHosRecord(record) &&
+          new Date(record.utcTimestamp || 0) > new Date(prev.utcTimestamp || 0))
       ) {
-        byOriginal[originalNum] = record;
-      }
-      
-      // Store by normalized (without leading zeros)
-      const prevNorm = byNormalized[normalizedNum];
-      if (
-        !prevNorm ||
-        (isValidHosRecord(record) && !isValidHosRecord(prevNorm)) ||
-        (isValidHosRecord(record) && isValidHosRecord(prevNorm) &&
-          new Date(record.hosUtcTimestamp || record.utcTimestamp || 0) > 
-          new Date(prevNorm.hosUtcTimestamp || prevNorm.utcTimestamp || 0)) ||
-        (!isValidHosRecord(prevNorm) && !isValidHosRecord(record) &&
-          new Date(record.utcTimestamp || 0) > new Date(prevNorm.utcTimestamp || 0))
-      ) {
-        byNormalized[normalizedNum] = record;
+        map[key] = record;
       }
     }
-  });
+  }
 
   return { byOriginal, byNormalized };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    console.log('HOS Sync function started');
+    console.log('HOS Sync started');
     
-    // Get API keys from environment
     const apiKeysEnv = Deno.env.get('TRANSIT_TRACKING_API_KEYS');
     const unitedApiKey = Deno.env.get('TRANSIT_TRACKING_API_KEY_UNITED');
     
-    console.log('Raw API keys env:', apiKeysEnv ? `Found ${apiKeysEnv.length} characters` : 'Not found');
-    console.log('United API key:', unitedApiKey ? `Found ${unitedApiKey.length} characters` : 'Not found');
-    
     if (!apiKeysEnv && !unitedApiKey) {
-      console.error('No API keys found');
       throw new Error('No Transit Tracking API keys configured');
     }
 
-    // Parse all API keys - combine general keys with United key
     const apiKeys: string[] = [];
-    
     if (apiKeysEnv) {
-      const generalKeys = apiKeysEnv.split(',').map(key => key.trim()).filter(key => key.length > 0);
-      apiKeys.push(...generalKeys);
+      apiKeys.push(...apiKeysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0));
     }
-    
-    // Add United API key to the list if available (treat it like all other keys)
-    if (unitedApiKey && unitedApiKey.trim().length > 0) {
+    if (unitedApiKey?.trim()) {
       apiKeys.push(unitedApiKey.trim());
     }
-    
-    console.log(`Total API keys to process: ${apiKeys.length}`);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch data from all API keys
-    const allApiData = await getAllTransitData(apiKeys);
-    
-    // Create lookup maps from all data (keyed by truck number - both original and normalized)
-    const { byOriginal, byNormalized } = createTruckLookupMap(allApiData);
-    
-    // Log truck numbers from API for debugging
-    const allTruckNumbers = Object.keys(byOriginal).sort();
-    console.log(`Created lookup map with ${allTruckNumbers.length} trucks from ${allApiData.length} total records`);
+    // Overlap guard: skip if last update was < 60 seconds ago
+    const { data: recentDriver } = await supabase
+      .from('drivers')
+      .select('hos_last_updated')
+      .not('hos_last_updated', 'is', null)
+      .order('hos_last_updated', { ascending: false })
+      .limit(1)
+      .single();
 
-    // Get trucks and their assigned drivers from database
+    if (recentDriver?.hos_last_updated) {
+      const lastUpdate = new Date(recentDriver.hos_last_updated);
+      const secondsAgo = (Date.now() - lastUpdate.getTime()) / 1000;
+      if (secondsAgo < 60) {
+        console.log(`Skipping: last update was ${Math.round(secondsAgo)}s ago`);
+        return new Response(JSON.stringify({ success: true, skipped: true, secondsAgo: Math.round(secondsAgo) }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Fetch API data and build lookup
+    const allApiData = await getAllTransitData(apiKeys);
+    const { byOriginal, byNormalized } = createTruckLookupMap(allApiData);
+
+    // Get trucks with assigned drivers
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select(`
@@ -243,82 +197,63 @@ serve(async (req) => {
         driver2:drivers!trucks_driver2_id_fkey(id, name)
       `);
 
-    if (trucksError) {
-      throw new Error(`Error fetching trucks: ${trucksError.message}`);
-    }
-
-    if (!trucks || trucks.length === 0) {
-      console.log('No trucks found in database');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        updated: 0, 
-        message: 'No trucks found in database' 
-      }), {
+    if (trucksError) throw new Error(`Error fetching trucks: ${trucksError.message}`);
+    if (!trucks?.length) {
+      return new Response(JSON.stringify({ success: true, updated: 0, message: 'No trucks' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update drivers with HOS data based on truck assignments
-    let updatedCount = 0;
-
-    console.log(`Processing ${trucks.length} trucks from database`);
+    // Collect all updates into a batch
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    
+    const updates: HosUpdate[] = [];
 
     for (const truck of trucks) {
-      // Get drivers to update
       const driversToUpdate = [truck.driver1, truck.driver2].filter(Boolean);
       
       for (const driver of driversToUpdate) {
-        if (driver && typeof driver === 'object' && 'id' in driver && 'name' in driver) {
-          // Try exact match first, then normalized match (handles leading zeros)
+        if (driver && typeof driver === 'object' && 'id' in driver) {
           const truckNum = truck.truck_number;
           const normalizedTruckNum = normalizeTruckNumber(truckNum);
-          let hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
+          const hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
           
           if (hosData && isValidHosRecord(hosData)) {
-            console.log(`✅ Found VALID HOS data for driver ${driver.name} on truck ${truck.truck_number}:`, {
-              drive_minutes: hosData.minsTillDriving || 0,
-              shift_minutes: hosData.minsTillShift || 0,
-              break_minutes: hosData.minsTillBreak || 0,
-              cycle_minutes: hosData.minsTillCycle || 0,
+            updates.push({
+              id: driver.id as string,
+              drive: hosData.minsTillDriving || 0,
+              shift: hosData.minsTillShift || 0,
+              break: hosData.minsTillBreak || 0,
+              cycle: hosData.minsTillCycle || 0,
               status: hosData.statusAbbreviation || null,
+              updated: timestamp
             });
-            
-            const now = new Date();
-            const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            
-            const { error: updateError } = await supabase
-              .from('drivers')
-              .update({
-                hos_drive_minutes: hosData.minsTillDriving || 0,
-                hos_shift_minutes: hosData.minsTillShift || 0,
-                hos_break_minutes: hosData.minsTillBreak || 0,
-                hos_cycle_minutes: hosData.minsTillCycle || 0,
-                hos_status: hosData.statusAbbreviation || null,
-                hos_last_updated: timestamp
-              })
-              .eq('id', driver.id);
-            
-            if (updateError) {
-              console.error(`Error updating driver ${driver.name}:`, updateError);
-            } else {
-              console.log(`✅ Updated HOS data for driver: ${driver.name}`);
-              updatedCount++;
-            }
-          } else if (hosData && !isValidHosRecord(hosData)) {
-            console.log(`Found HOS data for driver ${driver.name} but it's INVALID`);
-          } else {
-            console.log(`No HOS data found for driver ${driver.name} on truck ${truck.truck_number}`);
           }
         }
       }
     }
 
-    console.log(`HOS sync complete. Updated ${updatedCount} drivers.`);
+    // Single batch RPC call instead of ~50 individual updates
+    let updatedCount = 0;
+    if (updates.length > 0) {
+      const { data: count, error: rpcError } = await supabase.rpc('bulk_update_hos', {
+        updates: JSON.stringify(updates)
+      });
+      
+      if (rpcError) {
+        console.error('Bulk update error:', rpcError);
+        throw new Error(`Bulk update failed: ${rpcError.message}`);
+      }
+      updatedCount = count || 0;
+      console.log(`Batch updated ${updatedCount} drivers in 1 query`);
+    }
+
+    console.log(`HOS sync complete. ${updatedCount} drivers updated from ${allApiData.length} API records.`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       updated: updatedCount,
-      total_drivers: updatedCount,
       total_api_records: allApiData.length,
       api_keys_used: apiKeys.length
     }), {
