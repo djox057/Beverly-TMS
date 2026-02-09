@@ -69,6 +69,14 @@ export function useAutoSwitchOffice({
     value: string;
   } | null>(null);
 
+  // Track terms that have already been searched via DB to prevent infinite retries
+  // when a search term doesn't match anything (not_found / error)
+  const lastSearchedTermsRef = useRef<{
+    truck?: string;
+    dispatch?: string;
+    load?: string;
+  }>({});
+
   // State for ambiguous matches (to show indicator in UI)
   const [ambiguousMatch, setAmbiguousMatch] = useState<{
     filter: "truck" | "dispatch" | "load";
@@ -528,6 +536,7 @@ export function useAutoSwitchOffice({
       if (userOverrideRef.current?.filter === "truck") {
         userOverrideRef.current = null;
       }
+      delete lastSearchedTermsRef.current.truck;
       return;
     }
     
@@ -573,6 +582,11 @@ export function useAutoSwitchOffice({
     }
     
     if (isSearchingRef.current) return;
+    
+    // Already searched this exact term via DB - don't hit DB again
+    if (lastSearchedTermsRef.current.truck === debouncedTruckDriver) {
+      return;
+    }
     
     // Local check - if match exists in CURRENT TAB, don't switch and REMEMBER this
     if (hasLocalMatch("truck", debouncedTruckDriver)) {
@@ -641,6 +655,7 @@ export function useAutoSwitchOffice({
         }
       } finally {
         isSearchingRef.current = false;
+        lastSearchedTermsRef.current.truck = debouncedTruckDriver;
       }
     };
     
@@ -661,6 +676,7 @@ export function useAutoSwitchOffice({
       if (userOverrideRef.current?.filter === "dispatch") {
         userOverrideRef.current = null;
       }
+      delete lastSearchedTermsRef.current.dispatch;
       return;
     }
     
@@ -702,6 +718,11 @@ export function useAutoSwitchOffice({
     }
     
     if (isSearchingRef.current) return;
+    
+    // Already searched this exact term via DB - don't hit DB again
+    if (lastSearchedTermsRef.current.dispatch === debouncedDispatchName) {
+      return;
+    }
     
     // Local check - remember if found locally
     if (hasLocalMatch("dispatch", debouncedDispatchName)) {
@@ -770,6 +791,7 @@ export function useAutoSwitchOffice({
         }
       } finally {
         isSearchingRef.current = false;
+        lastSearchedTermsRef.current.dispatch = debouncedDispatchName;
       }
     };
     
@@ -791,6 +813,7 @@ export function useAutoSwitchOffice({
       if (userOverrideRef.current?.filter === "load") {
         userOverrideRef.current = null;
       }
+      delete lastSearchedTermsRef.current.load;
       return;
     }
     
@@ -832,6 +855,11 @@ export function useAutoSwitchOffice({
     }
     
     if (isSearchingRef.current) return;
+    
+    // Already searched this exact term via DB - don't hit DB again
+    if (lastSearchedTermsRef.current.load === debouncedLoadNumber) {
+      return;
+    }
     
     // Local check - remember if found locally
     if (hasLocalMatch("load", debouncedLoadNumber)) {
@@ -903,6 +931,7 @@ export function useAutoSwitchOffice({
         }
       } finally {
         isSearchingRef.current = false;
+        lastSearchedTermsRef.current.load = debouncedLoadNumber;
       }
     };
     
