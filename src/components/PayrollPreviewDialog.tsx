@@ -324,7 +324,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       // This is the simple base rate without extra days, food allowance, etc.
       const paidAmount = salary1Percent + bonus5Percent;
 
-      // Insert new payment record
+      // Insert new payment record with adjustments
       await supabase
         .from("dispatcher_salary_payments" as any)
         .insert({
@@ -334,6 +334,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           calculated_salary: paidAmount,
           paid_at: now,
           paid_by: user.id,
+          additionals: adjustments.length > 0 ? adjustments : null,
         });
 
       toast.success(`Payroll email sent for ${dispatcherName} (test: jon@bfprime.net)`);
