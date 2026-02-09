@@ -269,6 +269,52 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     saveAdjustmentsToDb(updated);
   };
 
+  const savePtoToDb = async (selections: Record<string, boolean>) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const selectedPtoDays = Object.entries(selections)
+        .filter(([_, isChecked]) => isChecked)
+        .map(([date]) => {
+          const [month, day] = date.split("/");
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        });
+
+      // Remove existing PTO days for this month
+      const monthStart = `${selectedMonth}-01`;
+      const monthEnd = `${selectedMonth}-31`;
+      await supabase
+        .from("dispatcher_sick_days" as any)
+        .delete()
+        .eq("user_id", dispatcherUserId)
+        .gte("sick_date", monthStart)
+        .lte("sick_date", monthEnd);
+
+      // Insert new PTO days
+      if (selectedPtoDays.length > 0) {
+        await supabase
+          .from("dispatcher_sick_days" as any)
+          .insert(
+            selectedPtoDays.map(date => ({
+              user_id: dispatcherUserId,
+              sick_date: date,
+              year,
+              created_by: user.id,
+            }))
+          );
+      }
+
+      // Update existingPtoDays to reflect saved state
+      const otherMonthDays = existingPtoDays.filter(d => d.substring(0, 7) !== selectedMonth);
+      setExistingPtoDays([...otherMonthDays, ...selectedPtoDays]);
+      setUsedPtoDaysThisYear(otherMonthDays.length + selectedPtoDays.length);
+    } catch (err) {
+      console.error("Error saving PTO:", err);
+      toast.error("Failed to save PTO");
+    }
+  };
+
   const handlePtoToggle = (date: string, checked: boolean) => {
     const currentSelectedCount = Object.values(ptoSelections).filter(Boolean).length;
     const alreadyUsedBeforeThisMonth = existingPtoDays.filter(d => {
@@ -283,10 +329,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       return;
     }
 
-    setPtoSelections(prev => ({
-      ...prev,
-      [date]: checked,
-    }));
+    const updated = { ...ptoSelections, [date]: checked };
+    setPtoSelections(updated);
+    savePtoToDb(updated);
   };
 
   const handleSendEmail = async () => {
@@ -298,41 +343,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         return;
       }
 
-      // Save PTO selections
-      const selectedPtoDays = Object.entries(ptoSelections)
-        .filter(([_, isChecked]) => isChecked)
-        .map(([date]) => {
-          const [month, day] = date.split("/");
-          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-        });
-
-      // Remove any existing PTO days for this month first
-      const monthStart = `${selectedMonth}-01`;
-      const monthEnd = `${selectedMonth}-31`;
-      await supabase
-        .from("dispatcher_sick_days" as any)
-        .delete()
-        .eq("user_id", dispatcherUserId)
-        .gte("sick_date", monthStart)
-        .lte("sick_date", monthEnd);
-
-      // Insert new PTO days
-      if (selectedPtoDays.length > 0) {
-        const { error: insertError } = await supabase
-          .from("dispatcher_sick_days" as any)
-          .insert(
-            selectedPtoDays.map(date => ({
-              user_id: dispatcherUserId,
-              sick_date: date,
-              year,
-              created_by: user.id,
-            }))
-          );
-
-        if (insertError) throw insertError;
-      }
-
-      // Get selected PTO dates (MM/DD format)
+      // PTO selections are already saved to DB on toggle - just get them for PDF
       const selectedPtoDates = Object.entries(ptoSelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
