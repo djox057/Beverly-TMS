@@ -1,69 +1,125 @@
 
 
-## Fix: Infinite Retry Loop for "Not Found" Search Terms
+# Google Sheets Backup Sync
 
-### Problem
+## Overview
 
-When you type a value in the Reports search bars that doesn't match anything (truck number, driver name, dispatcher, or load number), the auto-switch engine keeps hitting the database forever in an infinite loop.
+Create a scheduled sync system that exports your app's order data to two Google Sheets:
+1. **Trips Sheet** -- mirrors the /orders (Trips) page, with one tab per company, color-coded rows
+2. **Reports Sheet** -- condensed view with: Truck#, Driver, Home, Dispatch Name, Pickup City/State, Pickup DateTime, Delivery City/State, Delivery DateTime, Note
 
-**Why it happens:** The three search effects in `useAutoSwitchOffice` have guards to prevent re-searching when a result IS found (via `lastAutoSwitchRef`, `localMatchFoundRef`). But when the result is "not_found" or "error", NO ref is set to block the next run. Since `activeTab` is in the dependency array, any background data update or re-render re-triggers the effect, which hits the DB again, finds nothing, and repeats forever.
+A cron job runs every 5 minutes, fetching all current orders and writing them to Google Sheets via the Sheets API v4.
 
-### Solution
+## Step 1: Google Cloud Setup (You Do This)
 
-Add a `lastSearchedTermRef` to track terms that have already been searched (regardless of result), preventing duplicate DB lookups for the same value.
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project (or use an existing one)
+2. Enable the **Google Sheets API** (APIs & Services > Library > search "Google Sheets API" > Enable)
+3. Create a **Service Account** (APIs & Services > Credentials > Create Credentials > Service Account)
+4. Generate a JSON key for the service account (click the service account > Keys tab > Add Key > JSON)
+5. Create two Google Sheets files:
+   - One named "Trips Backup"
+   - One named "Reports Backup"
+6. Share both sheets with the service account email (it looks like `name@project-id.iam.gserviceaccount.com`) with **Editor** access
+7. Copy the spreadsheet IDs from each sheet's URL (the long string between `/d/` and `/edit`)
 
-### Changes
+After this, you'll provide me with:
+- The service account JSON key (stored as a secret)
+- The two spreadsheet IDs (stored as secrets)
 
-**File: `src/hooks/useAutoSwitchOffice.ts`**
+## Step 2: Store Secrets
 
-1. Add a new ref to track already-searched terms:
-```typescript
-// Track terms that have already been searched via DB to prevent infinite retries
-const lastSearchedTermsRef = useRef<{
-  truck?: string;
-  dispatch?: string;
-  load?: string;
-}>({});
+Three secrets will be added to Supabase:
+- `GOOGLE_SERVICE_ACCOUNT_KEY` -- the full JSON key file contents
+- `GOOGLE_SHEETS_TRIPS_ID` -- spreadsheet ID for Trips backup
+- `GOOGLE_SHEETS_REPORTS_ID` -- spreadsheet ID for Reports backup
+
+## Step 3: Create Edge Function
+
+A new edge function `sync-google-sheets` will:
+
+1. Authenticate with Google Sheets API using the service account JWT (using `jose` library for JWT signing -- no googleapis dependency needed)
+2. Fetch all unlocked orders from the database with relations (trucks, drivers, companies, brokers, pickup_drops)
+3. For **Trips sheet**:
+   - Group orders by company name
+   - Create/update one tab per company
+   - Write columns: Truck#, Driver, Load#, Pickup Date, Pickup City, Delivery Date, Delivery City, Miles, Broker Name, Broker Load#, Driver Pay, Freight Amt
+   - Apply row colors matching the Trips page logic:
+     - Purple: recovery loads
+     - Red tint: reduced pay (total freight < base freight)
+     - Green tint: additional pay (total freight > base freight)
+     - Orange tint: canceled or has date change notes
+     - White/alternating: normal
+4. For **Reports sheet**:
+   - Write columns: Truck#, Driver, Home, Dispatch Name, Pickup City State, Pickup DateTime, Delivery City State, Delivery DateTime, Note
+   - Group by dispatcher, one tab per dispatcher or single sheet sorted
+
+## Step 4: Schedule via pg_cron
+
+A cron job calls the edge function every 5 minutes using `pg_net`.
+
+## Technical Details
+
+### Edge Function Structure (`supabase/functions/sync-google-sheets/index.ts`)
+
+```text
++---------------------------+
+| 1. Google Auth (JWT/jose) |
+| Sign JWT with service key |
+| Exchange for access token |
++---------------------------+
+          |
+          v
++---------------------------+
+| 2. Fetch Orders           |
+| All unlocked orders with  |
+| trucks, drivers, brokers, |
+| companies, pickup_drops   |
++---------------------------+
+          |
+          v
++---------------------------+     +---------------------------+
+| 3a. Build Trips Data      |     | 3b. Build Reports Data    |
+| Group by company          |     | Columns: Truck#, Driver,  |
+| Match Trips page colors   |     | Home, Dispatch, Pickup,   |
+| One sheet tab per company |     | Delivery, Note            |
++---------------------------+     +---------------------------+
+          |                                  |
+          v                                  v
++---------------------------+     +---------------------------+
+| 4a. Write to Trips Sheet  |     | 4b. Write to Reports Sheet|
+| Clear + write all tabs    |     | Clear + write all data    |
+| Apply cell formatting     |     | Apply cell formatting     |
++---------------------------+     +---------------------------+
 ```
 
-2. In each of the 3 main effects (truck at ~line 519, dispatch at ~line 652, load at ~line 781), add a guard BEFORE the DB lookup:
-```typescript
-// Already searched this exact term - don't hit DB again
-if (lastSearchedTermsRef.current.truck === debouncedTruckDriver) {
-  return;
-}
-```
+### Color Mapping (Trips)
 
-3. After the DB search completes (inside the `search()` async function), record the term:
-```typescript
-// In the finally block of each search():
-lastSearchedTermsRef.current.truck = debouncedTruckDriver;
-```
+The edge function will replicate this logic from `Trips.tsx` (lines 4922-4948):
 
-4. Clear the tracked term when the filter is cleared (in the empty-filter guard at top of each effect):
-```typescript
-if (!debouncedTruckDriver) {
-  // ... existing cleanup ...
-  delete lastSearchedTermsRef.current.truck;
-  return;
-}
-```
+| Condition | Color (RGB for Sheets) |
+|---|---|
+| Recovery load | Purple: `{red: 0.85, green: 0.75, blue: 0.95}` |
+| Reduced pay (totalFreight < freightAmount) | Light red: `{red: 0.95, green: 0.8, blue: 0.8}` |
+| Additional pay (totalFreight > freightAmount) | Light green: `{red: 0.8, green: 0.95, blue: 0.8}` |
+| Canceled or date change notes | Light orange: `{red: 0.95, green: 0.88, blue: 0.8}` |
+| Normal even row | Light gray: `{red: 0.96, green: 0.96, blue: 0.96}` |
+| Normal odd row | White: `{red: 1, green: 1, blue: 1}` |
 
-This pattern mirrors what `useOrdersSearch` does with `failedTermsRef` - once a term has been searched, it won't be searched again until the user types something different.
+### Google Sheets API Calls
 
-### Other Search Bars Audit
+Uses raw fetch with OAuth2 tokens (no heavy `googleapis` package):
+- `POST /v4/spreadsheets/{id}:batchUpdate` -- manage sheets (tabs), apply formatting
+- `PUT /v4/spreadsheets/{id}/values/{range}` -- write cell values
+- `POST /v4/spreadsheets/{id}/values:batchUpdate` -- bulk write multiple ranges
 
-| Location | Hook | Has retry protection? | Issue? |
-|---|---|---|---|
-| Reports search bars | `useAutoSwitchOffice` | No | **YES - fixing now** |
-| Orders search bar | `useOrdersSearch` | Yes (`failedTermsRef`) | No |
-| Orders filtered search | `useFilteredOrdersSearch` | Manual trigger only | No |
-| Trips search bars | `useTripsLazyOrders` | Yes (`lastSearchKeyRef`) | No |
-| Brokers search | Client-side filter | N/A | No |
-| Broker combobox | Client-side filter | N/A | No |
+### Files Created/Modified
 
-Only the Reports auto-switch engine has this infinite retry bug. All other search bars are safe.
+| File | Action |
+|---|---|
+| `supabase/functions/sync-google-sheets/index.ts` | New -- main sync logic |
+| `supabase/config.toml` | Add `[functions.sync-google-sheets]` with `verify_jwt = false` |
 
-### Files Modified
-1. `src/hooks/useAutoSwitchOffice.ts` - Add `lastSearchedTermsRef` guard to prevent infinite DB lookups for not-found terms
+### Cron Setup (SQL -- run manually)
+
+A `pg_cron` + `pg_net` schedule calling the function every 5 minutes, authenticated with the `CRON_SECRET`.
 
