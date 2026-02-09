@@ -1,104 +1,69 @@
 
 
-# Fix: Eliminate HOS-Sync CPU Spikes
+## Fix: Reports Search Bars Causing Database CPU Spikes
 
-## Root Cause
+### Root Cause
 
-`hos-sync` (cron job 18) runs **every minute** and performs **individual UPDATE queries** for each driver (~50+ sequential writes). When this overlaps with `get-truck-distances-batch` (every 5 min) and active user queries, the connection pool saturates, causing cascading statement timeouts and 80%+ CPU.
+The `hasActiveSearch` flag in Reports.tsx is computed from **raw (non-debounced)** filter values. Every keystroke recalculates this flag, which flows into `useReportsDateWindowAdapter` as a prop. When in Individual Mode viewing another office, this flag toggles `shouldBypassIndividualMode` and `isViewingOtherOfficeInIndividualMode`, which changes query parameters on every keystroke -- potentially triggering expensive database refetches before the debounce settles.
 
-## Changes
+Additionally, the `useAutoSwitchOffice` hook creates its **own separate debounced copies** of all three filter values (with a different delay: 600ms in individual mode vs 300ms). This means there are **two independent debounce pipelines** for the same filter values, doubling the potential for DB queries.
 
-### 1. Batch all driver updates into a single query (`supabase/functions/hos-sync/index.ts`)
+### Plan
 
-**Current code** (lines 192-210): Loops through trucks/drivers and runs individual `supabase.from('drivers').update({...}).eq('id', driver.id)` for each driver.
+**1. Debounce `hasActiveSearch` in Reports.tsx**
 
-**New approach**: Collect all updates into an array, then execute a single RPC call or a single bulk-update query at the end:
+Change the `hasActiveSearch` computation to use the already-debounced filter values instead of raw values:
 
-```text
--- Instead of 50 individual UPDATEs, one query:
-UPDATE drivers SET
-  hos_drive_minutes = v.drive,
-  hos_shift_minutes = v.shift,
-  hos_break_minutes = v.break,
-  hos_cycle_minutes = v.cycle,
-  hos_status = v.status,
-  hos_last_updated = v.updated
-FROM (VALUES
-  ('driver-id-1', 480, 660, 30, 4200, 'D', '2026-02-09 07:17:00'),
-  ('driver-id-2', 300, 500, 0, 3800, 'SB', '2026-02-09 07:17:00'),
-  ...
-) AS v(id, drive, shift, break, cycle, status, updated)
-WHERE drivers.id = v.id::uuid;
+```typescript
+// Before (fires on every keystroke):
+const hasActiveSearch = !!(
+  loadNumberFilter.trim().length >= 3 ||
+  truckDriverFilter.trim().length >= 2 ||
+  dispatchNameFilter.trim().length >= 2
+);
+
+// After (only fires after debounce settles):
+const hasActiveSearch = !!(
+  debouncedLoadNumberFilter.trim().length >= 3 ||
+  debouncedTruckDriverFilter.trim().length >= 2 ||
+  debouncedDispatchNameFilter.trim().length >= 2
+);
 ```
 
-This replaces ~50 round-trips with **1 query**.
+**File:** `src/pages/Reports.tsx` (lines 363-367)
 
-### 2. Reduce cron frequency from every minute to every 3 minutes
+**2. Eliminate duplicate debouncing in `useAutoSwitchOffice`**
 
-HOS timers count down slowly (minutes/hours). Updating every 60 seconds provides no meaningful benefit over every 180 seconds, but triples database load.
+The hook currently receives raw filter values and creates its own debounced copies (lines 47-49). Instead, pass the already-debounced values from `useReportsFilters` and remove the internal `useDebounce` calls.
 
-**Change**: Update cron job 18 schedule from `* * * * *` to `*/3 * * * *`.
+**File:** `src/hooks/useAutoSwitchOffice.ts`
+- Remove the 3 internal `useDebounce` calls
+- Rename params to indicate they're already debounced
+- Update all references from `debouncedTruckDriver` / `debouncedDispatchName` / `debouncedLoadNumber` to use the passed-in values directly
 
-### 3. Add overlap guard
-
-If a previous `hos-sync` invocation is still running when the next one fires, they stack up. Add a Supabase-side lock check (or a simple timestamp guard) so a new run skips if the previous one hasn't finished.
-
-## Implementation Details
-
-### File: `supabase/functions/hos-sync/index.ts`
-
-Replace the per-driver update loop (lines ~185-225) with:
-
-1. Collect updates into an array: `{ id, drive, shift, break, cycle, status, updated }[]`
-2. Build a single SQL values clause
-3. Execute via `supabase.rpc('bulk_update_hos')` or raw SQL through the service role client
-
-### New RPC function (database migration)
-
-```sql
-CREATE OR REPLACE FUNCTION bulk_update_hos(updates jsonb)
-RETURNS integer AS $$
-DECLARE
-  updated_count integer;
-BEGIN
-  UPDATE drivers d SET
-    hos_drive_minutes = (u->>'drive')::int,
-    hos_shift_minutes = (u->>'shift')::int,
-    hos_break_minutes = (u->>'break')::int,
-    hos_cycle_minutes = (u->>'cycle')::int,
-    hos_status = u->>'status',
-    hos_last_updated = (u->>'updated')::timestamp
-  FROM jsonb_array_elements(updates) AS u
-  WHERE d.id = (u->>'id')::uuid;
-
-  GET DIAGNOSTICS updated_count = ROW_COUNT;
-  RETURN updated_count;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+**File:** `src/pages/Reports.tsx`
+- Update the `useAutoSwitchOffice` call to pass debounced values:
+```typescript
+const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
+  truckDriverFilter: debouncedTruckDriverFilter,
+  dispatchNameFilter: debouncedDispatchNameFilter,
+  loadNumberFilter: debouncedLoadNumberFilter,
+  activeTab,
+  setActiveTab,
+  offices,
+  groupedReports,
+});
 ```
 
-### Cron schedule update (SQL)
+### Technical Details
 
-```sql
-SELECT cron.alter_job(18, schedule := '*/3 * * * *');
-```
+- The `useReportsFilters` hook already debounces all 3 filters at 300ms
+- `useAutoSwitchOffice` was independently debouncing them again at 300ms (or 600ms in individual mode)
+- This created a window where the first debounce fires, triggers state changes, then the second debounce fires 0-300ms later, triggering more state changes
+- Each DB lookup in auto-switch does 2-4 chained queries (trucks -> drivers -> profiles), so duplicate triggers multiply the load significantly
+- Using pre-debounced values eliminates one entire round of DB queries per keystroke sequence
 
-## Impact
-
-| Metric | Before | After |
-|--------|--------|-------|
-| DB queries per hos-sync run | ~50 | 1 |
-| Runs per hour | 60 | 20 |
-| Total HOS queries per hour | ~3,000 | 20 |
-| Connection pool slots consumed | 50 sequential | 1 |
-
-That is a **99.3% reduction** in HOS-related database load.
-
-## Testing
-
-1. Deploy the updated `hos-sync` edge function
-2. Check edge function logs to confirm single bulk update executes successfully
-3. Verify driver HOS data still updates correctly on the fleet/dashboard pages
-4. Monitor CPU usage over 30 minutes -- spikes at cron boundaries should disappear
-5. Confirm no statement timeouts in postgres logs during the monitoring window
+### Files Modified
+1. `src/pages/Reports.tsx` -- use debounced values for `hasActiveSearch` and pass debounced values to `useAutoSwitchOffice`
+2. `src/hooks/useAutoSwitchOffice.ts` -- remove internal `useDebounce` calls, use values directly
 
