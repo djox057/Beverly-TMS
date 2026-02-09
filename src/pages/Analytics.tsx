@@ -3237,6 +3237,9 @@ const Analytics = () => {
           futureMonthLabel={payrollPreviewData.futureMonthLabel}
           futureSalary1Percent={payrollPreviewData.futureSalary1Percent}
           futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
+          onAdjustmentsChanged={() => {
+            queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
+          }}
           onEmailSent={() => {
             // Refresh salary payments data
             queryClient.invalidateQueries({

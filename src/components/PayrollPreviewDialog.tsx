@@ -28,6 +28,7 @@ interface PayrollPreviewDialogProps {
   dispatcherBonus?: number;
   perDayRate?: number;
   onEmailSent: () => void;
+  onAdjustmentsChanged?: () => void; // Called when adjustments are saved to DB
   previewOnly?: boolean; // When true, hide send button and PTO editing
   isDeletedUser?: boolean; // When true, add future month salary/bonus rows
   futureSalary1Percent?: number; // Salary 1% for next month
@@ -54,6 +55,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   dispatcherBonus = 0,
   perDayRate = 0,
   onEmailSent,
+  onAdjustmentsChanged,
   previewOnly = false,
   isDeletedUser = false,
   futureSalary1Percent = 0,
@@ -106,6 +108,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
             additionals: newAdjustments.length > 0 ? newAdjustments : null,
           });
       }
+      onAdjustmentsChanged?.();
     } catch (err) {
       console.error("Error saving adjustments:", err);
     }
