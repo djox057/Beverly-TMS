@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.get-billboard-orders]
 verify_jwt = false
+
+[functions.sync-google-sheets]
+verify_jwt = false
