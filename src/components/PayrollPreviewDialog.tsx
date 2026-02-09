@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { Send, Loader2, AlertCircle, Plus, Trash2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generatePayrollPdf, PayrollAdjustment } from "@/utils/payrollPdfGenerator";
@@ -544,6 +544,22 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {previewOnly ? "Close" : "Cancel"}
           </Button>
+          {pdfUrl && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = pdfUrl;
+                a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          )}
           {!previewOnly && (
             <Button onClick={handleSendEmail} disabled={sending}>
               {sending ? (
