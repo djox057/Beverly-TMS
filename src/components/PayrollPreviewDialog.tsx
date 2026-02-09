@@ -459,7 +459,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           </div>
           
           {/* Add Adjustment Button - positioned to the right of preview */}
-          {!previewOnly && !showAdjustmentsForm && lostDayDates.length === 0 && (
+          {!previewOnly && !showAdjustmentsForm && lostDayDates.length === 0 && adjustments.length === 0 && (
             <Button
               size="icon"
               className="h-8 w-8 shrink-0 self-start"
@@ -509,7 +509,19 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     ))}
                   </div>
                   
-                  {showAdjustmentsForm && <div className="border-t pt-4" />}
+                  {showAdjustmentsForm ? (
+                    <div className="border-t pt-4" />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowAdjustmentsForm(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Extra Pay / Charge
+                    </Button>
+                  )}
                 </>
               )}
 
