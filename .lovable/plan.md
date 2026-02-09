@@ -1,56 +1,59 @@
 
-
-# Fix: Stabilize `useFilteredOrdersSearch.ts` Callbacks
+# Fix: Real-time Updates Ignoring Active Filters
 
 ## Problem
 
-The `loadMore` and `reset` callbacks depend on reactive `queryKey` (derived from `activeFilters` state), creating the same circular dependency pattern that caused the search infinite loop. While `isLoadingRef` guards reduce the risk, the architecture is fragile under rapid filter toggling.
+When any filter is active on the /orders page (e.g., delivery date = 2/5/2026), a real-time order change or new order appears at the top of the list even if it doesn't match the filter. This happens because:
 
-## Changes to `src/hooks/useFilteredOrdersSearch.ts`
+1. `useOrdersRealtime.ts` line 149 finds ALL cached queries matching `["orders"]` with `exact: false`
+2. The filtered search results from `useFilteredOrdersSearch` are stored under keys like `["orders", "filtered", ...]`
+3. The real-time handler blindly prepends/updates orders in ALL matching caches without checking if the order actually matches the filter criteria
 
-### Remove reactive `queryKey` useMemo (lines 72-76)
+## Solution
 
-Replace with three stable refs:
-- `activeQueryKeyRef` -- tracks current query key
-- `activeFiltersRef` -- tracks current filters for `loadMore`
-- `hasMoreRef` -- tracks pagination state for `loadMore`
+Modify `updateAllOrdersCaches` in `useOrdersRealtime.ts` to **skip filtered and search caches** when inserting new orders. For existing orders already in the cache, updates and deletes should still work (the order was already validated by the server). Only **new insertions** (order not found in cache) should be skipped for filtered/search query keys.
 
-### Update `search` callback (line 89)
+## Technical Changes
 
-Add ref assignments before state updates:
-```text
-activeQueryKeyRef.current = newQueryKey;
-activeFiltersRef.current = filters;
-```
-Also sync `hasMoreRef.current` in success/error paths.
+### File: `src/hooks/useOrdersRealtime.ts` (lines 143-161)
 
-### Stabilize `loadMore` callback (lines 140-184)
-
-- Guard: check `activeQueryKeyRef.current`, `activeFiltersRef.current`, and `hasMoreRef.current` instead of reactive state
-- Read filters from `activeFiltersRef.current` instead of `activeFilters`
-- Write to cache using `activeQueryKeyRef.current` instead of `queryKey`
-- Deps: `[queryClient]` (was `[hasMore, activeFilters, queryKey, queryClient]`)
-
-### Stabilize `reset` callback (lines 186-195)
-
-- Use `activeQueryKeyRef.current` for `removeQueries`
-- Clear all refs: `activeQueryKeyRef.current = null`, `activeFiltersRef.current = null`, `hasMoreRef.current = false`
-- Deps: `[queryClient]` (was `[queryKey, queryClient]`)
-
-### Update `cachedOrders` lookup (lines 198-200)
+Update `updateAllOrdersCaches` to check query keys before inserting new orders:
 
 ```text
-BEFORE: queryKey ? queryClient.getQueryData(queryKey) : []
-AFTER:  activeQueryKeyRef.current ? queryClient.getQueryData(activeQueryKeyRef.current) : []
+BEFORE (line 157):
+  if (idx >= 0) { const u = [...old]; u[idx] = transformedOrder; return u; }
+  return [transformedOrder, ...old];  // ← blindly prepends to ALL caches
+
+AFTER:
+  if (idx >= 0) { const u = [...old]; u[idx] = transformedOrder; return u; }
+  // Only insert NEW orders into unfiltered caches
+  // Filtered/search caches should not receive unvalidated orders
+  const qk = query.queryKey as string[];
+  const isFilteredOrSearch = qk.length > 1 && (qk[1] === 'filtered' || qk[1] === 'search' || qk[1] === 'page');
+  if (isFilteredOrSearch) return old;  // skip insertion into filtered results
+  return [transformedOrder, ...old];
 ```
 
-## How to Test
+This means:
+- **Update existing order in filtered results**: YES (it was already validated by the server filter)
+- **Delete order from filtered results**: YES (removal is always safe)
+- **Insert new order into filtered results**: NO (we can't verify it matches the filter client-side)
+- **Insert new order into unfiltered page cache**: YES (no filter to violate)
 
-1. Open `/orders` page, open DevTools Network tab
-2. Apply a filter (e.g., select a Company) -- should see exactly 1 `search-orders` call
-3. Click "Load More" if available -- exactly 1 additional call
-4. Clear filters (reset) -- no new network requests, view reverts to paginated data
-5. Rapidly toggle filters 5+ times -- at most 1 request per change, no `57014` errors
-6. Apply filter then immediately reset before results load -- no orphaned queries, no errors
-7. CPU stays under 30% throughout all interactions
+## Why Not Re-run the Filter Query?
 
+Re-querying the server on every real-time event would defeat the purpose of real-time updates (adds latency and database load). The correct trade-off is:
+
+- New orders that match the filter will appear when the user navigates away and back, or refreshes
+- Existing filtered orders update instantly (e.g., status changes, price edits)
+- This matches user expectations: "I set a filter, I see filtered data"
+
+## Testing
+
+1. Go to /orders page
+2. Set a delivery date filter (e.g., 2/5/2026)
+3. Have another user create a new order with a different delivery date (e.g., 2/10/2026)
+4. Verify the new order does NOT appear in the filtered view
+5. Edit an order that IS in the filtered view -- verify the edit appears instantly
+6. Clear filters -- verify the new order appears in the unfiltered view
+7. Set a broker or driver filter and repeat steps 3-6
