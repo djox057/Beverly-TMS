@@ -74,15 +74,51 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
 
+  // Persist adjustments to DB immediately
+  const saveAdjustmentsToDb = async (newAdjustments: PayrollAdjustment[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Upsert: check if a record exists for this month/user
+      const { data: existing } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("id")
+        .eq("month", selectedMonth)
+        .eq("user_id", dispatcherUserId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .update({ additionals: newAdjustments.length > 0 ? newAdjustments : null })
+          .eq("id", (existing as any).id);
+      } else {
+        // Create a record with just additionals (not yet paid)
+        const paidAmount = salary1Percent + bonus5Percent;
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .insert({
+            user_id: dispatcherUserId,
+            month: selectedMonth,
+            paid_amount: paidAmount,
+            calculated_salary: paidAmount,
+            additionals: newAdjustments.length > 0 ? newAdjustments : null,
+          });
+      }
+    } catch (err) {
+      console.error("Error saving adjustments:", err);
+    }
+  };
+
   const year = parseInt(selectedMonth.split("-")[0], 10);
   const maxPtoDays = 3;
 
-  // Load existing PTO days for this year and reset adjustments when dialog opens
+  // Load existing PTO days and adjustments when dialog opens
   useEffect(() => {
     if (open && dispatcherUserId) {
       loadPtoDays();
-      // Reset adjustments when dialog opens for a new dispatcher
-      setAdjustments([]);
+      loadExistingAdjustments();
       setShowAdjustmentsForm(false);
       setNewAdjustmentReason("");
       setNewAdjustmentAmount("");
@@ -93,6 +129,28 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       }
     };
   }, [open, dispatcherUserId]);
+
+  const loadExistingAdjustments = async () => {
+    try {
+      const { data } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("additionals")
+        .eq("month", selectedMonth)
+        .eq("user_id", dispatcherUserId)
+        .maybeSingle();
+
+      if (data && (data as any).additionals) {
+        const loaded = (data as any).additionals as PayrollAdjustment[];
+        setAdjustments(loaded);
+        if (loaded.length > 0) setShowAdjustmentsForm(true);
+      } else {
+        setAdjustments([]);
+      }
+    } catch (err) {
+      console.error("Error loading adjustments:", err);
+      setAdjustments([]);
+    }
+  };
 
   // Generate initial preview after component mounts
   useEffect(() => {
@@ -188,11 +246,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       return;
     }
 
-    setAdjustments(prev => [...prev, {
+    const newAdj: PayrollAdjustment = {
       type: newAdjustmentType,
       reason: newAdjustmentReason.trim(),
       amount,
-    }]);
+    };
+    const updated = [...adjustments, newAdj];
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
 
     // Reset form
     setNewAdjustmentReason("");
@@ -200,7 +261,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   };
 
   const handleRemoveAdjustment = (index: number) => {
-    setAdjustments(prev => prev.filter((_, i) => i !== index));
+    const updated = adjustments.filter((_, i) => i !== index);
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
   };
 
   const handlePtoToggle = (date: string, checked: boolean) => {
