@@ -416,7 +416,12 @@ const Fleets = () => {
 
               <TabsContent value="dispatchers" className="mt-4 space-y-4">
                 {/* Dispatcher Fleets */}
-            {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).map(dispatcherFleet => {
+            {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).sort((a, b) => {
+              // Inactive dispatchers first
+              if (!a.isActive && b.isActive) return -1;
+              if (a.isActive && !b.isActive) return 1;
+              return 0;
+            }).map(dispatcherFleet => {
             const filteredDrivers = filterDrivers(dispatcherFleet.drivers);
 
             // Hide dispatcher if searching and no matching drivers
@@ -930,22 +935,75 @@ const Fleets = () => {
               <div className="space-y-4">
                 <p>Assign a cover dispatcher for each driver currently assigned to {dispatcherToToggle?.name}.</p>
                 <div className="space-y-3">
-                  {dispatcherToToggle?.drivers.map(driver => <div key={driver.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
-                      <div className="flex items-center gap-2 flex-1">
-                        <Users className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">{driver.name}</div>
-                          {driver.truck && <div className="text-xs text-muted-foreground">Truck {driver.truck.truck_number}</div>}
+                  {(() => {
+                    if (!dispatcherToToggle?.drivers) return null;
+                    // Group drivers by truck to treat teams as one unit
+                    const groupedByTruck = new Map<string, any[]>();
+                    const noTruckDrivers: any[] = [];
+                    dispatcherToToggle.drivers.forEach(driver => {
+                      if (driver.truck?.truck_number) {
+                        const truckNum = driver.truck.truck_number;
+                        if (!groupedByTruck.has(truckNum)) {
+                          groupedByTruck.set(truckNum, []);
+                        }
+                        groupedByTruck.get(truckNum)!.push(driver);
+                      } else {
+                        noTruckDrivers.push(driver);
+                      }
+                    });
+
+                    const entries: JSX.Element[] = [];
+
+                    groupedByTruck.forEach((drivers, truckNum) => {
+                      const isTeam = drivers.length > 1;
+                      const firstDriverId = drivers[0].id;
+                      entries.push(
+                        <div key={`truck-${truckNum}`} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-1">
+                            <Users className="h-4 w-4" />
+                            <div>
+                              <div className="font-medium">
+                                {isTeam ? "TEAM" : drivers[0].name}
+                                {isTeam && <span className="text-xs text-muted-foreground ml-2">({drivers.map(d => d.name).join(" & ")})</span>}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Truck {truckNum}</div>
+                            </div>
+                          </div>
+                          <Combobox value={driverCoverAssignments[firstDriverId] || ""} onValueChange={value => setDriverCoverAssignments(prev => {
+                            const updated = { ...prev };
+                            // Set same cover dispatcher for all drivers in the team
+                            drivers.forEach(d => { updated[d.id] = value; });
+                            return updated;
+                          })} options={allDispatchers.filter(d => d.id !== dispatcherToToggle?.id).map(dispatcher => ({
+                            value: dispatcher.id,
+                            label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ""}`
+                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-[250px]" />
                         </div>
-                      </div>
-                      <Combobox value={driverCoverAssignments[driver.id] || ""} onValueChange={value => setDriverCoverAssignments(prev => ({
-                    ...prev,
-                    [driver.id]: value
-                  }))} options={allDispatchers.filter(d => d.id !== dispatcherToToggle?.id).map(dispatcher => ({
-                    value: dispatcher.id,
-                    label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ""}`
-                  }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-[250px]" />
-                    </div>)}
+                      );
+                    });
+
+                    noTruckDrivers.forEach(driver => {
+                      entries.push(
+                        <div key={driver.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-1">
+                            <Users className="h-4 w-4" />
+                            <div>
+                              <div className="font-medium">{driver.name}</div>
+                            </div>
+                          </div>
+                          <Combobox value={driverCoverAssignments[driver.id] || ""} onValueChange={value => setDriverCoverAssignments(prev => ({
+                            ...prev,
+                            [driver.id]: value
+                          }))} options={allDispatchers.filter(d => d.id !== dispatcherToToggle?.id).map(dispatcher => ({
+                            value: dispatcher.id,
+                            label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ""}`
+                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-[250px]" />
+                        </div>
+                      );
+                    });
+
+                    return entries;
+                  })()}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   When you set this dispatcher back to active, all their original drivers will be automatically returned
