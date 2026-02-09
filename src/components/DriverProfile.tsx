@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DriverSalariesSection } from "./DriverSalariesSection";
 
 // Fixed weekly charges (same for all drivers)
 const FIXED_WEEKLY_CHARGES = {
@@ -668,6 +669,9 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         driverId={driver.id}
         driverName={driver.name || `${driver.first_name} ${driver.last_name}`}
       />
+
+      {/* Salaries Section */}
+      <DriverSalariesSection driverId={driver.id} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirmExpense} onOpenChange={(open) => !open && setDeleteConfirmExpense(null)}>

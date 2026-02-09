@@ -1480,6 +1480,41 @@ export type Database = {
           },
         ]
       }
+      driver_weekly_salaries: {
+        Row: {
+          amount: number
+          created_at: string
+          driver_id: string
+          id: string
+          updated_at: string
+          week_date: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          driver_id: string
+          id?: string
+          updated_at?: string
+          week_date: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          driver_id?: string
+          id?: string
+          updated_at?: string
+          week_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_weekly_salaries_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_yard_actions: {
         Row: {
           action_type: string
