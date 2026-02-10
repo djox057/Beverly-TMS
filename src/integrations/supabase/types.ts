@@ -3777,6 +3777,7 @@ export type Database = {
           truck_number: string
         }[]
       }
+      get_driver_id_for_user: { Args: never; Returns: string }
       get_latest_truck_locations: {
         Args: never
         Returns: {
@@ -3818,6 +3819,7 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
+      validate_driver_email: { Args: { p_email: string }; Returns: Json }
     }
     Enums: {
       app_role:
