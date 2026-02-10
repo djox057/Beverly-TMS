@@ -662,27 +662,38 @@ const Analytics = () => {
         const {
           data,
           error
-        } = await supabase.from("dispatcher_off_duty_days").select("dispatcher_id, off_duty_date").gte("off_duty_date", fromDate).lte("off_duty_date", toDate);
+        } = await supabase.from("dispatcher_off_duty_days").select("dispatcher_id, off_duty_date, dispatcher_name").gte("off_duty_date", fromDate).lte("off_duty_date", toDate);
         if (error) {
           console.error("Error fetching lost days:", error);
           return;
         }
 
         // Count lost days per dispatcher and collect dates
+        // Key by BOTH dispatcher_id (UUID) AND dispatcher_name (for deleted users)
         const countsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
-            if (!countsMap[record.dispatcher_id]) {
-              countsMap[record.dispatcher_id] = 0;
-              datesMap[record.dispatcher_id] = [];
+            // Use dispatcher_id as primary key
+            const keys = [record.dispatcher_id];
+            // Also key by dispatcher_name for deleted users (whose UUID doesn't match any profile)
+            if (record.dispatcher_name) {
+              keys.push(record.dispatcher_name);
             }
-            countsMap[record.dispatcher_id] += 1;
-            // Format date as M/DD (e.g., 12/16)
+            
             const dateObj = new Date(record.off_duty_date + "T12:00:00");
             const month = dateObj.getMonth() + 1;
             const day = dateObj.getDate();
-            datesMap[record.dispatcher_id].push(`${month}/${day}`);
+            const dateStr = `${month}/${day}`;
+            
+            keys.forEach(key => {
+              if (!countsMap[key]) {
+                countsMap[key] = 0;
+                datesMap[key] = [];
+              }
+              countsMap[key] += 1;
+              datesMap[key].push(dateStr);
+            });
           });
         }
 
@@ -2788,7 +2799,9 @@ const Analytics = () => {
                         // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days or salary payment override
                         const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
                         const paymentRecord = stat.userId ? salaryPayments[stat.userId] : null;
-                        const lostDays = paymentRecord?.lost_days != null ? paymentRecord.lost_days : (stat.userId ? lostDaysByUser[stat.userId] || 0 : 0);
+                        // For lost days: check payment override first, then UUID lookup, then name lookup (for deleted users)
+                        const lostDaysFromDb = stat.userId ? (lostDaysByUser[stat.userId] || 0) : (lostDaysByUser[stat.name] || 0);
+                        const lostDays = paymentRecord?.lost_days != null ? paymentRecord.lost_days : lostDaysFromDb;
 
                         // Calculate days in the selected month
                         let daysInMonth = 30; // calendar days (used for monthly salary weighting)

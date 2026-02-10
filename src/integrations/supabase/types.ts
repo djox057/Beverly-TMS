@@ -911,6 +911,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           dispatcher_id: string
+          dispatcher_name: string | null
           id: string
           off_duty_date: string
         }
@@ -918,6 +919,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dispatcher_id: string
+          dispatcher_name?: string | null
           id?: string
           off_duty_date: string
         }
@@ -925,6 +927,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dispatcher_id?: string
+          dispatcher_name?: string | null
           id?: string
           off_duty_date?: string
         }
