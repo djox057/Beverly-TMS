@@ -2888,7 +2888,7 @@ const Analytics = () => {
                                       // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
                                       const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
                                       const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
-                                      const lostDayDates = stat.userId ? lostDayDatesByUser[stat.userId] || [] : [];
+                                      const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
                                       // Calculate extra days amount: per-workday rate * actual extra days count
                                       // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
@@ -2937,7 +2937,7 @@ const Analytics = () => {
                                       // Get dates for extra/lost days
                                       const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
                                       const extraDayDatesForDoc = allExtraDayDates.slice(1);
-                                      const lostDayDatesForDoc = stat.userId ? lostDayDatesByUser[stat.userId] || [] : [];
+                                      const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
                                       // Calculate extra days amount
                                       const actualExtraDaysCount = extraDayDatesForDoc.length;
@@ -3036,7 +3036,7 @@ const Analytics = () => {
                                       // Get dates for extra/lost days
                                       const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
                                       const extraDayDatesForDoc = allExtraDayDates.slice(1);
-                                      const lostDayDatesForDoc = stat.userId ? lostDayDatesByUser[stat.userId] || [] : [];
+                                      const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
                                       // Calculate extra days amount
                                       const actualExtraDaysCount = extraDayDatesForDoc.length;
