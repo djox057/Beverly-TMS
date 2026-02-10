@@ -15,6 +15,16 @@ const LOCATION_BOUNDS = {
 
 const MAX_LOCATION_AGE_MINUTES = 30;
 
+function getLocationTime(vehicle: any): number {
+  const loc = vehicle.location || vehicle.gps;
+  if (loc?.time) return new Date(loc.time).getTime();
+  return 0;
+}
+
+function isFresher(a: any, b: any): boolean {
+  return getLocationTime(a) > getLocationTime(b);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -75,7 +85,12 @@ serve(async (req) => {
     // Build a lookup map for fast matching
     const vehicleByName = new Map<string, any>();
     for (const v of allVehicles) {
-      if (v.name) vehicleByName.set(String(v.name).toUpperCase().trim(), v);
+      if (!v.name) continue;
+      const key = String(v.name).toUpperCase().trim();
+      const existing = vehicleByName.get(key);
+      if (!existing || isFresher(v, existing)) {
+        vehicleByName.set(key, v);
+      }
     }
 
     const allLocations: any[] = [];
@@ -113,6 +128,7 @@ serve(async (req) => {
               speed: location.speed || 0,
               ageMinutes,
               isValid: ageMinutes <= MAX_LOCATION_AGE_MINUTES,
+              apiSource: matchedVehicle.apiKeyIndex,
             });
           }
         }
@@ -136,7 +152,8 @@ serve(async (req) => {
 });
 
 /**
- * Fast truck matching using a pre-built name lookup map + fallback patterns
+ * Fast truck matching using a pre-built name lookup map + fallback patterns.
+ * For fallback paths, collects ALL candidates and returns the freshest.
  */
 function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, truckNumber: string): any | null {
   if (!truckNumber) return null;
@@ -144,7 +161,7 @@ function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, t
   const norm = String(truckNumber).replace(/^#/, '').trim();
   const pad4 = norm.padStart(4, '0');
 
-  // Fast exact lookups via map
+  // Fast exact lookups via map (map already has freshest per name)
   const exactKeys = [
     `TRUCK ${pad4}`, `TRUCK #${pad4}`, `TRUCK${pad4}`,
     `TRUCK #${norm}`, `TRUCK ${norm}`, `TRUCK${norm}`,
@@ -156,26 +173,45 @@ function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, t
     if (match) return match;
   }
 
-  // Regex fallbacks (only if exact match fails)
+  // Regex fallbacks — collect ALL matches, return freshest
   const truckExactPattern = new RegExp(`^TRUCK\\s*#?0*${norm}$`, 'i');
   const truckWithSuffixPattern = new RegExp(`^TRUCK\\s*#?0*${norm}\\s*[-\\s]`, 'i');
+
+  let candidates: any[] = [];
 
   for (const vehicle of vehicles) {
     if (!vehicle.name) continue;
     const vn = String(vehicle.name).trim();
-    if (truckExactPattern.test(vn) || truckWithSuffixPattern.test(vn)) return vehicle;
+    if (truckExactPattern.test(vn) || truckWithSuffixPattern.test(vn)) {
+      candidates.push(vehicle);
+    }
+  }
+
+  if (candidates.length > 0) {
+    if (candidates.length > 1) {
+      console.log(`⚠️ Duplicate match for truck ${norm}: ${candidates.map(c => `API_KEY_${c.apiKeyIndex + 1}:${c.name}@${getLocationTime(c)}`).join(' vs ')}`);
+    }
+    return candidates.reduce((best, c) => isFresher(c, best) ? c : best);
   }
 
   const completeNumberPattern = new RegExp(`(?<![0-9])0*${norm}(?![0-9])`, 'i');
+  candidates = [];
   for (const vehicle of vehicles) {
     if (!vehicle.name) continue;
     const vn = String(vehicle.name).trim();
     if (completeNumberPattern.test(vn)) {
       const allNumbers = vn.match(/\d+/g) || [];
       if (allNumbers.some(n => n === norm || n === pad4 || n.replace(/^0+/, '') === norm.replace(/^0+/, ''))) {
-        return vehicle;
+        candidates.push(vehicle);
       }
     }
+  }
+
+  if (candidates.length > 0) {
+    if (candidates.length > 1) {
+      console.log(`⚠️ Duplicate match for truck ${norm}: ${candidates.map(c => `API_KEY_${c.apiKeyIndex + 1}:${c.name}@${getLocationTime(c)}`).join(' vs ')}`);
+    }
+    return candidates.reduce((best, c) => isFresher(c, best) ? c : best);
   }
 
   return null;
