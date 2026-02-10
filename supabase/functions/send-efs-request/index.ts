@@ -106,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Format the email body
-    const emailBody = `Unit #${truckNumber}
+    const emailBody = `Load# ${loadNumber} Unit #${truckNumber}
 Driver ${driverName}
 Amount $${lumperAmount.toFixed(2)}
 Purpose Lumper fee`;
@@ -162,11 +162,10 @@ Purpose Lumper fee`;
     // Return success with the confirmation message
     const confirmationMessage = `EFS Money Code
 
-Unit #${truckNumber}
+Load# ${loadNumber} Unit #${truckNumber}
 Driver ${driverName}
 Amount $${lumperAmount.toFixed(2)}
-Purpose Lumper fee
-load #${loadNumber}`;
+Purpose Lumper fee`;
 
     return new Response(
       JSON.stringify({ 
