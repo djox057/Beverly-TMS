@@ -3275,7 +3275,8 @@ const Analytics = () => {
       }))} selectedMonth={selectedMonth !== "all" ? selectedMonth : format(new Date(), "yyyy-MM")} />
 
         {/* Payroll Preview Dialog */}
-        {payrollPreviewData && <PayrollPreviewDialog 
+        {payrollPreviewData && <PayrollPreviewDialog
+          key={payrollPreviewData.dispatcherUserId}
           open={payrollPreviewOpen} 
           onOpenChange={setPayrollPreviewOpen} 
           dispatcherName={payrollPreviewData.dispatcherName} 
