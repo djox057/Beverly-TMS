@@ -1,56 +1,75 @@
 
 
-# Optimize `update-truck-distances` Edge Function
+# Add Realtime Orders/Stops/Transfers Subscriptions to Reports Page
 
-## Goal
-Reduce execution time from ~100s to under 25s by eliminating the double-hop routing pattern, parallelizing OSRM calls, adding retry/fallback logic, and batching DB updates.
+## Overview
+Add a new realtime subscription in `useReportsDateWindowAdapter.ts` that listens for changes on `orders`, `pickup_drops`, and `order_transfers` tables, then patches the `globalAccumulatedOrders` store directly. This makes new orders, status changes, driver reassignments, and stop changes appear instantly on the Reports page.
 
-## Changes (single file: `supabase/functions/update-truck-distances/index.ts`)
+## Prerequisite Check (Done)
+- REPLICA IDENTITY on `orders` table: **FULL** (confirmed via `relreplident = 'f'`). The `old` payload will include all columns, so checking previous driver IDs on UPDATE is safe.
 
-### 1. Direct OSRM calls with retry + fallback
-- Replace the call to `calculate-route` edge function (lines 40-50) with a direct call to `https://router.project-osrm.org/route/v1/driving/...`
-- Add retry with exponential backoff (up to 2 retries, 500ms/1000ms delays)
-- On failure, return `null` instead of crashing -- the main loop will preserve the truck's **previous** `miles_away` value rather than writing null or 0
+## Changes
 
-### 2. Pre-classify trucks before any I/O
-After fetching Samsara locations and trucks with orders, split into two lists before making any OSRM calls:
-- **`zeroMilesTrucks`**: Trucks that are Available, Maintenance, have no orders, or current order has POD. These get `miles_away = 0, eta_minutes = null` immediately with no API call.
-- **`needsCalculation`**: Trucks that need an actual OSRM distance call. Each entry pre-computes the start/end coordinates and target description.
+### File 1: `src/hooks/useReportsDateWindow.ts`
 
-The current order selection logic (lines 307-361) stays identical -- just runs in a pure-logic pass first.
+Export 4 items that are currently module-private:
 
-### 3. Parallel batched OSRM calls
-Process `needsCalculation` trucks in parallel batches of 5:
-```text
-for each batch of 5 trucks:
-  await Promise.all(5 OSRM calls)
-  100ms delay between batches
-```
-If an OSRM call fails after retries, that truck is skipped (keeps its existing DB value).
+1. **`fetchPickupDropsForOrders`** -- Already a pure async function at line 84. Add export keyword and a comment marking it as a pure async utility with no hook dependencies.
 
-### 4. Single bulk DB update via Supabase RPC
-Instead of N individual UPDATE queries, collect all results into two arrays and execute two batch updates:
-- One `Promise.all` of updates grouped in chunks of 10 (using `.in()` filter isn't possible for different values per row, so we'll do parallel individual updates but fire them concurrently in groups of 10 instead of sequentially)
-- This reduces DB round-trips from ~50 sequential to ~5 parallel bursts
+2. **`fetchOrderTransfersForOrders`** -- Already a pure async function at line 104. Same treatment.
 
-Note: A true single-query bulk upsert (`UPDATE FROM VALUES`) would require a raw SQL RPC function. Since the project avoids raw SQL in edge functions, parallel batched updates (10 at a time) is the practical approach -- still a major improvement over fully sequential.
+3. **`patchOrderInGlobalStore(order)`** -- New function. Sets `globalAccumulatedOrders.set(order.id, order)`, increments `globalOrdersVersion`, and calls `notifyOrdersListeners()` (the existing `versionListeners.forEach(...)` pattern).
 
-### 5. Failure resilience
-- If OSRM fails for a truck after retries, that truck's `miles_away` is **not updated** (preserves previous value)
-- The function logs failures but continues processing all other trucks
-- Overall function returns success even if some individual trucks failed, with counts of successes vs failures
+4. **`removeOrderFromGlobalStore(orderId)`** -- New function. Calls `globalAccumulatedOrders.delete(orderId)`, increments `globalOrdersVersion`, notifies listeners.
 
-## Summary of expected behavior
+### File 2: `src/hooks/useReportsDateWindowAdapter.ts`
 
-```text
-Step 1: Fetch Samsara locations (existing call, ~2s)
-Step 2: Fetch trucks + orders from DB (existing query, ~2s)  
-Step 3: Pure logic pass -- classify all trucks, ~0s
-Step 4: Batch OSRM calls, 5 parallel x ~10 batches = ~10-15s
-Step 5: Batch DB updates, 10 parallel x ~5 batches = ~2s
-Total: ~16-21s (down from ~100s)
-```
+Add a new `useEffect` block (after the existing lost_day_notes subscription, around line 957) with a realtime channel subscribing to three tables.
 
-## No other files change
-The `calculate-route` edge function remains untouched -- it's still used by other parts of the app for single on-demand route calculations.
+**Channel setup:**
+- Name: `adapter-orders-realtime-{office}`
+- Tables: `orders` (event: `*`), `pickup_drops` (event: `*`), `order_transfers` (event: `*`)
+
+**Debounce mechanism (matching `useOrdersRealtime` pattern):**
+- Module-local `pendingOrderIds: Set<string>` and `pendingDeletes: Set<string>` inside the effect closure
+- 1-second debounce timer via `setTimeout`
+
+**Event handlers:**
+
+*Orders table:*
+- INSERT: If `new.driver1_id` or `new.driver2_id` is in `driverIdsSetRef`, add `new.id` to `pendingOrderIds`, schedule flush.
+- UPDATE: If `old.driver1_id`, `old.driver2_id`, `new.driver1_id`, or `new.driver2_id` is in `driverIdsSetRef`, add order ID to `pendingOrderIds`, schedule flush.
+- DELETE: If `old.driver1_id` or `old.driver2_id` is in `driverIdsSetRef`, call `removeOrderFromGlobalStore(old.id)` immediately (no fetch needed).
+
+*pickup_drops / order_transfers tables:*
+- Any event: Extract `order_id` from `new` or `old`. If `globalAccumulatedOrders.has(order_id)`, add to `pendingOrderIds`, schedule flush.
+
+**Flush logic:**
+1. Snapshot and clear `pendingOrderIds` and `pendingDeletes`
+2. Process deletes: call `removeOrderFromGlobalStore` for each
+3. For remaining IDs, batch-fetch: flat orders query + parallel `fetchPickupDropsForOrders` + `fetchOrderTransfersForOrders`
+4. **Out-of-scope check (critical):** For each fetched order, verify `driver1_id` or `driver2_id` is in `driverIdsSetRef`. If neither is in scope, call `removeOrderFromGlobalStore` instead of patching (handles driver reassignment away from scope).
+5. For in-scope orders, call `patchOrderInGlobalStore`
+6. Invalidate `adapter-order-files` with `refetchType: "active"` for affected order IDs (reuses existing invalidation pattern, and `refetchType: "active"` prevents double-render if the file subscription fires independently)
+
+**Cleanup:** Remove channel on unmount, clear debounce timer.
+
+## Edge Cases Handled
+
+1. **REPLICA IDENTITY**: Confirmed FULL on orders table -- `old` payload has all columns.
+2. **Out-of-scope reassignment**: After fetching, orders where both `driver1_id` and `driver2_id` are outside `driverIdsSetRef` are removed rather than patched.
+3. **Double-render with order_files**: Using `refetchType: "active"` on invalidation ensures it only triggers if the query is actively mounted, and the existing `order_files` subscription uses the same pattern, so at worst it's a no-op refetch.
+4. **Stale closures**: Uses `driverIdsSetRef`, `priorityOfficeRef`, and `modeKeySuffixRef` (all already maintained) to read current values inside callbacks.
+
+## Technical Details
+
+### Fetch pattern for flush (reuses existing code)
+The flush fetches flat orders with the same column list used by `fetchOrdersForDateWindow`, then calls the exported `fetchPickupDropsForOrders` and `fetchOrderTransfersForOrders` to attach child relations. This keeps the data shape consistent with what `globalAccumulatedOrders` already stores.
+
+### No changes to useOrdersRealtime
+The global `useOrdersRealtime` hook continues to patch the `["orders"]` query key family. The new subscription patches the separate `globalAccumulatedOrders` store used only by Reports. These are independent data stores with no overlap.
+
+## Files Modified
+1. `src/hooks/useReportsDateWindow.ts` -- Export 2 existing functions, add 2 new functions
+2. `src/hooks/useReportsDateWindowAdapter.ts` -- Add orders/pickup_drops/order_transfers realtime subscription
 
