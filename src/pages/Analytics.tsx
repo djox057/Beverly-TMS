@@ -3267,7 +3267,7 @@ const Analytics = () => {
         <DispatcherBonusesDialog open={isBonusesDialogOpen} onOpenChange={setIsBonusesDialogOpen} dispatchers={Object.entries(dispatcherProfiles).filter(([key, profile]) => {
         // Filter to only include entries keyed by user_id (UUID format)
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return uuidRegex.test(key) && profile.roles.includes("dispatch");
+        return uuidRegex.test(key) && (profile.roles.includes("dispatch") || profile.roles.includes("supervisor"));
       }).map(([userId, profile]) => ({
         id: userId,
         full_name: Object.entries(dispatcherProfiles).find(([k, p]) => p.user_id === userId && !k.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i))?.[0] || profile.email.split("@")[0],

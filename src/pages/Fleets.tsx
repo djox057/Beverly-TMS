@@ -1023,7 +1023,7 @@ const Fleets = () => {
 
       <AfterhoursScheduleDialog open={isAfterhoursScheduleOpen} onOpenChange={setIsAfterhoursScheduleOpen} />
       
-      <DispatcherBonusesDialog open={isBonusesDialogOpen} onOpenChange={setIsBonusesDialogOpen} dispatchers={allDispatchers.filter((d: any) => d.roles?.includes("dispatch")).map((d: any) => ({
+      <DispatcherBonusesDialog open={isBonusesDialogOpen} onOpenChange={setIsBonusesDialogOpen} dispatchers={allDispatchers.filter((d: any) => d.roles?.includes("dispatch") || d.roles?.includes("supervisor")).map((d: any) => ({
       id: d.id,
       full_name: d.full_name,
       email: d.email
