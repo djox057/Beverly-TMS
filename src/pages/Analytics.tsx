@@ -692,6 +692,7 @@ const Analytics = () => {
   // Fetch salary payments for the selected month AND previous month using useQuery for caching
   const { data: salaryPaymentsData } = useQuery({
     queryKey: ["salary-payments", selectedMonth],
+    refetchInterval: 30000,
     queryFn: async () => {
       if (!selectedMonth || selectedMonth === "all") {
         return { current: {}, previous: {} };
