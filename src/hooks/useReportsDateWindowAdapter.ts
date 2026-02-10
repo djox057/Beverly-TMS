@@ -10,7 +10,7 @@
 import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, hasOrderInGlobalStore } from "./useReportsDateWindow";
+import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
@@ -699,9 +699,15 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   useEffect(() => {
     if (!scopeEnabled) return;
     
+    // Clean up existing channel before creating a fresh one (e.g., on office switch)
+    if (orderFilesChannelRef.current) {
+      supabase.removeChannel(orderFilesChannelRef.current);
+      orderFilesChannelRef.current = null;
+    }
+    
     // Subscribe to order_files changes
     const channel = supabase
-      .channel("adapter-order-files-realtime")
+      .channel(`adapter-order-files-realtime-${priorityOffice || 'default'}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_files" },
@@ -733,7 +739,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         orderFilesChannelRef.current = null;
       }
     };
-  }, [scopeEnabled, queryClient]);
+  }, [scopeEnabled, priorityOffice, queryClient]);
 
   // P3: Subscribe to truck_notes realtime changes and patch cache directly (no refetch)
   const truckNotesChannelRef = useRef<RealtimeChannel | null>(null);
@@ -756,8 +762,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return;
     }
     
-    // Avoid duplicate subscriptions
-    if (truckNotesChannelRef.current) return;
+    // Clean up existing channel before creating a fresh one (e.g., on office switch)
+    if (truckNotesChannelRef.current) {
+      supabase.removeChannel(truckNotesChannelRef.current);
+      truckNotesChannelRef.current = null;
+    }
     
     const channelName = `adapter-truck-notes-realtime-${priorityOffice || 'default'}`;
     
@@ -855,8 +864,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return;
     }
     
-    // Avoid duplicate subscriptions
-    if (lostDayNotesChannelRef.current) return;
+    // Clean up existing channel before creating a fresh one (e.g., on office switch)
+    if (lostDayNotesChannelRef.current) {
+      supabase.removeChannel(lostDayNotesChannelRef.current);
+      lostDayNotesChannelRef.current = null;
+    }
     
     const channelName = `adapter-lost-day-notes-realtime-${priorityOffice || 'default'}`;
     
@@ -969,8 +981,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return;
     }
 
-    // Avoid duplicate subscriptions
-    if (ordersRealtimeChannelRef.current) return;
+    // Clean up existing channel before creating a fresh one (e.g., on office switch)
+    if (ordersRealtimeChannelRef.current) {
+      supabase.removeChannel(ordersRealtimeChannelRef.current);
+      ordersRealtimeChannelRef.current = null;
+    }
 
     // ─── Debounce state ───
     const pendingOrderIds = new Set<string>();
@@ -999,9 +1014,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       pendingOrderIds.clear();
 
       try {
-        // Process deletes immediately
+        // Process deletes silently (no notification per item)
         for (const id of deleteIds) {
-          removeOrderFromGlobalStore(id);
+          removeOrderFromGlobalStore(id, false);
         }
 
         if (fetchIds.length > 0) {
@@ -1015,6 +1030,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
           if (error || !flatOrders || flatOrders.length === 0) {
             if (error) console.error("[adapter] Orders realtime batch fetch error:", error);
+            // Still flush notification for any deletes that happened
+            if (deleteIds.length > 0) {
+              flushGlobalStoreNotifications();
+            }
             isFlushing = false;
             return;
           }
@@ -1040,7 +1059,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             otMap.set(t.order_id, arr);
           }
 
-          // Stage 3: Assemble and scope-check
+          // Stage 3: Assemble and scope-check (all silent — no notification per item)
           const currentDriverIds = driverIdsSetRef.current;
           const affectedOrderIds: string[] = [];
 
@@ -1059,9 +1078,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               (fullOrder.driver2_id && currentDriverIds.has(fullOrder.driver2_id));
 
             if (inScope) {
-              patchOrderInGlobalStore(fullOrder);
+              patchOrderInGlobalStore(fullOrder, false);
             } else {
-              removeOrderFromGlobalStore(fullOrder.id);
+              removeOrderFromGlobalStore(fullOrder.id, false);
             }
             affectedOrderIds.push(fullOrder.id);
           }
@@ -1073,6 +1092,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               refetchType: "active",
             });
           }
+        }
+
+        // Single notification for all changes (deletes + patches + out-of-scope removes)
+        const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
+        if (hadChanges) {
+          flushGlobalStoreNotifications();
         }
       } catch (err) {
         console.error("[adapter] Orders realtime flush error:", err);
