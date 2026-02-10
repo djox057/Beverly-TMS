@@ -4009,9 +4009,44 @@ const Reports = () => {
                                                           <p className="text-xs">✉️ {truck.driverEmail}</p>
                                                         )}
                                                         <div className="border-t pt-1 mt-1">
-                                                          <p className="font-semibold text-sm">
-                                                            Driver 2: {truck.driver2Name}
-                                                          </p>
+                                                          <div className="flex items-center justify-between gap-2">
+                                                            <p className="font-semibold text-sm">
+                                                              Driver 2: {truck.driver2Name}
+                                                            </p>
+                                                            <div className="flex items-center gap-1">
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setEfsRequestDialog({
+                                                                    driverId: truck.driver2Id!,
+                                                                    driverName: truck.driver2Name!,
+                                                                    truckNumber: truck.truckNumber,
+                                                                    companyName: truck.companyName || "",
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <DollarSign className="h-3 w-3" />
+                                                              </Button>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setHosRequestDialog({
+                                                                    driverName: truck.driver2Name!,
+                                                                    truckNumber: truck.truckNumber,
+                                                                    companyName: truck.companyName || "",
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <Clock className="h-3 w-3" />
+                                                              </Button>
+                                                            </div>
+                                                          </div>
                                                           {truck.driver2Phone && (
                                                             <p className="text-xs">📞 {truck.driver2Phone}</p>
                                                           )}
