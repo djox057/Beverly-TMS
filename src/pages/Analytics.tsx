@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Minus, Plus } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -212,8 +212,10 @@ const Analytics = () => {
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [extraDayDatesByUser, setExtraDayDatesByUser] = useState<Record<string, string[]>>({});
+  const [extraDayRawDatesByUser, setExtraDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [lostDaysByUser, setLostDaysByUser] = useState<Record<string, number>>({});
   const [lostDayDatesByUser, setLostDayDatesByUser] = useState<Record<string, string[]>>({});
+  const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
 
   // Salary selection and payment states
@@ -547,6 +549,8 @@ const Analytics = () => {
         const weekdayCountsMap: Record<string, number> = {};
         const weekendDatesMap: Record<string, string[]> = {};
         const weekdayDatesMap: Record<string, string[]> = {};
+        const weekendRawDatesMap: Record<string, string[]> = {};
+        const weekdayRawDatesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
@@ -563,6 +567,8 @@ const Analytics = () => {
               weekdayCountsMap[record.user_id] = 0;
               weekendDatesMap[record.user_id] = [];
               weekdayDatesMap[record.user_id] = [];
+              weekendRawDatesMap[record.user_id] = [];
+              weekdayRawDatesMap[record.user_id] = [];
             }
             
             // Format date as M/DD (e.g., 12/16)
@@ -576,10 +582,12 @@ const Analytics = () => {
             if (isWeekend && !isMovingDay) {
               rawWeekendCountsMap[record.user_id] += 1;
               weekendDatesMap[record.user_id].push(dateStr);
+              weekendRawDatesMap[record.user_id].push(record.scheduled_date);
             } else {
               // Weekday entries (and moving day) are always counted as extra days
               weekdayCountsMap[record.user_id] += 1;
               weekdayDatesMap[record.user_id].push(dateStr);
+              weekdayRawDatesMap[record.user_id].push(record.scheduled_date);
             }
           });
         }
@@ -596,31 +604,29 @@ const Analytics = () => {
         // Then add weekday counts (all weekday entries are extra days)
         const countsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
+        const rawDatesMap: Record<string, string[]> = {};
         const allUserIds = new Set([...Object.keys(rawWeekendCountsMap), ...Object.keys(weekdayCountsMap)]);
         allUserIds.forEach(userId => {
           const weekendExtra = Math.max(0, (rawWeekendCountsMap[userId] || 0) - 1);
           const weekdayExtra = weekdayCountsMap[userId] || 0;
           countsMap[userId] = weekendExtra + weekdayExtra;
           
-          // Build dates: ALL weekend dates (including first/regular) + all weekday dates, sorted
-          // The first weekend date is the "regular" one; slice(1) later removes it
           const allWeekendDates = (weekendDatesMap[userId] || []).sort(sortDatesFn);
           const allWeekdayDates = (weekdayDatesMap[userId] || []).sort(sortDatesFn);
-          // Put first weekend date first, then weekday dates, then remaining weekend dates
-          // This way slice(1) always removes the first weekend date (regular shift)
-          const firstWeekendDate = allWeekendDates.length > 0 ? [allWeekendDates[0]] : [];
-          const extraWeekendDates = allWeekendDates.slice(1);
-          datesMap[userId] = [...firstWeekendDate, ...allWeekdayDates, ...extraWeekendDates].sort(sortDatesFn);
-          // Actually, we want: datesMap = [firstWeekend, ...rest sorted]
-          // where slice(1) removes firstWeekend. Let's just put firstWeekend first, rest after.
+          const allWeekendRaw = (weekendRawDatesMap[userId] || []).sort();
+          const allWeekdayRaw = (weekdayRawDatesMap[userId] || []).sort();
+          
           if (allWeekendDates.length > 0) {
-            datesMap[userId] = [allWeekendDates[0], ...[...allWeekdayDates, ...extraWeekendDates].sort(sortDatesFn)];
+            datesMap[userId] = [allWeekendDates[0], ...[...allWeekdayDates, ...allWeekendDates.slice(1)].sort(sortDatesFn)];
+            rawDatesMap[userId] = [allWeekendRaw[0], ...[...allWeekdayRaw, ...allWeekendRaw.slice(1)].sort()];
           } else {
             datesMap[userId] = allWeekdayDates;
+            rawDatesMap[userId] = allWeekdayRaw;
           }
         });
         setExtraDaysByUser(countsMap);
         setExtraDayDatesByUser(datesMap);
+        setExtraDayRawDatesByUser(rawDatesMap);
       } catch (error) {
         console.error("Error in fetchExtraDays:", error);
       }
@@ -672,11 +678,10 @@ const Analytics = () => {
         // Key by BOTH dispatcher_id (UUID) AND dispatcher_name (for deleted users)
         const countsMap: Record<string, number> = {};
         const datesMap: Record<string, string[]> = {};
+        const rawDatesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
-            // Use dispatcher_id as primary key
             const keys = [record.dispatcher_id];
-            // Also key by dispatcher_name for deleted users (whose UUID doesn't match any profile)
             if (record.dispatcher_name) {
               keys.push(record.dispatcher_name);
             }
@@ -690,9 +695,11 @@ const Analytics = () => {
               if (!countsMap[key]) {
                 countsMap[key] = 0;
                 datesMap[key] = [];
+                rawDatesMap[key] = [];
               }
               countsMap[key] += 1;
               datesMap[key].push(dateStr);
+              rawDatesMap[key].push(record.off_duty_date);
             });
           });
         }
@@ -705,9 +712,11 @@ const Analytics = () => {
             if (aMonth !== bMonth) return aMonth - bMonth;
             return aDay - bDay;
           });
+          rawDatesMap[userId]?.sort();
         });
         setLostDaysByUser(countsMap);
         setLostDayDatesByUser(datesMap);
+        setLostDayRawDatesByUser(rawDatesMap);
       } catch (error) {
         console.error("Error in fetchLostDays:", error);
       }
@@ -2799,9 +2808,8 @@ const Analytics = () => {
                         // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days or salary payment override
                         const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
                         const paymentRecord = stat.userId ? salaryPayments[stat.userId] : null;
-                        // For lost days: check payment override first, then UUID lookup, then name lookup (for deleted users)
-                        const lostDaysFromDb = stat.userId ? (lostDaysByUser[stat.userId] || 0) : (lostDaysByUser[stat.name] || 0);
-                        const lostDays = paymentRecord?.lost_days != null ? paymentRecord.lost_days : lostDaysFromDb;
+                        // For lost days: UUID lookup first, then name lookup (for deleted users)
+                        const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : (lostDaysByUser[stat.name] || 0);
 
                         // Calculate days in the selected month
                         let daysInMonth = 30; // calendar days (used for monthly salary weighting)
@@ -3135,54 +3143,190 @@ const Analytics = () => {
                             })}
                                 </TableCell>
                                 <TableCell className="text-right text-green-600">
-                                  {extraDays > 0 ? `+${extraDays}` : extraDays}
+                                  {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && stat.userId ? (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <button className="cursor-pointer hover:underline font-medium">
+                                          {extraDays > 0 ? `+${extraDays}` : extraDays}
+                                        </button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-56 p-3" align="end">
+                                        <div className="space-y-2">
+                                          <p className="text-xs font-medium text-muted-foreground">Extra Days</p>
+                                          {(() => {
+                                            const allDates = extraDayDatesByUser[stat.userId!] || [];
+                                            const allRaw = extraDayRawDatesByUser[stat.userId!] || [];
+                                            const extraDates = allDates.slice(1);
+                                            const extraRaw = allRaw.slice(1);
+                                            return (
+                                              <>
+                                                {extraDates.length === 0 && <p className="text-xs text-muted-foreground">No extra days</p>}
+                                                {extraDates.map((d, i) => (
+                                                  <div key={i} className="flex items-center justify-between">
+                                                    <span className="text-sm">{d}</span>
+                                                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={async () => {
+                                                      const rawDate = extraRaw[i];
+                                                      if (!rawDate || !stat.userId) return;
+                                                      await supabase.from("afterhours_schedule").delete().eq("user_id", stat.userId).eq("scheduled_date", rawDate);
+                                                      // Re-fetch
+                                                      setExtraDaysByUser(prev => ({ ...prev, [stat.userId!]: Math.max(0, (prev[stat.userId!] || 0) - 1) }));
+                                                      setExtraDayDatesByUser(prev => {
+                                                        const updated = [...(prev[stat.userId!] || [])];
+                                                        // Remove the corresponding date from allDates (index + 1 because of slice)
+                                                        updated.splice(i + 1, 1);
+                                                        return { ...prev, [stat.userId!]: updated };
+                                                      });
+                                                      setExtraDayRawDatesByUser(prev => {
+                                                        const updated = [...(prev[stat.userId!] || [])];
+                                                        updated.splice(i + 1, 1);
+                                                        return { ...prev, [stat.userId!]: updated };
+                                                      });
+                                                    }}>
+                                                      <XCircle className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                  </div>
+                                                ))}
+                                                <div className="border-t pt-2 mt-2">
+                                                  <p className="text-xs font-medium text-muted-foreground mb-1">Add date</p>
+                                                  <Input
+                                                    type="date"
+                                                    className="h-7 text-xs"
+                                                    onChange={async (e) => {
+                                                      const val = e.target.value;
+                                                      if (!val || !stat.userId) return;
+                                                      // Check if already exists
+                                                      const existing = extraRaw.includes(val) || (allRaw.length > 0 && allRaw[0] === val);
+                                                      if (existing) { toast.error("Date already added"); return; }
+                                                      await supabase.from("afterhours_schedule").insert({ user_id: stat.userId, scheduled_date: val });
+                                                      // Optimistic update - refetch to recalculate properly
+                                                      const mp = selectedMonth.split("-");
+                                                      const y = parseInt(mp[0]); const m = parseInt(mp[1]) - 1;
+                                                      const fd = format(new Date(y, m, 1), "yyyy-MM-dd");
+                                                      const ld = format(new Date(y, m + 1, 0), "yyyy-MM-dd");
+                                                      const { data: freshData } = await supabase.from("afterhours_schedule").select("user_id, scheduled_date").gte("scheduled_date", fd).lte("scheduled_date", ld).eq("user_id", stat.userId);
+                                                      if (freshData) {
+                                                        // Recalculate for this user
+                                                        let wkendCount = 0, wkdayCount = 0;
+                                                        const wkendDates: string[] = [], wkdayDates: string[] = [], wkendRaw: string[] = [], wkdayRaw: string[] = [];
+                                                        freshData.forEach((r: any) => {
+                                                          const sd = new Date(r.scheduled_date + "T12:00:00");
+                                                          const dow = sd.getDay();
+                                                          const isWe = dow === 0 || dow === 6;
+                                                          const isMov = r.scheduled_date === "2026-01-10";
+                                                          const ds = `${sd.getMonth()+1}/${sd.getDate()}`;
+                                                          if (isWe && !isMov) { wkendCount++; wkendDates.push(ds); wkendRaw.push(r.scheduled_date); }
+                                                          else { wkdayCount++; wkdayDates.push(ds); wkdayRaw.push(r.scheduled_date); }
+                                                        });
+                                                        const sortFn = (a: string, b: string) => { const [am,ad]=a.split("/").map(Number); const [bm,bd]=b.split("/").map(Number); return am!==bm?am-bm:ad-bd; };
+                                                        wkendDates.sort(sortFn); wkdayDates.sort(sortFn); wkendRaw.sort(); wkdayRaw.sort();
+                                                        const extra = Math.max(0, wkendCount - 1) + wkdayCount;
+                                                        let dates: string[], raw: string[];
+                                                        if (wkendDates.length > 0) {
+                                                          dates = [wkendDates[0], ...[...wkdayDates, ...wkendDates.slice(1)].sort(sortFn)];
+                                                          raw = [wkendRaw[0], ...[...wkdayRaw, ...wkendRaw.slice(1)].sort()];
+                                                        } else { dates = wkdayDates; raw = wkdayRaw; }
+                                                        setExtraDaysByUser(prev => ({ ...prev, [stat.userId!]: extra }));
+                                                        setExtraDayDatesByUser(prev => ({ ...prev, [stat.userId!]: dates }));
+                                                        setExtraDayRawDatesByUser(prev => ({ ...prev, [stat.userId!]: raw }));
+                                                      }
+                                                      e.target.value = "";
+                                                    }}
+                                                  />
+                                                </div>
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  ) : (
+                                    extraDays > 0 ? `+${extraDays}` : extraDays
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right text-red-600">
                                   {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
-                                    <div className="flex items-center justify-end gap-1">
-                                      {lostDays > 0 && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const newVal = Math.max(0, lostDays - 1);
-                                            // Save to DB
-                                            if (stat.userId) {
-                                              await supabase.from("dispatcher_salary_payments" as any).upsert({
-                                                user_id: stat.userId,
-                                                month: selectedMonth,
-                                                lost_days: newVal === 0 ? null : newVal,
-                                              }, { onConflict: "user_id,month" });
-                                              queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
-                                            }
-                                          }}
-                                        >
-                                          <Minus className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                      <span>{lostDays > 0 ? `-${lostDays}` : lostDays}</span>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          const newVal = lostDays + 1;
-                                          if (stat.userId) {
-                                            await supabase.from("dispatcher_salary_payments" as any).upsert({
-                                              user_id: stat.userId,
-                                              month: selectedMonth,
-                                              lost_days: newVal,
-                                            }, { onConflict: "user_id,month" });
-                                            queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
-                                          }
-                                        }}
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
-                                    </div>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <button className="cursor-pointer hover:underline font-medium">
+                                          {lostDays > 0 ? `-${lostDays}` : lostDays}
+                                        </button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-56 p-3" align="end">
+                                        <div className="space-y-2">
+                                          <p className="text-xs font-medium text-muted-foreground">Days Off</p>
+                                          {(() => {
+                                            const lookupKey = stat.userId || stat.name;
+                                            const dates = lostDayDatesByUser[lookupKey] || [];
+                                            const rawDates = lostDayRawDatesByUser[lookupKey] || [];
+                                            return (
+                                              <>
+                                                {dates.length === 0 && <p className="text-xs text-muted-foreground">No days off</p>}
+                                                {dates.map((d, i) => (
+                                                  <div key={i} className="flex items-center justify-between">
+                                                    <span className="text-sm">{d}</span>
+                                                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={async () => {
+                                                      const rawDate = rawDates[i];
+                                                      if (!rawDate) return;
+                                                      const dispatcherId = stat.userId || lookupKey;
+                                                      await supabase.from("dispatcher_off_duty_days").delete().eq("dispatcher_id", dispatcherId).eq("off_duty_date", rawDate);
+                                                      // Optimistic update
+                                                      setLostDaysByUser(prev => ({ ...prev, [lookupKey]: Math.max(0, (prev[lookupKey] || 0) - 1) }));
+                                                      setLostDayDatesByUser(prev => {
+                                                        const updated = [...(prev[lookupKey] || [])];
+                                                        updated.splice(i, 1);
+                                                        return { ...prev, [lookupKey]: updated };
+                                                      });
+                                                      setLostDayRawDatesByUser(prev => {
+                                                        const updated = [...(prev[lookupKey] || [])];
+                                                        updated.splice(i, 1);
+                                                        return { ...prev, [lookupKey]: updated };
+                                                      });
+                                                    }}>
+                                                      <XCircle className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                  </div>
+                                                ))}
+                                                {stat.userId && (
+                                                  <div className="border-t pt-2 mt-2">
+                                                    <p className="text-xs font-medium text-muted-foreground mb-1">Add date</p>
+                                                    <Input
+                                                      type="date"
+                                                      className="h-7 text-xs"
+                                                      onChange={async (e) => {
+                                                        const val = e.target.value;
+                                                        if (!val || !stat.userId) return;
+                                                        if (rawDates.includes(val)) { toast.error("Date already added"); return; }
+                                                        // Get dispatcher name from profiles
+                                                        const dispName = stat.name;
+                                                        await supabase.from("dispatcher_off_duty_days").insert({
+                                                          dispatcher_id: stat.userId,
+                                                          off_duty_date: val,
+                                                          dispatcher_name: dispName,
+                                                        });
+                                                        // Optimistic update
+                                                        const dateObj = new Date(val + "T12:00:00");
+                                                        const dateStr = `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
+                                                        const sortFn = (a: string, b: string) => { const [am,ad]=a.split("/").map(Number); const [bm,bd]=b.split("/").map(Number); return am!==bm?am-bm:ad-bd; };
+                                                        setLostDaysByUser(prev => ({ ...prev, [lookupKey]: (prev[lookupKey] || 0) + 1 }));
+                                                        setLostDayDatesByUser(prev => {
+                                                          const updated = [...(prev[lookupKey] || []), dateStr].sort(sortFn);
+                                                          return { ...prev, [lookupKey]: updated };
+                                                        });
+                                                        setLostDayRawDatesByUser(prev => {
+                                                          const updated = [...(prev[lookupKey] || []), val].sort();
+                                                          return { ...prev, [lookupKey]: updated };
+                                                        });
+                                                        e.target.value = "";
+                                                      }}
+                                                    />
+                                                  </div>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
                                   ) : (
                                     lostDays > 0 ? `-${lostDays}` : lostDays
                                   )}
