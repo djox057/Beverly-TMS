@@ -584,21 +584,34 @@ export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
  * Patch (upsert) a single order in the global accumulated orders store.
  * Used by realtime subscriptions to update individual orders without a full refetch.
  */
-export const patchOrderInGlobalStore = (order: any): void => {
+export const patchOrderInGlobalStore = (order: any, notify = true): void => {
   globalAccumulatedOrders.set(order.id, order);
-  globalOrdersVersion++;
-  versionListeners.forEach(listener => listener());
+  if (notify) {
+    globalOrdersVersion++;
+    versionListeners.forEach(listener => listener());
+  }
 };
 
 /**
  * Remove a single order from the global accumulated orders store.
  * Used by realtime subscriptions when an order is deleted or moves out of scope.
  */
-export const removeOrderFromGlobalStore = (orderId: string): void => {
+export const removeOrderFromGlobalStore = (orderId: string, notify = true): void => {
   if (globalAccumulatedOrders.delete(orderId)) {
-    globalOrdersVersion++;
-    versionListeners.forEach(listener => listener());
+    if (notify) {
+      globalOrdersVersion++;
+      versionListeners.forEach(listener => listener());
+    }
   }
+};
+
+/**
+ * Flush a single version bump + listener notification.
+ * Call after a batch of silent (notify=false) patches/removes to trigger one re-render.
+ */
+export const flushGlobalStoreNotifications = (): void => {
+  globalOrdersVersion++;
+  versionListeners.forEach(listener => listener());
 };
 
 /**
