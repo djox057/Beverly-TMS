@@ -17,6 +17,12 @@ function calculateDistanceMiles(lat1: number, lon1: number, lat2: number, lon2: 
   return Math.round(R * c * 1.15);
 }
 
+export interface YardLoadBolFile {
+  id: string;
+  fileName: string;
+  filePath: string;
+}
+
 export interface YardLoadOrder {
   id: string;
   internalLoadNumber: number | null;
@@ -57,8 +63,7 @@ export interface YardLoadOrder {
   originalDriverPrice: number | null;
   recoveryMiles: number | null;
   recoveryDriverPrice: number | null;
-  bolFilePath: string | null;
-  bolFileName: string | null;
+  bolFiles: YardLoadBolFile[];
   bolLocation: string | null;
 }
 
@@ -124,12 +129,12 @@ export const useYardLoadsFromOrders = () => {
         pickupDropsByOrder.set(pd.order_id, arr);
       }
 
-      // Build BOL file lookup (first BOL per order)
-      const bolByOrder = new Map<string, any>();
+      // Build BOL files lookup (all BOLs per order)
+      const bolsByOrder = new Map<string, YardLoadBolFile[]>();
       for (const f of (orderFilesRes.data || [])) {
-        if (!bolByOrder.has(f.order_id)) {
-          bolByOrder.set(f.order_id, f);
-        }
+        const arr = bolsByOrder.get(f.order_id) || [];
+        arr.push({ id: f.id, fileName: f.file_name, filePath: f.file_path });
+        bolsByOrder.set(f.order_id, arr);
       }
 
       // Stage 4: Assemble
@@ -186,8 +191,7 @@ export const useYardLoadsFromOrders = () => {
           originalDriverPrice: order.original_driver_price || null,
           recoveryMiles: order.recovery_miles || null,
           recoveryDriverPrice: order.recovery_driver_price || null,
-          bolFilePath: bolByOrder.get(order.id)?.file_path || null,
-          bolFileName: bolByOrder.get(order.id)?.file_name || null,
+          bolFiles: bolsByOrder.get(order.id) || [],
           bolLocation: order.bol_location || null,
         } as YardLoadOrder;
       });
