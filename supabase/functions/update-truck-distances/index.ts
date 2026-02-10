@@ -6,10 +6,12 @@ const corsHeaders = {
 };
 
 // Terminal coordinates (Lynwood, IL)
-const TERMINAL_COORDINATES = { 
-  lat: 41.575968, 
-  lon: -87.578131 
-};
+const TERMINAL_COORDINATES = { lat: 41.575968, lon: -87.578131 };
+
+const OSRM_BATCH_SIZE = 5;
+const DB_BATCH_SIZE = 10;
+const OSRM_RETRY_COUNT = 2;
+const OSRM_RETRY_DELAYS = [500, 1000]; // ms
 
 interface TruckLocation {
   truck_id: string;
@@ -26,207 +28,157 @@ interface Coordinates {
 
 interface RouteResult {
   distance: number | null;
-  duration: number | null; // in seconds
+  duration: number | null;
 }
 
-/**
- * Calculate route distance and duration using OSRM
- */
-async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<RouteResult> {
-  const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
-  try {
-    console.log(`${truckPrefix}📍 Calling OSRM: start(${start.lat},${start.lon}) -> end(${end.lat},${end.lon})`);
-    
-    const response = await fetch(
-      `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify({ start, end }),
+interface TruckCalcEntry {
+  truckId: string;
+  truckNumber: string;
+  start: Coordinates;
+  end: Coordinates;
+  targetDesc: string;
+}
+
+interface TruckUpdatePayload {
+  truckId: string;
+  truckNumber: string;
+  miles_away: number;
+  eta_minutes: number | null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// OSRM: Direct call with retry + exponential backoff
+// On failure after retries, returns null (preserves previous DB value)
+// ═══════════════════════════════════════════════════════════
+async function callOSRM(start: Coordinates, end: Coordinates, truckNumber: string): Promise<RouteResult> {
+  const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
+
+  for (let attempt = 0; attempt <= OSRM_RETRY_COUNT; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = OSRM_RETRY_DELAYS[attempt - 1] || 1000;
+        console.log(`[${truckNumber}] ⏳ Retry ${attempt}/${OSRM_RETRY_COUNT} after ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
       }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`[${truckNumber}] OSRM HTTP ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        const distanceMiles = Math.round(data.routes[0].distance / 1609.344);
+        const durationSec = data.routes[0].duration;
+        return { distance: distanceMiles, duration: durationSec };
+      }
+      console.error(`[${truckNumber}] OSRM no route: ${data.code}`);
+      return { distance: null, duration: null }; // no route exists, don't retry
+    } catch (error) {
+      console.error(`[${truckNumber}] OSRM error (attempt ${attempt + 1}):`, error);
+    }
+  }
+
+  console.error(`[${truckNumber}] OSRM failed after ${OSRM_RETRY_COUNT + 1} attempts — preserving previous value`);
+  return { distance: null, duration: null };
+}
+
+// ═══════════════════════════════════════════════════════════
+// CURRENT ORDER LOGIC (unchanged from original)
+// Source of truth for order selection — mirrors Reports page logic.
+// ═══════════════════════════════════════════════════════════
+function findCurrentOrder(orders: any[]): any | null {
+  const allOrders = orders
+    .filter((order: any) => !order.canceled)
+    .sort((a: any, b: any) => {
+      const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
+      const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
+      return aDate - bDate;
+    });
+
+  if (allOrders.length === 0) return null;
+
+  const lastOrder = allOrders[allOrders.length - 1];
+  const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+
+  if (lastOrderHasBOL) return lastOrder;
+
+  if (allOrders.length >= 2) {
+    const previousOrder = allOrders[allOrders.length - 2];
+    const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+    if (previousHasPOD) return lastOrder;
+
+    const lastWithBOL = [...allOrders].reverse().find((order: any) =>
+      order.order_files?.some((file: any) => file.file_category === 'BOL')
     );
-
-    if (!response.ok) {
-      console.error(`${truckPrefix}Route calculation API error:`, response.status);
-      return { distance: null, duration: null };
-    }
-
-    const data = await response.json();
-    if (data.success) {
-      return { 
-        distance: data.distance, 
-        duration: data.duration // duration in seconds from OSRM
-      };
-    }
-    return { distance: null, duration: null };
-  } catch (error) {
-    console.error(`${truckPrefix}Route calculation error:`, error);
-    return { distance: null, duration: null };
+    return lastWithBOL || lastOrder;
   }
+
+  return lastOrder;
 }
 
-/**
- * Calculate distance and ETA from truck's current location to target using pre-stored coordinates
- */
-async function calculateDistanceFromTruck(
-  truckLocation: TruckLocation,
-  targetCoords: Coordinates | null,
-  targetDescription: string
-): Promise<RouteResult> {
-  console.log(`📍 CALCULATE DISTANCE - Truck ${truckLocation.truck_number}`);
-  console.log(`   🚛 Truck: (${truckLocation.latitude}, ${truckLocation.longitude})`);
-  console.log(`   🎯 Target: ${targetDescription}`);
-
-  if (!truckLocation) {
-    console.log('❌ Missing truck location');
-    return { distance: null, duration: null };
-  }
-
-  try {
-    // Use terminal coordinates if no target provided
-    const endCoords = targetCoords || TERMINAL_COORDINATES;
-    console.log(`   📍 End coords: (${endCoords.lat}, ${endCoords.lon})`);
-
-    const truckCoords: Coordinates = {
-      lat: truckLocation.latitude,
-      lon: truckLocation.longitude,
-    };
-    
-    const result = await calculateRouteDistance(truckCoords, endCoords, truckLocation.truck_number);
-    
-    if (result.distance === null) {
-      console.error('❌ OSRM CALCULATION FAILED');
-    } else {
-      const etaMinutes = result.duration ? Math.round(result.duration / 60) : null;
-      console.log(`   ✅ Distance: ${result.distance} miles, ETA: ${etaMinutes} minutes`);
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('❌ Error calculating distance:', error);
-    return { distance: null, duration: null };
-  }
+// ═══════════════════════════════════════════════════════════
+// ZERO-MILES CHECK (mirrors calculateOrderDistance logic)
+// Returns true if this truck should be set to 0 miles with no API call.
+// ═══════════════════════════════════════════════════════════
+function isZeroMilesTruck(truckStatus: string | null, currentOrder: any | null): boolean {
+  if (!currentOrder) return true;
+  if (truckStatus === 'Maintenance' || truckStatus === 'Available') return true;
+  const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === 'POD');
+  if (hasPOD) return true;
+  return false;
 }
 
-interface OrderDistanceResult {
-  distance: number;
-  etaMinutes: number | null;
-}
+// ═══════════════════════════════════════════════════════════
+// Determine destination coordinates for a truck that needs calculation
+// ═══════════════════════════════════════════════════════════
+function getDestination(currentOrder: any): { coords: Coordinates; desc: string } | null {
+  const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+  const deliveryStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'delivery');
 
-/**
- * Calculate distance and ETA for an order based on its status using pre-stored coordinates
- */
-async function calculateOrderDistance(
-  truckLocation: TruckLocation,
-  order: any,
-  truckStatus?: string
-): Promise<OrderDistanceResult> {
-  const zeroResult: OrderDistanceResult = { distance: 0, etaMinutes: null };
-  
-  if (!truckLocation || !order) {
-    console.log('⚠️ Missing data:', { hasTruckLocation: !!truckLocation, hasOrder: !!order });
-    return zeroResult;
-  }
+  const hasBOL = currentOrder.order_files?.some((f: any) => f.file_category === 'BOL');
+  const pickupArrived = pickupStop?.arrived_at;
 
-  console.log(`📦 Order: ${order.load_number} | Status: ${order.status} | Truck Status: ${truckStatus}`);
-
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
-  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-  const pickupArrived = order.pickupStop?.arrived_at;
-
-  console.log(`   📄 hasBOL: ${hasBOL}, hasPOD: ${hasPOD}, pickupArrived: ${!!pickupArrived}`);
-
-  // Maintenance - 0 miles
-  if (truckStatus === 'Maintenance') {
-    console.log('🛑 Truck in maintenance, returning 0 miles');
-    return zeroResult;
-  }
-
-  // Delivered with POD - 0 miles
-  if (hasPOD) {
-    console.log('✅ Order delivered (has POD), returning 0 miles');
-    return zeroResult;
-  }
-
-  // Available - 0 miles
-  if (truckStatus === 'Available') {
-    console.log('🏭 Status: Available, returning 0 miles');
-    return zeroResult;
-  }
-
-  // Pending (not picked up and not arrived) - calculate to pickup using stored coords
+  // Pending: calculate to pickup
   if (!pickupArrived && !hasBOL) {
-    console.log('📦 Status: Pending - Calculating distance to PICKUP');
-    const pickupStop = order.pickupStop;
-    
-    if (!pickupStop) {
-      console.log('❌ No pickup stop found');
-      return zeroResult;
-    }
-
-    // Use pre-stored coordinates if available
-    if (pickupStop.latitude && pickupStop.longitude) {
-      const targetCoords: Coordinates = { lat: pickupStop.latitude, lon: pickupStop.longitude };
-      const targetDesc = `PICKUP: ${pickupStop.city || ''}, ${pickupStop.state || ''} (stored coords)`;
-      const result = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
-      return { 
-        distance: result.distance || 0, 
-        etaMinutes: result.duration ? Math.round(result.duration / 60) : null 
+    if (pickupStop?.latitude && pickupStop?.longitude) {
+      return {
+        coords: { lat: pickupStop.latitude, lon: pickupStop.longitude },
+        desc: `PICKUP: ${pickupStop.city || ''}, ${pickupStop.state || ''}`,
       };
-    } else {
-      console.log('⚠️ No stored coordinates for pickup, skipping');
-      return zeroResult;
     }
+    return null;
   }
 
-  // Picked up (arrived at pickup OR has BOL) but not delivered - calculate to delivery
-  if ((pickupArrived || hasBOL) && !hasPOD) {
-    console.log('🚛 Status: In Transit - Calculating distance to DELIVERY');
-    const deliveryStop = order.deliveryStop;
-    
-    if (!deliveryStop) {
-      console.log('❌ No delivery stop found');
-      return zeroResult;
-    }
-
-    // Use pre-stored coordinates if available
-    if (deliveryStop.latitude && deliveryStop.longitude) {
-      const targetCoords: Coordinates = { lat: deliveryStop.latitude, lon: deliveryStop.longitude };
-      const targetDesc = `DELIVERY: ${deliveryStop.city || ''}, ${deliveryStop.state || ''} (stored coords)`;
-      const result = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
-      return { 
-        distance: result.distance || 0, 
-        etaMinutes: result.duration ? Math.round(result.duration / 60) : null 
-      };
-    } else {
-      console.log('⚠️ No stored coordinates for delivery, skipping');
-      return zeroResult;
-    }
+  // In transit: calculate to delivery
+  if ((pickupArrived || hasBOL) && deliveryStop?.latitude && deliveryStop?.longitude) {
+    return {
+      coords: { lat: deliveryStop.latitude, lon: deliveryStop.longitude },
+      desc: `DELIVERY: ${deliveryStop.city || ''}, ${deliveryStop.state || ''}`,
+    };
   }
 
-  console.log('⚠️ No matching condition, returning 0 miles');
-  return zeroResult;
+  return null;
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
-    console.log('🚀 Starting truck distances update...');
-    
+    console.log('🚀 Starting optimized truck distances update...');
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Fetch Samsara locations
-    console.log('📍 Fetching Samsara locations...');
+    // ── Step 1: Fetch Samsara locations ──
+    console.log('📍 Step 1: Fetching Samsara locations...');
     const locationsResponse = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/samsara-locations`,
       {
@@ -244,10 +196,16 @@ Deno.serve(async (req) => {
 
     const locationsData = await locationsResponse.json();
     const samsaraLocations: TruckLocation[] = locationsData.locations || [];
-    console.log(`📍 Found ${samsaraLocations.length} truck locations`);
+    console.log(`📍 Got ${samsaraLocations.length} truck locations`);
 
-    // 2. Fetch all trucks with their orders
-    console.log('🚛 Fetching trucks with orders...');
+    // Build lookup map for O(1) access
+    const locationMap = new Map<string, TruckLocation>();
+    for (const loc of samsaraLocations) {
+      locationMap.set(loc.truck_number, loc);
+    }
+
+    // ── Step 2: Fetch trucks with orders ──
+    console.log('🚛 Step 2: Fetching trucks with orders...');
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select(`
@@ -276,159 +234,155 @@ Deno.serve(async (req) => {
       `)
       .order('id', { ascending: true });
 
-    if (trucksError) {
-      throw trucksError;
-    }
+    if (trucksError) throw trucksError;
+    console.log(`🚛 Got ${trucks?.length || 0} trucks`);
 
-    console.log(`🚛 Processing ${trucks?.length || 0} trucks`);
+    // ── Step 3: Pure logic pass — classify all trucks ──
+    console.log('🧠 Step 3: Classifying trucks...');
+    const zeroMilesUpdates: TruckUpdatePayload[] = [];
+    const needsCalculation: TruckCalcEntry[] = [];
+    let skippedNoLocation = 0;
+    let skippedNoDestCoords = 0;
 
-    // 3. Calculate distances for each truck
-    let updatedCount = 0;
-    
     for (const truck of trucks || []) {
-      try {
-        const truckLocation = samsaraLocations.find((loc) => loc.truck_number === truck.truck_number);
-        
-        if (!truckLocation) {
-          console.log(`⏭️ Skipping truck ${truck.truck_number}: No location data`);
-          continue;
-        }
+      const truckLocation = locationMap.get(truck.truck_number);
+      if (!truckLocation) {
+        skippedNoLocation++;
+        continue;
+      }
 
-      // ═══════════════════════════════════════════════════════════
-      // CURRENT LOAD LOGIC:
-      // 1. Priority: Order in active transit (has BOL OR arrived at pickup) AND no POD
-      // 2. Fallback: Next upcoming order (earliest pickup date) without POD
-      // 3. Result: 0 miles if no current load
-      // ═══════════════════════════════════════════════════════════
-      
-      console.log(`\n🔍 Finding current load for truck ${truck.truck_number}...`);
-      
-      // Get all non-canceled orders for this truck, sorted by pickup datetime
-      const allOrders = (truck.orders || [])
-        .filter((order: any) => !order.canceled)
-        .sort((a: any, b: any) => {
-          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
-          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
-          return aDate - bDate;
+      const currentOrder = findCurrentOrder(truck.orders || []);
+
+      if (isZeroMilesTruck(truck.status, currentOrder)) {
+        zeroMilesUpdates.push({
+          truckId: truck.id,
+          truckNumber: truck.truck_number,
+          miles_away: 0,
+          eta_minutes: null,
         });
-      
-      console.log(`📋 Found ${allOrders.length} orders for truck ${truck.truck_number}`);
-      
-      if (allOrders.length === 0) {
-        console.log(`✅ Truck ${truck.truck_number}: No orders, setting to 0 miles`);
+        continue;
       }
 
-      // Current order logic (aligned with Reports page):
-      // 1. Default: current = last/latest load that has BOL
-      // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
-      // 3. Fallback: if no load with BOL, use last load
-      let currentOrder = null;
-      
-      if (allOrders.length > 0) {
-        const lastOrder = allOrders[allOrders.length - 1];
-        const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
-        
-        if (lastOrderHasBOL) {
-          // Last load has BOL - it's the current load
-          currentOrder = lastOrder;
-          console.log(`✅ Current load (LAST WITH BOL): ${currentOrder.load_number}`);
+      // Determine destination
+      const dest = getDestination(currentOrder);
+      if (!dest) {
+        skippedNoDestCoords++;
+        zeroMilesUpdates.push({
+          truckId: truck.id,
+          truckNumber: truck.truck_number,
+          miles_away: 0,
+          eta_minutes: null,
+        });
+        continue;
+      }
+
+      needsCalculation.push({
+        truckId: truck.id,
+        truckNumber: truck.truck_number,
+        start: { lat: truckLocation.latitude, lon: truckLocation.longitude },
+        end: dest.coords,
+        targetDesc: dest.desc,
+      });
+    }
+
+    console.log(`🧠 Classification: ${zeroMilesUpdates.length} zero-miles, ${needsCalculation.length} need OSRM, ${skippedNoLocation} no location, ${skippedNoDestCoords} no dest coords`);
+
+    // ── Step 4: Parallel batched OSRM calls ──
+    console.log(`🌐 Step 4: Calling OSRM for ${needsCalculation.length} trucks (batches of ${OSRM_BATCH_SIZE})...`);
+    const calculatedUpdates: TruckUpdatePayload[] = [];
+    let osrmFailed = 0;
+
+    for (let i = 0; i < needsCalculation.length; i += OSRM_BATCH_SIZE) {
+      const batch = needsCalculation.slice(i, i + OSRM_BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async (entry) => {
+          const result = await callOSRM(entry.start, entry.end, entry.truckNumber);
+          return { entry, result };
+        })
+      );
+
+      for (const { entry, result } of results) {
+        if (result.distance !== null) {
+          const etaMinutes = result.duration ? Math.round(result.duration / 60) : null;
+          calculatedUpdates.push({
+            truckId: entry.truckId,
+            truckNumber: entry.truckNumber,
+            miles_away: result.distance,
+            eta_minutes: etaMinutes,
+          });
+          console.log(`✅ ${entry.truckNumber}: ${result.distance} mi → ${entry.targetDesc}`);
         } else {
-          // Last load doesn't have BOL
-          if (allOrders.length >= 2) {
-            const previousOrder = allOrders[allOrders.length - 2];
-            const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
-            
-            if (previousHasPOD) {
-              // Previous load is complete (has POD), so the last load without BOL is current
-              currentOrder = lastOrder;
-              console.log(`✅ Current load (LAST, PREV HAS POD): ${currentOrder.load_number}`);
-            } else {
-              // Previous load doesn't have POD, find the last load with BOL
-              const lastWithBOL = [...allOrders].reverse().find((order: any) =>
-                order.order_files?.some((file: any) => file.file_category === 'BOL')
-              );
-              currentOrder = lastWithBOL || lastOrder;
-              console.log(`✅ Current load (LAST WITH BOL FALLBACK): ${currentOrder.load_number}`);
-            }
-          } else {
-            // Only one order and it doesn't have BOL
-            currentOrder = lastOrder;
-            console.log(`✅ Current load (SINGLE ORDER): ${currentOrder.load_number}`);
-          }
+          // Preserve previous value — do NOT add to updates
+          osrmFailed++;
+          console.log(`⚠️ ${entry.truckNumber}: OSRM failed, preserving previous value`);
         }
-      } else {
-        console.log(`ℹ️ Truck ${truck.truck_number}: No current load`);
       }
 
-      let distance = 0;
-      let etaMinutes: number | null = null;
-
-      if (!currentOrder) {
-        // No current order - truck is available, set to 0
-        console.log(`📦 Truck ${truck.truck_number}: No active order, setting miles_away to 0`);
-        distance = 0;
-        etaMinutes = null;
-      } else {
-        // Format order with pickup/delivery stops
-        const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-        const deliveryStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'delivery');
-
-        const formattedOrder = {
-          ...currentOrder,
-          pickupStop,
-          deliveryStop,
-        };
-
-        // Calculate distance and ETA
-        const result = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
-        distance = result.distance;
-        etaMinutes = result.etaMinutes;
-      }
-
-        // Update truck record with both miles_away and eta_minutes
-        const { error: updateError } = await supabase
-          .from('trucks')
-          .update({ miles_away: distance, eta_minutes: etaMinutes })
-          .eq('id', truck.id);
-
-        if (updateError) {
-          console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
-        } else {
-          console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles, ETA: ${etaMinutes} minutes`);
-          updatedCount++;
-        }
-      } catch (truckError) {
-        console.error(`❌ Error processing truck ${truck.truck_number}:`, truckError);
-        // Continue processing other trucks even if one fails
+      // Small delay between batches to be polite to OSRM
+      if (i + OSRM_BATCH_SIZE < needsCalculation.length) {
+        await new Promise(r => setTimeout(r, 100));
       }
     }
 
-    console.log(`🎉 Successfully updated ${updatedCount} trucks`);
+    console.log(`🌐 OSRM complete: ${calculatedUpdates.length} calculated, ${osrmFailed} failed (preserved)`);
+
+    // ── Step 5: Batch DB updates ──
+    const allUpdates = [...zeroMilesUpdates, ...calculatedUpdates];
+    console.log(`💾 Step 5: Updating ${allUpdates.length} trucks in DB (batches of ${DB_BATCH_SIZE})...`);
+    let dbUpdated = 0;
+    let dbFailed = 0;
+
+    for (let i = 0; i < allUpdates.length; i += DB_BATCH_SIZE) {
+      const batch = allUpdates.slice(i, i + DB_BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async (update) => {
+          const { error } = await supabase
+            .from('trucks')
+            .update({ miles_away: update.miles_away, eta_minutes: update.eta_minutes })
+            .eq('id', update.truckId);
+          return { truckNumber: update.truckNumber, error };
+        })
+      );
+
+      for (const { truckNumber, error } of results) {
+        if (error) {
+          dbFailed++;
+          console.error(`❌ DB update failed for ${truckNumber}:`, error);
+        } else {
+          dbUpdated++;
+        }
+      }
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`🏁 Done in ${duration}ms — Updated: ${dbUpdated}, DB errors: ${dbFailed}, OSRM skipped: ${osrmFailed}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Updated ${updatedCount} trucks`,
-        processed: trucks?.length || 0,
+      JSON.stringify({
+        success: true,
+        duration_ms: duration,
+        trucks_total: trucks?.length || 0,
+        trucks_updated: dbUpdated,
+        trucks_zero_miles: zeroMilesUpdates.length,
+        trucks_calculated: calculatedUpdates.length,
+        trucks_osrm_failed: osrmFailed,
+        trucks_db_failed: dbFailed,
+        trucks_no_location: skippedNoLocation,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
-
   } catch (error) {
-    console.error('❌ Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const duration = Date.now() - startTime;
+    console.error(`❌ Fatal error after ${duration}ms:`, error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration_ms: duration,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
