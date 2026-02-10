@@ -562,10 +562,13 @@ const Analytics = () => {
               datesMap[record.user_id] = [];
             }
             
-            if (isWeekend) {
+            // Special case: 2026-01-10 (office moving day) - treat as weekday (always counts as extra)
+            const isMovingDay = record.scheduled_date === "2026-01-10";
+            
+            if (isWeekend && !isMovingDay) {
               rawWeekendCountsMap[record.user_id] += 1;
             } else {
-              // Weekday entries are always counted as extra days
+              // Weekday entries (and moving day) are always counted as extra days
               weekdayCountsMap[record.user_id] += 1;
             }
             

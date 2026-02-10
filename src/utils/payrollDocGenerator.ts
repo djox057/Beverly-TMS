@@ -238,7 +238,13 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   }
 
   // Extra days row (if applicable - independent)
-  if (hasExtraDays) {
+  // Special case: split out 1/10 for January 2026 as "Help moving to new office"
+  const isJan2026 = data.payPeriod.toLowerCase().includes("january") && data.payPeriod.includes("2026");
+  const movingDayDates = isJan2026 ? data.extraDayDates.filter(d => d === "1/10") : [];
+  const regularExtraDayDates = isJan2026 ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
+  const perDayRateForExtra = data.extraDayDates.length > 0 ? data.extraDaysAmount / data.extraDayDates.length : 0;
+
+  if (movingDayDates.length > 0) {
     tableRows.push(
       new TableRow({
         height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
@@ -249,7 +255,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `Worked additional days (${extraDatesText})`, size: TABLE_SIZE })],
+                children: [new TextRun({ text: `Help moving to new office (${movingDayDates.join(", ")})`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
@@ -260,7 +266,38 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `$${data.extraDaysAmount.toFixed(2)}`, size: TABLE_SIZE })],
+                children: [new TextRun({ text: `$${(perDayRateForExtra * movingDayDates.length).toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
+  if (regularExtraDayDates.length > 0) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `Worked additional days (${regularExtraDayDates.join(", ")})`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `$${(perDayRateForExtra * regularExtraDayDates.length).toFixed(2)}`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,

@@ -235,10 +235,24 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   }
 
   // Extra days row (if applicable - independent)
-  if (hasExtraDays) {
+  // Special case: split out 1/10 for January 2026 as "Help moving to new office"
+  const isJan2026 = data.payPeriod.toLowerCase().includes("january") && data.payPeriod.includes("2026");
+  const movingDayDates = isJan2026 ? data.extraDayDates.filter(d => d === "1/10") : [];
+  const regularExtraDayDates = isJan2026 ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
+  const perDayRateForExtra = data.extraDayDates.length > 0 ? data.extraDaysAmount / data.extraDayDates.length : 0;
+
+  if (movingDayDates.length > 0) {
     drawRow(
-      `Worked additional days (${extraDatesText})`, 
-      `$${data.extraDaysAmount.toFixed(2)}`, 
+      `Help moving to new office (${movingDayDates.join(", ")})`, 
+      `$${(perDayRateForExtra * movingDayDates.length).toFixed(2)}`, 
+      "#FFFFFF", 
+      LIGHT_BLUE_BG
+    );
+  }
+  if (regularExtraDayDates.length > 0) {
+    drawRow(
+      `Worked additional days (${regularExtraDayDates.join(", ")})`, 
+      `$${(perDayRateForExtra * regularExtraDayDates.length).toFixed(2)}`, 
       "#FFFFFF", 
       LIGHT_BLUE_BG
     );
