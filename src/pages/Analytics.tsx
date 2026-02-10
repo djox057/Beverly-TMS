@@ -2770,6 +2770,7 @@ const Analytics = () => {
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                         <TableHead className="text-right">Days Off</TableHead>
+                        {profile?.office !== "BEOGRAD" && <TableHead className="text-right">Food</TableHead>}
                         <TableHead className="text-right">Additionals</TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
@@ -3123,6 +3124,9 @@ const Analytics = () => {
                                 <TableCell className="text-right text-red-600">
                                   {lostDays > 0 ? `-${lostDays}` : lostDays}
                                 </TableCell>
+                                {profile?.office !== "BEOGRAD" && <TableCell className="text-right">
+                                  {stat.office === "BEOGRAD" ? "$0" : "$70"}
+                                </TableCell>}
                                 <TableCell className="text-right">
                                   {(() => {
                                     const adj = payment?.additionals as any[] | null;
@@ -3197,6 +3201,9 @@ const Analytics = () => {
                               -
                               {dispatcherStats.reduce((sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0), 0)}
                             </TableCell>
+                            {profile?.office !== "BEOGRAD" && <TableCell className="text-right font-bold">
+                              ${dispatcherStats.reduce((sum, s) => sum + (s.office === "BEOGRAD" ? 0 : 70), 0)}
+                            </TableCell>}
                             <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold text-green-600">
