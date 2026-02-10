@@ -27,6 +27,7 @@ interface PayrollData {
   futureMonthLabel?: string; // e.g., "February" for the next month
   futureSalary1Percent?: number; // Salary 1% for next month
   futureBonus5Percent?: number; // Bonus 5% for next month
+  office?: string; // Dispatcher's office for conditional logic
 }
 
 const BLACK_COLOR = "#000000";
@@ -235,10 +236,11 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   }
 
   // Extra days row (if applicable - independent)
-  // Special case: split out 1/10 for January 2026 as "Help moving to new office"
+  // Special case: split out 1/10 for January 2026 as "Help moving to new office" (Kragujevac only)
   const isJan2026 = data.payPeriod.toLowerCase().includes("january") && data.payPeriod.includes("2026");
-  const movingDayDates = isJan2026 ? data.extraDayDates.filter(d => d === "1/10") : [];
-  const regularExtraDayDates = isJan2026 ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
+  const isKragujevac = data.office === "KRAGUJEVAC";
+  const movingDayDates = isJan2026 && isKragujevac ? data.extraDayDates.filter(d => d === "1/10") : [];
+  const regularExtraDayDates = isJan2026 && isKragujevac ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
   const perDayRateForExtra = data.extraDayDates.length > 0 ? data.extraDaysAmount / data.extraDayDates.length : 0;
 
   if (movingDayDates.length > 0) {
