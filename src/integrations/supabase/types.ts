@@ -936,6 +936,7 @@ export type Database = {
           calculated_salary: number | null
           created_at: string
           id: string
+          lost_days: number | null
           month: string
           paid_amount: number
           paid_at: string | null
@@ -948,6 +949,7 @@ export type Database = {
           calculated_salary?: number | null
           created_at?: string
           id?: string
+          lost_days?: number | null
           month: string
           paid_amount?: number
           paid_at?: string | null
@@ -960,6 +962,7 @@ export type Database = {
           calculated_salary?: number | null
           created_at?: string
           id?: string
+          lost_days?: number | null
           month?: string
           paid_amount?: number
           paid_at?: string | null
