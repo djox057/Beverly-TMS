@@ -1,47 +1,56 @@
 
-## Fix: Samsara Duplicate Truck Resolution
 
-### Problem
-Truck 7347 exists in **both** Samsara accounts (API_KEY_1 and API_KEY_2). The current code picks the **first match** it finds, which may be a stale/old entry from one account showing Lynwood, IL instead of the real location in Sweetwater, TX.
+# Optimize `update-truck-distances` Edge Function
 
-### Root Cause
-- The `vehicleByName` Map overwrites entries with the same name -- whichever Samsara account is processed last wins
-- The `findMatchingVehicle` regex fallback returns the first match from the combined `allVehicles` array
-- There is no logic to prefer the **most recent** location when duplicates exist
+## Goal
+Reduce execution time from ~100s to under 25s by eliminating the double-hop routing pattern, parallelizing OSRM calls, adding retry/fallback logic, and batching DB updates.
 
-### Solution
+## Changes (single file: `supabase/functions/update-truck-distances/index.ts`)
 
-**1. When duplicates exist across Samsara accounts, pick the one with the most recent location timestamp.**
+### 1. Direct OSRM calls with retry + fallback
+- Replace the call to `calculate-route` edge function (lines 40-50) with a direct call to `https://router.project-osrm.org/route/v1/driving/...`
+- Add retry with exponential backoff (up to 2 retries, 500ms/1000ms delays)
+- On failure, return `null` instead of crashing -- the main loop will preserve the truck's **previous** `miles_away` value rather than writing null or 0
 
-In `supabase/functions/samsara-locations/index.ts`:
+### 2. Pre-classify trucks before any I/O
+After fetching Samsara locations and trucks with orders, split into two lists before making any OSRM calls:
+- **`zeroMilesTrucks`**: Trucks that are Available, Maintenance, have no orders, or current order has POD. These get `miles_away = 0, eta_minutes = null` immediately with no API call.
+- **`needsCalculation`**: Trucks that need an actual OSRM distance call. Each entry pre-computes the start/end coordinates and target description.
 
-- Change the `vehicleByName` Map building to keep the entry with the **newest** location timestamp when a duplicate name is found
-- Update `findMatchingVehicle` to collect **all** matches and return the one with the freshest location
-- Add debug logging for truck 7347 specifically (temporary) so we can verify the fix
+The current order selection logic (lines 307-361) stays identical -- just runs in a pure-logic pass first.
 
-**2. Add `apiKeyIndex` to the response for diagnostics.**
+### 3. Parallel batched OSRM calls
+Process `needsCalculation` trucks in parallel batches of 5:
+```text
+for each batch of 5 trucks:
+  await Promise.all(5 OSRM calls)
+  100ms delay between batches
+```
+If an OSRM call fails after retries, that truck is skipped (keeps its existing DB value).
 
-Include `apiSource` in each location result so the UI/logs can show which Samsara account provided the data.
+### 4. Single bulk DB update via Supabase RPC
+Instead of N individual UPDATE queries, collect all results into two arrays and execute two batch updates:
+- One `Promise.all` of updates grouped in chunks of 10 (using `.in()` filter isn't possible for different values per row, so we'll do parallel individual updates but fire them concurrently in groups of 10 instead of sequentially)
+- This reduces DB round-trips from ~50 sequential to ~5 parallel bursts
 
-### Technical Details
+Note: A true single-query bulk upsert (`UPDATE FROM VALUES`) would require a raw SQL RPC function. Since the project avoids raw SQL in edge functions, parallel batched updates (10 at a time) is the practical approach -- still a major improvement over fully sequential.
+
+### 5. Failure resilience
+- If OSRM fails for a truck after retries, that truck's `miles_away` is **not updated** (preserves previous value)
+- The function logs failures but continues processing all other trucks
+- Overall function returns success even if some individual trucks failed, with counts of successes vs failures
+
+## Summary of expected behavior
 
 ```text
-Current flow:
-  API_KEY_1 vehicles --> allVehicles (first)
-  API_KEY_2 vehicles --> allVehicles (appended)
-  vehicleByName: last write wins (no freshness check)
-  findMatchingVehicle: returns first match
-
-Fixed flow:
-  API_KEY_1 vehicles --> allVehicles (first)
-  API_KEY_2 vehicles --> allVehicles (appended)
-  vehicleByName: keeps entry with newest location.time
-  findMatchingVehicle: if multiple matches, return freshest
+Step 1: Fetch Samsara locations (existing call, ~2s)
+Step 2: Fetch trucks + orders from DB (existing query, ~2s)  
+Step 3: Pure logic pass -- classify all trucks, ~0s
+Step 4: Batch OSRM calls, 5 parallel x ~10 batches = ~10-15s
+Step 5: Batch DB updates, 10 parallel x ~5 batches = ~2s
+Total: ~16-21s (down from ~100s)
 ```
 
-Changes to `supabase/functions/samsara-locations/index.ts`:
+## No other files change
+The `calculate-route` edge function remains untouched -- it's still used by other parts of the app for single on-demand route calculations.
 
-- **Map building** (line 76-79): When inserting into `vehicleByName`, compare `location.time` timestamps and keep the newer one
-- **findMatchingVehicle** function: For regex fallback paths, collect all candidates and return the one with the most recent timestamp
-- **Response payload**: Add `apiSource` field (0 or 1) to each location for visibility
-- **Diagnostic log**: Log all matches found for any truck that has duplicates across accounts, so you can verify correct resolution
