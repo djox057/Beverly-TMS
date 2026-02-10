@@ -58,7 +58,34 @@ export const getDefaultDateRange = () => {
   };
 };
 
-// Helper function to fetch all records based on payment type
+const PAGE_SIZE = 100;
+
+// Apply common filters to a query builder
+const applyFilters = (query: any, filters: FuelFilters) => {
+  if (filters.startDate) {
+    query = query.gte("transaction_date", format(filters.startDate, "yyyy-MM-dd"));
+  }
+  if (filters.endDate) {
+    query = query.lte("transaction_date", format(filters.endDate, "yyyy-MM-dd"));
+  }
+  if (filters.truckNumber) {
+    query = query.eq("truck_number", filters.truckNumber);
+  }
+  if (filters.driverName) {
+    query = query.eq("driver_name", filters.driverName);
+  }
+  if (filters.itemType && filters.itemType !== "ALL") {
+    query = query.eq("item", filters.itemType);
+  }
+  if (filters.paymentType === "EFS") {
+    query = query.eq("location_name", "EFS Request");
+  } else if (filters.paymentType === "CARD") {
+    query = query.or("location_name.neq.EFS Request,location_name.is.null");
+  }
+  return query;
+};
+
+// Helper function to fetch all records for summary calculation
 const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
   const BATCH_SIZE = 1000;
   let allData: FuelTransaction[] = [];
@@ -68,39 +95,17 @@ const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[
   while (hasMore) {
     let query = supabase
       .from("fuel_transactions")
-      .select("*")
+      .select("id, item, quantity, amount, fees")
       .order("transaction_date", { ascending: false })
       .range(from, from + BATCH_SIZE - 1);
 
-    if (filters.startDate) {
-      query = query.gte("transaction_date", format(filters.startDate, "yyyy-MM-dd"));
-    }
-    if (filters.endDate) {
-      query = query.lte("transaction_date", format(filters.endDate, "yyyy-MM-dd"));
-    }
-    if (filters.truckNumber) {
-      query = query.eq("truck_number", filters.truckNumber);
-    }
-    if (filters.driverName) {
-      query = query.eq("driver_name", filters.driverName);
-    }
-    if (filters.itemType && filters.itemType !== "ALL") {
-      query = query.eq("item", filters.itemType);
-    }
-    
-    // Payment type filter
-    if (filters.paymentType === "EFS") {
-      query = query.eq("location_name", "EFS Request");
-    } else if (filters.paymentType === "CARD") {
-      query = query.or("location_name.neq.EFS Request,location_name.is.null");
-    }
-    // ALL = no location filter
+    query = applyFilters(query, filters);
 
     const { data, error } = await query;
     if (error) throw error;
 
-    allData = [...allData, ...(data as FuelTransaction[])];
-    
+    allData = [...allData, ...(data as any[])];
+
     if (data.length < BATCH_SIZE) {
       hasMore = false;
     } else {
@@ -108,16 +113,45 @@ const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[
     }
   }
 
-  return allData;
+  return allData as any;
 };
 
-export const useFuelTransactions = (filters: FuelFilters) => {
+export const useFuelTransactions = (filters: FuelFilters, page: number = 1) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch transactions with filters (batched to handle 10,000+ records)
-  const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ["fuel-transactions", filters],
+  // Fetch paginated transactions with count
+  const { data: paginatedResult, isLoading, error } = useQuery({
+    queryKey: ["fuel-transactions", filters, page],
+    queryFn: async () => {
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .from("fuel_transactions")
+        .select("*", { count: "exact" })
+        .order("transaction_date", { ascending: false })
+        .range(from, to);
+
+      query = applyFilters(query, filters);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      return {
+        transactions: (data || []) as FuelTransaction[],
+        totalCount: count || 0,
+      };
+    },
+  });
+
+  const transactions = paginatedResult?.transactions || [];
+  const totalCount = paginatedResult?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  // Fetch summary data (lightweight - only needed columns)
+  const { data: summaryData } = useQuery({
+    queryKey: ["fuel-transactions-summary", filters],
     queryFn: async () => fetchAllInBatches(filters),
   });
 
@@ -232,7 +266,6 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     mutationFn: async ({ records, company }: { records: FuelTransactionInsert[]; company: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Fetch existing transactions for this company to check for duplicates
       const BATCH_SIZE = 1000;
       const existingRecords: FuelTransaction[] = [];
       let from = 0;
@@ -251,10 +284,8 @@ export const useFuelTransactions = (filters: FuelFilters) => {
         from += BATCH_SIZE;
       }
 
-      // Create a set of existing record keys for fast lookup
       const existingKeys = new Set(existingRecords.map(createDuplicateKey));
 
-      // Filter out duplicates from new records
       const newRecords = records.filter(record => {
         const key = createDuplicateKey(record);
         return !existingKeys.has(key);
@@ -264,14 +295,12 @@ export const useFuelTransactions = (filters: FuelFilters) => {
         return { data: [], company, skipped: records.length };
       }
 
-      // Add company and uploaded_by to each new record
       const recordsWithMetadata = newRecords.map(record => ({
         ...record,
         company,
         uploaded_by: user?.id || null,
       }));
 
-      // Insert new records in batches
       const insertedRecords: FuelTransaction[] = [];
       for (let i = 0; i < recordsWithMetadata.length; i += BATCH_SIZE) {
         const batch = recordsWithMetadata.slice(i, i + BATCH_SIZE);
@@ -288,6 +317,7 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
     onSuccess: ({ data, company, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["fuel-transactions-summary"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-truck-numbers"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-driver-names"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-item-types"] });
@@ -307,17 +337,18 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
   });
 
-  // Delete all transactions mutation (for clearing data)
+  // Delete all transactions mutation
   const deleteAllMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
         .from("fuel_transactions")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+        .neq("id", "00000000-0000-0000-0000-000000000000");
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["fuel-transactions-summary"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-truck-numbers"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-driver-names"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-item-types"] });
@@ -356,30 +387,34 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
   });
 
-  // Calculate summary statistics
+  // Calculate summary statistics from lightweight summary data
+  const allTxns = summaryData || [];
   const summary = {
-    dieselGallons: transactions
-      .filter((t) => t.item === "ULSD")
-      .reduce((sum, t) => sum + (t.quantity || 0), 0),
-    dieselAmount: transactions
-      .filter((t) => t.item === "ULSD")
-      .reduce((sum, t) => sum + (t.amount || 0), 0),
-    defGallons: transactions
-      .filter((t) => t.item === "DEFD")
-      .reduce((sum, t) => sum + (t.quantity || 0), 0),
-    defAmount: transactions
-      .filter((t) => t.item === "DEFD")
-      .reduce((sum, t) => sum + (t.amount || 0), 0),
-    feesTotal: transactions.reduce((sum, t) => sum + (t.fees || 0), 0),
-    otherAmount: transactions
-      .filter((t) => t.item !== "ULSD" && t.item !== "DEFD")
-      .reduce((sum, t) => sum + (t.amount || 0), 0),
-    grandTotal: transactions.reduce((sum, t) => sum + (t.amount || 0) + (t.fees || 0), 0),
-    transactionCount: transactions.length,
+    dieselGallons: allTxns
+      .filter((t: any) => t.item === "ULSD")
+      .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0),
+    dieselAmount: allTxns
+      .filter((t: any) => t.item === "ULSD")
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+    defGallons: allTxns
+      .filter((t: any) => t.item === "DEFD")
+      .reduce((sum: number, t: any) => sum + (t.quantity || 0), 0),
+    defAmount: allTxns
+      .filter((t: any) => t.item === "DEFD")
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+    feesTotal: allTxns.reduce((sum: number, t: any) => sum + (t.fees || 0), 0),
+    otherAmount: allTxns
+      .filter((t: any) => t.item !== "ULSD" && t.item !== "DEFD")
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+    grandTotal: allTxns.reduce((sum: number, t: any) => sum + (t.amount || 0) + (t.fees || 0), 0),
+    transactionCount: totalCount,
   };
 
   return {
     transactions,
+    totalCount,
+    totalPages,
+    pageSize: PAGE_SIZE,
     isLoading,
     error,
     truckNumbers,
