@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Minus, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -223,6 +223,7 @@ const Analytics = () => {
     paid_amount: number;
     paid_at: string | null;
     additionals?: any[] | null;
+    lost_days?: number | null;
   }>>({});
   // Salary sorting state
   const [salarySortBy, setSalarySortBy] = useState<"name" | "salary">("name");
@@ -729,13 +730,14 @@ const Analytics = () => {
           : Promise.resolve({ data: null, error: null })
       ]);
       
-      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null; additionals: any[] | null }> = {};
+      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null; additionals: any[] | null; lost_days?: number | null }> = {};
       if (currentResult.data && Array.isArray(currentResult.data)) {
         currentResult.data.forEach((record: any) => {
           paymentsMap[record.user_id] = {
             paid_amount: Number(record.paid_amount) || 0,
             paid_at: record.paid_at,
             additionals: record.additionals || null,
+            lost_days: record.lost_days != null ? Number(record.lost_days) : null,
           };
         });
       }
@@ -2783,9 +2785,10 @@ const Analytics = () => {
                       // Build calculated salaries map for the bulk action
                       const calculatedSalaries: Record<string, number> = {};
                       return sortedDispatcherStatsForSalaries.map((stat, index) => {
-                        // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days
+                        // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days or salary payment override
                         const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
-                        const lostDays = stat.userId ? lostDaysByUser[stat.userId] || 0 : 0;
+                        const paymentRecord = stat.userId ? salaryPayments[stat.userId] : null;
+                        const lostDays = paymentRecord?.lost_days != null ? paymentRecord.lost_days : (stat.userId ? lostDaysByUser[stat.userId] || 0 : 0);
 
                         // Calculate days in the selected month
                         let daysInMonth = 30; // calendar days (used for monthly salary weighting)
@@ -3122,7 +3125,54 @@ const Analytics = () => {
                                   {extraDays > 0 ? `+${extraDays}` : extraDays}
                                 </TableCell>
                                 <TableCell className="text-right text-red-600">
-                                  {lostDays > 0 ? `-${lostDays}` : lostDays}
+                                  {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
+                                    <div className="flex items-center justify-end gap-1">
+                                      {lostDays > 0 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            const newVal = Math.max(0, lostDays - 1);
+                                            // Save to DB
+                                            if (stat.userId) {
+                                              await supabase.from("dispatcher_salary_payments" as any).upsert({
+                                                user_id: stat.userId,
+                                                month: selectedMonth,
+                                                lost_days: newVal === 0 ? null : newVal,
+                                              }, { onConflict: "user_id,month" });
+                                              queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
+                                            }
+                                          }}
+                                        >
+                                          <Minus className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                      <span>{lostDays > 0 ? `-${lostDays}` : lostDays}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const newVal = lostDays + 1;
+                                          if (stat.userId) {
+                                            await supabase.from("dispatcher_salary_payments" as any).upsert({
+                                              user_id: stat.userId,
+                                              month: selectedMonth,
+                                              lost_days: newVal,
+                                            }, { onConflict: "user_id,month" });
+                                            queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
+                                          }
+                                        }}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    lostDays > 0 ? `-${lostDays}` : lostDays
+                                  )}
                                 </TableCell>
                                 {profile?.office !== "BEOGRAD" && <TableCell className="text-right">
                                   {stat.office === "BEOGRAD" ? "$0" : "$70"}
