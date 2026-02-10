@@ -48,7 +48,7 @@ const COMPANIES = [
   { id: "ap_silver_trans", label: "AP Silver Trans" },
 ];
 
-const ITEMS_PER_PAGE = 20;
+// Page size is now controlled by the hook (server-side pagination)
 
 const FuelReports = () => {
   const { toast } = useToast();
@@ -73,6 +73,9 @@ const FuelReports = () => {
 
   const {
     transactions,
+    totalCount,
+    totalPages,
+    pageSize,
     isLoading,
     truckNumbers,
     driverNames,
@@ -84,7 +87,7 @@ const FuelReports = () => {
     isDeleting,
     togglePaid,
     isTogglingPaid,
-  } = useFuelTransactions(filters);
+  } = useFuelTransactions(filters, currentPage);
 
   const { unmatchedDrivers, refetchUnmatched } = useFuelDriverMappings();
 
@@ -115,12 +118,7 @@ const FuelReports = () => {
     truck.truckNumber.toLowerCase().includes(iftaTruckSearch.toLowerCase())
   );
 
-  // Pagination
-  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
-  const paginatedTransactions = transactions.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Pagination is now server-side
 
   // Reset to page 1 when filters change
   const handleFilterChange = (newFilters: FuelFilters) => {
@@ -374,7 +372,7 @@ const FuelReports = () => {
           {activeTab === "fuel" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={isDeleting || transactions.length === 0}>
+                <Button variant="destructive" disabled={isDeleting || totalCount === 0}>
                   {isDeleting ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -387,7 +385,7 @@ const FuelReports = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete all fuel transactions?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all {transactions.length} fuel transactions. This action cannot be undone.
+                    This will permanently delete all {totalCount} fuel transactions. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -665,10 +663,10 @@ const FuelReports = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Transactions</CardTitle>
-          {transactions.length > 0 && (
+          {totalCount > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>
-                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)} of {transactions.length}
+                Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
               </span>
               <div className="flex items-center gap-1">
                 <Button
@@ -726,7 +724,7 @@ const FuelReports = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedTransactions.map((transaction) => (
+                  {transactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>
                         <button
