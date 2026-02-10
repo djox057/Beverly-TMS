@@ -404,7 +404,7 @@ const Reports = () => {
   // In Individual Mode viewing other office, we DO have data (empty) so don't show loading
   const hasDataForActiveTab = useMemo(() => {
     if (isViewingOtherOfficeInIndividualMode) return true; // Don't show loading skeleton
-    if (!groupedReports || groupedReports.length === 0) return false;
+    if (!groupedReports || !Array.isArray(groupedReports) || groupedReports.length === 0) return false;
     return groupedReports.some((group) => group.office === activeTab);
   }, [groupedReports, activeTab, isViewingOtherOfficeInIndividualMode]);
 
