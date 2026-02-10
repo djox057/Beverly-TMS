@@ -78,14 +78,14 @@ function BolLocationCell({ orderId, value }: { orderId: string; value: string | 
 
   if (editing) {
     return (
-      <TableCell className="p-1">
-        <div className="flex items-center gap-1">
+      <TableCell className="p-1 overflow-visible">
+        <div className="flex items-center gap-1 min-w-[200px]">
           <Input
             ref={inputRef}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditValue(value || ''); setEditing(false); } }}
-            className="h-7 text-xs"
+            className="h-7 text-xs min-w-[160px]"
           />
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={save}><Check className="h-3 w-3" /></Button>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditValue(value || ''); setEditing(false); }}><X className="h-3 w-3" /></Button>
