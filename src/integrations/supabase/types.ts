@@ -2309,6 +2309,7 @@ export type Database = {
       orders: {
         Row: {
           additional_miles: number | null
+          bol_location: string | null
           booked_by: string
           booked_by_company_id: string
           broker_id: string | null
@@ -2417,6 +2418,7 @@ export type Database = {
         }
         Insert: {
           additional_miles?: number | null
+          bol_location?: string | null
           booked_by: string
           booked_by_company_id: string
           broker_id?: string | null
@@ -2525,6 +2527,7 @@ export type Database = {
         }
         Update: {
           additional_miles?: number | null
+          bol_location?: string | null
           booked_by?: string
           booked_by_company_id?: string
           broker_id?: string | null

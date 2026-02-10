@@ -59,6 +59,7 @@ export interface YardLoadOrder {
   recoveryDriverPrice: number | null;
   bolFilePath: string | null;
   bolFileName: string | null;
+  bolLocation: string | null;
 }
 
 export const useYardLoadsFromOrders = () => {
@@ -75,7 +76,7 @@ export const useYardLoadsFromOrders = () => {
           booked_by_company_id, pickup_datetime, delivery_datetime,
           original_driver1_id, original_driver2_id, original_truck_id,
           original_trailer_id, original_miles, original_driver_price,
-          recovery_miles, recovery_driver_price
+          recovery_miles, recovery_driver_price, bol_location
         `)
         .is("driver1_id", null)
         .is("truck_id", null)
@@ -187,6 +188,7 @@ export const useYardLoadsFromOrders = () => {
           recoveryDriverPrice: order.recovery_driver_price || null,
           bolFilePath: bolByOrder.get(order.id)?.file_path || null,
           bolFileName: bolByOrder.get(order.id)?.file_name || null,
+          bolLocation: order.bol_location || null,
         } as YardLoadOrder;
       });
     },
