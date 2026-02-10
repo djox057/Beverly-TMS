@@ -120,11 +120,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   // Load existing PTO days and adjustments when dialog opens
   useEffect(() => {
     if (open && dispatcherUserId) {
-      loadPtoDays();
-      loadExistingAdjustments();
+      // Reset state immediately to prevent stale data from previous user
+      setAdjustments([]);
       setShowAdjustmentsForm(false);
       setNewAdjustmentReason("");
       setNewAdjustmentAmount("");
+      setPdfUrl(null);
+      loadPtoDays();
+      loadExistingAdjustments();
     }
     return () => {
       if (pdfUrl) {
