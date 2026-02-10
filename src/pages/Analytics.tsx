@@ -692,7 +692,6 @@ const Analytics = () => {
   // Fetch salary payments for the selected month AND previous month using useQuery for caching
   const { data: salaryPaymentsData } = useQuery({
     queryKey: ["salary-payments", selectedMonth],
-    refetchInterval: 30000,
     queryFn: async () => {
       if (!selectedMonth || selectedMonth === "all") {
         return { current: {}, previous: {} };
@@ -744,6 +743,37 @@ const Analytics = () => {
       setPrevMonthPayments({});
     }
   }, [salaryPaymentsData, selectedMonth]);
+
+  // Realtime subscription for salary payments
+  useEffect(() => {
+    if (!selectedMonth || selectedMonth === "all") return;
+
+    const channel = supabase
+      .channel("salary-payments-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dispatcher_salary_payments",
+        },
+        (payload) => {
+          const record = payload.new as any;
+          const oldRecord = payload.old as any;
+          // Only invalidate if the change is for the current or previous month
+          const prevMonth = getPreviousMonth(selectedMonth);
+          const relevantMonth = record?.month || oldRecord?.month;
+          if (relevantMonth === selectedMonth || relevantMonth === prevMonth) {
+            queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedMonth, queryClient]);
 
   // Fetch dispatcher bonuses for the selected month
   useEffect(() => {
