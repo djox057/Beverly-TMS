@@ -26,9 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending payroll email to ${recipientEmail} for ${dispatcherName}`);
 
-    // For testing, redirect all emails to jon@bfprime.net
-    const testEmail = "jon@bfprime.net";
-    const actualRecipient = testEmail; // Change to recipientEmail when going live
+    const actualRecipient = recipientEmail;
 
     // Convert bytes array to base64 for attachment
     const uint8Array = new Uint8Array(pdfBytes);
