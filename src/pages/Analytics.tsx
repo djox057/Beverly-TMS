@@ -262,6 +262,7 @@ const Analytics = () => {
     futureMonthLabel?: string;
     futureSalary1Percent?: number;
     futureBonus5Percent?: number;
+    office?: string;
   } | null>(null);
 
   // Check if user has only dispatch role (same logic as Orders page)
@@ -577,7 +578,9 @@ const Analytics = () => {
             const dateStr = `${month}/${day}`;
             
             // Special case: 2026-01-10 (office moving day) - treat as weekday (always counts as extra)
-            const isMovingDay = record.scheduled_date === "2026-01-10";
+            // Only applies to Kragujevac office dispatchers/supervisors
+            const userOffice = dispatcherProfiles[record.user_id]?.office;
+            const isMovingDay = record.scheduled_date === "2026-01-10" && userOffice === "KRAGUJEVAC";
             
             if (isWeekend && !isMovingDay) {
               rawWeekendCountsMap[record.user_id] += 1;
@@ -2907,7 +2910,7 @@ const Analytics = () => {
                                       // Determine food allowance based on office
                                       const isBeograd = stat.office === "BEOGRAD";
                                       const foodAllowanceAmount = isBeograd ? 0 : 70;
-                                      downloadPayrollDoc({
+                                       downloadPayrollDoc({
                                         employeeName: stat.name,
                                         payPeriod,
                                         salary1Percent: stat.totalFreight * 0.01,
@@ -2919,7 +2922,8 @@ const Analytics = () => {
                                         lostDayDates,
                                         extraDaysAmount: Math.max(0, extraDaysAmount),
                                         dispatcherBonus: bonusAmount,
-                                        perDayRate
+                                        perDayRate,
+                                        office: stat.office,
                                       }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
                                       toast.success(`Payroll document generated for ${stat.name}`);
                                     }}>
@@ -3012,10 +3016,11 @@ const Analytics = () => {
                                         extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
                                         dispatcherBonus: bonusAmount,
                                         perDayRate,
-                                        isDeletedUser: isDeletedUserFlag,
+                                         isDeletedUser: isDeletedUserFlag,
                                         futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
                                         futureSalary1Percent: isDeletedUserFlag ? nextMonthFreight * 0.01 : undefined,
                                         futureBonus5Percent: isDeletedUserFlag ? nextMonthCut * 0.05 : undefined,
+                                        office: stat.office,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
@@ -3111,10 +3116,11 @@ const Analytics = () => {
                                         extraDaysAmount: Math.max(0, extraDaysAmountForDoc),
                                         dispatcherBonus: bonusAmount,
                                         perDayRate,
-                                        isDeletedUser: isDeletedUserFlag,
+                                         isDeletedUser: isDeletedUserFlag,
                                         futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
                                         futureSalary1Percent: isDeletedUserFlag ? nextMonthFreight * 0.01 : undefined,
                                         futureBonus5Percent: isDeletedUserFlag ? nextMonthCut * 0.05 : undefined,
+                                        office: stat.office,
                                       });
                                       setPayrollPreviewOpen(true);
                                     }}>
@@ -3212,7 +3218,7 @@ const Analytics = () => {
                                                           const sd = new Date(r.scheduled_date + "T12:00:00");
                                                           const dow = sd.getDay();
                                                           const isWe = dow === 0 || dow === 6;
-                                                          const isMov = r.scheduled_date === "2026-01-10";
+                                                          const isMov = r.scheduled_date === "2026-01-10" && stat.office === "KRAGUJEVAC";
                                                           const ds = `${sd.getMonth()+1}/${sd.getDate()}`;
                                                           if (isWe && !isMov) { wkendCount++; wkendDates.push(ds); wkendRaw.push(r.scheduled_date); }
                                                           else { wkdayCount++; wkdayDates.push(ds); wkdayRaw.push(r.scheduled_date); }
@@ -3505,8 +3511,9 @@ const Analytics = () => {
           isDeletedUser={payrollPreviewData.isDeletedUser}
           futureMonthLabel={payrollPreviewData.futureMonthLabel}
           futureSalary1Percent={payrollPreviewData.futureSalary1Percent}
-          futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
-          onAdjustmentsChanged={() => {
+           futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
+           office={payrollPreviewData.office}
+           onAdjustmentsChanged={() => {
             queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
           }}
           onEmailSent={() => {

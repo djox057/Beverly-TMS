@@ -30,6 +30,7 @@ interface PayrollData {
   perDayRate?: number; // Per-workday rate for lost days calculation
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
+  office?: string; // Dispatcher's office for conditional logic
 }
 
 const BLACK_COLOR = "000000";
@@ -238,10 +239,11 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   }
 
   // Extra days row (if applicable - independent)
-  // Special case: split out 1/10 for January 2026 as "Help moving to new office"
+  // Special case: split out 1/10 for January 2026 as "Help moving to new office" (Kragujevac only)
   const isJan2026 = data.payPeriod.toLowerCase().includes("january") && data.payPeriod.includes("2026");
-  const movingDayDates = isJan2026 ? data.extraDayDates.filter(d => d === "1/10") : [];
-  const regularExtraDayDates = isJan2026 ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
+  const isKragujevac = data.office === "KRAGUJEVAC";
+  const movingDayDates = isJan2026 && isKragujevac ? data.extraDayDates.filter(d => d === "1/10") : [];
+  const regularExtraDayDates = isJan2026 && isKragujevac ? data.extraDayDates.filter(d => d !== "1/10") : data.extraDayDates;
   const perDayRateForExtra = data.extraDayDates.length > 0 ? data.extraDaysAmount / data.extraDayDates.length : 0;
 
   if (movingDayDates.length > 0) {

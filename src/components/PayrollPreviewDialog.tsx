@@ -34,6 +34,7 @@ interface PayrollPreviewDialogProps {
   futureSalary1Percent?: number; // Salary 1% for next month
   futureBonus5Percent?: number; // Bonus 5% for next month
   futureMonthLabel?: string; // e.g., "February"
+  office?: string; // Dispatcher's office for conditional logic
 }
 
 export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
@@ -61,6 +62,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   futureSalary1Percent = 0,
   futureBonus5Percent = 0,
   futureMonthLabel = "",
+  office,
 }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -222,6 +224,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         futureMonthLabel,
         futureSalary1Percent,
         futureBonus5Percent,
+        office,
       });
 
       const url = URL.createObjectURL(pdfBlob);
@@ -372,6 +375,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         futureMonthLabel,
         futureSalary1Percent,
         futureBonus5Percent,
+        office,
       });
 
       // Convert to bytes
