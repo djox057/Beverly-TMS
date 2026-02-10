@@ -1,75 +1,68 @@
 
 
-# Add Realtime Orders/Stops/Transfers Subscriptions to Reports Page
+# Performance Fix: Batch Realtime Notifications in Reports
 
-## Overview
-Add a new realtime subscription in `useReportsDateWindowAdapter.ts` that listens for changes on `orders`, `pickup_drops`, and `order_transfers` tables, then patches the `globalAccumulatedOrders` store directly. This makes new orders, status changes, driver reassignments, and stop changes appear instantly on the Reports page.
-
-## Prerequisite Check (Done)
-- REPLICA IDENTITY on `orders` table: **FULL** (confirmed via `relreplident = 'f'`). The `old` payload will include all columns, so checking previous driver IDs on UPDATE is safe.
+## Problem
+Every realtime order change triggers a separate `globalOrdersVersion++` and listener notification, causing the expensive ~450-line `transformedData` memo to re-run N times per batch instead of once. Office switching also leaves stale channels alive due to early-return guards.
 
 ## Changes
 
 ### File 1: `src/hooks/useReportsDateWindow.ts`
 
-Export 4 items that are currently module-private:
+**Add `notify` parameter to `patchOrderInGlobalStore` and `removeOrderFromGlobalStore`; add new `flushGlobalStoreNotifications` function.**
 
-1. **`fetchPickupDropsForOrders`** -- Already a pure async function at line 84. Add export keyword and a comment marking it as a pure async utility with no hook dependencies.
-
-2. **`fetchOrderTransfersForOrders`** -- Already a pure async function at line 104. Same treatment.
-
-3. **`patchOrderInGlobalStore(order)`** -- New function. Sets `globalAccumulatedOrders.set(order.id, order)`, increments `globalOrdersVersion`, and calls `notifyOrdersListeners()` (the existing `versionListeners.forEach(...)` pattern).
-
-4. **`removeOrderFromGlobalStore(orderId)`** -- New function. Calls `globalAccumulatedOrders.delete(orderId)`, increments `globalOrdersVersion`, notifies listeners.
+- `patchOrderInGlobalStore(order, notify = true)` -- when `notify` is false, only updates the Map without incrementing version or calling listeners. Default `true` preserves backward compatibility.
+- `removeOrderFromGlobalStore(orderId, notify = true)` -- same treatment.
+- New export: `flushGlobalStoreNotifications()` -- increments `globalOrdersVersion` once and calls all `versionListeners`. Called after a batch of silent patches/removes.
 
 ### File 2: `src/hooks/useReportsDateWindowAdapter.ts`
 
-Add a new `useEffect` block (after the existing lost_day_notes subscription, around line 957) with a realtime channel subscribing to three tables.
+**Three changes:**
 
-**Channel setup:**
-- Name: `adapter-orders-realtime-{office}`
-- Tables: `orders` (event: `*`), `pickup_drops` (event: `*`), `order_transfers` (event: `*`)
+**1. Batch notifications in `flushPending` (lines 991-1082)**
 
-**Debounce mechanism (matching `useOrdersRealtime` pattern):**
-- Module-local `pendingOrderIds: Set<string>` and `pendingDeletes: Set<string>` inside the effect closure
-- 1-second debounce timer via `setTimeout`
+Replace all `patchOrderInGlobalStore(fullOrder)` and `removeOrderFromGlobalStore(id)` calls inside `flushPending` with `notify = false` variants. After all patches and removes are done, call `flushGlobalStoreNotifications()` once. The condition covers all cases -- deletes, in-scope patches, and out-of-scope removes:
 
-**Event handlers:**
+```
+// After all patches/removes:
+const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
+if (hadChanges) {
+  flushGlobalStoreNotifications();
+}
+```
 
-*Orders table:*
-- INSERT: If `new.driver1_id` or `new.driver2_id` is in `driverIdsSetRef`, add `new.id` to `pendingOrderIds`, schedule flush.
-- UPDATE: If `old.driver1_id`, `old.driver2_id`, `new.driver1_id`, or `new.driver2_id` is in `driverIdsSetRef`, add order ID to `pendingOrderIds`, schedule flush.
-- DELETE: If `old.driver1_id` or `old.driver2_id` is in `driverIdsSetRef`, call `removeOrderFromGlobalStore(old.id)` immediately (no fetch needed).
+This ensures out-of-scope removes (where `fetchIds` might be empty but removes happened) still trigger notification.
 
-*pickup_drops / order_transfers tables:*
-- Any event: Extract `order_id` from `new` or `old`. If `globalAccumulatedOrders.has(order_id)`, add to `pendingOrderIds`, schedule flush.
+Note: The DELETE handler in the event callback (line 1107) calls `removeOrderFromGlobalStore` directly (outside of flush) -- this one keeps `notify = true` (default) since it's a single immediate operation, not part of a batch.
 
-**Flush logic:**
-1. Snapshot and clear `pendingOrderIds` and `pendingDeletes`
-2. Process deletes: call `removeOrderFromGlobalStore` for each
-3. For remaining IDs, batch-fetch: flat orders query + parallel `fetchPickupDropsForOrders` + `fetchOrderTransfersForOrders`
-4. **Out-of-scope check (critical):** For each fetched order, verify `driver1_id` or `driver2_id` is in `driverIdsSetRef`. If neither is in scope, call `removeOrderFromGlobalStore` instead of patching (handles driver reassignment away from scope).
-5. For in-scope orders, call `patchOrderInGlobalStore`
-6. Invalidate `adapter-order-files` with `refetchType: "active"` for affected order IDs (reuses existing invalidation pattern, and `refetchType: "active"` prevents double-render if the file subscription fires independently)
+**2. Fix channel cleanup on office switch (lines 972-973 and 759-760)**
 
-**Cleanup:** Remove channel on unmount, clear debounce timer.
+For the orders realtime channel (P5, line 973) and the truck_notes channel (P3, line 760), replace the early-return guard:
+```
+// Before:
+if (ordersRealtimeChannelRef.current) return;
 
-## Edge Cases Handled
+// After:
+if (ordersRealtimeChannelRef.current) {
+  supabase.removeChannel(ordersRealtimeChannelRef.current);
+  ordersRealtimeChannelRef.current = null;
+}
+```
 
-1. **REPLICA IDENTITY**: Confirmed FULL on orders table -- `old` payload has all columns.
-2. **Out-of-scope reassignment**: After fetching, orders where both `driver1_id` and `driver2_id` are outside `driverIdsSetRef` are removed rather than patched.
-3. **Double-render with order_files**: Using `refetchType: "active"` on invalidation ensures it only triggers if the query is actively mounted, and the existing `order_files` subscription uses the same pattern, so at worst it's a no-op refetch.
-4. **Stale closures**: Uses `driverIdsSetRef`, `priorityOfficeRef`, and `modeKeySuffixRef` (all already maintained) to read current values inside callbacks.
+This ensures a fresh channel is created with the correct scope when `priorityOffice` changes.
 
-## Technical Details
+**3. Fix order_files channel cleanup (lines 699-736)**
 
-### Fetch pattern for flush (reuses existing code)
-The flush fetches flat orders with the same column list used by `fetchOrdersForDateWindow`, then calls the exported `fetchPickupDropsForOrders` and `fetchOrderTransfersForOrders` to attach child relations. This keeps the data shape consistent with what `globalAccumulatedOrders` already stores.
+Add `priorityOffice` to the dependency array (line 736) and use a dynamic channel name:
+```
+.channel(`adapter-order-files-realtime-${priorityOffice || 'default'}`)
+```
 
-### No changes to useOrdersRealtime
-The global `useOrdersRealtime` hook continues to patch the `["orders"]` query key family. The new subscription patches the separate `globalAccumulatedOrders` store used only by Reports. These are independent data stores with no overlap.
+The existing cleanup function at lines 730-735 already calls `supabase.removeChannel`, so adding the dependency is sufficient.
 
 ## Files Modified
-1. `src/hooks/useReportsDateWindow.ts` -- Export 2 existing functions, add 2 new functions
-2. `src/hooks/useReportsDateWindowAdapter.ts` -- Add orders/pickup_drops/order_transfers realtime subscription
+1. `src/hooks/useReportsDateWindow.ts` -- Add `notify` param to patch/remove, add `flushGlobalStoreNotifications`
+2. `src/hooks/useReportsDateWindowAdapter.ts` -- Batch notifications, fix channel cleanup on office switch, fix order_files channel
 
+## Known Limitation
+Single-event updates outside of batch flushes (e.g., a one-off DELETE in the event handler) still trigger a full re-render. This is acceptable -- the batching fix handles the busy-day case where many events arrive within the 1-second window.
