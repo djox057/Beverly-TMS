@@ -11,6 +11,7 @@ export const useExpiringTrucks = () => {
       const { data: trucks, error } = await supabase
         .from('trucks')
         .select('*')
+        .eq('is_active', true)
         .order('truck_number');
       
       if (error) throw error;
@@ -78,6 +79,7 @@ export const useExpiringTrailers = () => {
       const { data, error } = await supabase
         .from('trailers')
         .select('*')
+        .eq('is_active', true)
         .order('trailer_number');
       
       if (error) throw error;
@@ -107,6 +109,7 @@ export const useExpiringDrivers = () => {
       const { data, error } = await supabase
         .from('drivers')
         .select('*')
+        .eq('is_active', true)
         .order('name');
       
       if (error) throw error;
