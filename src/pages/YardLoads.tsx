@@ -630,20 +630,21 @@ export default function YardLoads() {
                   <TableHead className="w-28">Freight Amount</TableHead>
                   <TableHead className="w-28">Company</TableHead>
                   <TableHead className="w-28">Booked By</TableHead>
-                  <TableHead className="w-16">BOL</TableHead>
+                  <TableHead className="w-24">BOL</TableHead>
+                  <TableHead className="w-28">BOL Location</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                     <TableCell colSpan={13} className="text-center py-8">
+                     <TableCell colSpan={15} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8">
+                    <TableCell colSpan={15} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -682,20 +683,23 @@ export default function YardLoads() {
                         <TableCell>
                           {order.bolFilePath ? (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="h-7 w-7 p-0"
+                              className="h-7 px-2 text-xs border-primary/50 text-primary hover:bg-primary/10 max-w-[100px] truncate"
                               onClick={async () => {
                                 const { data } = await supabase.storage.from('order-files').createSignedUrl(order.bolFilePath!, 300);
                                 if (data?.signedUrl) window.open(data.signedUrl, '_blank');
                               }}
                               title={order.bolFileName || 'BOL'}
                             >
-                              <FileText className="h-4 w-4 text-blue-500" />
+                              {order.bolFileName ? order.bolFileName.replace(/\.[^/.]+$/, '').substring(0, 12) + (order.bolFileName.length > 16 ? '...' : '') : 'BOL'}
                             </Button>
                           ) : (
                             <span className="text-muted-foreground text-xs">-</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs">{order.bolLocation || '-'}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
