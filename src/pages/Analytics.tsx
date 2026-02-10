@@ -544,7 +544,8 @@ const Analytics = () => {
         // Weekday entries: count all (these are manual overrides for extra worked days)
         const rawWeekendCountsMap: Record<string, number> = {};
         const weekdayCountsMap: Record<string, number> = {};
-        const datesMap: Record<string, string[]> = {};
+        const weekendDatesMap: Record<string, string[]> = {};
+        const weekdayDatesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
@@ -559,44 +560,63 @@ const Analytics = () => {
             if (!rawWeekendCountsMap[record.user_id]) {
               rawWeekendCountsMap[record.user_id] = 0;
               weekdayCountsMap[record.user_id] = 0;
-              datesMap[record.user_id] = [];
+              weekendDatesMap[record.user_id] = [];
+              weekdayDatesMap[record.user_id] = [];
             }
+            
+            // Format date as M/DD (e.g., 12/16)
+            const month = scheduleDate.getMonth() + 1;
+            const day = scheduleDate.getDate();
+            const dateStr = `${month}/${day}`;
             
             // Special case: 2026-01-10 (office moving day) - treat as weekday (always counts as extra)
             const isMovingDay = record.scheduled_date === "2026-01-10";
             
             if (isWeekend && !isMovingDay) {
               rawWeekendCountsMap[record.user_id] += 1;
+              weekendDatesMap[record.user_id].push(dateStr);
             } else {
               // Weekday entries (and moving day) are always counted as extra days
               weekdayCountsMap[record.user_id] += 1;
+              weekdayDatesMap[record.user_id].push(dateStr);
             }
-            
-            // Format date as M/DD (e.g., 12/16)
-            const month = scheduleDate.getMonth() + 1;
-            const day = scheduleDate.getDate();
-            datesMap[record.user_id].push(`${month}/${day}`);
           });
         }
 
         // Sort dates for each user
-        Object.keys(datesMap).forEach(userId => {
-          datesMap[userId].sort((a, b) => {
-            const [aMonth, aDay] = a.split("/").map(Number);
-            const [bMonth, bDay] = b.split("/").map(Number);
-            if (aMonth !== bMonth) return aMonth - bMonth;
-            return aDay - bDay;
-          });
-        });
+        const sortDatesFn = (a: string, b: string) => {
+          const [aMonth, aDay] = a.split("/").map(Number);
+          const [bMonth, bDay] = b.split("/").map(Number);
+          if (aMonth !== bMonth) return aMonth - bMonth;
+          return aDay - bDay;
+        };
 
         // Subtract 1 from weekend count (first weekend day is regular, 2+ days = extra)
         // Then add weekday counts (all weekday entries are extra days)
         const countsMap: Record<string, number> = {};
+        const datesMap: Record<string, string[]> = {};
         const allUserIds = new Set([...Object.keys(rawWeekendCountsMap), ...Object.keys(weekdayCountsMap)]);
         allUserIds.forEach(userId => {
           const weekendExtra = Math.max(0, (rawWeekendCountsMap[userId] || 0) - 1);
           const weekdayExtra = weekdayCountsMap[userId] || 0;
           countsMap[userId] = weekendExtra + weekdayExtra;
+          
+          // Build dates: ALL weekend dates (including first/regular) + all weekday dates, sorted
+          // The first weekend date is the "regular" one; slice(1) later removes it
+          const allWeekendDates = (weekendDatesMap[userId] || []).sort(sortDatesFn);
+          const allWeekdayDates = (weekdayDatesMap[userId] || []).sort(sortDatesFn);
+          // Put first weekend date first, then weekday dates, then remaining weekend dates
+          // This way slice(1) always removes the first weekend date (regular shift)
+          const firstWeekendDate = allWeekendDates.length > 0 ? [allWeekendDates[0]] : [];
+          const extraWeekendDates = allWeekendDates.slice(1);
+          datesMap[userId] = [...firstWeekendDate, ...allWeekdayDates, ...extraWeekendDates].sort(sortDatesFn);
+          // Actually, we want: datesMap = [firstWeekend, ...rest sorted]
+          // where slice(1) removes firstWeekend. Let's just put firstWeekend first, rest after.
+          if (allWeekendDates.length > 0) {
+            datesMap[userId] = [allWeekendDates[0], ...[...allWeekdayDates, ...extraWeekendDates].sort(sortDatesFn)];
+          } else {
+            datesMap[userId] = allWeekdayDates;
+          }
         });
         setExtraDaysByUser(countsMap);
         setExtraDayDatesByUser(datesMap);
