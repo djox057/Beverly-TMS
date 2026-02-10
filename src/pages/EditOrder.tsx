@@ -232,6 +232,7 @@ const EditOrder = () => {
   // Queued submit state: triggers a re-render so performSave sees updated additionals state
   const [queuedSubmit, setQueuedSubmit] = useState<{ changeNote?: string } | null>(null);
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
+  const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
@@ -581,6 +582,7 @@ const EditOrder = () => {
         // Set locked status
         setIsLocked(orderData.locked || false);
         setBookedByCompany(orderData.booked_by_company_id || "");
+        setOriginalCompanyId(orderData.company_id || null);
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
         setTrailer(orderData.trailer?.trailer_number || (orderData as any).deleted_trailer_number || "");
@@ -2387,8 +2389,20 @@ const EditOrder = () => {
         locked: isLocked,
       };
 
-      // Only update company_id if we have a new one, otherwise preserve existing
-      if (companyId) {
+      // If company changed (suffix would change), reassign internal_load_number atomically
+      const companyChanged = companyId && originalCompanyId && companyId !== originalCompanyId;
+      if (companyChanged) {
+        // RPC handles updating both company_id and internal_load_number atomically
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('reassign_internal_load_number', {
+            p_order_id: id,
+            p_new_company_id: companyId,
+          });
+        if (rpcError) throw rpcError;
+        // Don't include company_id in the regular update — RPC already set it
+        console.log(`🔄 Reassigned internal load number to ${rpcResult} for new company`);
+      } else if (companyId) {
+        // Company didn't change, just set it normally
         updateData.company_id = companyId;
       }
 

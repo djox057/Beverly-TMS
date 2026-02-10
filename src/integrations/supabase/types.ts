@@ -3811,6 +3811,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      reassign_internal_load_number: {
+        Args: { p_new_company_id: string; p_order_id: string }
+        Returns: number
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
