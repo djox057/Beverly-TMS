@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useYardLoadsFromOrders, YardLoadOrder } from "@/hooks/useYardLoadsFromOrders";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -25,9 +25,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus } from "lucide-react";
+import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus, Check, X } from "lucide-react";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +58,48 @@ const getStatusBadge = (status: string) => {
 
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
+
+// Inline editable BOL Location cell
+function BolLocationCell({ orderId, value }: { orderId: string; value: string | null }) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value || '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setEditValue(value || ''); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = async () => {
+    const trimmed = editValue.trim();
+    if (trimmed === (value || '')) { setEditing(false); return; }
+    const { error } = await supabase.from('orders').update({ bol_location: trimmed || null }).eq('id', orderId);
+    if (error) { toast.error("Failed to save BOL Location"); return; }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TableCell className="p-1">
+        <div className="flex items-center gap-1">
+          <Input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditValue(value || ''); setEditing(false); } }}
+            className="h-7 text-xs"
+          />
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={save}><Check className="h-3 w-3" /></Button>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditValue(value || ''); setEditing(false); }}><X className="h-3 w-3" /></Button>
+        </div>
+      </TableCell>
+    );
+  }
+
+  return (
+    <TableCell className="cursor-pointer" onClick={() => setEditing(true)}>
+      <span className="text-xs hover:underline">{value || '-'}</span>
+    </TableCell>
+  );
+}
 
 export default function YardLoads() {
   const navigate = useNavigate();
@@ -102,7 +145,31 @@ export default function YardLoads() {
   const [selectedOrderForTransfer, setSelectedOrderForTransfer] = useState<YardLoadOrder | null>(null);
   const queryClient = useQueryClient();
 
-  // Get unique values for filters
+  // Realtime subscription for bol_location updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("yard-loads-bol-location")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders" },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated.bol_location !== undefined) {
+            queryClient.setQueryData<YardLoadOrder[]>(["yard-loads-orders"], (old) => {
+              if (!old) return old;
+              return old.map((o) =>
+                o.id === updated.id ? { ...o, bolLocation: updated.bol_location || null } : o
+              );
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+
   const trucks = Array.from(new Set(orders.map(o => o.truckNumber).filter(Boolean))).sort() as string[];
   const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort() as string[];
   const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort() as string[];
@@ -681,26 +748,51 @@ export default function YardLoads() {
                         <TableCell>{order.bookedByCompanyName || '-'}</TableCell>
                         <TableCell>{order.bookedBy || '-'}</TableCell>
                         <TableCell>
-                          {order.bolFilePath ? (
+                          {order.bolFiles.length === 0 ? (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          ) : order.bolFiles.length === 1 ? (
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-xs border-primary/50 text-primary hover:bg-primary/10 max-w-[100px] truncate"
+                              className="h-7 w-7 p-0"
                               onClick={async () => {
-                                const { data } = await supabase.storage.from('order-files').createSignedUrl(order.bolFilePath!, 300);
+                                const { data } = await supabase.storage.from('order-files').createSignedUrl(order.bolFiles[0].filePath, 300);
                                 if (data?.signedUrl) window.open(data.signedUrl, '_blank');
                               }}
-                              title={order.bolFileName || 'BOL'}
+                              title={order.bolFiles[0].fileName}
                             >
-                              {order.bolFileName ? order.bolFileName.replace(/\.[^/.]+$/, '').substring(0, 12) + (order.bolFileName.length > 16 ? '...' : '') : 'BOL'}
+                              <FileText className="h-4 w-4 text-blue-500" />
                             </Button>
                           ) : (
-                            <span className="text-muted-foreground text-xs">-</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title={`${order.bolFiles.length} BOL files`}>
+                                  <FileText className="h-4 w-4 text-blue-500" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-56 p-1" align="start">
+                                <div className="space-y-0.5">
+                                  {order.bolFiles.map((bol) => (
+                                    <Button
+                                      key={bol.id}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full justify-start text-xs h-8 truncate"
+                                      onClick={async () => {
+                                        const { data } = await supabase.storage.from('order-files').createSignedUrl(bol.filePath, 300);
+                                        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                                      }}
+                                    >
+                                      <FileText className="h-3 w-3 mr-2 flex-shrink-0 text-blue-500" />
+                                      <span className="truncate">{bol.fileName}</span>
+                                    </Button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <span className="text-xs">{order.bolLocation || '-'}</span>
-                        </TableCell>
+                        <BolLocationCell orderId={order.id} value={order.bolLocation} />
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
