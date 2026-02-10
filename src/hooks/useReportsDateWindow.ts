@@ -79,9 +79,10 @@ const getWindowKey = (window: DateWindow): string => {
 };
 
 /**
- * Fetch pickup_drops for a set of order IDs (batched)
+ * Fetch pickup_drops for a set of order IDs (batched).
+ * Pure async utility — no React hook dependencies. Safe to call from any context.
  */
-const fetchPickupDropsForOrders = async (orderIds: string[]): Promise<any[]> => {
+export const fetchPickupDropsForOrders = async (orderIds: string[]): Promise<any[]> => {
   if (orderIds.length === 0) return [];
   const allDrops: any[] = [];
   const BATCH_SIZE = 300;
@@ -99,9 +100,10 @@ const fetchPickupDropsForOrders = async (orderIds: string[]): Promise<any[]> => 
 };
 
 /**
- * Fetch order_transfers for a set of order IDs (batched)
+ * Fetch order_transfers for a set of order IDs (batched).
+ * Pure async utility — no React hook dependencies. Safe to call from any context.
  */
-const fetchOrderTransfersForOrders = async (orderIds: string[]): Promise<any[]> => {
+export const fetchOrderTransfersForOrders = async (orderIds: string[]): Promise<any[]> => {
   if (orderIds.length === 0) return [];
   const allTransfers: any[] = [];
   const BATCH_SIZE = 300;
@@ -576,6 +578,35 @@ export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
   console.log(`[useReportsDateWindow] Injected ${orders.length} orders, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
   // Notify all listeners to trigger re-renders
   versionListeners.forEach(listener => listener());
+};
+
+/**
+ * Patch (upsert) a single order in the global accumulated orders store.
+ * Used by realtime subscriptions to update individual orders without a full refetch.
+ */
+export const patchOrderInGlobalStore = (order: any): void => {
+  globalAccumulatedOrders.set(order.id, order);
+  globalOrdersVersion++;
+  versionListeners.forEach(listener => listener());
+};
+
+/**
+ * Remove a single order from the global accumulated orders store.
+ * Used by realtime subscriptions when an order is deleted or moves out of scope.
+ */
+export const removeOrderFromGlobalStore = (orderId: string): void => {
+  if (globalAccumulatedOrders.delete(orderId)) {
+    globalOrdersVersion++;
+    versionListeners.forEach(listener => listener());
+  }
+};
+
+/**
+ * Check if an order exists in the global accumulated orders store.
+ * Used by realtime subscriptions to scope pickup_drops/order_transfers events.
+ */
+export const hasOrderInGlobalStore = (orderId: string): boolean => {
+  return globalAccumulatedOrders.has(orderId);
 };
 
 /**
