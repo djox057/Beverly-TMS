@@ -25,7 +25,7 @@ interface EfsRequestDialogProps {
 const EFS_PURPOSE_OPTIONS = [
   { value: "scale_ticket", label: "Scale ticket" },
   { value: "fuel", label: "Fuel" },
-  { value: "lumper", label: "Lumper" },
+  
   { value: "escort", label: "Escort" },
   { value: "truck_wash", label: "Truck wash" },
   { value: "straps", label: "Straps" },
