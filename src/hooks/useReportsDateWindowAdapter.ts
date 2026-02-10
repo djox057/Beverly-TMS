@@ -10,7 +10,7 @@
 import { useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useReportsDateWindow, useOrderFilesOnDemand } from "./useReportsDateWindow";
+import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, hasOrderInGlobalStore } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
@@ -952,6 +952,205 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         console.log(`[adapter] Unsubscribing from lost_day_notes realtime for office: ${priorityOffice}`);
         supabase.removeChannel(lostDayNotesChannelRef.current);
         lostDayNotesChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
+
+  // P5: Subscribe to orders, pickup_drops, and order_transfers realtime changes
+  // Patches globalAccumulatedOrders directly with debounced batch fetching
+  const ordersRealtimeChannelRef = useRef<RealtimeChannel | null>(null);
+
+  useEffect(() => {
+    if (!scopeEnabled || driverIdsForScope.length === 0) {
+      if (ordersRealtimeChannelRef.current) {
+        supabase.removeChannel(ordersRealtimeChannelRef.current);
+        ordersRealtimeChannelRef.current = null;
+      }
+      return;
+    }
+
+    // Avoid duplicate subscriptions
+    if (ordersRealtimeChannelRef.current) return;
+
+    // ─── Debounce state ───
+    const pendingOrderIds = new Set<string>();
+    const pendingDeletes = new Set<string>();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isFlushing = false;
+
+    // Flat column list matching fetchOrdersForDateWindow
+    const ORDER_COLUMNS_FLAT = `
+      id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+      created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+      canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+      is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+      freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+      tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
+    `;
+
+    const flushPending = async () => {
+      if (isFlushing) return;
+      isFlushing = true;
+
+      // Snapshot and clear
+      const deleteIds = [...pendingDeletes];
+      pendingDeletes.clear();
+      const fetchIds = [...pendingOrderIds].filter(id => !deleteIds.includes(id));
+      pendingOrderIds.clear();
+
+      try {
+        // Process deletes immediately
+        for (const id of deleteIds) {
+          removeOrderFromGlobalStore(id);
+        }
+
+        if (fetchIds.length > 0) {
+          console.log(`[adapter] Orders realtime: batch-fetching ${fetchIds.length} changed orders`);
+
+          // Stage 1: Flat orders fetch
+          const { data: flatOrders, error } = await supabase
+            .from("orders")
+            .select(ORDER_COLUMNS_FLAT)
+            .in("id", fetchIds);
+
+          if (error || !flatOrders || flatOrders.length === 0) {
+            if (error) console.error("[adapter] Orders realtime batch fetch error:", error);
+            isFlushing = false;
+            return;
+          }
+
+          // Stage 2: Parallel relation fetches
+          const ids = flatOrders.map(o => o.id);
+          const [pickupDrops, transfers] = await Promise.all([
+            fetchPickupDropsForOrders(ids),
+            fetchOrderTransfersForOrders(ids),
+          ]);
+
+          // Build lookup maps
+          const pdMap = new Map<string, any[]>();
+          for (const pd of pickupDrops) {
+            const arr = pdMap.get(pd.order_id) || [];
+            arr.push(pd);
+            pdMap.set(pd.order_id, arr);
+          }
+          const otMap = new Map<string, any[]>();
+          for (const t of transfers) {
+            const arr = otMap.get(t.order_id) || [];
+            arr.push(t);
+            otMap.set(t.order_id, arr);
+          }
+
+          // Stage 3: Assemble and scope-check
+          const currentDriverIds = driverIdsSetRef.current;
+          const affectedOrderIds: string[] = [];
+
+          for (const order of flatOrders) {
+            const fullOrder = {
+              ...order,
+              pickup_drops: (pdMap.get(order.id) || [])
+                .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+              order_transfers: (otMap.get(order.id) || [])
+                .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+            };
+
+            // Out-of-scope check: if neither driver is in scope, remove instead of patching
+            const inScope =
+              (fullOrder.driver1_id && currentDriverIds.has(fullOrder.driver1_id)) ||
+              (fullOrder.driver2_id && currentDriverIds.has(fullOrder.driver2_id));
+
+            if (inScope) {
+              patchOrderInGlobalStore(fullOrder);
+            } else {
+              removeOrderFromGlobalStore(fullOrder.id);
+            }
+            affectedOrderIds.push(fullOrder.id);
+          }
+
+          // Invalidate order_files for affected orders (refetchType: "active" prevents double-render)
+          if (affectedOrderIds.length > 0) {
+            queryClient.invalidateQueries({
+              queryKey: ["adapter-order-files"],
+              refetchType: "active",
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[adapter] Orders realtime flush error:", err);
+      } finally {
+        isFlushing = false;
+      }
+    };
+
+    const scheduleFlush = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(flushPending, 1000);
+    };
+
+    const channelName = `adapter-orders-realtime-${priorityOffice || 'default'}`;
+
+    const channel = supabase
+      .channel(channelName)
+      // Orders table
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+        const newRecord = payload.new as any;
+        const oldRecord = payload.old as any;
+        const orderId = newRecord?.id || oldRecord?.id;
+        if (!orderId) return;
+
+        const currentDriverIds = driverIdsSetRef.current;
+
+        if (payload.eventType === "DELETE") {
+          const oldInScope =
+            (oldRecord?.driver1_id && currentDriverIds.has(oldRecord.driver1_id)) ||
+            (oldRecord?.driver2_id && currentDriverIds.has(oldRecord.driver2_id));
+          if (oldInScope) {
+            removeOrderFromGlobalStore(orderId);
+          }
+          return;
+        }
+
+        // INSERT or UPDATE: check if any old or new driver is in scope
+        const relevant =
+          (newRecord?.driver1_id && currentDriverIds.has(newRecord.driver1_id)) ||
+          (newRecord?.driver2_id && currentDriverIds.has(newRecord.driver2_id)) ||
+          (oldRecord?.driver1_id && currentDriverIds.has(oldRecord.driver1_id)) ||
+          (oldRecord?.driver2_id && currentDriverIds.has(oldRecord.driver2_id));
+
+        if (relevant) {
+          pendingOrderIds.add(orderId);
+          scheduleFlush();
+        }
+      })
+      // pickup_drops table
+      .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, (payload) => {
+        const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+        if (orderId && hasOrderInGlobalStore(orderId)) {
+          pendingOrderIds.add(orderId);
+          scheduleFlush();
+        }
+      })
+      // order_transfers table
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, (payload) => {
+        const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+        if (orderId && hasOrderInGlobalStore(orderId)) {
+          pendingOrderIds.add(orderId);
+          scheduleFlush();
+        }
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`[adapter] Subscribed to orders/pickup_drops/order_transfers realtime for office: ${priorityOffice}`);
+        }
+      });
+
+    ordersRealtimeChannelRef.current = channel;
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (ordersRealtimeChannelRef.current) {
+        console.log(`[adapter] Unsubscribing from orders realtime for office: ${priorityOffice}`);
+        supabase.removeChannel(ordersRealtimeChannelRef.current);
+        ordersRealtimeChannelRef.current = null;
       }
     };
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
