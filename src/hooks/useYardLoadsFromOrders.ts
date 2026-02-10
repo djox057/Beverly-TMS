@@ -38,6 +38,7 @@ export interface YardLoadOrder {
   driverPrice: number | null;
   freightAmount: number | null;
   companyName: string | null;
+  bookedByCompanyName: string | null;
   bookedBy: string | null;
   status: string | null;
   locked: boolean;
@@ -56,6 +57,8 @@ export interface YardLoadOrder {
   originalDriverPrice: number | null;
   recoveryMiles: number | null;
   recoveryDriverPrice: number | null;
+  bolFilePath: string | null;
+  bolFileName: string | null;
 }
 
 export const useYardLoadsFromOrders = () => {
@@ -69,7 +72,7 @@ export const useYardLoadsFromOrders = () => {
           id, internal_load_number, broker_load_number, notes, mileage,
           driver_price, freight_amount, booked_by, status, locked, canceled,
           is_recovery, truck_id, driver1_id, trailer_id, broker_id, company_id,
-          pickup_datetime, delivery_datetime,
+          booked_by_company_id, pickup_datetime, delivery_datetime,
           original_driver1_id, original_driver2_id, original_truck_id,
           original_trailer_id, original_miles, original_driver_price,
           recovery_miles, recovery_driver_price
@@ -86,25 +89,29 @@ export const useYardLoadsFromOrders = () => {
       const trailerIds = [...new Set(orders.map(o => o.trailer_id).filter(Boolean))] as string[];
       const brokerIds = [...new Set(orders.map(o => o.broker_id).filter(Boolean))] as string[];
       const companyIds = [...new Set(orders.map(o => o.company_id).filter(Boolean))] as string[];
+      const bookedByCompanyIds = [...new Set(orders.map(o => o.booked_by_company_id).filter(Boolean))] as string[];
       const origDriverIds = [...new Set(orders.map(o => o.original_driver1_id).filter(Boolean))] as string[];
       const origTruckIds = [...new Set(orders.map(o => o.original_truck_id).filter(Boolean))] as string[];
       const origTrailerIds = [...new Set(orders.map(o => o.original_trailer_id).filter(Boolean))] as string[];
 
       // Stage 3: Parallel batch fetches
-      const [trailersRes, brokersRes, companiesRes, origDriversRes, origTrucksRes, origTrailersRes, pickupDropsRes] = await Promise.all([
+      const [trailersRes, brokersRes, companiesRes, bookedByCompaniesRes, origDriversRes, origTrucksRes, origTrailersRes, pickupDropsRes, orderFilesRes] = await Promise.all([
         trailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", trailerIds) : { data: [] },
         brokerIds.length > 0 ? supabase.from("brokers").select("id, name").in("id", brokerIds) : { data: [] },
         companyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", companyIds) : { data: [] },
+        bookedByCompanyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", bookedByCompanyIds) : { data: [] },
         origDriverIds.length > 0 ? supabase.from("drivers").select("id, name").in("id", origDriverIds) : { data: [] },
         origTruckIds.length > 0 ? supabase.from("trucks").select("id, truck_number").in("id", origTruckIds) : { data: [] },
         origTrailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", origTrailerIds) : { data: [] },
         supabase.from("pickup_drops").select("id, order_id, type, city, state, datetime, sequence_number, latitude, longitude").in("order_id", orderIds),
+        supabase.from("order_files").select("id, order_id, file_category, file_name, file_path").eq("file_category", "BOL").in("order_id", orderIds),
       ]);
 
       // Build lookup maps
       const trailerMap = new Map((trailersRes.data || []).map(t => [t.id, t]));
       const brokerMap = new Map((brokersRes.data || []).map(b => [b.id, b]));
       const companyMap = new Map((companiesRes.data || []).map(c => [c.id, c]));
+      const bookedByCompanyMap = new Map((bookedByCompaniesRes.data || []).map(c => [c.id, c]));
       const origDriverMap = new Map((origDriversRes.data || []).map(d => [d.id, d]));
       const origTruckMap = new Map((origTrucksRes.data || []).map(t => [t.id, t]));
       const origTrailerMap = new Map((origTrailersRes.data || []).map(t => [t.id, t]));
@@ -114,6 +121,14 @@ export const useYardLoadsFromOrders = () => {
         const arr = pickupDropsByOrder.get(pd.order_id) || [];
         arr.push(pd);
         pickupDropsByOrder.set(pd.order_id, arr);
+      }
+
+      // Build BOL file lookup (first BOL per order)
+      const bolByOrder = new Map<string, any>();
+      for (const f of (orderFilesRes.data || [])) {
+        if (!bolByOrder.has(f.order_id)) {
+          bolByOrder.set(f.order_id, f);
+        }
       }
 
       // Stage 4: Assemble
@@ -151,6 +166,7 @@ export const useYardLoadsFromOrders = () => {
           driverPrice: order.driver_price || 0,
           freightAmount: order.freight_amount || 0,
           companyName: companyMap.get(order.company_id)?.name || null,
+          bookedByCompanyName: bookedByCompanyMap.get(order.booked_by_company_id)?.name || null,
           bookedBy: order.booked_by || null,
           status: order.status || 'pending',
           locked: order.locked || false,
@@ -169,6 +185,8 @@ export const useYardLoadsFromOrders = () => {
           originalDriverPrice: order.original_driver_price || null,
           recoveryMiles: order.recovery_miles || null,
           recoveryDriverPrice: order.recovery_driver_price || null,
+          bolFilePath: bolByOrder.get(order.id)?.file_path || null,
+          bolFileName: bolByOrder.get(order.id)?.file_name || null,
         } as YardLoadOrder;
       });
     },

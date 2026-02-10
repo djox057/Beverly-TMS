@@ -130,7 +130,7 @@ export default function YardLoads() {
     }
 
     // Company filter
-    if (selectedCompany && order.companyName !== selectedCompany) {
+    if (selectedCompany && order.bookedByCompanyName !== selectedCompany) {
       return false;
     }
 
@@ -630,19 +630,20 @@ export default function YardLoads() {
                   <TableHead className="w-28">Freight Amount</TableHead>
                   <TableHead className="w-28">Company</TableHead>
                   <TableHead className="w-28">Booked By</TableHead>
+                  <TableHead className="w-16">BOL</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8">
+                     <TableCell colSpan={13} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8">
+                    <TableCell colSpan={13} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -676,8 +677,26 @@ export default function YardLoads() {
                             {formatCurrency(order.freightAmount || 0)}
                           </div>
                         </TableCell>
-                        <TableCell>{order.companyName || '-'}</TableCell>
+                        <TableCell>{order.bookedByCompanyName || '-'}</TableCell>
                         <TableCell>{order.bookedBy || '-'}</TableCell>
+                        <TableCell>
+                          {order.bolFilePath ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={async () => {
+                                const { data } = await supabase.storage.from('order-files').createSignedUrl(order.bolFilePath!, 300);
+                                if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+                              }}
+                              title={order.bolFileName || 'BOL'}
+                            >
+                              <FileText className="h-4 w-4 text-blue-500" />
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
