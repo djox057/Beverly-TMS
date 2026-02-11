@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { isValidUUID } from "@/utils/validation";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 /**
@@ -294,7 +295,7 @@ export function useAutoSwitchOffice({
 
         const dispatcherIds = [
           ...new Set(
-            (driverData ?? []).map((d) => d.dispatcher_id).filter(Boolean) as string[]
+            (driverData ?? []).map((d) => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id))
           ),
         ];
 
@@ -373,7 +374,7 @@ export function useAutoSwitchOffice({
       if (driverError) throw driverError;
       
       if (driverMatches && driverMatches.length > 0) {
-        const dispatcherIds = [...new Set(driverMatches.map(d => d.dispatcher_id))];
+        const dispatcherIds = [...new Set(driverMatches.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
         
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -491,7 +492,7 @@ export function useAutoSwitchOffice({
       
       if (driverError) throw driverError;
       
-      const dispatcherIds = [...new Set(driverData?.map(d => d.dispatcher_id).filter(Boolean) as string[])];
+      const dispatcherIds = [...new Set(driverData?.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
       
       if (dispatcherIds.length === 0) {
         return { type: "not_found" };
