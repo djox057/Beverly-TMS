@@ -1,68 +1,59 @@
 
 
-# Performance Fix: Batch Realtime Notifications in Reports
+## Salaries Tab Changes for Dispatchers
 
-## Problem
-Every realtime order change triggers a separate `globalOrdersVersion++` and listener notification, causing the expensive ~450-line `transformedData` memo to re-run N times per batch instead of once. Office switching also leaves stale channels alive due to early-return guards.
+### What Changes
 
-## Changes
+**1. Hide "Days Off" and "Food" columns for dispatchers**
+Dispatchers will no longer see these two columns. Admin/Manager/Accounting users see everything as before.
 
-### File 1: `src/hooks/useReportsDateWindow.ts`
+**2. Paid column shows the full total as a frozen snapshot**
+When a dispatcher is marked as paid, the system will store the **complete total** (base salary + extra days + food - days off + bonuses + adjustments) as the `paid_amount`. This value is frozen at the time of payment and will NOT change even if the underlying salary increases later.
 
-**Add `notify` parameter to `patchOrderInGlobalStore` and `removeOrderFromGlobalStore`; add new `flushGlobalStoreNotifications` function.**
+### How It Works (Examples)
 
-- `patchOrderInGlobalStore(order, notify = true)` -- when `notify` is false, only updates the Map without incrementing version or calling listeners. Default `true` preserves backward compatibility.
-- `removeOrderFromGlobalStore(orderId, notify = true)` -- same treatment.
-- New export: `flushGlobalStoreNotifications()` -- increments `globalOrdersVersion` once and calls all `versionListeners`. Called after a batch of silent patches/removes.
+**Scenario: Dispatcher "John" - January 2026**
+- Total Freight: $100,000 --> 1% = $1,000
+- Total Commission: $20,000 --> 5% = $1,000
+- Base rate = $2,000
+- 22 work days, per-day rate = $90.91
+- 1 Extra Day = +$90.91
+- 1 Day Off = -$90.91
+- Food Allowance: $70
+- Dispatcher Bonus: $50
+- Adjustments: +$100 (extra pay), -$20 (charge)
 
-### File 2: `src/hooks/useReportsDateWindowAdapter.ts`
+**At time of payment:**
+Paid = $2,000 + $90.91 - $90.91 + $70 + $50 + $100 - $20 = **$2,200**
+This $2,200 is stored in the database as `paid_amount`.
 
-**Three changes:**
+**After payment, a new load is added (Total Freight becomes $110,000):**
+- Salary column updates to show new base: $2,100
+- Paid column stays at **$2,200** (the stored snapshot -- does NOT recalculate)
 
-**1. Batch notifications in `flushPending` (lines 991-1082)**
+**Dispatcher view (Days Off and Food hidden):**
 
-Replace all `patchOrderInGlobalStore(fullOrder)` and `removeOrderFromGlobalStore(id)` calls inside `flushPending` with `notify = false` variants. After all patches and removes are done, call `flushGlobalStoreNotifications()` once. The condition covers all cases -- deletes, in-scope patches, and out-of-scope removes:
+| Dispatcher | Total Freight | Total Comm. | Extra | Additionals | Salary | Paid |
+|---|---|---|---|---|---|---|
+| John | $110,000 | $20,000 | +1 | +$80 | $2,100 | $2,200 |
 
-```
-// After all patches/removes:
-const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
-if (hadChanges) {
-  flushGlobalStoreNotifications();
-}
-```
+**Admin view (unchanged, all columns visible):**
 
-This ensures out-of-scope removes (where `fetchIds` might be empty but removes happened) still trigger notification.
+| Dispatcher | Total Freight | Total Comm. | Extra | Days Off | Food | Additionals | Salary | Paid |
+|---|---|---|---|---|---|---|---|---|
+| John | $110,000 | $20,000 | +1 | -1 | $70 | +$80 | $2,100 | $2,200 |
 
-Note: The DELETE handler in the event callback (line 1107) calls `removeOrderFromGlobalStore` directly (outside of flush) -- this one keeps `notify = true` (default) since it's a single immediate operation, not part of a batch.
+### Technical Details
 
-**2. Fix channel cleanup on office switch (lines 972-973 and 759-760)**
+**File: `src/pages/Analytics.tsx`**
 
-For the orders realtime channel (P5, line 973) and the truck_notes channel (P3, line 760), replace the early-return guard:
-```
-// Before:
-if (ordersRealtimeChannelRef.current) return;
+1. **Update "Mark as Paid" logic (~line 915-918)**: Change `paid_amount` calculation from just `baseRate` to include all components:
+   - `baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmount + adjustmentsTotal`
+   - This makes the stored snapshot contain the full total
 
-// After:
-if (ordersRealtimeChannelRef.current) {
-  supabase.removeChannel(ordersRealtimeChannelRef.current);
-  ordersRealtimeChannelRef.current = null;
-}
-```
+2. **Hide columns for dispatchers**: Wrap "Days Off" `TableHead`/`TableCell` and "Food" `TableHead`/`TableCell` with `{!isDispatchOnly && ...}` conditions
 
-This ensures a fresh channel is created with the correct scope when `priorityOffice` changes.
+3. **Paid column display**: No change needed here -- it already displays the stored `paid_amount`, which will now contain the full total since we changed what gets stored
 
-**3. Fix order_files channel cleanup (lines 699-736)**
+4. **Totals row**: Hide Days Off and Food total cells for dispatchers with `{!isDispatchOnly && ...}`
 
-Add `priorityOffice` to the dependency array (line 736) and use a dynamic channel name:
-```
-.channel(`adapter-order-files-realtime-${priorityOffice || 'default'}`)
-```
-
-The existing cleanup function at lines 730-735 already calls `supabase.removeChannel`, so adding the dependency is sufficient.
-
-## Files Modified
-1. `src/hooks/useReportsDateWindow.ts` -- Add `notify` param to patch/remove, add `flushGlobalStoreNotifications`
-2. `src/hooks/useReportsDateWindowAdapter.ts` -- Batch notifications, fix channel cleanup on office switch, fix order_files channel
-
-## Known Limitation
-Single-event updates outside of batch flushes (e.g., a one-off DELETE in the event handler) still trigger a full re-render. This is acceptable -- the batching fix handles the busy-day case where many events arrive within the 1-second window.
