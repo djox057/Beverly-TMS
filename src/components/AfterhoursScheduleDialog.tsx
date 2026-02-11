@@ -680,10 +680,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
                                     const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
                                     const daysWorkedBefore = existingSchedules.filter(
-                                      (s) =>
-                                        s.user_id === schedule.user_id &&
-                                        s.scheduled_date >= monthStartStr &&
-                                        s.scheduled_date < selectedDateStr,
+                                      (s) => {
+                                        if (s.user_id !== schedule.user_id) return false;
+                                        if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
+                                        const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
+                                        // Only count weekend days (Sat/Sun), exclude holidays
+                                        return isWeekend(scheduleDate) && !isHoliday(scheduleDate);
+                                      },
                                     ).length;
                                     const isExtra = daysWorkedBefore >= 1;
 
@@ -758,10 +761,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
                                       const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
                                       const daysWorkedBefore = existingSchedules.filter(
-                                        (s) =>
-                                          s.user_id === schedule.user_id &&
-                                          s.scheduled_date >= monthStartStr &&
-                                          s.scheduled_date < selectedDateStr,
+                                        (s) => {
+                                          if (s.user_id !== schedule.user_id) return false;
+                                          if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
+                                          const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
+                                          return isWeekend(scheduleDate) && !isHoliday(scheduleDate);
+                                        },
                                       ).length;
                                       const isExtra = daysWorkedBefore >= 1;
 
