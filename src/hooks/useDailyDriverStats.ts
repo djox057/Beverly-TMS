@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidUUID } from "@/utils/validation";
 
 export interface DailyDriverStat {
   id: string;
@@ -270,7 +271,7 @@ async function calculateLiveStatsForToday(office?: string): Promise<DailyStatsSu
   const drivers = driversData || [];
 
   // Get dispatcher profiles for office info
-  const dispatcherIds = [...new Set(drivers.map((d) => d.dispatcher_id).filter(Boolean))];
+  const dispatcherIds = [...new Set(drivers.map((d) => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
 
   const { data: profilesData } = await supabase
     .from("profiles")
