@@ -191,7 +191,7 @@ const Trucks = () => {
       const {
         error
       } = await supabase.from('trucks').insert({
-        truck_number: formData.truck_number,
+        truck_number: formData.truck_number?.trim(),
         vin: formData.vin || null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
