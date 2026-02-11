@@ -1,62 +1,59 @@
 
 
-## Add "Empty Days" Column + Fix Display Consistency
+## Fix Empty Days: Server-Side RPC with Correct Algorithm
 
-### Changes (all in `src/pages/Analytics.tsx`)
+### What changes
 
-**1. Import the hook**
-Add import for `useDailyDriverStatsByDispatcher` from `@/hooks/useDailyDriverStats`.
+| Location | Change |
+|----------|--------|
+| Database migration | Create `calculate_empty_days_by_dispatcher` RPC function |
+| `src/hooks/useDailyDriverStats.ts` | Add `fetchEmptyDaysByDispatcher` using RPC call, update `useDailyDriverStatsByDispatcher` hook to use it |
+| `src/pages/Analytics.tsx` | No changes needed -- existing `emptyDaysMap` logic already reads `lost_day_count` from the hook |
 
-**2. Call the hook (~line 333, after turnoverMap)**
+---
+
+### 1. Database migration -- create RPC
+
+Create `calculate_empty_days_by_dispatcher(p_start_date date, p_end_date date, p_office text DEFAULT NULL)` that:
+
+- Generates all (active driver, date) pairs via `CROSS JOIN generate_series`
+- Joins drivers to `profiles` on `dispatcher_id` for office scoping (matches how Analytics filters by office everywhere else)
+- Builds a `driver_orders` CTE covering both `driver1_id` and `driver2_id` (team driver support), with an `effective_dd` column: uses `original_delivery_datetime` when it exists AND is earlier than `delivery_datetime` (reschedule penalty), otherwise uses `delivery_datetime`
+- Marks a driver-day as empty when: (a) no pickup on that date, AND (b) not in transit (no order where `pickup < target AND effective_delivery > target`)
+- Groups by `dispatcher_id, office` and returns `(dispatcher_id uuid, office text, empty_day_count bigint)`
+
+### 2. Hook update
+
+Replace the body of `fetchDailyStatsByDispatcher` (or add a parallel function) to call:
+
 ```typescript
-const { data: dispatcherDailyStats } = useDailyDriverStatsByDispatcher(
-  turnoverFromDate || "", turnoverToDate || "",
-  selectedOffices.length === 1 ? selectedOffices[0] : undefined
-);
-```
-Reuses existing `turnoverFromDate`/`turnoverToDate` strings (already "YYYY-MM-DD" format). When date range not set, passes empty strings which will return no data -- the hook's query returns empty array, lookup defaults to 0.
-
-**3. Build empty days lookup map (after the hook call)**
-```typescript
-const emptyDaysMap = useMemo(() => {
-  const map: Record<string, number> = {};
-  (dispatcherDailyStats || []).forEach(s => {
-    map[s.dispatcher_id] = (map[s.dispatcher_id] || 0) + s.lost_day_count;
-  });
-  return map;
-}, [dispatcherDailyStats]);
-```
-Note: `lost_day_count` already includes reschedule-added days per the walkback algorithm.
-
-**4. Merge into dispatcherStats (~line 1276)**
-Add `emptyDays: emptyDaysMap[validUserId] || 0` alongside the existing `turnover` field.
-
-**5. Extend sort type and handleSort**
-- Add `"emptyDays"` to the `sortBy` union type (line 160)
-- Add `"emptyDays"` to `handleSort` column type (line 1735)
-
-**6. Add column header (after Turnover header, ~line 2308)**
-```tsx
-{!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("emptyDays")}>
-  Empty Days {sortBy === "emptyDays" && (sortDirection === "desc" ? "down" : "up")}
-</TableHead>}
+const { data, error } = await supabase.rpc('calculate_empty_days_by_dispatcher', {
+  p_start_date: startDate,
+  p_end_date: endDate,
+  p_office: office || null
+});
 ```
 
-**7. Add table cell (after Turnover cell, ~line 2356)**
-```tsx
-{!isDispatchOnly && <TableCell className="text-right">
-  {stat.emptyDays > 0 ? stat.emptyDays : "-"}
-</TableCell>}
-```
+Map the result back to `DispatcherDailyStats[]` with `lost_day_count = empty_day_count`. The existing `emptyDaysMap` in Analytics.tsx already reads `lost_day_count`, so no changes needed there.
 
-### Display consistency
-Turnover and Empty Days both show "-" for zero (count metrics). Avg DH and Avg Wk Gross/Dr show "0" / "$0" for zero (rate/dollar metrics). This distinction is intentional -- count metrics showing "-" means "none" while rate metrics showing 0 is mathematically meaningful.
+### 3. No Analytics.tsx changes
 
-### Caveat
-Today's empty days won't appear until the nightly snapshot runs at 23:59 Chicago time. For date ranges that include today, the count will be missing today's data. This is acceptable for a performance review metric.
+The existing code from the previous edit already wires `emptyDaysMap[validUserId]` into the table. Once the hook returns correct data, the column will display correctly.
 
-### Files modified
-| File | Change |
-|------|--------|
-| `src/pages/Analytics.tsx` | Import hook, call it, build lookup, merge into stats, add column + cell, extend sort |
+---
+
+### Confirmed design decisions
+
+- Office scoping: via dispatcher's profile office (matches all other Analytics metrics)
+- Delivery day = empty (driver delivered and is waiting)
+- Weekends included
+- Home time does NOT exclude empty days
+- Reschedule penalty: transit window shrinks to `original_delivery_datetime` when it was moved later
+- All required indexes already exist (`driver1_id`, `driver2_id`, `pickup_datetime`)
+
+### Expected results for Feb 2--8, 2026
+
+- Adonis Dzafo-Ron: 4 empty days
+- Stefan Vuckovic-Paul: 7 empty days
+- Svetlana Garic-Holly: 5 empty days
 
