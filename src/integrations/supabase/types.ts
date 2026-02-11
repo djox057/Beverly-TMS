@@ -1609,6 +1609,7 @@ export type Database = {
           is_checked_for_termination: boolean | null
           is_company_driver: boolean | null
           is_recovery: boolean | null
+          last_dispatcher_id: string | null
           last_name: string | null
           license_number: string | null
           mc_number: string | null
@@ -1657,6 +1658,7 @@ export type Database = {
           is_checked_for_termination?: boolean | null
           is_company_driver?: boolean | null
           is_recovery?: boolean | null
+          last_dispatcher_id?: string | null
           last_name?: string | null
           license_number?: string | null
           mc_number?: string | null
@@ -1705,6 +1707,7 @@ export type Database = {
           is_checked_for_termination?: boolean | null
           is_company_driver?: boolean | null
           is_recovery?: boolean | null
+          last_dispatcher_id?: string | null
           last_name?: string | null
           license_number?: string | null
           mc_number?: string | null
