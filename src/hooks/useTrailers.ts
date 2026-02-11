@@ -64,7 +64,6 @@ export const useTrailers = () => {
         // Map trucks to trailers using the Map
         allTrailers = allTrailers.map(trailer => ({
           ...trailer,
-          trailer_number: (trailer.trailer_number || '').trim(),
           trucks: trucksByTrailerId.get(trailer.id) || []
         }));
       }
