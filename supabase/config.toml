@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.sync-google-sheets]
 verify_jwt = false
+
+[functions.record-empty-days]
+verify_jwt = false

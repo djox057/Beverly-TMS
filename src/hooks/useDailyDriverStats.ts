@@ -208,18 +208,56 @@ async function fetchDailyStatsByOffice(
 }
 
 /**
- * Fetch daily driver stats grouped by dispatcher
+ * Fetch empty days from snapshot table for past dates
  */
-async function fetchEmptyDaysByDispatcher(
+async function fetchSnapshotEmptyDays(
   startDate: string,
   endDate: string,
+  office?: string
+): Promise<DispatcherDailyStats[]> {
+  let query = supabase
+    .from("dispatcher_daily_empty_days")
+    .select("dispatcher_id, office, empty_day_count")
+    .gte("date", startDate)
+    .lte("date", endDate);
+
+  if (office) {
+    query = query.eq("office", office);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  // Aggregate by dispatcher
+  const map = new Map<string, DispatcherDailyStats>();
+  for (const row of data || []) {
+    const key = row.dispatcher_id;
+    if (!map.has(key)) {
+      map.set(key, {
+        dispatcher_id: row.dispatcher_id,
+        office: row.office,
+        lost_day_count: 0,
+        home_time_count: 0,
+        reschedule_count: 0,
+      });
+    }
+    map.get(key)!.lost_day_count += Number(row.empty_day_count);
+  }
+  return Array.from(map.values());
+}
+
+/**
+ * Fetch live empty days from RPC for a single day (today)
+ */
+async function fetchLiveEmptyDays(
+  date: string,
   office?: string
 ): Promise<DispatcherDailyStats[]> {
   const { data, error } = await supabase.rpc(
     'calculate_empty_days_by_dispatcher' as any,
     {
-      p_start_date: startDate,
-      p_end_date: endDate,
+      p_start_date: date,
+      p_end_date: date,
       p_office: office || null,
     }
   );
@@ -233,6 +271,45 @@ async function fetchEmptyDaysByDispatcher(
     home_time_count: 0,
     reschedule_count: 0,
   }));
+}
+
+/**
+ * Fetch daily driver stats grouped by dispatcher (hybrid: snapshots + live)
+ */
+async function fetchEmptyDaysByDispatcher(
+  startDate: string,
+  endDate: string,
+  office?: string
+): Promise<DispatcherDailyStats[]> {
+  const today = getChicagoToday();
+  const includestoday = startDate <= today && endDate >= today;
+
+  if (includestoday) {
+    // Past days from snapshot, today from live RPC
+    const pastEndDate = subtractDays(today, 1);
+
+    const [snapshotData, liveData] = await Promise.all([
+      startDate <= pastEndDate
+        ? fetchSnapshotEmptyDays(startDate, pastEndDate, office)
+        : Promise.resolve([]),
+      fetchLiveEmptyDays(today, office),
+    ]);
+
+    // Merge: combine counts per dispatcher
+    const map = new Map<string, DispatcherDailyStats>();
+    for (const item of [...snapshotData, ...liveData]) {
+      const key = item.dispatcher_id;
+      if (!map.has(key)) {
+        map.set(key, { ...item });
+      } else {
+        map.get(key)!.lost_day_count += item.lost_day_count;
+      }
+    }
+    return Array.from(map.values());
+  }
+
+  // All past dates - use snapshot only
+  return fetchSnapshotEmptyDays(startDate, endDate, office);
 }
 
 /**

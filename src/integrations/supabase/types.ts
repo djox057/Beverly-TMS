@@ -840,6 +840,41 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_daily_empty_days: {
+        Row: {
+          created_at: string | null
+          date: string
+          dispatcher_id: string
+          empty_day_count: number
+          id: string
+          office: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          dispatcher_id: string
+          empty_day_count?: number
+          id?: string
+          office: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          dispatcher_id?: string
+          empty_day_count?: number
+          id?: string
+          office?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatcher_daily_empty_days_dispatcher_id_fkey"
+            columns: ["dispatcher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       dispatcher_monthly_bonuses: {
         Row: {
           bonus_amount: number
