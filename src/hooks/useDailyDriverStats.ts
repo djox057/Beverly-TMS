@@ -476,6 +476,7 @@ export const useDailyDriverStatsByDispatcher = (
   return useQuery({
     queryKey: ["daily-driver-stats-by-dispatcher", startDate, endDate, office],
     queryFn: () => fetchEmptyDaysByDispatcher(startDate, endDate, office),
+    enabled: !!startDate && !!endDate,
     staleTime: 60000,
   });
 };
