@@ -20,6 +20,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
+import { useDailyDriverStatsByDispatcher } from "@/hooks/useDailyDriverStats";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -157,7 +158,7 @@ const Analytics = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover">("totalFreight");
+  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays">("totalFreight");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -331,6 +332,20 @@ const Analytics = () => {
     });
     return map;
   }, [turnoverData]);
+
+  // Fetch empty days (lost days) per dispatcher
+  const { data: dispatcherDailyStats } = useDailyDriverStatsByDispatcher(
+    turnoverFromDate || "", turnoverToDate || "",
+    selectedOffices.length === 1 ? selectedOffices[0] : undefined
+  );
+
+  const emptyDaysMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    (dispatcherDailyStats || []).forEach(s => {
+      map[s.dispatcher_id] = (map[s.dispatcher_id] || 0) + s.lost_day_count;
+    });
+    return map;
+  }, [dispatcherDailyStats]);
 
   const driverTiers = useMemo(() => performanceData, [performanceData]);
 
@@ -1273,7 +1288,8 @@ const Analytics = () => {
       avgWeeklyGrossPerDriver,
       office: dispatcherProfile?.office || "Unknown",
       avgTrucks,
-      turnover: turnoverMap[validUserId] || 0
+      turnover: turnoverMap[validUserId] || 0,
+      emptyDays: emptyDaysMap[validUserId] || 0
     };
   }).filter(stat => {
     const dispatcherProfile = dispatcherProfiles[stat.name];
@@ -1732,7 +1748,7 @@ const Analytics = () => {
       notice
     });
   }, [driverTiers, updatePerformance]);
-  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover") => {
+  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
@@ -2306,6 +2322,9 @@ const Analytics = () => {
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("turnover")}>
                             Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("emptyDays")}>
+                            Empty Days {sortBy === "emptyDays" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2353,6 +2372,9 @@ const Analytics = () => {
                               </TableCell>}
                               {!isDispatchOnly && <TableCell className="text-right">
                                 {stat.turnover > 0 ? stat.turnover : "-"}
+                              </TableCell>}
+                              {!isDispatchOnly && <TableCell className="text-right">
+                                {stat.emptyDays > 0 ? stat.emptyDays : "-"}
                               </TableCell>}
                             </TableRow>;
                     })}
