@@ -309,10 +309,30 @@ export function useAutoSwitchOffice({
           .eq("truck_number", term)
           .limit(5);
 
+        // Also try with trimmed match via ilike for truck_numbers with trailing spaces
+        const { data: ilikeTrucks, error: ilikeTruckError } = await supabase
+          .from("trucks")
+          .select("driver1_id, driver2_id")
+          .ilike("truck_number", `${term}%`)
+          .limit(5);
+
         if (exactTruckError) throw exactTruckError;
 
-        if (exactTrucks && exactTrucks.length > 0) {
-          const foundOffices = await resolveOfficesFromTruckRows(exactTrucks);
+        const allTruckMatches = [
+          ...((exactTrucks && !exactTruckError) ? exactTrucks : []),
+          ...((ilikeTrucks && !ilikeTruckError) ? ilikeTrucks : []),
+        ];
+        // Deduplicate by driver1_id+driver2_id combo
+        const seen = new Set<string>();
+        const uniqueTrucks = allTruckMatches.filter(t => {
+          const key = `${t.driver1_id}-${t.driver2_id}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        if (uniqueTrucks.length > 0) {
+          const foundOffices = await resolveOfficesFromTruckRows(uniqueTrucks);
 
           if (foundOffices.length === 1) return { type: "found", office: foundOffices[0] };
           if (foundOffices.length > 1) return { type: "ambiguous", offices: foundOffices };

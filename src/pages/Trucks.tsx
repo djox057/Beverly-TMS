@@ -96,12 +96,9 @@ const Trucks = () => {
     refetch
   } = useTrucks();
   
-  // Force immediate refetch on mount to clear any stale cache
+  // Invalidate on mount to ensure fresh data (don't remove queries - causes race with realtime)
   useEffect(() => {
-    // Clear old query cache if it exists
-    queryClient.removeQueries({ queryKey: ['trucks'] });
-    // Trigger a fresh fetch
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ['trucks', 'v2'] });
   }, []); // Only on mount
   
   const {

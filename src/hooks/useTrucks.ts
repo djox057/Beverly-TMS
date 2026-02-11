@@ -65,7 +65,9 @@ export const useTrucks = () => {
         const dispatcherMap = new Map((dispatchersRes.data || []).map(d => [d.user_id, d]));
 
         // Stage 4: Assemble the nested object structure the UI expects
-        return allTrucks.map(truck => {
+        return allTrucks.map(rawTruck => {
+          // Trim truck_number to remove trailing whitespace from DB
+          const truck = { ...rawTruck, truck_number: (rawTruck.truck_number || '').trim() };
           const trailer = trailerMap.get(truck.trailer_id) || null;
           const driver1Raw = driverMap.get(truck.driver1_id) || null;
           const driver2Raw = driverMap.get(truck.driver2_id) || null;
