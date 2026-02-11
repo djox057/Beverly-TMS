@@ -61,7 +61,8 @@ export function useTrucksRealtime() {
       }
 
       // Fetch dispatchers
-      const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(Boolean))] as string[];
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(id => id && uuidRegex.test(id)))] as string[];
       const dispatcherMap = new Map<string, any>();
       if (dispatcherIds.length > 0) {
         const { data } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", dispatcherIds);

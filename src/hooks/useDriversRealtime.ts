@@ -45,8 +45,9 @@ export function useDriversRealtime() {
       });
 
       // Collect unique IDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const companyIds = [...new Set(cleanDrivers.map(d => d.company_id).filter(Boolean))] as string[];
-      const dispatcherIds = [...new Set(cleanDrivers.map(d => d.dispatcher_id).filter(Boolean))] as string[];
+      const dispatcherIds = [...new Set(cleanDrivers.map(d => d.dispatcher_id).filter(id => id && uuidRegex.test(id)))] as string[];
 
       // Parallel fetch: companies, dispatchers, trucks assigned to these drivers
       const [companiesRes, dispatchersRes, trucksRes] = await Promise.all([
