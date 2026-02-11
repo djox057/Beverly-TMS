@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          dispatcher_name: string | null
           id: string
           scheduled_date: string
           user_id: string | null
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          dispatcher_name?: string | null
           id?: string
           scheduled_date: string
           user_id?: string | null
@@ -32,6 +34,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          dispatcher_name?: string | null
           id?: string
           scheduled_date?: string
           user_id?: string | null

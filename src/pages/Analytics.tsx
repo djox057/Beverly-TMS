@@ -581,7 +581,7 @@ const Analytics = () => {
         const {
           data,
           error
-        } = await supabase.from("afterhours_schedule").select("user_id, scheduled_date").gte("scheduled_date", fromDate).lte("scheduled_date", toDate);
+        } = await supabase.from("afterhours_schedule").select("user_id, scheduled_date, dispatcher_name").gte("scheduled_date", fromDate).lte("scheduled_date", toDate);
         if (error) {
           console.error("Error fetching extra days:", error);
           return;
@@ -598,6 +598,12 @@ const Analytics = () => {
         const weekdayRawDatesMap: Record<string, string[]> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
+            // Use dispatcher_name as key for deleted users (no user_id), otherwise user_id
+            const keys: string[] = [];
+            if (record.user_id) keys.push(record.user_id);
+            if (record.dispatcher_name) keys.push(record.dispatcher_name);
+            if (keys.length === 0) return;
+            
             const scheduleDate = new Date(record.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
             const dayOfWeek = scheduleDate.getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -607,14 +613,17 @@ const Analytics = () => {
               return;
             }
             
-            if (!rawWeekendCountsMap[record.user_id]) {
-              rawWeekendCountsMap[record.user_id] = 0;
-              weekdayCountsMap[record.user_id] = 0;
-              weekendDatesMap[record.user_id] = [];
-              weekdayDatesMap[record.user_id] = [];
-              weekendRawDatesMap[record.user_id] = [];
-              weekdayRawDatesMap[record.user_id] = [];
-            }
+            // Initialize maps for all keys
+            keys.forEach(key => {
+              if (!rawWeekendCountsMap[key]) {
+                rawWeekendCountsMap[key] = 0;
+                weekdayCountsMap[key] = 0;
+                weekendDatesMap[key] = [];
+                weekdayDatesMap[key] = [];
+                weekendRawDatesMap[key] = [];
+                weekdayRawDatesMap[key] = [];
+              }
+            });
             
             // Format date as M/DD (e.g., 12/16)
             const month = scheduleDate.getMonth() + 1;
@@ -623,19 +632,22 @@ const Analytics = () => {
             
             // Special case: 2026-01-10 (office moving day) - treat as weekday (always counts as extra)
             // Only applies to Kragujevac office dispatchers/supervisors
-            const userOffice = dispatcherProfiles[record.user_id]?.office;
+            const primaryKey = record.user_id || record.dispatcher_name;
+            const userOffice = dispatcherProfiles[primaryKey]?.office;
             const isMovingDay = record.scheduled_date === "2026-01-10" && userOffice === "KRAGUJEVAC";
             
-            if (isWeekend && !isMovingDay) {
-              rawWeekendCountsMap[record.user_id] += 1;
-              weekendDatesMap[record.user_id].push(dateStr);
-              weekendRawDatesMap[record.user_id].push(record.scheduled_date);
-            } else {
-              // Weekday entries (and moving day) are always counted as extra days
-              weekdayCountsMap[record.user_id] += 1;
-              weekdayDatesMap[record.user_id].push(dateStr);
-              weekdayRawDatesMap[record.user_id].push(record.scheduled_date);
-            }
+            keys.forEach(key => {
+              if (isWeekend && !isMovingDay) {
+                rawWeekendCountsMap[key] += 1;
+                weekendDatesMap[key].push(dateStr);
+                weekendRawDatesMap[key].push(record.scheduled_date);
+              } else {
+                // Weekday entries (and moving day) are always counted as extra days
+                weekdayCountsMap[key] += 1;
+                weekdayDatesMap[key].push(dateStr);
+                weekdayRawDatesMap[key].push(record.scheduled_date);
+              }
+            });
           });
         }
 
@@ -2894,7 +2906,7 @@ const Analytics = () => {
                       const calculatedSalaries: Record<string, number> = {};
                       return sortedDispatcherStatsForSalaries.map((stat, index) => {
                         // Get Extra Days from afterhours_schedule and Lost Days from dispatcher_off_duty_days or salary payment override
-                        const extraDays = stat.userId ? extraDaysByUser[stat.userId] || 0 : 0;
+                        const extraDays = stat.userId ? (extraDaysByUser[stat.userId] || 0) : (extraDaysByUser[stat.name] || 0);
                         const paymentRecord = stat.userId ? salaryPayments[stat.userId] : null;
                         // For lost days: UUID lookup first, then name lookup (for deleted users)
                         const lostDays = stat.userId ? (lostDaysByUser[stat.userId] || 0) : (lostDaysByUser[stat.name] || 0);
@@ -2988,7 +3000,7 @@ const Analytics = () => {
                                       const payPeriod = format(monthDate, "MMMM, yyyy");
 
                                       // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
-                                      const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
+                                      const allExtraDayDates = extraDayDatesByUser[stat.userId || stat.name] || [];
                                       const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
                                       const lostDayDates = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
@@ -3038,7 +3050,7 @@ const Analytics = () => {
                                       const payPeriod = format(monthDate, "MMMM, yyyy");
 
                                       // Get dates for extra/lost days
-                                      const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
+                                      const allExtraDayDates = extraDayDatesByUser[stat.userId || stat.name] || [];
                                       const extraDayDatesForDoc = allExtraDayDates.slice(1);
                                       const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
@@ -3138,7 +3150,7 @@ const Analytics = () => {
                                       const payPeriod = format(monthDate, "MMMM, yyyy");
 
                                       // Get dates for extra/lost days
-                                      const allExtraDayDates = stat.userId ? extraDayDatesByUser[stat.userId] || [] : [];
+                                      const allExtraDayDates = extraDayDatesByUser[stat.userId || stat.name] || [];
                                       const extraDayDatesForDoc = allExtraDayDates.slice(1);
                                       const lostDayDatesForDoc = stat.userId ? (lostDayDatesByUser[stat.userId] || []) : (lostDayDatesByUser[stat.name] || []);
 
@@ -3240,7 +3252,7 @@ const Analytics = () => {
                             })}
                                 </TableCell>
                                 <TableCell className="text-right text-green-600">
-                                  {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && stat.userId ? (
+                                  {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
                                     <Popover>
                                       <PopoverTrigger asChild>
                                         <button className="cursor-pointer hover:underline font-medium">
@@ -3251,8 +3263,9 @@ const Analytics = () => {
                                         <div className="space-y-2">
                                           <p className="text-xs font-medium text-muted-foreground">Extra Days</p>
                                           {(() => {
-                                            const allDates = extraDayDatesByUser[stat.userId!] || [];
-                                            const allRaw = extraDayRawDatesByUser[stat.userId!] || [];
+                                            const extraKey = stat.userId || stat.name;
+                                            const allDates = extraDayDatesByUser[extraKey] || [];
+                                            const allRaw = extraDayRawDatesByUser[extraKey] || [];
                                             const extraDates = allDates.slice(1);
                                             const extraRaw = allRaw.slice(1);
                                             return (
@@ -3263,20 +3276,25 @@ const Analytics = () => {
                                                     <span className="text-sm">{d}</span>
                                                     <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive" onClick={async () => {
                                                       const rawDate = extraRaw[i];
-                                                      if (!rawDate || !stat.userId) return;
-                                                      await supabase.from("afterhours_schedule").delete().eq("user_id", stat.userId).eq("scheduled_date", rawDate);
+                                                      if (!rawDate) return;
+                                                      if (stat.userId) {
+                                                        await supabase.from("afterhours_schedule").delete().eq("user_id", stat.userId).eq("scheduled_date", rawDate);
+                                                      } else {
+                                                        await supabase.from("afterhours_schedule").delete().eq("dispatcher_name", stat.name).is("user_id", null).eq("scheduled_date", rawDate);
+                                                      }
+                                                      const extraKey = stat.userId || stat.name;
                                                       // Re-fetch
-                                                      setExtraDaysByUser(prev => ({ ...prev, [stat.userId!]: Math.max(0, (prev[stat.userId!] || 0) - 1) }));
+                                                      setExtraDaysByUser(prev => ({ ...prev, [extraKey]: Math.max(0, (prev[extraKey] || 0) - 1) }));
                                                       setExtraDayDatesByUser(prev => {
-                                                        const updated = [...(prev[stat.userId!] || [])];
+                                                        const updated = [...(prev[extraKey] || [])];
                                                         // Remove the corresponding date from allDates (index + 1 because of slice)
                                                         updated.splice(i + 1, 1);
-                                                        return { ...prev, [stat.userId!]: updated };
+                                                        return { ...prev, [extraKey]: updated };
                                                       });
                                                       setExtraDayRawDatesByUser(prev => {
-                                                        const updated = [...(prev[stat.userId!] || [])];
+                                                        const updated = [...(prev[extraKey] || [])];
                                                         updated.splice(i + 1, 1);
-                                                        return { ...prev, [stat.userId!]: updated };
+                                                        return { ...prev, [extraKey]: updated };
                                                       });
                                                     }}>
                                                       <XCircle className="h-3.5 w-3.5" />
@@ -3290,17 +3308,29 @@ const Analytics = () => {
                                                     className="h-7 text-xs"
                                                     onChange={async (e) => {
                                                       const val = e.target.value;
-                                                      if (!val || !stat.userId) return;
+                                                      if (!val) return;
                                                       // Check if already exists
                                                       const existing = extraRaw.includes(val) || (allRaw.length > 0 && allRaw[0] === val);
                                                       if (existing) { toast.error("Date already added"); return; }
-                                                      await supabase.from("afterhours_schedule").insert({ user_id: stat.userId, scheduled_date: val });
+                                                      // Insert: use user_id for active users, dispatcher_name for deleted users
+                                                      if (stat.userId) {
+                                                        await supabase.from("afterhours_schedule").insert({ user_id: stat.userId, scheduled_date: val, dispatcher_name: stat.name });
+                                                      } else {
+                                                        await supabase.from("afterhours_schedule").insert({ scheduled_date: val, dispatcher_name: stat.name });
+                                                      }
                                                       // Optimistic update - refetch to recalculate properly
                                                       const mp = selectedMonth.split("-");
                                                       const y = parseInt(mp[0]); const m = parseInt(mp[1]) - 1;
                                                       const fd = format(new Date(y, m, 1), "yyyy-MM-dd");
                                                       const ld = format(new Date(y, m + 1, 0), "yyyy-MM-dd");
-                                                      const { data: freshData } = await supabase.from("afterhours_schedule").select("user_id, scheduled_date").gte("scheduled_date", fd).lte("scheduled_date", ld).eq("user_id", stat.userId);
+                                                      let freshData: any[] | null = null;
+                                                      if (stat.userId) {
+                                                        const res = await supabase.from("afterhours_schedule").select("user_id, scheduled_date, dispatcher_name").gte("scheduled_date", fd).lte("scheduled_date", ld).eq("user_id", stat.userId);
+                                                        freshData = res.data;
+                                                      } else {
+                                                        const res = await supabase.from("afterhours_schedule").select("user_id, scheduled_date, dispatcher_name").gte("scheduled_date", fd).lte("scheduled_date", ld).eq("dispatcher_name", stat.name).is("user_id", null);
+                                                        freshData = res.data;
+                                                      }
                                                       if (freshData) {
                                                         // Recalculate for this user
                                                         let wkendCount = 0, wkdayCount = 0;
@@ -3322,9 +3352,9 @@ const Analytics = () => {
                                                           dates = [wkendDates[0], ...[...wkdayDates, ...wkendDates.slice(1)].sort(sortFn)];
                                                           raw = [wkendRaw[0], ...[...wkdayRaw, ...wkendRaw.slice(1)].sort()];
                                                         } else { dates = wkdayDates; raw = wkdayRaw; }
-                                                        setExtraDaysByUser(prev => ({ ...prev, [stat.userId!]: extra }));
-                                                        setExtraDayDatesByUser(prev => ({ ...prev, [stat.userId!]: dates }));
-                                                        setExtraDayRawDatesByUser(prev => ({ ...prev, [stat.userId!]: raw }));
+                                                        setExtraDaysByUser(prev => ({ ...prev, [extraKey]: extra }));
+                                                        setExtraDayDatesByUser(prev => ({ ...prev, [extraKey]: dates }));
+                                                        setExtraDayRawDatesByUser(prev => ({ ...prev, [extraKey]: raw }));
                                                       }
                                                       e.target.value = "";
                                                     }}
@@ -3383,7 +3413,7 @@ const Analytics = () => {
                                                     </Button>
                                                   </div>
                                                 ))}
-                                                {stat.userId && (
+                                                {(
                                                   <div className="border-t pt-2 mt-2">
                                                     <p className="text-xs font-medium text-muted-foreground mb-1">Add date</p>
                                                     <Input
@@ -3391,12 +3421,13 @@ const Analytics = () => {
                                                       className="h-7 text-xs"
                                                       onChange={async (e) => {
                                                         const val = e.target.value;
-                                                        if (!val || !stat.userId) return;
+                                                        if (!val) return;
                                                         if (rawDates.includes(val)) { toast.error("Date already added"); return; }
                                                         // Get dispatcher name from profiles
                                                         const dispName = stat.name;
+                                                        const dispatcherId = stat.userId || stat.name;
                                                         await supabase.from("dispatcher_off_duty_days").insert({
-                                                          dispatcher_id: stat.userId,
+                                                          dispatcher_id: dispatcherId,
                                                           off_duty_date: val,
                                                           dispatcher_name: dispName,
                                                         });
