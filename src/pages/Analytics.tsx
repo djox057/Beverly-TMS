@@ -2794,8 +2794,8 @@ const Analytics = () => {
                           <TableHead className="text-right">Total Freight</TableHead>
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
-                        <TableHead className="text-right">Days Off</TableHead>
-                        {profile?.office !== "BEOGRAD" && <TableHead className="text-right">Food</TableHead>}
+                        {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
+                        {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableHead className="text-right">Food</TableHead>}
                         <TableHead className="text-right">Additionals</TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
@@ -2845,7 +2845,13 @@ const Analytics = () => {
                         const bonusAmount = bonusInfo?.amount ?? 0;
                         const bonusRank = bonusInfo?.rank ?? 0;
 
-                        // Store for bulk action - store baseRate only (Total Freight * 0.01 + Total Comm. * 0.05)
+                        // Calculate per-day rate and components for full total
+                        const perDayRate = workDaysInMonth > 0 ? baseRate / workDaysInMonth : 0;
+                        const extraDaysAmount = extraDays * perDayRate;
+                        const daysOffDeduction = lostDays * perDayRate;
+                        const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
+
+                        // Store for bulk action
                         if (stat.userId) {
                           calculatedSalaries[stat.userId] = baseRate;
                         }
@@ -3249,8 +3255,8 @@ const Analytics = () => {
                                     extraDays > 0 ? `+${extraDays}` : extraDays
                                   )}
                                 </TableCell>
-                                <TableCell className="text-right text-red-600">
-                                  {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
+                                {!isDispatchOnly && <TableCell className="text-right text-red-600">
+                                  {selectedMonth && selectedMonth !== "all" ? (
                                     <Popover>
                                       <PopoverTrigger asChild>
                                         <button className="cursor-pointer hover:underline font-medium">
@@ -3336,8 +3342,8 @@ const Analytics = () => {
                                   ) : (
                                     lostDays > 0 ? `-${lostDays}` : lostDays
                                   )}
-                                </TableCell>
-                                {profile?.office !== "BEOGRAD" && <TableCell className="text-right">
+                                </TableCell>}
+                                {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableCell className="text-right">
                                   {stat.office === "BEOGRAD" ? "$0" : "$70"}
                                 </TableCell>}
                                 <TableCell className="text-right">
@@ -3410,11 +3416,11 @@ const Analytics = () => {
                               +
                               {dispatcherStats.reduce((sum, s) => sum + (s.userId ? extraDaysByUser[s.userId] || 0 : 0), 0)}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-red-600">
+                            {!isDispatchOnly && <TableCell className="text-right font-bold text-red-600">
                               -
                               {dispatcherStats.reduce((sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0), 0)}
-                            </TableCell>
-                            {profile?.office !== "BEOGRAD" && <TableCell className="text-right font-bold">
+                            </TableCell>}
+                            {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableCell className="text-right font-bold">
                               ${dispatcherStats.reduce((sum, s) => sum + (s.office === "BEOGRAD" ? 0 : 70), 0)}
                             </TableCell>}
                             <TableCell className="text-right font-bold">—</TableCell>
@@ -3453,17 +3459,40 @@ const Analytics = () => {
 
                     {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && <Button className="w-full mt-3" size="sm" onClick={() => {
                 // Recalculate salaries for bulk action
-                // Recalculate salaries for bulk action - use simple base rate only
+                // Recalculate salaries for bulk action - use full total
                 const calculatedSalaries: Record<string, number> = {};
                 const adjustedSalaries: Record<string, number> = {};
+                
+                // Calculate work days for the selected month
+                let bulkWorkDays = 22;
+                if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+                  const parts = selectedMonth.split("-");
+                  if (parts.length === 2) {
+                    const year = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10);
+                    if (!isNaN(year) && !isNaN(month)) {
+                      bulkWorkDays = getWorkDaysInMonth(year, month - 1);
+                    }
+                  }
+                }
+                
                 dispatcherStats.forEach(stat => {
                   if (stat.userId) {
-                    // Simple base rate: Total Freight * 0.01 + Total Comm. * 0.05
                     const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-
-                    // Store base rate as both calculated and adjusted salary
+                    const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
+                    const extraDays = extraDaysByUser[stat.userId] || 0;
+                    const lostDays = lostDaysByUser[stat.userId] || 0;
+                    const extraDaysAmount = extraDays * perDayRate;
+                    const daysOffDeduction = lostDays * perDayRate;
+                    const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
+                    const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
+                    const payment = salaryPayments[stat.userId];
+                    const adj = payment?.additionals as any[] | null;
+                    const adjustmentsTotal = adj ? adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0) : 0;
+                    
+                    const fullTotal = baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmt + adjustmentsTotal;
                     calculatedSalaries[stat.userId] = baseRate;
-                    adjustedSalaries[stat.userId] = baseRate;
+                    adjustedSalaries[stat.userId] = fullTotal;
                   }
                 });
                 markSelectedAsPaid(calculatedSalaries, adjustedSalaries);
