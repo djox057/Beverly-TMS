@@ -507,7 +507,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                           id={`pto-${date}`}
                           checked={ptoSelections[date] || false}
                           onCheckedChange={(checked) => handlePtoToggle(date, checked as boolean)}
-                          disabled={!ptoSelections[date] && remainingPtoDays - currentMonthPtoSelected <= 0}
+                          disabled={!ptoSelections[date] && remainingPtoDays <= 0}
                         />
                         <Label htmlFor={`pto-${date}`} className="text-sm cursor-pointer">
                           {date} {ptoSelections[date] && <span className="text-green-600">(PTO)</span>}
