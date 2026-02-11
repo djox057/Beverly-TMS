@@ -157,7 +157,7 @@ const Analytics = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver">("totalFreight");
+  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover">("totalFreight");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -302,7 +302,36 @@ const Analytics = () => {
     updatePerformance
   } = useDriverPerformance();
 
-  // Merge database data with local state
+  // Fetch terminated drivers for turnover column
+  const turnoverFromDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : null;
+  const turnoverToDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : turnoverFromDate;
+  const { data: turnoverData } = useQuery({
+    queryKey: ["dispatcher-turnover", turnoverFromDate, turnoverToDate],
+    queryFn: async () => {
+      if (!turnoverFromDate) return [];
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("last_dispatcher_id")
+        .eq("is_active", false)
+        .not("last_dispatcher_id", "is", null)
+        .gte("termination_date", turnoverFromDate)
+        .lte("termination_date", turnoverToDate!);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!turnoverFromDate,
+  });
+
+  // Build turnover lookup map: dispatcher user_id -> count
+  const turnoverMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    (turnoverData || []).forEach((d: any) => {
+      const id = d.last_dispatcher_id;
+      if (id) map[id] = (map[id] || 0) + 1;
+    });
+    return map;
+  }, [turnoverData]);
+
   const driverTiers = useMemo(() => performanceData, [performanceData]);
 
   // Create a Set of company driver IDs for analytics calculations
@@ -1243,7 +1272,8 @@ const Analytics = () => {
       avgDhMiles,
       avgWeeklyGrossPerDriver,
       office: dispatcherProfile?.office || "Unknown",
-      avgTrucks
+      avgTrucks,
+      turnover: turnoverMap[validUserId] || 0
     };
   }).filter(stat => {
     const dispatcherProfile = dispatcherProfiles[stat.name];
@@ -1702,7 +1732,7 @@ const Analytics = () => {
       notice
     });
   }, [driverTiers, updatePerformance]);
-  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver") => {
+  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
@@ -2273,6 +2303,9 @@ const Analytics = () => {
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
                             Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("turnover")}>
+                            Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2317,6 +2350,9 @@ const Analytics = () => {
                               </TableCell>
                               {!isDispatchOnly && <TableCell className="text-right">
                                 ${stat.avgWeeklyGrossPerDriver.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </TableCell>}
+                              {!isDispatchOnly && <TableCell className="text-right">
+                                {stat.turnover > 0 ? stat.turnover : "-"}
                               </TableCell>}
                             </TableRow>;
                     })}
