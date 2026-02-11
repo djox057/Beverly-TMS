@@ -3745,6 +3745,14 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"][]
       }
       bulk_update_hos: { Args: { updates: Json }; Returns: number }
+      calculate_empty_days_by_dispatcher: {
+        Args: { p_end_date: string; p_office?: string; p_start_date: string }
+        Returns: {
+          dispatcher_id: string
+          empty_day_count: number
+          office: string
+        }[]
+      }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json

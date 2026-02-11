@@ -210,45 +210,29 @@ async function fetchDailyStatsByOffice(
 /**
  * Fetch daily driver stats grouped by dispatcher
  */
-async function fetchDailyStatsByDispatcher(
+async function fetchEmptyDaysByDispatcher(
   startDate: string,
   endDate: string,
   office?: string
 ): Promise<DispatcherDailyStats[]> {
-  let query = supabase
-    .from("daily_driver_stats")
-    .select("*")
-    .gte("date", startDate)
-    .lte("date", endDate);
-
-  if (office) {
-    query = query.eq("office", office);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc(
+    'calculate_empty_days_by_dispatcher' as any,
+    {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_office: office || null,
+    }
+  );
 
   if (error) throw error;
 
-  // Group by dispatcher
-  const dispatcherMap = new Map<string, DispatcherDailyStats>();
-
-  (data || []).forEach((row: DailyDriverStat) => {
-    if (!dispatcherMap.has(row.dispatcher_id)) {
-      dispatcherMap.set(row.dispatcher_id, {
-        dispatcher_id: row.dispatcher_id,
-        office: row.office,
-        lost_day_count: 0,
-        home_time_count: 0,
-        reschedule_count: 0,
-      });
-    }
-    const stats = dispatcherMap.get(row.dispatcher_id)!;
-    if (row.has_lost_day) stats.lost_day_count++;
-    if (row.has_home_time) stats.home_time_count++;
-    if (row.has_reschedule) stats.reschedule_count++;
-  });
-
-  return Array.from(dispatcherMap.values());
+  return (data || []).map((row: any) => ({
+    dispatcher_id: row.dispatcher_id,
+    office: row.office,
+    lost_day_count: Number(row.empty_day_count),
+    home_time_count: 0,
+    reschedule_count: 0,
+  }));
 }
 
 /**
@@ -414,7 +398,7 @@ export const useDailyDriverStatsByDispatcher = (
 ) => {
   return useQuery({
     queryKey: ["daily-driver-stats-by-dispatcher", startDate, endDate, office],
-    queryFn: () => fetchDailyStatsByDispatcher(startDate, endDate, office),
+    queryFn: () => fetchEmptyDaysByDispatcher(startDate, endDate, office),
     staleTime: 60000,
   });
 };
