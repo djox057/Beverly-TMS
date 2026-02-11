@@ -1,69 +1,62 @@
 
 
-## Add "Turnover" Column to Dispatcher Performance Table
+## Add "Empty Days" Column + Fix Display Consistency
 
-### What it shows
-For each dispatcher, the count of drivers whose `last_dispatcher_id` matches that dispatcher and whose `termination_date` falls within the currently selected date range. This uses the `last_dispatcher_id` column and trigger already in place.
+### Changes (all in `src/pages/Analytics.tsx`)
 
-### Implementation
+**1. Import the hook**
+Add import for `useDailyDriverStatsByDispatcher` from `@/hooks/useDailyDriverStats`.
 
-**1. New query -- fetch terminated drivers grouped by dispatcher (src/pages/Analytics.tsx)**
-
-Add a `useQuery` hook that fetches from the `drivers` table:
+**2. Call the hook (~line 333, after turnoverMap)**
+```typescript
+const { data: dispatcherDailyStats } = useDailyDriverStatsByDispatcher(
+  turnoverFromDate || "", turnoverToDate || "",
+  selectedOffices.length === 1 ? selectedOffices[0] : undefined
+);
 ```
-SELECT last_dispatcher_id, COUNT(*) 
-FROM drivers 
-WHERE is_active = false 
-  AND last_dispatcher_id IS NOT NULL 
-  AND termination_date >= dateRange.from 
-  AND termination_date <= dateRange.to
-GROUP BY last_dispatcher_id
+Reuses existing `turnoverFromDate`/`turnoverToDate` strings (already "YYYY-MM-DD" format). When date range not set, passes empty strings which will return no data -- the hook's query returns empty array, lookup defaults to 0.
+
+**3. Build empty days lookup map (after the hook call)**
+```typescript
+const emptyDaysMap = useMemo(() => {
+  const map: Record<string, number> = {};
+  (dispatcherDailyStats || []).forEach(s => {
+    map[s.dispatcher_id] = (map[s.dispatcher_id] || 0) + s.lost_day_count;
+  });
+  return map;
+}, [dispatcherDailyStats]);
 ```
+Note: `lost_day_count` already includes reschedule-added days per the walkback algorithm.
 
-This will be implemented as a Supabase client query, filtering by `termination_date` range and grouping in JS (since Supabase JS client doesn't support GROUP BY directly). The query key will include the date range so it re-fetches when the range changes.
+**4. Merge into dispatcherStats (~line 1276)**
+Add `emptyDays: emptyDaysMap[validUserId] || 0` alongside the existing `turnover` field.
 
-**2. Build a lookup map**
+**5. Extend sort type and handleSort**
+- Add `"emptyDays"` to the `sortBy` union type (line 160)
+- Add `"emptyDays"` to `handleSort` column type (line 1735)
 
-Convert the query result into a `Record<string, number>` mapping `last_dispatcher_id` (user_id) to the count of terminated drivers.
-
-**3. Merge into dispatcherStats**
-
-In the `dispatcherStats` map function (line ~1205), add a `turnover` field by looking up `stat.userId` in the turnover map. Default to 0 if not found.
-
-**4. Add sortable column header (line ~2275, after Avg Wk Gross/Dr)**
-
+**6. Add column header (after Turnover header, ~line 2308)**
 ```tsx
-{!isDispatchOnly && (
-  <TableHead className="text-right cursor-pointer hover:bg-muted/50" 
-    onClick={() => handleSort("turnover")}>
-    Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "down" : "up")}
-  </TableHead>
-)}
+{!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("emptyDays")}>
+  Empty Days {sortBy === "emptyDays" && (sortDirection === "desc" ? "down" : "up")}
+</TableHead>}
 ```
 
-**5. Add table cell (line ~2320, after Avg Wk Gross/Dr cell)**
-
+**7. Add table cell (after Turnover cell, ~line 2356)**
 ```tsx
-{!isDispatchOnly && (
-  <TableCell className="text-right">
-    {stat.turnover > 0 ? stat.turnover : "-"}
-  </TableCell>
-)}
+{!isDispatchOnly && <TableCell className="text-right">
+  {stat.emptyDays > 0 ? stat.emptyDays : "-"}
+</TableCell>}
 ```
 
-**6. Extend sort state and handleSort**
+### Display consistency
+Turnover and Empty Days both show "-" for zero (count metrics). Avg DH and Avg Wk Gross/Dr show "0" / "$0" for zero (rate/dollar metrics). This distinction is intentional -- count metrics showing "-" means "none" while rate metrics showing 0 is mathematically meaningful.
 
-- Line ~160: Add `"turnover"` to the `sortBy` union type
-- Line ~1705: Add `"turnover"` to the `handleSort` column union type
-
-### Behavior
-- Counts terminations within the selected date range (consistent with all other columns)
-- Shows "-" when count is 0 for cleaner readability
-- Hidden from dispatch-only users (same pattern as Avg DH and Avg Wk Gross/Dr)
-- Only counts drivers that have `last_dispatcher_id` set (i.e., future terminations after the trigger was deployed)
+### Caveat
+Today's empty days won't appear until the nightly snapshot runs at 23:59 Chicago time. For date ranges that include today, the count will be missing today's data. This is acceptable for a performance review metric.
 
 ### Files modified
 | File | Change |
 |------|--------|
-| `src/pages/Analytics.tsx` | Add useQuery for terminated drivers, merge turnover into dispatcherStats, add column header + cell, extend sort types |
+| `src/pages/Analytics.tsx` | Import hook, call it, build lookup, merge into stats, add column + cell, extend sort |
 
