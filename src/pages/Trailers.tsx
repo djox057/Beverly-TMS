@@ -149,7 +149,7 @@ const Trailers = () => {
         data: trailerData,
         error: trailerError
       } = await supabase.from('trailers').insert({
-        trailer_number: formData.trailer_number,
+        trailer_number: formData.trailer_number?.trim(),
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
         dot_inspection_date: formData.dot_inspection_date || null,
