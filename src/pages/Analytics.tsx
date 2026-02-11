@@ -157,7 +157,7 @@ const Analytics = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent">("totalFreight");
+  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver">("totalFreight");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -1173,6 +1173,11 @@ const Analytics = () => {
     }
   };
   // Calculate dispatcher analytics
+  // Shared daysInPeriod for both dispatcherStats and fleetAverages
+  const daysInPeriod = dateRange?.from
+    ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 1;
+
   const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
     const dispatcher = order.bookedBy || "Unknown";
     if (!acc[dispatcher]) {
@@ -1180,29 +1185,34 @@ const Analytics = () => {
         totalFreight: 0,
         totalDriverRate: 0,
         totalMiles: 0,
+        totalDhMiles: 0,
         orderCount: 0
       };
     }
     acc[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
     acc[dispatcher].totalDriverRate += getEffectiveDriverPay(order);
     acc[dispatcher].totalMiles += Number(order.mileage) || 0;
+    acc[dispatcher].totalDhMiles += Number(order.dhMiles) || 0;
     acc[dispatcher].orderCount += 1;
     return acc;
   }, {} as Record<string, {
     totalFreight: number;
     totalDriverRate: number;
     totalMiles: number;
+    totalDhMiles: number;
     orderCount: number;
   }>);
   const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]: [string, {
     totalFreight: number;
     totalDriverRate: number;
     totalMiles: number;
+    totalDhMiles: number;
     orderCount: number;
   }]) => {
     const cut = stats.totalFreight - stats.totalDriverRate;
     const cutPercent = stats.totalFreight > 0 ? cut / stats.totalFreight * 100 : 0;
     const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+    const avgDhMiles = stats.orderCount > 0 ? stats.totalDhMiles / stats.orderCount : 0;
     const dispatcherProfile = dispatcherProfiles[name];
 
     // Get dispatcher user_id from the profile - name can be either full_name or user_id
@@ -1210,6 +1220,12 @@ const Analytics = () => {
     const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
     // Use daysCount (actual recorded days) for averaging to avoid dilution by missing/future days
     const avgTrucks = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
+
+    // Average weekly gross per driver
+    const weeksInPeriod = Math.max(1, daysInPeriod / 7);
+    const avgWeeklyGrossPerDriver = avgTrucks > 0
+      ? stats.totalFreight / avgTrucks / weeksInPeriod
+      : 0;
 
     // Validate userId is a valid UUID before storing
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1224,6 +1240,8 @@ const Analytics = () => {
       cut,
       cutPercent,
       ratePerMile,
+      avgDhMiles,
+      avgWeeklyGrossPerDriver,
       office: dispatcherProfile?.office || "Unknown",
       avgTrucks
     };
@@ -1335,8 +1353,7 @@ const Analytics = () => {
     }
 
     // Calculate days in period
-    const daysInPeriod = dateRange?.from ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
-    const weeksInPeriod = Math.max(1, daysInPeriod / 7);
+    const fleetWeeksInPeriod = Math.max(1, daysInPeriod / 7);
 
     // Sum up totals across all dispatchers for the period
     // totalTrucks represents the SUM of all daily truck counts (for Coverage% calculation)
@@ -1364,8 +1381,8 @@ const Analytics = () => {
     const avgMilesPerTruck = totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks : 0;
 
     // Weekly averages (for periods > 7 days, divide by weeks; otherwise use total)
-    const weeklyAvgGrossPerTruck = daysInPeriod > 7 ? totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks / weeksInPeriod : 0 : avgGrossPerTruck;
-    const weeklyAvgMilesPerTruck = daysInPeriod > 7 ? totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks / weeksInPeriod : 0 : avgMilesPerTruck;
+    const weeklyAvgGrossPerTruck = daysInPeriod > 7 ? totalAvgTrucks > 0 ? totals.totalFreight / totalAvgTrucks / fleetWeeksInPeriod : 0 : avgGrossPerTruck;
+    const weeklyAvgMilesPerTruck = daysInPeriod > 7 ? totalAvgTrucks > 0 ? totals.totalMiles / totalAvgTrucks / fleetWeeksInPeriod : 0 : avgMilesPerTruck;
     return {
       truckCount: totalAvgTrucks,
       driverCount: totalAvgDrivers,
@@ -1685,7 +1702,7 @@ const Analytics = () => {
       notice
     });
   }, [driverTiers, updatePerformance]);
-  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
+  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
@@ -2242,6 +2259,9 @@ const Analytics = () => {
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ratePerMile")}>
                             Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgDhMiles")}>
+                            Avg DH {sortBy === "avgDhMiles" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>}
 
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cut")}>
                             Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
@@ -2250,6 +2270,9 @@ const Analytics = () => {
                             Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
                           <TableHead className="text-right">Avg Trucks</TableHead>
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
+                            Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2279,6 +2302,7 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                               <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                              {!isDispatchOnly && <TableCell className="text-right">{stat.avgDhMiles.toFixed(0)}</TableCell>}
 
                               <TableCell className="text-right">
                                 $
@@ -2291,6 +2315,9 @@ const Analytics = () => {
                               <TableCell className="text-right">
                                 {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
                               </TableCell>
+                              {!isDispatchOnly && <TableCell className="text-right">
+                                ${stat.avgWeeklyGrossPerDriver.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </TableCell>}
                             </TableRow>;
                     })}
                       </TableBody>
