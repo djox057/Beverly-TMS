@@ -1,59 +1,39 @@
 
 
-## Salaries Tab Changes for Dispatchers
+## Stagger All Frequent Cron Jobs to Eliminate CPU Spikes
 
-### What Changes
+### Problem
+Three jobs currently collide at minutes 0 and 30:
+- **Job 16** (`get-truck-distances-batch`): `*/5` -- fires at 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55
+- **Job 18** (`hos-sync`): `*/3` -- fires at 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30...
+- **Job 21** (`sync-google-sheets`): `*/30` -- fires at 0, 30
 
-**1. Hide "Days Off" and "Food" columns for dispatchers**
-Dispatchers will no longer see these two columns. Admin/Manager/Accounting users see everything as before.
+Simply moving Job 21 to 15,45 just shifts the bottleneck from 0/30 to 15/45 (where Job 16 also fires).
 
-**2. Paid column shows the full total as a frozen snapshot**
-When a dispatcher is marked as paid, the system will store the **complete total** (base salary + extra days + food - days off + bonuses + adjustments) as the `paid_amount`. This value is frozen at the time of payment and will NOT change even if the underlying salary increases later.
+### Solution -- Offset Each Job
 
-### How It Works (Examples)
+| Job | Current Schedule | New Schedule | Fires At |
+|-----|-----------------|--------------|----------|
+| 16 (truck-distances) | `*/5 * * * *` (0,5,10...) | `2,7,12,17,22,27,32,37,42,47,52,57 * * * *` | Offset by +2 min |
+| 18 (hos-sync) | `*/3 * * * *` (0,3,6...) | `1,4,7,10,13,16,19,22,25,28,31,34,37,40,43,46,49,52,55,58 * * * *` | Offset by +1 min |
+| 21 (sync-google-sheets) | `*/30 * * * *` (0,30) | `15,45 * * * *` | Offset by +15 min |
 
-**Scenario: Dispatcher "John" - January 2026**
-- Total Freight: $100,000 --> 1% = $1,000
-- Total Commission: $20,000 --> 5% = $1,000
-- Base rate = $2,000
-- 22 work days, per-day rate = $90.91
-- 1 Extra Day = +$90.91
-- 1 Day Off = -$90.91
-- Food Allowance: $70
-- Dispatcher Bonus: $50
-- Adjustments: +$100 (extra pay), -$20 (charge)
+### Collision Check
 
-**At time of payment:**
-Paid = $2,000 + $90.91 - $90.91 + $70 + $50 + $100 - $20 = **$2,200**
-This $2,200 is stored in the database as `paid_amount`.
+With this staggering, no two jobs ever fire at the same minute:
+- Job 16 fires at: 2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57
+- Job 18 fires at: 1, 4, 10, 13, 16, 19, 25, 28, 31, 34, 40, 43, 46, 49, 55, 58
+- Job 21 fires at: 15, 45
 
-**After payment, a new load is added (Total Freight becomes $110,000):**
-- Salary column updates to show new base: $2,100
-- Paid column stays at **$2,200** (the stored snapshot -- does NOT recalculate)
-
-**Dispatcher view (Days Off and Food hidden):**
-
-| Dispatcher | Total Freight | Total Comm. | Extra | Additionals | Salary | Paid |
-|---|---|---|---|---|---|---|
-| John | $110,000 | $20,000 | +1 | +$80 | $2,100 | $2,200 |
-
-**Admin view (unchanged, all columns visible):**
-
-| Dispatcher | Total Freight | Total Comm. | Extra | Days Off | Food | Additionals | Salary | Paid |
-|---|---|---|---|---|---|---|---|---|
-| John | $110,000 | $20,000 | +1 | -1 | $70 | +$80 | $2,100 | $2,200 |
+No overlaps at all.
 
 ### Technical Details
 
-**File: `src/pages/Analytics.tsx`**
+A single SQL migration will:
+1. Unschedule Job 16 (`get-truck-distances-batch-every-5-min`)
+2. Unschedule Job 18 (`hos-sync-every-minute`)
+3. Unschedule Job 21 (`sync-google-sheets-every-30min`)
+4. Reschedule all three with their new offset cron expressions, keeping the same HTTP calls and headers
 
-1. **Update "Mark as Paid" logic (~line 915-918)**: Change `paid_amount` calculation from just `baseRate` to include all components:
-   - `baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmount + adjustmentsTotal`
-   - This makes the stored snapshot contain the full total
-
-2. **Hide columns for dispatchers**: Wrap "Days Off" `TableHead`/`TableCell` and "Food" `TableHead`/`TableCell` with `{!isDispatchOnly && ...}` conditions
-
-3. **Paid column display**: No change needed here -- it already displays the stored `paid_amount`, which will now contain the full total since we changed what gets stored
-
-4. **Totals row**: Hide Days Off and Food total cells for dispatchers with `{!isDispatchOnly && ...}`
+The infrequent jobs (9, 14, 15, 17) run once daily and don't need changes.
 
