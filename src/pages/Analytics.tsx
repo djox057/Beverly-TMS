@@ -1280,10 +1280,10 @@ const Analytics = () => {
     const avgTrucks = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
     const avgDrivers = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalDrivers / truckCountData.daysCount : 0;
 
-    // Average weekly gross per driver: totalFreight / avgDrivers / weeksInPeriod
+    // Average weekly gross per driver: totalFreight / avgTrucks / weeksInPeriod
     const weeksInPeriod = Math.max(1, daysInPeriod / 7);
-    const avgWeeklyGrossPerDriver = avgDrivers > 0
-      ? stats.totalFreight / avgDrivers / weeksInPeriod
+    const avgWeeklyGrossPerDriver = avgTrucks > 0
+      ? stats.totalFreight / avgTrucks / weeksInPeriod
       : 0;
 
     // Validate userId is a valid UUID before storing
