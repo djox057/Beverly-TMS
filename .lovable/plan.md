@@ -1,40 +1,33 @@
 
 
-## Fix: Avg Wk Gross/Dr inflated weeks for current/future months
+## Fix: Reports Page Realtime Updates Not Working
 
-### Problem
-When selecting a month that includes today (e.g., February while it's Feb 12), `daysInPeriod` uses the full calendar range (28 days for Feb), producing `weeksInPeriod = 4`. But only ~12 days of data exist, so dividing by 4 weeks instead of ~1.7 makes the metric artificially low.
+All changes are in `src/hooks/useReportsDateWindowAdapter.ts`.
 
-### Root Cause
-`daysInPeriod` on line 1233-1234 calculates:
-```
-Math.ceil((dateRange.to - dateRange.from) / oneDay) + 1
-```
-When "February" is selected, `dateRange.to` is Feb 28, even though today is Feb 12. The freight data only covers Feb 1-12, but it gets divided over 4 full weeks.
+### Fix 1: Truck notes cache key mismatch
 
-### Fix
-Cap `dateRange.to` at today's date when calculating `daysInPeriod`. This way, if the selected range extends into the future, only elapsed days are counted.
+The `adapter-truck-notes` query key has 3 elements: `["adapter-truck-notes", priorityOffice, modeKeySuffix]`. The realtime handler currently patches with only 2 elements, so `setQueryData` never matches.
 
-### Technical Changes
+**Change**: Update the truck_notes realtime `setQueryData` call to include `modeKeySuffixRef.current` as the third key element. Add a fallback `setQueriesData` with `exact: false` on `["adapter-truck-notes"]` for resilience.
 
-**File: `src/pages/Analytics.tsx`**
+### Fix 2: Add trucks and drivers realtime subscriptions
 
-**Line 1233-1235** -- Cap the end date at today:
-```typescript
-const today = new Date();
-const effectiveTo = dateRange?.to ? (dateRange.to > today ? today : dateRange.to) : (dateRange?.from || today);
-const daysInPeriod = dateRange?.from
-  ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  : 1;
-```
+The adapter subscribes to orders, pickup_drops, order_transfers, truck_notes, lost_day_notes, and order_files -- but NOT trucks or drivers. The legacy useReports hook had these but they are disabled when the adapter is active.
 
-**Line 2285** -- Same fix for the dispatch-role section:
-```typescript
-const today = new Date();
-const effectiveTo = dateRange?.to ? (dateRange.to > today ? today : dateRange.to) : (dateRange?.from || today);
-const daysInPeriod = dateRange?.from
-  ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  : 1;
-```
+**Change**: Add a new realtime channel (or extend the existing one) subscribing to `trucks` and `drivers` table changes. On change, debounce 1 second, then invalidate with office-scoped keys:
+- `["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current]`
+- `["adapter-drivers", priorityOfficeRef.current, modeKeySuffixRef.current]`
 
-This ensures that for February (while it's Feb 12), `daysInPeriod = 12` and `weeksInPeriod = 12/7 = 1.71`, giving the correct weekly average. For fully past months, the cap has no effect since `dateRange.to` is already before today.
+This uses refs (already kept current synchronously on line 854-855) to ensure the invalidation targets the correct cache entry for the active office/mode.
+
+### Fix 3: Lost day notes primary key consistency
+
+The lost_day_notes query key has 4 elements but the primary `setQueryData` uses only 3. Update to include the driver IDs ref as the 4th element, matching the full query key. The existing `setQueriesData` fallback with `exact: false` already works, so this is a consistency improvement.
+
+### Technical Details
+
+- `modeKeySuffixRef` is updated synchronously on render (line 855), not via useEffect, so it is always current when realtime callbacks fire
+- `priorityOfficeRef` follows the same pattern (line 854)
+- The 1-second debounce for trucks/drivers invalidation prevents query storms on bulk updates
+- No cache patching needed for trucks/drivers -- simple invalidation is sufficient since these are small datasets
+
