@@ -440,6 +440,10 @@ const Orders = () => {
   // 1. Active search → use search results
   // 2. Active filter → use server-side filtered results (sorted: unlocked first)
   // 3. No filters → use current page orders from hook (already just this page)
+  // cacheVersion bumped after optimistic paid/invoiced patches to force re-render
+  // (search/filter hooks use non-reactive getQueryData reads)
+  const [cacheVersion, setCacheVersion] = useState(0);
+
   const dataSource = useMemo(() => {
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
     if (isActiveSearch) {
@@ -464,7 +468,7 @@ const Orders = () => {
     }
     
     return currentPageOrdersFromHook || [];
-  }, [searchTerm, searchResults, currentPageOrdersFromHook, hasActiveFilter, filteredServerOrders, isFilteredLoading]);
+  }, [searchTerm, searchResults, currentPageOrdersFromHook, hasActiveFilter, filteredServerOrders, isFilteredLoading, cacheVersion]);
 
   // Filter orders based on search term and filters
   // When server-side filtering is active, skip most client-side filters
@@ -1034,10 +1038,20 @@ const Orders = () => {
       }).eq("id", pendingPaidOrder.id);
       if (error) throw error;
       toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
-      // Patch local progressive cache so locked orders update immediately
+      // Patch ALL order-related caches (progressive, search, filtered)
+      const allCaches = queryClient.getQueryCache().findAll({ queryKey: ["orders"], exact: false });
+      for (const cache of allCaches) {
+        queryClient.setQueryData(cache.queryKey, (old: any) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((o: any) => o.id === pendingPaidOrder.id ? { ...o, paid: newPaidStatus } : o);
+        });
+      }
+      // Also patch the progressive ref-based cache
       if (updateOrderLocally) {
         updateOrderLocally(pendingPaidOrder.id, { paid: newPaidStatus });
       }
+      // Force re-render for non-reactive search/filter hooks
+      setCacheVersion(v => v + 1);
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast.error("Failed to update paid status");
