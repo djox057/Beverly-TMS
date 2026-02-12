@@ -1435,11 +1435,13 @@ const Analytics = () => {
     const today = format(new Date(), "yyyy-MM-dd");
     const isCurrentDayOnly = dateRange?.from && format(dateRange.from, "yyyy-MM-dd") === today && (!dateRange.to || format(dateRange.to, "yyyy-MM-dd") === today);
 
-    // Get dispatchers in scope (filtered by office if applicable)
+    // Get dispatchers in scope (filtered by office if applicable, always exclude Recovery)
     const dispatchersInScope = Object.entries(dispatcherTruckCounts).filter(([dispatcherId]) => {
+      // Always exclude Recovery office dispatchers
+      const profile = Object.values(dispatcherProfiles).find(p => p.user_id === dispatcherId);
+      if (profile?.office === "Recovery") return false;
       // Filter by office
       if (selectedOffices.length > 0) {
-        const profile = Object.values(dispatcherProfiles).find(p => p.user_id === dispatcherId);
         if (!profile || !selectedOffices.includes(profile.office || '')) return false;
       }
       // Filter by supervisor
@@ -2380,23 +2382,26 @@ const Analytics = () => {
                   
                   {/* Expandable Extra Stats */}
                   {showExtraStats && !isDispatchOnly && (() => {
-                    const totalDhMiles = ordersForTotals.reduce((sum, o) => sum + (Number(o.dhMiles) || 0), 0);
-                    const avgDhMilesTotal = totals.orderCount > 0 ? totalDhMiles / totals.orderCount : 0;
+                    // Exclude recovery drivers from extra stats
+                    const nonRecoveryOrders = ordersForTotals.filter(o => !recoveryDriverNames.has(o.driverName));
+                    const nonRecoveryTotalDhMiles = nonRecoveryOrders.reduce((sum, o) => sum + (Number(o.dhMiles) || 0), 0);
+                    const nonRecoveryOrderCount = nonRecoveryOrders.length;
+                    const avgDhMilesTotal = nonRecoveryOrderCount > 0 ? nonRecoveryTotalDhMiles / nonRecoveryOrderCount : 0;
                     const displayTruckCount = finalFleetAverages.truckCount;
-                    const displayFreight = totals.totalFreight;
-                    const displayMiles = totals.totalMiles;
+                    const nonRecoveryFreight = nonRecoveryOrders.reduce((sum, o) => sum + (Number(o.totalFreightAmountNoLumper) || 0), 0);
+                    const nonRecoveryMiles = nonRecoveryOrders.reduce((sum, o) => sum + (Number(o.mileage) || 0), 0);
                     const localDaysInPeriod = dateRange?.from
                       ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
                       : 1;
                     const wkGrossPerTruck = displayTruckCount > 0
                       ? filterType === "week"
-                        ? displayFreight / displayTruckCount
-                        : displayFreight / displayTruckCount / localDaysInPeriod * 7
+                        ? nonRecoveryFreight / displayTruckCount
+                        : nonRecoveryFreight / displayTruckCount / localDaysInPeriod * 7
                       : 0;
                     const wkMilesPerTruck = displayTruckCount > 0
                       ? filterType === "week"
-                        ? displayMiles / displayTruckCount
-                        : displayMiles / displayTruckCount / localDaysInPeriod * 7
+                        ? nonRecoveryMiles / displayTruckCount
+                        : nonRecoveryMiles / displayTruckCount / localDaysInPeriod * 7
                       : 0;
                     return (
                       <div className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
