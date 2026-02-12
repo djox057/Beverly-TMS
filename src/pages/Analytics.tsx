@@ -211,6 +211,13 @@ const Analytics = () => {
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
+  const [showExtraStats, setShowExtraStats] = useState(false);
+  const [selectedSupervisor, setSelectedSupervisor] = useState<string>("all");
+  const [supervisorAssignments, setSupervisorAssignments] = useState<Record<string, string>>({});
+  const [supervisorNames, setSupervisorNames] = useState<Record<string, string>>({});
+  // Driver Analytics filters
+  const [driverAnalyticsOffices, setDriverAnalyticsOffices] = useState<string[]>([]);
+  const [driverAnalyticsSupervisor, setDriverAnalyticsSupervisor] = useState<string>("all");
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [extraDayDatesByUser, setExtraDayDatesByUser] = useState<Record<string, string[]>>({});
   const [extraDayRawDatesByUser, setExtraDayRawDatesByUser] = useState<Record<string, string[]>>({});
@@ -427,6 +434,29 @@ const Analytics = () => {
           });
         }
         setDispatcherProfiles(profileMap);
+
+        // Fetch supervisor assignments
+        const { data: supAssignments } = await supabase
+          .from("dispatcher_supervisors")
+          .select("dispatcher_id, supervisor_id");
+        if (supAssignments) {
+          const assignMap: Record<string, string> = {};
+          supAssignments.forEach((a: any) => {
+            assignMap[a.dispatcher_id] = a.supervisor_id;
+          });
+          setSupervisorAssignments(assignMap);
+
+          // Build supervisor names from profiles
+          const supNames: Record<string, string> = {};
+          const supervisorIds = [...new Set(supAssignments.map((a: any) => a.supervisor_id))];
+          supervisorIds.forEach(sid => {
+            const supProfile = profiles.find(p => p.user_id === sid);
+            if (supProfile) {
+              supNames[sid as string] = supProfile.full_name || supProfile.email;
+            }
+          });
+          setSupervisorNames(supNames);
+        }
       }
     };
     fetchProfiles();
@@ -1353,6 +1383,16 @@ const Analytics = () => {
     if (showOver100kGross && stat.totalFreight < 100000) {
       return false;
     }
+    // Filter by supervisor
+    if (selectedSupervisor !== "all") {
+      const dispatcherProfile = dispatcherProfiles[stat.name];
+      const dispatcherUserId = dispatcherProfile?.user_id;
+      if (!dispatcherUserId) return false;
+      // Show if this dispatcher is the supervisor themselves, or assigned to them
+      if (dispatcherUserId !== selectedSupervisor && supervisorAssignments[dispatcherUserId] !== selectedSupervisor) {
+        return false;
+      }
+    }
     return true;
   }).sort((a, b) => {
     const aValue = a[sortBy];
@@ -1968,6 +2008,14 @@ const Analytics = () => {
 
   // Filter and sort Driver Gross Rankings
   const filteredAndSortedRankings = useMemo(() => {
+    // Build driver name -> dispatcher user_id map for office/supervisor filtering
+    const driverNameToDispatcherId: Record<string, string> = {};
+    (drivers || []).forEach(d => {
+      if (d.name && d.dispatcher_id) {
+        driverNameToDispatcherId[d.name] = d.dispatcher_id;
+      }
+    });
+
     return driverGrossRankings.filter(driver => {
       // Exclude recovery drivers
       if (recoveryDriverNames.has(driver.name)) return false;
@@ -1981,6 +2029,22 @@ const Analytics = () => {
         const matchesName = driver.name.toLowerCase().includes(searchLower);
         const matchesTruck = driver.trucks.some(t => t.toLowerCase().includes(searchLower));
         if (!matchesName && !matchesTruck) return false;
+      }
+      // Filter by office in Driver Analytics
+      if (driverAnalyticsOffices.length > 0) {
+        const dispatcherId = driverNameToDispatcherId[driver.name];
+        if (!dispatcherId) return false;
+        const dProfile = Object.values(dispatcherProfiles).find(p => p.user_id === dispatcherId);
+        if (!dProfile || !driverAnalyticsOffices.includes(dProfile.office || '')) return false;
+      }
+      // Filter by supervisor in Driver Analytics
+      if (driverAnalyticsSupervisor !== "all") {
+        const dispatcherId = driverNameToDispatcherId[driver.name];
+        if (!dispatcherId) return false;
+        // Show if dispatcher is the supervisor or assigned to supervisor
+        if (dispatcherId !== driverAnalyticsSupervisor && supervisorAssignments[dispatcherId] !== driverAnalyticsSupervisor) {
+          return false;
+        }
       }
       return true;
     }).map(driver => {
@@ -1998,7 +2062,7 @@ const Analytics = () => {
       }
       return 0;
     });
-  }, [driverGrossRankings, activeDriverNames, recoveryDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir, driverDebts]);
+  }, [driverGrossRankings, activeDriverNames, recoveryDriverNames, grossRankingsSearch, grossRankingsSortBy, grossRankingsSortDir, driverDebts, driverAnalyticsOffices, driverAnalyticsSupervisor, drivers, dispatcherProfiles, supervisorAssignments]);
 
   // Filter loads booked today with rate <= 2.00
   const today = new Date();
@@ -2223,7 +2287,7 @@ const Analytics = () => {
                   {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <div className="flex flex-wrap gap-2 items-center w-full justify-between">
                       <div className="flex flex-wrap gap-2 items-center">
                         <span className="text-sm font-medium text-muted-foreground">Office:</span>
-                        {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).map(office => <Button key={office} variant={selectedOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
+                        {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "RECOVERY").map(office => <Button key={office} variant={selectedOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
                       setSelectedOffices(prev => prev.includes(office as string) ? prev.filter(o => o !== office) : [...prev, office as string]);
                     }}>
                             {office}
@@ -2231,6 +2295,22 @@ const Analytics = () => {
                         {selectedOffices.length > 0 && <Button variant="ghost" size="sm" onClick={() => setSelectedOffices([])}>
                             Clear Offices
                           </Button>}
+                        
+                        {/* Supervisor filter */}
+                        {Object.keys(supervisorNames).length > 0 && <>
+                          <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
+                          <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
+                            <SelectTrigger className="w-40 h-8">
+                              <SelectValue placeholder="All" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              {Object.entries(supervisorNames).map(([id, name]) => (
+                                <SelectItem key={id} value={id}>{name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>}
                       </div>
                       <Button variant={showOver100kGross ? "default" : "outline"} size="sm" onClick={() => setShowOver100kGross(!showOver100kGross)}>
                         100k+ Gross
@@ -2277,45 +2357,66 @@ const Analytics = () => {
                     </div>
                   </div>
                   
-                  {/* Fleet Averages Section - New Row */}
-                  {(() => {
-                  // For dispatch-only users, show their own stats
-                  const dispatcherOwnStats = isDispatchOnly && dispatcherStats.length === 1 ? dispatcherStats[0] : null;
-                  const dispatcherTruckData = dispatcherOwnStats?.userId ? dispatcherTruckCounts[dispatcherOwnStats.userId] : null;
-
-                  // Calculate dispatcher-specific averages using actual recorded days
-                  const dispatcherAvgTrucks = dispatcherTruckData && dispatcherTruckData.daysCount > 0 ? dispatcherTruckData.totalTrucks / dispatcherTruckData.daysCount : 0;
-                  const dispatcherTotalTruckDays = dispatcherTruckData?.totalTrucks || 0;
-                  const todayDate = new Date();
-                  const effectiveToDate = dateRange?.to ? (dateRange.to > todayDate ? todayDate : dateRange.to) : (dateRange?.from || todayDate);
-                  const daysInPeriod = dateRange?.from ? Math.ceil((effectiveToDate.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
-
-                  // Use dispatcher-specific values for dispatch users, otherwise fleet totals
-                  const displayTruckCount = isDispatchOnly && dispatcherOwnStats ? dispatcherAvgTrucks : finalFleetAverages.truckCount;
-                  const displayTotalTruckDays = isDispatchOnly && dispatcherOwnStats ? dispatcherTotalTruckDays : finalFleetAverages.totalTruckDays;
-                  const displayFreight = isDispatchOnly && dispatcherOwnStats ? dispatcherOwnStats.totalFreight : totals.totalFreight;
-                  const displayMiles = isDispatchOnly && dispatcherOwnStats ? dispatcherOwnStats.totalMiles : totals.totalMiles;
-                  const displayAvgGrossPerTruck = displayTruckCount > 0 ? displayFreight / displayTruckCount : 0;
-                  const displayAvgMilesPerTruck = displayTruckCount > 0 ? displayMiles / displayTruckCount : 0;
-                  const displayWeeklyAvgGross = displayTruckCount > 0
-                    ? filterType === "week"
-                      ? displayFreight / displayTruckCount
-                      : displayFreight / displayTruckCount / daysInPeriod * 7
-                    : 0;
-                  const displayWeeklyAvgMiles = displayTruckCount > 0
-                    ? filterType === "week"
-                      ? displayMiles / displayTruckCount
-                      : displayMiles / displayTruckCount / daysInPeriod * 7
-                    : 0;
-
-                  // Calculate dispatcher-specific coverage %
-                  const displayCoverage = isDispatchOnly && dispatcherOwnStats ? displayTotalTruckDays > 0 ? (displayTotalTruckDays - fleetLostDays) / displayTotalTruckDays * 100 : 100 : coveragePercent;
-                  const safeCoverage = Math.max(0, Math.min(100, displayCoverage));
-                  if (isDispatchOnly) {
-                    return null;
-                  }
-                  return;
-                })()}
+                  {/* Expandable Extra Stats */}
+                  {showExtraStats && !isDispatchOnly && (() => {
+                    const avgDhMilesTotal = totals.orderCount > 0 
+                      ? filteredOrders.reduce((sum, o) => sum + (Number(o.dhMiles) || 0), 0) / totals.orderCount 
+                      : 0;
+                    const displayTruckCount = finalFleetAverages.truckCount;
+                    const displayFreight = totals.totalFreight;
+                    const displayMiles = totals.totalMiles;
+                    const localDaysInPeriod = dateRange?.from
+                      ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+                      : 1;
+                    const wkGrossPerTruck = displayTruckCount > 0
+                      ? filterType === "week"
+                        ? displayFreight / displayTruckCount
+                        : displayFreight / displayTruckCount / localDaysInPeriod * 7
+                      : 0;
+                    const wkMilesPerTruck = displayTruckCount > 0
+                      ? filterType === "week"
+                        ? displayMiles / displayTruckCount
+                        : displayMiles / displayTruckCount / localDaysInPeriod * 7
+                      : 0;
+                    return (
+                      <div className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Wk Gross/Tr</p>
+                          <p className="text-lg sm:text-2xl font-bold">
+                            ${wkGrossPerTruck.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Wk Miles/Tr</p>
+                          <p className="text-lg sm:text-2xl font-bold">
+                            {wkMilesPerTruck.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg DH</p>
+                          <p className="text-lg sm:text-2xl font-bold">{avgDhMilesTotal.toFixed(0)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Trucks</p>
+                          <p className="text-lg sm:text-2xl font-bold">{displayTruckCount.toFixed(1)}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* "+" button bottom right */}
+                  {!isDispatchOnly && (
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 rounded-full"
+                        onClick={() => setShowExtraStats(!showExtraStats)}
+                      >
+                        <Plus className={`h-4 w-4 transition-transform ${showExtraStats ? "rotate-45" : ""}`} />
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
@@ -2421,6 +2522,37 @@ const Analytics = () => {
                     {grossRankingsSearch && <Button variant="outline" size="sm" onClick={() => setGrossRankingsSearch("")}>
                         Clear
                       </Button>}
+                    
+                    {/* Office filter for Driver Analytics */}
+                    {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <>
+                      <span className="text-sm font-medium text-muted-foreground ml-2">Office:</span>
+                      {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "RECOVERY").map(office => (
+                        <Button key={office} variant={driverAnalyticsOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
+                          setDriverAnalyticsOffices(prev => prev.includes(office as string) ? prev.filter(o => o !== office) : [...prev, office as string]);
+                        }}>
+                          {office}
+                        </Button>
+                      ))}
+                      {driverAnalyticsOffices.length > 0 && <Button variant="ghost" size="sm" onClick={() => setDriverAnalyticsOffices([])}>
+                        Clear
+                      </Button>}
+                    </>}
+                    
+                    {/* Supervisor filter for Driver Analytics */}
+                    {Object.keys(supervisorNames).length > 0 && (hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <>
+                      <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
+                      <Select value={driverAnalyticsSupervisor} onValueChange={setDriverAnalyticsSupervisor}>
+                        <SelectTrigger className="w-40 h-8">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          {Object.entries(supervisorNames).map(([id, name]) => (
+                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>}
                   </div>
                 </div>
               </CardHeader>
