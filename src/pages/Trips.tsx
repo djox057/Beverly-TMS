@@ -701,8 +701,17 @@ const Trips = () => {
       if (error) throw error;
 
       toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
-      // Invalidate orders cache to refresh data
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // Optimistic cache update across all orders caches
+      const cache = queryClient.getQueryCache();
+      const orderQueries = cache.findAll({ queryKey: ["orders"], exact: false });
+      orderQueries.forEach((query) => {
+        queryClient.setQueryData(query.queryKey, (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.map((o: any) =>
+            o.id === orderPaidConfirmDialog.orderId ? { ...o, paid: newPaidStatus } : o
+          );
+        });
+      });
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast.error("Failed to update paid status");
