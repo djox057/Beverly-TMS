@@ -1276,11 +1276,12 @@ const Analytics = () => {
     const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
     // Use daysCount (actual recorded days) for averaging to avoid dilution by missing/future days
     const avgTrucks = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
+    const avgDrivers = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalDrivers / truckCountData.daysCount : 0;
 
-    // Average weekly gross per driver
+    // Average weekly gross per driver: totalFreight / avgDrivers / weeksInPeriod
     const weeksInPeriod = Math.max(1, daysInPeriod / 7);
-    const avgWeeklyGrossPerDriver = avgTrucks > 0
-      ? stats.totalFreight / avgTrucks / weeksInPeriod
+    const avgWeeklyGrossPerDriver = avgDrivers > 0
+      ? stats.totalFreight / avgDrivers / weeksInPeriod
       : 0;
 
     // Validate userId is a valid UUID before storing
