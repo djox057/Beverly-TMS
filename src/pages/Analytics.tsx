@@ -1280,10 +1280,12 @@ const Analytics = () => {
     const avgTrucks = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
     const avgDrivers = truckCountData && truckCountData.daysCount > 0 ? truckCountData.totalDrivers / truckCountData.daysCount : 0;
 
-    // Average weekly gross per driver: totalFreight / avgTrucks / weeksInPeriod
-    const weeksInPeriod = Math.max(1, daysInPeriod / 7);
+    // Avg Wk Gross/Dr: for weekly filter, just divide by trucks.
+    // For monthly/custom, normalize to weekly rate.
     const avgWeeklyGrossPerDriver = avgTrucks > 0
-      ? stats.totalFreight / avgTrucks / weeksInPeriod
+      ? filterType === "week"
+        ? stats.totalFreight / avgTrucks
+        : stats.totalFreight / avgTrucks / daysInPeriod * 7
       : 0;
 
     // Validate userId is a valid UUID before storing
@@ -2287,7 +2289,6 @@ const Analytics = () => {
                   const todayDate = new Date();
                   const effectiveToDate = dateRange?.to ? (dateRange.to > todayDate ? todayDate : dateRange.to) : (dateRange?.from || todayDate);
                   const daysInPeriod = dateRange?.from ? Math.ceil((effectiveToDate.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
-                  const weeksInPeriod = Math.max(1, daysInPeriod / 7);
 
                   // Use dispatcher-specific values for dispatch users, otherwise fleet totals
                   const displayTruckCount = isDispatchOnly && dispatcherOwnStats ? dispatcherAvgTrucks : finalFleetAverages.truckCount;
@@ -2296,8 +2297,16 @@ const Analytics = () => {
                   const displayMiles = isDispatchOnly && dispatcherOwnStats ? dispatcherOwnStats.totalMiles : totals.totalMiles;
                   const displayAvgGrossPerTruck = displayTruckCount > 0 ? displayFreight / displayTruckCount : 0;
                   const displayAvgMilesPerTruck = displayTruckCount > 0 ? displayMiles / displayTruckCount : 0;
-                  const displayWeeklyAvgGross = daysInPeriod > 7 ? displayTruckCount > 0 ? displayFreight / displayTruckCount / weeksInPeriod : 0 : displayAvgGrossPerTruck;
-                  const displayWeeklyAvgMiles = daysInPeriod > 7 ? displayTruckCount > 0 ? displayMiles / displayTruckCount / weeksInPeriod : 0 : displayAvgMilesPerTruck;
+                  const displayWeeklyAvgGross = displayTruckCount > 0
+                    ? filterType === "week"
+                      ? displayFreight / displayTruckCount
+                      : displayFreight / displayTruckCount / daysInPeriod * 7
+                    : 0;
+                  const displayWeeklyAvgMiles = displayTruckCount > 0
+                    ? filterType === "week"
+                      ? displayMiles / displayTruckCount
+                      : displayMiles / displayTruckCount / daysInPeriod * 7
+                    : 0;
 
                   // Calculate dispatcher-specific coverage %
                   const displayCoverage = isDispatchOnly && dispatcherOwnStats ? displayTotalTruckDays > 0 ? (displayTotalTruckDays - fleetLostDays) / displayTotalTruckDays * 100 : 100 : coveragePercent;
