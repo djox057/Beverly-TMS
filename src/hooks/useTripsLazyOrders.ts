@@ -26,12 +26,14 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
   const [searchedOrders, setSearchedOrders] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const lastSearchKeyRef = useRef<string>("");
+  // Counter to force re-reads of the query cache after optimistic updates
+  const [cacheVersion, setCacheVersion] = useState(0);
 
   // CRITICAL: Maintain last valid data to prevent flickering during transitions
   const lastValidDataRef = useRef<any[]>([]);
 
-  // Check if global orders are already cached
-  const globalOrdersCache = queryClient.getQueryData<any[]>(["orders"]);
+  // Check if global orders are already cached (cacheVersion dependency forces re-read)
+  const globalOrdersCache = cacheVersion >= 0 ? queryClient.getQueryData<any[]>(["orders"]) : null;
   const hasGlobalOrders = !!globalOrdersCache && globalOrdersCache.length > 0;
 
   // Debounce search inputs to prevent rapid state changes
@@ -113,11 +115,23 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
     return lastValidDataRef.current;
   }, [rawOrders, isLoading]);
 
+  // Allow callers to optimistically update a single order in the local dataset
+  const updateOrderLocally = useCallback((orderId: string, patch: Record<string, any>) => {
+    if (hasGlobalOrders) {
+      // Bump cache version to force re-read of patched query cache
+      setCacheVersion(v => v + 1);
+    } else {
+      // Lazy mode: update local searchedOrders state directly
+      setSearchedOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...patch } : o));
+    }
+  }, [hasGlobalOrders]);
+
   return {
     data: stableOrders,
     isLoading,
     isLazyMode,
     hasGlobalOrders,
+    updateOrderLocally,
   };
 };
 
