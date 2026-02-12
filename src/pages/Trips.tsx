@@ -451,7 +451,7 @@ const Trips = () => {
   } | null>(null);
 
   // Use lazy loading hook - only fetches on search if no global orders cached
-  const { data: orders, isLoading, isLazyMode, hasGlobalOrders } = useTripsLazyOrders(
+  const { data: orders, isLoading, isLazyMode, hasGlobalOrders, updateOrderLocally } = useTripsLazyOrders(
     { truckDriverSearch: searchFilter, loadNumberSearch }
   );
 
@@ -712,6 +712,8 @@ const Trips = () => {
           );
         });
       });
+      // Also update the Trips-local data for immediate UI feedback
+      updateOrderLocally(orderPaidConfirmDialog.orderId, { paid: newPaidStatus });
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast.error("Failed to update paid status");
