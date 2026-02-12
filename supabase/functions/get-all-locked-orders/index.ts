@@ -19,7 +19,7 @@ const ORDER_COLUMNS = `
   wrong_address_fee, wrong_address_fee_driver, escort_fee,
   other_charges, other_charges_driver, other_charges_reason,
   other_additionals, other_additionals_driver, other_additionals_reason,
-  additional_miles, booked_by,
+  additional_miles, booked_by, paid, invoiced,
   original_truck_id, original_trailer_id
 `;
 
