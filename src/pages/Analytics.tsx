@@ -1230,8 +1230,10 @@ const Analytics = () => {
   };
   // Calculate dispatcher analytics
   // Shared daysInPeriod for both dispatcherStats and fleetAverages
+  const periodCapDate = new Date();
+  const effectiveTo = dateRange?.to ? (dateRange.to > periodCapDate ? periodCapDate : dateRange.to) : (dateRange?.from || periodCapDate);
   const daysInPeriod = dateRange?.from
-    ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 1;
 
   const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
@@ -2282,7 +2284,9 @@ const Analytics = () => {
                   // Calculate dispatcher-specific averages using actual recorded days
                   const dispatcherAvgTrucks = dispatcherTruckData && dispatcherTruckData.daysCount > 0 ? dispatcherTruckData.totalTrucks / dispatcherTruckData.daysCount : 0;
                   const dispatcherTotalTruckDays = dispatcherTruckData?.totalTrucks || 0;
-                  const daysInPeriod = dateRange?.from ? Math.ceil(((dateRange.to || dateRange.from).getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
+                  const todayDate = new Date();
+                  const effectiveToDate = dateRange?.to ? (dateRange.to > todayDate ? todayDate : dateRange.to) : (dateRange?.from || todayDate);
+                  const daysInPeriod = dateRange?.from ? Math.ceil((effectiveToDate.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1;
                   const weeksInPeriod = Math.max(1, daysInPeriod / 7);
 
                   // Use dispatcher-specific values for dispatch users, otherwise fleet totals
