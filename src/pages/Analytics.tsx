@@ -1496,7 +1496,7 @@ const Analytics = () => {
       }
     });
 
-    const avgTrucksPerDispatcher = dispatchersWithData > 0 ? totalAvgTrucks / dispatchersWithData : 0;
+    const avgTrucksPerDispatcher = totalAvgTrucks;
 
     // Get unique drivers from orders for lost_day_notes query
     const uniqueDriverIds = Array.from(new Set(filteredOrders.flatMap(order => [order.driver1Id, order.driver2Id]).filter((id): id is string => !!id && id !== "null")));
