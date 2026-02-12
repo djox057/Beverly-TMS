@@ -2380,9 +2380,8 @@ const Analytics = () => {
                   
                   {/* Expandable Extra Stats */}
                   {showExtraStats && !isDispatchOnly && (() => {
-                    const avgDhMilesTotal = totals.orderCount > 0 
-                      ? filteredOrders.reduce((sum, o) => sum + (Number(o.dhMiles) || 0), 0) / totals.orderCount 
-                      : 0;
+                    const totalDhMiles = ordersForTotals.reduce((sum, o) => sum + (Number(o.dhMiles) || 0), 0);
+                    const avgDhMilesTotal = totals.orderCount > 0 ? totalDhMiles / totals.orderCount : 0;
                     const displayTruckCount = finalFleetAverages.truckCount;
                     const displayFreight = totals.totalFreight;
                     const displayMiles = totals.totalMiles;
