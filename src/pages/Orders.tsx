@@ -264,6 +264,7 @@ const Orders = () => {
     prefetchNextPage,
     loadedPages,
     isPartialData,
+    updateOrderLocally,
   } = useOrdersProgressive({
     ...orderFilterOptions,
     currentPage,
@@ -1033,7 +1034,10 @@ const Orders = () => {
       }).eq("id", pendingPaidOrder.id);
       if (error) throw error;
       toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
-      // Real-time subscription will update the cache
+      // Patch local progressive cache so locked orders update immediately
+      if (updateOrderLocally) {
+        updateOrderLocally(pendingPaidOrder.id, { paid: newPaidStatus });
+      }
     } catch (error) {
       console.error("Error updating paid status:", error);
       toast.error("Failed to update paid status");

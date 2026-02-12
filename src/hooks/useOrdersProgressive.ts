@@ -309,6 +309,24 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     };
   }, [totalLoaded, unlockedCount, lockedCount, totalCount, countsQuery.isLoading, currentPageQuery.isLoading, isLoadingPage, currentPage, currentPageSpansLocked]);
 
+  // Patch a single order in the local page cache so the UI updates immediately
+  const updateOrderLocally = useCallback((orderId: string, patch: Record<string, any>) => {
+    let found = false;
+    for (const [pageNum, orders] of loadedPagesRef.current.entries()) {
+      const idx = orders.findIndex((o: any) => o.id === orderId);
+      if (idx !== -1) {
+        orders[idx] = { ...orders[idx], ...patch };
+        loadedPagesRef.current.set(pageNum, [...orders]);
+        found = true;
+        break;
+      }
+    }
+    if (found) {
+      // Trigger re-render by bumping loadedPages state
+      setLoadedPages(prev => new Set(prev));
+    }
+  }, []);
+
   return {
     data: currentPageOrders,
     isLoading: countsQuery.isLoading || currentPageQuery.isLoading,
@@ -330,5 +348,6 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     isPartialData: countsQuery.isLoading || currentPageQuery.isLoading || !isCurrentPageLoaded,
     requestLockedOrders: () => {}, // Legacy - handled automatically now
     lockedOrdersLoaded: true,
+    updateOrderLocally,
   };
 }
