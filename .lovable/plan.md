@@ -1,52 +1,39 @@
 
 
-## Fire `record-lost-days` at 23:59 UTC
+## Problem
 
-### What changes
+When editing a driver who is assigned as **driver 2** on a truck (e.g., Miguel Reyes on truck 0898), the system incorrectly shows a "Reason for Truck Change" conflict dialog saying the truck is assigned to another driver (the driver 1, Cresenciano Reyes). This happens because the code doesn't track whether the editing driver is driver 1 or driver 2 on their truck.
 
-1. **Edge function** (`supabase/functions/record-lost-days/index.ts`)
-   - Remove the hour check (`currentHour !== 10`) so it runs whenever called -- the cron schedule itself controls timing.
-   - Keep all existing logic (working day check, holiday check, off-duty dispatcher lookup, upsert).
+There are multiple related bugs:
+1. **Conflict check** treats driver 2 as a stranger to their own truck (since it only checks `driver1_id`)
+2. **Save logic** always writes the driver into the `driver1_id` slot, which would overwrite the actual driver 1
+3. **Available trucks list** only considers `driver1_id` when determining which truck belongs to the editing driver
 
-2. **Cron job** (SQL, run via SQL editor -- not a migration)
-   - Create a new `pg_cron` job named `record-lost-days-daily` scheduled at `59 23 * * *` (23:59 UTC every day).
-   - This fires the edge function at end-of-day so it captures the accurate lost day snapshot.
+## Fix
 
-### Technical details
+Track whether the editing driver is assigned as driver 1 or driver 2, and use that information throughout the edit flow.
 
-**Edge function edit** -- remove lines 152-158 (the `currentHour !== 10` guard):
+### Technical Details
 
-```diff
--    if (!force && currentHour !== 10) {
--      console.log('Not 10am Chicago time, skipping');
--      return new Response(
--        JSON.stringify({ message: 'Not 10am Chicago time, skipping', hour: currentHour }),
--        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
--      );
--    }
-```
+**File: `src/pages/Drivers.tsx`**
 
-**Cron job SQL** (inserted via SQL editor, not migration):
+1. **Add a ref to track driver position** (near line 131):
+   - Add `isDriver2Ref = useRef(false)` to track if the editing driver is driver 2 on their truck
 
-```sql
-SELECT cron.schedule(
-  'record-lost-days-daily',
-  '59 23 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/record-lost-days',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}'::jsonb,
-    body := '{"time":"scheduled"}'::jsonb
-  ) AS request_id;
-  $$
-);
-```
+2. **Set driver position in `openEditDialog`** (near line 1203):
+   - After fetching `truckData`, also fetch `driver1_id` and `driver2_id`
+   - Set `isDriver2Ref.current = true` if the driver matches `driver2_id`
 
-Note: The function uses `CRON_SECRET` for auth. The cron job sends the anon key. We need to update the auth check to also accept the anon key, OR send the CRON_SECRET instead. Since other cron jobs use `CRON_SECRET`, the cron call header should use `Bearer <CRON_SECRET>`. This will be handled by referencing the secret from vault or by using the same pattern as other cron jobs in the project (e.g., `record-empty-days`).
+3. **Fix `checkAssignmentConflicts`** (line 614-625):
+   - Skip the driver1 conflict check if the driver IS driver 2 on the same truck (i.e., truck hasn't changed and they're driver 2)
+   - Only flag a conflict when the driver is being moved to a **different** truck that already has a driver 1
 
-Let me check how existing cron jobs handle the CRON_SECRET auth -- the SQL will match that pattern.
+4. **Fix `editingDriverTruckId`** (line 1276-1278):
+   - Also check `driver2_id` when finding the editing driver's current truck
 
-### Why 23:59 UTC?
+5. **Fix save logic** (lines 750-758):
+   - When `isDriver2Ref.current` is true and the truck hasn't changed, update `driver2_id` instead of `driver1_id`
+   - When the driver is being moved to a new truck, the existing behavior (assigning as driver1) may be acceptable, or we should preserve driver position
 
-23:59 UTC = 5:59 PM / 6:59 PM Chicago time (depending on CDT/CST). This captures the full working day's dispatcher status before the day ends, giving an accurate end-of-day lost day count.
+6. **Reset the ref** when the edit dialog closes
 
