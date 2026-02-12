@@ -1401,8 +1401,19 @@ const Analytics = () => {
   });
 
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
-  // This ensures totals match what the /orders page shows, regardless of dispatcher profile status
-  const totals = filteredOrders.reduce((acc, order) => {
+  // When a supervisor is selected, only include orders from that supervisor's dispatchers
+  const ordersForTotals = useMemo(() => {
+    if (selectedSupervisor === "all") return filteredOrders;
+    return filteredOrders.filter(order => {
+      if (!order.bookedBy) return false;
+      const dp = dispatcherProfiles[order.bookedBy];
+      if (!dp) return false;
+      const uid = dp.user_id;
+      return uid === selectedSupervisor || supervisorAssignments[uid] === selectedSupervisor;
+    });
+  }, [filteredOrders, selectedSupervisor, dispatcherProfiles, supervisorAssignments]);
+
+  const totals = ordersForTotals.reduce((acc, order) => {
     acc.totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
     acc.totalDriverRate += getEffectiveDriverPay(order);
     acc.totalMiles += Number(order.mileage) || 0;
@@ -1426,12 +1437,16 @@ const Analytics = () => {
 
     // Get dispatchers in scope (filtered by office if applicable)
     const dispatchersInScope = Object.entries(dispatcherTruckCounts).filter(([dispatcherId]) => {
-      // If no office filter, include all
-      if (selectedOffices.length === 0) return true;
-
-      // Find dispatcher's office from profiles
-      const profile = Object.values(dispatcherProfiles).find(p => p.user_id === dispatcherId);
-      return profile && selectedOffices.includes(profile.office || '');
+      // Filter by office
+      if (selectedOffices.length > 0) {
+        const profile = Object.values(dispatcherProfiles).find(p => p.user_id === dispatcherId);
+        if (!profile || !selectedOffices.includes(profile.office || '')) return false;
+      }
+      // Filter by supervisor
+      if (selectedSupervisor !== "all") {
+        if (dispatcherId !== selectedSupervisor && supervisorAssignments[dispatcherId] !== selectedSupervisor) return false;
+      }
+      return true;
     });
 
     // Check if we have data for current day
@@ -1498,7 +1513,7 @@ const Analytics = () => {
       needsLiveCounts: false,
       daysInPeriod
     };
-  }, [dispatcherTruckCounts, selectedOffices, dispatcherProfiles, totals, filteredOrders, dateRange]);
+  }, [dispatcherTruckCounts, selectedOffices, selectedSupervisor, supervisorAssignments, dispatcherProfiles, totals, filteredOrders, dateRange]);
 
   // State for live truck/driver counts (fallback for current day)
   const [liveTruckCounts, setLiveTruckCounts] = useState<{
