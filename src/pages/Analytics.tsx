@@ -2287,7 +2287,7 @@ const Analytics = () => {
                   {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <div className="flex flex-wrap gap-2 items-center w-full justify-between">
                       <div className="flex flex-wrap gap-2 items-center">
                         <span className="text-sm font-medium text-muted-foreground">Office:</span>
-                        {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "RECOVERY").map(office => <Button key={office} variant={selectedOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
+                        {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "Recovery").map(office => <Button key={office} variant={selectedOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
                       setSelectedOffices(prev => prev.includes(office as string) ? prev.filter(o => o !== office) : [...prev, office as string]);
                     }}>
                             {office}
@@ -2296,20 +2296,19 @@ const Analytics = () => {
                             Clear Offices
                           </Button>}
                         
-                        {/* Supervisor filter */}
+                        {/* Supervisor filter - toggle buttons like office */}
                         {Object.keys(supervisorNames).length > 0 && <>
                           <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                          <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
-                            <SelectTrigger className="w-40 h-8">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              {Object.entries(supervisorNames).map(([id, name]) => (
-                                <SelectItem key={id} value={id}>{name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {Object.entries(supervisorNames).map(([id, name]) => (
+                            <Button key={id} variant={selectedSupervisor === id ? "default" : "outline"} size="sm" onClick={() => {
+                              setSelectedSupervisor(prev => prev === id ? "all" : id);
+                            }}>
+                              {name}
+                            </Button>
+                          ))}
+                          {selectedSupervisor !== "all" && <Button variant="ghost" size="sm" onClick={() => setSelectedSupervisor("all")}>
+                            Clear
+                          </Button>}
                         </>}
                       </div>
                       <Button variant={showOver100kGross ? "default" : "outline"} size="sm" onClick={() => setShowOver100kGross(!showOver100kGross)}>
@@ -2526,7 +2525,7 @@ const Analytics = () => {
                     {/* Office filter for Driver Analytics */}
                     {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <>
                       <span className="text-sm font-medium text-muted-foreground ml-2">Office:</span>
-                      {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "RECOVERY").map(office => (
+                      {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).filter(office => office !== "Recovery").map(office => (
                         <Button key={office} variant={driverAnalyticsOffices.includes(office as string) ? "default" : "outline"} size="sm" onClick={() => {
                           setDriverAnalyticsOffices(prev => prev.includes(office as string) ? prev.filter(o => o !== office) : [...prev, office as string]);
                         }}>
@@ -2538,20 +2537,19 @@ const Analytics = () => {
                       </Button>}
                     </>}
                     
-                    {/* Supervisor filter for Driver Analytics */}
+                    {/* Supervisor filter for Driver Analytics - toggle buttons */}
                     {Object.keys(supervisorNames).length > 0 && (hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && <>
                       <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                      <Select value={driverAnalyticsSupervisor} onValueChange={setDriverAnalyticsSupervisor}>
-                        <SelectTrigger className="w-40 h-8">
-                          <SelectValue placeholder="All" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          {Object.entries(supervisorNames).map(([id, name]) => (
-                            <SelectItem key={id} value={id}>{name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {Object.entries(supervisorNames).map(([id, name]) => (
+                        <Button key={id} variant={driverAnalyticsSupervisor === id ? "default" : "outline"} size="sm" onClick={() => {
+                          setDriverAnalyticsSupervisor(prev => prev === id ? "all" : id);
+                        }}>
+                          {name}
+                        </Button>
+                      ))}
+                      {driverAnalyticsSupervisor !== "all" && <Button variant="ghost" size="sm" onClick={() => setDriverAnalyticsSupervisor("all")}>
+                        Clear
+                      </Button>}
                     </>}
                   </div>
                 </div>
