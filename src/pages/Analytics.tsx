@@ -1459,6 +1459,7 @@ const Analytics = () => {
       return {
         truckCount: 0,
         driverCount: 0,
+        avgTrucksPerDispatcher: 0,
         totalTruckDays: 0,
         avgGrossPerTruck: 0,
         avgMilesPerTruck: 0,
@@ -1479,6 +1480,7 @@ const Analytics = () => {
     let totalDriverDays = 0;
     let totalAvgTrucks = 0;
     let totalAvgDrivers = 0;
+    let dispatchersWithData = 0;
     dispatchersInScope.forEach(([_, counts]) => {
       // Sum of all truck-days (for Coverage calculation)
       totalTruckDays += counts.totalTrucks;
@@ -1488,8 +1490,11 @@ const Analytics = () => {
       if (counts.daysCount > 0) {
         totalAvgTrucks += counts.totalTrucks / counts.daysCount;
         totalAvgDrivers += counts.totalDrivers / counts.daysCount;
+        dispatchersWithData += 1;
       }
     });
+
+    const avgTrucksPerDispatcher = dispatchersWithData > 0 ? totalAvgTrucks / dispatchersWithData : 0;
 
     // Get unique drivers from orders for lost_day_notes query
     const uniqueDriverIds = Array.from(new Set(filteredOrders.flatMap(order => [order.driver1Id, order.driver2Id]).filter((id): id is string => !!id && id !== "null")));
@@ -1504,6 +1509,7 @@ const Analytics = () => {
     return {
       truckCount: totalAvgTrucks,
       driverCount: totalAvgDrivers,
+      avgTrucksPerDispatcher,
       totalTruckDays,
       avgGrossPerTruck,
       avgMilesPerTruck,
@@ -1577,8 +1583,8 @@ const Analytics = () => {
       return {
         truckCount: liveTruckCounts.trucks,
         driverCount: liveTruckCounts.drivers,
+        avgTrucksPerDispatcher: liveTruckCounts.trucks,
         totalTruckDays: liveTruckCounts.trucks,
-        // For single day, totalTruckDays = truckCount
         avgGrossPerTruck: liveTruckCounts.trucks > 0 ? totals.totalFreight / liveTruckCounts.trucks : 0,
         avgMilesPerTruck: liveTruckCounts.trucks > 0 ? totals.totalMiles / liveTruckCounts.trucks : 0,
         weeklyAvgGrossPerTruck: liveTruckCounts.trucks > 0 ? totals.totalFreight / liveTruckCounts.trucks : 0,
@@ -1589,6 +1595,7 @@ const Analytics = () => {
     return {
       truckCount: fleetAverages.truckCount,
       driverCount: fleetAverages.driverCount,
+      avgTrucksPerDispatcher: fleetAverages.avgTrucksPerDispatcher,
       totalTruckDays: fleetAverages.totalTruckDays,
       avgGrossPerTruck: fleetAverages.avgGrossPerTruck,
       avgMilesPerTruck: fleetAverages.avgMilesPerTruck,
@@ -2412,7 +2419,7 @@ const Analytics = () => {
                         </div>
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Trucks</p>
-                          <p className="text-lg sm:text-2xl font-bold">{displayTruckCount.toFixed(1)}</p>
+                          <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.avgTrucksPerDispatcher.toFixed(1)}</p>
                         </div>
                       </div>
                     );
