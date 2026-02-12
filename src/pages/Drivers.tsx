@@ -129,6 +129,7 @@ const Drivers = () => {
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both" | null>(null);
   const [assignmentConflicts, setAssignmentConflicts] = useState<AssignmentConflict[]>([]);
   const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({ truckId: null, trailerId: null });
+  const isDriver2Ref = useRef(false);
   
   const itemsPerPage = 100;
   const [formData, setFormData] = useState<DriverFormData>({
@@ -343,6 +344,7 @@ const Drivers = () => {
     setNewlyCreatedDriverId(null);
     setAddDialogTab("info");
     setPendingFiles([]);
+    isDriver2Ref.current = false;
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -614,7 +616,10 @@ const Drivers = () => {
     // Check truck conflict - if selected truck already has a different driver
     if (formData.truck_id) {
       const selectedTruck = trucks?.find(t => t.id === formData.truck_id);
-      if (selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver.id) {
+      // Skip conflict if this driver is driver2 on the same (unchanged) truck
+      const isSameTruck = formData.truck_id === originalAssignmentRef.current.truckId;
+      const skipConflict = isSameTruck && isDriver2Ref.current;
+      if (!skipConflict && selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver.id) {
         const currentDriver = drivers?.find(d => d.id === selectedTruck.driver1_id);
         conflicts.push({
           type: "driver",
@@ -748,13 +753,23 @@ const Drivers = () => {
         }
 
         // Update truck with driver, trailer, and inherit driver's company
+        // If driver is driver2 on the same truck, update driver2_id; otherwise update driver1_id
+        const isSameTruck = formData.truck_id === originalAssignmentRef.current.truckId;
+        const keepAsDriver2 = isDriver2Ref.current && isSameTruck;
+
+        const truckUpdatePayload: Record<string, any> = {
+          trailer_id: formData.trailer_id || null,
+          company_id: formData.company_id || null,
+        };
+        if (keepAsDriver2) {
+          truckUpdatePayload.driver2_id = editingDriver.id;
+        } else {
+          truckUpdatePayload.driver1_id = editingDriver.id;
+        }
+
         const { error: truckError } = await supabase
           .from("trucks")
-          .update({
-            driver1_id: editingDriver.id,
-            trailer_id: formData.trailer_id || null,
-            company_id: formData.company_id || null,
-          })
+          .update(truckUpdatePayload)
           .eq("id", formData.truck_id);
         if (truckError) throw truckError;
 
@@ -1202,9 +1217,12 @@ const Drivers = () => {
     // Get current truck assignment
     const { data: truckData } = await supabase
       .from("trucks")
-      .select("id, trailer_id")
+      .select("id, trailer_id, driver1_id, driver2_id")
       .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
       .maybeSingle();
+
+    // Track whether this driver is in the driver2 slot
+    isDriver2Ref.current = !!(truckData && truckData.driver2_id === driver.id && truckData.driver1_id !== driver.id);
 
     // Store original assignment for reason dialog check
     originalAssignmentRef.current = {
@@ -1272,9 +1290,9 @@ const Drivers = () => {
     );
   }
 
-  // Get the truck ID for the driver being edited
+  // Get the truck ID for the driver being edited (check both driver1 and driver2 slots)
   const editingDriverTruckId = editingDriver
-    ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id
+    ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id || truck.driver2_id === editingDriver.id)?.id
     : null;
 
   // Filter out trucks that are already assigned to other drivers
