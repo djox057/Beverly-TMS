@@ -146,17 +146,9 @@ serve(async (req) => {
 
     console.log(`Recording lost days - Chicago time: ${chicagoTime}, hour: ${currentHour}, date: ${todayStr}`);
 
-    // Only run at 10am Chicago time (unless forced via query param)
+    // Allow force override via query param
     const url = new URL(req.url);
     const force = url.searchParams.get('force') === 'true';
-    
-    if (!force && currentHour !== 10) {
-      console.log('Not 10am Chicago time, skipping');
-      return new Response(
-        JSON.stringify({ message: 'Not 10am Chicago time, skipping', hour: currentHour }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Get all dispatchers who are currently off duty
     const { data: offDutyDispatchers, error: fetchError } = await supabaseAdmin
