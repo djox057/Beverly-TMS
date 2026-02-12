@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
@@ -33,6 +33,7 @@ interface UseOrdersProgressiveOptions {
  * - Page 8+: locked orders only
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
+  const queryClient = useQueryClient();
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const currentPage = options?.currentPage ?? 1;
@@ -311,21 +312,27 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Patch a single order in the local page cache so the UI updates immediately
   const updateOrderLocally = useCallback((orderId: string, patch: Record<string, any>) => {
-    let found = false;
+    let foundPage: number | null = null;
     for (const [pageNum, orders] of loadedPagesRef.current.entries()) {
       const idx = orders.findIndex((o: any) => o.id === orderId);
       if (idx !== -1) {
         orders[idx] = { ...orders[idx], ...patch };
         loadedPagesRef.current.set(pageNum, [...orders]);
-        found = true;
+        foundPage = pageNum;
         break;
       }
     }
-    if (found) {
+    if (foundPage !== null) {
+      // Also update the TanStack Query cache for this page so the memo picks it up
+      const updatedPageData = loadedPagesRef.current.get(foundPage);
+      const pageQueryKey = hasFilters
+        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId]
+        : ["orders", "page", foundPage];
+      queryClient.setQueryData(pageQueryKey, updatedPageData);
       // Trigger re-render by bumping loadedPages state
       setLoadedPages(prev => new Set(prev));
     }
-  }, []);
+  }, [hasFilters, bookedBy, dispatcherUserId, queryClient]);
 
   return {
     data: currentPageOrders,
