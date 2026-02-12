@@ -789,41 +789,45 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           console.log(`[adapter] truck_notes realtime: ${eventType} for driver ${driverId}`);
           
-          // Patch the cache directly using setQueryData
-          queryClient.setQueryData(
-            ["adapter-truck-notes", priorityOffice],
-            (oldData: any[] | undefined) => {
+          // Build patch function for reuse across exact and fallback keys
+          const patchTruckNotes = (oldData: any[] | undefined) => {
               if (!oldData) return oldData;
               
               if (eventType === "DELETE") {
-                // Remove note by id
                 return oldData.filter((note) => note.id !== oldRecord.id);
               }
               
               if (eventType === "INSERT") {
-                // Append if not already present
                 const exists = oldData.some((note) => note.id === newRecord.id);
                 if (exists) {
-                  // Update instead (in case of race condition)
                   return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
                 }
                 return [...oldData, newRecord];
               }
               
               if (eventType === "UPDATE") {
-                // Replace existing by id
                 const existingIndex = oldData.findIndex((note) => note.id === newRecord.id);
                 if (existingIndex >= 0) {
                   const updated = [...oldData];
                   updated[existingIndex] = newRecord;
                   return updated;
                 }
-                // If not in cache yet, append it
                 return [...oldData, newRecord];
               }
               
               return oldData;
-            }
+          };
+          
+          // Primary: patch exact query key (includes modeKeySuffix)
+          queryClient.setQueryData(
+            ["adapter-truck-notes", priorityOffice, modeKeySuffixRef.current],
+            patchTruckNotes
+          );
+          
+          // Fallback: patch all variant keys
+          queryClient.setQueriesData(
+            { queryKey: ["adapter-truck-notes"], exact: false },
+            patchTruckNotes
           );
         }
       )
@@ -891,8 +895,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
-          // Build the exact query key to patch
-          const exactQueryKey = ["adapter-lost-day-notes", priorityOfficeRef.current, modeKeySuffixRef.current];
+          // Build the exact query key to patch (4 elements to match query key)
+          const driverIdsJsonRef = JSON.stringify([...driverIdsSetRef.current].sort());
+          const exactQueryKey = ["adapter-lost-day-notes", priorityOfficeRef.current, modeKeySuffixRef.current, driverIdsJsonRef];
           
           // Patch the cache using the exact query key for proper React Query detection
           // Also use setQueriesData with exact: false as fallback for any variant keys
@@ -967,6 +972,70 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       }
     };
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
+
+  // P6: Subscribe to trucks and drivers table changes for realtime updates
+  const trucksDriversChannelRef = useRef<RealtimeChannel | null>(null);
+  
+  useEffect(() => {
+    if (!scopeEnabled) {
+      if (trucksDriversChannelRef.current) {
+        supabase.removeChannel(trucksDriversChannelRef.current);
+        trucksDriversChannelRef.current = null;
+      }
+      return;
+    }
+    
+    // Clean up existing channel
+    if (trucksDriversChannelRef.current) {
+      supabase.removeChannel(trucksDriversChannelRef.current);
+      trucksDriversChannelRef.current = null;
+    }
+    
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    
+    const scheduleInvalidation = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        console.log(`[adapter] trucks/drivers realtime: invalidating queries for office ${priorityOfficeRef.current}`);
+        queryClient.invalidateQueries({
+          queryKey: ["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current],
+          refetchType: "active",
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["adapter-drivers", priorityOfficeRef.current, modeKeySuffixRef.current],
+          refetchType: "active",
+        });
+      }, 1000);
+    };
+    
+    const channel = supabase
+      .channel(`adapter-trucks-drivers-realtime-${priorityOffice || 'default'}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => scheduleInvalidation()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers" },
+        () => scheduleInvalidation()
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`[adapter] Subscribed to trucks/drivers realtime for office: ${priorityOffice}`);
+        }
+      });
+    
+    trucksDriversChannelRef.current = channel;
+    
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (trucksDriversChannelRef.current) {
+        supabase.removeChannel(trucksDriversChannelRef.current);
+        trucksDriversChannelRef.current = null;
+      }
+    };
+  }, [scopeEnabled, priorityOffice, queryClient]);
 
   // P5: Subscribe to orders, pickup_drops, and order_transfers realtime changes
   // Patches globalAccumulatedOrders directly with debounced batch fetching
