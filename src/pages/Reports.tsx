@@ -1913,6 +1913,16 @@ const Reports = () => {
         !shouldShowPickupInTransit &&
         !isOneDayFuture;
 
+      // Check if there's a late (>= 16:00) incomplete delivery on this day — overrides red cell
+      const hasLateIncompleteDelivery = isMissingPickup && [...allDeliveryOrders, ...sameDayOrders].some((order: any) => {
+        const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+        if (hasPOD) return false;
+        const deliveryStopsForDay = order.deliveryStops?.filter(
+          (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+        ) || [];
+        return deliveryStopsForDay.some((stop: any) => isLateDeliveryTime(stop.datetime));
+      });
+
       // Check if this day is today (Chicago time) - always use actual today for the red border
       const isToday = isSameDay(day, chicagoToday);
       // Apply left border to all cells except the first
@@ -1986,8 +1996,6 @@ const Reports = () => {
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
-                      const isComplete = cellColor.includes("cell-complete");
-                      const isLateDelivery = !isComplete && isLateDeliveryTime(stop.datetime);
                       const totalCellsOnDay =
                         allDeliveryOrders.reduce(
                           (sum, o) =>
@@ -2006,7 +2014,7 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${isLateDelivery ? "text-xs h-full flex items-center justify-center text-foreground font-semibold" : `${cellColor} border rounded relative flex flex-col px-1 py-0.5`} ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                           style={
                             totalCellsOnDay > 1
                               ? {
@@ -2022,22 +2030,16 @@ const Reports = () => {
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
-                          {isLateDelivery ? (
-                            <>{">>"}<span>LATE DELL</span>{"<<"}</>
-                          ) : (
-                            <>
-                              <div
-                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                              >
-                                {stop.city}, {stop.state}
-                              </div>
-                              <div
-                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                              >
-                                {formatTimeRange(stop.datetime, stop.end_datetime)}
-                              </div>
-                            </>
-                          )}
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
+                            {stop.city}, {stop.state}
+                          </div>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
+                          </div>
                         </div>
                       );
                     });
@@ -2053,8 +2055,6 @@ const Reports = () => {
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
-                      const isComplete = cellColor.includes("cell-complete");
-                      const isLateDelivery = !isComplete && isLateDeliveryTime(stop.datetime);
                       const totalCellsOnDay =
                         allDeliveryOrders.reduce(
                           (sum, o) =>
@@ -2073,7 +2073,7 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${isLateDelivery ? "text-xs h-full flex items-center justify-center text-foreground font-semibold" : `${cellColor} border rounded relative flex flex-col px-1 py-0.5`} ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                           style={
                             totalCellsOnDay > 1
                               ? {
@@ -2089,22 +2089,16 @@ const Reports = () => {
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
-                          {isLateDelivery ? (
-                            <>{">>"}<span>LATE DELL</span>{"<<"}</>
-                          ) : (
-                            <>
-                              <div
-                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                              >
-                                {stop.city}, {stop.state}
-                              </div>
-                              <div
-                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                              >
-                                {formatTimeRange(stop.datetime, stop.end_datetime)}
-                              </div>
-                            </>
-                          )}
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
+                            {stop.city}, {stop.state}
+                          </div>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
+                          </div>
                         </div>
                       );
                     });
@@ -2154,7 +2148,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`}
+              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : (isMissingPickup && !hasLateIncompleteDelivery) ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -2301,7 +2295,7 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-foreground font-semibold cursor-pointer" : isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
 
@@ -2336,7 +2330,9 @@ const Reports = () => {
                         }
                       }}
                     >
-                      {isMissingPickup ? (
+                      {hasLateIncompleteDelivery ? (
+                        <span className="text-center">{">>"}<span>LATE DELL</span>{"<<"}</span>
+                      ) : isMissingPickup ? (
                         <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
                           {getLostDayNote(day)}
                         </span>
