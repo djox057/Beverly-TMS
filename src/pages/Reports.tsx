@@ -1913,10 +1913,8 @@ const Reports = () => {
         !shouldShowPickupInTransit &&
         !isOneDayFuture;
 
-      // Check if there's a late (>= 16:00) incomplete delivery on this day — overrides red cell
+      // Check if there's a late (>= 16:00) delivery on this day — overrides red cell
       const hasLateIncompleteDelivery = isMissingPickup && [...allDeliveryOrders, ...sameDayOrders].some((order: any) => {
-        const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-        if (hasPOD) return false;
         const deliveryStopsForDay = order.deliveryStops?.filter(
           (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
         ) || [];
