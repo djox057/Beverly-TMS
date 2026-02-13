@@ -44,6 +44,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
 import { DuplicateStopsConfirmDialog } from "@/components/DuplicateStopsConfirmDialog";
+import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipient, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
+
 
 interface PickupDrop {
   id: string;
@@ -106,6 +108,15 @@ const NewOrder = () => {
   const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
   const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
   const [hasAutoExtracted, setHasAutoExtracted] = useState(false);
+
+  // Miles change tracking
+  const autoCalcLoadedMilesRef = useRef<number | null>(null);
+  const autoCalcDhMilesRef = useRef<number | null>(null);
+  const [showMilesChangeDialog, setShowMilesChangeDialog] = useState(false);
+  const [milesChangeInfo, setMilesChangeInfo] = useState<any>(null);
+  const [pendingMilesSubmitEvent, setPendingMilesSubmitEvent] = useState<React.FormEvent | null>(null);
+  const [pendingMilesSkipDuplicate, setPendingMilesSkipDuplicate] = useState(false);
+  const [pendingMilesSkipDuplicateStops, setPendingMilesSkipDuplicateStops] = useState(false);
 
   // Email dispatch toggle states
   const [confirmationGenerated, setConfirmationGenerated] = useState(false);
@@ -443,6 +454,7 @@ const NewOrder = () => {
         }
         if (miles !== null) {
           setLoadedMiles(miles.toString());
+          autoCalcLoadedMilesRef.current = miles;
           toast({
             title: "Loaded Miles Calculated",
             description: addresses.length > 2 ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops` : `Route distance: ${miles} miles`
@@ -482,12 +494,14 @@ const NewOrder = () => {
         const miles = await calculateDhMiles(lastDelivery.deliveryAddress, pickupAddress);
         if (miles !== null) {
           setDhMiles(miles.toString());
+          autoCalcDhMilesRef.current = miles;
           toast({
             title: "DH Miles Calculated",
             description: `Distance from last delivery: ${miles} miles`
           });
         } else {
           setDhMiles('0');
+          autoCalcDhMilesRef.current = 0;
         }
       } catch (error) {
         console.error('Error calculating DH miles:', error);
@@ -1694,6 +1708,30 @@ const NewOrder = () => {
       });
       setIsSubmitting(false);
       return;
+    }
+
+    // Check if miles changed significantly from auto-calculated values
+    if (autoCalcLoadedMilesRef.current !== null || autoCalcDhMilesRef.current !== null) {
+      const oldDh = autoCalcDhMilesRef.current ?? 0;
+      const newDh = parseInt(dhMiles) || 0;
+      const oldLoaded = autoCalcLoadedMilesRef.current ?? 0;
+      const newLoaded = parseInt(loadedMiles) || 0;
+      const milesCheck = checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
+      if (milesCheck.significant) {
+        setMilesChangeInfo({
+          ...milesCheck,
+          oldDhMiles: oldDh,
+          newDhMiles: newDh,
+          oldLoadedMiles: oldLoaded,
+          newLoadedMiles: newLoaded,
+        });
+        setPendingMilesSubmitEvent(e);
+        setPendingMilesSkipDuplicate(skipDuplicateCheck);
+        setPendingMilesSkipDuplicateStops(skipDuplicateStopsCheck);
+        setShowMilesChangeDialog(true);
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     // Check for duplicates unless explicitly skipped
@@ -3147,6 +3185,48 @@ const NewOrder = () => {
           handleSubmit(e as any, false, true);
         }}
         isSubmitting={isSubmitting}
+      />
+
+      {/* Miles Change Reason Dialog */}
+      <MilesChangeReasonDialog
+        open={showMilesChangeDialog}
+        onConfirm={async (reason) => {
+          setShowMilesChangeDialog(false);
+          // Send SMS notification
+          const phoneNumber = getMilesChangeSmsRecipient(profile?.office);
+          if (phoneNumber && milesChangeInfo) {
+            const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === driverCompanyId)?.name;
+            const ilnDisplay = nextInternalLoadNumber
+              ? formatInternalLoadNumber(nextInternalLoadNumber, companyName)
+              : "N/A";
+            const message = buildMilesChangeSmsMessage({
+              internalLoadNumber: ilnDisplay,
+              brokerLoadNumber: brokerLoadNumber || "N/A",
+              dhMilesChanged: milesChangeInfo.dhMilesChanged,
+              loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
+              oldDh: milesChangeInfo.oldDhMiles,
+              newDh: milesChangeInfo.newDhMiles,
+              oldLoaded: milesChangeInfo.oldLoadedMiles,
+              newLoaded: milesChangeInfo.newLoadedMiles,
+              userName: profile?.full_name || "Unknown",
+            });
+            try {
+              await supabase.functions.invoke("send-sms", {
+                body: { message, phoneNumber },
+              });
+            } catch (err) {
+              console.error("Failed to send miles change SMS:", err);
+            }
+          }
+          // Continue with submission
+          if (pendingMilesSubmitEvent) {
+            // Re-set the auto-calc refs to current values so the check won't trigger again
+            autoCalcLoadedMilesRef.current = parseInt(loadedMiles) || 0;
+            autoCalcDhMilesRef.current = parseInt(dhMiles) || 0;
+            handleSubmit(pendingMilesSubmitEvent, pendingMilesSkipDuplicate, pendingMilesSkipDuplicateStops);
+          }
+        }}
+        changeInfo={milesChangeInfo || { dhMilesChanged: false, loadedMilesChanged: false, oldDhMiles: 0, newDhMiles: 0, oldLoadedMiles: 0, newLoadedMiles: 0 }}
       />
     </div>
   );

@@ -75,6 +75,7 @@ import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
+import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipient, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -303,6 +304,12 @@ const EditOrder = () => {
 
   // Ref for OrderAdditionalsManager
   const additionalsManagerRef = useRef<OrderAdditionalsManagerRef>(null);
+
+  // Miles change tracking - baseline values from DB
+  const [baselineDhMiles, setBaselineDhMiles] = useState<number>(0);
+  const [baselineLoadedMiles, setBaselineLoadedMiles] = useState<number>(0);
+  const [showMilesChangeDialog, setShowMilesChangeDialog] = useState(false);
+  const [milesChangeInfo, setMilesChangeInfo] = useState<any>(null);
   const openScanner = (category: "POD" | "ADDITIONAL") => {
     setScannerCategory(category);
     setScannerOpen(true);
@@ -768,6 +775,8 @@ const EditOrder = () => {
         const totalMiles = loadedMilesValue + dhMilesValue || orderData.mileage || 0;
         setLoadedMiles(loadedMilesValue.toString());
         setDhMiles(dhMilesValue.toString());
+        setBaselineLoadedMiles(loadedMilesValue);
+        setBaselineDhMiles(dhMilesValue);
 
         // Load pickup/drops
         if (orderData.pickup_drops) {
@@ -2727,6 +2736,26 @@ const EditOrder = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check if miles changed significantly from original values
+    {
+      const oldDh = baselineDhMiles;
+      const newDh = parseInt(dhMiles) || 0;
+      const oldLoaded = baselineLoadedMiles;
+      const newLoaded = parseInt(loadedMiles) || 0;
+      const milesCheck = checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
+      if (milesCheck.significant) {
+        setMilesChangeInfo({
+          ...milesCheck,
+          oldDhMiles: oldDh,
+          newDhMiles: newDh,
+          oldLoadedMiles: oldLoaded,
+          newLoadedMiles: newLoaded,
+        });
+        setShowMilesChangeDialog(true);
+        return;
+      }
     }
 
     // Detect changes
@@ -4736,6 +4765,52 @@ const EditOrder = () => {
         onSave={handleEnhanceSave}
         fileUrl={enhanceFileUrl}
         fileName={enhanceFileName}
+      />
+
+      {/* Miles Change Reason Dialog */}
+      <MilesChangeReasonDialog
+        open={showMilesChangeDialog}
+        onConfirm={async (reason) => {
+          setShowMilesChangeDialog(false);
+          // Send SMS notification
+          const phoneNumber = getMilesChangeSmsRecipient(profile?.office);
+          if (phoneNumber && milesChangeInfo) {
+            const selectedDriver1 = drivers?.find((d) => d.id === driver1);
+            const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === (selectedDriver1?.company_id))?.name;
+            const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
+            const message = buildMilesChangeSmsMessage({
+              internalLoadNumber: ilnDisplay,
+              brokerLoadNumber: brokerLoadNumber || "N/A",
+              dhMilesChanged: milesChangeInfo.dhMilesChanged,
+              loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
+              oldDh: milesChangeInfo.oldDhMiles,
+              newDh: milesChangeInfo.newDhMiles,
+              oldLoaded: milesChangeInfo.oldLoadedMiles,
+              newLoaded: milesChangeInfo.newLoadedMiles,
+              userName: profile?.full_name || "Unknown",
+            });
+            try {
+              await supabase.functions.invoke("send-sms", {
+                body: { message, phoneNumber },
+              });
+            } catch (err) {
+              console.error("Failed to send miles change SMS:", err);
+            }
+          }
+          // Update baselines so check won't trigger again, then continue with submit
+          setBaselineLoadedMiles(parseInt(loadedMiles) || 0);
+          setBaselineDhMiles(parseInt(dhMiles) || 0);
+          // Continue with the normal submit flow (detect changes etc.)
+          const changes = detectChanges();
+          if (changes.length > 0) {
+            setPendingChanges(changes);
+            setShowChangeNoteDialog(true);
+            return;
+          }
+          setIsSubmitting(true);
+          await performSave();
+        }}
+        changeInfo={milesChangeInfo || { dhMilesChanged: false, loadedMilesChanged: false, oldDhMiles: 0, newDhMiles: 0, oldLoadedMiles: 0, newLoadedMiles: 0 }}
       />
     </div>
   );
