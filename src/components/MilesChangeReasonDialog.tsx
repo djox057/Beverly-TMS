@@ -57,7 +57,7 @@ export function MilesChangeReasonDialog({
         <DialogHeader>
           <DialogTitle>Miles Changed Significantly</DialogTitle>
           <DialogDescription>
-            You've changed miles by more than 35. Please provide a reason.
+            You've changed miles. Please provide a reason.
           </DialogDescription>
         </DialogHeader>
 
