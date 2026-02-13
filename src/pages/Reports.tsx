@@ -115,6 +115,7 @@ import {
   getStatusColors,
   getMaintenanceIconStatus,
   getDotInspectionIconStatus,
+  isLateDeliveryTime,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
@@ -1985,6 +1986,8 @@ const Reports = () => {
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
+                      const isComplete = cellColor.includes("cell-complete");
+                      const isLateDelivery = !isComplete && isLateDeliveryTime(stop.datetime);
                       const totalCellsOnDay =
                         allDeliveryOrders.reduce(
                           (sum, o) =>
@@ -2003,7 +2006,7 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                          className={`${isLateDelivery ? "text-xs h-full flex items-center justify-center text-foreground font-semibold" : `${cellColor} border rounded relative flex flex-col px-1 py-0.5`} ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                           style={
                             totalCellsOnDay > 1
                               ? {
@@ -2019,16 +2022,22 @@ const Reports = () => {
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {stop.city}, {stop.state}
-                          </div>
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {formatTimeRange(stop.datetime, stop.end_datetime)}
-                          </div>
+                          {isLateDelivery ? (
+                            <>{">>"}<span>LATE DELL</span>{"<<"}</>
+                          ) : (
+                            <>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {stop.city}, {stop.state}
+                              </div>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {formatTimeRange(stop.datetime, stop.end_datetime)}
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     });
@@ -2044,6 +2053,8 @@ const Reports = () => {
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
+                      const isComplete = cellColor.includes("cell-complete");
+                      const isLateDelivery = !isComplete && isLateDeliveryTime(stop.datetime);
                       const totalCellsOnDay =
                         allDeliveryOrders.reduce(
                           (sum, o) =>
@@ -2062,7 +2073,7 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                          className={`${isLateDelivery ? "text-xs h-full flex items-center justify-center text-foreground font-semibold" : `${cellColor} border rounded relative flex flex-col px-1 py-0.5`} ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                           style={
                             totalCellsOnDay > 1
                               ? {
@@ -2078,16 +2089,22 @@ const Reports = () => {
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {stop.city}, {stop.state}
-                          </div>
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {formatTimeRange(stop.datetime, stop.end_datetime)}
-                          </div>
+                          {isLateDelivery ? (
+                            <>{">>"}<span>LATE DELL</span>{"<<"}</>
+                          ) : (
+                            <>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {stop.city}, {stop.state}
+                              </div>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {formatTimeRange(stop.datetime, stop.end_datetime)}
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     });
