@@ -1,44 +1,31 @@
 
 
-## Problem
+## Late Delivery Display Change in Reports
 
-When you mark an order as "paid" on the /orders page and that order was found via **search** (which is how locked/archived orders are typically accessed), the UI does not update. You have to navigate away and come back.
+**What changes:** When a delivery stop has a scheduled time after 16:00 (4:00 PM), instead of showing the normal delivery cell with late/red styling, it will display ">>LATE DELL<<" using the same visual style as the ">>>" in-transit indicator (plain text, bold, no colored background box).
 
-**Root cause (two issues):**
+### How it works
 
-1. The search hook (`useOrdersSearch`) has its own `ORDER_COLUMNS` list that is **missing `paid` and `invoiced`** -- so even when the order is fetched via search, the `paid` field is never included in the response.
+1. **Detection:** For each delivery stop cell rendered in the Reports calendar, extract the time from `stop.datetime`. If the hour is >= 16 (i.e., after 4:00 PM), flag it as a "late delivery".
 
-2. After the database update, `handleConfirmPaidChange` only patches the progressive pagination cache (`updateOrderLocally`), but the displayed data actually comes from the **search results cache** -- a completely separate data source that never gets patched.
+2. **Display change:** When a delivery stop is flagged as late delivery AND has NOT been completed (no POD for that stop), instead of rendering the normal colored cell with city/state/time, render ">>LATE DELL<<" with the same styling as ">>>" -- centered, `text-foreground font-semibold`, no special background color.
 
-3. Both `useOrdersSearch` and `useFilteredOrdersSearch` read their cached data via non-reactive `queryClient.getQueryData()` calls, so even patching those caches alone would not trigger a re-render.
-
-## Fix (3 changes)
-
-### 1. Add `paid, invoiced` to ORDER_COLUMNS in `src/hooks/useOrdersSearch.ts`
-
-Add `paid, invoiced` after `booked_by` in the column list (line 20), matching what was already done for the edge functions and realtime hook.
-
-### 2. Patch the search/filter caches in `handleConfirmPaidChange` (`src/pages/Orders.tsx`)
-
-After the database update succeeds, in addition to calling `updateOrderLocally` (for paginated views), also patch **all** order-related query caches using `queryClient.getQueryCache().findAll()` with `{ queryKey: ["orders"], exact: false }`. This covers the search cache, filter cache, and progressive page caches in one sweep. Map through each cached array and flip the `paid` field on the matching order.
-
-### 3. Force re-render for non-reactive caches
-
-Since both `useOrdersSearch` and `useFilteredOrdersSearch` use non-reactive `getQueryData()` reads, the component needs a state bump to pick up the patched values. Add a `cacheVersion` counter state in `Orders.tsx` that gets incremented after patching, and include it in the `dataSource` memo's dependency array. This forces the memo to re-evaluate and pick up the updated cache values.
-
----
+3. **Completed deliveries unaffected:** If the delivery already has a POD (dark green), it stays as-is regardless of time.
 
 ### Technical details
 
-**File: `src/hooks/useOrdersSearch.ts` (line 20-21)**
-- Change: `additional_miles, booked_by,` followed by `original_truck_id, original_trailer_id`
-- To: `additional_miles, booked_by, paid, invoiced,` followed by `original_truck_id, original_trailer_id`
+**File: `src/pages/Reports.tsx`**
 
-**File: `src/pages/Orders.tsx` -- `handleConfirmPaidChange` function**
-- After the successful `supabase.update()`, sweep all `["orders"]` caches using `queryClient.getQueryCache().findAll({ queryKey: ["orders"], exact: false })` and patch the matching order's `paid` field
-- Increment a `cacheVersion` state variable to force a re-render
-- Keep the existing `updateOrderLocally` call as a secondary safety net
+In both delivery stop rendering blocks (around lines 1986-2034 for `allDeliveryOrders` and lines 2044-2090 for `sameDayOrders`):
 
-**File: `src/pages/Orders.tsx` -- `dataSource` memo**
-- Add `cacheVersion` to the dependency array so it re-evaluates after optimistic patches
+- After getting the `stop`, parse the time from `stop.datetime` using the existing `formatDateTime` helper to extract the hour
+- If hour >= 16 AND the stop is not yet completed (cellColor is not the "complete" green), replace the cell content and styling:
+  - Instead of the colored `cellColor` box with city/state/time, render a plain cell with class `text-xs h-full flex items-center justify-center text-foreground font-semibold` (matching ">>>" style)
+  - Content: `>>LATE DELL<<`
+- The cell remains clickable (same onClick to open zoomed load)
+
+**File: `src/pages/Reports/helpers.ts`**
+
+- Add a new helper `isLateDeliveryTime(datetimeStr: string): boolean` that parses the time and returns true if hour >= 16
+- This keeps the logic clean and reusable
 
