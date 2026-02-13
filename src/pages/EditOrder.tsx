@@ -4778,7 +4778,7 @@ const EditOrder = () => {
             const selectedDriver1 = drivers?.find((d) => d.id === driver1);
             const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === (selectedDriver1?.company_id))?.name;
             const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
-            const message = buildMilesChangeSmsMessage({
+             const message = buildMilesChangeSmsMessage({
               internalLoadNumber: ilnDisplay,
               brokerLoadNumber: brokerLoadNumber || "N/A",
               dhMilesChanged: milesChangeInfo.dhMilesChanged,
@@ -4787,6 +4787,7 @@ const EditOrder = () => {
               newDh: milesChangeInfo.newDhMiles,
               oldLoaded: milesChangeInfo.oldLoadedMiles,
               newLoaded: milesChangeInfo.newLoadedMiles,
+              reason: reason,
               userName: profile?.full_name || "Unknown",
             });
             try {

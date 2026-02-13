@@ -3199,7 +3199,7 @@ const NewOrder = () => {
             const ilnDisplay = nextInternalLoadNumber
               ? formatInternalLoadNumber(nextInternalLoadNumber, companyName)
               : "N/A";
-            const message = buildMilesChangeSmsMessage({
+             const message = buildMilesChangeSmsMessage({
               internalLoadNumber: ilnDisplay,
               brokerLoadNumber: brokerLoadNumber || "N/A",
               dhMilesChanged: milesChangeInfo.dhMilesChanged,
@@ -3208,6 +3208,7 @@ const NewOrder = () => {
               newDh: milesChangeInfo.newDhMiles,
               oldLoaded: milesChangeInfo.oldLoadedMiles,
               newLoaded: milesChangeInfo.newLoadedMiles,
+              reason: reason,
               userName: profile?.full_name || "Unknown",
             });
             try {
