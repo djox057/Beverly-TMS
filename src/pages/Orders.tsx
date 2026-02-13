@@ -175,6 +175,11 @@ const Orders = () => {
     id: string;
     currentPaid: boolean;
   } | null>(null);
+  const [invoicedConfirmDialogOpen, setInvoicedConfirmDialogOpen] = useState(false);
+  const [pendingInvoicedOrder, setPendingInvoicedOrder] = useState<{
+    id: string;
+    currentInvoiced: boolean;
+  } | null>(null);
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
@@ -1060,6 +1065,34 @@ const Orders = () => {
       setPendingPaidOrder(null);
     }
   };
+  const handleConfirmInvoicedChange = async () => {
+    if (!pendingInvoicedOrder) return;
+    try {
+      const newInvoicedStatus = !pendingInvoicedOrder.currentInvoiced;
+      const { error } = await supabase.from("orders").update({
+        invoiced: newInvoicedStatus
+      }).eq("id", pendingInvoicedOrder.id);
+      if (error) throw error;
+      toast.success(`Load marked as ${newInvoicedStatus ? 'invoiced' : 'not invoiced'}`);
+      const allCaches = queryClient.getQueryCache().findAll({ queryKey: ["orders"], exact: false });
+      for (const cache of allCaches) {
+        queryClient.setQueryData(cache.queryKey, (old: any) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((o: any) => o.id === pendingInvoicedOrder.id ? { ...o, invoiced: newInvoicedStatus } : o);
+        });
+      }
+      if (updateOrderLocally) {
+        updateOrderLocally(pendingInvoicedOrder.id, { invoiced: newInvoicedStatus });
+      }
+      setCacheVersion(v => v + 1);
+    } catch (error) {
+      console.error("Error updating invoiced status:", error);
+      toast.error("Failed to update invoiced status");
+    } finally {
+      setInvoicedConfirmDialogOpen(false);
+      setPendingInvoicedOrder(null);
+    }
+  };
   return <div className="h-full w-full">
       <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-none">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1647,7 +1680,20 @@ const Orders = () => {
                                 </Tooltip>
                               </TooltipProvider> : <>{order.brokerLoadNumber}</>}
                           </TableCell>
-                          <TableCell className="w-20">{order.invoiced ? "Yes" : "No"}</TableCell>
+                          <TableCell className="w-20">
+                            <span
+                              className="cursor-pointer hover:underline"
+                              onClick={() => {
+                                setPendingInvoicedOrder({
+                                  id: order.id,
+                                  currentInvoiced: order.invoiced === true
+                                });
+                                setInvoicedConfirmDialogOpen(true);
+                              }}
+                            >
+                              {order.invoiced ? "Yes" : "No"}
+                            </span>
+                          </TableCell>
                           <TableCell className="w-20">
                             {order.notes && <Button variant="ghost" size="sm" className="h-auto p-1 text-xs font-normal hover:underline" onClick={() => {
                         setSelectedNotes(order.notes);
@@ -2061,6 +2107,31 @@ const Orders = () => {
                 Cancel
               </Button>
               <Button onClick={handleConfirmPaidChange}>
+                Confirm
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Invoiced Confirmation Dialog */}
+        <Dialog open={invoicedConfirmDialogOpen} onOpenChange={open => {
+        setInvoicedConfirmDialogOpen(open);
+        if (!open) setPendingInvoicedOrder(null);
+      }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Invoiced Status Change</DialogTitle>
+              <DialogDescription>
+                {pendingInvoicedOrder?.currentInvoiced ? "Are you sure you want to mark this load as not invoiced?" : "Are you sure you want to mark this load as invoiced?"}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+              setInvoicedConfirmDialogOpen(false);
+              setPendingInvoicedOrder(null);
+            }}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmInvoicedChange}>
                 Confirm
               </Button>
             </DialogFooter>
