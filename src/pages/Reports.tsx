@@ -2295,11 +2295,13 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-foreground font-semibold cursor-pointer" : isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
 
-                        if (isMissingPickup) {
+                        if (hasLateIncompleteDelivery) {
+                          // Do nothing — late delivery indicator is not clickable
+                        } else if (isMissingPickup) {
                           const currentNote = getLostDayNote(day);
                           const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
                           const lostDayNoteData = allLostDayNotes.find(
@@ -2331,7 +2333,7 @@ const Reports = () => {
                       }}
                     >
                       {hasLateIncompleteDelivery ? (
-                        <span className="text-center">{">>"}<span>LATE DELL</span>{"<<"}</span>
+                        <span className="text-center">{">>"}<span>LATE DEL</span>{"<<"}</span>
                       ) : isMissingPickup ? (
                         <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
                           {getLostDayNote(day)}
