@@ -149,6 +149,7 @@ export function buildMilesChangeSmsMessage(params: {
   newDh: number;
   oldLoaded: number;
   newLoaded: number;
+  reason: string;
   userName: string;
 }): string {
   const lines: string[] = [];
@@ -159,6 +160,7 @@ export function buildMilesChangeSmsMessage(params: {
   if (params.loadedMilesChanged) {
     lines.push(`Loaded Miles Changed from ${params.oldLoaded} to ${params.newLoaded}`);
   }
+  lines.push(`Reason:\n${params.reason}`);
   lines.push(params.userName);
   return lines.join("\n");
 }
