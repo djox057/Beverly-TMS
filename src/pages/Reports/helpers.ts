@@ -443,6 +443,14 @@ export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: st
   return { show: true, color, tooltip: dueSoon.join(", ") };
 };
 
+// Helper to check if a delivery stop time is >= 16:00 (late delivery)
+export const isLateDeliveryTime = (datetimeStr: string): boolean => {
+  if (!datetimeStr || datetimeStr === "—") return false;
+  const timeStr = formatDateTime(datetimeStr, "HH");
+  if (timeStr === "—") return false;
+  return parseInt(timeStr, 10) >= 16;
+};
+
 // Helper to get DOT inspection icon status for trucks and trailers
 export const getDotInspectionIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
   const now = new Date();
