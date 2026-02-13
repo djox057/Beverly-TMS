@@ -1244,8 +1244,8 @@ const Orders = () => {
                   label: broker
                 }))]} className="w-full" />
 
-                  {/* Column 6 Row 2: Show Invoiced */}
-                  <div className="flex flex-col gap-1">
+                  {/* Column 6 Row 2: Show Invoiced - hidden for dispatch/afterhours */}
+                  {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <div className="flex flex-col gap-1">
                     <Button variant={invoicedFilter ? "default" : "outline"} onClick={() => setInvoicedFilter(!invoicedFilter)} className="w-full">
                       <FileText className="mr-2 h-3.5 w-3.5 shrink-0" />
                       {invoicedFilter ? "Hide Invoiced" : "Show Invoiced"}
@@ -1296,7 +1296,7 @@ const Orders = () => {
                         </div>
                       </PopoverContent>
                     </Popover>
-                  </div>
+                  </div>}
                 </div>
               </ScrollArea>
             </div>
@@ -1322,7 +1322,7 @@ const Orders = () => {
                     <TableHead className="w-[60px] min-w-[60px] max-w-[60px] whitespace-nowrap">Miles</TableHead>
                     <TableHead className="w-[140px] min-w-[140px] max-w-[140px] whitespace-nowrap">Broker Name</TableHead>
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">Broker Load #</TableHead>
-                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>
+                    {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>}
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Notes</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
@@ -1336,7 +1336,7 @@ const Orders = () => {
                 </TableHeader>
                 <TableBody>
                   {paginatedOrders.length === 0 ? <TableRow>
-                      <TableCell colSpan={primaryRole === 'dispatch' || primaryRole === 'afterhours' ? 20 : 21} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={primaryRole === 'dispatch' || primaryRole === 'afterhours' ? 19 : 21} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow> : paginatedOrders.map((order, index) => {
@@ -1680,7 +1680,7 @@ const Orders = () => {
                                 </Tooltip>
                               </TooltipProvider> : <>{order.brokerLoadNumber}</>}
                           </TableCell>
-                          <TableCell className="w-20">
+                          {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <TableCell className="w-20">
                             <span
                               className="cursor-pointer hover:underline"
                               onClick={() => {
@@ -1693,7 +1693,7 @@ const Orders = () => {
                             >
                               {order.invoiced ? "Yes" : "No"}
                             </span>
-                          </TableCell>
+                          </TableCell>}
                           <TableCell className="w-20">
                             {order.notes && <Button variant="ghost" size="sm" className="h-auto p-1 text-xs font-normal hover:underline" onClick={() => {
                         setSelectedNotes(order.notes);
