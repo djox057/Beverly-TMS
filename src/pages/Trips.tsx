@@ -980,23 +980,25 @@ const Trips = () => {
   }, [orders]);
 
   // Filter orders based on combined search (truck number or driver name)
-  const filteredOrders =
-    expandedOrders?.filter((order) => {
-      const searchLower = searchFilter.toLowerCase().trim();
-      // Truck number uses exact match; driver name uses partial match
-      const isNumericSearch = /^\d+$/.test(searchLower);
+  // Two-pass approach: if any segment of a recovery load matches, keep ALL segments
+  const filteredOrders = useMemo(() => {
+    if (!expandedOrders) return [];
+
+    const searchLower = searchFilter.toLowerCase().trim();
+    const loadSearchLower = loadNumberSearch.toLowerCase().trim();
+    const parsedSearchNumber = loadSearchLower ? parseInternalLoadNumber(loadSearchLower) : null;
+    const isNumericSearch = /^\d+$/.test(searchLower);
+
+    // Helper: does this order match the search/filter criteria?
+    const matchesFilters = (order: any) => {
       const matchesTruck = isNumericSearch
         ? order.truckNumber?.toLowerCase() === searchLower
         : order.truckNumber?.toLowerCase().includes(searchLower);
-      const matchesSearch = !searchLower || 
+      const matchesSearch = !searchLower ||
         matchesTruck ||
         order.driverName?.toLowerCase().includes(searchLower);
 
-      // Filter by internal load number or broker load number
-      const loadSearchLower = loadNumberSearch.toLowerCase().trim();
       const formattedInternalLoad = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
-      // Extract numeric portion from search term (e.g., "6538-BFU" -> 6538)
-      const parsedSearchNumber = parseInternalLoadNumber(loadSearchLower);
       const matchesLoadNumber = !loadSearchLower ||
         formattedInternalLoad.toLowerCase().includes(loadSearchLower) ||
         order.internalLoadNumber?.toString().includes(loadSearchLower) ||
@@ -1004,37 +1006,49 @@ const Trips = () => {
         order.brokerLoadNumber?.toLowerCase().includes(loadSearchLower) ||
         order.loadNumber?.toLowerCase().includes(loadSearchLower);
 
-      // Filter by invoiced date - use invoicedAt if available, otherwise fall back to deliveryDate
       let matchesInvoicedDate = true;
       if (invoicedDateFilter) {
-        // Use invoicedAt if available, otherwise use deliveryDate as fallback
         const dateToCheck = order.invoicedAt || order.deliveryDate;
         if (!dateToCheck) {
           matchesInvoicedDate = false;
         } else {
-          // Parse the date without timezone conversion
           const normalizedStr = String(dateToCheck).replace(" ", "T");
           const datePart = normalizedStr.split("T")[0];
           if (!datePart) {
             matchesInvoicedDate = false;
           } else {
             const [year, month, day] = datePart.split("-").map(Number);
-            const filterDate = invoicedDateFilter;
-            matchesInvoicedDate = 
-              year === filterDate.getFullYear() &&
-              month === filterDate.getMonth() + 1 &&
-              day === filterDate.getDate();
+            matchesInvoicedDate =
+              year === invoicedDateFilter.getFullYear() &&
+              month === invoicedDateFilter.getMonth() + 1 &&
+              day === invoicedDateFilter.getDate();
           }
         }
       }
 
-      // Exclude orders with both freight amount and driver pay equal to 0
       const hasValue =
         (order.totalFreightAmountNoLumper && order.totalFreightAmountNoLumper !== 0) ||
         (order.totalDriverPay && order.totalDriverPay !== 0);
 
       return matchesSearch && matchesLoadNumber && matchesInvoicedDate && hasValue;
-    }) || [];
+    };
+
+    // Pass 1: find all base order IDs where at least one segment matches
+    const matchedBaseIds = new Set<string>();
+    for (const order of expandedOrders) {
+      if (matchesFilters(order)) {
+        // Use the base order id (strip any transfer suffix like "-rec-0")
+        const baseId = order.id?.replace(/-(?:orig|rec)-\d+$/, "") || order.id;
+        matchedBaseIds.add(baseId);
+      }
+    }
+
+    // Pass 2: include all segments whose base ID matched
+    return expandedOrders.filter((order) => {
+      const baseId = order.id?.replace(/-(?:orig|rec)-\d+$/, "") || order.id;
+      return matchedBaseIds.has(baseId);
+    });
+  }, [expandedOrders, searchFilter, loadNumberSearch, invoicedDateFilter]);
 
   // Determine if filtering by truck number or driver name for assignment history
   const filterInfo = useMemo(() => {
