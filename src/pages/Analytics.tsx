@@ -2002,6 +2002,15 @@ const Analytics = () => {
       const avgFreight = totalFreight / includedWeeks.length;
       const avgDriverPay = totalDriverPay / includedWeeks.length;
       const avgMiles = totalMiles / includedWeeks.length;
+
+      // All-time totals (including first and last week) for Total Comm and RPM
+      const allWeekFreights = weekKeys.map(wk => weeklyData[wk].freight);
+      const allWeekDriverPays = weekKeys.map(wk => weeklyData[wk].driverPay);
+      const allWeekMiles = weekKeys.map(wk => weeklyData[wk].miles);
+      const allTimeFreight = allWeekFreights.reduce((sum, v) => sum + v, 0);
+      const allTimeDriverPay = allWeekDriverPays.reduce((sum, v) => sum + v, 0);
+      const allTimeMiles = allWeekMiles.reduce((sum, v) => sum + v, 0);
+
       return {
         name: driverName,
         trucks: Array.from(driverTrucks[driverName] || []),
@@ -2015,9 +2024,9 @@ const Analytics = () => {
         medianFreight: calculateMedian(weeklyFreights),
         medianDriverPay: calculateMedian(weeklyDriverPays),
         medianMiles: calculateMedian(weeklyMiles),
-        rpmCompany: totalMiles > 0 ? totalFreight / totalMiles : 0,
-        rpmDriver: totalMiles > 0 ? totalDriverPay / totalMiles : 0,
-        totalComm: totalFreight - totalDriverPay,
+        rpmCompany: allTimeMiles > 0 ? allTimeFreight / allTimeMiles : 0,
+        rpmDriver: allTimeMiles > 0 ? allTimeDriverPay / allTimeMiles : 0,
+        totalComm: allTimeFreight - allTimeDriverPay,
         weeksCount: includedWeeks.length
       };
     });
