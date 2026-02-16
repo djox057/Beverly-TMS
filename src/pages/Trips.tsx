@@ -980,7 +980,8 @@ const Trips = () => {
   }, [orders]);
 
   // Filter orders based on combined search (truck number or driver name)
-  // Two-pass approach: if any segment of a recovery load matches, keep ALL segments
+  // For load# search: two-pass (keep all segments of matching load)
+  // For truck#/driver search: independent per-segment filtering
   const filteredOrders = useMemo(() => {
     if (!expandedOrders) return [];
 
@@ -988,9 +989,9 @@ const Trips = () => {
     const loadSearchLower = loadNumberSearch.toLowerCase().trim();
     const parsedSearchNumber = loadSearchLower ? parseInternalLoadNumber(loadSearchLower) : null;
     const isNumericSearch = /^\d+$/.test(searchLower);
+    const isLoadSearch = !!loadSearchLower;
 
-    // Helper: does this order match the search/filter criteria?
-    const matchesFilters = (order: any) => {
+    return expandedOrders.filter((order) => {
       const matchesTruck = isNumericSearch
         ? order.truckNumber?.toLowerCase() === searchLower
         : order.truckNumber?.toLowerCase().includes(searchLower);
@@ -1031,22 +1032,6 @@ const Trips = () => {
         (order.totalDriverPay && order.totalDriverPay !== 0);
 
       return matchesSearch && matchesLoadNumber && matchesInvoicedDate && hasValue;
-    };
-
-    // Pass 1: find all base order IDs where at least one segment matches
-    const matchedBaseIds = new Set<string>();
-    for (const order of expandedOrders) {
-      if (matchesFilters(order)) {
-        // Use the base order id (strip any transfer suffix like "-rec-0")
-        const baseId = order.id?.replace(/-(?:orig|rec)-\d+$/, "") || order.id;
-        matchedBaseIds.add(baseId);
-      }
-    }
-
-    // Pass 2: include all segments whose base ID matched
-    return expandedOrders.filter((order) => {
-      const baseId = order.id?.replace(/-(?:orig|rec)-\d+$/, "") || order.id;
-      return matchedBaseIds.has(baseId);
     });
   }, [expandedOrders, searchFilter, loadNumberSearch, invoicedDateFilter]);
 
