@@ -152,19 +152,56 @@ async function searchByTruckOrDriver(searchTerm: string): Promise<any[]> {
   if (truckIds.length === 0 && driverIds.length === 0) return [];
 
   const conditions: string[] = [];
-  if (truckIds.length > 0) conditions.push(`truck_id.in.(${truckIds.join(",")})`);
+  if (truckIds.length > 0) {
+    conditions.push(`truck_id.in.(${truckIds.join(",")})`);
+    conditions.push(`original_truck_id.in.(${truckIds.join(",")})`);
+  }
   if (driverIds.length > 0) {
     conditions.push(`driver1_id.in.(${driverIds.join(",")})`);
     conditions.push(`driver2_id.in.(${driverIds.join(",")})`);
+    conditions.push(`original_driver1_id.in.(${driverIds.join(",")})`);
+    conditions.push(`original_driver2_id.in.(${driverIds.join(",")})`);
   }
 
-  // Flat fetch - no joins
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select("*")
-    .or(conditions.join(","))
-    .order("delivery_datetime", { ascending: false, nullsFirst: false })
-    .limit(1000);
+  // Also check order_transfers for matching truck/driver
+  const transferConditions: string[] = [];
+  if (truckIds.length > 0) transferConditions.push(`truck_id.in.(${truckIds.join(",")})`);
+  if (driverIds.length > 0) {
+    transferConditions.push(`driver1_id.in.(${driverIds.join(",")})`);
+    transferConditions.push(`driver2_id.in.(${driverIds.join(",")})`);
+  }
+
+  const [mainResult, transferResult] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("*")
+      .or(conditions.join(","))
+      .order("delivery_datetime", { ascending: false, nullsFirst: false })
+      .limit(1000),
+    transferConditions.length > 0
+      ? supabase
+          .from("order_transfers")
+          .select("order_id")
+          .or(transferConditions.join(","))
+          .limit(500)
+      : Promise.resolve({ data: [] as { order_id: string }[], error: null }),
+  ]);
+
+  const { data: orders, error } = mainResult;
+
+  // Fetch any additional orders found via transfers
+  const transferOrderIds = (transferResult.data || []).map((t) => t.order_id);
+  const existingOrderIds = new Set((orders || []).map((o) => o.id));
+  const missingTransferIds = transferOrderIds.filter((id) => !existingOrderIds.has(id));
+
+  let allOrders = orders || [];
+  if (missingTransferIds.length > 0) {
+    const { data: extraOrders } = await supabase
+      .from("orders")
+      .select("*")
+      .in("id", missingTransferIds);
+    if (extraOrders) allOrders = [...allOrders, ...extraOrders];
+  }
 
   if (error) {
     console.error("Error fetching orders by truck/driver:", error);
@@ -172,7 +209,7 @@ async function searchByTruckOrDriver(searchTerm: string): Promise<any[]> {
   }
 
   // Batch-fetch all relations
-  const enriched = await enrichOrdersWithRelations(orders || []);
+  const enriched = await enrichOrdersWithRelations(allOrders);
   return transformOrders(enriched);
 }
 
