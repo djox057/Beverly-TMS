@@ -2988,9 +2988,7 @@ const Trips = () => {
       ];
 
       deductions.forEach(({ row, description, amount }) => {
-        const cellB = worksheet.getCell(`B${row}`);
-        cellB.value = description;
-        cellB.font = { size: 11 };
+        worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
@@ -3612,12 +3610,26 @@ const Trips = () => {
       worksheet.getCell("C6").value = driver?.name || firstOrder.driverName || "";
       // C7: Driver's company name (company_name field from drivers table)
       worksheet.getCell("C7").value = driver?.company_name || "";
-      // C8: Agreement start date
+      // C8: Agreement start date (centered)
       if (driver?.agreement_start_date) {
-        worksheet.getCell("C8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+        const c8Cell = worksheet.getCell("C8");
+        c8Cell.value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+        c8Cell.alignment = { horizontal: "center", vertical: "middle" };
       }
       // C9: Truck number
       worksheet.getCell("C9").value = firstOrder.truckNumber || "";
+      // Preserve borders on E6-E10
+      for (let r = 6; r <= 10; r++) {
+        const eCell = worksheet.getCell(`E${r}`);
+        if (!eCell.border) {
+          eCell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
+        }
+      }
       // C10: Agreement terms
       if (driver?.weekly_payment && driver?.weeks_count) {
         worksheet.getCell("C10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
@@ -3715,9 +3727,7 @@ const Trips = () => {
         { row: 30, description: "Truck Insurance", amount: 195.0 },
       ];
       deductions.forEach(({ row, description, amount }) => {
-        const cellB = worksheet.getCell(`B${row}`);
-        cellB.value = description;
-        cellB.font = { size: 11 };
+        worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
