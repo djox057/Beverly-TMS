@@ -200,7 +200,7 @@ const Analytics = () => {
 
   // Driver Gross Rankings state
   const [grossRankingsSearch, setGrossRankingsSearch] = useState("");
-  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "weeksCount" | "currentDebt" | "totalDebt">("avgFreight");
+  const [grossRankingsSortBy, setGrossRankingsSortBy] = useState<"avgFreight" | "avgDriverPay" | "avgMiles" | "avgCut" | "rpmCompany" | "rpmDriver" | "totalComm" | "weeksCount" | "currentDebt" | "totalDebt">("avgFreight");
   const [grossRankingsSortDir, setGrossRankingsSortDir] = useState<"asc" | "desc">("desc");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, {
     totalTrucks: number;
@@ -1987,8 +1987,9 @@ const Analytics = () => {
           medianFreight: 0,
           medianDriverPay: 0,
           medianMiles: 0,
-          rpmCompany: 0,
+        rpmCompany: 0,
           rpmDriver: 0,
+          totalComm: 0,
           weeksCount: 0
         };
       }
@@ -2016,6 +2017,7 @@ const Analytics = () => {
         medianMiles: calculateMedian(weeklyMiles),
         rpmCompany: totalMiles > 0 ? totalFreight / totalMiles : 0,
         rpmDriver: totalMiles > 0 ? totalDriverPay / totalMiles : 0,
+        totalComm: totalFreight - totalDriverPay,
         weeksCount: includedWeeks.length
       };
     });
@@ -2605,6 +2607,9 @@ const Analytics = () => {
                         <TableHead className="text-right w-[5%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("rpmDriver")}>
                           RPM Dr {grossRankingsSortBy === "rpmDriver" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
+                        <TableHead className="text-right w-[8%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("totalComm")}>
+                          Total Comm. {grossRankingsSortBy === "totalComm" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
+                        </TableHead>
                         <TableHead className="text-right w-[5%] cursor-pointer hover:bg-muted/50" onClick={() => handleGrossRankingsSort("weeksCount")}>
                           Weeks {grossRankingsSortBy === "weeksCount" && (grossRankingsSortDir === "desc" ? "↓" : "↑")}
                         </TableHead>
@@ -2637,7 +2642,7 @@ const Analytics = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredAndSortedRankings.length === 0 ? <TableRow>
-                          <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                             No data available
                           </TableCell>
                         </TableRow> : filteredAndSortedRankings.map((driver, index) => {
@@ -2685,6 +2690,12 @@ const Analytics = () => {
                               </TableCell>
                               <TableCell className="text-right">${driver.rpmCompany.toFixed(2)}</TableCell>
                               <TableCell className="text-right">${driver.rpmDriver.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">
+                                ${driver.totalComm.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                              </TableCell>
                               <TableCell className="text-right">{driver.weeksCount}</TableCell>
                               <TableCell className={`text-right ${driver.currentDebt > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                                 {driver.currentDebt > 0 ? `$${driver.currentDebt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
