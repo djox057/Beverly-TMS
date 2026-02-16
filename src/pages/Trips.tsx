@@ -3637,9 +3637,11 @@ const Trips = () => {
         if (currentRow > 19) return;
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
-        worksheet.getCell(`C${currentRow}`).value = `${order.pickupCity || ""}, ${order.pickupState || ""}`;
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
         worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
-        worksheet.getCell(`F${currentRow}`).value = `${order.deliveryCity || ""}, ${order.deliveryState || ""}`;
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
         
         const driverPay = parseFloat(order.driverPrice) || 0;
@@ -3705,16 +3707,23 @@ const Trips = () => {
       // Fixed deductions (rows 25-33)
       const endDateFormatted = format(weekEndDate, "M/d/yy");
       const deductions = [
-        { row: 25, description: "Cargo Insurance" },
-        { row: 26, description: "Trailer + Insurance" },
-        { row: 27, description: "ELD" },
-        { row: 28, description: "Pre-Pass" },
+        { row: 25, description: "Cargo Insurance", amount: 285.0 },
+        { row: 26, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 27, description: "ELD", amount: 50.0 },
+        { row: 28, description: "Pre-Pass", amount: 20.0 },
         { row: 29, description: "Truck Payment" },
-        { row: 30, description: "Truck Insurance" },
+        { row: 30, description: "Truck Insurance", amount: 195.0 },
       ];
-      deductions.forEach(({ row, description }) => {
-        worksheet.getCell(`B${row}`).value = description;
+      deductions.forEach(({ row, description, amount }) => {
+        const cellB = worksheet.getCell(`B${row}`);
+        cellB.value = description;
+        cellB.font = { size: 11 };
         worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amount !== undefined) {
+          const cellJ = worksheet.getCell(`J${row}`);
+          cellJ.value = amount;
+          cellJ.numFmt = "$#,##0.00";
+        }
       });
 
       // Truck payment weeks info
@@ -4716,9 +4725,11 @@ const Trips = () => {
       sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
-        worksheet.getCell(`C${currentRow}`).value = `${order.pickupCity || ""}, ${order.pickupState || ""}`;
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
         worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
-        worksheet.getCell(`F${currentRow}`).value = `${order.deliveryCity || ""}, ${order.deliveryState || ""}`;
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = parseFloat(order.driverPrice) || 0;
@@ -4732,16 +4743,17 @@ const Trips = () => {
       const deductionStartRow = 25 + extraRowsNeeded;
       const endDateFormatted = format(endDate, "M/d/yy");
       const deductions = [
-        { offset: 0, desc: "Cargo Insurance" },
-        { offset: 1, desc: "Trailer + Insurance" },
-        { offset: 2, desc: "ELD" },
-        { offset: 3, desc: "Pre-Pass" },
+        { offset: 0, desc: "Cargo Insurance", amt: 285.0 },
+        { offset: 1, desc: "Trailer + Insurance", amt: 285.0 },
+        { offset: 2, desc: "ELD", amt: 50.0 },
+        { offset: 3, desc: "Pre-Pass", amt: 20.0 },
         { offset: 4, desc: "Truck Payment" },
-        { offset: 5, desc: "Truck Insurance" },
+        { offset: 5, desc: "Truck Insurance", amt: 195.0 },
       ];
-      deductions.forEach(({ offset, desc }) => {
+      deductions.forEach(({ offset, desc, amt }) => {
         worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
         worksheet.getCell(`I${deductionStartRow + offset}`).value = endDateFormatted;
+        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
       });
       if (driver?.agreement_start_date && driver?.weeks_count) {
         const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
