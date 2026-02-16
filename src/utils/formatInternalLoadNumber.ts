@@ -45,6 +45,9 @@ export function getCompanySuffix(companyName: string | null | undefined): string
   if (normalizedName.includes("bg prime") || normalizedName === "bg prime inc") {
     return "BG";
   }
+  if (normalizedName.includes("ap silver") || normalizedName === "ap silver trans llc") {
+    return "AP";
+  }
   
   return "";
 }
