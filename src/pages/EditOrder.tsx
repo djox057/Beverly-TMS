@@ -75,7 +75,7 @@ import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
-import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipient, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
+import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipients, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -4773,30 +4773,30 @@ const EditOrder = () => {
         onConfirm={async (reason) => {
           setShowMilesChangeDialog(false);
           // Send SMS notification
-          const phoneNumber = getMilesChangeSmsRecipient(profile?.office);
-          if (phoneNumber && milesChangeInfo) {
-            const selectedDriver1 = drivers?.find((d) => d.id === driver1);
-            const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === (selectedDriver1?.company_id))?.name;
-            const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
-             const message = buildMilesChangeSmsMessage({
-              internalLoadNumber: ilnDisplay,
-              brokerLoadNumber: brokerLoadNumber || "N/A",
-              dhMilesChanged: milesChangeInfo.dhMilesChanged,
-              loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
-              oldDh: milesChangeInfo.oldDhMiles,
-              newDh: milesChangeInfo.newDhMiles,
-              oldLoaded: milesChangeInfo.oldLoadedMiles,
-              newLoaded: milesChangeInfo.newLoadedMiles,
-              reason: reason,
-              userName: profile?.full_name || "Unknown",
-            });
-            try {
-              await supabase.functions.invoke("send-sms", {
-                body: { message, phoneNumber },
-              });
-            } catch (err) {
-              console.error("Failed to send miles change SMS:", err);
-            }
+           const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
+           if (phoneNumbers.length > 0 && milesChangeInfo) {
+             const selectedDriver1 = drivers?.find((d) => d.id === driver1);
+             const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === (selectedDriver1?.company_id))?.name;
+             const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
+              const message = buildMilesChangeSmsMessage({
+               internalLoadNumber: ilnDisplay,
+               brokerLoadNumber: brokerLoadNumber || "N/A",
+               dhMilesChanged: milesChangeInfo.dhMilesChanged,
+               loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
+               oldDh: milesChangeInfo.oldDhMiles,
+               newDh: milesChangeInfo.newDhMiles,
+               oldLoaded: milesChangeInfo.oldLoadedMiles,
+               newLoaded: milesChangeInfo.newLoadedMiles,
+               reason: reason,
+               userName: profile?.full_name || "Unknown",
+             });
+             try {
+               await supabase.functions.invoke("send-sms", {
+                 body: { message, phoneNumbers },
+               });
+             } catch (err) {
+               console.error("Failed to send miles change SMS:", err);
+             }
           }
           // Update baselines so check won't trigger again, then continue with submit
           setBaselineLoadedMiles(parseInt(loadedMiles) || 0);
