@@ -9,6 +9,7 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
+  const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
     "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"
   >("rpm5");
@@ -36,6 +37,18 @@ const Billboard = () => {
       }
     };
     fetchProfiles();
+
+    // Fetch manager user IDs to exclude from billboard
+    const fetchManagerIds = async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "manager");
+      if (roles) {
+        setManagerUserIds(new Set(roles.map((r) => r.user_id)));
+      }
+    };
+    fetchManagerIds();
   }, []);
 
   // Get current week's Monday and Sunday (same logic as Analytics)
@@ -175,8 +188,9 @@ const Billboard = () => {
           avgTrucks,
         };
       })
-      .filter((d) => d.name !== "Unknown" && d.orderCount > 0);
-  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts]);
+      .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
+      .filter((d) => !d.userId || !managerUserIds.has(d.userId));
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
@@ -320,8 +334,9 @@ const Billboard = () => {
           avgTrucks,
         };
       })
-      .filter((d) => d.name !== "Unknown" && d.orderCount > 0);
-  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts]);
+      .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
+      .filter((d) => !d.userId || !managerUserIds.has(d.userId));
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
