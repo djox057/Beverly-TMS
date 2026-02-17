@@ -1404,7 +1404,8 @@ const NewOrder = () => {
       .from("orders")
       .select("id, internal_load_number, broker_load_number, pickup_datetime, status")
       .eq("broker_load_number", brokerLoadNumber.trim())
-      .not("status", "eq", "canceled");
+      .not("status", "eq", "canceled")
+      .eq("canceled", false);
     if (error) {
       console.error("Error checking for duplicate orders:", error);
       return [];
