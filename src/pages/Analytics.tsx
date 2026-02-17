@@ -1856,12 +1856,10 @@ const Analytics = () => {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
       } else {
-                        // Sort by calculated salary (totalFreight * 0.01 + cut * 0.05 + food)
-                        const foodA = a.office === "BEOGRAD" ? 0 : 70;
-                        const foodB = b.office === "BEOGRAD" ? 0 : 70;
-                        const salaryA = a.totalFreight * 0.01 + a.cut * 0.05 + foodA;
-                        const salaryB = b.totalFreight * 0.01 + b.cut * 0.05 + foodB;
-                        return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
+        // Sort by calculated salary (totalFreight * 0.01 + cut * 0.05)
+        const salaryA = a.totalFreight * 0.01 + a.cut * 0.05;
+        const salaryB = b.totalFreight * 0.01 + b.cut * 0.05;
+        return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
   }, [dispatcherStats, salarySortBy, salarySortDir]);
@@ -3124,17 +3122,10 @@ const Analytics = () => {
                           daysInMonth = 30;
                         }
 
-                        // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 + Food Allowance
+                        // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                         const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                        const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
-                        
-                        // Previous month adjustment: if paid differs from calculated, carry over
-                        const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
-                        const prevMonthAdjustment = prevPayment 
-                          ? (prevPayment.calculated_salary - prevPayment.paid_amount) 
-                          : 0;
-                        
-                        const displaySalary = baseRate + foodAllowance + prevMonthAdjustment;
+                        // For display, just show the base rate (no adjustments for extra/lost days)
+                        const displaySalary = baseRate;
 
                         // Get dispatcher bonus for this month
                         const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
@@ -3145,9 +3136,11 @@ const Analytics = () => {
                         const perDayRate = workDaysInMonth > 0 ? baseRate / workDaysInMonth : 0;
                         const extraDaysAmount = extraDays * perDayRate;
                         const daysOffDeduction = lostDays * perDayRate;
-                        // Store for bulk action (base + food = new formula for calculated_salary)
+                        const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
+
+                        // Store for bulk action
                         if (stat.userId) {
-                          calculatedSalaries[stat.userId] = baseRate + foodAllowance;
+                          calculatedSalaries[stat.userId] = baseRate;
                         }
 
                         // Get payment info
@@ -3737,17 +3730,7 @@ const Analytics = () => {
                               ${dispatcherStats.reduce((sum, s) => sum + (s.office === "BEOGRAD" ? 0 : 70), 0)}
                             </TableCell>}
                             <TableCell className="text-right font-bold">—</TableCell>
-                            <TableCell className="text-right font-bold">
-                              $
-                              {dispatcherStats.reduce((sum, s) => {
-                                const base = s.totalFreight * 0.01 + s.cut * 0.05;
-                                const food = s.office === "BEOGRAD" ? 0 : 70;
-                                return sum + base + food;
-                              }, 0).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </TableCell>
+                            <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               $
                               {Object.values(salaryPayments).reduce((sum, p) => sum + (p.paid_amount || 0), 0).toLocaleString(undefined, {
@@ -3813,14 +3796,8 @@ const Analytics = () => {
                     const adj = payment?.additionals as any[] | null;
                     const adjustmentsTotal = adj ? adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0) : 0;
                     
-                    // Previous month adjustment
-                    const prevPayment = prevMonthPayments[stat.userId];
-                    const prevMonthAdj = prevPayment 
-                      ? (prevPayment.calculated_salary - prevPayment.paid_amount) 
-                      : 0;
-                    
-                    const fullTotal = baseRate + foodAllowance + prevMonthAdj + extraDaysAmount - daysOffDeduction + bonusAmt + adjustmentsTotal;
-                    calculatedSalaries[stat.userId] = baseRate + foodAllowance;
+                    const fullTotal = baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmt + adjustmentsTotal;
+                    calculatedSalaries[stat.userId] = baseRate;
                     adjustedSalaries[stat.userId] = fullTotal;
                   }
                 });
