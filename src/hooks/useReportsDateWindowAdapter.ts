@@ -8,6 +8,7 @@
  */
 
 import { useMemo, useCallback, useEffect, useRef } from "react";
+import { isValidUUID } from "@/utils/validation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
@@ -418,7 +419,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     for (const d of drivers) {
       if (d.dispatcher_id) ids.add(d.dispatcher_id);
     }
-    return Array.from(ids).sort();
+    const allIds = Array.from(ids);
+    const validIds = allIds.filter(isValidUUID);
+    if (validIds.length < allIds.length) {
+      console.warn(`[ReportsAdapter] Filtered ${allIds.length - validIds.length} invalid UUIDs from dispatcher_id`);
+    }
+    return validIds.sort();
   }, [drivers]);
 
   // Create a stable string key to prevent React Query re-renders

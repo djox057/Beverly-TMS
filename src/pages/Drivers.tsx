@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { isValidUUID } from "@/utils/validation";
 import { formatPhoneNumber } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -224,7 +225,11 @@ const Drivers = () => {
       if (error) throw error;
       
       // Fetch creator names for notes with created_by
-      const creatorIds = [...new Set((data || []).map(n => n.created_by).filter(Boolean))] as string[];
+      const allCreatorIds = [...new Set((data || []).map(n => n.created_by).filter(Boolean))] as string[];
+      const creatorIds = allCreatorIds.filter(isValidUUID);
+      if (creatorIds.length < allCreatorIds.length) {
+        console.warn(`[Drivers] Filtered ${allCreatorIds.length - creatorIds.length} invalid UUIDs from created_by`);
+      }
       let creatorsMap: Record<string, string> = {};
       if (creatorIds.length > 0) {
         const { data: profiles } = await supabase

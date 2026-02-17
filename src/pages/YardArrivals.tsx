@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { isValidUUID } from "@/utils/validation";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,7 +135,11 @@ export default function YardArrivals() {
       if (error) throw error;
 
       // Get unique creator IDs
-      const creatorIds = [...new Set((data || []).map(a => a.created_by).filter(Boolean))] as string[];
+      const allCreatorIds = [...new Set((data || []).map(a => a.created_by).filter(Boolean))] as string[];
+      const creatorIds = allCreatorIds.filter(isValidUUID);
+      if (creatorIds.length < allCreatorIds.length) {
+        console.warn(`[YardArrivals] Filtered ${allCreatorIds.length - creatorIds.length} invalid UUIDs from created_by`);
+      }
       
       // Fetch all creators at once
       const { data: creatorsData } = creatorIds.length > 0 
