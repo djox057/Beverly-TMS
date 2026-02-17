@@ -1,46 +1,35 @@
-
-
-## Fix: Yard/Recovery Loads Not Appearing in Trips Search by Truck# or Driver Name
+## Adjust Invoice PDF Column Widths
 
 ### Problem
-When searching by truck number or driver name on the Trips page, recovery (yard transfer) loads are missing because:
 
-1. **Database query is incomplete**: The `searchByTruckOrDriver` function in `useTripsLazyOrders.ts` only queries `truck_id`, `driver1_id`, and `driver2_id`. It does not check `original_truck_id`, `original_driver1_id`, `original_driver2_id`, or drivers/trucks in the `order_transfers` table.
+Long internal load numbers (e.g., "TR-0000284938-01") overflow the Load # column in generated invoices. The Date column is also slightly tight, and the Qty column is unnecessarily wide for a single digit.
 
-2. **Client-side filter excludes recovery segments**: After recovery loads are expanded into multiple segments (Orig/Rec), the client-side filter in `Trips.tsx` checks each segment's `truckNumber` and `driverName` independently. A "Rec" segment with a different truck/driver gets filtered out even though it belongs to the same load.
+### Changes
 
-### Solution
+**File: `src/utils/invoiceGenerator.ts**`
 
-#### 1. Expand database query conditions (`src/hooks/useTripsLazyOrders.ts`)
+Redistribute column widths while keeping the same total table width (183 units, from x=20 to x=203):
 
-In the `searchByTruckOrDriver` function, add `original_truck_id`, `original_driver1_id`, and `original_driver2_id` to the OR conditions so that recovery loads are fetched when searching by the original equipment.
 
-Also query `order_transfers` table for matching `truck_id` or `driver1_id` to find loads where a transfer segment uses the searched truck/driver, and include those order IDs.
+| Column               | Current Width | New Width |
+| -------------------- | ------------- | --------- |
+| Date                 | 20            | 22        |
+| Truck #              | 20            | 20        |
+| Load #               | 25            | 35        |
+| Origin - Destination | 53            | 53        |
+| Qty                  | 20            | 12        |
+| Rate                 | 20            | 20        |
+| Amount               | 25            | 25        |
 
-#### 2. Fix client-side filtering to keep all segments of a matching load (`src/pages/Trips.tsx`)
 
-Update the `filteredOrders` logic so that when any segment of a recovery load matches the search, all segments of that load are included. This will be done by:
-- First, collecting all base order IDs that have at least one matching segment
-- Then, including all segments that share one of those matching order IDs
+Key adjustments:
+
+- Load # gets 10 extra units (25 to 35) to fit long load numbers
+- Qty shrinks from 20 to 12 (only displays "1")
+- Date gets 2 extra units and text will be left-aligned as-is
 
 ### Technical Details
 
-**File: `src/hooks/useTripsLazyOrders.ts`** -- `searchByTruckOrDriver` function
+Update the `rect()` calls for headers (lines ~297-303) and data rows (lines ~346-352), plus the corresponding `text()` x-positions for headers (lines ~305-311) and data (lines ~357-363). Also update the text x-positions in the totals section (Freight Income, Detention, etc.) which reference x=138, 140, 158, 160, 178, 180.
 
-Add these additional OR conditions:
-```
-original_truck_id.in.(truckIds)
-original_driver1_id.in.(driverIds)
-original_driver2_id.in.(driverIds)
-```
-
-Also query `order_transfers` for matching truck/driver IDs and merge those order IDs into the results.
-
-**File: `src/pages/Trips.tsx`** -- `filteredOrders` block (~line 982)
-
-Change the filter to a two-pass approach:
-1. Pass 1: Find all base order IDs where any expanded segment matches the search criteria
-2. Pass 2: Include all segments whose base order ID is in the matched set
-
-This ensures that when searching "5870", both the "Orig" segment (truck 5870) and the "Rec" segment (different truck) appear together.
-
+The `splitTextToSize` for origin-destination (line 340) will be adjusted from width 50 to 45 to match the narrower column.
