@@ -7,20 +7,20 @@ interface LastDelivery {
   deliveryDatetime: string;
 }
 
-export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: string | null) => {
+export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: string | null) => {
   return useQuery({
-    queryKey: ['truck-last-delivery', truckId, pickupDatetime],
+    queryKey: ['driver-last-delivery', driverId, pickupDatetime],
     queryFn: async (): Promise<LastDelivery | null> => {
-      if (!truckId) return null;
+      if (!driverId) return null;
 
-      console.log('🔍 Finding last delivery for truck:', truckId);
+      console.log('🔍 Finding last delivery for driver:', driverId);
       console.log('🔍 Target pickup datetime:', pickupDatetime);
 
-      // Get all completed orders for this truck
+      // Get all completed orders for this driver (as driver1 or driver2)
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id, delivery_datetime')
-        .eq('truck_id', truckId)
+        .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .eq('canceled', false)
         .not('delivery_datetime', 'is', null)
         .order('delivery_datetime', { ascending: false });
@@ -74,6 +74,6 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
         deliveryDatetime: lastOrder.delivery_datetime || ''
       };
     },
-    enabled: !!truckId,
+    enabled: !!driverId,
   });
 };
