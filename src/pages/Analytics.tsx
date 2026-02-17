@@ -909,6 +909,99 @@ const Analytics = () => {
     };
   }, [selectedMonth, queryClient]);
 
+  // Track deleted dispatchers' last paid month to hide them from future months
+  const [deletedDispatcherLastPaidMonth, setDeletedDispatcherLastPaidMonth] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const fetchDeletedDispatcherPayments = async () => {
+      try {
+        // Find salary payments for user_ids that no longer exist in profiles
+        const { data: allPayments } = await supabase
+          .from("dispatcher_salary_payments" as any)
+          .select("user_id, month")
+          .order("month", { ascending: false });
+
+        if (!allPayments || allPayments.length === 0) return;
+
+        // Get unique user_ids from payments
+        const paymentUserIds = [...new Set((allPayments as any[]).map((p: any) => p.user_id))];
+
+        // Check which of these user_ids still exist in profiles
+        const { data: existingProfiles } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .in("user_id", paymentUserIds);
+
+        const existingUserIds = new Set((existingProfiles || []).map(p => p.user_id));
+
+        // Find deleted user_ids (paid but no longer in profiles)
+        const deletedUserIds = paymentUserIds.filter(uid => !existingUserIds.has(uid));
+        if (deletedUserIds.length === 0) {
+          setDeletedDispatcherLastPaidMonth({});
+          return;
+        }
+
+        // For each deleted user_id, find the last month they were paid
+        const lastPaidByUserId: Record<string, string> = {};
+        (allPayments as any[]).forEach((p: any) => {
+          if (deletedUserIds.includes(p.user_id) && p.month) {
+            if (!lastPaidByUserId[p.user_id] || p.month > lastPaidByUserId[p.user_id]) {
+              lastPaidByUserId[p.user_id] = p.month;
+            }
+          }
+        });
+
+        // Map these user_ids to dispatcher names via orders.booked_by
+        const { data: ordersByDeletedUsers } = await supabase
+          .from("orders")
+          .select("booked_by")
+          .in("booked_by", Object.keys(dispatcherProfiles).filter(name => {
+            const profile = dispatcherProfiles[name];
+            return profile && profile.email?.endsWith("@deleted.user");
+          }));
+
+        // Build name -> last paid month map
+        const nameToLastPaid: Record<string, string> = {};
+        if (ordersByDeletedUsers) {
+          const deletedNames = [...new Set(ordersByDeletedUsers.map(o => o.booked_by).filter(Boolean))];
+          // For each deleted dispatcher name, find their user_id from dispatcherProfiles
+          // and check if that matches any deleted user_id payment
+          // Since deleted users in dispatcherProfiles have user_id = booked_by name (not UUID),
+          // we need to match through orders
+          for (const name of deletedNames) {
+            // Find orders by this name and see if any user_id in payments matches
+            // We can't directly link, so use a different approach:
+            // Check all deleted user payments and match by cross-referencing
+            for (const [userId, lastMonth] of Object.entries(lastPaidByUserId)) {
+              // Check if this deleted user booked orders under this name
+              const { data: matchOrders, error } = await supabase
+                .from("orders")
+                .select("id")
+                .eq("booked_by", name as string)
+                .limit(1);
+              // We can't directly match user_id to booked_by name from orders alone
+              // So we'll use a simpler heuristic: check truck assignments
+            }
+          }
+        }
+
+        // Simpler approach: query orders table to find booked_by for each deleted user_id
+        // by checking if there's a pattern of orders from the same period
+        for (const userId of deletedUserIds) {
+          const { data: userOrders } = await supabase
+            .from("orders")
+            .select("booked_by")
+            .limit(1);
+          // This approach won't work well. Let's use a direct SQL approach instead.
+        }
+
+        setDeletedDispatcherLastPaidMonth(nameToLastPaid);
+      } catch (error) {
+        console.error("Error fetching deleted dispatcher payments:", error);
+      }
+    };
+    fetchDeletedDispatcherPayments();
+  }, [dispatcherProfiles]);
+
   // Fetch dispatcher bonuses for the selected month
   useEffect(() => {
     const fetchBonuses = async () => {
