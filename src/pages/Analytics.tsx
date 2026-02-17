@@ -1850,7 +1850,14 @@ const Analytics = () => {
 
   // Create sorted dispatcher stats for salaries tab
   const sortedDispatcherStatsForSalaries = useMemo(() => {
-    const stats = [...dispatcherStats];
+    const stats = [...dispatcherStats].filter(stat => {
+      // For deleted users (no valid userId), only show them in months where they have orders
+      if (!stat.userId) {
+        // If no freight in this period, hide them from salaries
+        if (stat.totalFreight <= 0) return false;
+      }
+      return true;
+    });
     return stats.sort((a, b) => {
       if (salarySortBy === "name") {
         const comparison = a.name.localeCompare(b.name);
@@ -3700,9 +3707,14 @@ const Analytics = () => {
                                 </TableCell>
                                 {/* Paid column - read-only for dispatchers */}
                                 <TableCell className="text-right">
-                                  {isPaid ? <span className="text-green-600 font-medium">
+                                {isPaid ? <span className="text-green-600 font-medium">
                                       $
                                       {payment.paid_amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                                    </span> : !stat.userId ? <span className="text-green-600 font-medium">
+                                      ${(baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + bonusAmount).toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
