@@ -1851,9 +1851,9 @@ const Analytics = () => {
   // Create sorted dispatcher stats for salaries tab
   const sortedDispatcherStatsForSalaries = useMemo(() => {
     const stats = [...dispatcherStats].filter(stat => {
-      // Deleted users (no valid userId) should not appear in salaries at all
-      // Their salary was already settled in their last active month
-      if (!stat.userId) return false;
+      // Deleted users (no valid userId) only appear in months where they have freight
+      // Once they have no more orders in a period, they disappear from salaries
+      if (!stat.userId) return stat.totalFreight > 0;
       return true;
     });
     return stats.sort((a, b) => {
