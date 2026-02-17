@@ -129,14 +129,10 @@ export function checkMilesChange(
   };
 }
 
-/** Get SMS recipient phone number based on office */
-export function getMilesChangeSmsRecipient(office: string | null | undefined): string | null {
-  if (!office) return null;
-  const normalized = office.toUpperCase().trim();
-  if (normalized === "BEOGRAD") return "+12192938762";
-  if (normalized === "KRAGUJEVAC") return "+15743476856";
-  if (normalized === "ČAČAK" || normalized === "CACAK") return "+16304733879";
-  return null;
+/** Get SMS recipient phone numbers (all offices go to Ben and Krki) */
+export function getMilesChangeSmsRecipients(office: string | null | undefined): string[] {
+  if (!office) return [];
+  return ["+16304733879", "+12192938764"];
 }
 
 /** Build SMS message for miles change */
