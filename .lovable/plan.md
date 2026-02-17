@@ -1,51 +1,44 @@
 
-## Multi-Pickup BOL Tracking in Reports
+
+## Change DH Miles Calculation to Use Driver's Last Delivery Instead of Truck's
 
 ### Problem
-When a load has multiple pickups, uploading 1 BOL marks ALL pickup stops as complete (green). It should only mark the first pickup as complete, matching how multi-drop loads work with POD files.
-
-### How It Works Today (Multi-Drop Reference)
-For deliveries with multiple drops, the code counts POD files and compares against the stop index:
-- 1 POD = only first delivery turns green
-- 2 PODs = first two deliveries turn green
-- etc.
+When a driver switches to a new truck, the DH (deadhead) miles are calculated from the last delivery of the **truck**, not the **driver**. This gives incorrect results because the truck may have had a completely different last delivery location with a different driver.
 
 ### Solution
-Apply the same counting logic to pickups with BOL files.
+Update the `useTruckLastDelivery` hook to look up the previous order by **driver ID** instead of **truck ID**.
 
 ### Changes
 
-**1. `src/pages/Reports.tsx` - Inline `getPickupCellColor` (~line 1379)**
-- Add a `stop` parameter (optional, like delivery version)
-- Get all pickup stops sorted by sequence_number
-- Count BOL files
-- If multiple pickup stops and a specific stop is provided, only mark green if `bolCount > stopIndex`
-- Single pickup or no stop: keep existing behavior
+**1. `src/hooks/useTruckLastDelivery.ts`**
+- Rename to conceptually track "driver's last delivery" (keep filename for minimal diff)
+- Change the parameter from `truckId` to `driverId`
+- Update the query to filter by `driver1_id = driverId OR driver2_id = driverId` instead of `truck_id = truckId`
+- Update the query key accordingly
+- Update the `enabled` check to use `driverId`
 
-**2. `src/pages/Reports/helpers.ts` - Exported `getPickupCellColor` (~line 201)**
-- Same changes as above: add `stop` parameter, add multi-pickup BOL counting logic
-
-**3. `src/pages/Reports.tsx` - Calendar pickup cell rendering (~lines 2163, 2224)**
-- Pass the current `stop` to `getPickupCellColor(order, previousComplete, stop)` so each pickup stop gets individually evaluated
+**2. `src/pages/NewOrder.tsx`**
+- Change the hook call from `useTruckLastDelivery(truck || null, ...)` to `useTruckLastDelivery(driver1 || null, ...)`
+- This ensures when a driver is selected (auto-filled from truck or manually set), the DH miles come from that driver's last delivery regardless of which truck they were on
 
 ### Technical Details
 
-The BOL counting logic (mirroring the POD/delivery pattern):
-```
-const pickupStops = order.pickupStops ||
-  order.pickup_drops?.filter(pd => pd.type === "pickup")
-    .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0)) || [];
-const bolCount = order.order_files?.filter(f => f.file_category === "BOL").length || 0;
+The query change in the hook:
+```sql
+-- Current: filters by truck
+.eq('truck_id', truckId)
 
-if (pickupStops.length > 1 && stop) {
-  const stopIndex = pickupStops.findIndex(s => s.id === stop.id);
-  if (bolCount > stopIndex) {
-    return green; // complete
-  }
-  // fall through to other checks (arrived, late, cyan, pending)
-} else {
-  // single pickup - original logic (hasBOL || hasPOD = green)
-}
+-- New: filters by driver (as driver1 or driver2)
+.or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
 ```
 
-Four locations to update total: two function definitions and two call sites in the calendar rendering.
+The hook call change in NewOrder.tsx (line ~278):
+```typescript
+// Current
+const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
+
+// New
+const { data: lastDelivery } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
+```
+
+No changes needed in EditOrder.tsx since it doesn't use this hook.
