@@ -976,6 +976,7 @@ export type Database = {
           additionals: Json | null
           calculated_salary: number | null
           created_at: string
+          dispatcher_name: string | null
           id: string
           lost_days: number | null
           month: string
@@ -989,6 +990,7 @@ export type Database = {
           additionals?: Json | null
           calculated_salary?: number | null
           created_at?: string
+          dispatcher_name?: string | null
           id?: string
           lost_days?: number | null
           month: string
@@ -1002,6 +1004,7 @@ export type Database = {
           additionals?: Json | null
           calculated_salary?: number | null
           created_at?: string
+          dispatcher_name?: string | null
           id?: string
           lost_days?: number | null
           month?: string

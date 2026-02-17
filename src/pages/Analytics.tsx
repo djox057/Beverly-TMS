@@ -909,98 +909,29 @@ const Analytics = () => {
     };
   }, [selectedMonth, queryClient]);
 
-  // Track deleted dispatchers' last paid month to hide them from future months
-  const [deletedDispatcherLastPaidMonth, setDeletedDispatcherLastPaidMonth] = useState<Record<string, string>>({});
-  useEffect(() => {
-    const fetchDeletedDispatcherPayments = async () => {
-      try {
-        // Find salary payments for user_ids that no longer exist in profiles
-        const { data: allPayments } = await supabase
-          .from("dispatcher_salary_payments" as any)
-          .select("user_id, month")
-          .order("month", { ascending: false });
+  // Track deleted dispatchers' last paid month to hide them from future salary views
+  // Uses the dispatcher_name column in dispatcher_salary_payments to match deleted users by name
+  const { data: deletedDispatcherLastPaidMonth } = useQuery({
+    queryKey: ["deleted-dispatcher-last-paid"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("dispatcher_name, month")
+        .not("dispatcher_name", "is", null);
 
-        if (!allPayments || allPayments.length === 0) return;
+      if (!data || data.length === 0) return {} as Record<string, string>;
 
-        // Get unique user_ids from payments
-        const paymentUserIds = [...new Set((allPayments as any[]).map((p: any) => p.user_id))];
-
-        // Check which of these user_ids still exist in profiles
-        const { data: existingProfiles } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .in("user_id", paymentUserIds);
-
-        const existingUserIds = new Set((existingProfiles || []).map(p => p.user_id));
-
-        // Find deleted user_ids (paid but no longer in profiles)
-        const deletedUserIds = paymentUserIds.filter(uid => !existingUserIds.has(uid));
-        if (deletedUserIds.length === 0) {
-          setDeletedDispatcherLastPaidMonth({});
-          return;
+      const nameToLastPaid: Record<string, string> = {};
+      (data as any[]).forEach((record: any) => {
+        const name = record.dispatcher_name;
+        if (name && (!nameToLastPaid[name] || record.month > nameToLastPaid[name])) {
+          nameToLastPaid[name] = record.month;
         }
-
-        // For each deleted user_id, find the last month they were paid
-        const lastPaidByUserId: Record<string, string> = {};
-        (allPayments as any[]).forEach((p: any) => {
-          if (deletedUserIds.includes(p.user_id) && p.month) {
-            if (!lastPaidByUserId[p.user_id] || p.month > lastPaidByUserId[p.user_id]) {
-              lastPaidByUserId[p.user_id] = p.month;
-            }
-          }
-        });
-
-        // Map these user_ids to dispatcher names via orders.booked_by
-        const { data: ordersByDeletedUsers } = await supabase
-          .from("orders")
-          .select("booked_by")
-          .in("booked_by", Object.keys(dispatcherProfiles).filter(name => {
-            const profile = dispatcherProfiles[name];
-            return profile && profile.email?.endsWith("@deleted.user");
-          }));
-
-        // Build name -> last paid month map
-        const nameToLastPaid: Record<string, string> = {};
-        if (ordersByDeletedUsers) {
-          const deletedNames = [...new Set(ordersByDeletedUsers.map(o => o.booked_by).filter(Boolean))];
-          // For each deleted dispatcher name, find their user_id from dispatcherProfiles
-          // and check if that matches any deleted user_id payment
-          // Since deleted users in dispatcherProfiles have user_id = booked_by name (not UUID),
-          // we need to match through orders
-          for (const name of deletedNames) {
-            // Find orders by this name and see if any user_id in payments matches
-            // We can't directly link, so use a different approach:
-            // Check all deleted user payments and match by cross-referencing
-            for (const [userId, lastMonth] of Object.entries(lastPaidByUserId)) {
-              // Check if this deleted user booked orders under this name
-              const { data: matchOrders, error } = await supabase
-                .from("orders")
-                .select("id")
-                .eq("booked_by", name as string)
-                .limit(1);
-              // We can't directly match user_id to booked_by name from orders alone
-              // So we'll use a simpler heuristic: check truck assignments
-            }
-          }
-        }
-
-        // Simpler approach: query orders table to find booked_by for each deleted user_id
-        // by checking if there's a pattern of orders from the same period
-        for (const userId of deletedUserIds) {
-          const { data: userOrders } = await supabase
-            .from("orders")
-            .select("booked_by")
-            .limit(1);
-          // This approach won't work well. Let's use a direct SQL approach instead.
-        }
-
-        setDeletedDispatcherLastPaidMonth(nameToLastPaid);
-      } catch (error) {
-        console.error("Error fetching deleted dispatcher payments:", error);
-      }
-    };
-    fetchDeletedDispatcherPayments();
-  }, [dispatcherProfiles]);
+      });
+      return nameToLastPaid;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Fetch dispatcher bonuses for the selected month
   useEffect(() => {
@@ -1091,11 +1022,17 @@ const Analytics = () => {
       }
 
       // Store both the adjusted salary (what's paid) and the base calculated salary (for next month's adjustment)
+      // Also store dispatcher_name for tracking deleted users
+      const dispatcherNameMap: Record<string, string> = {};
+      dispatcherStats.forEach(s => {
+        if (s.userId) dispatcherNameMap[s.userId] = s.name;
+      });
       const insertData = selectedUserIds.map(userId => ({
         user_id: userId,
         month: selectedMonth,
         paid_amount: adjustedSalaries[userId] || calculatedSalaries[userId] || 0,
         calculated_salary: calculatedSalaries[userId] || 0,
+        dispatcher_name: dispatcherNameMap[userId] || null,
         // Store base salary for next month adjustment
         paid_at: now,
         paid_by: user.id
@@ -1367,7 +1304,8 @@ const Analytics = () => {
         totalDriverRate: 0,
         totalMiles: 0,
         totalDhMiles: 0,
-        orderCount: 0
+        orderCount: 0,
+        latestPickupDate: null as string | null
       };
     }
     acc[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
@@ -1375,6 +1313,14 @@ const Analytics = () => {
     acc[dispatcher].totalMiles += Number(order.mileage) || 0;
     acc[dispatcher].totalDhMiles += Number(order.dhMiles) || 0;
     acc[dispatcher].orderCount += 1;
+    // Track latest pickup date for deleted dispatcher salary filtering
+    const pickupDate = order.pickupDate || order.pickupDatetime;
+    if (pickupDate) {
+      const pickupStr = typeof pickupDate === 'string' ? pickupDate : String(pickupDate);
+      if (!acc[dispatcher].latestPickupDate || pickupStr > acc[dispatcher].latestPickupDate) {
+        acc[dispatcher].latestPickupDate = pickupStr;
+      }
+    }
     return acc;
   }, {} as Record<string, {
     totalFreight: number;
@@ -1382,6 +1328,7 @@ const Analytics = () => {
     totalMiles: number;
     totalDhMiles: number;
     orderCount: number;
+    latestPickupDate: string | null;
   }>);
   const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]: [string, {
     totalFreight: number;
@@ -1389,6 +1336,7 @@ const Analytics = () => {
     totalMiles: number;
     totalDhMiles: number;
     orderCount: number;
+    latestPickupDate: string | null;
   }]) => {
     const cut = stats.totalFreight - stats.totalDriverRate;
     const cutPercent = stats.totalFreight > 0 ? cut / stats.totalFreight * 100 : 0;
@@ -1429,7 +1377,8 @@ const Analytics = () => {
       office: dispatcherProfile?.office || "Unknown",
       avgTrucks,
       turnover: turnoverMap[validUserId] || 0,
-      emptyDays: emptyDaysMap[validUserId] || 0
+      emptyDays: emptyDaysMap[validUserId] || 0,
+      latestPickupDate: stats.latestPickupDate
     };
   }).filter(stat => {
     const dispatcherProfile = dispatcherProfiles[stat.name];
@@ -1944,9 +1893,29 @@ const Analytics = () => {
   // Create sorted dispatcher stats for salaries tab
   const sortedDispatcherStatsForSalaries = useMemo(() => {
     const stats = [...dispatcherStats].filter(stat => {
-      // Deleted users (no valid userId) only appear in months where they have freight
-      // Once they have no more orders in a period, they disappear from salaries
-      if (!stat.userId) return stat.totalFreight > 0;
+      // Deleted users (no valid userId) - determine their last salary month
+      if (!stat.userId) {
+        if (stat.totalFreight <= 0) return false;
+        if (!selectedMonth || selectedMonth === "all") return true;
+
+        // Check 1: If this deleted dispatcher has a salary payment record, use that
+        const lastPaid = deletedDispatcherLastPaidMonth?.[stat.name];
+        if (lastPaid && selectedMonth > lastPaid) {
+          return false; // Already paid in a previous month
+        }
+
+        // Check 2: Use pickup dates - only show in the month of the latest pickup
+        // If the dispatcher's latest pickup is in January but orders deliver in February,
+        // they should only appear in January's salary (their last active month)
+        if (stat.latestPickupDate && !lastPaid) {
+          const pickupMonth = stat.latestPickupDate.substring(0, 7); // "YYYY-MM"
+          if (selectedMonth > pickupMonth) {
+            return false; // Their last pickup was in a previous month
+          }
+        }
+
+        return true;
+      }
       return true;
     });
     return stats.sort((a, b) => {
@@ -1954,13 +1923,12 @@ const Analytics = () => {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
       } else {
-        // Sort by calculated salary (totalFreight * 0.01 + cut * 0.05)
         const salaryA = a.totalFreight * 0.01 + a.cut * 0.05;
         const salaryB = b.totalFreight * 0.01 + b.cut * 0.05;
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir]);
+  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
