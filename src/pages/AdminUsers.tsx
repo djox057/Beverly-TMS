@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut } from "lucide-react";
+import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +54,8 @@ const AdminUsers = () => {
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   
   // Form state
   const [email, setEmail] = useState("");
@@ -63,6 +65,16 @@ const AdminUsers = () => {
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesSearch = !searchQuery || 
+        (user.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRole = roleFilter === "all" || user.roles.includes(roleFilter as any);
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchQuery, roleFilter]);
 
   // Security check: Only admins and accounting should access this page
   useEffect(() => {
@@ -600,8 +612,38 @@ const AdminUsers = () => {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>System Users</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 w-[250px] h-9"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="dispatch">Dispatch</SelectItem>
+                <SelectItem value="afterhours">After Hours</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="supervisor">Supervisor</SelectItem>
+                <SelectItem value="safety">Safety</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="accounting">Accounting</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="chicago_management">Chicago Mgmt</SelectItem>
+                <SelectItem value="yard">Yard</SelectItem>
+                <SelectItem value="driver">Driver</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -617,7 +659,7 @@ const AdminUsers = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -666,10 +708,10 @@ const AdminUsers = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.length === 0 && (
+              {filteredUsers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    No users found
+                    {users.length === 0 ? "No users found" : "No users match the current filters"}
                   </TableCell>
                 </TableRow>
               )}
