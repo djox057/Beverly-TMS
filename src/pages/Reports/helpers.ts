@@ -198,7 +198,7 @@ const isDateToday = (dateStr: string | null | undefined): boolean => {
 };
 
 // Helper to get pickup cell color based on status and previous load
-export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean, latePickups?: Set<string>) => {
+export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean, latePickups?: Set<string>, stop?: any) => {
   // Show destructive styling for canceled orders only if pickup date is today
   if (order.canceled && isDateToday(order.pickup_datetime)) {
     return "bg-destructive/80 text-destructive-foreground border-destructive/50";
@@ -208,10 +208,27 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
 
   const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
   const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-  const hasArrived = order.pickupStop?.arrived_at;
+  const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
   const isLate = latePickups?.has(order.id);
 
-  if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  // For multi-pickup loads: BOL should only turn the corresponding pickup green
+  const pickupStops =
+    order.pickupStops ||
+    order.pickup_drops
+      ?.filter((pd: any) => pd.type === "pickup")
+      .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
+    [];
+  const bolCount = order.order_files?.filter((file: any) => file.file_category === "BOL").length || 0;
+
+  if (pickupStops.length > 1 && stop) {
+    const stopIndex = pickupStops.findIndex((s: any) => s.id === stop.id);
+    if (bolCount > stopIndex) {
+      return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+    }
+  } else {
+    if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
+
   // Arrived at pickup overrides late status - if arrived, show blue not orange
   if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
   // Only show late (orange) if NOT arrived
