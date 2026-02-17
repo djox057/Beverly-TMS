@@ -3124,7 +3124,19 @@ const Analytics = () => {
 
                         // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                         const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
-                        // For display, just show the base rate (no adjustments for extra/lost days)
+                        
+                        // Carry-over adjustment: if prev month's salary column changed after being paid
+                        // calculated_salary = base rate stored at time of payment
+                        // If current recalculation of prev month would differ, carry the difference
+                        const prevPayment = stat.userId ? prevMonthPayments[stat.userId] : null;
+                        const prevMonthAdjustment = prevPayment ? (prevPayment.calculated_salary - prevPayment.paid_amount) : 0;
+                        // Note: prevMonthAdjustment is negative if overpaid, positive if underpaid
+                        // But we want salary-based: difference between what salary WAS and what it IS now
+                        // Since we can't recalculate prev month, we use: stored calculated_salary as the frozen salary value
+                        // The adjustment = 0 unless paid_amount differs from calculated_salary (meaning extras/deductions were applied)
+                        // Per user request: adjustment based on salary column changes, not paid changes
+                        // So we don't carry over here - the salary column is pure baseRate
+                        
                         const displaySalary = baseRate;
 
                         // Get dispatcher bonus for this month
@@ -3138,7 +3150,7 @@ const Analytics = () => {
                         const daysOffDeduction = lostDays * perDayRate;
                         const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
 
-                        // Store for bulk action
+                        // Store base rate for carry-over calculations
                         if (stat.userId) {
                           calculatedSalaries[stat.userId] = baseRate;
                         }
@@ -3797,8 +3809,8 @@ const Analytics = () => {
                     const adjustmentsTotal = adj ? adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0) : 0;
                     
                     const fullTotal = baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmt + adjustmentsTotal;
-                    calculatedSalaries[stat.userId] = baseRate;
-                    adjustedSalaries[stat.userId] = fullTotal;
+                    calculatedSalaries[stat.userId] = baseRate; // Store base rate for salary-based carry-over
+                    adjustedSalaries[stat.userId] = fullTotal; // Full total for paid_amount
                   }
                 });
                 markSelectedAsPaid(calculatedSalaries, adjustedSalaries);
