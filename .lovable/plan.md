@@ -1,35 +1,51 @@
-## Adjust Invoice PDF Column Widths
+
+## Multi-Pickup BOL Tracking in Reports
 
 ### Problem
+When a load has multiple pickups, uploading 1 BOL marks ALL pickup stops as complete (green). It should only mark the first pickup as complete, matching how multi-drop loads work with POD files.
 
-Long internal load numbers (e.g., "TR-0000284938-01") overflow the Load # column in generated invoices. The Date column is also slightly tight, and the Qty column is unnecessarily wide for a single digit.
+### How It Works Today (Multi-Drop Reference)
+For deliveries with multiple drops, the code counts POD files and compares against the stop index:
+- 1 POD = only first delivery turns green
+- 2 PODs = first two deliveries turn green
+- etc.
+
+### Solution
+Apply the same counting logic to pickups with BOL files.
 
 ### Changes
 
-**File: `src/utils/invoiceGenerator.ts**`
+**1. `src/pages/Reports.tsx` - Inline `getPickupCellColor` (~line 1379)**
+- Add a `stop` parameter (optional, like delivery version)
+- Get all pickup stops sorted by sequence_number
+- Count BOL files
+- If multiple pickup stops and a specific stop is provided, only mark green if `bolCount > stopIndex`
+- Single pickup or no stop: keep existing behavior
 
-Redistribute column widths while keeping the same total table width (183 units, from x=20 to x=203):
+**2. `src/pages/Reports/helpers.ts` - Exported `getPickupCellColor` (~line 201)**
+- Same changes as above: add `stop` parameter, add multi-pickup BOL counting logic
 
-
-| Column               | Current Width | New Width |
-| -------------------- | ------------- | --------- |
-| Date                 | 20            | 22        |
-| Truck #              | 20            | 20        |
-| Load #               | 25            | 35        |
-| Origin - Destination | 53            | 53        |
-| Qty                  | 20            | 12        |
-| Rate                 | 20            | 20        |
-| Amount               | 25            | 25        |
-
-
-Key adjustments:
-
-- Load # gets 10 extra units (25 to 35) to fit long load numbers
-- Qty shrinks from 20 to 12 (only displays "1")
-- Date gets 2 extra units and text will be left-aligned as-is
+**3. `src/pages/Reports.tsx` - Calendar pickup cell rendering (~lines 2163, 2224)**
+- Pass the current `stop` to `getPickupCellColor(order, previousComplete, stop)` so each pickup stop gets individually evaluated
 
 ### Technical Details
 
-Update the `rect()` calls for headers (lines ~297-303) and data rows (lines ~346-352), plus the corresponding `text()` x-positions for headers (lines ~305-311) and data (lines ~357-363). Also update the text x-positions in the totals section (Freight Income, Detention, etc.) which reference x=138, 140, 158, 160, 178, 180.
+The BOL counting logic (mirroring the POD/delivery pattern):
+```
+const pickupStops = order.pickupStops ||
+  order.pickup_drops?.filter(pd => pd.type === "pickup")
+    .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0)) || [];
+const bolCount = order.order_files?.filter(f => f.file_category === "BOL").length || 0;
 
-The `splitTextToSize` for origin-destination (line 340) will be adjusted from width 50 to 45 to match the narrower column.
+if (pickupStops.length > 1 && stop) {
+  const stopIndex = pickupStops.findIndex(s => s.id === stop.id);
+  if (bolCount > stopIndex) {
+    return green; // complete
+  }
+  // fall through to other checks (arrived, late, cyan, pending)
+} else {
+  // single pickup - original logic (hasBOL || hasPOD = green)
+}
+```
+
+Four locations to update total: two function definitions and two call sites in the calendar rendering.
