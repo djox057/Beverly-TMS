@@ -1,46 +1,53 @@
 
 
-## Fix: Yard/Recovery Loads Not Appearing in Trips Search by Truck# or Driver Name
+## Salary Calculation Simplification
 
-### Problem
-When searching by truck number or driver name on the Trips page, recovery (yard transfer) loads are missing because:
+### What Changes
 
-1. **Database query is incomplete**: The `searchByTruckOrDriver` function in `useTripsLazyOrders.ts` only queries `truck_id`, `driver1_id`, and `driver2_id`. It does not check `original_truck_id`, `original_driver1_id`, `original_driver2_id`, or drivers/trucks in the `order_transfers` table.
+The "Salary" column in the Analytics Salaries tab will be simplified to show only the core compensation:
 
-2. **Client-side filter excludes recovery segments**: After recovery loads are expanded into multiple segments (Orig/Rec), the client-side filter in `Trips.tsx` checks each segment's `truckNumber` and `driverName` independently. A "Rec" segment with a different truck/driver gets filtered out even though it belongs to the same load.
+**New formula:** `(Total Freight x 0.01) + (Total Commission x 0.05) + Food Allowance`
 
-### Solution
+Everything else -- bonuses, extra days pay, lost days deductions, manual additionals/charges -- will be excluded from the Salary column.
 
-#### 1. Expand database query conditions (`src/hooks/useTripsLazyOrders.ts`)
+### Previous Month Adjustment Logic
 
-In the `searchByTruckOrDriver` function, add `original_truck_id`, `original_driver1_id`, and `original_driver2_id` to the OR conditions so that recovery loads are fetched when searching by the original equipment.
+When a dispatcher is marked as "Paid," the system stores both the `paid_amount` (what was actually paid) and the `calculated_salary` (the base salary at that time). Currently, the next month does not account for differences.
 
-Also query `order_transfers` table for matching `truck_id` or `driver1_id` to find loads where a transfer segment uses the searched truck/driver, and include those order IDs.
+The new logic will:
+1. Compare the previous month's `paid_amount` to the previous month's `calculated_salary` (which will now be `base + food`)
+2. If they differ (e.g., paid more or less than the formula), carry the difference as an automatic adjustment in the current month's Salary column
+3. The "Paid" column remains unchanged -- it continues to show the frozen snapshot of what was actually paid
 
-#### 2. Fix client-side filtering to keep all segments of a matching load (`src/pages/Trips.tsx`)
-
-Update the `filteredOrders` logic so that when any segment of a recovery load matches the search, all segments of that load are included. This will be done by:
-- First, collecting all base order IDs that have at least one matching segment
-- Then, including all segments that share one of those matching order IDs
+Example: If last month's salary formula = $1,500 but paid = $1,600, this month shows a -$100 adjustment. If paid = $1,400, shows +$100.
 
 ### Technical Details
 
-**File: `src/hooks/useTripsLazyOrders.ts`** -- `searchByTruckOrDriver` function
+**File:** `src/pages/Analytics.tsx`
 
-Add these additional OR conditions:
-```
-original_truck_id.in.(truckIds)
-original_driver1_id.in.(driverIds)
-original_driver2_id.in.(driverIds)
-```
+1. **Salary display formula** (around line 3125-3128):
+   - Change `displaySalary = baseRate` to `displaySalary = baseRate + foodAllowance`
+   - Move the `foodAllowance` calculation above `displaySalary`
 
-Also query `order_transfers` for matching truck/driver IDs and merge those order IDs into the results.
+2. **Previous month adjustment** (around line 3125-3145):
+   - After calculating `displaySalary`, check `prevMonthPayments` for this dispatcher
+   - If previous month has a record: compute `adjustment = prevPaidAmount - prevCalculatedSalary`
+   - Add the adjustment to `displaySalary` (negative if overpaid last month, positive if underpaid)
 
-**File: `src/pages/Trips.tsx`** -- `filteredOrders` block (~line 982)
+3. **Update `calculatedSalaries` stored value** (line 3143):
+   - Change from `calculatedSalaries[stat.userId] = baseRate` to `calculatedSalaries[stat.userId] = baseRate + foodAllowance`
+   - This ensures the stored `calculated_salary` reflects the new formula for future month comparisons
 
-Change the filter to a two-pass approach:
-1. Pass 1: Find all base order IDs where any expanded segment matches the search criteria
-2. Pass 2: Include all segments whose base order ID is in the matched set
+4. **Bulk "Mark as Paid" logic** (lines 3785-3803):
+   - Update `calculatedSalaries` to use `baseRate + foodAllowance`
+   - Update `adjustedSalaries` (the actual paid amount) to include: `baseRate + foodAllowance + prevMonthAdjustment + extraDaysAmount - daysOffDeduction + bonusAmt + adjustmentsTotal`
+   - The paid amount still captures everything; only the "Salary" display is simplified
 
-This ensures that when searching "5870", both the "Orig" segment (truck 5870) and the "Rec" segment (different truck) appear together.
+5. **Sorting logic** (lines 3859-3862):
+   - Update sort comparison to use `baseRate + foodAllowance` instead of just `baseRate`
+
+6. **Totals row** (lines 3702-3741):
+   - Update the Salary total to sum `baseRate + foodAllowance` per dispatcher
+
+7. **PayrollPreviewDialog and document generation calls** remain unchanged -- they already receive individual components (salary1Percent, bonus5Percent, foodAllowance, etc.) as separate props
 
