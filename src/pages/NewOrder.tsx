@@ -474,7 +474,7 @@ const NewOrder = () => {
   // Auto-calculate DH miles when truck is selected and pickup address is entered
   useEffect(() => {
     const calculateDh = async () => {
-      if (!truck || !lastDelivery) {
+      if (!truck) {
         return;
       }
       const firstPickup = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
@@ -489,15 +489,20 @@ const NewOrder = () => {
       if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
       const pickupAddress = addressParts.join(', ');
       
+      // Use last delivery address or fallback to default base coordinates
+      const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
+      
       setIsCalculatingDhMiles(true);
       try {
-        const miles = await calculateDhMiles(lastDelivery.deliveryAddress, pickupAddress);
+        const miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
         if (miles !== null) {
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;
           toast({
             title: "DH Miles Calculated",
-            description: `Distance from last delivery: ${miles} miles`
+            description: lastDelivery 
+              ? `Distance from last delivery: ${miles} miles`
+              : `Distance from base location: ${miles} miles`
           });
         } else {
           setDhMiles('0');
