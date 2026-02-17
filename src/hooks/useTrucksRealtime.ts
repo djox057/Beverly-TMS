@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { isValidUUID } from "@/utils/validation";
 
 /**
  * Hook that subscribes to real-time changes on trucks and related tables.
@@ -61,8 +62,7 @@ export function useTrucksRealtime() {
       }
 
       // Fetch dispatchers
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(id => id && uuidRegex.test(id)))] as string[];
+      const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(Boolean))].filter(isValidUUID) as string[];
       const dispatcherMap = new Map<string, any>();
       if (dispatcherIds.length > 0) {
         const { data } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", dispatcherIds);

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { isValidUUID } from "@/utils/validation";
 
 /**
  * Hook that subscribes to real-time changes on drivers and related tables.
@@ -45,9 +46,8 @@ export function useDriversRealtime() {
       });
 
       // Collect unique IDs
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const companyIds = [...new Set(cleanDrivers.map(d => d.company_id).filter(Boolean))] as string[];
-      const dispatcherIds = [...new Set(cleanDrivers.map(d => d.dispatcher_id).filter(id => id && uuidRegex.test(id)))] as string[];
+      const dispatcherIds = [...new Set(cleanDrivers.map(d => d.dispatcher_id).filter(Boolean))].filter(isValidUUID) as string[];
 
       // Parallel fetch: companies, dispatchers, trucks assigned to these drivers
       const [companiesRes, dispatchersRes, trucksRes] = await Promise.all([

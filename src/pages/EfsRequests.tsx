@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { isValidUUID } from "@/utils/validation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -80,8 +81,6 @@ const EFS_PURPOSES = [
   "Tow",
   "Other",
 ];
-// Helper to check if a string looks like a UUID
-const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 export default function EfsRequests() {
   const { hasRole } = useAuthContext();
@@ -116,7 +115,11 @@ export default function EfsRequests() {
       if (cashError) throw cashError;
 
       // Fetch profiles to map user_id to full_name
-      const requesterIds = [...new Set((cashData || []).map(c => c.requested_by).filter(Boolean))];
+      const allRequesterIds = [...new Set((cashData || []).map(c => c.requested_by).filter(Boolean))] as string[];
+      const requesterIds = allRequesterIds.filter(isValidUUID);
+      if (requesterIds.length < allRequesterIds.length) {
+        console.warn(`[EfsRequests] Filtered ${allRequesterIds.length - requesterIds.length} invalid UUIDs from requested_by`);
+      }
       let profilesMap: Record<string, string> = {};
       
       if (requesterIds.length > 0) {
@@ -158,7 +161,7 @@ export default function EfsRequests() {
         city: null,
         state: null,
         requested_at: item.requested_at,
-        requested_by: item.requested_by ? (profilesMap[item.requested_by] || (isUUID(item.requested_by) ? null : item.requested_by)) : null,
+        requested_by: item.requested_by ? (profilesMap[item.requested_by] || (isValidUUID(item.requested_by) ? null : item.requested_by)) : null,
         quantity: null,
         receipt_path: null,
         company_name: null,
