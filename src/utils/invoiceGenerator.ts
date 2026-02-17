@@ -294,21 +294,21 @@ export const generateInvoicePDF = async (
       // Main table headers
       let yPosition = 90;
       doc.setFont('helvetica', 'bold');
-      doc.rect(20, yPosition, 20, 8);
-      doc.rect(40, yPosition, 20, 8);
-      doc.rect(60, yPosition, 25, 8);
-      doc.rect(85, yPosition, 53, 8);
-      doc.rect(138, yPosition, 20, 8);
-      doc.rect(158, yPosition, 20, 8);
-      doc.rect(178, yPosition, 25, 8);
+      doc.rect(20, yPosition, 22, 8);
+      doc.rect(42, yPosition, 20, 8);
+      doc.rect(62, yPosition, 35, 8);
+      doc.rect(97, yPosition, 53, 8);
+      doc.rect(150, yPosition, 12, 8);
+      doc.rect(162, yPosition, 20, 8);
+      doc.rect(182, yPosition, 25, 8);
       
       doc.text('Date', 22, yPosition + 5);
-      doc.text('Truck #', 42, yPosition + 5);
-      doc.text('Load #', 62, yPosition + 5);
-      doc.text('Origin - Destination', 87, yPosition + 5);
-      doc.text('Qty', 140, yPosition + 5);
-      doc.text('Rate', 160, yPosition + 5);
-      doc.text('Amount', 180, yPosition + 5);
+      doc.text('Truck #', 44, yPosition + 5);
+      doc.text('Load #', 64, yPosition + 5);
+      doc.text('Origin - Destination', 99, yPosition + 5);
+      doc.text('Qty', 152, yPosition + 5);
+      doc.text('Rate', 164, yPosition + 5);
+      doc.text('Amount', 184, yPosition + 5);
       
       // Table row for this single order
       doc.setFont('helvetica', 'normal');
@@ -343,24 +343,24 @@ export const generateInvoicePDF = async (
       const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 4);
       
       // Draw all cells with the calculated height
-      doc.rect(20, yPosition, 20, calculatedHeight);
-      doc.rect(40, yPosition, 20, calculatedHeight);
-      doc.rect(60, yPosition, 25, calculatedHeight);
-      doc.rect(85, yPosition, 53, calculatedHeight);
-      doc.rect(138, yPosition, 20, calculatedHeight);
-      doc.rect(158, yPosition, 20, calculatedHeight);
-      doc.rect(178, yPosition, 25, calculatedHeight);
+      doc.rect(20, yPosition, 22, calculatedHeight);
+      doc.rect(42, yPosition, 20, calculatedHeight);
+      doc.rect(62, yPosition, 35, calculatedHeight);
+      doc.rect(97, yPosition, 53, calculatedHeight);
+      doc.rect(150, yPosition, 12, calculatedHeight);
+      doc.rect(162, yPosition, 20, calculatedHeight);
+      doc.rect(182, yPosition, 25, calculatedHeight);
       
       // Position text vertically centered in the cells
       const textYOffset = (calculatedHeight - lines.length * lineHeight) / 2 + lineHeight;
       
       doc.text(pickupDate, 22, yPosition + textYOffset + 1);
-      doc.text(order.truckNumber, 42, yPosition + textYOffset + 1);
-      doc.text(order.brokerLoadNumber, 62, yPosition + textYOffset + 1);
-      doc.text(lines, 87, yPosition + textYOffset);
-      doc.text('1', 140, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 160, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 180, yPosition + textYOffset + 3);
+      doc.text(order.truckNumber, 44, yPosition + textYOffset + 1);
+      doc.text(order.brokerLoadNumber, 64, yPosition + textYOffset + 1);
+      doc.text(lines, 99, yPosition + textYOffset);
+      doc.text('1', 152, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 164, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 184, yPosition + textYOffset + 3);
       
       yPosition += calculatedHeight;
       
@@ -376,90 +376,90 @@ export const generateInvoicePDF = async (
       const lateFeeTotal = order.lateFee || 0;
       
       // Freight Income and additional fees
-      doc.rect(138, yPosition, 40, 8);
-      doc.rect(178, yPosition, 25, 8);
+      doc.rect(150, yPosition, 32, 8);
+      doc.rect(182, yPosition, 25, 8);
       doc.setFont('helvetica', 'bold');
-      doc.text('Freight Income', 140, yPosition + 5);
-      doc.text(formatCurrency(freightTotal), 180, yPosition + 5);
+      doc.text('Freight Income', 152, yPosition + 5);
+      doc.text(formatCurrency(freightTotal), 184, yPosition + 5);
       yPosition += 8;
       
       // Additional fees sections...
       if (detentionTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('Detention', 140, yPosition + 5);
-        doc.text(formatCurrency(detentionTotal), 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('Detention', 152, yPosition + 5);
+        doc.text(formatCurrency(detentionTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (layoverTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('Layover', 140, yPosition + 5);
-        doc.text(formatCurrency(layoverTotal), 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('Layover', 152, yPosition + 5);
+        doc.text(formatCurrency(layoverTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (extraStopTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('Extra Stop', 140, yPosition + 5);
-        doc.text(formatCurrency(extraStopTotal), 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('Extra Stop', 152, yPosition + 5);
+        doc.text(formatCurrency(extraStopTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (lumperTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('Lumper', 140, yPosition + 5);
-        doc.text(formatCurrency(lumperTotal), 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('Lumper', 152, yPosition + 5);
+        doc.text(formatCurrency(lumperTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (tonuTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('TONU', 140, yPosition + 5);
-        doc.text(formatCurrency(tonuTotal), 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('TONU', 152, yPosition + 5);
+        doc.text(formatCurrency(tonuTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (otherChargesTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
         const otherChargesLabel = order.otherChargesReason 
           ? `${order.otherChargesReason.substring(0, 25)}` 
           : 'Other Charges';
-        doc.text(otherChargesLabel, 140, yPosition + 5);
-        doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
+        doc.text(otherChargesLabel, 152, yPosition + 5);
+        doc.text(formatCurrency(otherChargesTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (otherAdditionalsTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
         const otherAddLabel = order.otherAdditionalsReason 
           ? `${order.otherAdditionalsReason.substring(0, 25)}` 
           : 'Other Additionals';
-        doc.text(otherAddLabel, 140, yPosition + 5);
-        doc.text(formatCurrency(otherAdditionalsTotal), 180, yPosition + 5);
+        doc.text(otherAddLabel, 152, yPosition + 5);
+        doc.text(formatCurrency(otherAdditionalsTotal), 184, yPosition + 5);
         yPosition += 8;
       }
       
       if (lateFeeTotal > 0) {
-        doc.rect(138, yPosition, 40, 8);
-        doc.rect(178, yPosition, 25, 8);
-        doc.text('Late Fee', 140, yPosition + 5);
-        doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 180, yPosition + 5);
+        doc.rect(150, yPosition, 32, 8);
+        doc.rect(182, yPosition, 25, 8);
+        doc.text('Late Fee', 152, yPosition + 5);
+        doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 184, yPosition + 5);
         yPosition += 8;
       }
       
       // Total
       const finalTotal = order.totalFreightAmount;
-      doc.rect(158, yPosition, 20, 8);
-      doc.rect(178, yPosition, 25, 8);
-      doc.text('TOTAL:', 160, yPosition + 5);
-      doc.text(formatCurrency(finalTotal), 180, yPosition + 5);
+      doc.rect(162, yPosition, 20, 8);
+      doc.rect(182, yPosition, 25, 8);
+      doc.text('TOTAL:', 164, yPosition + 5);
+      doc.text(formatCurrency(finalTotal), 184, yPosition + 5);
       
       // Notice section
       yPosition += 30;
