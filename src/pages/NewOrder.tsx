@@ -275,7 +275,7 @@ const NewOrder = () => {
 
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
-  const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
+  const { data: lastDelivery } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
 
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
