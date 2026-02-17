@@ -99,14 +99,17 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           .eq("id", (existing as any).id);
       } else {
         // Create a record with just additionals (not yet paid)
-        const paidAmount = salary1Percent + bonus5Percent;
+        const baseRate = salary1Percent + bonus5Percent;
+        const daysOffDeduction = lostDays * perDayRate;
+        const adjTotal = newAdjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+        const fullTotal = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
         await supabase
           .from("dispatcher_salary_payments" as any)
           .insert({
             user_id: dispatcherUserId,
             month: selectedMonth,
-            paid_amount: paidAmount,
-            calculated_salary: paidAmount,
+            paid_amount: fullTotal,
+            calculated_salary: baseRate,
             additionals: newAdjustments.length > 0 ? newAdjustments : null,
           });
       }
@@ -404,18 +407,20 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("month", selectedMonth)
         .eq("user_id", dispatcherUserId);
 
-      // Calculate the salary amount (paid_amount = Total Freight * 0.01 + Total Comm. * 0.05 only)
-      // This is the simple base rate without extra days, food allowance, etc.
-      const paidAmount = salary1Percent + bonus5Percent;
+      // Calculate the full total for paid_amount (salary + all components)
+      const baseRate = salary1Percent + bonus5Percent;
+      const daysOffDeduction = lostDays * perDayRate;
+      const adjTotal = adjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+      const fullPaidAmount = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
 
-      // Insert new payment record with adjustments
+      // Insert new payment record: paid_amount = full total, calculated_salary = base rate only (for carry-over)
       await supabase
         .from("dispatcher_salary_payments" as any)
         .insert({
           user_id: dispatcherUserId,
           month: selectedMonth,
-          paid_amount: paidAmount,
-          calculated_salary: paidAmount,
+          paid_amount: fullPaidAmount,
+          calculated_salary: baseRate,
           paid_at: now,
           paid_by: user.id,
           additionals: adjustments.length > 0 ? adjustments : null,
