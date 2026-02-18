@@ -167,17 +167,6 @@ export function useDriversRealtime() {
       if (pendingDriverIds.size > 0) scheduleFlush();
     };
 
-    const handleCompanyChange = (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
-      const newRec = payload.new as any;
-      const oldRec = payload.old as any;
-      const companyId = newRec?.id || oldRec?.id;
-      if (!companyId) return;
-      const cached = queryClient.getQueryData<any[]>(QUERY_KEY);
-      if (!cached) return;
-      const affected = cached.filter(d => d.company?.id === companyId || d.company_id === companyId).map(d => d.id);
-      for (const id of affected) pendingDriverIds.add(id);
-      if (affected.length > 0) scheduleFlush();
-    };
 
     const handleProfileChange = (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
       const newRec = payload.new as any;
@@ -196,7 +185,6 @@ export function useDriversRealtime() {
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, handleDriverChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, handleTruckChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "trailers" }, handleTrailerChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "companies" }, handleCompanyChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, handleProfileChange)
       .subscribe();
 

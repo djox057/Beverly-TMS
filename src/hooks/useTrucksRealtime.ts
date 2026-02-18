@@ -161,7 +161,6 @@ export function useTrucksRealtime() {
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, handleTruckChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "trailers" }, handleRelatedTableChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, handleRelatedTableChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "companies" }, handleRelatedTableChange)
       .subscribe();
 
     channelRef.current = channel;
