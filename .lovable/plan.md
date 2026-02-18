@@ -1,59 +1,82 @@
 
 
-## Fix: Stale Order Files in Reports After Upload/Delete
+## Reduce Realtime Messages: Phases 1-4 Implementation
 
-### Problem 1: Upload in Reports Dialog
-After uploading a BOL/POD from the Reports zoomed load dialog, the adapter query is correctly invalidated (previous fix), but the `zoomedLoad` local state still holds the old `documents` and `orderFiles` arrays. The dialog continues showing the file as "not uploaded" until closed and reopened.
+### Phase 1: Remove `reports-consolidated` channel
 
-### Problem 2: Delete in Edit Order, Then Return to Reports
-When a user opens Edit Order from Reports, deletes a file, saves, and navigates back -- the Reports grid still shows the deleted file as present (dark green). The module-level `orderFilesCacheByOrderId` in the adapter was never cleared for that order. File deletions are part of the `performSave` flow (not instant), so a single invalidation before `navigateBack()` covers all file changes.
+**File: `src/hooks/useReports.ts`**
+- Delete the entire `useEffect` block at lines 220-297
+- Eliminates 6 duplicate table subscriptions
 
----
+### Phase 2: Remove `companies` from global hooks
 
-### Changes
+**File: `src/hooks/useTrucksRealtime.ts`**
+- Remove line 164: the `companies` listener from the channel chain
 
-**File 1: `src/pages/Reports.tsx` (after line 925)**
+**File: `src/hooks/useDriversRealtime.ts`**
+- Remove line 199: the `companies` listener
+- Remove dead `handleCompanyChange` function (lines 178-191)
 
-Optimistically update `zoomedLoad` state after upload succeeds, so the dialog immediately reflects the new file:
+### Phase 3: Remove `order_files` listener only
 
-```typescript
-// After the invalidation (line 925), update zoomed load state
-setZoomedLoad(prev => {
-  if (!prev) return prev;
-  const newFiles = uploadFiles.map((file, i) => ({
-    id: `temp-${Date.now()}-${i}`,
-    file_name: file.name,
-    file_path: `${prev.orderId}/${uploadDocType}/${file.name}`,
-    file_category: uploadDocType,
-  }));
-  const updatedOrderFiles = [...prev.orderFiles, ...newFiles];
-  const updatedDocuments = [...new Set([
-    ...prev.documents,
-    uploadDocType,
-  ])];
-  return { ...prev, orderFiles: updatedOrderFiles, documents: updatedDocuments };
-});
-```
+**File: `src/hooks/useOrdersRealtime.ts`**
+- Remove line 250: the `order_files` listener
+- Keep `order_transfers` (line 249) -- no DB trigger links transfers to orders
 
-**File 2: `src/pages/EditOrder.tsx` (line ~2672, before `navigateBack()`)**
+### Phase 4: Replace adapter trucks/drivers channel with cache watching
 
-Import and call cache invalidation so Reports gets fresh file data:
+**File: `src/hooks/useReportsDateWindowAdapter.ts`**
+- Remove `trucksDriversChannelRef` (line 983)
+- Replace the `useEffect` at lines 985-1044 with a cache subscription
+
+Replacement code:
 
 ```typescript
-// Add to imports:
-import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
+useEffect(() => {
+  if (!scopeEnabled) return;
 
-// Before navigateBack() at line 2672:
-invalidateOrderFilesCacheForOrder(id);
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const scheduleInvalidation = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      queryClient.invalidateQueries({
+        queryKey: ["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current],
+        refetchType: "active",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["adapter-drivers", priorityOfficeRef.current, modeKeySuffixRef.current],
+        refetchType: "active",
+      });
+    }, 1000);
+  };
+
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (event.type === "updated" &&
+        (event.query.queryKey[0] === "trucks" || event.query.queryKey[0] === "drivers")) {
+      scheduleInvalidation();
+    }
+  });
+
+  return () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    unsubscribe();
+  };
+}, [scopeEnabled, queryClient]);
 ```
 
-This is a single call site because all file changes (uploads and deletes) are committed inside `performSave` before `navigateBack()` is called. There are no instant/standalone delete operations outside the save flow.
+The condition now uses explicit parentheses around the `||` to make the intent unambiguous: fire only when the event type is "updated" AND the query key is either "trucks" or "drivers".
 
----
+### Preservation Note
+EditOrder's `edit-order-realtime` channel is intentional and must NOT be removed in future optimization passes.
 
-### Summary
-- 2 files modified
-- Reports.tsx: optimistic state update after upload (instant visual feedback in dialog)
-- EditOrder.tsx: 1 import + 1 line before navigation (cache cleared so grid shows correct state on return)
-- No new queries, subscriptions, or performance impact
+### Files Modified
+1. `src/hooks/useReports.ts` -- Remove lines 220-297
+2. `src/hooks/useTrucksRealtime.ts` -- Remove line 164
+3. `src/hooks/useDriversRealtime.ts` -- Remove line 199 and lines 178-191
+4. `src/hooks/useOrdersRealtime.ts` -- Remove line 250
+5. `src/hooks/useReportsDateWindowAdapter.ts` -- Replace lines 982-1044 with cache subscription
+
+### Expected Impact
+~30-50% reduction in realtime messages across all high-volume tables.
 
