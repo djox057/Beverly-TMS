@@ -48,7 +48,7 @@ import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 // NOTE: Reports must call exactly ONE reports hook. The adapter internally toggles legacy/date-window.
-import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING } from "@/hooks/useReportsDateWindowAdapter";
+import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING, invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
@@ -920,8 +920,9 @@ const Reports = () => {
         description: `${uploadFiles.length} file${uploadFiles.length > 1 ? "s" : ""} uploaded successfully`,
       });
 
-      // Refresh the reports data
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Clear module-level cache for this order, then refetch adapter query
+      invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
+      queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
 
       // Close dialog and reset state
       setUploadDialogOpen(false);
