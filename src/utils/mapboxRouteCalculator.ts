@@ -6,16 +6,31 @@ export interface Coordinates {
 }
 
 /**
+ * Clean address for geocoding by removing non-physical components
+ * PO/PA Box numbers confuse geocoders and produce wrong coordinates
+ */
+function cleanAddressForGeocoding(address: string): string {
+  return address
+    // Remove PO Box / PA Box / P.O. Box patterns
+    .replace(/\b(P\.?O\.?|PA)\s*Box\s*\d+[,\s]*/gi, '')
+    // Remove multiple spaces/commas left behind
+    .replace(/^[\s,]+/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Geocode an address using the edge function with Mapbox
  */
 export async function geocodeAddress(address: string): Promise<Coordinates | null> {
   if (!address || address.trim() === '') return null;
   
   try {
-    console.log('📍 Geocoding address:', address);
+    const cleaned = cleanAddressForGeocoding(address);
+    console.log('📍 Geocoding address:', address, cleaned !== address ? `(cleaned: ${cleaned})` : '');
     
     const { data, error } = await supabase.functions.invoke('calculate-mapbox-route', {
-      body: { type: 'geocode', address }
+      body: { type: 'geocode', address: cleaned }
     });
     
     if (error) {
