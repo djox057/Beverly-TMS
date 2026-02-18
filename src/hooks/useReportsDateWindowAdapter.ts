@@ -55,7 +55,7 @@ const clearOrderFilesCache = () => {
   orderFilesLoadedOrderIds.clear();
 };
 
-const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
+export const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
   if (!orderId) return;
   orderFilesCacheByOrderId.delete(orderId);
   orderFilesLoadedOrderIds.delete(orderId);
