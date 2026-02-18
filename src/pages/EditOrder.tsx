@@ -56,6 +56,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { useTrailers } from "@/hooks/useTrailers";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
@@ -2668,6 +2669,9 @@ const EditOrder = () => {
         setOriginalDeliveryDate(new Date(newDeliveryDatetime));
         setDateChangeNotes(updatedDateChangeNotes);
       }
+
+      // Clear adapter file cache so Reports grid shows correct state on return
+      invalidateOrderFilesCacheForOrder(id);
 
       // Navigate back to the referring page
       navigateBack();
