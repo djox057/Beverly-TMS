@@ -129,10 +129,22 @@ export function checkMilesChange(
   };
 }
 
-/** Get SMS recipient phone numbers (all offices go to Ben and Krki) */
+/** Get SMS recipient phone numbers */
 export function getMilesChangeSmsRecipients(office: string | null | undefined): string[] {
   if (!office) return [];
-  return ["+16304733879", "+12192938764"];
+
+  // Ben and Krki always receive for all offices
+  const recipients = ["+16304733879", "+12192938764"];
+
+  // Office-specific recipients
+  const upper = office.toUpperCase();
+  if (upper === "BEOGRAD") {
+    recipients.push("+12192938762"); // Lucas
+  } else if (upper === "KRAGUJEVAC") {
+    recipients.push("+15743476856"); // Guss
+  }
+
+  return recipients;
 }
 
 /** Build SMS message for miles change */
