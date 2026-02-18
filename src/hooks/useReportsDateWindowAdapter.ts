@@ -979,30 +979,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
 
-  // P6: Subscribe to trucks and drivers table changes for realtime updates
-  const trucksDriversChannelRef = useRef<RealtimeChannel | null>(null);
-  
+  // P6: Watch global trucks/drivers cache updates instead of duplicate realtime channel
   useEffect(() => {
-    if (!scopeEnabled) {
-      if (trucksDriversChannelRef.current) {
-        supabase.removeChannel(trucksDriversChannelRef.current);
-        trucksDriversChannelRef.current = null;
-      }
-      return;
-    }
-    
-    // Clean up existing channel
-    if (trucksDriversChannelRef.current) {
-      supabase.removeChannel(trucksDriversChannelRef.current);
-      trucksDriversChannelRef.current = null;
-    }
-    
+    if (!scopeEnabled) return;
+
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    
+
     const scheduleInvalidation = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        console.log(`[adapter] trucks/drivers realtime: invalidating queries for office ${priorityOfficeRef.current}`);
+        console.log(`[adapter] trucks/drivers cache change: invalidating queries for office ${priorityOfficeRef.current}`);
         queryClient.invalidateQueries({
           queryKey: ["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current],
           refetchType: "active",
@@ -1013,35 +999,19 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         });
       }, 1000);
     };
-    
-    const channel = supabase
-      .channel(`adapter-trucks-drivers-realtime-${priorityOffice || 'default'}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trucks" },
-        () => scheduleInvalidation()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "drivers" },
-        () => scheduleInvalidation()
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log(`[adapter] Subscribed to trucks/drivers realtime for office: ${priorityOffice}`);
-        }
-      });
-    
-    trucksDriversChannelRef.current = channel;
-    
+
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === "updated" &&
+          (event.query.queryKey[0] === "trucks" || event.query.queryKey[0] === "drivers")) {
+        scheduleInvalidation();
+      }
+    });
+
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (trucksDriversChannelRef.current) {
-        supabase.removeChannel(trucksDriversChannelRef.current);
-        trucksDriversChannelRef.current = null;
-      }
+      unsubscribe();
     };
-  }, [scopeEnabled, priorityOffice, queryClient]);
+  }, [scopeEnabled, queryClient]);
 
   // P5: Subscribe to orders, pickup_drops, and order_transfers realtime changes
   // Patches globalAccumulatedOrders directly with debounced batch fetching

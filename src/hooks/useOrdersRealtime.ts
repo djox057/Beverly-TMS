@@ -247,7 +247,6 @@ export function useOrdersRealtime() {
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, handleOrderChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, handleRelatedTableChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, handleRelatedTableChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_files" }, handleRelatedTableChange)
       .subscribe();
 
     channelRef.current = channel;
