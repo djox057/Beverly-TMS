@@ -1,35 +1,40 @@
 
 
-## Fix: Office-Specific SMS Recipients for Miles Changes
+## Fix: Order File Uploads Not Reflecting in Reports Until Refresh
 
 ### Problem
-The `getMilesChangeSmsRecipients` function currently sends SMS only to Ben (+16304733879) and Krki (+12192938764) for all offices. It needs to also include office-specific recipients:
-- **BEOGRAD** office: also send to Lucas (+12192938762)
-- **KRAGUJEVAC** office: also send to Guss (+15743476856)
+After uploading BOL/POD files on the Reports page, cells don't turn dark green until a manual refresh. Two issues:
+1. The upload handler invalidates `["reports"]` query key, but the adapter uses `["adapter-order-files"]` -- so the invalidation does nothing.
+2. The adapter has a module-level cache (`orderFilesCacheByOrderId`) that also needs clearing for the specific order.
 
-### Change
-**File: `src/components/MilesChangeReasonDialog.tsx`** (lines 132-136)
+### Changes
 
-Update `getMilesChangeSmsRecipients` to include office-specific numbers alongside Ben and Krki:
-
+**File 1: `src/hooks/useReportsDateWindowAdapter.ts` (line 58)**
+Export the existing `invalidateOrderFilesCacheForOrder` function:
 ```typescript
-/** Get SMS recipient phone numbers */
-export function getMilesChangeSmsRecipients(office: string | null | undefined): string[] {
-  if (!office) return [];
+// Before:
+const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
 
-  // Ben and Krki always receive for all offices
-  const recipients = ["+16304733879", "+12192938764"];
-
-  // Office-specific recipients
-  const upper = office.toUpperCase();
-  if (upper === "BEOGRAD") {
-    recipients.push("+12192938762"); // Lucas
-  } else if (upper === "KRAGUJEVAC") {
-    recipients.push("+15743476856"); // Guss
-  }
-
-  return recipients;
-}
+// After:
+export const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
 ```
 
-This is a one-function, 4-line change. Ben and Krki continue receiving for every office; Lucas and Guss are added for their respective offices only.
+**File 2: `src/pages/Reports.tsx`**
+
+Add to import (line 51):
+```typescript
+import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING, invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
+```
+
+Fix invalidation after upload (lines 923-924):
+```typescript
+// Before:
+queryClient.invalidateQueries({ queryKey: ["reports"] });
+
+// After:
+invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
+queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
+```
+
+### Summary
+2 files, 3 line changes. No circular dependency risk -- the exported function is a pure cache manipulation with no dependencies on Reports.tsx.
