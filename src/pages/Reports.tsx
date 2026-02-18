@@ -924,6 +924,20 @@ const Reports = () => {
       invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
       queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
 
+      // Optimistically update zoomedLoad state so dialog immediately reflects the new file
+      setZoomedLoad(prev => {
+        if (!prev) return prev;
+        const newFiles = uploadFiles.map((file, i) => ({
+          id: `temp-${Date.now()}-${i}`,
+          file_name: file.name,
+          file_path: `${prev.orderId}/${uploadDocType}/${file.name}`,
+          file_category: uploadDocType,
+        }));
+        const updatedOrderFiles = [...prev.orderFiles, ...newFiles];
+        const updatedDocuments = [...new Set([...prev.documents, uploadDocType])];
+        return { ...prev, orderFiles: updatedOrderFiles, documents: updatedDocuments };
+      });
+
       // Close dialog and reset state
       setUploadDialogOpen(false);
       setUploadFiles([]);
