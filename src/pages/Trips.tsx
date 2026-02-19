@@ -830,7 +830,7 @@ const Trips = () => {
           const recTrailerNumber = recoveryHistory?.recoveryTrailer?.trailer_number || recoveryHistory?.recoveryTrailerNumber;
           
           // Use recovery_date for legacy Rec segment if available
-          const recDeliveryDate = order.recoveryDate || order.deliveryDatetime;
+          const recDeliveryDate = order.recoveryDate || order.deliveryDate;
           
           segments.push({
             ...order,
@@ -863,7 +863,7 @@ const Trips = () => {
           const isOriginal = seq === 0;
           const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
           // Use transfer's datetime for the delivery date if available
-          const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
+          const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
 
           const driverName = isOriginal
             ? (order.originalDriver1Name || order.originalDriver2Name || transfer.driver1?.name || transfer.manual_driver_name || order.driverName)
