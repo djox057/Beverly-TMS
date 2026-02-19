@@ -3781,6 +3781,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advisory_unlock_truck_distances: { Args: never; Returns: boolean }
       auth_user_roles: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"][]

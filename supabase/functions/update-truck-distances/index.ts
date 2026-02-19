@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // ── Concurrency guard: advisory lock ──
+    // ── Concurrency guard: session-level advisory lock ──
     const { data: lockAcquired } = await supabase.rpc('try_advisory_lock_truck_distances');
     if (!lockAcquired) {
       console.log('⏭️ Skipping: previous run still in progress');
@@ -368,6 +368,9 @@ Deno.serve(async (req) => {
     const duration = Date.now() - startTime;
     console.log(`🏁 Done in ${duration}ms — Updated: ${dbUpdated}, DB errors: ${dbFailed}, OSRM skipped: ${osrmFailed}`);
 
+    // Release session-level advisory lock
+    await supabase.rpc('advisory_unlock_truck_distances');
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -385,6 +388,16 @@ Deno.serve(async (req) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`❌ Fatal error after ${duration}ms:`, error);
+
+    // Release session-level advisory lock even on error
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      await supabase.rpc('advisory_unlock_truck_distances');
+    } catch (_) { /* best effort */ }
+
     return new Response(
       JSON.stringify({
         success: false,
