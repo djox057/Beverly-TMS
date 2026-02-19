@@ -2830,7 +2830,7 @@ const EditOrder = () => {
       // Get current persisted assignment IDs (most reliable)
       const { data: currentOrder, error: currentOrderError } = await supabase
         .from("orders")
-        .select("driver1_id, driver2_id, truck_id, trailer_id")
+        .select("driver1_id, driver2_id, truck_id, trailer_id, is_recovery")
         .eq("id", id)
         .maybeSingle();
 
@@ -2856,8 +2856,84 @@ const EditOrder = () => {
         currentDriver2: currentDriver2?.name,
         currentTruck: currentTruck?.truck_number,
         currentTrailer: currentTrailer?.trailer_number,
+        isAlreadyRecovery: currentOrder?.is_recovery,
       });
 
+      // Append yard reason to user notes
+      const timestamp = new Date().toLocaleString();
+      const yardNoteEntry = `[${timestamp}] Left at Yard: ${yardReason.trim()}`;
+      const updatedUserNotes = userNotes 
+        ? `${userNotes}\n${yardNoteEntry}`
+        : yardNoteEntry;
+      const fullNotes = systemNotes 
+        ? `${updatedUserNotes}\n---\n${systemNotes}` 
+        : updatedUserNotes;
+
+      // === ALREADY A TRANSFER LOAD - preserve original_* fields ===
+      if (currentOrder?.is_recovery) {
+        console.log("Load is already a recovery/transfer - appending to transfer chain");
+
+        // Get the last transfer record
+        const { data: existingTransfers } = await supabase
+          .from("order_transfers")
+          .select("*")
+          .eq("order_id", id)
+          .order("sequence_number", { ascending: false })
+          .limit(1);
+
+        const lastTransfer = existingTransfers?.[0];
+
+        if (lastTransfer) {
+          // Update last transfer with handoff location (where they left it at yard)
+          await supabase.from("order_transfers")
+            .update({
+              transfer_city: "Lynwood",
+              transfer_state: "IL",
+              transfer_datetime: new Date().toISOString(),
+              miles: originalMilesCalc || lastTransfer.miles,
+              driver_price: originalDriverPriceCalc || lastTransfer.driver_price,
+            })
+            .eq("id", lastTransfer.id);
+        }
+
+        // Clear current assignment but do NOT overwrite original_* fields
+        const reTransferUpdate = {
+          driver1_id: null,
+          driver2_id: null,
+          truck_id: null,
+          recovery_miles: recoveryMilesCalc,
+          notes: fullNotes,
+        };
+
+        const { error } = await supabase
+          .from("orders")
+          .update(reTransferUpdate)
+          .eq("id", id);
+
+        if (error) throw error;
+
+        // Unassign trailer from truck
+        if (originalTruckId) {
+          const { error: truckError } = await supabase
+            .from("trucks")
+            .update({ trailer_id: null })
+            .eq("id", originalTruckId);
+          if (truckError) console.error("Error unassigning trailer from truck:", truckError);
+        }
+
+        toast({
+          title: "Success",
+          description: `Load marked as left at yard again. Miles to complete: ${recoveryMilesCalc}`,
+        });
+
+        setYardDialogOpen(false);
+        setYardReason("");
+        localStorage.setItem("returnToYardLoads", "true");
+        navigate("/yard-loads");
+        return; // Skip the first-time original_* overwrite path
+      }
+
+      // === FIRST TIME LEFT AT YARD - save original_* fields ===
       const updateData = {
         driver1_id: null,
         driver2_id: null,
@@ -2871,20 +2947,10 @@ const EditOrder = () => {
         original_driver_price: originalDriverPriceCalc,
         recovery_miles: recoveryMilesCalc,
       };
-      
-      // Append yard reason to user notes
-      const timestamp = new Date().toLocaleString();
-      const yardNoteEntry = `[${timestamp}] Left at Yard: ${yardReason.trim()}`;
-      const updatedUserNotes = userNotes 
-        ? `${userNotes}\n${yardNoteEntry}`
-        : yardNoteEntry;
-      
-      // Include notes update in the same operation
+
       const fullUpdateData = {
         ...updateData,
-        notes: systemNotes 
-          ? `${updatedUserNotes}\n---\n${systemNotes}` 
-          : updatedUserNotes,
+        notes: fullNotes,
       };
       
       console.log("Updating order with:", fullUpdateData);
