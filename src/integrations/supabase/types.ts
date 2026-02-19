@@ -3877,6 +3877,7 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
+      try_advisory_lock_truck_distances: { Args: never; Returns: boolean }
       validate_driver_email: { Args: { p_email: string }; Returns: Json }
     }
     Enums: {
