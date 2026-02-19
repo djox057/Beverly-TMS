@@ -2177,8 +2177,16 @@ const Reports = () => {
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
+            {(() => {
+              const dayStrPickup = format(day, "yyyy-MM-dd");
+              const allLostDayNotesPickupBg: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+              const hasHomeTimePickup = allLostDayNotesPickupBg.some(
+                (note: any) => String(note?.date || "").slice(0, 10) === dayStrPickup && note.note_type === "home_time",
+              );
+              const pickupBgClass = allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : (isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup) ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted";
+              return (
             <div
-              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : (isMissingPickup && !hasLateIncompleteDelivery) ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`}
+              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupBgClass} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -2386,6 +2394,8 @@ const Reports = () => {
                 })()
               )}
             </div>
+              );
+            })()}
           </div>
         </td>
       );
