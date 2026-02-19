@@ -523,38 +523,53 @@ export default function YardLoads() {
 
       if (error) throw error;
 
-      // Create order_transfers records for Original (sequence 0) and Transfer #1 (sequence 1)
-      // First, delete any existing transfers for this order to avoid duplicates
-      await supabase
+      // Check for existing transfers to support chains of 3+ transfers
+      const { data: existingTransfers } = await supabase
         .from('order_transfers')
-        .delete()
-        .eq('order_id', selectedOrderForTransfer.id);
+        .select('sequence_number')
+        .eq('order_id', selectedOrderForTransfer.id)
+        .order('sequence_number', { ascending: false })
+        .limit(1);
 
-      // Create Original (sequence 0) record
-      await supabase.from('order_transfers').insert({
-        order_id: selectedOrderForTransfer.id,
-        sequence_number: 0,
-        driver1_id: selectedOrderForTransfer.originalDriverId,
-        truck_id: selectedOrderForTransfer.originalTruckId,
-        trailer_id: selectedOrderForTransfer.originalTrailerId,
-        miles: selectedOrderForTransfer.originalMiles,
-        driver_price: selectedOrderForTransfer.originalDriverPrice,
-        transfer_city: data.transferCity,
-        transfer_state: data.transferState,
-        transfer_address: data.transferAddress || null,
-        transfer_datetime: data.transferDatetime,
-      });
+      if (existingTransfers && existingTransfers.length > 0) {
+        // Append new transfer with next sequence number (preserves existing chain)
+        const nextSeq = existingTransfers[0].sequence_number + 1;
 
-      // Create Transfer #1 (sequence 1) record
-      await supabase.from('order_transfers').insert({
-        order_id: selectedOrderForTransfer.id,
-        sequence_number: 1,
-        driver1_id: data.transferDriverId,
-        truck_id: data.transferTruckId,
-        trailer_id: yardLoadTrailerId,
-        miles: data.recoveryMiles,
-        driver_price: data.recoveryDriverPrice,
-      });
+        await supabase.from('order_transfers').insert({
+          order_id: selectedOrderForTransfer.id,
+          sequence_number: nextSeq,
+          driver1_id: data.transferDriverId,
+          truck_id: data.transferTruckId,
+          trailer_id: yardLoadTrailerId,
+          miles: data.recoveryMiles,
+          driver_price: data.recoveryDriverPrice,
+        });
+      } else {
+        // No existing transfers -- create seq 0 (original) and seq 1 (new)
+        await supabase.from('order_transfers').insert({
+          order_id: selectedOrderForTransfer.id,
+          sequence_number: 0,
+          driver1_id: selectedOrderForTransfer.originalDriverId,
+          truck_id: selectedOrderForTransfer.originalTruckId,
+          trailer_id: selectedOrderForTransfer.originalTrailerId,
+          miles: selectedOrderForTransfer.originalMiles,
+          driver_price: selectedOrderForTransfer.originalDriverPrice,
+          transfer_city: data.transferCity,
+          transfer_state: data.transferState,
+          transfer_address: data.transferAddress || null,
+          transfer_datetime: data.transferDatetime,
+        });
+
+        await supabase.from('order_transfers').insert({
+          order_id: selectedOrderForTransfer.id,
+          sequence_number: 1,
+          driver1_id: data.transferDriverId,
+          truck_id: data.transferTruckId,
+          trailer_id: yardLoadTrailerId,
+          miles: data.recoveryMiles,
+          driver_price: data.recoveryDriverPrice,
+        });
+      }
 
       // Create recovery history entry
       await supabase.from('recovery_history').insert({
