@@ -2363,9 +2363,13 @@ const Reports = () => {
                       {hasLateIncompleteDelivery ? (
                         <span className="text-center">{">>"}<span>LATE DEL</span>{"<<"}</span>
                       ) : isMissingPickup ? (
-                        <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
-                          {getLostDayNote(day)}
-                        </span>
+                        hasHomeTime ? (
+                          <Home className="h-4 w-4" />
+                        ) : (
+                          <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
+                            {getLostDayNote(day)}
+                          </span>
+                        )
                       ) : isInTransit || shouldShowPickupInTransit ? (
                         hasRescheduledOrders ? (
                           "RESCHEDULED"
