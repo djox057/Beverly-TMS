@@ -1,82 +1,62 @@
 
 
-## Reduce Realtime Messages: Phases 1-4 Implementation
+## Fix: Recovery Driver Shows Wrong Delivery Date in Trips
 
-### Phase 1: Remove `reports-consolidated` channel
+### Problem
 
-**File: `src/hooks/useReports.ts`**
-- Delete the entire `useEffect` block at lines 220-297
-- Eliminates 6 duplicate table subscriptions
+For load #203711 (internal #6970), the recovery driver (Oldy Charles, seq 1) shows delivery date **02/06/2026** instead of the correct **02/11/2026**.
 
-### Phase 2: Remove `companies` from global hooks
+### Root Cause
 
-**File: `src/hooks/useTrucksRealtime.ts`**
-- Remove line 164: the `companies` listener from the channel chain
-
-**File: `src/hooks/useDriversRealtime.ts`**
-- Remove line 199: the `companies` listener
-- Remove dead `handleCompanyChange` function (lines 178-191)
-
-### Phase 3: Remove `order_files` listener only
-
-**File: `src/hooks/useOrdersRealtime.ts`**
-- Remove line 250: the `order_files` listener
-- Keep `order_transfers` (line 249) -- no DB trigger links transfers to orders
-
-### Phase 4: Replace adapter trucks/drivers channel with cache watching
-
-**File: `src/hooks/useReportsDateWindowAdapter.ts`**
-- Remove `trucksDriversChannelRef` (line 983)
-- Replace the `useEffect` at lines 985-1044 with a cache subscription
-
-Replacement code:
+In `src/pages/Trips.tsx` line 866, when building segments from `order_transfers`, the delivery date fallback uses `order.deliveryDatetime` (the raw order column `delivery_datetime = 02/06`) instead of `order.deliveryDate` (derived from the last pickup_drop stop = 02/11).
 
 ```typescript
-useEffect(() => {
-  if (!scopeEnabled) return;
-
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const scheduleInvalidation = () => {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      queryClient.invalidateQueries({
-        queryKey: ["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current],
-        refetchType: "active",
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["adapter-drivers", priorityOfficeRef.current, modeKeySuffixRef.current],
-        refetchType: "active",
-      });
-    }, 1000);
-  };
-
-  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" &&
-        (event.query.queryKey[0] === "trucks" || event.query.queryKey[0] === "drivers")) {
-      scheduleInvalidation();
-    }
-  });
-
-  return () => {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    unsubscribe();
-  };
-}, [scopeEnabled, queryClient]);
+// Line 866 - current (buggy)
+const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
 ```
 
-The condition now uses explicit parentheses around the `||` to make the intent unambiguous: fire only when the event type is "updated" AND the query key is either "trucks" or "drivers".
+The `transfer_datetime` for the recovery segment (seq 1) is NULL, so it falls back to `order.deliveryDatetime` which is `2026-02-06` -- the order-level field that was never updated to reflect the actual last delivery stop.
 
-### Preservation Note
-EditOrder's `edit-order-realtime` channel is intentional and must NOT be removed in future optimization passes.
+The correct fallback is `order.deliveryDate`, which the transform computes from the last delivery pickup_drop (seq 3 = `2026-02-11`).
 
-### Files Modified
-1. `src/hooks/useReports.ts` -- Remove lines 220-297
-2. `src/hooks/useTrucksRealtime.ts` -- Remove line 164
-3. `src/hooks/useDriversRealtime.ts` -- Remove line 199 and lines 178-191
-4. `src/hooks/useOrdersRealtime.ts` -- Remove line 250
-5. `src/hooks/useReportsDateWindowAdapter.ts` -- Replace lines 982-1044 with cache subscription
+The same bug also exists on line 833 for the legacy Rec path:
 
-### Expected Impact
-~30-50% reduction in realtime messages across all high-volume tables.
+```typescript
+// Line 833 - same issue
+const recDeliveryDate = order.recoveryDate || order.deliveryDatetime;
+```
+
+### Fix
+
+**File: `src/pages/Trips.tsx`**
+
+**Line 866** -- Change the fallback for `order_transfers` segments from `order.deliveryDatetime` to `order.deliveryDate`:
+```typescript
+// Before
+const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
+
+// After
+const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
+```
+
+**Line 833** -- Same fix for the legacy Rec path:
+```typescript
+// Before
+const recDeliveryDate = order.recoveryDate || order.deliveryDatetime;
+
+// After
+const recDeliveryDate = order.recoveryDate || order.deliveryDate;
+```
+
+### Why This Is Correct
+
+- `order.deliveryDate` is computed in `ordersTransform.ts` line 24 as `pickupDrops.filter(pd => pd.type === "delivery").pop()` -- the **last** delivery stop datetime
+- For load #203711, this is the seq 3 stop: Roulette, PA on 02/11/2026
+- `order.deliveryDatetime` is the raw `delivery_datetime` column from the orders table, which is 02/06/2026 and was never updated when the recovery delivery stop was added
+
+### Impact
+
+- Only affects recovery/transfer loads where `transfer_datetime` is NULL on the last transfer segment
+- The Orig segment (seq 0) always has `transfer_datetime` set, so it is unaffected
+- No other pages or logic are impacted since this code is Trips-specific segment expansion
 
