@@ -177,6 +177,16 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ── Concurrency guard: advisory lock ──
+    const { data: lockAcquired } = await supabase.rpc('try_advisory_lock_truck_distances');
+    if (!lockAcquired) {
+      console.log('⏭️ Skipping: previous run still in progress');
+      return new Response(
+        JSON.stringify({ skipped: true, reason: 'concurrent run' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // ── Step 1: Fetch Samsara locations ──
     console.log('📍 Step 1: Fetching Samsara locations...');
     const locationsResponse = await fetch(
@@ -217,21 +227,20 @@ Deno.serve(async (req) => {
           load_number,
           status,
           pickup_datetime,
+          canceled,
           order_files(id, file_category),
-          pickup_drops!inner(
+          pickup_drops(
             id,
             type,
-            address,
             city,
             state,
-            zip_code,
-            datetime,
             arrived_at,
             latitude,
             longitude
           )
         )
       `)
+      .eq('orders.locked', false)
       .order('id', { ascending: true });
 
     if (trucksError) throw trucksError;
