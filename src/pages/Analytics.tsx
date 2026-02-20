@@ -2481,7 +2481,7 @@ const Analytics = () => {
                         : nonRecoveryMiles / displayTruckCount / localDaysInPeriod * 7
                       : 0;
                     return (
-                      <div className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
+                      <div className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-8">
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Wk Gross/Tr</p>
                           <p className="text-lg sm:text-2xl font-bold">
@@ -2501,6 +2501,10 @@ const Analytics = () => {
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Trucks</p>
                           <p className="text-lg sm:text-2xl font-bold">{finalFleetAverages.avgTrucksPerDispatcher.toFixed(1)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Loads</p>
+                          <p className="text-lg sm:text-2xl font-bold">{nonRecoveryOrderCount.toLocaleString()}</p>
                         </div>
                       </div>
                     );
@@ -2548,6 +2552,7 @@ const Analytics = () => {
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
                             Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
+                          <TableHead className="text-right">Total Loads</TableHead>
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("turnover")}>
                             Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
@@ -2599,6 +2604,7 @@ const Analytics = () => {
                               {!isDispatchOnly && <TableCell className="text-right">
                                 ${stat.avgWeeklyGrossPerDriver.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                               </TableCell>}
+                              <TableCell className="text-right">{stat.orderCount}</TableCell>
                               {!isDispatchOnly && <TableCell className="text-right">
                                 {stat.turnover > 0 ? stat.turnover : "-"}
                               </TableCell>}
