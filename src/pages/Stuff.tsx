@@ -38,7 +38,6 @@ export default function Stuff() {
       const firstName = driver.first_name?.toLowerCase() || "";
       const lastName = driver.last_name?.toLowerCase() || "";
       const truckNumber = driver.truck_info?.truck_number?.toLowerCase() || "";
-      const phone = driver.phone?.toLowerCase() || "";
       const companyName = driver.company?.name?.toLowerCase() || "";
       
       return (
@@ -46,7 +45,6 @@ export default function Stuff() {
         firstName.includes(query) ||
         lastName.includes(query) ||
         truckNumber.includes(query) ||
-        phone.includes(query) ||
         companyName.includes(query)
       );
     });
