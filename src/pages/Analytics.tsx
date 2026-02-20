@@ -1216,8 +1216,8 @@ const Analytics = () => {
     const currentWeekStart = getWeekStartDate(0);
     const weeksFromStart = Math.floor((currentWeekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
-    // Generate 52 weeks starting from current week
-    for (let i = 0; i < 52; i++) {
+    // Generate 52 weeks starting from next week down to 51 weeks ago
+    for (let i = -1; i < 52; i++) {
       const weekStart = getWeekStartDate(i);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
@@ -1230,7 +1230,7 @@ const Analytics = () => {
       };
       weeks.push({
         value: i.toString(),
-        label: i === 0 ? "This Week" : i === 1 ? "Last Week" : `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
+        label: i === -1 ? "Next Week" : i === 0 ? "This Week" : i === 1 ? "Last Week" : `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
         weekNumber: weeksFromStart - i
       });
     }
@@ -1252,7 +1252,7 @@ const Analytics = () => {
   const generateMonthOptions = () => {
     const months = [];
     const today = new Date();
-    for (let i = 0; i < 12; i++) {
+    for (let i = -1; i < 12; i++) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
