@@ -1,61 +1,48 @@
 
 
-## Optimize `update-truck-distances` -- Implementation Plan
+## Fix: Paginate order_files fetch in useLumperMissingRevisedRC
 
-### Change 1: Filter orders to `locked = false` + database migration
+### Verification result
 
-**Database migration** (single migration with both items):
+Line 54 destructures `filesRes` as `filesRes.data || []` -- only `.data` is accessed, `.error` is never checked. The `|| []` fallback handles `undefined`/`null` safely. The IIFE returning `{ data: allFiles }` is fully compatible with no changes needed to downstream code.
 
-```sql
--- Partial composite index for the filtered join
-CREATE INDEX IF NOT EXISTS idx_orders_truck_locked
-ON orders (truck_id, locked)
-WHERE locked = false;
+### Change
 
--- Advisory lock RPC (ship now, used in Change 2)
-CREATE OR REPLACE FUNCTION public.try_advisory_lock_truck_distances()
-RETURNS boolean
-LANGUAGE sql
-AS $$ SELECT pg_try_advisory_xact_lock(73489221); $$;
+**File: `src/hooks/useLumperMissingRevisedRC.ts` (line 48)**
+
+Replace the single query:
+
+```typescript
+supabase.from("order_files").select("id, order_id, file_category, file_name").in("order_id", orderIds),
 ```
 
-Note: `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block (which migrations use), so we use regular `CREATE INDEX IF NOT EXISTS`. The index is small (only active orders) and should build in under a second.
+With a paginated IIFE:
 
-**File: `supabase/functions/update-truck-distances/index.ts`**
-
-Add `.eq('orders.locked', false)` to the trucks query after `.order('id', { ascending: true })` (around line 236).
-
-Ship this, deploy, and measure runtime via edge function logs before proceeding.
-
-### Change 2: Advisory lock concurrency guard
-
-**File: `supabase/functions/update-truck-distances/index.ts`**
-
-Add at the top of the handler, after creating the Supabase client and before Step 1:
-
-```text
-const { data: lockAcquired } = await supabase.rpc('try_advisory_lock_truck_distances');
-if (!lockAcquired) {
-  console.log('Skipping: previous run still in progress');
-  return new Response(JSON.stringify({ skipped: true, reason: 'concurrent run' }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status: 200,
-  });
-}
+```typescript
+(async () => {
+  let allFiles: { order_id: string; file_category: string }[] = [];
+  let from = 0;
+  const PAGE_SIZE = 1000;
+  while (true) {
+    const { data } = await supabase
+      .from("order_files")
+      .select("order_id, file_category")
+      .in("order_id", orderIds)
+      .range(from, from + PAGE_SIZE - 1);
+    allFiles = [...allFiles, ...(data || [])];
+    if (!data || data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return { data: allFiles };
+})(),
 ```
 
-**Post-ship verification:** After deploying, check edge function logs during the next cron cycle to confirm that overlapping invocations are actually blocked. If `pg_try_advisory_xact_lock` releases too early due to autocommit, switch the RPC to session-level `pg_try_advisory_lock(73489221)` and add a cleanup RPC call (`pg_advisory_unlock(73489221)`) at the end of the function (both success and error paths).
+No other lines need to change. The `filesRes.data || []` on line 54 and the `filesByOrder` map construction on lines 53-58 work as-is since the IIFE returns the same `{ data: [...] }` shape.
 
-### Change 3: Strip unused columns + fix `!inner` bug
+### Summary
 
-**File: `supabase/functions/update-truck-distances/index.ts`**
-
-Replace the nested select (lines 212-230) to remove `address`, `zip_code`, `datetime` from `pickup_drops` and change `pickup_drops!inner(` to `pickup_drops(`.
-
-Bug fix: removing `!inner` means trucks whose orders have zero pickup_drops are no longer silently excluded from results. They now flow through the zero-miles classification path correctly.
-
-### Files Modified
-
-1. New database migration -- partial index + advisory lock RPC
-2. `supabase/functions/update-truck-distances/index.ts` -- all three changes applied sequentially
+- One line replaced (line 48)
+- Permanently fixes the 1000-row truncation bug
+- Columns trimmed from 4 to 2 (`order_id, file_category` only)
+- Fixes both Orders page and Reports page (shared hook)
 
