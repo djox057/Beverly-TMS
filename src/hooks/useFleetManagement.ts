@@ -8,6 +8,7 @@ interface DispatcherFleet {
     full_name: string;
     email: string;
     ext?: string;
+    office?: string | null;
     roles?: string[];
   };
   drivers: any[];
@@ -40,7 +41,7 @@ export const useFleetManagement = () => {
 
       const { data: dispatcherProfiles, error: dispatcherError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, ext')
+        .select('user_id, full_name, email, ext, office')
         .in('user_id', dispatcherUserIds.length > 0 ? dispatcherUserIds : ['00000000-0000-0000-0000-000000000000'])
         .order('full_name');
 
@@ -118,7 +119,8 @@ export const useFleetManagement = () => {
             id: dispatcher.user_id,
             full_name: dispatcher.full_name,
             email: dispatcher.email,
-            ext: dispatcher.ext,
+          ext: dispatcher.ext,
+            office: dispatcher.office,
             roles: userRoles
           },
           drivers: dispatcherDrivers,
@@ -168,6 +170,7 @@ export const useFleetManagement = () => {
           full_name: d.full_name, 
           email: d.email,
           ext: d.ext,
+          office: d.office,
           roles: userRoles
         };
       }) || []);

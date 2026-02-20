@@ -61,6 +61,7 @@ const Fleets = () => {
   const [isAssignDriverOpen, setIsAssignDriverOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dispatcherFilter, setDispatcherFilter] = useState("");
+  const [officeFilter, setOfficeFilter] = useState("all");
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [driverToRemove, setDriverToRemove] = useState<string | null>(null);
   const [driverToSwitch, setDriverToSwitch] = useState<{
@@ -96,8 +97,15 @@ const Fleets = () => {
 
   // Filter dispatchers by name
   const filterDispatchers = (dispatcherFleets: any[]) => {
-    if (!dispatcherFilter) return dispatcherFleets;
-    return dispatcherFleets.filter(fleet => {
+    let filtered = dispatcherFleets;
+    if (officeFilter !== "all") {
+      filtered = filtered.filter(fleet => {
+        const office = fleet.dispatcher.office || "";
+        return office.toLowerCase() === officeFilter.toLowerCase();
+      });
+    }
+    if (!dispatcherFilter) return filtered;
+    return filtered.filter(fleet => {
       const name = fleet.dispatcher.full_name || fleet.dispatcher.email || "";
       return name.toLowerCase().includes(dispatcherFilter.toLowerCase());
     });
@@ -315,7 +323,7 @@ const Fleets = () => {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1 sm:max-w-2xl">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1 sm:max-w-3xl">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input placeholder="Search drivers..." className="pl-10 text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
@@ -324,6 +332,18 @@ const Fleets = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input placeholder="Filter dispatchers..." className="pl-10 text-sm" value={dispatcherFilter} onChange={e => setDispatcherFilter(e.target.value)} />
               </div>
+              <Select value={officeFilter} onValueChange={setOfficeFilter}>
+                <SelectTrigger className="w-full sm:w-[180px] text-sm">
+                  <SelectValue placeholder="All Offices" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Offices</SelectItem>
+                  <SelectItem value="BEOGRAD">Beograd</SelectItem>
+                  <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
+                  <SelectItem value="Čačak">Čačak</SelectItem>
+                  <SelectItem value="Recovery">Recovery</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
           </div>
