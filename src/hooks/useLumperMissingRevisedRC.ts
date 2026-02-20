@@ -45,7 +45,22 @@ export function useLumperMissingRevisedRC() {
       const [driversRes, trucksRes, filesRes] = await Promise.all([
         driverIds.length > 0 ? supabase.from("drivers").select("id, name").in("id", driverIds) : { data: [] },
         truckIds.length > 0 ? supabase.from("trucks").select("id, truck_number").in("id", truckIds) : { data: [] },
-        supabase.from("order_files").select("id, order_id, file_category, file_name").in("order_id", orderIds),
+        (async () => {
+          let allFiles: { order_id: string; file_category: string }[] = [];
+          let from = 0;
+          const PAGE_SIZE = 1000;
+          while (true) {
+            const { data } = await supabase
+              .from("order_files")
+              .select("order_id, file_category")
+              .in("order_id", orderIds)
+              .range(from, from + PAGE_SIZE - 1);
+            allFiles = [...allFiles, ...(data || [])];
+            if (!data || data.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+          }
+          return { data: allFiles };
+        })(),
       ]);
 
       const driverMap = new Map((driversRes.data || []).map((d: any) => [d.id, d]));
