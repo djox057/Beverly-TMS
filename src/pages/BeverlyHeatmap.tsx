@@ -117,10 +117,7 @@ export default function BeverlyHeatmap() {
   const { hasRole } = useAuthContext();
   const canRecompute = hasRole("admin") || hasRole("manager");
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 13),
-    to: new Date()
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -132,7 +129,7 @@ export default function BeverlyHeatmap() {
     setSelectedWeek(value);
     setSelectedMonth("all");
     if (value === "all") {
-      setDateRange({ from: subDays(new Date(), 13), to: new Date() });
+      setDateRange(undefined);
     } else {
       const startDate = getWeekStartDate(parseInt(value));
       const endDate = new Date(startDate);
@@ -146,7 +143,7 @@ export default function BeverlyHeatmap() {
     setSelectedMonth(value);
     setSelectedWeek("all");
     if (value === "all") {
-      setDateRange({ from: subDays(new Date(), 13), to: new Date() });
+      setDateRange(undefined);
     } else {
       const monthOption = monthOptions.find((m) => m.value === value);
       if (monthOption) {
@@ -242,10 +239,18 @@ export default function BeverlyHeatmap() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              City Truck Density
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                City Truck Density
+              </CardTitle>
+              {canRecompute &&
+                <Button variant="outline" size="sm" onClick={handleRecompute} disabled={isRecomputing} className="ml-auto">
+                  <RefreshCw className={`h-4 w-4 mr-1 ${isRecomputing ? "animate-spin" : ""}`} />
+                  Recompute
+                </Button>
+              }
+            </div>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
               <Select value={selectedWeek} onValueChange={handleWeekChange}>
                 <SelectTrigger className="w-full sm:w-64">
@@ -291,7 +296,7 @@ export default function BeverlyHeatmap() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setDateRange({ from: subDays(new Date(), 13), to: new Date() });
+                  setDateRange(undefined);
                   setSelectedWeek("all");
                   setSelectedMonth("all");
                 }}>
@@ -302,15 +307,6 @@ export default function BeverlyHeatmap() {
             </div>
           </div>
 
-          {/* Secondary controls row */}
-          {canRecompute &&
-          <div className="flex flex-wrap items-center gap-3 mt-2">
-              <Button variant="outline" size="sm" onClick={handleRecompute} disabled={isRecomputing}>
-                <RefreshCw className={`h-4 w-4 mr-1 ${isRecomputing ? "animate-spin" : ""}`} />
-                Recompute
-              </Button>
-            </div>
-          }
         </CardHeader>
 
         <CardContent>
@@ -353,7 +349,7 @@ export default function BeverlyHeatmap() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 z-10 bg-background min-w-[160px]">City</TableHead>
+                    <TableHead className="sticky left-0 z-10 bg-background min-w-[200px] text-primary font-semibold">City</TableHead>
                     <TableHead className="text-center min-w-[60px]">Total</TableHead>
                     <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
                     <TableHead className="text-right min-w-[70px]">Avg Miles</TableHead>
@@ -366,7 +362,7 @@ export default function BeverlyHeatmap() {
                   const avgMiles = daysWithData > 0 ? totalMiles / daysWithData : 0;
                   return (
                     <TableRow key={city}>
-                        <TableCell className="sticky left-0 z-10 bg-background font-medium text-sm whitespace-nowrap">
+                        <TableCell className="sticky left-0 z-10 bg-background font-semibold text-sm whitespace-nowrap text-primary">
                           {city}
                         </TableCell>
                         <TableCell className="text-center">
