@@ -194,21 +194,17 @@ const Billboard = () => {
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
-    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8);
-    const list = qualified.length > 0 ? qualified : [...monthlyDispatcherStats];
-    return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
+    return [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8).sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [monthlyDispatcherStats]);
 
   // Sorted monthly Gross list
   const sortedMonthlyByGross = useMemo(() => {
-    return [...monthlyDispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
+    return [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 4.8).sort((a, b) => b.totalFreight - a.totalFreight);
   }, [monthlyDispatcherStats]);
 
   // Worst monthly RPM list (ascending order, filtered by 3+ trucks)
   const worstMonthlyByRPM = useMemo(() => {
-    const qualified = [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0);
-    const list = qualified.length > 0 ? qualified : [...monthlyDispatcherStats].filter((d) => d.totalMiles > 0);
-    return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
+    return [...monthlyDispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0).sort((a, b) => a.ratePerMile - b.ratePerMile);
   }, [monthlyDispatcherStats]);
 
   const top5MonthlyRPM = sortedMonthlyByRPM.slice(0, 5);
@@ -340,20 +336,16 @@ const Billboard = () => {
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
-    return [...dispatcherStats].sort((a, b) => b.totalFreight - a.totalFreight);
+    return [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8).sort((a, b) => b.totalFreight - a.totalFreight);
   }, [dispatcherStats]);
 
   const sortedByRPM = useMemo(() => {
-    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8);
-    const list = qualified.length > 0 ? qualified : [...dispatcherStats];
-    return list.sort((a, b) => b.ratePerMile - a.ratePerMile);
+    return [...dispatcherStats].filter((d) => d.avgTrucks >= 4.8).sort((a, b) => b.ratePerMile - a.ratePerMile);
   }, [dispatcherStats]);
 
   // Worst RPM list (ascending order, filtered by 3+ trucks)
   const worstByRPM = useMemo(() => {
-    const qualified = [...dispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0);
-    const list = qualified.length > 0 ? qualified : [...dispatcherStats].filter((d) => d.totalMiles > 0);
-    return list.sort((a, b) => a.ratePerMile - b.ratePerMile);
+    return [...dispatcherStats].filter((d) => d.avgTrucks >= 3 && d.totalMiles > 0).sort((a, b) => a.ratePerMile - b.ratePerMile);
   }, [dispatcherStats]);
 
   // Top 5 and 6-10 slices
