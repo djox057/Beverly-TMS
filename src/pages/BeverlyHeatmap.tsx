@@ -349,7 +349,7 @@ export default function BeverlyHeatmap() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 z-10 bg-background min-w-[200px] text-primary font-semibold">City</TableHead>
+                    <TableHead className="sticky left-0 z-10 bg-muted/50 min-w-[200px]">City</TableHead>
                     <TableHead className="text-center min-w-[60px]">Total</TableHead>
                     <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
                     <TableHead className="text-right min-w-[70px]">Avg Miles</TableHead>
@@ -358,11 +358,11 @@ export default function BeverlyHeatmap() {
                 </TableHeader>
                 <TableBody>
                   {sortedCities.map(({ city, total, totalFreight, totalMiles, daysWithData }) => {
-                  const avgFreight = daysWithData > 0 ? totalFreight / daysWithData : 0;
-                  const avgMiles = daysWithData > 0 ? totalMiles / daysWithData : 0;
+                  const avgFreight = total > 0 ? totalFreight / total : 0;
+                  const avgMiles = total > 0 ? totalMiles / total : 0;
                   return (
                     <TableRow key={city}>
-                        <TableCell className="sticky left-0 z-10 bg-background font-semibold text-sm whitespace-nowrap text-primary">
+                        <TableCell className="sticky left-0 z-10 bg-muted/50 font-medium text-sm whitespace-nowrap">
                           {city}
                         </TableCell>
                         <TableCell className="text-center">
