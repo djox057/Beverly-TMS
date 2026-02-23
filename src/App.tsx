@@ -28,6 +28,7 @@ import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
+import BeverlyHeatmap from "./pages/BeverlyHeatmap";
 
 import Repairs from "./pages/Repairs";
 import FuelReports from "./pages/FuelReports";
@@ -176,6 +177,11 @@ const AppContent = () => {
         <Route path="/analytics" element={
           <ProtectedRoute excludedRoles={['accounting']}>
             <Layout><Analytics /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/beverly-heatmap" element={
+          <ProtectedRoute allowedRoles={['manager', 'admin', 'chicago_management']}>
+            <Layout><BeverlyHeatmap /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/alerts" element={

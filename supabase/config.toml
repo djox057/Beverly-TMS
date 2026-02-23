@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.record-empty-days]
 verify_jwt = false
+
+[functions.compute-heatmap]
+verify_jwt = false
