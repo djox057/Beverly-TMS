@@ -265,6 +265,21 @@ const EditableNoteField = ({
     </div>
   );
 };
+
+// Memoized wrapper for dispatcher groups to prevent re-renders during progressive rendering.
+// During tab switches, visibleGroupCount increments each frame. Without memo, all visible groups
+// re-create JSX each frame. With memo, only the newly added group renders; existing groups skip
+// because their group data and memoKey haven't changed.
+const MemoizedDispatcherGroup = React.memo<{
+  group: any;
+  memoKey: object;
+  renderGroup: () => React.ReactNode;
+}>(
+  ({ renderGroup }) => <>{renderGroup()}</>,
+  (prev, next) => prev.group === next.group && prev.memoKey === next.memoKey
+);
+MemoizedDispatcherGroup.displayName = 'MemoizedDispatcherGroup';
+
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
   const navigate = useNavigate();
@@ -3007,6 +3022,17 @@ const Reports = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressiveTrigger]);
 
+  // Memo key that captures all volatile state used inside group rendering.
+  // Changes to any of these trigger group re-renders; visibleGroupCount is intentionally
+  // excluded so progressive rendering doesn't cause existing groups to re-render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const groupMemoKey = useMemo(() => ({}), [
+    editing, expandedTruckMap, expandedDispatcherMap, calendarDates,
+    sidebarOpen, activeTab, visibleTrucks, latePickups, lateDeliveries,
+    hasDriverProblem, hasEfsMissingData, hasLumperMissingRC, hasWeeklyPlan,
+    getDrugTestForDriver, drugTests,
+  ]);
+
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
     <div className="space-y-4 p-4">
@@ -3343,7 +3369,12 @@ const Reports = () => {
               </div>
             ) : (
               <div className="px-4 py-2">
-                {activeOfficeReports.slice(0, visibleGroupCount).map((group) => {
+                {activeOfficeReports.slice(0, visibleGroupCount).map((group) => (
+                  <MemoizedDispatcherGroup
+                    key={group.dispatcherId}
+                    group={group}
+                    memoKey={groupMemoKey}
+                    renderGroup={() => {
                   const startDate = getCalendarStartDate(group.dispatcherId);
                   const days = Array.from(
                     {
@@ -3352,7 +3383,7 @@ const Reports = () => {
                     (_, i) => addDays(startDate, i),
                   );
                   return (
-                    <div key={group.dispatcherId} className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
+                    <div className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
                       {/* Google Sheets-style table */}
                       <div className="w-full">
                         <table
@@ -4810,7 +4841,9 @@ const Reports = () => {
                       </div>
                     </div>
                   );
-                })}
+                    }}
+                  />
+                ))}
               </div>
             )}
           </TabsContent>
