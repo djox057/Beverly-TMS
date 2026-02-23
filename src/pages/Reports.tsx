@@ -71,7 +71,6 @@ import React, {
   memo,
   useRef,
   useCallback,
-  
   startTransition,
 } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -359,14 +358,22 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
   
-  // Wrap tab switches in startTransition so React keeps showing the current tab
-  // while rendering the new (potentially expensive) tab in the background.
-  // This prevents skeleton flash on large offices like Kragujevac.
+  // Deferred rendering: when switching tabs, we immediately update the tab header
+  // but defer the heavy content rendering by one frame so the UI doesn't freeze.
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+  const tabSwitchTimeoutRef = useRef<number | null>(null);
+  
   const setActiveTab = useCallback((office: string) => {
-    startTransition(() => {
-      setActiveTabRaw(office);
+    if (office === activeTab) return;
+    setIsTabSwitching(true);
+    setActiveTabRaw(office);
+    // Clear any pending timeout
+    if (tabSwitchTimeoutRef.current) cancelAnimationFrame(tabSwitchTimeoutRef.current);
+    // After the tab header renders, allow heavy content to render next frame
+    tabSwitchTimeoutRef.current = requestAnimationFrame(() => {
+      setIsTabSwitching(false);
     });
-  }, []);
+  }, [activeTab]);
 
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
@@ -3276,7 +3283,9 @@ const Reports = () => {
                 <div className="h-full w-1/3 bg-primary animate-pulse" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
               </div>
             )}
-            {isLoading || groupedReports == null ? (
+            {isTabSwitching ? (
+              <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>
+            ) : isLoading || groupedReports == null ? (
               <LoadingSkeleton />
 
             ) : isViewingOtherOfficeInIndividualMode ? (
