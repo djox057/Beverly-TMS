@@ -140,6 +140,102 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_locked_daily: {
+        Row: {
+          date: string
+          date_type: string
+          entity_id: string
+          entity_name: string | null
+          entity_type: string
+          id: string
+          is_company_driver: boolean | null
+          order_count: number | null
+          total_dh_miles: number | null
+          total_driver_pay: number | null
+          total_freight: number | null
+          total_miles: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          date: string
+          date_type: string
+          entity_id: string
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          is_company_driver?: boolean | null
+          order_count?: number | null
+          total_dh_miles?: number | null
+          total_driver_pay?: number | null
+          total_freight?: number | null
+          total_miles?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          date?: string
+          date_type?: string
+          entity_id?: string
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          is_company_driver?: boolean | null
+          order_count?: number | null
+          total_dh_miles?: number | null
+          total_driver_pay?: number | null
+          total_freight?: number | null
+          total_miles?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      analytics_locked_daily_staging: {
+        Row: {
+          date: string
+          date_type: string
+          entity_id: string
+          entity_name: string | null
+          entity_type: string
+          id: string
+          is_company_driver: boolean | null
+          order_count: number | null
+          total_dh_miles: number | null
+          total_driver_pay: number | null
+          total_freight: number | null
+          total_miles: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          date: string
+          date_type: string
+          entity_id: string
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          is_company_driver?: boolean | null
+          order_count?: number | null
+          total_dh_miles?: number | null
+          total_driver_pay?: number | null
+          total_freight?: number | null
+          total_miles?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          date?: string
+          date_type?: string
+          entity_id?: string
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          is_company_driver?: boolean | null
+          order_count?: number | null
+          total_dh_miles?: number | null
+          total_driver_pay?: number | null
+          total_freight?: number | null
+          total_miles?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       analytics_period_totals: {
         Row: {
           created_at: string
