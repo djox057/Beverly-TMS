@@ -1,178 +1,222 @@
 
 
-# Precomputed Analytics Aggregates for Locked Orders
+# Frontend Integration: Precomputed Analytics Aggregates
 
-## Overview
-Precompute 4 metrics (Total Freight, Total Driver Pay, Total Miles, Total DH Miles + order count) for locked orders, keyed by dispatcher and driver, per date. The Analytics page will merge small live unlocked orders with precomputed locked aggregates instead of fetching thousands of raw locked records.
+## Summary
+Wire up the validated backend (31,949 rows, 0 mismatches) to the Analytics frontend. This covers: schema addition for `total_driver_pay_effective`, edge function security + updates, a new hook, modifications to `useOrdersWithProgress`, merging aggregates into 5 Analytics calculation blocks, admin buttons, cache invalidation, and cron setup.
 
-## Database
+## Phase 1: Backend Updates (Steps 1-3)
 
-### New table: `analytics_locked_daily`
-
-```text
-analytics_locked_daily
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
-  entity_type     TEXT NOT NULL          -- 'dispatcher' or 'driver'
-  entity_id       TEXT NOT NULL          -- booked_by (dispatcher) or driver1_id UUID (driver)
-  entity_name     TEXT                   -- resolved display name (refreshed on rebuild)
-  date            DATE NOT NULL
-  date_type       TEXT NOT NULL          -- 'pickup' or 'delivery'
-  total_freight   NUMERIC DEFAULT 0      -- freight NO lumper (matches totalFreightAmountNoLumper)
-  total_driver_pay NUMERIC DEFAULT 0     -- full driver pay formula
-  total_miles     NUMERIC DEFAULT 0      -- loaded_miles + dh_miles + additional_miles
-  total_dh_miles  NUMERIC DEFAULT 0      -- dh_miles only (for avg DH calculation)
-  order_count     INT DEFAULT 0
-  is_company_driver BOOLEAN DEFAULT false
-  updated_at      TIMESTAMPTZ DEFAULT now()
-
-  UNIQUE (entity_type, entity_id, date, date_type)
-```
-
-Indexes:
-- `(entity_type, date_type, date)` -- for the range queries the frontend runs
-- The UNIQUE constraint covers upsert lookups
-
-RLS disabled -- accessed only via service role key from edge functions.
-
-### Name staleness (review point #5)
-`entity_name` is refreshed on every nightly rebuild. Acceptable for a 24-hour window. No additional mechanism needed.
-
-## Edge Function: `recompute-analytics-aggregates`
-
-### Core SQL aggregation
-A single SQL query per entity_type/date_type combination (4 queries total: dispatcher x pickup, dispatcher x delivery, driver x pickup, driver x delivery). The SQL replicates the exact formulas from `ordersTransform.ts` lines 33-77:
-
-**Total Freight (no lumper):**
+### Step 1: Database Migration
+Add `total_driver_pay_effective` column to both tables:
 ```sql
-COALESCE(freight_amount,0) + COALESCE(detention,0) + COALESCE(layover,0)
-+ COALESCE(tonu,0) + COALESCE(extra_stop,0) + COALESCE(escort_fee,0)
-+ COALESCE(other_additionals,0)
-- COALESCE(late_fee,0) - COALESCE(no_tracking_fee,0)
-- COALESCE(wrong_address_fee,0) - COALESCE(other_charges,0)
+ALTER TABLE analytics_locked_daily ADD COLUMN total_driver_pay_effective NUMERIC DEFAULT 0;
+ALTER TABLE analytics_locked_daily_staging ADD COLUMN total_driver_pay_effective NUMERIC DEFAULT 0;
 ```
 
-**Total Driver Pay:**
+### Step 2: Secure + Update `recompute-analytics-aggregates`
+
+**Security (review point #1):** Add dual auth matching `compute-heatmap` pattern:
+- Accept `CRON_SECRET` via `Authorization: Bearer <CRON_SECRET>` for cron jobs
+- Accept authenticated admin users via JWT + role check from `user_roles` table
+- Reject all other callers with 401
+
+**New column computation:** During dispatcher aggregation, for each order:
+- Look up if `driver1_id` is a company driver via the existing `driverMap`
+- If company driver: `effectiveDriverPay = freight` (instead of raw driver pay)
+- If not: `effectiveDriverPay = driverPay` (normal)
+- Sum into new `total_driver_pay_effective` field on dispatcher rows
+- For driver rows: `total_driver_pay_effective = total_driver_pay` (no override needed at driver level)
+
+Also update the staging-to-main copy to include the new column in the SELECT list.
+
+### Step 3: Re-run recompute + validate
+- Deploy the updated edge function
+- Invoke it to repopulate data with the new column
+- Run validate to confirm 0 mismatches still hold
+
+## Phase 2: Frontend Hook (Step 4)
+
+### Step 4: Create `src/hooks/useAnalyticsAggregates.ts`
+
+**Three query variants:**
+
+**A. Date-filtered (dispatcher perf, driver analytics, totals row):**
+- Accepts `entityType`, `dateType`, `startDate`, `endDate`
+- Query: `.from("analytics_locked_daily").select("*").eq("entity_type", ...).eq("date_type", ...).gte("date", startDate).lte("date", endDate)`
+- Paginate with `.range()` loop (safety cap: 50 iterations = 50k rows max, log warning if hit)
+- Groups rows by `entity_id`, sums metrics client-side
+- `staleTime: 15 * 60 * 1000` (15 minutes)
+- Returns `Record<entityId, { totalFreight, totalDriverPay, totalDriverPayEffective, totalMiles, totalDhMiles, orderCount, isCompanyDriver, entityName }>`
+
+**B. All-time aggregated (all-time tiers -- Step 7):**
+- No date filter, `entityType = 'driver'`, `dateType = 'pickup'`
+- **Must paginate** all ~16k driver rows (32k total / 2 date types)
+- Groups by `entity_id`: `SUM(total_freight)` for all-time gross, `MIN(date)` for first pickup
+- Safety cap: 50 iterations
+
+**C. All-time daily rows (gross rankings -- Step 8):**
+- No date filter, `entityType = 'driver'`, `dateType = 'delivery'`
+- Returns raw daily rows (not grouped) for client-side weekly bucketing
+- **Must paginate** all ~16k rows
+- Safety cap: 50 iterations
+
+**Query key structure:**
+- `["analytics-aggregates", entityType, dateType, startDate, endDate]` for date-filtered
+- `["analytics-aggregates-alltime", entityType, dateType]` for all-time variants
+
+## Phase 3: Order Fetching Update (Step 5)
+
+### Step 5: Update `useOrdersWithProgress`
+
+Add feature flag:
+```typescript
+const usePrecomputed = typeof window !== 'undefined'
+  && localStorage.getItem("analytics_use_raw_orders") !== "true";
+```
+
+When `usePrecomputed` is true (default):
+- Keep Phase 1 (unlocked orders via `get-all-unlocked-orders`) unchanged
+- **Skip Phase 2 entirely** -- no locked batch loop
+- Set progress: `lockedLoaded: 0, lockedTotal: 0, isLoadingMore: false, isComplete: true`
+- Add `usePrecomputed: true` to return value
+- `transformOrders` only processes unlocked orders
+- Still sync to `["orders"]` cache (unlocked-only -- other pages have their own fetch)
+
+When `usePrecomputed` is false (fallback):
+- Run current full-fetch path unchanged -- zero code deletion
+
+Add `usePrecomputed` to the `LoadingProgress` interface.
+
+## Phase 4: Analytics Merge Points (Steps 6-10)
+
+### Step 6: Update loading UI (lines 2242-2315)
+
+When `progress.usePrecomputed` is true:
+- Show "Active Orders" progress bar (unchanged)
+- Replace "Archived Orders" bar with static: `CheckCircle` icon + "Archived: Precomputed" text (green)
+- Loading completes when unlocked orders finish
+
+### Step 7: Merge into Dispatcher Performance (line 1306)
+
+Current `dispatcherAnalytics` reduces ALL `filteredOrders`. Change to:
+
+1. The existing reduce loop processes only unlocked `filteredOrders` (small set)
+2. Call `useAnalyticsAggregates("dispatcher", dateType, startDate, endDate)` where `dateType = filterType === "month" ? "delivery" : "pickup"`
+3. After the reduce, merge locked aggregates into the accumulator:
+   - For each key in precomputed data, add `totalFreight`, `totalMiles`, `totalDhMiles`, `orderCount` to existing or new entry
+   - Use `total_driver_pay_effective` (not `total_driver_pay`) for `totalDriverRate` -- this already has the company driver override applied
+4. The `latestPickupDate` field: set to null for precomputed entries (only needed for deleted dispatcher salary filtering, which is a secondary concern)
+
+**Key matching (review point #4):** Precomputed `entity_id` = `booked_by` value, which matches the accumulator key `order.bookedBy` on line 1307. Confirmed identical.
+
+### Step 8: Merge into Totals Row (line 1465)
+
+Same merge pattern as dispatcher perf:
+- Reduce unlocked `ordersForTotals` for unlocked totals
+- Sum precomputed dispatcher aggregates (filtered by supervisor if `selectedSupervisor !== "all"`)
+- Use `total_driver_pay_effective` for `totalDriverRate`
+
+For supervisor filtering of precomputed data: lookup `entity_id` (booked_by) in `dispatcherProfiles` to get `user_id`, then check supervisor assignment. Same logic as existing `ordersForTotals` filter.
+
+### Step 9: Merge into Driver Analytics (line 1750)
+
+Current `driverAnalytics` reduces `filteredOrders` by `order.driverName`. Change to:
+
+1. Reduce only unlocked orders (keyed by driver name)
+2. Call `useAnalyticsAggregates("driver", dateType, startDate, endDate)`
+3. Merge: precomputed data is keyed by `entity_id` (driver UUID). Use `entity_name` from precomputed rows as the merge key (driver name). This handles deleted/archived drivers (review point #3) since `entity_name` was resolved at rebuild time with fallback to `deleted_driver1_name`.
+4. For each precomputed entry, add `totalDriverRate` (raw `total_driver_pay` -- no company driver override at driver level), `totalMiles`, `orderCount`
+
+### Step 10: Merge into All-Time Tiers (line 1719)
+
+Current `driverAnalyticsAllTime` reduces ALL `orders` for total gross and first pickup date per driver.
+
+1. Reduce only unlocked orders for all-time totals (small set)
+2. Call all-time aggregated variant: driver, pickup, no date filter
+3. For each precomputed driver: `totalGross = SUM(total_freight)`, `firstPickupDate = MIN(date)`
+4. Merge with unlocked totals per driver name (using `entity_name`)
+5. Feed into `calculateGrossTier` unchanged
+
+### Step 11: Merge into Gross Rankings (line 1958)
+
+Current `driverGrossRankings` iterates ALL `orders`, groups by driver and delivery week (Tuesday-Monday).
+
+1. Iterate only unlocked orders for weekly grouping (small set)
+2. Call all-time daily rows variant: driver, delivery, no date filter
+3. For each precomputed row: parse `date`, compute `startOfWeek(new Date(year, month-1, day), { weekStartsOn: 2 })`, bucket into weekly data by `entity_name` (driver name)
+4. Merge weekly buckets: for each driver, combine unlocked + locked weekly data
+5. The truck tracking (`driverTrucks`) and team detection (`driverIsTeam`, `driverTeammates`) still come from the unlocked orders reduce. Precomputed data doesn't carry these -- acceptable since gross rankings primarily show active drivers who will have recent unlocked orders, and the `driverNameToCurrentTruck` lookup from drivers data provides the current truck number.
+6. First/last week trimming operates on merged sorted week keys -- unchanged
+
+**Company driver note (review point #2):** Gross rankings use raw `totalDriverPay` (not effective). If a driver's company status changed mid-period, locked rows reflect status at rebuild time. Documented as acceptable -- nightly rebuild corrects within 24 hours.
+
+## Phase 5: Admin UI + Cron (Steps 12-13)
+
+### Step 12: Add Admin Buttons (after line 2328)
+
+Two buttons visible only when `isAdmin`, placed next to the "Analytics" heading:
+
+**"Recompute"** button:
+- Calls `supabase.functions.invoke("recompute-analytics-aggregates")`
+- Shows loading spinner during call
+- On success: toast "Aggregates rebuilt: X rows in Yms"
+- **Cache invalidation (review point #5):** After successful recompute, call `queryClient.invalidateQueries({ queryKey: ["analytics-aggregates"] })` and `queryClient.invalidateQueries({ queryKey: ["analytics-aggregates-alltime"] })` to force immediate refresh
+
+**"Validate"** button:
+- Calls `supabase.functions.invoke("validate-analytics-aggregates", { body: { startDate, endDate, dateType } })`
+- Shows a dialog with results: "0 mismatches" or list of diffs
+
+### Step 13: Cron Job Setup
+
+Run via Supabase SQL editor (not migration -- contains project-specific secrets):
 ```sql
-COALESCE(driver_price,0) + COALESCE(detention_driver,0) + COALESCE(layover_driver,0)
-+ COALESCE(tonu_driver,0) + COALESCE(extra_stop_driver,0) + COALESCE(lumper_driver,0)
-- COALESCE(late_fee_driver,0) - COALESCE(no_tracking_fee_driver,0)
-- COALESCE(wrong_address_fee_driver,0) + COALESCE(other_charges_driver,0)
-+ COALESCE(other_additionals_driver,0)
+SELECT cron.schedule(
+  'nightly-recompute-analytics',
+  '0 3 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/recompute-analytics-aggregates',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer ' || current_setting('app.settings.cron_secret', true) || '"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
 ```
 
-**Total Miles:** `COALESCE(loaded_miles,0) + COALESCE(dh_miles,0) + COALESCE(additional_miles,0)`
+Uses `CRON_SECRET` (not anon key) matching the dual auth pattern. Requires `pg_cron` and `pg_net` extensions enabled.
 
-**Total DH Miles:** `COALESCE(dh_miles,0)`
+## Implementation Sequence
 
-**WHERE clause:** `locked = true AND (canceled = false OR COALESCE(tonu,0) > 0 OR COALESCE(tonu_driver,0) > 0)` -- matches the TONU exception in `filteredOrders` (line 1081).
+1. Migration: add `total_driver_pay_effective` column
+2. Update `recompute-analytics-aggregates` edge function (security + new column)
+3. Deploy, re-run recompute, validate
+4. Create `src/hooks/useAnalyticsAggregates.ts`
+5. Update `src/hooks/useOrdersWithProgress.ts` with feature flag
+6. Update Analytics loading UI
+7. Merge into dispatcher performance
+8. Merge into totals row
+9. Merge into driver analytics
+10. Merge into all-time tiers
+11. Merge into gross rankings
+12. Add admin buttons with cache invalidation
+13. Set up cron job
 
-### Zero-downtime rebuild (review point #2)
-Instead of truncate-and-rebuild:
-1. Write all rows to `analytics_locked_daily_staging` (same schema, created as a temp-like permanent table)
-2. In a single transaction: `ALTER TABLE analytics_locked_daily RENAME TO analytics_locked_daily_old; ALTER TABLE analytics_locked_daily_staging RENAME TO analytics_locked_daily;`
-3. Drop `analytics_locked_daily_old`
+## Files Changed
 
-This ensures zero window where the table is empty.
+| File | Action |
+|------|--------|
+| `supabase/functions/recompute-analytics-aggregates/index.ts` | Modify: add dual auth + `total_driver_pay_effective` |
+| `src/hooks/useAnalyticsAggregates.ts` | New file |
+| `src/hooks/useOrdersWithProgress.ts` | Modify: skip locked fetch when precomputed |
+| `src/pages/Analytics.tsx` | Modify: 5 merge points + loading UI + admin buttons |
 
-### Staging table
-Created alongside the main table in the migration. Same schema, same indexes. The edge function truncates staging, populates it, then swaps.
+## Key Risk Mitigations
 
-### Company driver flag (review point #1)
-For driver entity_type rows, join to `drivers.is_company_driver` and store in the `is_company_driver` column. The frontend uses this to apply the "driver pay = freight" override for company drivers in commission calculations.
-
-### Dispatcher entity_id
-Uses `booked_by` column value (which is either a full_name or user_id string). This matches how `dispatcherAnalytics` groups orders on line 1307.
-
-### Driver entity_id
-Uses `driver1_id` UUID cast to TEXT. `entity_name` resolved via `LEFT JOIN drivers ON id = driver1_id`, with fallback to `deleted_driver1_name` for archived orders.
-
-### Triggering (review point #4)
-- **Nightly cron job** at 3 AM UTC via pg_cron calling the edge function
-- **Manual recompute button** in Analytics page (admin-only) that invokes the same edge function
-- **No Postgres trigger** -- the nightly cron handles the rare locked order edits. Documented in UI: "Locked order aggregates refresh nightly. Use the Recompute button for immediate updates."
-
-## Validation Tool (review point #1)
-
-### Edge function: `validate-analytics-aggregates`
-Accepts a date range. For that range:
-1. Fetches raw locked orders and computes totals client-side (same formula)
-2. Fetches precomputed aggregates and sums them
-3. Compares per-dispatcher and per-driver totals
-4. Returns a diff report: any entity where freight/pay/miles differ by more than $0.01
-
-This is a permanent admin tool, not a one-time check. Accessible via an admin button in Analytics or direct edge function call.
-
-## Frontend Changes
-
-### New hook: `useAnalyticsAggregates`
-- Queries `analytics_locked_daily` via Supabase client for a given date range, entity_type, and date_type
-- Returns `Record<string, { totalFreight, totalDriverPay, totalMiles, totalDhMiles, orderCount, isCompanyDriver }>`
-- Small result set (typically under 500 rows for any date range), single fast query
-
-### Modified: `useOrdersWithProgress`
-- **Unlocked orders**: Still fetched live via `get-all-unlocked-orders` edge function (typically 200-500 orders)
-- **Locked orders**: No longer fetched. The hook returns only unlocked orders.
-- Progress tracking simplified: no more locked batch pagination
-- The `["orders", "analytics-full"]` cache now holds only unlocked orders
-- A new flag `usePrecomputed: true` signals to Analytics that aggregates come from the precomputed table
-
-### Modified: `Analytics.tsx`
-
-**Dispatcher Performance (line 1306):**
-```text
-Current: filteredOrders.reduce(...) over ALL orders
-New:
-1. filteredOrders (now only unlocked) .reduce(...) -> unlocked totals per dispatcher
-2. useAnalyticsAggregates('dispatcher', dateType, dateRange) -> locked totals per dispatcher
-3. Merge: for each dispatcher key, sum unlocked + locked totals
-```
-
-The `dateType` is determined by the existing `filterType`: month = 'delivery', week/custom = 'pickup' (matching line 1090).
-
-**Driver Analytics (line 1750):**
-Same merge pattern: unlocked driver totals + precomputed locked driver totals.
-
-**Driver Gross Rankings (line 1959):**
-This section groups ALL orders by driver and week (Tuesday-Monday, `weekStartsOn: 2`).
-- For locked data: query `analytics_locked_daily` WHERE entity_type = 'driver' AND date_type = 'delivery' (rankings use delivery date, line 2013)
-- Sum daily aggregates into Tuesday-Monday weekly buckets client-side
-- The first/last week trimming logic (line 2047) operates on week keys, which works the same whether data comes from raw orders or daily sums
-- **Week boundary alignment (review point #3):** The precomputed table stores per-date rows. Client-side code uses `startOfWeek(date, { weekStartsOn: 2 })` to bucket them into Tuesday-Monday weeks -- exactly matching the current logic. No ambiguity since we store daily granularity, not weekly.
-
-**Driver All-Time Gross Tiers (line 1719):**
-This needs ALL orders (no date filter) for total gross and first pickup date. Options:
-- Keep fetching all unlocked orders (small set) for live data
-- Query precomputed locked aggregates with no date filter (SUM total_freight, MIN date) grouped by driver
-- Merge the two for all-time totals and first pickup date
-
-**Totals row (line 1465):**
-Same merge: sum unlocked order totals + sum locked aggregates for the filtered date range.
-
-### Admin Recompute Button
-Added to Analytics page header, visible only to admin role. Calls `recompute-analytics-aggregates` edge function and shows a toast on completion.
-
-### Admin Validation Button
-Next to recompute button. Calls `validate-analytics-aggregates` with current date range. Shows a dialog with any mismatches found.
-
-## Fallback (existing path preserved)
-The old `useOrdersWithProgress` full-fetch path is kept behind a feature flag (localStorage `analytics_use_raw_orders`). If set to `"true"`, Analytics falls back to fetching all raw orders. This allows instant rollback if formula mismatches are discovered.
-
-## Implementation Order
-
-1. Migration: create `analytics_locked_daily` + `analytics_locked_daily_staging` tables with indexes
-2. Edge function: `recompute-analytics-aggregates` with swap-table logic
-3. Edge function: `validate-analytics-aggregates` for permanent validation
-4. Run initial population + validate against current client-side totals
-5. Set up nightly cron job
-6. New hook: `useAnalyticsAggregates`
-7. Update `useOrdersWithProgress` to skip locked order fetching
-8. Update `Analytics.tsx` to merge unlocked (live) + locked (precomputed)
-9. Add admin Recompute + Validate buttons
-10. Keep fallback flag for rollback
-
-## Performance Impact
-
-- **Before:** 10,000+ locked orders fetched in 5+ batches (5-15 seconds), each transformed and aggregated client-side
-- **After:** ~500 aggregate rows fetched in a single query (under 200ms) + ~300 unlocked orders fetched live (under 1 second)
-- **Net:** Analytics page loads 5-10x faster, dramatically lower CPU on both server and client
+- **Security:** Dual auth (CRON_SECRET or admin JWT) on recompute endpoint -- no open destructive endpoints
+- **Fallback:** `localStorage.analytics_use_raw_orders = "true"` restores full raw-order path instantly
+- **Pagination safety:** 50-iteration cap on all `.range()` loops with warning log
+- **Cache invalidation:** Admin recompute button invalidates all aggregate query keys immediately
+- **Deleted drivers:** `entity_name` from precomputed data used as fallback -- no data loss for archived drivers
+- **staleTime:** 15 minutes for aggregate queries -- no unnecessary refetches
 
