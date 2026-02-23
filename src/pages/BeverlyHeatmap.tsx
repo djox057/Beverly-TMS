@@ -140,18 +140,12 @@ export default function BeverlyHeatmap() {
         toast.error("Not authenticated");
         return;
       }
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compute-heatmap?from=${startStr}&to=${endStr}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed");
+      const { data: result, error: invokeError } = await supabase.functions.invoke("compute-heatmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: startStr, to: endStr }),
+      });
+      if (invokeError) throw invokeError;
       toast.success(`Recomputed ${result.results?.length || 0} days`);
       refetch();
     } catch (e: any) {
