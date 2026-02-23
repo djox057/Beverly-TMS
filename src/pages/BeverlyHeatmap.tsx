@@ -348,7 +348,7 @@ export default function BeverlyHeatmap() {
           <div className="overflow-x-auto border rounded-lg">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent">
                     <TableHead className="sticky left-0 z-10 bg-card min-w-[200px]">City</TableHead>
                     <TableHead className="text-center min-w-[60px]">Total</TableHead>
                     <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
