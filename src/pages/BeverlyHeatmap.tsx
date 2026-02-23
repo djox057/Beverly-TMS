@@ -361,7 +361,7 @@ export default function BeverlyHeatmap() {
                   const avgFreight = total > 0 ? totalFreight / total : 0;
                   const avgMiles = total > 0 ? totalMiles / total : 0;
                   return (
-                    <TableRow key={city}>
+                    <TableRow key={city} className="hover:bg-transparent">
                         <TableCell className="sticky left-0 z-10 bg-card font-medium text-sm whitespace-nowrap">
                           {city}
                         </TableCell>
