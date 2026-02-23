@@ -69,8 +69,24 @@ const Billboard = () => {
 
   const { weekStart, weekEnd } = getWeekBounds();
 
-  // Fetch average truck counts for dispatchers this week
+  // Fetch average truck counts for dispatchers this week (fallback to previous week if empty)
   useEffect(() => {
+    const computeAvgCounts = (data: { dispatcher_id: string; driver_count: number }[]) => {
+      const counts: Record<string, { total: number; days: number }> = {};
+      data.forEach((row) => {
+        if (!counts[row.dispatcher_id]) {
+          counts[row.dispatcher_id] = { total: 0, days: 0 };
+        }
+        counts[row.dispatcher_id].total += row.driver_count;
+        counts[row.dispatcher_id].days += 1;
+      });
+      const avgCounts: Record<string, number> = {};
+      Object.entries(counts).forEach(([userId, stats]) => {
+        avgCounts[userId] = stats.days > 0 ? stats.total / stats.days : 0;
+      });
+      return avgCounts;
+    };
+
     const fetchTruckCounts = async () => {
       const startStr = weekStart.toISOString().split("T")[0];
       const endStr = weekEnd.toISOString().split("T")[0];
@@ -81,22 +97,28 @@ const Billboard = () => {
         .gte("date", startStr)
         .lte("date", endStr);
 
-      if (data) {
-        // Calculate average truck count per dispatcher for this week
-        const counts: Record<string, { total: number; days: number }> = {};
-        data.forEach((row) => {
-          if (!counts[row.dispatcher_id]) {
-            counts[row.dispatcher_id] = { total: 0, days: 0 };
-          }
-          counts[row.dispatcher_id].total += row.driver_count;
-          counts[row.dispatcher_id].days += 1;
-        });
+      if (data && data.length > 0) {
+        setDispatcherTruckCounts(computeAvgCounts(data));
+        return;
+      }
 
-        const avgCounts: Record<string, number> = {};
-        Object.entries(counts).forEach(([userId, stats]) => {
-          avgCounts[userId] = stats.days > 0 ? stats.total / stats.days : 0;
-        });
-        setDispatcherTruckCounts(avgCounts);
+      // Fallback: use the most recent 7 days of data available
+      const { data: fallback } = await supabase
+        .from("dispatcher_daily_driver_counts")
+        .select("dispatcher_id, driver_count, date")
+        .order("date", { ascending: false })
+        .limit(1000);
+
+      if (fallback && fallback.length > 0) {
+        // Get the latest date and use its week
+        const latestDate = fallback[0].date;
+        const latestDateObj = new Date(latestDate + "T00:00:00");
+        const fallbackStart = new Date(latestDateObj);
+        fallbackStart.setDate(fallbackStart.getDate() - 6);
+        const fallbackStartStr = fallbackStart.toISOString().split("T")[0];
+
+        const recentData = fallback.filter((r) => r.date >= fallbackStartStr);
+        setDispatcherTruckCounts(computeAvgCounts(recentData));
       }
     };
     fetchTruckCounts();
