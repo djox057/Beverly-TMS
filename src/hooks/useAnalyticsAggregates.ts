@@ -120,16 +120,18 @@ export function useAnalyticsAggregates(
   endDate?: string,
   enabled = true
 ) {
+  // Allow fetching without date filters (for "All Time" view)
+  const hasDateFilter = !!startDate && !!endDate;
   return useQuery({
-    queryKey: ["analytics-aggregates", entityType, dateType, startDate, endDate],
+    queryKey: ["analytics-aggregates", entityType, dateType, startDate ?? "all", endDate ?? "all"],
     queryFn: async () => {
-      console.log(`[useAnalyticsAggregates] Fetching ${entityType}/${dateType} ${startDate}-${endDate}`);
-      const rows = await fetchAllRows(entityType, dateType, startDate, endDate);
+      console.log(`[useAnalyticsAggregates] Fetching ${entityType}/${dateType} ${startDate ?? "all"}-${endDate ?? "all"}`);
+      const rows = await fetchAllRows(entityType, dateType, hasDateFilter ? startDate : undefined, hasDateFilter ? endDate : undefined);
       const grouped = groupByEntity(rows);
       console.log(`[useAnalyticsAggregates] ${entityType}/${dateType}: ${rows.length} rows -> ${Object.keys(grouped).length} entities`);
       return grouped;
     },
-    enabled: enabled && !!startDate && !!endDate,
+    enabled,
     staleTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
