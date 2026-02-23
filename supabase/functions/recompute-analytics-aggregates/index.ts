@@ -15,49 +15,56 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const cronSecret = Deno.env.get("CRON_SECRET");
+
+    // --- Dual auth: CRON_SECRET or admin JWT ---
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    let authorized = false;
+
+    // Check CRON_SECRET first
+    if (cronSecret && token === cronSecret) {
+      authorized = true;
+      console.log("[recompute] Auth: CRON_SECRET");
+    }
+
+    // Check admin JWT
+    if (!authorized && token && token !== supabaseAnonKey) {
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+      if (!claimsErr && claimsData?.claims?.sub) {
+        const userId = claimsData.claims.sub;
+        const adminClient = createClient(supabaseUrl, serviceRoleKey);
+        const { data: roles } = await adminClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin");
+        if (roles && roles.length > 0) {
+          authorized = true;
+          console.log("[recompute] Auth: admin JWT", userId);
+        }
+      }
+    }
+
+    // Allow anon key calls (for backward compat during testing) — remove after cron is set up
+    if (!authorized && token === supabaseAnonKey) {
+      authorized = true;
+      console.log("[recompute] Auth: anon key (temporary)");
+    }
+
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // The WHERE clause matching the TONU exception from filteredOrders
-    const WHERE_LOCKED = `locked = true AND (canceled = false OR COALESCE(tonu,0) > 0 OR COALESCE(tonu_driver,0) > 0)`;
-
-    // Freight formula (no lumper) - matches ordersTransform.ts totalFreightAmountNoLumper
-    const FREIGHT_SQL = `
-      COALESCE(freight_amount,0) + COALESCE(detention,0) + COALESCE(layover,0)
-      + COALESCE(tonu,0) + COALESCE(extra_stop,0) + COALESCE(escort_fee,0)
-      + COALESCE(other_additionals,0)
-      - COALESCE(late_fee,0) - COALESCE(no_tracking_fee,0)
-      - COALESCE(wrong_address_fee,0) - COALESCE(other_charges,0)
-    `;
-
-    // Driver pay formula - matches ordersTransform.ts totalDriverPay
-    const DRIVER_PAY_SQL = `
-      COALESCE(driver_price,0) + COALESCE(detention_driver,0) + COALESCE(layover_driver,0)
-      + COALESCE(tonu_driver,0) + COALESCE(extra_stop_driver,0) + COALESCE(lumper_driver,0)
-      - COALESCE(late_fee_driver,0) - COALESCE(no_tracking_fee_driver,0)
-      - COALESCE(wrong_address_fee_driver,0) + COALESCE(other_charges_driver,0)
-      + COALESCE(other_additionals_driver,0)
-    `;
-
-    // Total miles formula - matches ordersTransform.ts mileage
-    const MILES_SQL = `COALESCE(loaded_miles,0) + COALESCE(dh_miles,0) + COALESCE(additional_miles,0)`;
-
-    // DH miles
-    const DH_MILES_SQL = `COALESCE(dh_miles,0)`;
-
-    console.log("[recompute] Starting rebuild...");
-
-    // Step 1: Truncate staging table
-    const { error: truncErr } = await supabase.rpc("", {}).then(() => ({ error: null })).catch(() => ({ error: null }));
-    // Use raw SQL via service role
-    const truncRes = await fetch(`${supabaseUrl}/rest/v1/rpc/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-        "Content-Type": "application/json",
-      },
-    }).catch(() => null);
 
     // Truncate staging via direct delete (service role bypasses RLS)
     const { error: delErr } = await supabase
@@ -72,67 +79,12 @@ Deno.serve(async (req) => {
 
     console.log("[recompute] Staging cleared");
 
-    // Step 2: Aggregate and insert into staging
-    // We run 4 queries: dispatcher x pickup, dispatcher x delivery, driver x pickup, driver x delivery
-
-    const dateColumns: Record<string, string> = {
-      pickup: "pickup_datetime::date",
-      delivery: "delivery_datetime::date",
-    };
-
     let totalInserted = 0;
 
     for (const dateType of ["pickup", "delivery"] as const) {
-      const dateCol = dateColumns[dateType];
-
-      // --- Dispatcher aggregation ---
-      const dispatcherQuery = `
-        SELECT
-          'dispatcher' as entity_type,
-          booked_by as entity_id,
-          booked_by as entity_name,
-          ${dateCol} as date,
-          '${dateType}' as date_type,
-          SUM(${FREIGHT_SQL}) as total_freight,
-          SUM(${DRIVER_PAY_SQL}) as total_driver_pay,
-          SUM(${MILES_SQL}) as total_miles,
-          SUM(${DH_MILES_SQL}) as total_dh_miles,
-          COUNT(*) as order_count,
-          false as is_company_driver
-        FROM orders
-        WHERE ${WHERE_LOCKED}
-          AND booked_by IS NOT NULL
-          AND ${dateCol} IS NOT NULL
-        GROUP BY booked_by, ${dateCol}
-      `;
-
-      const { data: dispRows, error: dispErr } = await supabase.rpc(
-        "execute_aggregation_query",
-        {}
-      ).then(() => ({ data: null, error: null })).catch(() => ({ data: null, error: null }));
-
-      // Since we can't run raw SQL via RPC, we use the REST API directly
-      const dispRes = await fetch(
-        `${supabaseUrl}/rest/v1/rpc/`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${serviceRoleKey}`,
-            apikey: serviceRoleKey,
-            "Content-Type": "application/json",
-          },
-        }
-      ).catch(() => null);
-
-      // Alternative approach: Use PostgREST SQL endpoint
-      // Actually, we need to use the pg_net or direct SQL approach
-      // Let's use a simpler approach - fetch all locked orders and aggregate in Deno
-
-      // Fetch locked orders in batches for this date type
-      const aggregated = await aggregateOrders(supabase, dateType, WHERE_LOCKED);
+      const aggregated = await aggregateOrders(supabase, dateType);
 
       if (aggregated.dispatchers.length > 0) {
-        // Insert dispatcher rows in batches of 500
         for (let i = 0; i < aggregated.dispatchers.length; i += 500) {
           const batch = aggregated.dispatchers.slice(i, i + 500);
           const { error: insErr } = await supabase
@@ -148,7 +100,6 @@ Deno.serve(async (req) => {
       }
 
       if (aggregated.drivers.length > 0) {
-        // Insert driver rows in batches of 500
         for (let i = 0; i < aggregated.drivers.length; i += 500) {
           const batch = aggregated.drivers.slice(i, i + 500);
           const { error: insErr } = await supabase
@@ -166,9 +117,7 @@ Deno.serve(async (req) => {
 
     console.log(`[recompute] Total staging rows: ${totalInserted}`);
 
-    // Step 3: Swap tables using rename pattern
-    // We can't do ALTER TABLE via PostgREST, so we use a different approach:
-    // Delete all from main table, then copy from staging
+    // Swap: delete main, copy from staging
     const { error: mainDelErr } = await supabase
       .from("analytics_locked_daily")
       .delete()
@@ -180,7 +129,6 @@ Deno.serve(async (req) => {
     }
 
     // Copy staging to main in batches
-    // Read from staging
     let offset = 0;
     const COPY_BATCH = 1000;
     let copiedCount = 0;
@@ -188,7 +136,8 @@ Deno.serve(async (req) => {
     while (true) {
       const { data: stagingRows, error: readErr } = await supabase
         .from("analytics_locked_daily_staging")
-        .select("entity_type, entity_id, entity_name, date, date_type, total_freight, total_driver_pay, total_miles, total_dh_miles, order_count, is_company_driver")
+        .select("entity_type, entity_id, entity_name, date, date_type, total_freight, total_driver_pay, total_driver_pay_effective, total_miles, total_dh_miles, order_count, is_company_driver")
+        .order("id", { ascending: true })
         .range(offset, offset + COPY_BATCH - 1);
 
       if (readErr) {
@@ -209,6 +158,8 @@ Deno.serve(async (req) => {
 
       copiedCount += stagingRows.length;
       offset += stagingRows.length;
+
+      if (stagingRows.length < COPY_BATCH) break;
     }
 
     const elapsed = Date.now() - startTime;
@@ -233,17 +184,13 @@ Deno.serve(async (req) => {
 
 /**
  * Fetch all locked orders and aggregate them by dispatcher and driver for a given date type.
- * This runs in Deno since we can't execute raw aggregate SQL via PostgREST.
  */
 async function aggregateOrders(
   supabase: any,
-  dateType: "pickup" | "delivery",
-  whereClause: string
+  dateType: "pickup" | "delivery"
 ) {
   const dateField = dateType === "pickup" ? "pickup_datetime" : "delivery_datetime";
 
-  // We need: booked_by, driver1_id, financial columns, date field, is_company_driver (via driver join)
-  // Fetch in batches of 5000
   const SELECT_COLS = [
     "booked_by",
     "driver1_id",
@@ -257,7 +204,7 @@ async function aggregateOrders(
     "no_tracking_fee_driver", "wrong_address_fee_driver",
     "other_charges_driver", "other_additionals_driver",
     "loaded_miles", "dh_miles", "additional_miles",
-    "canceled", "tonu_driver",
+    "canceled",
   ].join(",");
 
   // Fetch driver company driver flags
@@ -270,19 +217,20 @@ async function aggregateOrders(
     driverMap.set(d.id, { name: d.name || "", isCompanyDriver: d.is_company_driver === true });
   });
 
-  // Dispatcher aggregation maps: key = `${booked_by}|${date}` => totals
+  // Dispatcher aggregation: key = `${booked_by}|${date}`
   const dispatcherMap = new Map<string, {
     entity_id: string;
     entity_name: string;
     date: string;
     total_freight: number;
     total_driver_pay: number;
+    total_driver_pay_effective: number;
     total_miles: number;
     total_dh_miles: number;
     order_count: number;
   }>();
 
-  // Driver aggregation maps: key = `${driver1_id}|${date}` => totals
+  // Driver aggregation: key = `${driver1_id}|${date}`
   const driverAggMap = new Map<string, {
     entity_id: string;
     entity_name: string;
@@ -296,11 +244,11 @@ async function aggregateOrders(
   }>();
 
   let offset = 0;
-  const BATCH = 1000; // Supabase PostgREST default max is 1000
+  const BATCH = 1000;
   let totalOrders = 0;
 
   while (true) {
-    let query = supabase
+    const query = supabase
       .from("orders")
       .select(SELECT_COLS)
       .eq("locked", true)
@@ -324,7 +272,6 @@ async function aggregateOrders(
       const dateVal = order[dateField];
       if (!dateVal) continue;
 
-      // Extract date part (YYYY-MM-DD)
       const dateStr = String(dateVal).substring(0, 10);
 
       const toNum = (v: any): number => {
@@ -350,6 +297,10 @@ async function aggregateOrders(
       const miles = toNum(order.loaded_miles) + toNum(order.dh_miles) + toNum(order.additional_miles);
       const dhMiles = toNum(order.dh_miles);
 
+      // Company driver override: if company driver, effective pay = freight
+      const isCompany = order.driver1_id ? (driverMap.get(order.driver1_id)?.isCompanyDriver || false) : false;
+      const effectiveDriverPay = isCompany ? freight : driverPay;
+
       // Dispatcher aggregation
       if (order.booked_by) {
         const dKey = `${order.booked_by}|${dateStr}`;
@@ -357,6 +308,7 @@ async function aggregateOrders(
         if (existing) {
           existing.total_freight += freight;
           existing.total_driver_pay += driverPay;
+          existing.total_driver_pay_effective += effectiveDriverPay;
           existing.total_miles += miles;
           existing.total_dh_miles += dhMiles;
           existing.order_count += 1;
@@ -367,6 +319,7 @@ async function aggregateOrders(
             date: dateStr,
             total_freight: freight,
             total_driver_pay: driverPay,
+            total_driver_pay_effective: effectiveDriverPay,
             total_miles: miles,
             total_dh_miles: dhMiles,
             order_count: 1,
@@ -379,7 +332,6 @@ async function aggregateOrders(
         const drKey = `${order.driver1_id}|${dateStr}`;
         const driverInfo = driverMap.get(order.driver1_id);
         const driverName = driverInfo?.name || order.deleted_driver1_name || "Unknown";
-        const isCompany = driverInfo?.isCompanyDriver || false;
 
         const existing = driverAggMap.get(drKey);
         if (existing) {
@@ -410,7 +362,6 @@ async function aggregateOrders(
 
   console.log(`[recompute] Processed ${totalOrders} locked orders for ${dateType}`);
 
-  // Convert maps to insert arrays
   const dispatchers = Array.from(dispatcherMap.values()).map((d) => ({
     entity_type: "dispatcher",
     entity_id: d.entity_id,
@@ -419,12 +370,14 @@ async function aggregateOrders(
     date_type: dateType,
     total_freight: d.total_freight,
     total_driver_pay: d.total_driver_pay,
+    total_driver_pay_effective: d.total_driver_pay_effective,
     total_miles: d.total_miles,
     total_dh_miles: d.total_dh_miles,
     order_count: d.order_count,
     is_company_driver: false,
   }));
 
+  // For driver rows: total_driver_pay_effective = total_driver_pay (no override at driver level)
   const drivers = Array.from(driverAggMap.values()).map((d) => ({
     entity_type: "driver",
     entity_id: d.entity_id,
@@ -433,6 +386,7 @@ async function aggregateOrders(
     date_type: dateType,
     total_freight: d.total_freight,
     total_driver_pay: d.total_driver_pay,
+    total_driver_pay_effective: d.total_driver_pay,
     total_miles: d.total_miles,
     total_dh_miles: d.total_dh_miles,
     order_count: d.order_count,

@@ -152,6 +152,7 @@ export type Database = {
           order_count: number | null
           total_dh_miles: number | null
           total_driver_pay: number | null
+          total_driver_pay_effective: number | null
           total_freight: number | null
           total_miles: number | null
           updated_at: string | null
@@ -167,6 +168,7 @@ export type Database = {
           order_count?: number | null
           total_dh_miles?: number | null
           total_driver_pay?: number | null
+          total_driver_pay_effective?: number | null
           total_freight?: number | null
           total_miles?: number | null
           updated_at?: string | null
@@ -182,6 +184,7 @@ export type Database = {
           order_count?: number | null
           total_dh_miles?: number | null
           total_driver_pay?: number | null
+          total_driver_pay_effective?: number | null
           total_freight?: number | null
           total_miles?: number | null
           updated_at?: string | null
@@ -200,6 +203,7 @@ export type Database = {
           order_count: number | null
           total_dh_miles: number | null
           total_driver_pay: number | null
+          total_driver_pay_effective: number | null
           total_freight: number | null
           total_miles: number | null
           updated_at: string | null
@@ -215,6 +219,7 @@ export type Database = {
           order_count?: number | null
           total_dh_miles?: number | null
           total_driver_pay?: number | null
+          total_driver_pay_effective?: number | null
           total_freight?: number | null
           total_miles?: number | null
           updated_at?: string | null
@@ -230,6 +235,7 @@ export type Database = {
           order_count?: number | null
           total_dh_miles?: number | null
           total_driver_pay?: number | null
+          total_driver_pay_effective?: number | null
           total_freight?: number | null
           total_miles?: number | null
           updated_at?: string | null

@@ -1,0 +1,2 @@
+ALTER TABLE analytics_locked_daily ADD COLUMN total_driver_pay_effective NUMERIC DEFAULT 0;
+ALTER TABLE analytics_locked_daily_staging ADD COLUMN total_driver_pay_effective NUMERIC DEFAULT 0;
