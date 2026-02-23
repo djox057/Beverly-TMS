@@ -1,128 +1,108 @@
 
 
-# Phase B: Progressive Rendering for Tab Switches
+# Beverly Heatmap - Implementation Plan
 
-## Problem
+## Overview
 
-Switching to large offices (e.g., Kragujevac) freezes the UI for ~2 seconds. The bottleneck is CPU-bound: React synchronously renders all dispatcher groups (each with up to 12 trucks, 6 days of complex calendar cells) in a single frame. Small offices like Recovery render instantly because they have fewer trucks.
+Create a "Beverly Heatmap" page that shows truck density near US cities using a data-driven clustering algorithm. A scheduled edge function discovers hotspots from actual stop data every Sunday at 3 AM Chicago time.
 
-## Solution
+## Implementation Order
 
-Render dispatcher groups incrementally using `requestAnimationFrame`, so only one group renders per frame. The first group appears immediately, and subsequent groups stream in over the next few frames.
+### Step 1: Database Migration
 
-## Changes
+Create two tables with RLS:
 
-### 1. Remove old `isTabSwitching` mechanism
+**`heatmap_reference_cities`** -- ~300 US cities (population >100k) used as snap targets for clusters.
 
-**File:** `src/pages/Reports.tsx`
+- Columns: `id`, `city_name`, `state`, `latitude`, `longitude`, `population`
+- Unique constraint on `(city_name, state)`
+- RLS: SELECT for authenticated, ALL for admin/manager
 
-Remove:
-- `isTabSwitching` state (line 363)
-- `tabSwitchTimeoutRef` ref (line 364)
-- The `requestAnimationFrame` logic inside `setActiveTab` (lines 366-376)
-- The `isTabSwitching` conditional at line 3286-3287
+**`heatmap_city_counts`** -- Pre-computed daily truck counts per city.
 
-Simplify `setActiveTab` to:
-```typescript
-const setActiveTab = useCallback((office: string) => {
-  setActiveTabRaw(office);
-}, []);
-```
+- Columns: `id`, `city_name`, `city_state`, `city_lat`, `city_lng`, `count_date`, `truck_count`, `created_at`
+- Unique constraint on `(city_name, city_state, count_date)`
+- Index on `count_date DESC`
+- RLS: SELECT for authenticated, ALL for admin/manager
 
-### 2. Add progressive rendering state and effect
+### Step 2: Seed Reference Cities
 
-**File:** `src/pages/Reports.tsx`
+Insert ~300 US cities with population over 100k into `heatmap_reference_cities` via batched INSERT statements using the insert tool.
 
-Add after the `activeOfficeReports` memo (~line 2870):
+### Step 3: Edge Function (`compute-heatmap`)
 
-```typescript
-const [visibleGroupCount, setVisibleGroupCount] = useState<number>(Infinity);
-const progressiveRenderRef = useRef<number | null>(null);
+**File:** `supabase/functions/compute-heatmap/index.ts`
 
-useEffect(() => {
-  if (progressiveRenderRef.current) {
-    cancelAnimationFrame(progressiveRenderRef.current);
-    progressiveRenderRef.current = null;
-  }
+**Dual authentication:**
+- Cron path: validates `Authorization: Bearer <CRON_SECRET>` against the existing `CRON_SECRET` secret. Uses service role client for DB writes.
+- Manual path: validates the user's JWT via `supabase.auth.getUser()`, then checks they have admin or manager role via a query to `user_roles`. Uses service role client for DB writes.
 
-  const totalGroups = activeOfficeReports.length;
-  if (totalGroups <= 2) {
-    setVisibleGroupCount(Infinity);
-    return;
-  }
+**Algorithm (per day):**
 
-  setVisibleGroupCount(1);
+1. Fetch stops from `pickup_drops` joined with `orders` for the target date (where coordinates exist, order not canceled, truck assigned)
+2. Grid-based density scan: assign stops to 0.5-degree cells, count distinct trucks per cell
+3. Greedy non-overlapping selection:
+   - Sort cells by truck count descending
+   - Compute weighted centroid of actual stops in the winning cell
+   - Bounding box pre-filter (plus/minus 1 degree) then Haversine to find stops within 60 miles
+   - Mark those stops as consumed, recalculate remaining cell counts
+   - Repeat until truck count < 3
+4. Snap to nearest major city (highest population within 60 miles from `heatmap_reference_cities`)
+   - Deduplication: if two clusters snap to the same city, merge truck ID sets (union)
+   - Drop clusters with no city within 60 miles
+5. Upsert results into `heatmap_city_counts`
 
-  let currentCount = 1;
-  const renderNext = () => {
-    currentCount += 1;
-    if (currentCount >= totalGroups) {
-      setVisibleGroupCount(Infinity);
-    } else {
-      setVisibleGroupCount(currentCount);
-      progressiveRenderRef.current = requestAnimationFrame(renderNext);
-    }
-  };
+**Invocation modes:**
+- No params (cron): process last 14 days sequentially
+- `?date=YYYY-MM-DD`: single day
+- `?from=YYYY-MM-DD&to=YYYY-MM-DD`: date range
 
-  progressiveRenderRef.current = requestAnimationFrame(renderNext);
+**Config:** Add `verify_jwt = false` to `supabase/config.toml`.
 
-  return () => {
-    if (progressiveRenderRef.current) {
-      cancelAnimationFrame(progressiveRenderRef.current);
-      progressiveRenderRef.current = null;
-    }
-  };
-}, [activeOfficeReports]);
-```
+### Step 4: Frontend Page (`src/pages/BeverlyHeatmap.tsx`)
 
-Key decisions per review feedback:
-- **Dependency is `activeOfficeReports` (reference identity)**, not `.length`. This ensures re-trigger when content changes even if count stays the same.
-- **Cleanup sets ref to `null`** to avoid stale reads.
-- **Small offices (2 or fewer groups) skip progressive rendering** entirely.
+- Date range picker (default: last 14 days)
+- View toggle: Daily / Weekly / Monthly aggregation
+- Table grid: rows = cities (sorted by total truck count desc), columns = dates
+- Color-coded cells (gray/blue/yellow/red gradient)
+- Manual recompute button for admin/manager (calls edge function with user's auth token)
+- Data fetched from `heatmap_city_counts` via Supabase client
+- Client-side aggregation for weekly/monthly with note about potential same-truck counting
 
-### 3. Slice rendered groups
+### Step 5: Navigation and Routing
 
-**File:** `src/pages/Reports.tsx` (line ~3312)
+**Sidebar (`src/components/Sidebar.tsx`):**
+- Add "Beverly Heatmap" below Analytics with `MapPin` icon
+- Restricted to `manager`, `admin`, `chicago_management` roles
 
-```typescript
-// Before:
-{activeOfficeReports.map((group) => { ... })}
+**App.tsx:**
+- Add `/beverly-heatmap` route with `allowedRoles={['manager', 'admin', 'chicago_management']}`
 
-// After:
-{activeOfficeReports.slice(0, visibleGroupCount).map((group) => { ... })}
-```
+### Step 6: Cron Job
 
-### 4. Remove unused `startTransition` import
+Schedule via `pg_cron` + `pg_net` (INSERT tool):
+- Sunday 9 AM UTC (3 AM CST / 4 AM CDT)
+- Passes `CRON_SECRET` in Authorization header
+- Documented DST shift
 
-**File:** `src/pages/Reports.tsx` (line 74)
+## Files Changed
 
-Remove `startTransition` from the React import if not used elsewhere.
+| File | Action |
+|------|--------|
+| Migration SQL | Create `heatmap_reference_cities` and `heatmap_city_counts` tables |
+| INSERT SQL (batched) | Seed ~300 US cities |
+| INSERT SQL | Create `pg_cron` schedule |
+| `supabase/functions/compute-heatmap/index.ts` | New edge function |
+| `supabase/config.toml` | Add `verify_jwt = false` for compute-heatmap |
+| `src/pages/BeverlyHeatmap.tsx` | New heatmap page |
+| `src/components/Sidebar.tsx` | Add nav item |
+| `src/App.tsx` | Add route, import page |
 
-## Technical Details
+## Technical Notes
 
-### Why this works
-- Each `requestAnimationFrame` callback only triggers one state update, which only adds one dispatcher group to the DOM per frame
-- The existing per-group truck virtualization (`INITIAL_TRUCK_COUNT = 12`) is preserved on top of this
-- React re-runs the component function on each increment, but the `.slice()` limits actual DOM work to just the newly added group
-
-### Per-group frame cost concern
-Per the review: if a single group has 12+ trucks with complex cells, one frame could still take 100-200ms. This is a known risk. The instrumentation from Phase A (`console.time('perf: transformedData')`) will help measure per-group cost. If any group causes jank above 100ms, a follow-up can split large groups across 2 frames. For now, shipping this and measuring is the right call.
-
-### Scroll position concern
-As groups stream in, the scrollbar height changes. This is acceptable because:
-- Groups render top-to-bottom, so the visible content above the fold doesn't shift
-- The full render completes in ~5-10 frames (~80-160ms), so the user barely notices scrollbar changes
-- If it becomes noticeable, a follow-up can add `min-height` reservation
-
-### Re-render overhead concern
-Each `visibleGroupCount` increment re-runs the full 6,351-line component. This is acceptable for now because the `.slice()` limits DOM diffing. Phase C (extracting dispatcher groups into `React.memo` components) would make these re-renders nearly free and is the logical next step.
-
-## Expected Result
-
-| Scenario | Before | After |
-|----------|--------|-------|
-| Tab click response | ~2s freeze | Immediate |
-| First group visible | ~2s | ~16ms |
-| Full office rendered | ~2s (all at once) | ~160ms (streamed) |
-| Small offices | Instant | Instant (unchanged) |
+- The edge function uses `SUPABASE_SERVICE_ROLE_KEY` for all DB operations (bypasses RLS)
+- Haversine helper uses Earth radius of 3959 miles
+- Grid cell size of 0.5 degrees is roughly 35 miles wide at mid-latitudes
+- Minimum cluster threshold: 3 trucks
+- Weekly/monthly aggregation is client-side sum with a disclaimer about potential double-counting
 
