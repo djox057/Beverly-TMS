@@ -1329,9 +1329,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // If orders not ready and no previous data, show skeleton  
     if (!dateWindowHook.orders && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
     
-    // STABILITY: During any loading phase with existing data, keep showing previous data
-    // This prevents flickering when navigating to new dates
-    if ((dateWindowHook.isLoading || dateWindowHook.isFetching || !isSupportingDataReady) && lastValidDataRef.current !== null) {
+    // STABILITY: During initial loading or when supporting data isn't ready, keep previous data
+    // NOTE: We intentionally do NOT block on dateWindowHook.isFetching here.
+    // On tab switch, isFetching is briefly true (query key changes) but orders are already
+    // available in globalAccumulatedOrders. Blocking on isFetching would return stale
+    // old-office data, causing a skeleton flash until the no-op query resolves.
+    if ((dateWindowHook.isLoading || !isSupportingDataReady) && lastValidDataRef.current !== null) {
       console.timeEnd('[perf] transformedData');
       return lastValidDataRef.current;
     }
