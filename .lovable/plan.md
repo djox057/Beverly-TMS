@@ -1,17 +1,13 @@
 
 
-## Fix City Column Background
+## Fix City Column Background Color Mismatch
 
-The City column currently uses `bg-muted/50` which creates a visible difference from the other columns. The other columns (Total, Avg Freight, Avg Miles, RPM) have no explicit background set, so they inherit the default transparent/card background.
+**Root Cause**: The sticky City column uses `bg-background`, which is the page's base background color. However, the table lives inside a `Card` component, which uses `bg-card` -- a slightly lighter color in dark mode. This mismatch makes the City column appear darker than the rest of the table.
 
-### Changes
+**Fix**: Change `bg-background` to `bg-card` on both the `TableHead` and `TableCell` for the City column. This ensures the sticky column matches the card's background exactly.
 
-**File: `src/pages/BeverlyHeatmap.tsx`**
+### Changes in `src/pages/BeverlyHeatmap.tsx`
 
-- Remove `bg-muted/50` from the City `TableHead` and `TableCell` elements
-- Replace with `bg-background` (or simply the card background) so the sticky column blends seamlessly with the rest of the table while still functioning as a sticky column (needs a background to avoid content showing through when scrolling)
-
-Specifically:
-- `TableHead`: change `bg-muted/50` to `bg-background`
-- `TableCell`: change `bg-muted/50` to `bg-background`
+1. **Line 352 (TableHead)**: Change `bg-background` to `bg-card`
+2. **Line 365 (TableCell)**: Change `bg-background` to `bg-card`
 
