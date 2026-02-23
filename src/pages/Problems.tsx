@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -380,11 +380,11 @@ export default function Problems() {
                       {renderTableHeader()}
                       <TableBody>
                         {resolvedGrouped.map((group) => (
-                          <>
+                          <React.Fragment key={group.date}>
                             {group.problems.map((problem, index) => {
                               const isLastInGroup = index === group.problems.length - 1;
                               return (
-                                <>
+                                <React.Fragment key={problem.id}>
                                   {renderProblemRow(problem, false)}
                                   {isLastInGroup && (
                                     <TableRow key={`date-${group.date}`} className="bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-100 dark:hover:bg-yellow-900/30">
@@ -393,10 +393,10 @@ export default function Problems() {
                                       </TableCell>
                                     </TableRow>
                                   )}
-                                </>
+                                </React.Fragment>
                               );
                             })}
-                          </>
+                          </React.Fragment>
                         ))}
                       </TableBody>
                     </Table>
