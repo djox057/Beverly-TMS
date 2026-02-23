@@ -71,7 +71,7 @@ import React, {
   memo,
   useRef,
   useCallback,
-  useDeferredValue,
+  
   startTransition,
 } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -357,7 +357,16 @@ const Reports = () => {
   const [selectedDateForWindow, setSelectedDateForWindow] = useState<Date>(new Date());
 
   // Track active office tab state - defined early so it can be used in hook
-  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
+  const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
+  
+  // Wrap tab switches in startTransition so React keeps showing the current tab
+  // while rendering the new (potentially expensive) tab in the background.
+  // This prevents skeleton flash on large offices like Kragujevac.
+  const setActiveTab = useCallback((office: string) => {
+    startTransition(() => {
+      setActiveTabRaw(office);
+    });
+  }, []);
 
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
@@ -397,17 +406,9 @@ const Reports = () => {
   // Extract isViewingOtherOfficeInIndividualMode (only present in date-window adapter)
   const isViewingOtherOfficeInIndividualMode = (restHookData as any).isViewingOtherOfficeInIndividualMode ?? false;
 
-  // Use deferred value to prevent background data updates from blocking interactions
-  const groupedReports = useDeferredValue(rawGroupedReports);
-
-  // Check if current groupedReports contains data for the active tab
-  // This prevents flickering when tab changes before deferred data catches up
-  // In Individual Mode viewing other office, we DO have data (empty) so don't show loading
-  const hasDataForActiveTab = useMemo(() => {
-    if (isViewingOtherOfficeInIndividualMode) return true; // Don't show loading skeleton
-    if (!groupedReports || !Array.isArray(groupedReports) || groupedReports.length === 0) return false;
-    return groupedReports.some((group) => group.office === activeTab);
-  }, [groupedReports, activeTab, isViewingOtherOfficeInIndividualMode]);
+  // Use rawGroupedReports directly - startTransition on setActiveTab handles
+  // keeping the old UI visible while React renders the new office's data.
+  const groupedReports = rawGroupedReports;
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
@@ -3275,7 +3276,7 @@ const Reports = () => {
                 <div className="h-full w-1/3 bg-primary animate-pulse" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
               </div>
             )}
-            {isLoading || groupedReports == null || !hasDataForActiveTab ? (
+            {isLoading || groupedReports == null ? (
               <LoadingSkeleton />
 
             ) : isViewingOtherOfficeInIndividualMode ? (
