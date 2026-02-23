@@ -352,12 +352,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Fetch additional data needed for transformation
   const driverIdsForScope = dateWindowHook.driverIds || [];
   const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && driverIdsForScope.length > 0;
+  // Global queries fire as soon as we have a dispatcher, regardless of which office is selected
+  const globalEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId;
   
   // Create a mode-specific key suffix to force refetch on individual mode toggle
   const modeKeySuffix = individualMode ? `individual-${currentUserDispatcherId}` : 'all';
 
   // Compute a collision-resistant hash of driverIdsForScope using djb2
-  // This replaces priorityOffice in query keys — queries re-run when driver scope changes
+  // Still used for orders realtime scope checking and driverIdsSetRef
   const driverScopeHash = useMemo(() => {
     if (driverIdsForScope.length === 0) return "empty";
     const sorted = [...driverIdsForScope].sort();
@@ -369,32 +371,40 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return `${sorted.length}-${(hash >>> 0).toString(36)}`;
   }, [driverIdsForScope]);
 
-  const { data: trucks } = useQuery({
-    queryKey: ["adapter-trucks", modeKeySuffix, driverScopeHash],
+  // GLOBAL FETCH: all active trucks (not filtered by office)
+  // Tab switching filters client-side via filteredTrucks memo (0ms)
+  const { data: allTrucks } = useQuery({
+    queryKey: ["adapter-trucks", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-trucks');
       const { data, error } = await supabase
         .from("trucks")
         .select("*")
-        .eq("is_active", true)
-        .or(`driver1_id.in.(${driverIdsForScope.join(",")}),driver2_id.in.(${driverIdsForScope.join(",")})`);
+        .eq("is_active", true);
       console.timeEnd('[perf] adapter-trucks');
       if (error) throw error;
       return data || [];
     },
     staleTime: 300000,
-    enabled: scopeEnabled,
+    enabled: globalEnabled,
   });
 
-  // Get all trailer IDs from trucks to fetch trailer numbers
+  // Client-side filtering: only trucks assigned to drivers in current office scope
+  const filteredTrucks = useMemo(() => {
+    if (!allTrucks || driverIdsForScope.length === 0) return [];
+    const scopeSet = new Set(driverIdsForScope);
+    return allTrucks.filter(t => scopeSet.has(t.driver1_id) || scopeSet.has(t.driver2_id));
+  }, [allTrucks, driverIdsForScope]);
+
+  // Get all trailer IDs from filtered trucks to fetch trailer numbers
   const trailerIdsFromTrucks = useMemo(() => {
-    if (!trucks) return [];
+    if (!filteredTrucks || filteredTrucks.length === 0) return [];
     const ids = new Set<string>();
-    for (const t of trucks) {
+    for (const t of filteredTrucks) {
       if (t.trailer_id) ids.add(t.trailer_id);
     }
     return Array.from(ids);
-  }, [trucks]);
+  }, [filteredTrucks]);
 
   const { data: trailers } = useQuery({
     queryKey: ["adapter-trailers", trailerIdsFromTrucks.join(","), modeKeySuffix],
@@ -413,29 +423,36 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled && trailerIdsFromTrucks.length > 0,
   });
 
-  const { data: drivers } = useQuery({
-    queryKey: ["adapter-drivers", modeKeySuffix, driverScopeHash],
+  // GLOBAL FETCH: all active drivers
+  const { data: allDrivers } = useQuery({
+    queryKey: ["adapter-drivers", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-drivers');
       const { data, error } = await supabase
         .from("drivers")
         .select("*")
-        .eq("is_active", true)
-        .in("id", driverIdsForScope);
+        .eq("is_active", true);
       console.timeEnd('[perf] adapter-drivers');
       if (error) throw error;
       return data || [];
     },
     staleTime: 300000,
     refetchInterval: 60000, // Refresh HOS data every 60 seconds
-    enabled: scopeEnabled,
+    enabled: globalEnabled,
   });
 
-  // Get unique dispatcher IDs from the drivers we're loading - use stable string for queryKey
+  // Client-side filtering for current office scope
+  const filteredDrivers = useMemo(() => {
+    if (!allDrivers || driverIdsForScope.length === 0) return [];
+    const scopeSet = new Set(driverIdsForScope);
+    return allDrivers.filter(d => scopeSet.has(d.id));
+  }, [allDrivers, driverIdsForScope]);
+
+  // Get unique dispatcher IDs from the filtered drivers - use stable string for queryKey
   const dispatcherIdsFromDrivers = useMemo(() => {
-    if (!drivers) return [];
+    if (!filteredDrivers || filteredDrivers.length === 0) return [];
     const ids = new Set<string>();
-    for (const d of drivers) {
+    for (const d of filteredDrivers) {
       if (d.dispatcher_id) ids.add(d.dispatcher_id);
     }
     const allIds = Array.from(ids);
@@ -444,7 +461,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.warn(`[ReportsAdapter] Filtered ${allIds.length - validIds.length} invalid UUIDs from dispatcher_id`);
     }
     return validIds.sort();
-  }, [drivers]);
+  }, [filteredDrivers]);
 
   // Create a stable string key to prevent React Query re-renders
   const dispatcherIdsKey = dispatcherIdsFromDrivers.join(",");
@@ -480,48 +497,54 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
-  const { data: truckNotes } = useQuery({
-    queryKey: ["adapter-truck-notes", modeKeySuffix, driverScopeHash],
+  // GLOBAL FETCH: all truck notes
+  const { data: allTruckNotes } = useQuery({
+    queryKey: ["adapter-truck-notes", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-truck-notes');
-      // Order by updated_at DESC so when there are duplicates, the most recent comes first
       const { data, error } = await supabase
         .from("truck_notes")
         .select("*")
-        .in("driver_id", driverIdsForScope)
         .order("updated_at", { ascending: false });
       console.timeEnd('[perf] adapter-truck-notes');
       if (error) throw error;
       return data || [];
     },
     staleTime: 300000,
-    enabled: scopeEnabled,
+    enabled: globalEnabled,
   });
 
-  const { data: lostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, driverScopeHash],
+  // Client-side filtering for current office scope
+  const filteredTruckNotes = useMemo(() => {
+    if (!allTruckNotes || driverIdsForScope.length === 0) return [];
+    const scopeSet = new Set(driverIdsForScope);
+    return allTruckNotes.filter(n => scopeSet.has(n.driver_id));
+  }, [allTruckNotes, driverIdsForScope]);
+
+  // GLOBAL FETCH: all lost day notes
+  const { data: allLostDayNotes } = useQuery({
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix],
     queryFn: async () => {
-      if (driverIdsForScope.length === 0) {
-        console.log('[adapter] No driver IDs for lost_day_notes, returning empty');
-        return [];
-      }
-      
       console.time('[perf] adapter-lost-day-notes');
-      console.log(`[adapter] Fetching lost_day_notes for ${driverIdsForScope.length} drivers`);
       const { data, error } = await supabase
         .from("lost_day_notes")
-        .select("*")
-        .in("driver_id", driverIdsForScope);
+        .select("*");
       console.timeEnd('[perf] adapter-lost-day-notes');
       if (error) throw error;
-      console.log(`[adapter] Fetched ${data?.length || 0} lost_day_notes`);
       return data || [];
     },
     staleTime: 300000,
-    gcTime: 300000, // Keep in cache longer
-    refetchOnWindowFocus: false, // Prevent refetch on window focus from overwriting patches
-    enabled: scopeEnabled,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
+    enabled: globalEnabled,
   });
+
+  // Client-side filtering for current office scope
+  const filteredLostDayNotes = useMemo(() => {
+    if (!allLostDayNotes || driverIdsForScope.length === 0) return [];
+    const scopeSet = new Set(driverIdsForScope);
+    return allLostDayNotes.filter(n => scopeSet.has(n.driver_id));
+  }, [allLostDayNotes, driverIdsForScope]);
 
   // Get order IDs from date window for order_files fetch
   // Stabilized: only creates a new reference when the actual ID set changes
@@ -551,7 +574,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isFetching: isOrderFilesFetching,
     refetch: refetchOrderFiles,
   } = useQuery({
-    queryKey: ["adapter-order-files", modeKeySuffix, driverScopeHash],
+    queryKey: ["adapter-order-files", modeKeySuffix],
     queryFn: async () => {
       if (windowOrderIds.length === 0) return [];
       console.time('[perf] adapter-order-files');
@@ -601,9 +624,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Identify drivers with no loads in the date window (need their last load)
   const driversNeedingLastLoad = useMemo(() => {
-    if (!drivers || drivers.length === 0) return [];
-    return drivers.filter(d => !driversWithOrdersInWindow.has(d.id)).map(d => d.id);
-  }, [drivers, driversWithOrdersInWindow]);
+    if (!filteredDrivers || filteredDrivers.length === 0) return [];
+    return filteredDrivers.filter(d => !driversWithOrdersInWindow.has(d.id)).map(d => d.id);
+  }, [filteredDrivers, driversWithOrdersInWindow]);
 
   // Create stable query key for last loads
   const driversNeedingLastLoadKey = useMemo(() => {
@@ -846,7 +869,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           // Primary: patch exact query key (uses driverScopeHash, not priorityOffice)
           queryClient.setQueryData(
-            ["adapter-truck-notes", modeKeySuffixRef.current, driverScopeHashRef.current],
+            ["adapter-truck-notes", modeKeySuffixRef.current],
             patchTruckNotes
           );
           
@@ -924,7 +947,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
           // Build the exact query key to patch (3 elements to match query key)
-          const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current, driverScopeHashRef.current];
+          const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current];
           
           // Patch the cache using the exact query key for proper React Query detection
           // Also use setQueriesData with exact: false as fallback for any variant keys
@@ -1011,11 +1034,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       debounceTimer = setTimeout(() => {
         console.log(`[adapter] trucks/drivers cache change: invalidating adapter queries`);
         queryClient.invalidateQueries({
-          queryKey: ["adapter-trucks", modeKeySuffixRef.current, driverScopeHashRef.current],
+          queryKey: ["adapter-trucks", modeKeySuffixRef.current],
           refetchType: "active",
         });
         queryClient.invalidateQueries({
-          queryKey: ["adapter-drivers", modeKeySuffixRef.current, driverScopeHashRef.current],
+          queryKey: ["adapter-drivers", modeKeySuffixRef.current],
           refetchType: "active",
         });
       }, 1000);
@@ -1283,7 +1306,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const lastValidDataRef = useRef<any[] | null>(null);
   
   // Track if supporting data is ready (trucks, drivers, etc.)
-  const isSupportingDataReady = !!(trucks && drivers && dispatchers && companies);
+  const isSupportingDataReady = !!(allTrucks && allDrivers && dispatchers && companies);
   
   // Transform date-window orders into the expected Reports shape
   // KEY FIX: Return previous valid data during loading to prevent flickering
@@ -1324,17 +1347,17 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const driverIds = dateWindowHook.driverIds;
 
     // Build lookup maps
-    const truckMap = new Map(trucks.map((t) => [t.id, t]));
-    const driverMap = new Map(drivers.map((d) => [d.id, d]));
+    const truckMap = new Map(filteredTrucks.map((t: any) => [t.id, t]));
+    const driverMap = new Map(filteredDrivers.map((d: any) => [d.id, d]));
     const companyMap = new Map(companies.map((c) => [c.id, c.name]));
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
     const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
-    const truckByDriverId = new Map(trucks.filter((t) => t.driver1_id).map((t) => [t.driver1_id, t]));
+    const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
     // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
     // (especially after realtime patching). Always pick the max(updated_at) record.
     const notesByDriverId = new Map<string, any>();
-    for (const n of truckNotes || []) {
+    for (const n of filteredTruckNotes || []) {
       const driverId = n?.driver_id as string | undefined;
       if (!driverId) continue;
 
@@ -1352,7 +1375,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       }
     }
     const lostNotesByDriverId = new Map<string, any[]>();
-    for (const note of lostDayNotes || []) {
+    for (const note of filteredLostDayNotes || []) {
       const existing = lostNotesByDriverId.get(note.driver_id) || [];
       existing.push(note);
       lostNotesByDriverId.set(note.driver_id, existing);
@@ -1440,7 +1463,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     // Build a set of driver2 IDs to skip (they'll be shown as part of the team on driver1's row)
     const driver2IdsToSkip = new Set<string>();
-    for (const truck of trucks) {
+    for (const truck of filteredTrucks) {
       if (truck.driver1_id && truck.driver2_id) {
         driver2IdsToSkip.add(truck.driver2_id);
       }
@@ -1705,13 +1728,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dateWindowHook.driverIds,
     dateWindowHook.isLoading,
     dateWindowHook.isFetching,
-    trucks,
+    filteredTrucks,
     trailers,
-    drivers,
+    filteredDrivers,
     dispatchers,
     companies,
-    truckNotes,
-    lostDayNotes,
+    filteredTruckNotes,
+    filteredLostDayNotes,
     orderFilesMap,
     priorityOffice,
     dispatcherId,
