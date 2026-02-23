@@ -358,22 +358,9 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
   
-  // Deferred rendering: when switching tabs, we immediately update the tab header
-  // but defer the heavy content rendering by one frame so the UI doesn't freeze.
-  const [isTabSwitching, setIsTabSwitching] = useState(false);
-  const tabSwitchTimeoutRef = useRef<number | null>(null);
-  
   const setActiveTab = useCallback((office: string) => {
-    if (office === activeTab) return;
-    setIsTabSwitching(true);
     setActiveTabRaw(office);
-    // Clear any pending timeout
-    if (tabSwitchTimeoutRef.current) cancelAnimationFrame(tabSwitchTimeoutRef.current);
-    // After the tab header renders, allow heavy content to render next frame
-    tabSwitchTimeoutRef.current = requestAnimationFrame(() => {
-      setIsTabSwitching(false);
-    });
-  }, [activeTab]);
+  }, []);
 
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
@@ -413,8 +400,7 @@ const Reports = () => {
   // Extract isViewingOtherOfficeInIndividualMode (only present in date-window adapter)
   const isViewingOtherOfficeInIndividualMode = (restHookData as any).isViewingOtherOfficeInIndividualMode ?? false;
 
-  // Use rawGroupedReports directly - startTransition on setActiveTab handles
-  // keeping the old UI visible while React renders the new office's data.
+  // Use rawGroupedReports directly - progressive rendering handles tab switch performance.
   const groupedReports = rawGroupedReports;
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
@@ -2971,6 +2957,45 @@ const Reports = () => {
     lateTrucks,
     hasDriverProblem,
   ]);
+  // Progressive rendering: render dispatcher groups incrementally to avoid freezing
+  const [visibleGroupCount, setVisibleGroupCount] = useState<number>(Infinity);
+  const progressiveRenderRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (progressiveRenderRef.current) {
+      cancelAnimationFrame(progressiveRenderRef.current);
+      progressiveRenderRef.current = null;
+    }
+
+    const totalGroups = activeOfficeReports.length;
+    if (totalGroups <= 2) {
+      setVisibleGroupCount(Infinity);
+      return;
+    }
+
+    setVisibleGroupCount(1);
+
+    let currentCount = 1;
+    const renderNext = () => {
+      currentCount += 1;
+      if (currentCount >= totalGroups) {
+        setVisibleGroupCount(Infinity);
+      } else {
+        setVisibleGroupCount(currentCount);
+        progressiveRenderRef.current = requestAnimationFrame(renderNext);
+      }
+    };
+
+    progressiveRenderRef.current = requestAnimationFrame(renderNext);
+
+    return () => {
+      if (progressiveRenderRef.current) {
+        cancelAnimationFrame(progressiveRenderRef.current);
+        progressiveRenderRef.current = null;
+      }
+    };
+  }, [activeOfficeReports]);
+
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
     <div className="space-y-4 p-4">
@@ -3283,9 +3308,7 @@ const Reports = () => {
                 <div className="h-full w-1/3 bg-primary animate-pulse" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
               </div>
             )}
-            {isTabSwitching ? (
-              <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>
-            ) : isLoading || groupedReports == null ? (
+            {isLoading || groupedReports == null ? (
               <LoadingSkeleton />
 
             ) : isViewingOtherOfficeInIndividualMode ? (
@@ -3309,7 +3332,7 @@ const Reports = () => {
               </div>
             ) : (
               <div className="px-4 py-2">
-                {activeOfficeReports.map((group) => {
+                {activeOfficeReports.slice(0, visibleGroupCount).map((group) => {
                   const startDate = getCalendarStartDate(group.dispatcherId);
                   const days = Array.from(
                     {
