@@ -715,8 +715,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       
       // Fetch all order types for this window
       console.time('[perf] fetchOrders');
-      const unlockedOrders = await fetchOrdersForDateWindow(driverIds, windowToLoad);
-      const lockedOrders = await fetchLockedOrdersForDateWindow(driverIds, windowToLoad);
+      const [unlockedOrders, lockedOrders] = await Promise.all([
+        fetchOrdersForDateWindow(driverIds, windowToLoad),
+        fetchLockedOrdersForDateWindow(driverIds, windowToLoad),
+      ]);
       
       console.log(`[useReportsDateWindow] Fetched ${unlockedOrders.length} unlocked, ${lockedOrders.length} locked orders`);
       
