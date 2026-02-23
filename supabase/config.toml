@@ -77,3 +77,9 @@ verify_jwt = false
 
 [functions.samsara-locations]
 verify_jwt = false
+
+[functions.recompute-analytics-aggregates]
+verify_jwt = false
+
+[functions.validate-analytics-aggregates]
+verify_jwt = false
