@@ -1969,6 +1969,8 @@ export type Database = {
           count_date: string
           created_at: string | null
           id: string
+          total_freight: number | null
+          total_miles: number | null
           truck_count: number
         }
         Insert: {
@@ -1979,6 +1981,8 @@ export type Database = {
           count_date: string
           created_at?: string | null
           id?: string
+          total_freight?: number | null
+          total_miles?: number | null
           truck_count?: number
         }
         Update: {
@@ -1989,6 +1993,8 @@ export type Database = {
           count_date?: string
           created_at?: string | null
           id?: string
+          total_freight?: number | null
+          total_miles?: number | null
           truck_count?: number
         }
         Relationships: []
