@@ -201,7 +201,6 @@ Deno.serve(async (req) => {
       const cityTrucks = new Map<string, Set<string>>();
       const cityOrders = new Map<string, Set<string>>();
       const cityInfo = new Map<string, { lat: number; lng: number }>();
-      const attributedOrders = new Set<string>(); // global: each order's financials count once
 
       const getCellKey = (lat: number, lng: number) =>
         `${Math.floor(lat / CELL_SIZE)},${Math.floor(lng / CELL_SIZE)}`;
@@ -252,17 +251,14 @@ Deno.serve(async (req) => {
 
         // Collect stops within 60 miles
         const clusterTrucks = new Set<string>();
-        const clusterNewOrders = new Set<string>();
+        const clusterOrders = new Set<string>();
         for (let i = 0; i < allStops.length; i++) {
           if (consumed.has(i)) continue;
           const s = allStops[i];
           if (Math.abs(s.latitude - centLat) > 1 || Math.abs(s.longitude - centLng) > 1) continue;
           if (haversine(centLat, centLng, s.latitude, s.longitude) <= 60) {
             clusterTrucks.add(s.truck_id);
-            // Only attribute order financials to the first city that claims it
-            if (!attributedOrders.has(s.order_id)) {
-              clusterNewOrders.add(s.order_id);
-            }
+            clusterOrders.add(s.order_id);
             consumed.add(i);
           }
         }
@@ -289,9 +285,8 @@ Deno.serve(async (req) => {
           cityInfo.set(cityKey, { lat: bestCity.latitude, lng: bestCity.longitude });
         }
         for (const t of clusterTrucks) cityTrucks.get(cityKey)!.add(t);
-        for (const oid of clusterNewOrders) {
+        for (const oid of clusterOrders) {
           cityOrders.get(cityKey)!.add(oid);
-          attributedOrders.add(oid);
         }
       }
 
