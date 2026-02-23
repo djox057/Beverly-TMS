@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
+import { useAnalyticsAggregates, useAnalyticsAggregatesAllTime, useAnalyticsAggregatesDailyRows } from "@/hooks/useAnalyticsAggregates";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -316,6 +317,26 @@ const Analytics = () => {
     performanceData,
     updatePerformance
   } = useDriverPerformance();
+
+  // --- Precomputed analytics aggregates ---
+  const isPrecomputed = progress?.usePrecomputed === true;
+  const aggDateType = filterType === "month" ? "delivery" : "pickup";
+  const aggStartDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+  const aggEndDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : aggStartDate;
+
+  const { data: dispatcherAggregates } = useAnalyticsAggregates(
+    "dispatcher", aggDateType as "pickup" | "delivery", aggStartDate, aggEndDate, isPrecomputed
+  );
+  const { data: driverAggregates } = useAnalyticsAggregates(
+    "driver", aggDateType as "pickup" | "delivery", aggStartDate, aggEndDate, isPrecomputed
+  );
+  const { data: allTimeDriverData } = useAnalyticsAggregatesAllTime(
+    "driver", "pickup", isPrecomputed
+  );
+  const { data: allTimeDailyRows } = useAnalyticsAggregatesDailyRows(
+    "driver", "delivery", isPrecomputed
+  );
+  const [isRecomputing, setIsRecomputing] = useState(false);
 
   // Fetch terminated drivers for turnover column
   const turnoverFromDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : null;
@@ -1303,40 +1324,58 @@ const Analytics = () => {
     ? Math.ceil((effectiveTo.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 1;
 
-  const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
-    const dispatcher = order.bookedBy || "Unknown";
-    if (!acc[dispatcher]) {
-      acc[dispatcher] = {
-        totalFreight: 0,
-        totalDriverRate: 0,
-        totalMiles: 0,
-        totalDhMiles: 0,
-        orderCount: 0,
-        latestPickupDate: null as string | null
-      };
-    }
-    acc[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
-    acc[dispatcher].totalDriverRate += getEffectiveDriverPay(order);
-    acc[dispatcher].totalMiles += Number(order.mileage) || 0;
-    acc[dispatcher].totalDhMiles += Number(order.dhMiles) || 0;
-    acc[dispatcher].orderCount += 1;
-    // Track latest pickup date for deleted dispatcher salary filtering
-    const pickupDate = order.pickupDate || order.pickupDatetime;
-    if (pickupDate) {
-      const pickupStr = typeof pickupDate === 'string' ? pickupDate : String(pickupDate);
-      if (!acc[dispatcher].latestPickupDate || pickupStr > acc[dispatcher].latestPickupDate) {
-        acc[dispatcher].latestPickupDate = pickupStr;
+  const dispatcherAnalytics = useMemo(() => {
+    // Step 1: Reduce unlocked filteredOrders
+    const acc: Record<string, {
+      totalFreight: number;
+      totalDriverRate: number;
+      totalMiles: number;
+      totalDhMiles: number;
+      orderCount: number;
+      latestPickupDate: string | null;
+    }> = {};
+
+    filteredOrders.forEach(order => {
+      const dispatcher = order.bookedBy || "Unknown";
+      if (!acc[dispatcher]) {
+        acc[dispatcher] = {
+          totalFreight: 0, totalDriverRate: 0, totalMiles: 0,
+          totalDhMiles: 0, orderCount: 0, latestPickupDate: null,
+        };
+      }
+      acc[dispatcher].totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
+      acc[dispatcher].totalDriverRate += getEffectiveDriverPay(order);
+      acc[dispatcher].totalMiles += Number(order.mileage) || 0;
+      acc[dispatcher].totalDhMiles += Number(order.dhMiles) || 0;
+      acc[dispatcher].orderCount += 1;
+      const pickupDate = order.pickupDate || order.pickupDatetime;
+      if (pickupDate) {
+        const pickupStr = typeof pickupDate === 'string' ? pickupDate : String(pickupDate);
+        if (!acc[dispatcher].latestPickupDate || pickupStr > acc[dispatcher].latestPickupDate) {
+          acc[dispatcher].latestPickupDate = pickupStr;
+        }
+      }
+    });
+
+    // Step 2: Merge precomputed locked aggregates
+    if (isPrecomputed && dispatcherAggregates) {
+      for (const [entityId, agg] of Object.entries(dispatcherAggregates)) {
+        if (!acc[entityId]) {
+          acc[entityId] = {
+            totalFreight: 0, totalDriverRate: 0, totalMiles: 0,
+            totalDhMiles: 0, orderCount: 0, latestPickupDate: null,
+          };
+        }
+        acc[entityId].totalFreight += agg.totalFreight;
+        acc[entityId].totalDriverRate += agg.totalDriverPayEffective;
+        acc[entityId].totalMiles += agg.totalMiles;
+        acc[entityId].totalDhMiles += agg.totalDhMiles;
+        acc[entityId].orderCount += agg.orderCount;
       }
     }
+
     return acc;
-  }, {} as Record<string, {
-    totalFreight: number;
-    totalDriverRate: number;
-    totalMiles: number;
-    totalDhMiles: number;
-    orderCount: number;
-    latestPickupDate: string | null;
-  }>);
+  }, [filteredOrders, isPrecomputed, dispatcherAggregates, companyDriverIds]);
   const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]: [string, {
     totalFreight: number;
     totalDriverRate: number;
@@ -1462,18 +1501,35 @@ const Analytics = () => {
     });
   }, [filteredOrders, selectedSupervisor, dispatcherProfiles, supervisorAssignments]);
 
-  const totals = ordersForTotals.reduce((acc, order) => {
-    acc.totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
-    acc.totalDriverRate += getEffectiveDriverPay(order);
-    acc.totalMiles += Number(order.mileage) || 0;
-    acc.orderCount += 1;
+  const totals = useMemo(() => {
+    const acc = { totalFreight: 0, totalDriverRate: 0, totalMiles: 0, orderCount: 0 };
+
+    ordersForTotals.forEach(order => {
+      acc.totalFreight += Number(order.totalFreightAmountNoLumper) || 0;
+      acc.totalDriverRate += getEffectiveDriverPay(order);
+      acc.totalMiles += Number(order.mileage) || 0;
+      acc.orderCount += 1;
+    });
+
+    // Merge precomputed dispatcher aggregates for locked orders
+    if (isPrecomputed && dispatcherAggregates) {
+      for (const [entityId, agg] of Object.entries(dispatcherAggregates)) {
+        // Apply supervisor filter if needed
+        if (selectedSupervisor !== "all") {
+          const dp = dispatcherProfiles[entityId];
+          if (!dp) continue;
+          const uid = dp.user_id;
+          if (uid !== selectedSupervisor && supervisorAssignments[uid] !== selectedSupervisor) continue;
+        }
+        acc.totalFreight += agg.totalFreight;
+        acc.totalDriverRate += agg.totalDriverPayEffective;
+        acc.totalMiles += agg.totalMiles;
+        acc.orderCount += agg.orderCount;
+      }
+    }
+
     return acc;
-  }, {
-    totalFreight: 0,
-    totalDriverRate: 0,
-    totalMiles: 0,
-    orderCount: 0
-  });
+  }, [ordersForTotals, isPrecomputed, dispatcherAggregates, selectedSupervisor, dispatcherProfiles, supervisorAssignments, companyDriverIds]);
   const totalCut = totals.totalFreight - totals.totalDriverRate;
   const totalCutPercent = totals.totalFreight > 0 ? totalCut / totals.totalFreight * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
@@ -1717,21 +1773,17 @@ const Analytics = () => {
   // Calculate driver analytics with first pickup date for gross tier calculation
   // Use ALL orders (not filtered by date) for gross tier calculation
   const driverAnalyticsAllTime = useMemo(() => {
-    return (orders || []).reduce((acc, order) => {
-      // Exclude canceled orders without TONU
-      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
-        return acc;
-      }
+    const acc: Record<string, { totalGross: number; firstPickupDate: string | null }> = {};
+
+    // Reduce unlocked orders
+    (orders || []).forEach(order => {
+      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) return;
       const driverName = order.driverName;
       if (driverName && driverName !== "N/A") {
         if (!acc[driverName]) {
-          acc[driverName] = {
-            totalGross: 0,
-            firstPickupDate: null as string | null
-          };
+          acc[driverName] = { totalGross: 0, firstPickupDate: null };
         }
         acc[driverName].totalGross += Number(order.totalFreightAmountNoLumper) || 0;
-        // Track earliest pickup date
         const pickupDate = order.pickupDate;
         if (pickupDate && pickupDate !== "N/A" && pickupDate !== "Invalid Date") {
           if (!acc[driverName].firstPickupDate || pickupDate < acc[driverName].firstPickupDate) {
@@ -1739,35 +1791,59 @@ const Analytics = () => {
           }
         }
       }
-      return acc;
-    }, {} as Record<string, {
-      totalGross: number;
-      firstPickupDate: string | null;
-    }>);
-  }, [orders]);
+    });
+
+    // Merge precomputed all-time data
+    if (isPrecomputed && allTimeDriverData) {
+      const { aggregates, entityNames } = allTimeDriverData;
+      for (const [entityId, data] of Object.entries(aggregates)) {
+        const driverName = entityNames[entityId] || "Unknown";
+        if (!acc[driverName]) {
+          acc[driverName] = { totalGross: 0, firstPickupDate: null };
+        }
+        acc[driverName].totalGross += data.totalGross;
+        if (data.firstDate) {
+          if (!acc[driverName].firstPickupDate || data.firstDate < acc[driverName].firstPickupDate) {
+            acc[driverName].firstPickupDate = data.firstDate;
+          }
+        }
+      }
+    }
+
+    return acc;
+  }, [orders, isPrecomputed, allTimeDriverData]);
 
   // Calculate driver analytics (filtered by date range for display)
-  const driverAnalytics = filteredOrders.reduce((acc, order) => {
-    // Get driver name from the order (already transformed)
-    const driverName = order.driverName;
-    if (driverName && driverName !== "N/A") {
-      if (!acc[driverName]) {
-        acc[driverName] = {
-          totalDriverRate: 0,
-          totalMiles: 0,
-          orderCount: 0
-        };
+  const driverAnalytics = useMemo(() => {
+    const acc: Record<string, { totalDriverRate: number; totalMiles: number; orderCount: number }> = {};
+
+    filteredOrders.forEach(order => {
+      const driverName = order.driverName;
+      if (driverName && driverName !== "N/A") {
+        if (!acc[driverName]) {
+          acc[driverName] = { totalDriverRate: 0, totalMiles: 0, orderCount: 0 };
+        }
+        acc[driverName].totalDriverRate += Number(order.totalDriverPay) || 0;
+        acc[driverName].totalMiles += Number(order.mileage) || 0;
+        acc[driverName].orderCount += 1;
       }
-      acc[driverName].totalDriverRate += Number(order.totalDriverPay) || 0;
-      acc[driverName].totalMiles += Number(order.mileage) || 0;
-      acc[driverName].orderCount += 1;
+    });
+
+    // Merge precomputed driver aggregates
+    if (isPrecomputed && driverAggregates) {
+      for (const [_entityId, agg] of Object.entries(driverAggregates)) {
+        const driverName = agg.entityName || "Unknown";
+        if (!acc[driverName]) {
+          acc[driverName] = { totalDriverRate: 0, totalMiles: 0, orderCount: 0 };
+        }
+        acc[driverName].totalDriverRate += agg.totalDriverPay; // raw, no company override at driver level
+        acc[driverName].totalMiles += agg.totalMiles;
+        acc[driverName].orderCount += agg.orderCount;
+      }
     }
+
     return acc;
-  }, {} as Record<string, {
-    totalDriverRate: number;
-    totalMiles: number;
-    orderCount: number;
-  }>);
+  }, [filteredOrders, isPrecomputed, driverAggregates]);
 
   // Helper function to calculate gross tier based on weekly average
   const calculateGrossTier = (driverName: string): string => {
@@ -1974,76 +2050,77 @@ const Analytics = () => {
       miles: number;
     }>> = {};
     const driverTrucks: Record<string, Set<string>> = {};
-    const driverIsTeam: Record<string, boolean> = {}; // Track if driver has any team orders
-    const driverTeammates: Record<string, Set<string>> = {}; // Track teammate names
+    const driverIsTeam: Record<string, boolean> = {};
+    const driverTeammates: Record<string, Set<string>> = {};
 
+    // Process unlocked orders
     (orders || []).forEach(order => {
-      // Exclude canceled orders without TONU
-      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
-        return;
-      }
+      if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) return;
       const rawDriverName = order.driverName;
       if (!rawDriverName || rawDriverName === "N/A") return;
-      // Normalize driver name to avoid duplicates from whitespace differences
       const driverName = rawDriverName.trim();
 
-      // Check if this is a team order (has driver2)
       const hasDriver2 = order.driver2Id || order.driver2Name;
       if (hasDriver2) {
         driverIsTeam[driverName] = true;
-        // Track the teammate names for the popover
-        if (!driverTeammates[driverName]) {
-          driverTeammates[driverName] = new Set();
-        }
-        // Add both driver names
+        if (!driverTeammates[driverName]) driverTeammates[driverName] = new Set();
         if (order.driver1Name) driverTeammates[driverName].add(order.driver1Name);
         if (order.driver2Name) driverTeammates[driverName].add(order.driver2Name);
       }
 
-      // Track truck numbers for this driver
       const truckNumber = order.truckNumber;
       if (truckNumber && truckNumber !== "N/A") {
-        if (!driverTrucks[driverName]) {
-          driverTrucks[driverName] = new Set();
-        }
+        if (!driverTrucks[driverName]) driverTrucks[driverName] = new Set();
         driverTrucks[driverName].add(truckNumber);
       }
 
-      // Get delivery date for week calculation
       const deliveryDateStr = order.deliveryDate || order.deliveryDatetime;
       if (!deliveryDateStr || deliveryDateStr === "N/A" || deliveryDateStr === "Invalid Date") return;
 
-      // Parse the date
       const dateStr = deliveryDateStr.split("T")[0].split(" ")[0];
       const [year, month, day] = dateStr.split("-").map(Number);
       if (!year || !month || !day) return;
       const deliveryDate = new Date(year, month - 1, day);
 
-      // Get week start (Tuesday) using date-fns
-      const weekStart = startOfWeek(deliveryDate, {
-        weekStartsOn: 2
-      }); // 2 = Tuesday
+      const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 });
       const weekKey = format(weekStart, "yyyy-MM-dd");
-      if (!driverWeeklyData[driverName]) {
-        driverWeeklyData[driverName] = {};
-      }
+      if (!driverWeeklyData[driverName]) driverWeeklyData[driverName] = {};
       if (!driverWeeklyData[driverName][weekKey]) {
-        driverWeeklyData[driverName][weekKey] = {
-          freight: 0,
-          driverPay: 0,
-          miles: 0
-        };
+        driverWeeklyData[driverName][weekKey] = { freight: 0, driverPay: 0, miles: 0 };
       }
       driverWeeklyData[driverName][weekKey].freight += Number(order.totalFreightAmountNoLumper) || 0;
       driverWeeklyData[driverName][weekKey].driverPay += Number(order.totalDriverPay) || 0;
       driverWeeklyData[driverName][weekKey].miles += Number(order.mileage) || 0;
     });
 
+    // Merge precomputed locked daily rows into weekly buckets
+    if (isPrecomputed && allTimeDailyRows) {
+      for (const row of allTimeDailyRows) {
+        const driverName = (row.entity_name || "Unknown").trim();
+        if (!driverName || driverName === "Unknown") continue;
+
+        const dateStr = row.date;
+        if (!dateStr) continue;
+        const [year, month, day] = dateStr.split("-").map(Number);
+        if (!year || !month || !day) continue;
+        const deliveryDate = new Date(year, month - 1, day);
+
+        const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 });
+        const weekKey = format(weekStart, "yyyy-MM-dd");
+        if (!driverWeeklyData[driverName]) driverWeeklyData[driverName] = {};
+        if (!driverWeeklyData[driverName][weekKey]) {
+          driverWeeklyData[driverName][weekKey] = { freight: 0, driverPay: 0, miles: 0 };
+        }
+        driverWeeklyData[driverName][weekKey].freight += Number(row.total_freight) || 0;
+        driverWeeklyData[driverName][weekKey].driverPay += Number(row.total_driver_pay) || 0;
+        driverWeeklyData[driverName][weekKey].miles += Number(row.total_miles) || 0;
+      }
+    }
+
     // Calculate stats for each driver
     const rankings = Object.entries(driverWeeklyData).map(([driverName, weeklyData]) => {
       const weekKeys = Object.keys(weeklyData).sort();
 
-      // Exclude first and last week (need at least 3 weeks of data)
       const includedWeeks = weekKeys.length >= 3 ? weekKeys.slice(1, -1) : weekKeys;
       const isTeam = driverIsTeam[driverName] || driverName.includes(" & ");
       const teamNames = isTeam ? Array.from(driverTeammates[driverName] || []).length > 0 ? Array.from(driverTeammates[driverName]) : driverName.split(" & ").map(n => n.trim()) : [];
@@ -2053,17 +2130,9 @@ const Analytics = () => {
           trucks: Array.from(driverTrucks[driverName] || []),
           isTeam,
           teamNames,
-          avgFreight: 0,
-          avgDriverPay: 0,
-          avgMiles: 0,
-          avgCut: 0,
-          medianFreight: 0,
-          medianDriverPay: 0,
-          medianMiles: 0,
-        rpmCompany: 0,
-          rpmDriver: 0,
-          totalComm: 0,
-          weeksCount: 0
+          avgFreight: 0, avgDriverPay: 0, avgMiles: 0, avgCut: 0,
+          medianFreight: 0, medianDriverPay: 0, medianMiles: 0,
+          rpmCompany: 0, rpmDriver: 0, totalComm: 0, weeksCount: 0
         };
       }
       const weeklyFreights = includedWeeks.map(wk => weeklyData[wk].freight);
@@ -2076,7 +2145,6 @@ const Analytics = () => {
       const avgDriverPay = totalDriverPay / includedWeeks.length;
       const avgMiles = totalMiles / includedWeeks.length;
 
-      // All-time totals (including first and last week) for Total Comm and RPM
       const allWeekFreights = weekKeys.map(wk => weeklyData[wk].freight);
       const allWeekDriverPays = weekKeys.map(wk => weeklyData[wk].driverPay);
       const allWeekMiles = weekKeys.map(wk => weeklyData[wk].miles);
@@ -2090,9 +2158,7 @@ const Analytics = () => {
         currentTruck: driverNameToCurrentTruck[driverName] || null,
         isTeam,
         teamNames,
-        avgFreight,
-        avgDriverPay,
-        avgMiles,
+        avgFreight, avgDriverPay, avgMiles,
         avgCut: avgFreight - avgDriverPay,
         medianFreight: calculateMedian(weeklyFreights),
         medianDriverPay: calculateMedian(weeklyDriverPays),
@@ -2104,7 +2170,7 @@ const Analytics = () => {
       };
     });
     return rankings;
-  }, [orders, drivers]);
+  }, [orders, drivers, isPrecomputed, allTimeDailyRows]);
 
   // State for expanded team driver rows
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -2255,11 +2321,12 @@ const Analytics = () => {
           <div className="text-center space-y-2">
             <h2 className="text-xl font-semibold">Loading Analytics Data</h2>
             <p className="text-muted-foreground">
-              Please wait while all orders are being loaded...
+              {progress?.usePrecomputed 
+                ? "Loading active orders..." 
+                : "Please wait while all orders are being loaded..."}
             </p>
           </div>
           
-          {/* Progress indicators */}
           <div className="w-full max-w-md space-y-4">
             {/* Unlocked orders progress */}
             <div className="space-y-2">
@@ -2285,31 +2352,43 @@ const Analytics = () => {
               </div>
             </div>
             
-            {/* Locked orders progress */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium flex items-center gap-2">
-                  {progress?.lockedTotal && progress.lockedLoaded >= progress.lockedTotal ? (
+            {/* Locked orders: precomputed indicator OR progress bar */}
+            {progress?.usePrecomputed ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-success" />
-                  ) : progress?.isLoadingMore ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-warning" />
-                  ) : (
-                    <span className="h-4 w-4 rounded-full bg-muted" />
-                  )}
-                  Archived Orders
-                </span>
-                <span className="text-muted-foreground">
-                  {progress?.lockedLoaded?.toLocaleString() || 0}
-                  {progress?.lockedTotal !== null && ` / ${progress.lockedTotal.toLocaleString()}`}
-                </span>
+                    Archived Orders
+                  </span>
+                  <span className="text-success text-xs font-medium">Precomputed</span>
+                </div>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-warning transition-all duration-300 ease-out"
-                  style={{ width: `${lockedPercent}%` }}
-                />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium flex items-center gap-2">
+                    {progress?.lockedTotal && progress.lockedLoaded >= progress.lockedTotal ? (
+                      <CheckCircle className="h-4 w-4 text-success" />
+                    ) : progress?.isLoadingMore ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-warning" />
+                    ) : (
+                      <span className="h-4 w-4 rounded-full bg-muted" />
+                    )}
+                    Archived Orders
+                  </span>
+                  <span className="text-muted-foreground">
+                    {progress?.lockedLoaded?.toLocaleString() || 0}
+                    {progress?.lockedTotal !== null && ` / ${progress.lockedTotal.toLocaleString()}`}
+                  </span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-warning transition-all duration-300 ease-out"
+                    style={{ width: `${lockedPercent}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>;
@@ -2326,6 +2405,33 @@ const Analytics = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isRecomputing}
+                  onClick={async () => {
+                    setIsRecomputing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("recompute-analytics-aggregates");
+                      if (error) throw error;
+                      toast.success(`Aggregates rebuilt: ${data.rowCount} rows in ${(data.elapsedMs / 1000).toFixed(1)}s`);
+                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates"] });
+                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates-alltime"] });
+                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates-alltime-daily"] });
+                    } catch (err: any) {
+                      toast.error(`Recompute failed: ${err.message}`);
+                    } finally {
+                      setIsRecomputing(false);
+                    }
+                  }}
+                >
+                  {isRecomputing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Recompute
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
