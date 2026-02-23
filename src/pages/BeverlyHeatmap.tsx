@@ -16,15 +16,15 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  TableRow } from
+"@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  SelectValue } from
+"@/components/ui/select";
 
 interface HeatmapRow {
   city_name: string;
@@ -40,13 +40,13 @@ interface HeatmapRow {
 
 
 const formatCurrency = (val: number) =>
-  val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
+val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
 
 const formatMiles = (val: number) =>
-  val > 0 ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
+val > 0 ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
 
 const formatRpm = (freight: number, miles: number) =>
-  miles > 0 ? `$${(freight / miles).toFixed(2)}` : "";
+miles > 0 ? `$${(freight / miles).toFixed(2)}` : "";
 
 interface CityAgg {
   city: string;
@@ -85,11 +85,11 @@ const generateWeekOptions = () => {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     const fmtDate = (date: Date) =>
-      date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     weeks.push({
       value: i.toString(),
       label: i === 0 ? "This Week" : i === 1 ? "Last Week" : `${fmtDate(weekStart)} - ${fmtDate(weekEnd)}`,
-      weekNumber: weeksFromStart - i,
+      weekNumber: weeksFromStart - i
     });
   }
   return weeks;
@@ -107,7 +107,7 @@ const generateMonthOptions = () => {
       value: yearMonth,
       label: monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
       start: monthStart,
-      end: monthEnd,
+      end: monthEnd
     });
   }
   return months;
@@ -119,7 +119,7 @@ export default function BeverlyHeatmap() {
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 13),
-    to: new Date(),
+    to: new Date()
   });
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
@@ -162,22 +162,22 @@ export default function BeverlyHeatmap() {
     queryKey: ["heatmap-city-counts", startStr, endStr],
     queryFn: async () => {
       if (!startStr || !endStr) return [];
-      const { data, error } = await supabase
-        .from("heatmap_city_counts")
-        .select("city_name, city_state, city_lat, city_lng, count_date, truck_count, total_freight, total_miles")
-        .gte("count_date", startStr)
-        .lte("count_date", endStr)
-        .order("truck_count", { ascending: false });
+      const { data, error } = await supabase.
+      from("heatmap_city_counts").
+      select("city_name, city_state, city_lat, city_lng, count_date, truck_count, total_freight, total_miles").
+      gte("count_date", startStr).
+      lte("count_date", endStr).
+      order("truck_count", { ascending: false });
       if (error) throw error;
       return (data || []) as HeatmapRow[];
     },
-    enabled: !!startStr && !!endStr,
+    enabled: !!startStr && !!endStr
   });
 
   // Build city rows
   const { sortedCities, totalDaysInRange } = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to || rawData.length === 0)
-      return { sortedCities: [] as CityAgg[], totalDaysInRange: 1 };
+    return { sortedCities: [] as CityAgg[], totalDaysInRange: 1 };
 
     const daysCount = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
@@ -195,15 +195,15 @@ export default function BeverlyHeatmap() {
       cityDays.get(ck)!.add(row.count_date);
     }
 
-    const sorted: CityAgg[] = [...cityTotals.entries()]
-      .map(([city, total]) => ({
-        city,
-        total,
-        totalFreight: cityFreight.get(city) || 0,
-        totalMiles: cityMiles.get(city) || 0,
-        daysWithData: cityDays.get(city)?.size || 1,
-      }))
-      .sort((a, b) => b.total - a.total);
+    const sorted: CityAgg[] = [...cityTotals.entries()].
+    map(([city, total]) => ({
+      city,
+      total,
+      totalFreight: cityFreight.get(city) || 0,
+      totalMiles: cityMiles.get(city) || 0,
+      daysWithData: cityDays.get(city)?.size || 1
+    })).
+    sort((a, b) => b.total - a.total);
 
     return { sortedCities: sorted, totalDaysInRange: daysCount };
   }, [rawData, dateRange]);
@@ -220,7 +220,7 @@ export default function BeverlyHeatmap() {
       const { data: result, error: invokeError } = await supabase.functions.invoke("compute-heatmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: startStr, to: endStr }),
+        body: JSON.stringify({ from: startStr, to: endStr })
       });
       if (invokeError) throw invokeError;
       toast.success(`Recomputed ${result.results?.length || 0} days`);
@@ -253,11 +253,11 @@ export default function BeverlyHeatmap() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All time weekly</SelectItem>
-                  {weekOptions.map((week) => (
-                    <SelectItem key={week.value} value={week.value}>
+                  {weekOptions.map((week) =>
+                  <SelectItem key={week.value} value={week.value}>
                       {week.label}
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
 
@@ -267,11 +267,11 @@ export default function BeverlyHeatmap() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All time monthly</SelectItem>
-                  {monthOptions.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>
+                  {monthOptions.map((month) =>
+                  <SelectItem key={month.value} value={month.value}>
                       {month.label}
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
 
@@ -283,73 +283,73 @@ export default function BeverlyHeatmap() {
                   setSelectedMonth("all");
                 }}
                 placeholder="Custom date range"
-                className="w-full sm:w-72"
-              />
+                className="w-full sm:w-72" />
 
-              {dateRange && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDateRange({ from: subDays(new Date(), 13), to: new Date() });
-                    setSelectedWeek("all");
-                    setSelectedMonth("all");
-                  }}
-                >
+
+              {dateRange &&
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDateRange({ from: subDays(new Date(), 13), to: new Date() });
+                  setSelectedWeek("all");
+                  setSelectedMonth("all");
+                }}>
+
                   Clear Filter
                 </Button>
-              )}
+              }
             </div>
           </div>
 
           {/* Secondary controls row */}
-          {canRecompute && (
-            <div className="flex flex-wrap items-center gap-3 mt-2">
+          {canRecompute &&
+          <div className="flex flex-wrap items-center gap-3 mt-2">
               <Button variant="outline" size="sm" onClick={handleRecompute} disabled={isRecomputing}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${isRecomputing ? "animate-spin" : ""}`} />
                 Recompute
               </Button>
             </div>
-          )}
+          }
         </CardHeader>
 
         <CardContent>
           {/* Summary stats - Analytics style */}
-          {sortedCities.length > 0 && (
-            <div className="mb-6 p-4 sm:p-6 bg-muted/50 rounded-lg border">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Cities</p>
-                  <p className="text-lg sm:text-2xl font-bold text-foreground">{sortedCities.length}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Days in Range</p>
-                  <p className="text-lg sm:text-2xl font-bold text-foreground">{totalDaysInRange}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Freight</p>
-                  <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
-                    ${sortedCities.reduce((s, c) => s + c.totalFreight, 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Miles</p>
-                  <p className="text-lg sm:text-2xl font-bold text-foreground">
-                    {sortedCities.reduce((s, c) => s + c.totalMiles, 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {sortedCities.length > 0
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
-          ) : sortedCities.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          }
+
+          {isLoading ?
+          <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div> :
+          sortedCities.length === 0 ?
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
               No heatmap data for this date range. {canRecompute && "Try clicking Recompute."}
-            </div>
-          ) : (
-            <div className="overflow-x-auto border rounded-lg">
+            </div> :
+
+          <div className="overflow-x-auto border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -362,10 +362,10 @@ export default function BeverlyHeatmap() {
                 </TableHeader>
                 <TableBody>
                   {sortedCities.map(({ city, total, totalFreight, totalMiles, daysWithData }) => {
-                    const avgFreight = daysWithData > 0 ? totalFreight / daysWithData : 0;
-                    const avgMiles = daysWithData > 0 ? totalMiles / daysWithData : 0;
-                    return (
-                      <TableRow key={city}>
+                  const avgFreight = daysWithData > 0 ? totalFreight / daysWithData : 0;
+                  const avgMiles = daysWithData > 0 ? totalMiles / daysWithData : 0;
+                  return (
+                    <TableRow key={city}>
                         <TableCell className="sticky left-0 z-10 bg-background font-medium text-sm whitespace-nowrap">
                           {city}
                         </TableCell>
@@ -381,15 +381,15 @@ export default function BeverlyHeatmap() {
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
                           {formatRpm(totalFreight, totalMiles)}
                         </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                      </TableRow>);
+
+                })}
                 </TableBody>
               </Table>
             </div>
-          )}
+          }
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 }
