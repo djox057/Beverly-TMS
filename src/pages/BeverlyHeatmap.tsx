@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format, subDays, eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth } from "date-fns";
+import { format, subDays } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -26,8 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Aggregation = "daily" | "weekly" | "monthly";
-
 interface HeatmapRow {
   city_name: string;
   city_state: string;
@@ -39,14 +37,7 @@ interface HeatmapRow {
   total_miles: number;
 }
 
-const getHeatColor = (count: number, maxCount: number): string => {
-  if (count === 0) return "";
-  const ratio = count / Math.max(maxCount, 1);
-  if (ratio >= 0.75) return "bg-red-500/80 text-white";
-  if (ratio >= 0.5) return "bg-orange-400/80 text-white";
-  if (ratio >= 0.25) return "bg-yellow-400/80 text-foreground";
-  return "bg-blue-400/60 text-foreground";
-};
+
 
 const formatCurrency = (val: number) =>
   val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
@@ -59,7 +50,6 @@ const formatRpm = (freight: number, miles: number) =>
 
 interface CityAgg {
   city: string;
-  buckets: Map<string, number>;
   total: number;
   totalFreight: number;
   totalMiles: number;
@@ -131,7 +121,6 @@ export default function BeverlyHeatmap() {
     from: subDays(new Date(), 13),
     to: new Date(),
   });
-  const [aggregation, setAggregation] = useState<Aggregation>("daily");
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -185,74 +174,39 @@ export default function BeverlyHeatmap() {
     enabled: !!startStr && !!endStr,
   });
 
-  // Build columns and city rows based on aggregation
-  const { columns, sortedCities, maxCount, totalDaysInRange } = useMemo(() => {
+  // Build city rows
+  const { sortedCities, totalDaysInRange } = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to || rawData.length === 0)
-      return { columns: [] as string[], sortedCities: [] as CityAgg[], maxCount: 0, totalDaysInRange: 1 };
+      return { sortedCities: [] as CityAgg[], totalDaysInRange: 1 };
 
-    const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
-    const daysCount = days.length;
+    const daysCount = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    let cols: string[] = [];
-    let bucketFn: (dateStr: string) => string;
-
-    if (aggregation === "daily") {
-      cols = days.map((d) => format(d, "yyyy-MM-dd"));
-      bucketFn = (ds) => ds;
-    } else if (aggregation === "weekly") {
-      const seen = new Set<string>();
-      for (const d of days) {
-        const ws = format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
-        if (!seen.has(ws)) { seen.add(ws); cols.push(ws); }
-      }
-      bucketFn = (ds) => format(startOfWeek(new Date(ds + "T00:00:00"), { weekStartsOn: 1 }), "yyyy-MM-dd");
-    } else {
-      const seen = new Set<string>();
-      for (const d of days) {
-        const ms = format(startOfMonth(d), "yyyy-MM");
-        if (!seen.has(ms)) { seen.add(ms); cols.push(ms); }
-      }
-      bucketFn = (ds) => format(startOfMonth(new Date(ds + "T00:00:00")), "yyyy-MM");
-    }
-
-    const cm = new Map<string, Map<string, number>>();
+    const cityTotals = new Map<string, number>();
     const cityFreight = new Map<string, number>();
     const cityMiles = new Map<string, number>();
     const cityDays = new Map<string, Set<string>>();
-    let mx = 0;
 
     for (const row of rawData) {
       const ck = `${row.city_name}, ${row.city_state}`;
-      const bk = bucketFn(row.count_date);
-      if (!cm.has(ck)) cm.set(ck, new Map());
-      const prev = cm.get(ck)!.get(bk) || 0;
-      const next = prev + row.truck_count;
-      cm.get(ck)!.set(bk, next);
-      if (next > mx) mx = next;
-
+      cityTotals.set(ck, (cityTotals.get(ck) || 0) + row.truck_count);
       cityFreight.set(ck, (cityFreight.get(ck) || 0) + (row.total_freight || 0));
       cityMiles.set(ck, (cityMiles.get(ck) || 0) + (row.total_miles || 0));
       if (!cityDays.has(ck)) cityDays.set(ck, new Set());
       cityDays.get(ck)!.add(row.count_date);
     }
 
-    const sorted: CityAgg[] = [...cm.entries()]
-      .map(([city, buckets]) => {
-        let total = 0;
-        for (const v of buckets.values()) total += v;
-        return {
-          city,
-          buckets,
-          total,
-          totalFreight: cityFreight.get(city) || 0,
-          totalMiles: cityMiles.get(city) || 0,
-          daysWithData: cityDays.get(city)?.size || 1,
-        };
-      })
+    const sorted: CityAgg[] = [...cityTotals.entries()]
+      .map(([city, total]) => ({
+        city,
+        total,
+        totalFreight: cityFreight.get(city) || 0,
+        totalMiles: cityMiles.get(city) || 0,
+        daysWithData: cityDays.get(city)?.size || 1,
+      }))
       .sort((a, b) => b.total - a.total);
 
-    return { columns: cols, sortedCities: sorted, maxCount: mx, totalDaysInRange: daysCount };
-  }, [rawData, dateRange, aggregation]);
+    return { sortedCities: sorted, totalDaysInRange: daysCount };
+  }, [rawData, dateRange]);
 
   const handleRecompute = async () => {
     if (!startStr || !endStr) return;
@@ -276,18 +230,6 @@ export default function BeverlyHeatmap() {
     } finally {
       setIsRecomputing(false);
     }
-  };
-
-  const formatColHeader = (col: string) => {
-    if (aggregation === "daily") {
-      return format(new Date(col + "T00:00:00"), "MM/dd");
-    }
-    if (aggregation === "weekly") {
-      const ws = new Date(col + "T00:00:00");
-      const we = endOfWeek(ws, { weekStartsOn: 1 });
-      return `${format(ws, "MM/dd")}–${format(we, "MM/dd")}`;
-    }
-    return format(new Date(col + "-01T00:00:00"), "MMM yyyy");
   };
 
   return (
@@ -361,25 +303,14 @@ export default function BeverlyHeatmap() {
           </div>
 
           {/* Secondary controls row */}
-          <div className="flex flex-wrap items-center gap-3 mt-2">
-            <span className="text-sm font-medium text-muted-foreground">Aggregation:</span>
-            <Select value={aggregation} onValueChange={(v) => setAggregation(v as Aggregation)}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-            {canRecompute && (
+          {canRecompute && (
+            <div className="flex flex-wrap items-center gap-3 mt-2">
               <Button variant="outline" size="sm" onClick={handleRecompute} disabled={isRecomputing}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${isRecomputing ? "animate-spin" : ""}`} />
                 Recompute
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent>
@@ -411,12 +342,6 @@ export default function BeverlyHeatmap() {
             </div>
           )}
 
-          {aggregation !== "daily" && (
-            <p className="text-xs text-muted-foreground mb-4">
-              ⚠️ Weekly/monthly totals sum daily counts and may count the same truck on multiple days.
-            </p>
-          )}
-
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
           ) : sortedCities.length === 0 ? (
@@ -433,15 +358,10 @@ export default function BeverlyHeatmap() {
                     <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
                     <TableHead className="text-right min-w-[70px]">Avg Miles</TableHead>
                     <TableHead className="text-right min-w-[60px]">RPM</TableHead>
-                    {columns.map((col) => (
-                      <TableHead key={col} className="text-center min-w-[60px] text-xs">
-                        {formatColHeader(col)}
-                      </TableHead>
-                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedCities.map(({ city, buckets, total, totalFreight, totalMiles, daysWithData }) => {
+                  {sortedCities.map(({ city, total, totalFreight, totalMiles, daysWithData }) => {
                     const avgFreight = daysWithData > 0 ? totalFreight / daysWithData : 0;
                     const avgMiles = daysWithData > 0 ? totalMiles / daysWithData : 0;
                     return (
@@ -461,17 +381,6 @@ export default function BeverlyHeatmap() {
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
                           {formatRpm(totalFreight, totalMiles)}
                         </TableCell>
-                        {columns.map((col) => {
-                          const count = buckets.get(col) || 0;
-                          return (
-                            <TableCell
-                              key={col}
-                              className={`text-center text-sm font-mono p-2 ${getHeatColor(count, maxCount)}`}
-                            >
-                              {count > 0 ? count : ""}
-                            </TableCell>
-                          );
-                        })}
                       </TableRow>
                     );
                   })}
