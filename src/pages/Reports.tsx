@@ -2957,9 +2957,19 @@ const Reports = () => {
     lateTrucks,
     hasDriverProblem,
   ]);
-  // Progressive rendering: render dispatcher groups incrementally to avoid freezing
+  // Progressive rendering: render dispatcher groups incrementally to avoid freezing.
+  // We use a counter that increments on each tab switch to trigger the effect,
+  // rather than depending on activeOfficeReports (which gets a new reference on every render).
   const [visibleGroupCount, setVisibleGroupCount] = useState<number>(Infinity);
   const progressiveRenderRef = useRef<number | null>(null);
+  const [progressiveTrigger, setProgressiveTrigger] = useState(0);
+  const prevActiveTabRef = useRef(activeTab);
+
+  // Detect tab switches and bump the trigger counter
+  if (prevActiveTabRef.current !== activeTab) {
+    prevActiveTabRef.current = activeTab;
+    setProgressiveTrigger(c => c + 1);
+  }
 
   useEffect(() => {
     if (progressiveRenderRef.current) {
@@ -2994,7 +3004,8 @@ const Reports = () => {
         progressiveRenderRef.current = null;
       }
     };
-  }, [activeOfficeReports]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressiveTrigger]);
 
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
