@@ -14,6 +14,9 @@ const LOCATION_BOUNDS = {
 };
 
 const MAX_LOCATION_AGE_MINUTES = 30;
+const FETCH_TIMEOUT_MS = 15_000;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const CIRCUIT_BREAKER_THRESHOLD = 3;
 
 function getLocationTime(vehicle: any): number {
   const loc = vehicle.location || vehicle.gps;
@@ -42,14 +45,39 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl!, supabaseKey!);
 
+    // --- Circuit Breaker: check state (defensive try/catch) ---
+    let circuitOpen = false;
+    try {
+      const { data: cbState } = await supabase
+        .from('circuit_breaker_state')
+        .select('consecutive_failures, circuit_open_until')
+        .eq('function_name', 'samsara-locations')
+        .maybeSingle();
+
+      circuitOpen = !!(cbState?.circuit_open_until && new Date(cbState.circuit_open_until) > new Date());
+    } catch (err) {
+      console.warn('Circuit breaker check failed, proceeding with timeout protection:', err);
+    }
+
+    if (circuitOpen) {
+      console.log('⚡ Circuit breaker OPEN — returning empty locations immediately');
+      return new Response(
+        JSON.stringify({ locations: [], stale: true, circuit_open: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // --- Fetch trucks from DB ---
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select('id, truck_number');
 
     if (trucksError) throw trucksError;
 
+    // --- Fetch from Samsara with 15s AbortController per call ---
     const apiKeys = [apiKey1, apiKey2];
     const allVehicles: any[] = [];
+    let anySuccess = false;
 
     for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex++) {
       const apiKey = apiKeys[keyIndex];
@@ -59,6 +87,8 @@ serve(async (req) => {
       ];
 
       for (const endpoint of endpoints) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
         try {
           const response = await fetch(endpoint, {
             method: 'GET',
@@ -66,18 +96,76 @@ serve(async (req) => {
               Authorization: `Bearer ${apiKey}`,
               Accept: 'application/json',
             },
+            signal: controller.signal,
           });
+          clearTimeout(timeout);
 
           if (!response.ok) continue;
 
           const data = await response.json();
           const vehicles = data.data || [];
           vehicles.forEach((v: any) => allVehicles.push({ ...v, apiKeyIndex: keyIndex }));
-          break;
+          anySuccess = true;
+          break; // got data from this key, skip fallback endpoint
         } catch (error) {
+          clearTimeout(timeout);
+          if ((error as any).name === 'AbortError') {
+            console.warn(`⏱️ Samsara API timeout (${FETCH_TIMEOUT_MS / 1000}s) for key ${keyIndex + 1} at ${endpoint}`);
+            continue;
+          }
           console.error(`Error fetching from ${endpoint}:`, error);
         }
       }
+    }
+
+    // --- Circuit Breaker: update state (defensive try/catch) ---
+    if (anySuccess) {
+      try {
+        await supabase
+          .from('circuit_breaker_state')
+          .update({
+            consecutive_failures: 0,
+            last_success_at: new Date().toISOString(),
+            circuit_open_until: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('function_name', 'samsara-locations');
+      } catch (err) {
+        console.warn('Circuit breaker reset failed (non-fatal):', err);
+      }
+    } else {
+      // All fetches failed/timed out
+      try {
+        const { data: currentState } = await supabase
+          .from('circuit_breaker_state')
+          .select('consecutive_failures')
+          .eq('function_name', 'samsara-locations')
+          .maybeSingle();
+
+        const newFailures = (currentState?.consecutive_failures ?? 0) + 1;
+        const updatePayload: any = {
+          consecutive_failures: newFailures,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (newFailures >= CIRCUIT_BREAKER_THRESHOLD) {
+          updatePayload.circuit_open_until = new Date(Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS).toISOString();
+          console.warn(`🔴 Circuit breaker TRIPPED after ${newFailures} consecutive failures — open for 5 minutes`);
+        }
+
+        await supabase
+          .from('circuit_breaker_state')
+          .update(updatePayload)
+          .eq('function_name', 'samsara-locations');
+      } catch (err) {
+        console.warn('Circuit breaker increment failed (non-fatal):', err);
+      }
+
+      console.warn('All Samsara API calls failed/timed out — returning empty locations');
+      return new Response(
+        JSON.stringify({ locations: [], stale: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Fetched ${allVehicles.length} vehicles, ${trucks?.length || 0} trucks in DB`);

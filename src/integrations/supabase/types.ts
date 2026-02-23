@@ -451,6 +451,30 @@ export type Database = {
           },
         ]
       }
+      circuit_breaker_state: {
+        Row: {
+          circuit_open_until: string | null
+          consecutive_failures: number
+          function_name: string
+          last_success_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          circuit_open_until?: string | null
+          consecutive_failures?: number
+          function_name: string
+          last_success_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          circuit_open_until?: string | null
+          consecutive_failures?: number
+          function_name?: string
+          last_success_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           created_at: string

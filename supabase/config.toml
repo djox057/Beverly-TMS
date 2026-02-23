@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.compute-heatmap]
 verify_jwt = false
+
+[functions.samsara-locations]
+verify_jwt = false
