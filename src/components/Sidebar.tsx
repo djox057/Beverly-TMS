@@ -23,7 +23,8 @@ import {
   Bell,
   Wrench,
   UserCircle,
-  CreditCard
+  CreditCard,
+  MapPin
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,7 @@ const navigation = [
   { name: "Problems", href: "/problems", icon: FileText, roles: ['supervisor', 'manager', 'admin'] },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
+  { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management'] },
 ];
 
 export const Sidebar = () => {
