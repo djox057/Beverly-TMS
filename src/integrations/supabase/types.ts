@@ -1960,6 +1960,66 @@ export type Database = {
         }
         Relationships: []
       }
+      heatmap_city_counts: {
+        Row: {
+          city_lat: number
+          city_lng: number
+          city_name: string
+          city_state: string
+          count_date: string
+          created_at: string | null
+          id: string
+          truck_count: number
+        }
+        Insert: {
+          city_lat: number
+          city_lng: number
+          city_name: string
+          city_state: string
+          count_date: string
+          created_at?: string | null
+          id?: string
+          truck_count?: number
+        }
+        Update: {
+          city_lat?: number
+          city_lng?: number
+          city_name?: string
+          city_state?: string
+          count_date?: string
+          created_at?: string | null
+          id?: string
+          truck_count?: number
+        }
+        Relationships: []
+      }
+      heatmap_reference_cities: {
+        Row: {
+          city_name: string
+          id: string
+          latitude: number
+          longitude: number
+          population: number
+          state: string
+        }
+        Insert: {
+          city_name: string
+          id?: string
+          latitude: number
+          longitude: number
+          population?: number
+          state: string
+        }
+        Update: {
+          city_name?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          population?: number
+          state?: string
+        }
+        Relationships: []
+      }
       hos_requests: {
         Row: {
           company_name: string
