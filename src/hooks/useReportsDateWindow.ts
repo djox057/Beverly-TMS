@@ -418,140 +418,89 @@ const fetchGapFillOrders = async (
 };
 
 /**
- * Fetch driver IDs for an office (matches legacy useReports behavior)
- * 
- * CORRECT MAPPING: The source of truth is:
- * 1. Get all dispatchers in the specified office
- * 2. Fetch trucks with their driver1 relationship
- * 3. Filter trucks where driver1.dispatcher_id is in the office's dispatcher list
- * 4. Return all driver IDs from those filtered trucks
- * 
- * This matches useReports.ts lines 844-886 exactly.
- * 
- * @param individualDispatcherId When provided (Individual mode ON), only fetches drivers for this dispatcher
+ * Fetch driver IDs for an individual dispatcher only.
+ * Used when Individual Mode is ON.
  */
-const fetchDriverIdsForOffice = async (
-  priorityOffice: string | null,
-  individualDispatcherId?: string | null
+const fetchIndividualDriverScope = async (
+  individualDispatcherId: string
 ): Promise<{ driverIds: string[], dispatcherIds: string[] }> => {
-  // Individual mode: only fetch drivers for the current user
-  if (individualDispatcherId) {
-    console.log(`[useReportsDateWindow] 🔍 INDIVIDUAL MODE: Fetching drivers only for dispatcher: ${individualDispatcherId}`);
-    
-    const { data: directDrivers, error: directDriversError } = await supabase
-      .from("drivers")
-      .select("id")
-      .eq("is_active", true)
-      .eq("dispatcher_id", individualDispatcherId);
-
-    if (directDriversError) {
-      console.error('[useReportsDateWindow] Error fetching individual dispatcher drivers:', directDriversError);
-      throw directDriversError;
-    }
-
-    const driverIds = (directDrivers || []).map(d => d.id);
-    console.log(`[useReportsDateWindow] ✅ INDIVIDUAL MODE: Found ${driverIds.length} drivers for dispatcher`);
-    
-    return { driverIds, dispatcherIds: [individualDispatcherId] };
-  }
-
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Fetching drivers for office: ${priorityOffice || 'ALL'}`);
+  console.time('[scope] fetchIndividualDriverScope');
+  console.log(`[useReportsDateWindow] 🔍 INDIVIDUAL MODE: Fetching drivers only for dispatcher: ${individualDispatcherId}`);
   
-  // Step 1: Get all dispatchers in this office
-  const { data: dispatchers, error: dispatchersError } = await supabase
-    .from("profiles")
-    .select("user_id, full_name, office");
-
-  if (dispatchersError) {
-    console.error('[useReportsDateWindow] Error fetching dispatchers:', dispatchersError);
-    throw dispatchersError;
-  }
-
-  // Get dispatcher IDs for the office
-  const filterDispatcherIds = priorityOffice
-    ? (dispatchers || []).filter(d => d.office === priorityOffice).map(d => d.user_id).filter(Boolean) as string[]
-    : (dispatchers || []).map(d => d.user_id).filter(Boolean) as string[];
-  
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Office=${priorityOffice || 'ALL'}, Dispatchers in office=${filterDispatcherIds.length}`);
-
-  if (filterDispatcherIds.length === 0) {
-    return { driverIds: [], dispatcherIds: [] };
-  }
-
-  // Step 2: Fetch trucks flat (no join to drivers — avoids RLS amplification)
-  const { data: trucks, error } = await supabase
-    .from("trucks")
-    .select("id, driver1_id, driver2_id")
-    .eq("is_active", true);
-
-  if (error) {
-    console.error('[useReportsDateWindow] Error fetching trucks:', error);
-    throw error;
-  }
-
-  // Step 2b: Fetch driver dispatcher mappings separately (flat, no join)
-  const truckDriverIds = [...new Set((trucks || []).map(t => t.driver1_id).filter(Boolean))] as string[];
-  let driverDispatcherMap = new Map<string, string>();
-  if (truckDriverIds.length > 0) {
-    const { data: driverDispatchers } = await supabase
-      .from("drivers")
-      .select("id, dispatcher_id")
-      .in("id", truckDriverIds);
-    for (const d of driverDispatchers || []) {
-      if (d.dispatcher_id) driverDispatcherMap.set(d.id, d.dispatcher_id);
-    }
-  }
-
-  if (error) {
-    console.error('[useReportsDateWindow] Error fetching trucks with drivers:', error);
-    throw error;
-  }
-
-  // Step 3: Filter trucks where driver1's dispatcher_id is in the office dispatcher list
-  // Collect unique driver IDs from those trucks
-  const driverIdsSet = new Set<string>();
-  
-  for (const truck of trucks || []) {
-    const driverDispatcherId = truck.driver1_id ? driverDispatcherMap.get(truck.driver1_id) : null;
-    // Check if driver's dispatcher is in this office
-    if (driverDispatcherId && filterDispatcherIds.includes(driverDispatcherId) && truck.driver1_id) {
-      driverIdsSet.add(truck.driver1_id);
-    }
-    // Also include driver2 if exists on matching trucks
-    if (driverDispatcherId && filterDispatcherIds.includes(driverDispatcherId) && truck.driver2_id) {
-      driverIdsSet.add(truck.driver2_id);
-    }
-  }
-
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Table=trucks→drivers, Filter=driver1.dispatcher_id IN office dispatchers`);
-  console.log(`[useReportsDateWindow] 🔍 DEBUG: Total trucks checked=${trucks?.length || 0}, Truck-based drivers=${driverIdsSet.size}`);
-
-  // Step 4: NEW - Fetch active drivers directly by dispatcher_id (includes unassigned drivers)
-  // This matches legacy useReports.ts behavior where ALL active drivers for an office's dispatchers are included
   const { data: directDrivers, error: directDriversError } = await supabase
     .from("drivers")
     .select("id")
     .eq("is_active", true)
-    .in("dispatcher_id", filterDispatcherIds);
+    .eq("dispatcher_id", individualDispatcherId);
 
   if (directDriversError) {
-    console.error('[useReportsDateWindow] Error fetching direct drivers:', directDriversError);
-    // Don't throw - still return truck-based drivers
-  } else {
-    // Add all active drivers for these dispatchers (includes drivers without trucks)
-    for (const driver of directDrivers || []) {
-      if (driver.id) {
-        driverIdsSet.add(driver.id);
-      }
-    }
-    console.log(`[useReportsDateWindow] 🔍 DEBUG: Direct dispatcher-based drivers found=${directDrivers?.length || 0}`);
+    console.error('[useReportsDateWindow] Error fetching individual dispatcher drivers:', directDriversError);
+    console.timeEnd('[scope] fetchIndividualDriverScope');
+    throw directDriversError;
   }
 
-  const driverIds = Array.from(driverIdsSet);
+  const driverIds = (directDrivers || []).map(d => d.id);
+  console.log(`[useReportsDateWindow] ✅ INDIVIDUAL MODE: Found ${driverIds.length} drivers for dispatcher`);
+  console.timeEnd('[scope] fetchIndividualDriverScope');
   
-  console.log(`[useReportsDateWindow] ✅ Found ${driverIds.length} total drivers for office (truck-based + unassigned)`);
-  
-  return { driverIds, dispatcherIds: filterDispatcherIds };
+  return { driverIds, dispatcherIds: [individualDispatcherId] };
+};
+
+/**
+ * Fetch ALL office driver scopes at once.
+ * Returns a Map<office, { driverIds, dispatcherIds }> covering every office.
+ * 
+ * Uses only 2 parallel queries (profiles + drivers) instead of the old
+ * 3-sequential (profiles → trucks → drivers) approach, eliminating the
+ * trucks query entirely since drivers.dispatcher_id directly maps to office.
+ */
+const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: string[], dispatcherIds: string[] }>> => {
+  console.time('[scope] fetchAllOfficeDriverScopes');
+
+  const [profilesRes, driversRes] = await Promise.all([
+    supabase.from("profiles").select("user_id, office"),
+    supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true),
+  ]);
+
+  if (profilesRes.error) {
+    console.timeEnd('[scope] fetchAllOfficeDriverScopes');
+    throw profilesRes.error;
+  }
+  if (driversRes.error) {
+    console.timeEnd('[scope] fetchAllOfficeDriverScopes');
+    throw driversRes.error;
+  }
+
+  // Group dispatchers by office and build dispatcher→office lookup
+  const dispatchersByOffice = new Map<string, string[]>();
+  const dispatcherToOffice = new Map<string, string>();
+  for (const p of profilesRes.data || []) {
+    if (!p.user_id || !p.office) continue;
+    dispatcherToOffice.set(p.user_id, p.office);
+    const arr = dispatchersByOffice.get(p.office) || [];
+    arr.push(p.user_id);
+    dispatchersByOffice.set(p.office, arr);
+  }
+
+  // Initialize result map with dispatcher IDs per office
+  const result = new Map<string, { driverIds: string[], dispatcherIds: string[] }>();
+  for (const [office, dispIds] of dispatchersByOffice) {
+    result.set(office, { driverIds: [], dispatcherIds: dispIds });
+  }
+
+  // Map each driver to their dispatcher's office
+  for (const driver of driversRes.data || []) {
+    if (!driver.dispatcher_id) continue;
+    const office = dispatcherToOffice.get(driver.dispatcher_id);
+    if (!office) continue;
+    const entry = result.get(office);
+    if (entry) entry.driverIds.push(driver.id);
+  }
+
+  const totalDrivers = Array.from(result.values()).reduce((sum, e) => sum + e.driverIds.length, 0);
+  console.log(`[useReportsDateWindow] ✅ Pre-computed scopes: ${result.size} offices, ${totalDrivers} total drivers`);
+  console.timeEnd('[scope] fetchAllOfficeDriverScopes');
+  return result;
 };
 
 /**
@@ -671,33 +620,33 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   }
   lastIndividualMode = individualMode;
   
-  // Create a stable query key that does NOT change with windowKey
-  // This prevents refetching when navigating calendars - we load incrementally instead
+  // Create a stable query key that is OFFICE-INDEPENDENT
+  // Tab switching is now a synchronous map lookup from the cached allScopes
   const stableQueryKey = useMemo(() => [
     'reports-date-window-stable',
-    priorityOffice || 'all-offices',
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId : 'all-dispatchers',
-  ], [priorityOffice, individualMode, currentUserDispatcherId]);
+  ], [individualMode, currentUserDispatcherId]);
 
-  // Primary query: loads the initial date window on mount
-  // Does NOT refetch when selectedDate changes - we handle that separately
+  // Primary query: fetches driver scopes (all offices at once, or single dispatcher)
+  // Does NOT refetch when selectedDate or priorityOffice changes
   const { data: initialData, isLoading: initialLoading, error } = useQuery({
     queryKey: stableQueryKey,
     queryFn: async () => {
-      // Get driver IDs for current mode (individual or all offices)
-      const { driverIds, dispatcherIds } = await fetchDriverIdsForOffice(
-        priorityOffice, // Scope to current office tab to reduce dataset size
-        individualMode ? currentUserDispatcherId : null
-      );
-      
-      if (driverIds.length === 0) {
-        console.log('[useReportsDateWindow] No drivers found, returning empty');
-        return { driverIds: [], dispatcherIds: [] };
+      if (individualMode && currentUserDispatcherId) {
+        // Individual mode: single dispatcher scope
+        const scope = await fetchIndividualDriverScope(currentUserDispatcherId);
+        if (scope.driverIds.length === 0) {
+          console.log('[useReportsDateWindow] No drivers found for individual dispatcher');
+          return { driverIds: scope.driverIds, dispatcherIds: scope.dispatcherIds, allScopes: null };
+        }
+        console.log(`[useReportsDateWindow] Individual mode: ${scope.driverIds.length} drivers`);
+        return { driverIds: scope.driverIds, dispatcherIds: scope.dispatcherIds, allScopes: null };
       }
       
-      console.log(`[useReportsDateWindow] Initial load: ${driverIds.length} drivers`);
-      return { driverIds, dispatcherIds };
+      // All offices mode: pre-compute everything
+      const allScopes = await fetchAllOfficeDriverScopes();
+      return { driverIds: [], dispatcherIds: [], allScopes };
     },
     enabled: !!dispatcherId,
     staleTime: 300000, // 5 minutes - driver list rarely changes
@@ -705,6 +654,28 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     refetchOnWindowFocus: false,
     retry: 1, // Limit retries to prevent timeout storms
   });
+  
+  // Derived memo: extract scope for current office from the pre-computed map
+  // Tab switching is now a synchronous map lookup (0ms network)
+  const scopeForOffice = useMemo(() => {
+    console.time('[scope] office-lookup');
+    if (individualMode) {
+      const result = { 
+        driverIds: initialData?.driverIds || [], 
+        dispatcherIds: initialData?.dispatcherIds || [] 
+      };
+      console.timeEnd('[scope] office-lookup');
+      return result;
+    }
+    const allScopes = initialData?.allScopes;
+    if (!allScopes) {
+      console.timeEnd('[scope] office-lookup');
+      return { driverIds: [], dispatcherIds: [] };
+    }
+    const result = allScopes.get(priorityOffice || '') || { driverIds: [], dispatcherIds: [] };
+    console.timeEnd('[scope] office-lookup');
+    return result;
+  }, [initialData, priorityOffice, individualMode]);
 
   // Use a ref to avoid stale closure issues with driverIds in the queryFn
   // This ensures the queryFn always reads the current value when it runs
@@ -712,8 +683,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const currentWindowRef = useRef(currentWindow);
   
   useEffect(() => {
-    driverIdsRef.current = initialData?.driverIds || [];
-  }, [initialData?.driverIds]);
+    driverIdsRef.current = scopeForOffice.driverIds;
+  }, [scopeForOffice.driverIds]);
   
   useEffect(() => {
     currentWindowRef.current = currentWindow;
@@ -743,6 +714,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers`);
       
       // Fetch all order types for this window
+      console.time('[perf] fetchOrders');
       const unlockedOrders = await fetchOrdersForDateWindow(driverIds, windowToLoad);
       const lockedOrders = await fetchLockedOrdersForDateWindow(driverIds, windowToLoad);
       
@@ -753,7 +725,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       
       const existingIds = new Set([...unlockedIds, ...deduplicatedLocked.map(o => o.id)]);
       const gapFillOrders = await fetchGapFillOrders(driverIds, windowToLoad, existingIds);
-      
+      console.timeEnd('[perf] fetchOrders');
       const combinedOrders = [...unlockedOrders, ...deduplicatedLocked, ...gapFillOrders];
       
       // Filter canceled orders
@@ -792,7 +764,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       
       return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId && !!initialData?.driverIds?.length,
+    enabled: !!dispatcherId && scopeForOffice.driverIds.length > 0,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
@@ -806,14 +778,14 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // the query ran before driverIds were ready due to stale closure.
   const hasTriggeredInitialFetchRef = useRef(false);
   useEffect(() => {
-    const driverIds = initialData?.driverIds || [];
+    const driverIds = scopeForOffice.driverIds;
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
     if (driverIds.length > 0 && !globalLoadedWindows.has(scopedKey) && !hasTriggeredInitialFetchRef.current) {
       hasTriggeredInitialFetchRef.current = true;
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
     }
-  }, [initialData?.driverIds, windowKey, refetch]);
+  }, [scopeForOffice.driverIds, windowKey, refetch]);
   
   // Reset the trigger flag when window changes
   useEffect(() => {
@@ -841,7 +813,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
 
   // Function to prefetch adjacent date windows
   const prefetchAdjacentWindows = useCallback(async () => {
-    if (!initialData?.driverIds?.length) return;
+    if (!scopeForOffice.driverIds.length) return;
 
     const pastWindow = calculateDateWindow(subDays(selectedDate, 1), 'past');
     const futureWindow = calculateDateWindow(addDays(selectedDate, 1), 'future');
@@ -865,12 +837,12 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         staleTime: 60000,
       });
     }
-  }, [initialData?.driverIds, selectedDate, queryClient, individualMode]);
+  }, [scopeForOffice.driverIds, selectedDate, queryClient, individualMode]);
 
   return {
     orders: accumulatedOrders,
     accumulatedOrders,
-    driverIds: initialData?.driverIds || [],
+    driverIds: scopeForOffice.driverIds,
     dateWindow: currentWindow,
     isLoading: initialLoading && globalAccumulatedOrders.size === 0,
     isFetching,

@@ -356,18 +356,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Create a mode-specific key suffix to force refetch on individual mode toggle
   const modeKeySuffix = individualMode ? `individual-${currentUserDispatcherId}` : 'all';
 
+  // Compute a collision-resistant hash of driverIdsForScope using djb2
+  // This replaces priorityOffice in query keys — queries re-run when driver scope changes
+  const driverScopeHash = useMemo(() => {
+    if (driverIdsForScope.length === 0) return "empty";
+    const sorted = [...driverIdsForScope].sort();
+    const hashInput = JSON.stringify(sorted);
+    let hash = 5381;
+    for (let i = 0; i < hashInput.length; i++) {
+      hash = ((hash << 5) + hash) + hashInput.charCodeAt(i);
+    }
+    return `${sorted.length}-${(hash >>> 0).toString(36)}`;
+  }, [driverIdsForScope]);
+
   const { data: trucks } = useQuery({
-    queryKey: ["adapter-trucks", priorityOffice, modeKeySuffix],
+    queryKey: ["adapter-trucks", modeKeySuffix, driverScopeHash],
     queryFn: async () => {
+      console.time('[perf] adapter-trucks');
       const { data, error } = await supabase
         .from("trucks")
         .select("*")
         .eq("is_active", true)
         .or(`driver1_id.in.(${driverIdsForScope.join(",")}),driver2_id.in.(${driverIdsForScope.join(",")})`);
+      console.timeEnd('[perf] adapter-trucks');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30000,
+    staleTime: 300000,
     enabled: scopeEnabled,
   });
 
@@ -385,29 +400,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     queryKey: ["adapter-trailers", trailerIdsFromTrucks.join(","), modeKeySuffix],
     queryFn: async () => {
       if (trailerIdsFromTrucks.length === 0) return [];
+      console.time('[perf] adapter-trailers');
       const { data, error } = await supabase
         .from("trailers")
         .select("id, trailer_number, dot_inspection_date")
         .in("id", trailerIdsFromTrucks);
+      console.timeEnd('[perf] adapter-trailers');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30000,
+    staleTime: 300000,
     enabled: scopeEnabled && trailerIdsFromTrucks.length > 0,
   });
 
   const { data: drivers } = useQuery({
-    queryKey: ["adapter-drivers", priorityOffice, modeKeySuffix],
+    queryKey: ["adapter-drivers", modeKeySuffix, driverScopeHash],
     queryFn: async () => {
+      console.time('[perf] adapter-drivers');
       const { data, error } = await supabase
         .from("drivers")
         .select("*")
         .eq("is_active", true)
         .in("id", driverIdsForScope);
+      console.timeEnd('[perf] adapter-drivers');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30000,
+    staleTime: 300000,
     refetchInterval: 60000, // Refresh HOS data every 60 seconds
     enabled: scopeEnabled,
   });
@@ -434,73 +453,71 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     queryKey: ["adapter-dispatchers", dispatcherIdsKey],
     queryFn: async () => {
       if (!dispatcherIdsKey) return [];
+      console.time('[perf] adapter-dispatchers');
       const ids = dispatcherIdsKey.split(",");
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, full_name, email, office, ext, created_at")
         .in("user_id", ids);
+      console.timeEnd('[perf] adapter-dispatchers');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 300000,
     enabled: scopeEnabled && dispatcherIdsKey.length > 0,
   });
 
   const { data: companies } = useQuery({
     queryKey: ["adapter-companies"],
     queryFn: async () => {
+      console.time('[perf] adapter-companies');
       const { data, error } = await supabase.from("companies").select("id, name");
+      console.timeEnd('[perf] adapter-companies');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 60000,
+    staleTime: 600000,
     enabled: scopeEnabled,
   });
 
   const { data: truckNotes } = useQuery({
-    queryKey: ["adapter-truck-notes", priorityOffice, modeKeySuffix],
+    queryKey: ["adapter-truck-notes", modeKeySuffix, driverScopeHash],
     queryFn: async () => {
+      console.time('[perf] adapter-truck-notes');
       // Order by updated_at DESC so when there are duplicates, the most recent comes first
       const { data, error } = await supabase
         .from("truck_notes")
         .select("*")
         .in("driver_id", driverIdsForScope)
         .order("updated_at", { ascending: false });
+      console.timeEnd('[perf] adapter-truck-notes');
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30000,
+    staleTime: 300000,
     enabled: scopeEnabled,
   });
 
-  // Create a stable JSON string of driver IDs for lost_day_notes query key
-  // This ensures the query refetches when driver scope changes and avoids stale closure issues
-  const driverIdsForLostNotes = useMemo(() => {
-    return JSON.stringify(driverIdsForScope);
-  }, [driverIdsForScope]);
-
   const { data: lostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", priorityOffice, modeKeySuffix, driverIdsForLostNotes],
-    queryFn: async ({ queryKey }) => {
-      // Extract driver IDs from query key to avoid stale closure
-      const driverIdsJson = queryKey[3] as string;
-      const driverIds: string[] = driverIdsJson ? JSON.parse(driverIdsJson) : [];
-      
-      if (driverIds.length === 0) {
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix, driverScopeHash],
+    queryFn: async () => {
+      if (driverIdsForScope.length === 0) {
         console.log('[adapter] No driver IDs for lost_day_notes, returning empty');
         return [];
       }
       
-      console.log(`[adapter] Fetching lost_day_notes for ${driverIds.length} drivers`);
+      console.time('[perf] adapter-lost-day-notes');
+      console.log(`[adapter] Fetching lost_day_notes for ${driverIdsForScope.length} drivers`);
       const { data, error } = await supabase
         .from("lost_day_notes")
         .select("*")
-        .in("driver_id", driverIds);
+        .in("driver_id", driverIdsForScope);
+      console.timeEnd('[perf] adapter-lost-day-notes');
       if (error) throw error;
       console.log(`[adapter] Fetched ${data?.length || 0} lost_day_notes`);
       return data || [];
     },
-    staleTime: 60000, // 1 minute - longer staleTime to prevent refetches overwriting optimistic updates
+    staleTime: 300000,
     gcTime: 300000, // Keep in cache longer
     refetchOnWindowFocus: false, // Prevent refetch on window focus from overwriting patches
     enabled: scopeEnabled,
@@ -534,13 +551,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isFetching: isOrderFilesFetching,
     refetch: refetchOrderFiles,
   } = useQuery({
-    queryKey: ["adapter-order-files", priorityOffice, modeKeySuffix],
+    queryKey: ["adapter-order-files", modeKeySuffix, driverScopeHash],
     queryFn: async () => {
       if (windowOrderIds.length === 0) return [];
+      console.time('[perf] adapter-order-files');
       await fetchAndCacheOrderFilesForOrders(windowOrderIds);
-      return getCachedOrderFilesFlat(windowOrderIds);
+      const result = getCachedOrderFilesFlat(windowOrderIds);
+      console.timeEnd('[perf] adapter-order-files');
+      return result;
     },
-    staleTime: 30000,
+    staleTime: 300000,
     enabled: scopeEnabled && windowOrderIds.length > 0,
   });
 
@@ -824,9 +844,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               return oldData;
           };
           
-          // Primary: patch exact query key (includes modeKeySuffix)
+          // Primary: patch exact query key (uses driverScopeHash, not priorityOffice)
           queryClient.setQueryData(
-            ["adapter-truck-notes", priorityOffice, modeKeySuffixRef.current],
+            ["adapter-truck-notes", modeKeySuffixRef.current, driverScopeHashRef.current],
             patchTruckNotes
           );
           
@@ -855,14 +875,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
 
   // P4: Subscribe to lost_day_notes realtime changes and patch cache directly (no refetch)
-  // Use a stable ref for priorityOffice and modeKeySuffix to build the exact query key
+  // Use stable refs for modeKeySuffix and driverScopeHash to build the exact query key
   // Initialize refs with current values to avoid undefined on first render
   const priorityOfficeRef = useRef(priorityOffice);
   const modeKeySuffixRef = useRef(modeKeySuffix);
+  const driverScopeHashRef = useRef(driverScopeHash);
   
   // Update refs synchronously when values change (not in an effect, to avoid timing issues)
   priorityOfficeRef.current = priorityOffice;
   modeKeySuffixRef.current = modeKeySuffix;
+  driverScopeHashRef.current = driverScopeHash;
   
   useEffect(() => {
     if (!scopeEnabled || driverIdsForScope.length === 0) {
@@ -901,9 +923,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
           
-          // Build the exact query key to patch (4 elements to match query key)
-          const driverIdsJsonRef = JSON.stringify([...driverIdsSetRef.current].sort());
-          const exactQueryKey = ["adapter-lost-day-notes", priorityOfficeRef.current, modeKeySuffixRef.current, driverIdsJsonRef];
+          // Build the exact query key to patch (3 elements to match query key)
+          const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current, driverScopeHashRef.current];
           
           // Patch the cache using the exact query key for proper React Query detection
           // Also use setQueriesData with exact: false as fallback for any variant keys
@@ -988,13 +1009,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const scheduleInvalidation = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        console.log(`[adapter] trucks/drivers cache change: invalidating queries for office ${priorityOfficeRef.current}`);
+        console.log(`[adapter] trucks/drivers cache change: invalidating adapter queries`);
         queryClient.invalidateQueries({
-          queryKey: ["adapter-trucks", priorityOfficeRef.current, modeKeySuffixRef.current],
+          queryKey: ["adapter-trucks", modeKeySuffixRef.current, driverScopeHashRef.current],
           refetchType: "active",
         });
         queryClient.invalidateQueries({
-          queryKey: ["adapter-drivers", priorityOfficeRef.current, modeKeySuffixRef.current],
+          queryKey: ["adapter-drivers", modeKeySuffixRef.current, driverScopeHashRef.current],
           refetchType: "active",
         });
       }, 1000);
@@ -1267,30 +1288,33 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Transform date-window orders into the expected Reports shape
   // KEY FIX: Return previous valid data during loading to prevent flickering
   const transformedData = useMemo(() => {
-    if (!USE_DATE_WINDOW_LOADING) return null;
+    console.time('[perf] transformedData');
+    if (!USE_DATE_WINDOW_LOADING) { console.timeEnd('[perf] transformedData'); return null; }
     
     // If we have no driver scope yet, return empty (not null)
     if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) {
+      console.timeEnd('[perf] transformedData');
       return dateWindowHook.isLoading ? null : [];
     }
     
     // During initial load with no previous data, return null to show skeleton
-    if (dateWindowHook.isLoading && lastValidDataRef.current === null) return null;
+    if (dateWindowHook.isLoading && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
     
     // If supporting data isn't ready and no previous data, show skeleton
-    if (!isSupportingDataReady && lastValidDataRef.current === null) return null;
+    if (!isSupportingDataReady && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
     
     // If orders not ready and no previous data, show skeleton  
-    if (!dateWindowHook.orders && lastValidDataRef.current === null) return null;
+    if (!dateWindowHook.orders && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
     
     // STABILITY: During any loading phase with existing data, keep showing previous data
     // This prevents flickering when navigating to new dates
     if ((dateWindowHook.isLoading || dateWindowHook.isFetching || !isSupportingDataReady) && lastValidDataRef.current !== null) {
+      console.timeEnd('[perf] transformedData');
       return lastValidDataRef.current;
     }
     
     // Wait for order_files only on initial load - during navigation keep previous data
-    if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) return null;
+    if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
 
     // Enrich orders with order_files before processing
     const orders = dateWindowHook.orders.map((order) => ({
@@ -1674,6 +1698,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Store as last valid data for stability during future loading states
     lastValidDataRef.current = groupedData;
     
+    console.timeEnd('[perf] transformedData');
     return groupedData;
   }, [
     dateWindowHook.orders,

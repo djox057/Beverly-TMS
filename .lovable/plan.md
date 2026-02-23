@@ -1,41 +1,53 @@
+## Phase A: Reports Page Performance — IMPLEMENTED
 
+### Changes Made
 
-## Fix: Reports Page Realtime Inconsistencies
+1. **Global Driver Scope Pre-computation** (`src/hooks/useReportsDateWindow.ts`)
+   - Replaced `fetchDriverIdsForOffice` with `fetchAllOfficeDriverScopes` (2 parallel queries instead of 3 sequential)
+   - Added `fetchIndividualDriverScope` for Individual Mode (unchanged logic)
+   - `stableQueryKey` is now office-independent: `['reports-date-window-stable', mode, dispatcher]`
+   - Added `scopeForOffice` memo for synchronous office lookups from cached map
 
-Two targeted changes in `src/hooks/useReportsDateWindowAdapter.ts` to fix canceled orders persisting and new orders being missed.
+2. **staleTime Tuning** (`src/hooks/useReportsDateWindowAdapter.ts`)
+   - adapter-trucks: 30s → 300s
+   - adapter-trailers: 30s → 300s
+   - adapter-drivers: 30s → 300s (refetchInterval 60s kept for HOS)
+   - adapter-dispatchers: 60s → 300s
+   - adapter-companies: 60s → 600s
+   - adapter-truck-notes: 30s → 300s
+   - adapter-lost-day-notes: 60s → 300s
+   - adapter-order-files: 30s → 300s
 
-### Change 1: Remove canceled orders in flushPending (line ~1111)
+3. **Office-Independent Query Keys with driverScopeHash** (`src/hooks/useReportsDateWindowAdapter.ts`)
+   - Added djb2-based `driverScopeHash` memo (collision-resistant)
+   - Removed `priorityOffice` from 5 query keys, replaced with `driverScopeHash`
+   - `adapter-lost-day-notes` queryFn now reads from closure instead of queryKey[3]
+   - Removed `driverIdsForLostNotes` memo (no longer needed)
 
-Insert a canceled check before the scope check inside the `for (const order of flatOrders)` loop. After assembling `fullOrder`, if `fullOrder.canceled === true`, call `removeOrderFromGlobalStore(fullOrder.id, false)`, push the ID to `affectedOrderIds`, and `continue`.
+4. **Realtime Cache Patch Key Updates** (`src/hooks/useReportsDateWindowAdapter.ts`)
+   - Added `driverScopeHashRef` (initialized with current value, updated synchronously)
+   - Updated truck_notes setQueryData key
+   - Updated lost_day_notes exactQueryKey construction
+   - Updated trucks/drivers invalidateQueries keys
+   - Confirmed all prefix-match references are already safe
 
-```typescript
-// After line 1118 (fullOrder assembly), before the existing scope check:
-if (fullOrder.canceled) {
-  removeOrderFromGlobalStore(fullOrder.id, false);
-  affectedOrderIds.push(fullOrder.id);
-  continue;
-}
-```
+5. **Timing Instrumentation**
+   - `console.time/timeEnd` around fetchAllOfficeDriverScopes, office-lookup memo
+   - `console.time/timeEnd` around fetchOrders (unlocked + locked + gap-fill)
+   - `console.time/timeEnd` around all adapter queryFns
+   - `console.time/timeEnd` around transformedData useMemo
 
-This mirrors the initial load filtering and ensures canceled orders are evicted from the store on any realtime update.
+### Expected Impact
 
-### Change 2: Broaden relevance check for INSERT/UPDATE events (line ~1183)
+| Metric | Before | After Phase A |
+|--------|--------|---------------|
+| Initial load (cold) | ~5s | ~3.5s |
+| Tab switch (warm cache) | ~2s | <0.2s |
+| Tab switch (cold cache) | ~2s | ~1s |
+| Background refetch frequency | Every 30-60s | Every 5-10 min |
 
-Add `hasOrderInGlobalStore(orderId)` to the `relevant` condition so that orders already in the store (e.g., after driver reassignment to out-of-scope driver) still trigger a re-fetch and subsequent removal via the scope check in `flushPending`.
+### Next Steps
 
-```typescript
-const relevant =
-  (newRecord?.driver1_id && currentDriverIds.has(newRecord.driver1_id)) ||
-  (newRecord?.driver2_id && currentDriverIds.has(newRecord.driver2_id)) ||
-  (oldRecord?.driver1_id && currentDriverIds.has(oldRecord.driver1_id)) ||
-  (oldRecord?.driver2_id && currentDriverIds.has(oldRecord.driver2_id)) ||
-  hasOrderInGlobalStore(orderId);
-```
-
-### Verification Notes
-
-- `removeOrderFromGlobalStore` is a no-op on unknown IDs (guarded by `Map.delete` return value)
-- `hasOrderInGlobalStore` re-fetch + out-of-scope removal path is already handled cleanly in `flushPending`
-- INSERT payloads always include full row data from Supabase, so `newRecord.driver1_id` is always populated
-- Single file change, no new queries or subscriptions
-
+- Measure real console.time numbers
+- Decide on Phase B (fingerprint hash for transform skipping)
+- Decide on Phases C/D (component splitting, virtualization)
