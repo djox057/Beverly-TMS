@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format, subDays, eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, subDays, eachDayOfInterval, startOfWeek, endOfWeek, startOfMonth } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +34,8 @@ interface HeatmapRow {
   city_lng: number;
   count_date: string;
   truck_count: number;
+  total_freight: number;
+  total_miles: number;
 }
 
 const getHeatColor = (count: number, maxCount: number): string => {
@@ -44,6 +46,23 @@ const getHeatColor = (count: number, maxCount: number): string => {
   if (ratio >= 0.25) return "bg-yellow-400/80 text-foreground";
   return "bg-blue-400/60 text-foreground";
 };
+
+const formatCurrency = (val: number) =>
+  val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
+
+const formatMiles = (val: number) =>
+  val > 0 ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
+
+const formatRpm = (freight: number, miles: number) =>
+  miles > 0 ? `$${(freight / miles).toFixed(2)}` : "";
+
+interface CityAgg {
+  city: string;
+  buckets: Map<string, number>;
+  total: number;
+  totalFreight: number;
+  totalMiles: number;
+}
 
 export default function BeverlyHeatmap() {
   const { hasRole } = useAuthContext();
@@ -65,7 +84,7 @@ export default function BeverlyHeatmap() {
       if (!startStr || !endStr) return [];
       const { data, error } = await supabase
         .from("heatmap_city_counts")
-        .select("city_name, city_state, city_lat, city_lng, count_date, truck_count")
+        .select("city_name, city_state, city_lat, city_lng, count_date, truck_count, total_freight, total_miles")
         .gte("count_date", startStr)
         .lte("count_date", endStr)
         .order("truck_count", { ascending: false });
@@ -76,9 +95,9 @@ export default function BeverlyHeatmap() {
   });
 
   // Build columns and city rows based on aggregation
-  const { columns, cityMap, maxCount } = useMemo(() => {
+  const { columns, sortedCities, maxCount } = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to || rawData.length === 0)
-      return { columns: [] as string[], cityMap: new Map<string, Map<string, number>>(), maxCount: 0 };
+      return { columns: [] as string[], sortedCities: [] as CityAgg[], maxCount: 0 };
 
     const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
 
@@ -104,9 +123,12 @@ export default function BeverlyHeatmap() {
       bucketFn = (ds) => format(startOfMonth(new Date(ds + "T00:00:00")), "yyyy-MM");
     }
 
-    // cityKey -> bucketKey -> sum of truck_count
+    // cityKey -> bucketKey -> sum of truck_count; also aggregate freight/miles per city
     const cm = new Map<string, Map<string, number>>();
+    const cityFreight = new Map<string, number>();
+    const cityMiles = new Map<string, number>();
     let mx = 0;
+
     for (const row of rawData) {
       const ck = `${row.city_name}, ${row.city_state}`;
       const bk = bucketFn(row.count_date);
@@ -115,21 +137,27 @@ export default function BeverlyHeatmap() {
       const next = prev + row.truck_count;
       cm.get(ck)!.set(bk, next);
       if (next > mx) mx = next;
+
+      cityFreight.set(ck, (cityFreight.get(ck) || 0) + (row.total_freight || 0));
+      cityMiles.set(ck, (cityMiles.get(ck) || 0) + (row.total_miles || 0));
     }
 
-    return { columns: cols, cityMap: cm, maxCount: mx };
-  }, [rawData, dateRange, aggregation]);
-
-  // Sort cities by total descending
-  const sortedCities = useMemo(() => {
-    return [...cityMap.entries()]
+    const sorted: CityAgg[] = [...cm.entries()]
       .map(([city, buckets]) => {
         let total = 0;
         for (const v of buckets.values()) total += v;
-        return { city, buckets, total };
+        return {
+          city,
+          buckets,
+          total,
+          totalFreight: cityFreight.get(city) || 0,
+          totalMiles: cityMiles.get(city) || 0,
+        };
       })
       .sort((a, b) => b.total - a.total);
-  }, [cityMap]);
+
+    return { columns: cols, sortedCities: sorted, maxCount: mx };
+  }, [rawData, dateRange, aggregation]);
 
   const handleRecompute = async () => {
     if (!startStr || !endStr) return;
@@ -214,6 +242,9 @@ export default function BeverlyHeatmap() {
               <TableRow>
                 <TableHead className="sticky left-0 z-10 bg-background min-w-[160px]">City</TableHead>
                 <TableHead className="text-center min-w-[60px]">Total</TableHead>
+                <TableHead className="text-right min-w-[90px]">Freight</TableHead>
+                <TableHead className="text-right min-w-[70px]">Miles</TableHead>
+                <TableHead className="text-right min-w-[60px]">RPM</TableHead>
                 {columns.map((col) => (
                   <TableHead key={col} className="text-center min-w-[60px] text-xs">
                     {formatColHeader(col)}
@@ -222,13 +253,22 @@ export default function BeverlyHeatmap() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedCities.map(({ city, buckets, total }) => (
+              {sortedCities.map(({ city, buckets, total, totalFreight, totalMiles }) => (
                 <TableRow key={city}>
                   <TableCell className="sticky left-0 z-10 bg-background font-medium text-sm whitespace-nowrap">
                     {city}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className="font-mono">{total}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-mono whitespace-nowrap">
+                    {formatCurrency(totalFreight)}
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-mono whitespace-nowrap">
+                    {formatMiles(totalMiles)}
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-mono whitespace-nowrap">
+                    {formatRpm(totalFreight, totalMiles)}
                   </TableCell>
                   {columns.map((col) => {
                     const count = buckets.get(col) || 0;

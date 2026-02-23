@@ -20,6 +20,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 interface Stop {
   truck_id: string;
+  order_id: string;
   latitude: number;
   longitude: number;
 }
@@ -30,6 +31,11 @@ interface City {
   latitude: number;
   longitude: number;
   population: number;
+}
+
+interface OrderFinancials {
+  freight: number;
+  miles: number;
 }
 
 Deno.serve(async (req) => {
@@ -49,7 +55,6 @@ Deno.serve(async (req) => {
     if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
       authorized = true;
     } else if (authHeader.startsWith("Bearer ")) {
-      // Check user JWT
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
@@ -78,13 +83,12 @@ Deno.serve(async (req) => {
 
     const db = createClient(supabaseUrl, serviceRoleKey);
 
-    // Determine date range (support query params or JSON body)
+    // Determine date range
     const url = new URL(req.url);
     let dateParam = url.searchParams.get("date");
     let fromParam = url.searchParams.get("from");
     let toParam = url.searchParams.get("to");
 
-    // Also check request body for params
     if (!dateParam && !fromParam && !toParam) {
       try {
         const body = await req.json();
@@ -105,7 +109,6 @@ Deno.serve(async (req) => {
         d.setDate(d.getDate() + 1);
       }
     } else {
-      // Default: last 14 days
       const now = new Date();
       for (let i = 13; i >= 0; i--) {
         const d = new Date(now);
@@ -124,15 +127,14 @@ Deno.serve(async (req) => {
     const results: { date: string; clusters: number }[] = [];
 
     for (const targetDate of dates) {
-      // Fetch stops for this date: pickup_drops with coords, joined to non-canceled orders with truck
       const nextDate = new Date(targetDate);
       nextDate.setDate(nextDate.getDate() + 1);
       const nextDateStr = nextDate.toISOString().split("T")[0];
 
-      // Query orders for the date first, then get their pickup_drops
+      // Fetch orders with financial data
       const { data: orders, error: ordersErr } = await db
         .from("orders")
-        .select("id, truck_id")
+        .select("id, truck_id, freight_amount, loaded_miles, dh_miles, mileage")
         .eq("canceled", false)
         .not("truck_id", "is", null)
         .gte("pickup_datetime", targetDate)
@@ -145,8 +147,21 @@ Deno.serve(async (req) => {
 
       const orderIds = orders.map((o: any) => o.id);
       const orderTruckMap = new Map<string, string>();
+      const orderFinancials = new Map<string, OrderFinancials>();
+
       for (const o of orders) {
         orderTruckMap.set(o.id, o.truck_id);
+        // Miles: mileage if not null, else (loaded_miles + dh_miles), else 0
+        let miles = 0;
+        if (o.mileage != null) {
+          miles = Number(o.mileage);
+        } else if (o.loaded_miles != null || o.dh_miles != null) {
+          miles = (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+        }
+        orderFinancials.set(o.id, {
+          freight: Number(o.freight_amount) || 0,
+          miles,
+        });
       }
 
       // Fetch pickup_drops in chunks of 200
@@ -166,6 +181,7 @@ Deno.serve(async (req) => {
             if (truckId) {
               allStops.push({
                 truck_id: truckId,
+                order_id: pd.order_id,
                 latitude: Number(pd.latitude),
                 longitude: Number(pd.longitude),
               });
@@ -181,16 +197,17 @@ Deno.serve(async (req) => {
 
       // Grid-based density scan (0.5 degree cells)
       const CELL_SIZE = 0.5;
-      const consumed = new Set<number>(); // indices of consumed stops
-      const cityTrucks = new Map<string, Set<string>>(); // "city|state" -> Set<truck_id>
+      const consumed = new Set<number>();
+      const cityTrucks = new Map<string, Set<string>>();
+      const cityOrders = new Map<string, Set<string>>();
       const cityInfo = new Map<string, { lat: number; lng: number }>();
+      const attributedOrders = new Set<string>(); // global: each order's financials count once
 
-      // Build grid
       const getCellKey = (lat: number, lng: number) =>
         `${Math.floor(lat / CELL_SIZE)},${Math.floor(lng / CELL_SIZE)}`;
 
       const buildGrid = () => {
-        const grid = new Map<string, number[]>(); // cellKey -> stop indices
+        const grid = new Map<string, number[]>();
         for (let i = 0; i < allStops.length; i++) {
           if (consumed.has(i)) continue;
           const key = getCellKey(allStops[i].latitude, allStops[i].longitude);
@@ -211,7 +228,6 @@ Deno.serve(async (req) => {
       const MAX_ITERATIONS = 50;
       while (iteration++ < MAX_ITERATIONS) {
         const grid = buildGrid();
-        // Find cell with most distinct trucks
         let bestKey = "";
         let bestCount = 0;
         let bestIndices: number[] = [];
@@ -225,7 +241,7 @@ Deno.serve(async (req) => {
         }
         if (bestCount < 3) break;
 
-        // Weighted centroid of stops in winning cell
+        // Weighted centroid
         let sumLat = 0, sumLng = 0;
         for (const i of bestIndices) {
           sumLat += allStops[i].latitude;
@@ -234,22 +250,26 @@ Deno.serve(async (req) => {
         const centLat = sumLat / bestIndices.length;
         const centLng = sumLng / bestIndices.length;
 
-        // Bounding box pre-filter then Haversine within 60 miles
+        // Collect stops within 60 miles
         const clusterTrucks = new Set<string>();
+        const clusterNewOrders = new Set<string>();
         for (let i = 0; i < allStops.length; i++) {
           if (consumed.has(i)) continue;
           const s = allStops[i];
-          // Bounding box: ±1 degree
           if (Math.abs(s.latitude - centLat) > 1 || Math.abs(s.longitude - centLng) > 1) continue;
           if (haversine(centLat, centLng, s.latitude, s.longitude) <= 60) {
             clusterTrucks.add(s.truck_id);
+            // Only attribute order financials to the first city that claims it
+            if (!attributedOrders.has(s.order_id)) {
+              clusterNewOrders.add(s.order_id);
+            }
             consumed.add(i);
           }
         }
 
         if (clusterTrucks.size < 3) continue;
 
-        // Snap to nearest major city (highest population within 60 miles)
+        // Snap to nearest major city
         let bestCity: City | null = null;
         for (const city of refCities) {
           if (Math.abs(city.latitude - centLat) > 1 || Math.abs(city.longitude - centLng) > 1) continue;
@@ -260,22 +280,36 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (!bestCity) continue; // Drop rural clusters
+        if (!bestCity) continue;
 
-        // Merge into city (deduplication via union of truck sets)
         const cityKey = `${bestCity.city_name}|${bestCity.state}`;
         if (!cityTrucks.has(cityKey)) {
           cityTrucks.set(cityKey, new Set());
+          cityOrders.set(cityKey, new Set());
           cityInfo.set(cityKey, { lat: bestCity.latitude, lng: bestCity.longitude });
         }
         for (const t of clusterTrucks) cityTrucks.get(cityKey)!.add(t);
+        for (const oid of clusterNewOrders) {
+          cityOrders.get(cityKey)!.add(oid);
+          attributedOrders.add(oid);
+        }
       }
 
-      // Upsert results
+      // Build upserts with financial totals
       const upserts = [];
       for (const [key, trucks] of cityTrucks) {
         const [name, state] = key.split("|");
         const info = cityInfo.get(key)!;
+        const orders = cityOrders.get(key) || new Set<string>();
+        let totalFreight = 0;
+        let totalMiles = 0;
+        for (const oid of orders) {
+          const fin = orderFinancials.get(oid);
+          if (fin) {
+            totalFreight += fin.freight;
+            totalMiles += fin.miles;
+          }
+        }
         upserts.push({
           city_name: name,
           city_state: state,
@@ -283,6 +317,8 @@ Deno.serve(async (req) => {
           city_lng: info.lng,
           count_date: targetDate,
           truck_count: trucks.size,
+          total_freight: totalFreight,
+          total_miles: totalMiles,
         });
       }
 
