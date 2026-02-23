@@ -3154,7 +3154,7 @@ const Analytics = () => {
                           <TableHead className="text-right">Total Comm.</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                         {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
-                        {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableHead className="text-right">Food</TableHead>}
+                        {!isDispatchOnly && (profile?.office === "ČAČAK" || profile?.office === "KRAGUJEVAC") && <TableHead className="text-right">Food</TableHead>}
                         <TableHead className="text-right">Additionals</TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
@@ -3220,7 +3220,7 @@ const Analytics = () => {
                         const perDayRate = workDaysInMonth > 0 ? baseRate / workDaysInMonth : 0;
                         const extraDaysAmount = extraDays * perDayRate;
                         const daysOffDeduction = lostDays * perDayRate;
-                        const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
+                        const foodAllowance = (stat.office === "ČAČAK" || stat.office === "KRAGUJEVAC") ? 70 : 0;
 
                         // Store base rate for carry-over calculations
                         if (stat.userId) {
@@ -3285,8 +3285,8 @@ const Analytics = () => {
                                       const extraDaysAmount = actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
                                       // Determine food allowance based on office
-                                      const isBeograd = stat.office === "BEOGRAD";
-                                      const foodAllowanceAmount = isBeograd ? 0 : 70;
+                                      const hasFoodAllowance = stat.office === "ČAČAK" || stat.office === "KRAGUJEVAC";
+                                      const foodAllowanceAmount = hasFoodAllowance ? 70 : 0;
                                        downloadPayrollDoc({
                                         employeeName: stat.name,
                                         payPeriod,
@@ -3338,8 +3338,8 @@ const Analytics = () => {
                                       const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
 
                                       // Determine food allowance based on office
-                                      const isBeograd = stat.office === "BEOGRAD";
-                                      const foodAllowanceForPreview = isBeograd ? 0 : 70;
+                                      const hasFoodAllowance = stat.office === "ČAČAK" || stat.office === "KRAGUJEVAC";
+                                      const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
 
                                       // Check if this is a deleted user
                                       const isDeletedUserFlag = dispatcherProfile?.email?.includes("@deleted.user") || false;
@@ -3438,8 +3438,8 @@ const Analytics = () => {
                                       const recipientEmail = dispatcherProfile?.email || "unknown@email.com";
 
                                       // Determine food allowance based on office
-                                      const isBeograd = stat.office === "BEOGRAD";
-                                      const foodAllowanceForPreview = isBeograd ? 0 : 70;
+                                      const hasFoodAllowance = stat.office === "ČAČAK" || stat.office === "KRAGUJEVAC";
+                                      const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
 
                                       // Check if this is a deleted user
                                       const isDeletedUserFlag = dispatcherProfile?.email?.includes("@deleted.user") || false;
@@ -3733,8 +3733,8 @@ const Analytics = () => {
                                     lostDays > 0 ? `-${lostDays}` : lostDays
                                   )}
                                 </TableCell>}
-                                {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableCell className="text-right">
-                                  {stat.office === "BEOGRAD" ? "$0" : "$70"}
+                                {!isDispatchOnly && (profile?.office === "ČAČAK" || profile?.office === "KRAGUJEVAC") && <TableCell className="text-right">
+                                  {(stat.office === "ČAČAK" || stat.office === "KRAGUJEVAC") ? "$70" : "$0"}
                                 </TableCell>}
                                 <TableCell className="text-right">
                                   {(() => {
@@ -3815,8 +3815,8 @@ const Analytics = () => {
                               -
                               {dispatcherStats.reduce((sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0), 0)}
                             </TableCell>}
-                            {!isDispatchOnly && profile?.office !== "BEOGRAD" && <TableCell className="text-right font-bold">
-                              ${dispatcherStats.reduce((sum, s) => sum + (s.office === "BEOGRAD" ? 0 : 70), 0)}
+                            {!isDispatchOnly && (profile?.office === "ČAČAK" || profile?.office === "KRAGUJEVAC") && <TableCell className="text-right font-bold">
+                              ${dispatcherStats.reduce((sum, s) => sum + ((s.office === "ČAČAK" || s.office === "KRAGUJEVAC") ? 70 : 0), 0)}
                             </TableCell>}
                             <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold">—</TableCell>
