@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // Haversine distance in miles
@@ -78,11 +78,21 @@ Deno.serve(async (req) => {
 
     const db = createClient(supabaseUrl, serviceRoleKey);
 
-    // Determine date range
+    // Determine date range (support query params or JSON body)
     const url = new URL(req.url);
-    const dateParam = url.searchParams.get("date");
-    const fromParam = url.searchParams.get("from");
-    const toParam = url.searchParams.get("to");
+    let dateParam = url.searchParams.get("date");
+    let fromParam = url.searchParams.get("from");
+    let toParam = url.searchParams.get("to");
+
+    // Also check request body for params
+    if (!dateParam && !fromParam && !toParam) {
+      try {
+        const body = await req.json();
+        dateParam = body.date || null;
+        fromParam = body.from || null;
+        toParam = body.to || null;
+      } catch { /* no body */ }
+    }
 
     const dates: string[] = [];
     if (dateParam) {
