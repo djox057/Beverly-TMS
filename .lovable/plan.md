@@ -1,108 +1,62 @@
 
 
-# Beverly Heatmap - Implementation Plan
+## Heatmap Enhancements: YARD Rename + Financial Metrics
 
-## Overview
+### Database Changes
 
-Create a "Beverly Heatmap" page that shows truck density near US cities using a data-driven clustering algorithm. A scheduled edge function discovers hotspots from actual stop data every Sunday at 3 AM Chicago time.
+**Migration (schema):**
+```sql
+ALTER TABLE heatmap_city_counts
+  ADD COLUMN IF NOT EXISTS total_freight numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_miles numeric DEFAULT 0;
+```
 
-## Implementation Order
+**Data updates (insert tool):**
+- Rename Chicago to YARD in `heatmap_reference_cities` with new coordinates (41.53803937985626, -87.57862703756386)
+- Rename Chicago to YARD in all existing `heatmap_city_counts` rows with updated lat/lng
 
-### Step 1: Database Migration
+### Edge Function: `supabase/functions/compute-heatmap/index.ts`
 
-Create two tables with RLS:
+1. **Expand Stop interface** to include `order_id`:
+```text
+interface Stop {
+  truck_id: string;
+  order_id: string;
+  latitude: number;
+  longitude: number;
+}
+```
 
-**`heatmap_reference_cities`** -- ~300 US cities (population >100k) used as snap targets for clusters.
+2. **Expand orders query** to also fetch `freight_amount`, `loaded_miles`, `dh_miles`, `mileage` alongside `id, truck_id`.
 
-- Columns: `id`, `city_name`, `state`, `latitude`, `longitude`, `population`
-- Unique constraint on `(city_name, state)`
-- RLS: SELECT for authenticated, ALL for admin/manager
+3. **Build an order financials map** keyed by order_id:
+   - `miles = mileage ?? (loaded_miles + dh_miles) ?? 0` (null-safe, consistent priority)
+   - `freight = freight_amount ?? 0`
 
-**`heatmap_city_counts`** -- Pre-computed daily truck counts per city.
+4. **Track order attribution during clustering**: maintain a global `attributedOrders` Set. During the greedy clustering loop, alongside `cityTrucks`, also build `cityOrders` (Set of order_ids). When a stop is consumed into a city cluster:
+   - Always add its truck_id to `cityTrucks`
+   - Only add the order_id to `cityOrders` if it is NOT already in `attributedOrders` -- this ensures each order's freight/miles count in exactly one city (the first pickup city that claims it)
+   - After processing a cluster, add all newly attributed order_ids to the global set
 
-- Columns: `id`, `city_name`, `city_state`, `city_lat`, `city_lng`, `count_date`, `truck_count`, `created_at`
-- Unique constraint on `(city_name, city_state, count_date)`
-- Index on `count_date DESC`
-- RLS: SELECT for authenticated, ALL for admin/manager
+5. **Compute financial totals per city**: after clustering, for each city sum `freight` and `miles` from its `cityOrders` using the financials map.
 
-### Step 2: Seed Reference Cities
+6. **Upsert** with `total_freight` and `total_miles` included in each row.
 
-Insert ~300 US cities with population over 100k into `heatmap_reference_cities` via batched INSERT statements using the insert tool.
+### Frontend: `src/pages/BeverlyHeatmap.tsx`
 
-### Step 3: Edge Function (`compute-heatmap`)
+1. **Update HeatmapRow interface**: add `total_freight: number` and `total_miles: number`.
 
-**File:** `supabase/functions/compute-heatmap/index.ts`
+2. **Update query select** to fetch the new columns.
 
-**Dual authentication:**
-- Cron path: validates `Authorization: Bearer <CRON_SECRET>` against the existing `CRON_SECRET` secret. Uses service role client for DB writes.
-- Manual path: validates the user's JWT via `supabase.auth.getUser()`, then checks they have admin or manager role via a query to `user_roles`. Uses service role client for DB writes.
+3. **Update aggregation useMemo**: alongside truck_count, also sum `total_freight` and `total_miles` per city per bucket. Compute RPM on the fly as `total_freight / total_miles` (handles division by zero gracefully).
 
-**Algorithm (per day):**
+4. **Add columns to the table**: show Total Freight, Total Miles, and RPM (computed) per city row, aggregated across the selected date range.
 
-1. Fetch stops from `pickup_drops` joined with `orders` for the target date (where coordinates exist, order not canceled, truck assigned)
-2. Grid-based density scan: assign stops to 0.5-degree cells, count distinct trucks per cell
-3. Greedy non-overlapping selection:
-   - Sort cells by truck count descending
-   - Compute weighted centroid of actual stops in the winning cell
-   - Bounding box pre-filter (plus/minus 1 degree) then Haversine to find stops within 60 miles
-   - Mark those stops as consumed, recalculate remaining cell counts
-   - Repeat until truck count < 3
-4. Snap to nearest major city (highest population within 60 miles from `heatmap_reference_cities`)
-   - Deduplication: if two clusters snap to the same city, merge truck ID sets (union)
-   - Drop clusters with no city within 60 miles
-5. Upsert results into `heatmap_city_counts`
+### Files Changed
+- `supabase/functions/compute-heatmap/index.ts` -- order attribution logic, financial aggregation
+- `src/pages/BeverlyHeatmap.tsx` -- new columns, RPM computed client-side
+- Database migration (2 new columns) + data updates (Chicago to YARD rename)
 
-**Invocation modes:**
-- No params (cron): process last 14 days sequentially
-- `?date=YYYY-MM-DD`: single day
-- `?from=YYYY-MM-DD&to=YYYY-MM-DD`: date range
-
-**Config:** Add `verify_jwt = false` to `supabase/config.toml`.
-
-### Step 4: Frontend Page (`src/pages/BeverlyHeatmap.tsx`)
-
-- Date range picker (default: last 14 days)
-- View toggle: Daily / Weekly / Monthly aggregation
-- Table grid: rows = cities (sorted by total truck count desc), columns = dates
-- Color-coded cells (gray/blue/yellow/red gradient)
-- Manual recompute button for admin/manager (calls edge function with user's auth token)
-- Data fetched from `heatmap_city_counts` via Supabase client
-- Client-side aggregation for weekly/monthly with note about potential same-truck counting
-
-### Step 5: Navigation and Routing
-
-**Sidebar (`src/components/Sidebar.tsx`):**
-- Add "Beverly Heatmap" below Analytics with `MapPin` icon
-- Restricted to `manager`, `admin`, `chicago_management` roles
-
-**App.tsx:**
-- Add `/beverly-heatmap` route with `allowedRoles={['manager', 'admin', 'chicago_management']}`
-
-### Step 6: Cron Job
-
-Schedule via `pg_cron` + `pg_net` (INSERT tool):
-- Sunday 9 AM UTC (3 AM CST / 4 AM CDT)
-- Passes `CRON_SECRET` in Authorization header
-- Documented DST shift
-
-## Files Changed
-
-| File | Action |
-|------|--------|
-| Migration SQL | Create `heatmap_reference_cities` and `heatmap_city_counts` tables |
-| INSERT SQL (batched) | Seed ~300 US cities |
-| INSERT SQL | Create `pg_cron` schedule |
-| `supabase/functions/compute-heatmap/index.ts` | New edge function |
-| `supabase/config.toml` | Add `verify_jwt = false` for compute-heatmap |
-| `src/pages/BeverlyHeatmap.tsx` | New heatmap page |
-| `src/components/Sidebar.tsx` | Add nav item |
-| `src/App.tsx` | Add route, import page |
-
-## Technical Notes
-
-- The edge function uses `SUPABASE_SERVICE_ROLE_KEY` for all DB operations (bypasses RLS)
-- Haversine helper uses Earth radius of 3959 miles
-- Grid cell size of 0.5 degrees is roughly 35 miles wide at mid-latitudes
-- Minimum cluster threshold: 3 trucks
-- Weekly/monthly aggregation is client-side sum with a disclaimer about potential double-counting
+### Post-Deploy
+Click **Recompute** to populate historical data with financial metrics.
 
