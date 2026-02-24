@@ -1,0 +1,1 @@
+ALTER TABLE public.heatmap_city_counts ADD COLUMN order_ids text[] DEFAULT '{}';

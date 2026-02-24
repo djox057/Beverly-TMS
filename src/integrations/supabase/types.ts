@@ -2095,6 +2095,7 @@ export type Database = {
           count_date: string
           created_at: string | null
           id: string
+          order_ids: string[] | null
           total_freight: number | null
           total_miles: number | null
           truck_count: number
@@ -2107,6 +2108,7 @@ export type Database = {
           count_date: string
           created_at?: string | null
           id?: string
+          order_ids?: string[] | null
           total_freight?: number | null
           total_miles?: number | null
           truck_count?: number
@@ -2119,6 +2121,7 @@ export type Database = {
           count_date?: string
           created_at?: string | null
           id?: string
+          order_ids?: string[] | null
           total_freight?: number | null
           total_miles?: number | null
           truck_count?: number
