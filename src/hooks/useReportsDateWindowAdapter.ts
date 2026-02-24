@@ -521,29 +521,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return allTruckNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allTruckNotes, driverIdsForScope]);
 
-  // Compute a generous date range for lost_day_notes fetch.
-  // The visible window is ~6 days, but game_over / home_time notes can span ahead.
-  // Use ±30 days from selectedDate to cover edge cases while staying well under
-  // Supabase's default 1000-row limit (table has 2400+ total rows).
-  const lostNotesDateRange = useMemo(() => {
-    const start = new Date(selectedDate);
-    start.setDate(start.getDate() - 30);
-    const end = new Date(selectedDate);
-    end.setDate(end.getDate() + 30);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    return { start: fmt(start), end: fmt(end) };
-  }, [selectedDate]);
-
-  // GLOBAL FETCH: lost day notes scoped to a ±30-day window around selectedDate
+  // GLOBAL FETCH: all lost day notes
   const { data: allLostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesDateRange.start, lostNotesDateRange.end],
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-lost-day-notes');
       const { data, error } = await supabase
         .from("lost_day_notes")
-        .select("*")
-        .gte("date", lostNotesDateRange.start)
-        .lte("date", lostNotesDateRange.end);
+        .select("*");
       console.timeEnd('[perf] adapter-lost-day-notes');
       if (error) throw error;
       return data || [];
