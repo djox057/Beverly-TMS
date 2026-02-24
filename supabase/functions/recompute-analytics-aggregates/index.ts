@@ -192,6 +192,7 @@ async function aggregateOrders(
   const dateField = dateType === "pickup" ? "pickup_datetime" : "delivery_datetime";
 
   const SELECT_COLS = [
+    "id",
     "booked_by",
     "driver1_id",
     "deleted_driver1_name",
@@ -243,7 +244,7 @@ async function aggregateOrders(
     is_company_driver: boolean;
   }>();
 
-  let offset = 0;
+  let lastId = "00000000-0000-0000-0000-000000000000";
   const BATCH = 1000;
   let totalOrders = 0;
 
@@ -254,8 +255,9 @@ async function aggregateOrders(
       .eq("locked", true)
       .not(dateField, "is", null)
       .or("canceled.eq.false,tonu.gt.0,tonu_driver.gt.0")
+      .gt("id", lastId)
       .order("id", { ascending: true })
-      .range(offset, offset + BATCH - 1);
+      .limit(BATCH);
 
     const { data: orders, error } = await query;
 
@@ -357,7 +359,7 @@ async function aggregateOrders(
     }
 
     if (orders.length < BATCH) break;
-    offset += orders.length;
+    lastId = orders[orders.length - 1].id;
   }
 
   console.log(`[recompute] Processed ${totalOrders} locked orders for ${dateType}`);
