@@ -396,7 +396,7 @@ export const useReports = (options?: UseReportsOptions) => {
               id: `temp-${effectiveDriverId}`,
               driver_id: effectiveDriverId,
               truck_id: actualTruckId,
-              note,
+              note: note.trim(),
               updated_at: nowIso,
             }];
           }
