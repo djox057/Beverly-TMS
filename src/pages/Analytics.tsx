@@ -1097,11 +1097,13 @@ const Analytics = () => {
       return [];
     }
     const filtered = orders?.filter(order => {
-      // Note: We no longer exclude locked orders here. In precomputed mode,
-      // useOrdersWithProgress only fetches unlocked orders, and useOrdersRealtime
-      // prevents NEW locked orders from being inserted into the analytics cache.
-      // Orders that were unlocked at fetch time and later locked via realtime
-      // are kept here because they may not yet be in the precomputed aggregates.
+      // In precomputed mode, exclude locked orders from live count.
+      // They are already included in precomputed aggregates.
+      // When an unlocked order gets locked mid-session via realtime,
+      // it's removed from the analytics cache by useOrdersRealtime.
+      if (isPrecomputed && order.locked) {
+        return false;
+      }
 
       // Exclude canceled orders from analytics UNLESS they have TONU values
       // TONU from canceled orders should still count in gross/commission
@@ -1210,7 +1212,7 @@ const Analytics = () => {
       return false;
     }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -1783,9 +1785,8 @@ const Analytics = () => {
 
     // Reduce unlocked orders
     (orders || []).forEach(order => {
-      // Locked orders in the cache are only those fetched as unlocked initially
-      // (realtime no longer injects new locked orders into analytics cache)
-      if (order.locked) return;
+      // In precomputed mode, skip locked orders — they're in aggregates
+      if (isPrecomputed && order.locked) return;
       if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) return;
       const driverName = order.driverName;
       if (driverName && driverName !== "N/A") {
