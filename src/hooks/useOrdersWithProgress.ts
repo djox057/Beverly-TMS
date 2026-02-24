@@ -31,8 +31,10 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const queryClient = useQueryClient();
 
   // Feature flag: skip locked orders when precomputed aggregates are available
+  // Temporarily disabled — defaulting to raw order fetching (all orders loaded).
+  // Set localStorage.analytics_use_precomputed = "true" to re-enable precomputed mode.
   const usePrecomputed = typeof window !== "undefined"
-    && localStorage.getItem("analytics_use_raw_orders") !== "true";
+    && localStorage.getItem("analytics_use_precomputed") === "true";
 
   const [progress, setProgress] = useState<LoadingProgress>({
     unlockedLoaded: 0,
