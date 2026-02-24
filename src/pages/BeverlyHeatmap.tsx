@@ -303,30 +303,62 @@ export default function BeverlyHeatmap() {
         if (data) allDriverOrders.push(...(data as any[]));
       }
 
-      // Group by driver, sorted by pickup_datetime
+      // Group by driver and sort deterministically
       const driverOrdersSorted = new Map<string, typeof allDriverOrders>();
+      const driverOrderIndex = new Map<string, Map<string, number>>();
       for (const o of allDriverOrders) {
         if (!o.driver1_id || !o.pickup_datetime) continue;
         if (!driverOrdersSorted.has(o.driver1_id)) driverOrdersSorted.set(o.driver1_id, []);
         driverOrdersSorted.get(o.driver1_id)!.push(o);
+      }
+      for (const [driverId, orders] of driverOrdersSorted) {
+        orders.sort((a, b) => {
+          const t = a.pickup_datetime.localeCompare(b.pickup_datetime);
+          return t !== 0 ? t : a.id.localeCompare(b.id);
+        });
+        const idx = new Map<string, number>();
+        orders.forEach((o, i) => idx.set(o.id, i));
+        driverOrderIndex.set(driverId, idx);
       }
 
       // Step 4: For each heatmap order, find the next order for that driver
       const nextOrderForHeatmap = new Map<string, { id: string; freight: number; miles: number }>();
       for (const [orderId, info] of orderDriverMap) {
         const dOrders = driverOrdersSorted.get(info.driver1_id);
-        if (!dOrders) continue;
-        for (const o of dOrders) {
-          if (o.pickup_datetime > info.pickup_datetime && o.id !== orderId) {
-            const miles = o.mileage != null ? Number(o.mileage) : (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
-            nextOrderForHeatmap.set(orderId, {
-              id: o.id,
-              freight: Number(o.freight_amount) || 0,
-              miles,
-            });
-            break;
+        if (!dOrders || dOrders.length === 0) continue;
+
+        const idx = driverOrderIndex.get(info.driver1_id)?.get(orderId);
+        let nextCandidate: (typeof dOrders)[number] | undefined;
+
+        if (idx != null) {
+          // Preferred: use sequence position, handles same timestamp correctly
+          for (let i = idx + 1; i < dOrders.length; i++) {
+            if (dOrders[i].id !== orderId) {
+              nextCandidate = dOrders[i];
+              break;
+            }
           }
         }
+
+        if (!nextCandidate) {
+          // Fallback: source order might be canceled/missing in non-canceled list
+          nextCandidate = dOrders.find(
+            (o) => o.id !== orderId && o.pickup_datetime >= info.pickup_datetime
+          );
+        }
+
+        if (!nextCandidate) continue;
+
+        const miles =
+          nextCandidate.mileage != null
+            ? Number(nextCandidate.mileage)
+            : (Number(nextCandidate.loaded_miles) || 0) + (Number(nextCandidate.dh_miles) || 0);
+
+        nextOrderForHeatmap.set(orderId, {
+          id: nextCandidate.id,
+          freight: Number(nextCandidate.freight_amount) || 0,
+          miles,
+        });
       }
 
       // Step 5: Aggregate per city using DELIVERY-ONLY filtered orders
