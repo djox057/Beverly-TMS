@@ -164,7 +164,10 @@ export function useOrdersRealtime() {
           // Don't insert NEW locked orders into analytics caches — they're already
           // covered by precomputed aggregates and would cause double-counting.
           const isAnalytics = qk.length > 1 && (qk[1] === 'analytics-full');
-          if (isAnalytics && transformedOrder.locked) return old;
+          if (isAnalytics && transformedOrder.locked) {
+            // Remove from analytics cache — covered by precomputed aggregates
+            return old.filter((o) => o.id !== orderId);
+          }
           return [transformedOrder, ...old];
         });
       });
