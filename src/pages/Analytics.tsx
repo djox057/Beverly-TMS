@@ -1097,6 +1097,12 @@ const Analytics = () => {
       return [];
     }
     const filtered = orders?.filter(order => {
+      // In precomputed mode, locked orders are already counted in aggregates.
+      // Realtime can patch locked orders into the cache → exclude them to avoid double-counting.
+      if (isPrecomputed && order.locked) {
+        return false;
+      }
+
       // Exclude canceled orders from analytics UNLESS they have TONU values
       // TONU from canceled orders should still count in gross/commission
       if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
@@ -1204,7 +1210,7 @@ const Analytics = () => {
       return false;
     }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
