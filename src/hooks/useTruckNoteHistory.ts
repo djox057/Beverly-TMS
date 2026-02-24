@@ -132,5 +132,6 @@ export const useTruckNoteHistory = (driverId: string | null) => {
       })) as NoteHistoryEntry[];
     },
     enabled: !!driverId,
+    staleTime: 0,
   });
 };
