@@ -316,7 +316,7 @@ export const useReports = (options?: UseReportsOptions) => {
         .upsert({
           truck_id: actualTruckId,
           driver_id: driverId,
-          note,
+          note: note.trim(),
           updated_by: user.id,
           updated_at: nowIso,
         }, {
@@ -354,7 +354,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note, lastEdit, editDate };
+              return { ...truck, note: note.trim(), lastEdit, editDate };
             }
             return truck;
           }),
@@ -385,7 +385,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 n?.driver_id === effectiveDriverId
                   ? {
                       ...n,
-                      note,
+                      note: note.trim(),
                       updated_at: nowIso,
                     }
                   : n,

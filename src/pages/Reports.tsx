@@ -1276,7 +1276,7 @@ const Reports = () => {
       } else if (editing.field === "note") {
         await updateTruckNote.mutateAsync({
           truckId: truck.id,
-          note: editing.value,
+          note: editing.value.trim(),
         });
       } else if (editing.field.startsWith("pickup-") && truck?.pickup.id) {
         const updates: any = {};
@@ -3073,7 +3073,7 @@ const Reports = () => {
       await updateTruckNote.mutateAsync({
         truckId,
         driverId: driverId || undefined,
-        note: newValue,
+        note: newValue.trim(),
       });
     } catch (error: any) {
       toast({
