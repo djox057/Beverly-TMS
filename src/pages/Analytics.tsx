@@ -1783,6 +1783,8 @@ const Analytics = () => {
 
     // Reduce unlocked orders
     (orders || []).forEach(order => {
+      // In precomputed mode, locked orders are in allTimeDriverData — skip to avoid double-counting
+      if (isPrecomputed && order.locked) return;
       if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) return;
       const driverName = order.driverName;
       if (driverName && driverName !== "N/A") {
