@@ -8,7 +8,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, MapPin, X } from "lucide-react";
+import { RefreshCw, MapPin, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -70,6 +70,8 @@ interface CityAgg {
   daysWithData: number;
   orderIds: string[];
 }
+
+type SortKey = "city" | "total" | "rpm";
 
 // --- Date filter helpers ---
 
@@ -137,6 +139,7 @@ export default function BeverlyHeatmap() {
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [selectedCity, setSelectedCity] = useState<CityAgg | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "total", dir: "desc" });
 
   const weekOptions = useMemo(() => generateWeekOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
@@ -187,10 +190,9 @@ export default function BeverlyHeatmap() {
     enabled: !!startStr && !!endStr,
   });
 
-  // Build city rows
-  const { sortedCities } = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to || rawData.length === 0)
-      return { sortedCities: [] as CityAgg[] };
+  // Build city rows (unsorted – sorting applied later)
+  const baseCities = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to || rawData.length === 0) return [] as CityAgg[];
 
     const cityTotals = new Map<string, number>();
     const cityFreight = new Map<string, number>();
@@ -211,19 +213,137 @@ export default function BeverlyHeatmap() {
       }
     }
 
-    const sorted: CityAgg[] = [...cityTotals.entries()]
-      .map(([city, total]) => ({
-        city,
-        total,
-        totalFreight: cityFreight.get(city) || 0,
-        totalMiles: cityMiles.get(city) || 0,
-        daysWithData: cityDays.get(city)?.size || 1,
-        orderIds: [...(cityOrderIds.get(city) || [])],
-      }))
-      .sort((a, b) => b.total - a.total);
-
-    return { sortedCities: sorted };
+    return [...cityTotals.entries()].map(([city, total]) => ({
+      city,
+      total,
+      totalFreight: cityFreight.get(city) || 0,
+      totalMiles: cityMiles.get(city) || 0,
+      daysWithData: cityDays.get(city)?.size || 1,
+      orderIds: [...(cityOrderIds.get(city) || [])],
+    }));
   }, [rawData, dateRange]);
+
+  // Collect all order IDs across all cities for next-order lookup
+  const allOrderIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of baseCities) for (const oid of c.orderIds) ids.add(oid);
+    return [...ids];
+  }, [baseCities]);
+
+  // Fetch next-order financials
+  const { data: nextOrderMap } = useQuery({
+    queryKey: ["heatmap-next-orders", allOrderIds],
+    queryFn: async () => {
+      if (allOrderIds.length === 0) return new Map<string, { freight: number; miles: number; count: number }>();
+
+      // Step 1: Fetch heatmap orders to get driver1_id and pickup_datetime
+      const heatmapOrders: { id: string; driver1_id: string; pickup_datetime: string }[] = [];
+      for (let i = 0; i < allOrderIds.length; i += 200) {
+        const chunk = allOrderIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("orders")
+          .select("id, driver1_id, pickup_datetime")
+          .in("id", chunk);
+        if (data) heatmapOrders.push(...(data as any[]));
+      }
+
+      // Build a map: orderId -> { driver1_id, pickup_datetime }
+      const orderDriverMap = new Map<string, { driver1_id: string; pickup_datetime: string }>();
+      const driverIds = new Set<string>();
+      for (const o of heatmapOrders) {
+        if (o.driver1_id && o.pickup_datetime) {
+          orderDriverMap.set(o.id, { driver1_id: o.driver1_id, pickup_datetime: o.pickup_datetime });
+          driverIds.add(o.driver1_id);
+        }
+      }
+
+      if (driverIds.size === 0) return new Map<string, { freight: number; miles: number; count: number }>();
+
+      // Step 2: Fetch all non-canceled orders for these drivers
+      const driverIdArr = [...driverIds];
+      const allDriverOrders: { id: string; driver1_id: string; pickup_datetime: string; freight_amount: number | null; loaded_miles: number | null; dh_miles: number | null; mileage: number | null }[] = [];
+      for (let i = 0; i < driverIdArr.length; i += 200) {
+        const chunk = driverIdArr.slice(i, i + 200);
+        const { data } = await supabase
+          .from("orders")
+          .select("id, driver1_id, pickup_datetime, freight_amount, loaded_miles, dh_miles, mileage")
+          .in("driver1_id", chunk)
+          .eq("canceled", false)
+          .order("pickup_datetime", { ascending: true });
+        if (data) allDriverOrders.push(...(data as any[]));
+      }
+
+      // Group by driver, sorted by pickup_datetime
+      const driverOrdersSorted = new Map<string, typeof allDriverOrders>();
+      for (const o of allDriverOrders) {
+        if (!o.driver1_id || !o.pickup_datetime) continue;
+        if (!driverOrdersSorted.has(o.driver1_id)) driverOrdersSorted.set(o.driver1_id, []);
+        driverOrdersSorted.get(o.driver1_id)!.push(o);
+      }
+      // Already sorted by pickup_datetime from the query
+
+      // Step 3: For each heatmap order, find the next order for that driver
+      // orderId -> next order (or null)
+      const nextOrderForHeatmap = new Map<string, { freight: number; miles: number }>();
+      for (const [orderId, info] of orderDriverMap) {
+        const dOrders = driverOrdersSorted.get(info.driver1_id);
+        if (!dOrders) continue;
+        // Find the first order with pickup_datetime strictly after the heatmap order's
+        // and different id
+        for (const o of dOrders) {
+          if (o.pickup_datetime > info.pickup_datetime && o.id !== orderId) {
+            const miles = o.mileage != null ? Number(o.mileage) : (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+            nextOrderForHeatmap.set(orderId, {
+              freight: Number(o.freight_amount) || 0,
+              miles,
+            });
+            break;
+          }
+        }
+      }
+
+      // Step 4: Aggregate per city
+      const cityNextMap = new Map<string, { freight: number; miles: number; count: number }>();
+      for (const cityAgg of baseCities) {
+        let freight = 0, miles = 0, count = 0;
+        for (const oid of cityAgg.orderIds) {
+          const next = nextOrderForHeatmap.get(oid);
+          if (next) {
+            freight += next.freight;
+            miles += next.miles;
+            count++;
+          }
+        }
+        cityNextMap.set(cityAgg.city, { freight, miles, count });
+      }
+
+      return cityNextMap;
+    },
+    enabled: allOrderIds.length > 0,
+    staleTime: 0,
+  });
+
+  // Apply sorting
+  const sortedCities = useMemo(() => {
+    const cities = [...baseCities];
+    const { key, dir } = sortConfig;
+    cities.sort((a, b) => {
+      let cmp = 0;
+      if (key === "city") {
+        cmp = a.city.localeCompare(b.city);
+      } else if (key === "total") {
+        cmp = a.total - b.total;
+      } else if (key === "rpm") {
+        const aNext = nextOrderMap?.get(a.city);
+        const bNext = nextOrderMap?.get(b.city);
+        const aRpm = aNext && aNext.miles > 0 ? aNext.freight / aNext.miles : 0;
+        const bRpm = bNext && bNext.miles > 0 ? bNext.freight / bNext.miles : 0;
+        cmp = aRpm - bRpm;
+      }
+      return dir === "asc" ? cmp : -cmp;
+    });
+    return cities;
+  }, [baseCities, sortConfig, nextOrderMap]);
 
   // Fetch order details when a city is selected
   const { data: orderDetails = [], isLoading: isLoadingOrders } = useQuery({
@@ -231,7 +351,6 @@ export default function BeverlyHeatmap() {
     queryFn: async () => {
       if (!selectedCity || selectedCity.orderIds.length === 0) return [];
       const allOrders: OrderDetail[] = [];
-      // Fetch in chunks of 200
       for (let i = 0; i < selectedCity.orderIds.length; i += 200) {
         const chunk = selectedCity.orderIds.slice(i, i + 200);
         const { data: orders, error } = await supabase
@@ -246,7 +365,7 @@ export default function BeverlyHeatmap() {
           .from("pickup_drops")
           .select("order_id, city, state, type")
           .in("order_id", orderIds)
-          .order("stop_order", { ascending: true });
+          .order("sequence_number", { ascending: true });
 
         const pdMap = new Map<string, { city: string | null; state: string | null; stop_type: string | null }[]>();
         for (const pd of pds || []) {
@@ -308,6 +427,21 @@ export default function BeverlyHeatmap() {
   const getMiles = (o: OrderDetail) => {
     if (o.mileage != null) return Number(o.mileage);
     return (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+  };
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }
+    );
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
+    if (sortConfig.key !== columnKey) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
+    return sortConfig.dir === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 ml-1" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 ml-1" />
+    );
   };
 
   return (
@@ -389,8 +523,6 @@ export default function BeverlyHeatmap() {
         </CardHeader>
 
         <CardContent>
-          {sortedCities.length > 0}
-
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
           ) : sortedCities.length === 0 ? (
@@ -402,18 +534,42 @@ export default function BeverlyHeatmap() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="sticky left-0 z-10 bg-card min-w-[200px]">City</TableHead>
-                    <TableHead className="text-center min-w-[60px]">Total</TableHead>
+                    <TableHead
+                      className="sticky left-0 z-10 bg-card min-w-[200px] cursor-pointer select-none"
+                      onClick={() => handleSort("city")}
+                    >
+                      <span className="inline-flex items-center">
+                        City <SortIcon columnKey="city" />
+                      </span>
+                    </TableHead>
+                    <TableHead
+                      className="text-center min-w-[60px] cursor-pointer select-none"
+                      onClick={() => handleSort("total")}
+                    >
+                      <span className="inline-flex items-center justify-center w-full">
+                        Total <SortIcon columnKey="total" />
+                      </span>
+                    </TableHead>
                     <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
                     <TableHead className="text-right min-w-[70px]">Avg Miles</TableHead>
-                    <TableHead className="text-right min-w-[60px]">RPM</TableHead>
+                    <TableHead
+                      className="text-right min-w-[60px] cursor-pointer select-none"
+                      onClick={() => handleSort("rpm")}
+                    >
+                      <span className="inline-flex items-center justify-end w-full">
+                        RPM <SortIcon columnKey="rpm" />
+                      </span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedCities.map((cityAgg) => {
-                    const { city, total, totalFreight, totalMiles } = cityAgg;
-                    const avgFreight = total > 0 ? totalFreight / total : 0;
-                    const avgMiles = total > 0 ? totalMiles / total : 0;
+                    const { city, total } = cityAgg;
+                    const nextData = nextOrderMap?.get(city);
+                    const avgFreight = nextData && nextData.count > 0 ? nextData.freight / nextData.count : 0;
+                    const avgMiles = nextData && nextData.count > 0 ? nextData.miles / nextData.count : 0;
+                    const totalNextFreight = nextData?.freight || 0;
+                    const totalNextMiles = nextData?.miles || 0;
                     return (
                       <TableRow key={city} className="hover:bg-transparent">
                         <TableCell className="sticky left-0 z-10 bg-card font-medium text-sm whitespace-nowrap">
@@ -435,7 +591,7 @@ export default function BeverlyHeatmap() {
                           {formatMiles(avgMiles)}
                         </TableCell>
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
-                          {formatRpm(totalFreight, totalMiles)}
+                          {formatRpm(totalNextFreight, totalNextMiles)}
                         </TableCell>
                       </TableRow>
                     );
