@@ -280,12 +280,21 @@ export default function BeverlyHeatmap() {
       // Build a map: orderId -> { driver1_id, pickup_datetime }
       const orderDriverMap = new Map<string, { driver1_id: string; pickup_datetime: string }>();
       const driverIds = new Set<string>();
+      let minPickup = "";
+      let maxPickup = "";
       for (const o of heatmapOrders) {
         if (o.driver1_id && o.pickup_datetime) {
           orderDriverMap.set(o.id, { driver1_id: o.driver1_id, pickup_datetime: o.pickup_datetime });
           driverIds.add(o.driver1_id);
+          if (!minPickup || o.pickup_datetime < minPickup) minPickup = o.pickup_datetime;
+          if (!maxPickup || o.pickup_datetime > maxPickup) maxPickup = o.pickup_datetime;
         }
       }
+
+      // Compute date window: from minPickup to maxPickup + 30 days
+      const maxPickupPlus30 = maxPickup
+        ? new Date(new Date(maxPickup).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : "";
 
       if (driverIds.size === 0) return new Map<string, CityNextData>();
 
@@ -294,13 +303,22 @@ export default function BeverlyHeatmap() {
       const allDriverOrders: { id: string; driver1_id: string; pickup_datetime: string; freight_amount: number | null; loaded_miles: number | null; dh_miles: number | null; mileage: number | null }[] = [];
       for (let i = 0; i < driverIdArr.length; i += 200) {
         const chunk = driverIdArr.slice(i, i + 200);
-        const { data } = await supabase
-          .from("orders")
-          .select("id, driver1_id, pickup_datetime, freight_amount, loaded_miles, dh_miles, mileage")
-          .in("driver1_id", chunk)
-          .eq("canceled", false)
-          .order("pickup_datetime", { ascending: true });
-        if (data) allDriverOrders.push(...(data as any[]));
+        let offset = 0;
+        const PAGE_SIZE = 1000;
+        while (true) {
+          const { data } = await supabase
+            .from("orders")
+            .select("id, driver1_id, pickup_datetime, freight_amount, loaded_miles, dh_miles, mileage")
+            .in("driver1_id", chunk)
+            .eq("canceled", false)
+            .gte("pickup_datetime", minPickup)
+            .lte("pickup_datetime", maxPickupPlus30)
+            .order("pickup_datetime", { ascending: true })
+            .range(offset, offset + PAGE_SIZE - 1);
+          if (data) allDriverOrders.push(...(data as any[]));
+          if (!data || data.length < PAGE_SIZE) break;
+          offset += PAGE_SIZE;
+        }
       }
 
       // Group by driver and sort deterministically
