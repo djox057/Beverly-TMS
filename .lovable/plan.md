@@ -1,95 +1,64 @@
 
 
-# Fix Lane Display, Change Financial Calculations to "Next Order", and Add Sorting
+# Fix: Next-Order Lookup Failing Due to Supabase 1000-Row Limit
 
-## Problems Identified
+## Root Cause
 
-1. **Lane shows "? - ?"**: The query on line 249 orders by `stop_order`, but the actual column is `sequence_number`. This causes the query to fail, returning no pickup_drops data.
-2. **Avg Freight / Avg Miles / RPM**: Currently computed from the orders found near the city. The new requirement is to find each driver's **next non-canceled order** after each heatmap order and use those "next orders" for the financial metrics.
-3. **No column sorting**: Users want to click City, Total, and RPM headers to sort.
+The query at line 297-303 fetches ALL non-canceled orders for each driver (up to 200 drivers per batch), ordered by `pickup_datetime ASC`. Supabase returns at most 1000 rows per query. With ~72 orders per driver, a single chunk of 200 drivers would need ~14,400 rows -- but only the oldest 1000 come back. The heatmap orders (recent dates) are never in this truncated result, so the index lookup always fails and no "next order" is found.
 
-## Plan
+## Fix
 
-### Change 1: Fix the lane query (line 249)
+Constrain the driver-orders query by date. We know the heatmap orders' pickup dates, so we only need orders from slightly before the earliest heatmap pickup to slightly after the latest one (to find the "next" order). This dramatically reduces the result set.
 
-Replace `.order("stop_order", ...)` with `.order("sequence_number", { ascending: true })`.
+### Changes in `src/pages/BeverlyHeatmap.tsx`
 
-### Change 2: Move financial calculations to use "next orders"
+**1. Compute a date window from the heatmap orders (after Step 1, around line 257)**
 
-This is the core logic change. The edge function (`compute-heatmap`) currently stores `total_freight` and `total_miles` from the heatmap orders themselves. Instead:
+After fetching `heatmapOrders`, find the min and max `pickup_datetime`. Set the query window from `minDate` to `maxDate + 30 days` (30 days gives enough room to find a next order even if the driver was idle for a while).
 
-**Option chosen: Compute "next order" financials at query time in the frontend.** This avoids changing the edge function and keeps the heatmap recompute fast.
+**2. Add date filters to the driver-orders query (lines 297-303)**
 
-When fetching heatmap data for the table, after getting `order_ids` for each city:
-1. Fetch those orders to get `driver1_id` and `pickup_datetime` for each.
-2. For each unique driver, find the **next order** (the first non-canceled order with `pickup_datetime` strictly after the heatmap order's pickup, for the same driver).
-3. Aggregate freight and miles from those "next orders" for the city's Avg Freight, Avg Miles, and RPM.
-4. Drivers with no next order are skipped in the calculation (not counted in the average denominator).
-5. The **Total** column remains unchanged (still shows truck count from heatmap data).
+Add `.gte("pickup_datetime", minDate)` and `.lte("pickup_datetime", maxDatePlus30)` to the query. This ensures we only fetch a narrow band of orders per driver, keeping results well under 1000 rows per chunk.
 
-**Implementation**: Create a new `useQuery` hook that fires when `sortedCities` is ready. It:
-- Collects all `order_ids` across all cities
-- Fetches those orders (id, driver1_id, pickup_datetime) in chunks of 200
-- For each driver+pickup_datetime pair, queries for the next order (pickup_datetime > current, canceled = false, same driver1_id, ordered by pickup_datetime ASC, limit 1)
-- To avoid N+1 queries, batch this: fetch all orders for all relevant drivers ordered by pickup_datetime, then do the "next order" lookup in-memory
-- Returns a map of city -> { nextOrderFreight, nextOrderMiles, nextOrderCount }
+**3. Add pagination as a safety net**
 
-### Change 3: Add sortable columns
+Use a `.range()` pagination loop (as done in `useLumperMissingRevisedRC`) so that even if a chunk somehow exceeds 1000 rows, all data is fetched. Each page fetches 1000 rows; loop until fewer than 1000 are returned.
 
-Add a `sortConfig` state: `{ key: 'city' | 'total' | 'rpm', direction: 'asc' | 'desc' }`.
+## Technical Detail
 
-Clicking a header toggles direction or changes the sort key. The `sortedCities` memo applies the sort accordingly. RPM sort is computed as `totalFreight / totalMiles` (using the next-order values).
+```text
+Before (line 297-303):
+  supabase.from("orders")
+    .select(columns)
+    .in("driver1_id", chunk)
+    .eq("canceled", false)
+    .order("pickup_datetime", { ascending: true })
+    // No date filter --> returns oldest 1000 rows only
 
-## Technical Details
-
-### File: `src/pages/BeverlyHeatmap.tsx`
-
-**1. Fix pickup_drops query** (line 249):
-- Change `.order("stop_order", { ascending: true })` to `.order("sequence_number", { ascending: true })`
-
-**2. Add sort state**:
-```typescript
-const [sortConfig, setSortConfig] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'total', dir: 'desc' });
+After:
+  supabase.from("orders")
+    .select(columns)
+    .in("driver1_id", chunk)
+    .eq("canceled", false)
+    .gte("pickup_datetime", minPickup)      // NEW
+    .lte("pickup_datetime", maxPickupPlus30) // NEW
+    .order("pickup_datetime", { ascending: true })
+    .range(offset, offset + 999)            // NEW: pagination loop
 ```
 
-**3. Add "next orders" query**:
-After building `sortedCities`, collect all `orderIds` from all cities. Fetch those orders to get driver1_id and pickup_datetime. Then fetch ALL orders for those drivers (not canceled, with pickup_datetime), and for each heatmap order find the next one in memory. Build a map: `cityKey -> { freight, miles, count }`.
+The date window calculation:
+- `minPickup` = earliest `pickup_datetime` from heatmap orders
+- `maxPickupPlus30` = latest `pickup_datetime` + 30 days
 
-**4. Update table rendering**:
-- Use next-order financials for Avg Freight, Avg Miles, RPM columns
-- Make City, Total, RPM headers clickable with sort indicators (chevron up/down)
-- Apply sort in the `sortedCities` memo using `sortConfig`
-
-**5. Update CityAgg interface** to carry computed next-order financials:
-```typescript
-interface CityAgg {
-  city: string;
-  total: number;
-  totalFreight: number;   // kept for backward compat
-  totalMiles: number;     // kept for backward compat
-  daysWithData: number;
-  orderIds: string[];
-  // Next-order financials (computed separately)
-  nextFreight?: number;
-  nextMiles?: number;
-  nextCount?: number;
-}
-```
-
-### Performance Consideration
-
-For the "next order" lookup, instead of querying per-driver, we:
-1. Fetch all heatmap orders (get driver IDs and pickup dates)
-2. Fetch all non-canceled orders for those drivers in a single batched query
-3. Sort in-memory and find "next" for each heatmap order
-
-This keeps it to ~3-4 Supabase queries total regardless of data volume.
+This keeps each chunk to roughly `(drivers_in_chunk * orders_in_30_day_window)` rows, which for 200 drivers with ~2-3 orders per month each is ~400-600 rows -- well within limits.
 
 ## Summary
 
-| Change | Location | What |
-|---|---|---|
-| Fix lane query | `BeverlyHeatmap.tsx` line 249 | `stop_order` -> `sequence_number` |
-| Next-order financials | `BeverlyHeatmap.tsx` new query | Fetch next order per driver for Avg/RPM |
-| Sortable columns | `BeverlyHeatmap.tsx` | Click City/Total/RPM headers to sort |
+| What | Where |
+|---|---|
+| Compute min/max pickup date window | After line 257, new code |
+| Add `.gte()` and `.lte()` date filters | Lines 297-303 |
+| Add `.range()` pagination loop | Lines 297-303 |
+
+This is a surgical fix -- only the driver-orders fetch query changes. No other logic is affected.
 
