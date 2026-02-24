@@ -38,22 +38,21 @@ async function fetchAllRows(
   endDate?: string
 ): Promise<DailyRow[]> {
   const allRows: DailyRow[] = [];
+  let lastId = "00000000-0000-0000-0000-000000000000";
   let iteration = 0;
 
   while (iteration < MAX_ITERATIONS) {
     let query = supabase
       .from("analytics_locked_daily")
-      .select("entity_id, entity_name, date, total_freight, total_driver_pay, total_driver_pay_effective, total_miles, total_dh_miles, order_count, is_company_driver")
+      .select("id, entity_id, entity_name, date, total_freight, total_driver_pay, total_driver_pay_effective, total_miles, total_dh_miles, order_count, is_company_driver")
       .eq("entity_type", entityType)
-      .eq("date_type", dateType);
+      .eq("date_type", dateType)
+      .gt("id", lastId)
+      .order("id", { ascending: true })
+      .limit(PAGE_SIZE);
 
     if (startDate) query = query.gte("date", startDate);
     if (endDate) query = query.lte("date", endDate);
-
-    query = query.order("entity_id", { ascending: true }).range(
-      iteration * PAGE_SIZE,
-      (iteration + 1) * PAGE_SIZE - 1
-    );
 
     const { data, error } = await query;
 
@@ -65,6 +64,7 @@ async function fetchAllRows(
     if (!data || data.length === 0) break;
 
     allRows.push(...(data as DailyRow[]));
+    lastId = (data[data.length - 1] as any).id;
     iteration++;
 
     if (data.length < PAGE_SIZE) break;
