@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, MapPin } from "lucide-react";
+import { RefreshCw, MapPin, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -16,15 +16,21 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow } from
-"@/components/ui/table";
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue } from
-"@/components/ui/select";
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface HeatmapRow {
   city_name: string;
@@ -35,18 +41,26 @@ interface HeatmapRow {
   truck_count: number;
   total_freight: number;
   total_miles: number;
+  order_ids: string[] | null;
 }
 
-
+interface OrderDetail {
+  broker_load_number: string | null;
+  freight_amount: number | null;
+  loaded_miles: number | null;
+  dh_miles: number | null;
+  mileage: number | null;
+  pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[];
+}
 
 const formatCurrency = (val: number) =>
-val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
+  val > 0 ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "";
 
 const formatMiles = (val: number) =>
-val > 0 ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
+  val > 0 ? val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
 
 const formatRpm = (freight: number, miles: number) =>
-miles > 0 ? `$${(freight / miles).toFixed(2)}` : "";
+  miles > 0 ? `$${(freight / miles).toFixed(2)}` : "";
 
 interface CityAgg {
   city: string;
@@ -54,9 +68,10 @@ interface CityAgg {
   totalFreight: number;
   totalMiles: number;
   daysWithData: number;
+  orderIds: string[];
 }
 
-// --- Date filter helpers (same pattern as Analytics) ---
+// --- Date filter helpers ---
 
 const getWeekStartDate = (weeksAgo: number) => {
   const today = new Date();
@@ -85,11 +100,11 @@ const generateWeekOptions = () => {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     const fmtDate = (date: Date) =>
-    date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     weeks.push({
       value: i.toString(),
       label: i === 0 ? "This Week" : i === 1 ? "Last Week" : `${fmtDate(weekStart)} - ${fmtDate(weekEnd)}`,
-      weekNumber: weeksFromStart - i
+      weekNumber: weeksFromStart - i,
     });
   }
   return weeks;
@@ -107,7 +122,7 @@ const generateMonthOptions = () => {
       value: yearMonth,
       label: monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
       start: monthStart,
-      end: monthEnd
+      end: monthEnd,
     });
   }
   return months;
@@ -121,6 +136,7 @@ export default function BeverlyHeatmap() {
   const [isRecomputing, setIsRecomputing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [selectedCity, setSelectedCity] = useState<CityAgg | null>(null);
 
   const weekOptions = useMemo(() => generateWeekOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
@@ -159,29 +175,28 @@ export default function BeverlyHeatmap() {
     queryKey: ["heatmap-city-counts", startStr, endStr],
     queryFn: async () => {
       if (!startStr || !endStr) return [];
-      const { data, error } = await supabase.
-      from("heatmap_city_counts").
-      select("city_name, city_state, city_lat, city_lng, count_date, truck_count, total_freight, total_miles").
-      gte("count_date", startStr).
-      lte("count_date", endStr).
-      order("truck_count", { ascending: false });
+      const { data, error } = await supabase
+        .from("heatmap_city_counts")
+        .select("city_name, city_state, city_lat, city_lng, count_date, truck_count, total_freight, total_miles, order_ids")
+        .gte("count_date", startStr)
+        .lte("count_date", endStr)
+        .order("truck_count", { ascending: false });
       if (error) throw error;
       return (data || []) as HeatmapRow[];
     },
-    enabled: !!startStr && !!endStr
+    enabled: !!startStr && !!endStr,
   });
 
   // Build city rows
-  const { sortedCities, totalDaysInRange } = useMemo(() => {
+  const { sortedCities } = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to || rawData.length === 0)
-    return { sortedCities: [] as CityAgg[], totalDaysInRange: 1 };
-
-    const daysCount = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      return { sortedCities: [] as CityAgg[] };
 
     const cityTotals = new Map<string, number>();
     const cityFreight = new Map<string, number>();
     const cityMiles = new Map<string, number>();
     const cityDays = new Map<string, Set<string>>();
+    const cityOrderIds = new Map<string, Set<string>>();
 
     for (const row of rawData) {
       const ck = `${row.city_name}, ${row.city_state}`;
@@ -190,20 +205,71 @@ export default function BeverlyHeatmap() {
       cityMiles.set(ck, (cityMiles.get(ck) || 0) + (row.total_miles || 0));
       if (!cityDays.has(ck)) cityDays.set(ck, new Set());
       cityDays.get(ck)!.add(row.count_date);
+      if (!cityOrderIds.has(ck)) cityOrderIds.set(ck, new Set());
+      if (row.order_ids) {
+        for (const oid of row.order_ids) cityOrderIds.get(ck)!.add(oid);
+      }
     }
 
-    const sorted: CityAgg[] = [...cityTotals.entries()].
-    map(([city, total]) => ({
-      city,
-      total,
-      totalFreight: cityFreight.get(city) || 0,
-      totalMiles: cityMiles.get(city) || 0,
-      daysWithData: cityDays.get(city)?.size || 1
-    })).
-    sort((a, b) => b.total - a.total);
+    const sorted: CityAgg[] = [...cityTotals.entries()]
+      .map(([city, total]) => ({
+        city,
+        total,
+        totalFreight: cityFreight.get(city) || 0,
+        totalMiles: cityMiles.get(city) || 0,
+        daysWithData: cityDays.get(city)?.size || 1,
+        orderIds: [...(cityOrderIds.get(city) || [])],
+      }))
+      .sort((a, b) => b.total - a.total);
 
-    return { sortedCities: sorted, totalDaysInRange: daysCount };
+    return { sortedCities: sorted };
   }, [rawData, dateRange]);
+
+  // Fetch order details when a city is selected
+  const { data: orderDetails = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ["heatmap-order-details", selectedCity?.orderIds],
+    queryFn: async () => {
+      if (!selectedCity || selectedCity.orderIds.length === 0) return [];
+      const allOrders: OrderDetail[] = [];
+      // Fetch in chunks of 200
+      for (let i = 0; i < selectedCity.orderIds.length; i += 200) {
+        const chunk = selectedCity.orderIds.slice(i, i + 200);
+        const { data: orders, error } = await supabase
+          .from("orders")
+          .select("id, broker_load_number, freight_amount, loaded_miles, dh_miles, mileage")
+          .in("id", chunk);
+        if (error) throw error;
+        if (!orders) continue;
+
+        const orderIds = orders.map((o: any) => o.id);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, city, state, type")
+          .in("order_id", orderIds)
+          .order("stop_order", { ascending: true });
+
+        const pdMap = new Map<string, { city: string | null; state: string | null; stop_type: string | null }[]>();
+        for (const pd of pds || []) {
+          if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
+          pdMap.get(pd.order_id)!.push({ city: pd.city, state: pd.state, stop_type: pd.type });
+        }
+
+        for (const o of orders) {
+          allOrders.push({
+            broker_load_number: o.broker_load_number,
+            freight_amount: o.freight_amount,
+            loaded_miles: o.loaded_miles,
+            dh_miles: o.dh_miles,
+            mileage: o.mileage,
+            pickup_drops: pdMap.get(o.id) || [],
+          });
+        }
+      }
+      return allOrders;
+    },
+    enabled: !!selectedCity && selectedCity.orderIds.length > 0,
+    staleTime: 0,
+  });
 
   const handleRecompute = async () => {
     if (!startStr || !endStr) return;
@@ -217,7 +283,7 @@ export default function BeverlyHeatmap() {
       const { data: result, error: invokeError } = await supabase.functions.invoke("compute-heatmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: startStr, to: endStr })
+        body: JSON.stringify({ from: startStr, to: endStr }),
       });
       if (invokeError) throw invokeError;
       toast.success(`Recomputed ${result.results?.length || 0} days`);
@@ -229,9 +295,23 @@ export default function BeverlyHeatmap() {
     }
   };
 
+  const getLane = (stops: { city: string | null; state: string | null; stop_type: string | null }[]) => {
+    const pickups = stops.filter((s) => s.stop_type === "pickup");
+    const deliveries = stops.filter((s) => s.stop_type === "delivery");
+    const firstPickup = pickups[0];
+    const lastDelivery = deliveries[deliveries.length - 1];
+    const pStr = firstPickup ? `${firstPickup.city || "?"}, ${firstPickup.state || "?"}` : "?";
+    const dStr = lastDelivery ? `${lastDelivery.city || "?"}, ${lastDelivery.state || "?"}` : "?";
+    return `${pStr} → ${dStr}`;
+  };
+
+  const getMiles = (o: OrderDetail) => {
+    if (o.mileage != null) return Number(o.mileage);
+    return (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Header - Analytics style */}
       <div className="flex items-center gap-4">
         <h1 className="text-3xl font-semibold text-foreground">Beverly Heatmap</h1>
       </div>
@@ -244,12 +324,12 @@ export default function BeverlyHeatmap() {
                 <MapPin className="h-5 w-5 text-primary" />
                 City Truck Density
               </CardTitle>
-              {canRecompute &&
+              {canRecompute && (
                 <Button variant="outline" size="sm" onClick={handleRecompute} disabled={isRecomputing} className="ml-auto">
                   <RefreshCw className={`h-4 w-4 mr-1 ${isRecomputing ? "animate-spin" : ""}`} />
                   Recompute
                 </Button>
-              }
+              )}
             </div>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
               <Select value={selectedWeek} onValueChange={handleWeekChange}>
@@ -258,11 +338,11 @@ export default function BeverlyHeatmap() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All time weekly</SelectItem>
-                  {weekOptions.map((week) =>
-                  <SelectItem key={week.value} value={week.value}>
+                  {weekOptions.map((week) => (
+                    <SelectItem key={week.value} value={week.value}>
                       {week.label}
                     </SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -272,11 +352,11 @@ export default function BeverlyHeatmap() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All time monthly</SelectItem>
-                  {monthOptions.map((month) =>
-                  <SelectItem key={month.value} value={month.value}>
+                  {monthOptions.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>
                       {month.label}
                     </SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -288,64 +368,37 @@ export default function BeverlyHeatmap() {
                   setSelectedMonth("all");
                 }}
                 placeholder="Custom date range"
-                className="w-full sm:w-72" />
+                className="w-full sm:w-72"
+              />
 
-
-              {dateRange &&
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDateRange(undefined);
-                  setSelectedWeek("all");
-                  setSelectedMonth("all");
-                }}>
-
+              {dateRange && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDateRange(undefined);
+                    setSelectedWeek("all");
+                    setSelectedMonth("all");
+                  }}
+                >
                   Clear Filter
                 </Button>
-              }
+              )}
             </div>
           </div>
-
         </CardHeader>
 
         <CardContent>
-          {/* Summary stats - Analytics style */}
-          {sortedCities.length > 0
+          {sortedCities.length > 0}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          }
-
-          {isLoading ?
-          <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div> :
-          sortedCities.length === 0 ?
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
+          ) : sortedCities.length === 0 ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
               No heatmap data for this date range. {canRecompute && "Try clicking Recompute."}
-            </div> :
-
-          <div className="overflow-x-auto border rounded-lg">
+            </div>
+          ) : (
+            <div className="overflow-x-auto border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -357,16 +410,23 @@ export default function BeverlyHeatmap() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedCities.map(({ city, total, totalFreight, totalMiles, daysWithData }) => {
-                  const avgFreight = total > 0 ? totalFreight / total : 0;
-                  const avgMiles = total > 0 ? totalMiles / total : 0;
-                  return (
-                    <TableRow key={city} className="hover:bg-transparent">
+                  {sortedCities.map((cityAgg) => {
+                    const { city, total, totalFreight, totalMiles } = cityAgg;
+                    const avgFreight = total > 0 ? totalFreight / total : 0;
+                    const avgMiles = total > 0 ? totalMiles / total : 0;
+                    return (
+                      <TableRow key={city} className="hover:bg-transparent">
                         <TableCell className="sticky left-0 z-10 bg-card font-medium text-sm whitespace-nowrap">
                           {city}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Badge variant="secondary" className="font-mono">{total}</Badge>
+                          <Badge
+                            variant="secondary"
+                            className="font-mono cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                            onClick={() => setSelectedCity(cityAgg)}
+                          >
+                            {total}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
                           {formatCurrency(avgFreight)}
@@ -377,15 +437,62 @@ export default function BeverlyHeatmap() {
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
                           {formatRpm(totalFreight, totalMiles)}
                         </TableCell>
-                      </TableRow>);
-
-                })}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
-          }
+          )}
         </CardContent>
       </Card>
-    </div>);
 
+      {/* Order Details Dialog */}
+      <Dialog open={!!selectedCity} onOpenChange={(open) => !open && setSelectedCity(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Orders for {selectedCity?.city} ({selectedCity?.total} trucks)
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingOrders ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">Loading order details...</div>
+          ) : orderDetails.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              No order data available. Try recomputing to populate order IDs.
+            </div>
+          ) : (
+            <div className="overflow-x-auto border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="min-w-[120px]">Broker Load #</TableHead>
+                    <TableHead className="min-w-[250px]">Lane</TableHead>
+                    <TableHead className="text-right min-w-[90px]">Freight</TableHead>
+                    <TableHead className="text-right min-w-[70px]">Miles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderDetails.map((order, idx) => (
+                    <TableRow key={idx} className="hover:bg-transparent">
+                      <TableCell className="font-mono text-sm">{order.broker_load_number || "—"}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{getLane(order.pickup_drops)}</TableCell>
+                      <TableCell className="text-right text-sm font-mono">
+                        {formatCurrency(Number(order.freight_amount) || 0)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-mono">
+                        {formatMiles(getMiles(order))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

@@ -314,6 +314,7 @@ Deno.serve(async (req) => {
           truck_count: trucks.size,
           total_freight: totalFreight,
           total_miles: totalMiles,
+          order_ids: [...orders],
         });
       }
 
