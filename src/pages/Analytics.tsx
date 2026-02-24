@@ -1097,11 +1097,11 @@ const Analytics = () => {
       return [];
     }
     const filtered = orders?.filter(order => {
-      // In precomputed mode, locked orders are already counted in aggregates.
-      // Realtime can patch locked orders into the cache → exclude them to avoid double-counting.
-      if (isPrecomputed && order.locked) {
-        return false;
-      }
+      // Note: We no longer exclude locked orders here. In precomputed mode,
+      // useOrdersWithProgress only fetches unlocked orders, and useOrdersRealtime
+      // prevents NEW locked orders from being inserted into the analytics cache.
+      // Orders that were unlocked at fetch time and later locked via realtime
+      // are kept here because they may not yet be in the precomputed aggregates.
 
       // Exclude canceled orders from analytics UNLESS they have TONU values
       // TONU from canceled orders should still count in gross/commission
@@ -1210,7 +1210,7 @@ const Analytics = () => {
       return false;
     }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -1783,8 +1783,9 @@ const Analytics = () => {
 
     // Reduce unlocked orders
     (orders || []).forEach(order => {
-      // In precomputed mode, locked orders are in allTimeDriverData — skip to avoid double-counting
-      if (isPrecomputed && order.locked) return;
+      // Locked orders in the cache are only those fetched as unlocked initially
+      // (realtime no longer injects new locked orders into analytics cache)
+      if (order.locked) return;
       if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) return;
       const driverName = order.driverName;
       if (driverName && driverName !== "N/A") {

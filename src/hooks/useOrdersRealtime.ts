@@ -161,6 +161,10 @@ export function useOrdersRealtime() {
           const qk = query.queryKey as string[];
           const isFilteredOrSearch = qk.length > 1 && (qk[1] === 'filtered' || qk[1] === 'search' || qk[1] === 'page');
           if (isFilteredOrSearch) return old;
+          // Don't insert NEW locked orders into analytics caches — they're already
+          // covered by precomputed aggregates and would cause double-counting.
+          const isAnalytics = qk.length > 1 && (qk[1] === 'analytics-full');
+          if (isAnalytics && transformedOrder.locked) return old;
           return [transformedOrder, ...old];
         });
       });
