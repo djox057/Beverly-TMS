@@ -146,12 +146,7 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
         trailerNumber = trailer?.trailer_number || null;
       }
 
-      // Also create driver_expense linked to this repair
-      const paidAmount = data.is_paid ? data.amount : 0;
-      const status = calculateExpenseStatus(data.amount, paidAmount);
-      const chicagoDate = getChicagoDate();
-      
-      // Extract last part of creator's name
+      // Also create driver_expense linked to this repair (paid status NOT synced)
       const expenseName = extractLastNamePart(data.createdByName);
       
       await supabase.from('driver_expenses').insert({
@@ -160,10 +155,10 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
         name: expenseName,
         explanation: data.reason,
         amount: data.amount,
-        paid_amount: paidAmount,
-        paid_date: data.is_paid ? chicagoDate : null,
+        paid_amount: 0,
+        paid_date: null,
         notice_1: data.accounting_note,
-        status,
+        status: 'unpaid',
         expense_date: data.repair_date,
         truck_number: truckNumber,
         trailer_number: trailerNumber,
@@ -202,8 +197,8 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
         .single();
 
       if (linkedExpense) {
-        const paidAmount = data.is_paid ? (data.amount ?? result.amount) : 0;
-        const status = calculateExpenseStatus(data.amount ?? result.amount, paidAmount);
+        // Sync fields but NOT paid status
+        const amount = data.amount ?? result.amount;
         
         // Get truck/trailer number if changed
         let truckNumber: string | null = null;
@@ -234,11 +229,8 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
           .from('driver_expenses')
           .update({
             explanation: data.reason ?? result.reason,
-            amount: data.amount ?? result.amount,
-            paid_amount: paidAmount,
-            paid_date: data.is_paid ? (data.repair_date ?? result.repair_date) : null,
+            amount,
             notice_1: data.accounting_note ?? result.accounting_note,
-            status,
             expense_date: data.repair_date ?? result.repair_date,
             truck_number: truckNumber,
             trailer_number: trailerNumber,
@@ -296,27 +288,7 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
 
       if (error) throw error;
 
-      // Update linked driver_expense
-      const { data: linkedExpense } = await supabase
-        .from('driver_expenses')
-        .select('id')
-        .eq('repair_id', id)
-        .single();
-
-      if (linkedExpense && repair) {
-        const paidAmount = is_paid ? repair.amount : 0;
-        const status = calculateExpenseStatus(repair.amount, paidAmount);
-        const chicagoDate = getChicagoDate();
-        
-        await supabase
-          .from('driver_expenses')
-          .update({
-            paid_amount: paidAmount,
-            paid_date: is_paid ? chicagoDate : null,
-            status,
-          })
-          .eq('id', linkedExpense.id);
-      }
+      // Note: paid status is NOT synced to driver_expenses
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repairs'] });
