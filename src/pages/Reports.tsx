@@ -48,7 +48,11 @@ import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 // NOTE: Reports must call exactly ONE reports hook. The adapter internally toggles legacy/date-window.
-import { useReportsDateWindowAdapter, USE_DATE_WINDOW_LOADING, invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
+import {
+  useReportsDateWindowAdapter,
+  USE_DATE_WINDOW_LOADING,
+  invalidateOrderFilesCacheForOrder,
+} from "@/hooks/useReportsDateWindowAdapter";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
@@ -64,15 +68,7 @@ import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  memo,
-  useRef,
-  useCallback,
-  startTransition,
-} from "react";
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback, startTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -276,9 +272,9 @@ const MemoizedDispatcherGroup = React.memo<{
   renderGroup: () => React.ReactNode;
 }>(
   ({ renderGroup }) => <>{renderGroup()}</>,
-  (prev, next) => prev.group === next.group && prev.memoKey === next.memoKey
+  (prev, next) => prev.group === next.group && prev.memoKey === next.memoKey,
 );
-MemoizedDispatcherGroup.displayName = 'MemoizedDispatcherGroup';
+MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
@@ -372,7 +368,7 @@ const Reports = () => {
 
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
-  
+
   const setActiveTab = useCallback((office: string) => {
     setActiveTabRaw(office);
   }, []);
@@ -439,7 +435,7 @@ const Reports = () => {
     onOrdersLoaded: (dispatcherId, orders) => {
       console.log(`[Reports] Dispatcher ${dispatcherId} loaded ${orders.length} orders via lazy loading`);
       // No need to invalidate queries - the version subscription in useReportsDateWindow handles re-renders
-    }
+    },
   });
 
   // Delete lost day note mutation
@@ -934,7 +930,7 @@ const Reports = () => {
       queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
 
       // Optimistically update zoomedLoad state so dialog immediately reflects the new file
-      setZoomedLoad(prev => {
+      setZoomedLoad((prev) => {
         if (!prev) return prev;
         const newFiles = uploadFiles.map((file, i) => ({
           id: `temp-${Date.now()}-${i}`,
@@ -1332,21 +1328,24 @@ const Reports = () => {
     // Default to 2 days before current day (Chicago time) to show 6 days
     return addDays(getChicagoToday(), -2);
   };
-  const handleCalendarDateChange = useCallback((dispatcherId: string, newDate: Date) => {
-    // Update the per-dispatcher calendar position
-    setCalendarDates((prev) => ({
-      ...prev,
-      [dispatcherId]: newDate,
-    }));
+  const handleCalendarDateChange = useCallback(
+    (dispatcherId: string, newDate: Date) => {
+      // Update the per-dispatcher calendar position
+      setCalendarDates((prev) => ({
+        ...prev,
+        [dispatcherId]: newDate,
+      }));
 
-    // Immediately trigger dispatcher-specific loading for the new visible date range
-    // This loads only the orders for THIS dispatcher's drivers, not globally
-    console.log(`[Reports] Calendar navigation for dispatcher ${dispatcherId} to ${format(newDate, "yyyy-MM-dd")}`);
-    
-    // Load orders for the start and end of the visible 6-day range
-    loadDispatcherOrders(dispatcherId, newDate);
-    loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
-  }, [loadDispatcherOrders]);
+      // Immediately trigger dispatcher-specific loading for the new visible date range
+      // This loads only the orders for THIS dispatcher's drivers, not globally
+      console.log(`[Reports] Calendar navigation for dispatcher ${dispatcherId} to ${format(newDate, "yyyy-MM-dd")}`);
+
+      // Load orders for the start and end of the visible 6-day range
+      loadDispatcherOrders(dispatcherId, newDate);
+      loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+    },
+    [loadDispatcherOrders],
+  );
   const getStatusColors = (status: string) => {
     switch (status) {
       case "In Transit":
@@ -1955,12 +1954,13 @@ const Reports = () => {
         !isOneDayFuture;
 
       // Check if there's a late (>= 16:00) delivery on this day — overrides red cell
-      const hasLateIncompleteDelivery = isMissingPickup && [...allDeliveryOrders, ...sameDayOrders].some((order: any) => {
-        const deliveryStopsForDay = order.deliveryStops?.filter(
-          (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-        ) || [];
-        return deliveryStopsForDay.some((stop: any) => isLateDeliveryTime(stop.datetime));
-      });
+      const hasLateIncompleteDelivery =
+        isMissingPickup &&
+        [...allDeliveryOrders, ...sameDayOrders].some((order: any) => {
+          const deliveryStopsForDay =
+            order.deliveryStops?.filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr) || [];
+          return deliveryStopsForDay.some((stop: any) => isLateDeliveryTime(stop.datetime));
+        });
 
       // Check if this day is today (Chicago time) - always use actual today for the red border
       const isToday = isSameDay(day, chicagoToday);
@@ -2192,217 +2192,229 @@ const Reports = () => {
               const hasHomeTimePickup = allLostDayNotesPickupBg.some(
                 (note: any) => String(note?.date || "").slice(0, 10) === dayStrPickup && note.note_type === "home_time",
               );
-              const pickupBgClass = allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : (isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup) ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted";
+              const pickupBgClass =
+                allPickupOrders.length > 0 || sameDayOrders.length > 0
+                  ? ""
+                  : isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup
+                    ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]"
+                    : "bg-muted";
               return (
-            <div
-              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupBgClass} overflow-hidden`}
-              style={{
-                height: "32px",
-                minHeight: "32px",
-                maxHeight: "32px",
-              }}
-            >
-              {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                 <div
-                  className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
-                  onClick={(e) => e.stopPropagation()}
+                  className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupBgClass} overflow-hidden`}
+                  style={{
+                    height: "32px",
+                    minHeight: "32px",
+                    maxHeight: "32px",
+                  }}
                 >
-                  {sameDayOrders.flatMap((order) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    // Get all pickup stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
-                    const pickupStopsForDay =
-                      order.pickupStops?.filter(
-                        (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                      ) || [];
-
-                    // Render a separate cell for each pickup stop
-                    return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                      const cellColor = getPickupCellColor(order, previousComplete, stop);
-                      const totalCellsOnDay =
-                        allPickupOrders.reduce(
-                          (sum, o) =>
-                            sum +
-                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                              .length || 0),
-                          0,
-                        ) +
-                        sameDayOrders.reduce(
-                          (sum, o) =>
-                            sum +
-                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                              .length || 0),
-                          0,
-                        );
-                      return (
-                        <div
-                          key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                          style={
-                            totalCellsOnDay > 1
-                              ? {
-                                  width: `${100 / totalCellsOnDay}%`,
-                                }
-                              : {}
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                            if (loadDetails) setZoomedLoad(loadDetails);
-                          }}
-                        >
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {stop.city}, {stop.state}
-                          </div>
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {formatTimeRange(stop.datetime, stop.end_datetime)}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })}
-                  {allPickupOrders.flatMap((order) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    // Get all pickup stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
-                    const pickupStopsForDay =
-                      order.pickupStops?.filter(
-                        (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                      ) || [];
-
-                    // Render a separate cell for each pickup stop
-                    return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                      const cellColor = getPickupCellColor(order, previousComplete, stop);
-                      const totalCellsOnDay =
-                        allPickupOrders.reduce(
-                          (sum, o) =>
-                            sum +
-                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                              .length || 0),
-                          0,
-                        ) +
-                        sameDayOrders.reduce(
-                          (sum, o) =>
-                            sum +
-                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                              .length || 0),
-                          0,
-                        );
-                      return (
-                        <div
-                          key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                          style={
-                            totalCellsOnDay > 1
-                              ? {
-                                  width: `${100 / totalCellsOnDay}%`,
-                                }
-                              : {}
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                            if (loadDetails) setZoomedLoad(loadDetails);
-                          }}
-                        >
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {stop.city}, {stop.state}
-                          </div>
-                          <div
-                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                          >
-                            {formatTimeRange(stop.datetime, stop.end_datetime)}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })}
-                </div>
-              ) : (
-                (() => {
-                  const dateStr = format(day, "yyyy-MM-dd");
-                  const allLostDayNotesPickup: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-                  const homeTimeNote = allLostDayNotesPickup.find(
-                    (note: any) => String(note?.date || "").slice(0, 10) === dateStr && note.note_type === "home_time",
-                  );
-                  const hasHomeTime = !!homeTimeNote;
-                  const hasDeliveryThisDay = allDeliveryOrders.length > 0;
-
-                  return (
+                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : (isMissingPickup && !hasHomeTime) ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-
-                        if (hasLateIncompleteDelivery) {
-                          // Do nothing — late delivery indicator is not clickable
-                        } else if (isMissingPickup) {
-                          const currentNote = getLostDayNote(day);
-                          const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-                          const lostDayNoteData = allLostDayNotes.find(
-                            (note: any) => String(note?.date || "").slice(0, 10) === dateStr,
-                          );
-                          const isCurrentlyHomeTime = lostDayNoteData?.note_type === "home_time";
-                          const actualNoteValue = lostDayNoteData?.note || "";
-
-                          setRedCellDialog({
-                            truckId: truck.id,
-                            truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
-                            driverId: truck.driverId,
-                            date: dateStr,
-                            currentNote: currentNote,
-                          });
-                          // Show display text if no database value exists
-                          setRedCellNote(actualNoteValue || currentNote);
-                          setRedCellIsHomeTime(isCurrentlyHomeTime);
-                        } else if (!isInTransit && !shouldShowPickupInTransit) {
-                          // Open home time dialog for empty cells
-                          setHomeTimeDialog({
-                            truckId: truck.id,
-                            truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
-                            driverId: truck.driverId,
-                            date: dateStr,
-                            isCurrentlyHomeTime: hasHomeTime,
-                          });
-                        }
-                      }}
+                      className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {hasLateIncompleteDelivery ? (
-                        <span className="text-center">{">>"}<span>LATE DEL</span>{"<<"}</span>
-                      ) : isMissingPickup ? (
-                        hasHomeTime ? (
-                          <Home className="h-4 w-4" />
-                        ) : (
-                          <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
-                            {getLostDayNote(day)}
-                          </span>
-                        )
-                      ) : isInTransit || shouldShowPickupInTransit ? (
-                        hasRescheduledOrders ? (
-                          "RESCHEDULED"
-                        ) : (
-                          ">>>"
-                        )
-                      ) : hasHomeTime ? (
-                        <Home className="h-4 w-4" />
-                      ) : (
-                        "—"
-                      )}
+                      {sameDayOrders.flatMap((order) => {
+                        const previousComplete = getPreviousLoadDeliveryStatus(order);
+                        // Get all pickup stops for this day
+                        const dayStr = format(day, "yyyy-MM-dd");
+                        const pickupStopsForDay =
+                          order.pickupStops?.filter(
+                            (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+                          ) || [];
+
+                        // Render a separate cell for each pickup stop
+                        return pickupStopsForDay.map((stop: any, stopIdx: number) => {
+                          const cellColor = getPickupCellColor(order, previousComplete, stop);
+                          const totalCellsOnDay =
+                            allPickupOrders.reduce(
+                              (sum, o) =>
+                                sum +
+                                (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                                  .length || 0),
+                              0,
+                            ) +
+                            sameDayOrders.reduce(
+                              (sum, o) =>
+                                sum +
+                                (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                                  .length || 0),
+                              0,
+                            );
+                          return (
+                            <div
+                              key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
+                              className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                              style={
+                                totalCellsOnDay > 1
+                                  ? {
+                                      width: `${100 / totalCellsOnDay}%`,
+                                    }
+                                  : {}
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
+                                const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                                if (loadDetails) setZoomedLoad(loadDetails);
+                              }}
+                            >
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {stop.city}, {stop.state}
+                              </div>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {formatTimeRange(stop.datetime, stop.end_datetime)}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })}
+                      {allPickupOrders.flatMap((order) => {
+                        const previousComplete = getPreviousLoadDeliveryStatus(order);
+                        // Get all pickup stops for this day
+                        const dayStr = format(day, "yyyy-MM-dd");
+                        const pickupStopsForDay =
+                          order.pickupStops?.filter(
+                            (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+                          ) || [];
+
+                        // Render a separate cell for each pickup stop
+                        return pickupStopsForDay.map((stop: any, stopIdx: number) => {
+                          const cellColor = getPickupCellColor(order, previousComplete, stop);
+                          const totalCellsOnDay =
+                            allPickupOrders.reduce(
+                              (sum, o) =>
+                                sum +
+                                (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                                  .length || 0),
+                              0,
+                            ) +
+                            sameDayOrders.reduce(
+                              (sum, o) =>
+                                sum +
+                                (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                                  .length || 0),
+                              0,
+                            );
+                          return (
+                            <div
+                              key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
+                              className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
+                              style={
+                                totalCellsOnDay > 1
+                                  ? {
+                                      width: `${100 / totalCellsOnDay}%`,
+                                    }
+                                  : {}
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
+                                const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                                if (loadDetails) setZoomedLoad(loadDetails);
+                              }}
+                            >
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {stop.city}, {stop.state}
+                              </div>
+                              <div
+                                className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                              >
+                                {formatTimeRange(stop.datetime, stop.end_datetime)}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })}
                     </div>
-                  );
-                })()
-              )}
-            </div>
+                  ) : (
+                    (() => {
+                      const dateStr = format(day, "yyyy-MM-dd");
+                      const allLostDayNotesPickup: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+                      const homeTimeNote = allLostDayNotesPickup.find(
+                        (note: any) =>
+                          String(note?.date || "").slice(0, 10) === dateStr && note.note_type === "home_time",
+                      );
+                      const hasHomeTime = !!homeTimeNote;
+                      const hasDeliveryThisDay = allDeliveryOrders.length > 0;
+
+                      return (
+                        <div
+                          className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+
+                            if (hasLateIncompleteDelivery) {
+                              // Do nothing — late delivery indicator is not clickable
+                            } else if (isMissingPickup) {
+                              const currentNote = getLostDayNote(day);
+                              const allLostDayNotes: any[] = (truck.lost_day_notes ??
+                                truck.lostDayNotes ??
+                                []) as any[];
+                              const lostDayNoteData = allLostDayNotes.find(
+                                (note: any) => String(note?.date || "").slice(0, 10) === dateStr,
+                              );
+                              const isCurrentlyHomeTime = lostDayNoteData?.note_type === "home_time";
+                              const actualNoteValue = lostDayNoteData?.note || "";
+
+                              setRedCellDialog({
+                                truckId: truck.id,
+                                truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
+                                driverId: truck.driverId,
+                                date: dateStr,
+                                currentNote: currentNote,
+                              });
+                              // Show display text if no database value exists
+                              setRedCellNote(actualNoteValue || currentNote);
+                              setRedCellIsHomeTime(isCurrentlyHomeTime);
+                            } else if (!isInTransit && !shouldShowPickupInTransit) {
+                              // Open home time dialog for empty cells
+                              setHomeTimeDialog({
+                                truckId: truck.id,
+                                truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
+                                driverId: truck.driverId,
+                                date: dateStr,
+                                isCurrentlyHomeTime: hasHomeTime,
+                              });
+                            }
+                          }}
+                        >
+                          {hasLateIncompleteDelivery ? (
+                            <span className="text-center">
+                              {">>"}
+                              <span>LATE DEL</span>
+                              {"<<"}
+                            </span>
+                          ) : isMissingPickup ? (
+                            hasHomeTime ? (
+                              <Home className="h-4 w-4" />
+                            ) : (
+                              <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
+                                {getLostDayNote(day)}
+                              </span>
+                            )
+                          ) : isInTransit || shouldShowPickupInTransit ? (
+                            hasRescheduledOrders ? (
+                              "RESCHEDULED"
+                            ) : (
+                              ">>>"
+                            )
+                          ) : hasHomeTime ? (
+                            <Home className="h-4 w-4" />
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
               );
             })()}
           </div>
@@ -2433,7 +2445,7 @@ const Reports = () => {
               if (debouncedTruckDriverFilter) {
                 const searchLower = debouncedTruckDriverFilter.toLowerCase();
                 const isNumericSearch = /^\d+$/.test(debouncedTruckDriverFilter);
-                
+
                 // For numeric searches, use exact match for truck number
                 const matchesTruck = isNumericSearch
                   ? truck.truckNumber?.toLowerCase() === searchLower
@@ -2983,7 +2995,7 @@ const Reports = () => {
   // Detect tab switches and bump the trigger counter
   if (prevActiveTabRef.current !== activeTab) {
     prevActiveTabRef.current = activeTab;
-    setProgressiveTrigger(c => c + 1);
+    setProgressiveTrigger((c) => c + 1);
   }
 
   useEffect(() => {
@@ -3019,19 +3031,33 @@ const Reports = () => {
         progressiveRenderRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressiveTrigger]);
 
   // Memo key that captures all volatile state used inside group rendering.
   // Changes to any of these trigger group re-renders; visibleGroupCount is intentionally
   // excluded so progressive rendering doesn't cause existing groups to re-render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const groupMemoKey = useMemo(() => ({}), [
-    editing, expandedTruckMap, expandedDispatcherMap, calendarDates,
-    sidebarOpen, activeTab, visibleTrucks, latePickups, lateDeliveries,
-    hasDriverProblem, hasEfsMissingData, hasLumperMissingRC, hasWeeklyPlan,
-    getDrugTestForDriver, drugTests,
-  ]);
+  const groupMemoKey = useMemo(
+    () => ({}),
+    [
+      editing,
+      expandedTruckMap,
+      expandedDispatcherMap,
+      calendarDates,
+      sidebarOpen,
+      activeTab,
+      visibleTrucks,
+      latePickups,
+      lateDeliveries,
+      hasDriverProblem,
+      hasEfsMissingData,
+      hasLumperMissingRC,
+      hasWeeklyPlan,
+      getDrugTestForDriver,
+      drugTests,
+    ],
+  );
 
   // Loading skeleton component for tab content
   const LoadingSkeleton = () => (
@@ -3342,12 +3368,14 @@ const Reports = () => {
             {/* Background loading indicator - shown when navigating to new dates */}
             {isFetchingBackground && !isLoading && (
               <div className="absolute top-0 left-0 right-0 h-1 bg-primary/20 overflow-hidden z-10">
-                <div className="h-full w-1/3 bg-primary animate-pulse" style={{ animation: 'pulse 1s ease-in-out infinite' }} />
+                <div
+                  className="h-full w-1/3 bg-primary animate-pulse"
+                  style={{ animation: "pulse 1s ease-in-out infinite" }}
+                />
               </div>
             )}
             {isLoading || groupedReports == null ? (
               <LoadingSkeleton />
-
             ) : isViewingOtherOfficeInIndividualMode ? (
               <div className="p-4">
                 <div className="text-center py-12">
@@ -3375,480 +3403,478 @@ const Reports = () => {
                     group={group}
                     memoKey={groupMemoKey}
                     renderGroup={() => {
-                  const startDate = getCalendarStartDate(group.dispatcherId);
-                  const days = Array.from(
-                    {
-                      length: 6,
-                    },
-                    (_, i) => addDays(startDate, i),
-                  );
-                  return (
-                    <div className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
-                      {/* Google Sheets-style table */}
-                      <div className="w-full">
-                        <table
-                          className="w-full border-collapse bg-card border-[3px] border-gray-400"
-                          style={{
-                            tableLayout: "auto",
-                            transform: "translateZ(0)",
-                            willChange: "transform",
-                          }}
-                        >
-                          <thead>
-                            {/* Date Range Selector Row with Dispatcher Name */}
-                            <tr
-                              className={`sticky top-0 z-20 ${(group as any).isOffDuty ? "bg-gray-300" : "bg-muted/50"}`}
+                      const startDate = getCalendarStartDate(group.dispatcherId);
+                      const days = Array.from(
+                        {
+                          length: 6,
+                        },
+                        (_, i) => addDays(startDate, i),
+                      );
+                      return (
+                        <div className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
+                          {/* Google Sheets-style table */}
+                          <div className="w-full">
+                            <table
+                              className="w-full border-collapse bg-card border-[3px] border-gray-400"
+                              style={{
+                                tableLayout: "auto",
+                                transform: "translateZ(0)",
+                                willChange: "transform",
+                              }}
                             >
-                              <th
-                                colSpan={3}
-                                className={`border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold ${(group as any).isOffDuty ? "text-gray-500 bg-gray-300" : "text-foreground bg-muted/50"}`}
-                                style={{
-                                  fontSize: "0.825rem",
-                                }}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Toggle expanded dispatcher map
-                                      setExpandedDispatcherMap(
-                                        expandedDispatcherMap === group.dispatcherId ? null : group.dispatcherId,
-                                      );
-                                    }}
-                                    className="p-1 hover:bg-muted rounded transition-colors"
-                                    aria-label="Fleet map"
-                                  >
-                                    <MapIcon
-                                      className={`h-4 w-4 ${expandedDispatcherMap === group.dispatcherId ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                                    />
-                                  </button>
-                                  <span>
-                                    {group.dispatcher} ({group.trucks.length} truck
-                                    {group.trucks.length !== 1 ? "s" : ""})
-                                    {(group as any).isOffDuty && (
-                                      <span className="ml-2 text-xs font-normal italic">(Off Duty)</span>
-                                    )}
-                                  </span>
-                                  {group.ext && (
-                                    <span className="text-xs font-normal text-muted-foreground">ext {group.ext}</span>
-                                  )}
-                                </div>
-                              </th>
-                              <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
-                                <div className="flex items-center justify-center">
-                                  <button
-                                    onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))}
-                                    className="p-0.5 hover:bg-muted rounded"
-                                  >
-                                    <ChevronLeft className="h-3 w-3" />
-                                  </button>
-                                  <div className="text-xs font-medium text-foreground mx-2">
-                                    {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
-                                  </div>
-                                  <button
-                                    onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))}
-                                    className="p-0.5 hover:bg-muted rounded"
-                                  >
-                                    <ChevronRight className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              </th>
-                              <th
-                                colSpan={4}
-                                className="border-r border-b-[2px] border-gray-400 bg-muted/50"
-                                style={{
-                                  width: "220px",
-                                  minWidth: "220px",
-                                  maxWidth: "220px",
-                                }}
-                              ></th>
-                              <th
-                                colSpan={2}
-                                className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
-                              >
-                                Recent Activity
-                              </th>
-                            </tr>
-                            {/* Fleet Map Row - shows when dispatcher map is expanded */}
-                            {expandedDispatcherMap === group.dispatcherId && (
-                              <tr>
-                                <th colSpan={15} className="p-0 border-b-[3px] border-border bg-card">
-                                  <div style={{ height: "600px" }}>
-                                    <DispatcherFleetMapView
-                                      trucks={group.trucks.map((truck: any) => {
-                                        // Build truck data with current order info
-                                        const allSortedOrders =
-                                          truck.allOrders
-                                            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
-                                            .sort((a: any, b: any) => {
-                                              const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
-                                              const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
-                                              return aDate - bDate;
-                                            }) || [];
-
-                                        let currentOrder: any = undefined;
-                                        if (allSortedOrders.length > 0) {
-                                          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                          const lastOrderHasBOL = lastOrder.order_files?.some(
-                                            (file: any) => file.file_category === "BOL",
-                                          );
-
-                                          if (lastOrderHasBOL) {
-                                            currentOrder = lastOrder;
-                                          } else if (allSortedOrders.length >= 2) {
-                                            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                            const previousHasPOD = previousOrder.order_files?.some(
-                                              (file: any) => file.file_category === "POD",
-                                            );
-
-                                            if (previousHasPOD) {
-                                              currentOrder = lastOrder;
-                                            } else {
-                                              const lastWithBOL = [...allSortedOrders]
-                                                .reverse()
-                                                .find((order: any) =>
-                                                  order.order_files?.some((file: any) => file.file_category === "BOL"),
-                                                );
-                                              currentOrder = lastWithBOL || lastOrder;
-                                            }
-                                          } else {
-                                            currentOrder = lastOrder;
-                                          }
-                                        }
-
-                                        return {
-                                          id: truck.id,
-                                          truckNumber: truck.truckNumber,
-                                          driverName: truck.driver || truck.driverName || "No driver",
-                                          driver2Name: truck.driver2Name,
-                                          milesAway: truck.milesAway,
-                                          driveMinutes: truck.driveMinutes,
-                                          shiftMinutes: truck.shiftMinutes,
-                                          breakMinutes: truck.breakMinutes,
-                                          cycleMinutes: truck.cycleMinutes,
-                                          currentOrder: currentOrder
-                                            ? {
-                                                id: currentOrder.id,
-                                                loadNumber: formatInternalLoadNumber(
-                                                  currentOrder.internal_load_number,
-                                                  truck.companyName,
-                                                ),
-                                                brokerLoadNumber: currentOrder.broker_load_number,
-                                                pickupAddress: currentOrder.pickupStop?.address,
-                                                deliveryAddress: currentOrder.deliveryStop?.address,
-                                                pickupCity: currentOrder.pickupStop?.city,
-                                                pickupState: currentOrder.pickupStop?.state,
-                                                deliveryCity: currentOrder.deliveryStop?.city,
-                                                deliveryState: currentOrder.deliveryStop?.state,
-                                                pickupLatitude: currentOrder.pickupStop?.latitude,
-                                                pickupLongitude: currentOrder.pickupStop?.longitude,
-                                                deliveryLatitude: currentOrder.deliveryStop?.latitude,
-                                                deliveryLongitude: currentOrder.deliveryStop?.longitude,
-                                                pickupDatetime: currentOrder.pickupStop?.datetime,
-                                                deliveryDatetime: currentOrder.deliveryStop?.datetime,
-                                                hasBOL:
-                                                  currentOrder.order_files?.some(
-                                                    (f: any) => f.file_category === "BOL",
-                                                  ) || false,
-                                                hasPOD:
-                                                  currentOrder.order_files?.some(
-                                                    (f: any) => f.file_category === "POD",
-                                                  ) || false,
-                                                pickupArrived: !!currentOrder.pickupStop?.arrival_time,
-                                              }
-                                            : undefined,
-                                        };
-                                      })}
-                                    />
-                                  </div>
-                                </th>
-                              </tr>
-                            )}
-                            {/* Column Headers Row */}
-                            <tr className="bg-muted/50 sticky top-[37px] z-10">
-                              <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
-                                Truck #
-                              </th>
-                              <th
-                                className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                style={{
-                                  width: "163px",
-                                  minWidth: "163px",
-                                  maxWidth: "163px",
-                                }}
-                              >
-                                Driver
-                              </th>
-                              <th
-                                className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                style={{
-                                  width: "136px",
-                                  minWidth: "136px",
-                                  maxWidth: "136px",
-                                }}
-                              >
-                                Home
-                              </th>
-                              {days.map((day, index) => {
-                                const isToday = isSameDay(day, getChicagoToday());
-                                return (
+                              <thead>
+                                {/* Date Range Selector Row with Dispatcher Name */}
+                                <tr
+                                  className={`sticky top-0 z-20 ${(group as any).isOffDuty ? "bg-gray-300" : "bg-muted/50"}`}
+                                >
                                   <th
-                                    key={index}
-                                    className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
+                                    colSpan={3}
+                                    className={`border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold ${(group as any).isOffDuty ? "text-gray-500 bg-gray-300" : "text-foreground bg-muted/50"}`}
                                     style={{
-                                      width: "120px",
-                                      minWidth: "120px",
-                                      maxWidth: "120px",
-                                      ...(isToday
-                                        ? {
-                                            position: "relative",
-                                            zIndex: 10,
-                                          }
-                                        : {}),
+                                      fontSize: "0.825rem",
                                     }}
                                   >
-                                    {/* Red border overlay for today header */}
-                                    {isToday && (
-                                      <div
-                                        className="absolute"
-                                        style={{
-                                          top: 0,
-                                          left: 0,
-                                          right: 0,
-                                          bottom: 0,
-                                          borderLeft: "6px solid #dc2626",
-                                          borderRight: "6px solid #dc2626",
-                                          borderTop: "6px solid #dc2626",
-                                          borderBottom: "6px solid hsl(var(--border))",
-                                          zIndex: 100,
-                                          pointerEvents: "none",
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Toggle expanded dispatcher map
+                                          setExpandedDispatcherMap(
+                                            expandedDispatcherMap === group.dispatcherId ? null : group.dispatcherId,
+                                          );
                                         }}
-                                      />
-                                    )}
-                                    <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
-                                    <div className="text-[9px] text-muted-foreground relative z-10">
-                                      {format(day, "M/d/yyyy")}
+                                        className="p-1 hover:bg-muted rounded transition-colors"
+                                        aria-label="Fleet map"
+                                      >
+                                        <MapIcon
+                                          className={`h-4 w-4 ${expandedDispatcherMap === group.dispatcherId ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                                        />
+                                      </button>
+                                      <span>
+                                        {group.dispatcher} ({group.trucks.length} truck
+                                        {group.trucks.length !== 1 ? "s" : ""})
+                                        {(group as any).isOffDuty && (
+                                          <span className="ml-2 text-xs font-normal italic">(Off Duty)</span>
+                                        )}
+                                      </span>
+                                      {group.ext && (
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                          ext {group.ext}
+                                        </span>
+                                      )}
                                     </div>
                                   </th>
-                                );
-                              })}
-                              <th
-                                colSpan={4}
-                                className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                style={{
-                                  width: "220px",
-                                  minWidth: "220px",
-                                  maxWidth: "220px",
-                                }}
-                              >
-                                Away (D) | Drive | Shift | Break | Cycle
-                              </th>
-                              <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
-                                Last Edit
-                              </th>
-                              <th
-                                className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? "border-r border-border" : ""}`}
-                              >
-                                Date
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {group.trucks
-                              .slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)
-                              .map((truck, truckIndex) => {
-                                const modifiedCells = renderTruckCalendarCells(
-                                  truck,
-                                  startDate,
-                                  truckIndex,
-                                  group.trucks.length,
-                                );
-                                const isLastTruck = truckIndex === group.trucks.length - 1;
-                                const isMapExpanded = expandedTruckMap === truck.id;
+                                  <th
+                                    colSpan={6}
+                                    className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50"
+                                  >
+                                    <div className="flex items-center justify-center">
+                                      <button
+                                        onClick={() =>
+                                          handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))
+                                        }
+                                        className="p-0.5 hover:bg-muted rounded"
+                                      >
+                                        <ChevronLeft className="h-3 w-3" />
+                                      </button>
+                                      <div className="text-xs font-medium text-foreground mx-2">
+                                        {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))
+                                        }
+                                        className="p-0.5 hover:bg-muted rounded"
+                                      >
+                                        <ChevronRight className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </th>
+                                  <th
+                                    colSpan={4}
+                                    className="border-r border-b-[2px] border-gray-400 bg-muted/50"
+                                    style={{
+                                      width: "220px",
+                                      minWidth: "220px",
+                                      maxWidth: "220px",
+                                    }}
+                                  ></th>
+                                  <th
+                                    colSpan={2}
+                                    className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
+                                  >
+                                    Recent Activity
+                                  </th>
+                                </tr>
+                                {/* Fleet Map Row - shows when dispatcher map is expanded */}
+                                {expandedDispatcherMap === group.dispatcherId && (
+                                  <tr>
+                                    <th colSpan={15} className="p-0 border-b-[3px] border-border bg-card">
+                                      <div style={{ height: "600px" }}>
+                                        <DispatcherFleetMapView
+                                          trucks={group.trucks.map((truck: any) => {
+                                            // Build truck data with current order info
+                                            const allSortedOrders =
+                                              truck.allOrders
+                                                ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
+                                                .sort((a: any, b: any) => {
+                                                  const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                                  const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
+                                                  return aDate - bDate;
+                                                }) || [];
 
-                                // Current order logic (aligned with edge function):
-                                // 1. Default: last/latest load that has BOL
-                                // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
-                                // 3. Fallback: if no load with BOL, use last load
-                                const allSortedOrders =
-                                  truck.allOrders
-                                    ?.filter((order) => !order.canceled && order.notes !== "GAME|OVER")
-                                    .sort((a, b) => {
-                                      const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
-                                      const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
-                                      return aDate - bDate;
-                                    }) || [];
+                                            let currentOrder: any = undefined;
+                                            if (allSortedOrders.length > 0) {
+                                              const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                                              const lastOrderHasBOL = lastOrder.order_files?.some(
+                                                (file: any) => file.file_category === "BOL",
+                                              );
 
-                                let currentOrder: (typeof allSortedOrders)[0] | undefined = undefined;
-                                if (allSortedOrders.length > 0) {
-                                  const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                  const lastOrderHasBOL = lastOrder.order_files?.some(
-                                    (file: any) => file.file_category === "BOL",
-                                  );
+                                              if (lastOrderHasBOL) {
+                                                currentOrder = lastOrder;
+                                              } else if (allSortedOrders.length >= 2) {
+                                                const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                                                const previousHasPOD = previousOrder.order_files?.some(
+                                                  (file: any) => file.file_category === "POD",
+                                                );
 
-                                  if (lastOrderHasBOL) {
-                                    currentOrder = lastOrder;
-                                  } else if (allSortedOrders.length >= 2) {
-                                    const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                    const previousHasPOD = previousOrder.order_files?.some(
-                                      (file: any) => file.file_category === "POD",
-                                    );
+                                                if (previousHasPOD) {
+                                                  currentOrder = lastOrder;
+                                                } else {
+                                                  const lastWithBOL = [...allSortedOrders]
+                                                    .reverse()
+                                                    .find((order: any) =>
+                                                      order.order_files?.some(
+                                                        (file: any) => file.file_category === "BOL",
+                                                      ),
+                                                    );
+                                                  currentOrder = lastWithBOL || lastOrder;
+                                                }
+                                              } else {
+                                                currentOrder = lastOrder;
+                                              }
+                                            }
 
-                                    if (previousHasPOD) {
-                                      currentOrder = lastOrder;
-                                    } else {
-                                      const lastWithBOL = [...allSortedOrders]
-                                        .reverse()
-                                        .find((order) =>
-                                          order.order_files?.some((file: any) => file.file_category === "BOL"),
-                                        );
-                                      currentOrder = lastWithBOL || lastOrder;
-                                    }
-                                  } else {
-                                    currentOrder = lastOrder;
-                                  }
-                                }
-
-                                // Multi-drop support (non-mutating): derive stops if missing
-                                const pickupStopsForDisplay =
-                                  currentOrder?.pickupStops ??
-                                  (currentOrder?.pickup_drops
-                                    ? currentOrder.pickup_drops
-                                        .filter((pd: any) => pd.type === "pickup")
-                                        .sort((a: any, b: any) => {
-                                          const aSeq = a.sequence_number ?? 0;
-                                          const bSeq = b.sequence_number ?? 0;
-                                          return aSeq - bSeq;
-                                        })
-                                    : []);
-
-                                const pickupStopForDisplay = currentOrder?.pickupStop ?? pickupStopsForDisplay[0];
-
-                                const hasBOL =
-                                  currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
-                                const hasPOD =
-                                  currentOrder?.order_files?.some((file: any) => file.file_category === "POD") || false;
-                                const pickupArrived = !!pickupStopForDisplay?.arrived_at;
-
-                                // Check if any HOS timer is 0 or below
-                                const hasExpiredHOS =
-                                  truck.driveMinutes <= 0 ||
-                                  truck.shiftMinutes <= 0 ||
-                                  truck.breakMinutes <= 0 ||
-                                  truck.cycleMinutes <= 0;
-
-                                // Get driver cell styling (includes drug test and game over)
-                                const isNew = isNewDriver(truck);
-                                const canManageDrugTests = hasRole("safety") || hasRole("manager") || hasRole("admin");
-                                const driverCellStyle = getDriverCellStyle(truck);
-                                const shouldShowDrugTestUI = isNew && canManageDrugTests;
-                                return (
-                                  <React.Fragment key={truck.id}>
-                                    <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
-                                      <td
-                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium"
+                                            return {
+                                              id: truck.id,
+                                              truckNumber: truck.truckNumber,
+                                              driverName: truck.driver || truck.driverName || "No driver",
+                                              driver2Name: truck.driver2Name,
+                                              milesAway: truck.milesAway,
+                                              driveMinutes: truck.driveMinutes,
+                                              shiftMinutes: truck.shiftMinutes,
+                                              breakMinutes: truck.breakMinutes,
+                                              cycleMinutes: truck.cycleMinutes,
+                                              currentOrder: currentOrder
+                                                ? {
+                                                    id: currentOrder.id,
+                                                    loadNumber: formatInternalLoadNumber(
+                                                      currentOrder.internal_load_number,
+                                                      truck.companyName,
+                                                    ),
+                                                    brokerLoadNumber: currentOrder.broker_load_number,
+                                                    pickupAddress: currentOrder.pickupStop?.address,
+                                                    deliveryAddress: currentOrder.deliveryStop?.address,
+                                                    pickupCity: currentOrder.pickupStop?.city,
+                                                    pickupState: currentOrder.pickupStop?.state,
+                                                    deliveryCity: currentOrder.deliveryStop?.city,
+                                                    deliveryState: currentOrder.deliveryStop?.state,
+                                                    pickupLatitude: currentOrder.pickupStop?.latitude,
+                                                    pickupLongitude: currentOrder.pickupStop?.longitude,
+                                                    deliveryLatitude: currentOrder.deliveryStop?.latitude,
+                                                    deliveryLongitude: currentOrder.deliveryStop?.longitude,
+                                                    pickupDatetime: currentOrder.pickupStop?.datetime,
+                                                    deliveryDatetime: currentOrder.deliveryStop?.datetime,
+                                                    hasBOL:
+                                                      currentOrder.order_files?.some(
+                                                        (f: any) => f.file_category === "BOL",
+                                                      ) || false,
+                                                    hasPOD:
+                                                      currentOrder.order_files?.some(
+                                                        (f: any) => f.file_category === "POD",
+                                                      ) || false,
+                                                    pickupArrived: !!currentOrder.pickupStop?.arrival_time,
+                                                  }
+                                                : undefined,
+                                            };
+                                          })}
+                                        />
+                                      </div>
+                                    </th>
+                                  </tr>
+                                )}
+                                {/* Column Headers Row */}
+                                <tr className="bg-muted/50 sticky top-[37px] z-10">
+                                  <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
+                                    Truck #
+                                  </th>
+                                  <th
+                                    className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                    style={{
+                                      width: "163px",
+                                      minWidth: "163px",
+                                      maxWidth: "163px",
+                                    }}
+                                  >
+                                    Driver
+                                  </th>
+                                  <th
+                                    className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                    style={{
+                                      width: "136px",
+                                      minWidth: "136px",
+                                      maxWidth: "136px",
+                                    }}
+                                  >
+                                    Home
+                                  </th>
+                                  {days.map((day, index) => {
+                                    const isToday = isSameDay(day, getChicagoToday());
+                                    return (
+                                      <th
+                                        key={index}
+                                        className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                         style={{
-                                          width: "77px",
-                                          minWidth: "77px",
-                                          maxWidth: "77px",
-                                          ...getCompanyBackgroundColor(truck.companyName),
+                                          width: "120px",
+                                          minWidth: "120px",
+                                          maxWidth: "120px",
+                                          ...(isToday
+                                            ? {
+                                                position: "relative",
+                                                zIndex: 10,
+                                              }
+                                            : {}),
                                         }}
                                       >
-                                        <div className="flex flex-col gap-0.5">
-                                          <div className="flex items-center gap-1 font-bold text-black">
-                                            {truck.truckNumber}
-                                            {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
-                                            {truck.twoWeekBlockDate && (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                    <Ban className="h-3 w-3 text-destructive cursor-pointer" />
-                                                  </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-2">
-                                                  <p className="text-xs font-medium">2-Week Notice</p>
-                                                  <p className="text-xs">
-                                                    Last day: {format(new Date(truck.twoWeekBlockDate), "MMM dd, yyyy")}
-                                                  </p>
-                                                </PopoverContent>
-                                              </Popover>
-                                            )}
-                                            {(() => {
-                                              const dotStatus = getDotInspectionIconStatus(truck);
-                                              if (dotStatus.show) {
-                                                return (
+                                        {/* Red border overlay for today header */}
+                                        {isToday && (
+                                          <div
+                                            className="absolute"
+                                            style={{
+                                              top: 0,
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 0,
+                                              borderLeft: "6px solid #dc2626",
+                                              borderRight: "6px solid #dc2626",
+                                              borderTop: "6px solid #dc2626",
+                                              borderBottom: "6px solid hsl(var(--border))",
+                                              zIndex: 100,
+                                              pointerEvents: "none",
+                                            }}
+                                          />
+                                        )}
+                                        <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
+                                        <div className="text-[9px] text-muted-foreground relative z-10">
+                                          {format(day, "M/d/yyyy")}
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                  <th
+                                    colSpan={4}
+                                    className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                    style={{
+                                      width: "220px",
+                                      minWidth: "220px",
+                                      maxWidth: "220px",
+                                    }}
+                                  >
+                                    Away (D) | Drive | Shift | Break | Cycle
+                                  </th>
+                                  <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
+                                    Last Edit
+                                  </th>
+                                  <th
+                                    className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? "border-r border-border" : ""}`}
+                                  >
+                                    Date
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.trucks
+                                  .slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)
+                                  .map((truck, truckIndex) => {
+                                    const modifiedCells = renderTruckCalendarCells(
+                                      truck,
+                                      startDate,
+                                      truckIndex,
+                                      group.trucks.length,
+                                    );
+                                    const isLastTruck = truckIndex === group.trucks.length - 1;
+                                    const isMapExpanded = expandedTruckMap === truck.id;
+
+                                    // Current order logic (aligned with edge function):
+                                    // 1. Default: last/latest load that has BOL
+                                    // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
+                                    // 3. Fallback: if no load with BOL, use last load
+                                    const allSortedOrders =
+                                      truck.allOrders
+                                        ?.filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+                                        .sort((a, b) => {
+                                          const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                          const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
+                                          return aDate - bDate;
+                                        }) || [];
+
+                                    let currentOrder: (typeof allSortedOrders)[0] | undefined = undefined;
+                                    if (allSortedOrders.length > 0) {
+                                      const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                                      const lastOrderHasBOL = lastOrder.order_files?.some(
+                                        (file: any) => file.file_category === "BOL",
+                                      );
+
+                                      if (lastOrderHasBOL) {
+                                        currentOrder = lastOrder;
+                                      } else if (allSortedOrders.length >= 2) {
+                                        const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                                        const previousHasPOD = previousOrder.order_files?.some(
+                                          (file: any) => file.file_category === "POD",
+                                        );
+
+                                        if (previousHasPOD) {
+                                          currentOrder = lastOrder;
+                                        } else {
+                                          const lastWithBOL = [...allSortedOrders]
+                                            .reverse()
+                                            .find((order) =>
+                                              order.order_files?.some((file: any) => file.file_category === "BOL"),
+                                            );
+                                          currentOrder = lastWithBOL || lastOrder;
+                                        }
+                                      } else {
+                                        currentOrder = lastOrder;
+                                      }
+                                    }
+
+                                    // Multi-drop support (non-mutating): derive stops if missing
+                                    const pickupStopsForDisplay =
+                                      currentOrder?.pickupStops ??
+                                      (currentOrder?.pickup_drops
+                                        ? currentOrder.pickup_drops
+                                            .filter((pd: any) => pd.type === "pickup")
+                                            .sort((a: any, b: any) => {
+                                              const aSeq = a.sequence_number ?? 0;
+                                              const bSeq = b.sequence_number ?? 0;
+                                              return aSeq - bSeq;
+                                            })
+                                        : []);
+
+                                    const pickupStopForDisplay = currentOrder?.pickupStop ?? pickupStopsForDisplay[0];
+
+                                    const hasBOL =
+                                      currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") ||
+                                      false;
+                                    const hasPOD =
+                                      currentOrder?.order_files?.some((file: any) => file.file_category === "POD") ||
+                                      false;
+                                    const pickupArrived = !!pickupStopForDisplay?.arrived_at;
+
+                                    // Check if any HOS timer is 0 or below
+                                    const hasExpiredHOS =
+                                      truck.driveMinutes <= 0 ||
+                                      truck.shiftMinutes <= 0 ||
+                                      truck.breakMinutes <= 0 ||
+                                      truck.cycleMinutes <= 0;
+
+                                    // Get driver cell styling (includes drug test and game over)
+                                    const isNew = isNewDriver(truck);
+                                    const canManageDrugTests =
+                                      hasRole("safety") || hasRole("manager") || hasRole("admin");
+                                    const driverCellStyle = getDriverCellStyle(truck);
+                                    const shouldShowDrugTestUI = isNew && canManageDrugTests;
+                                    return (
+                                      <React.Fragment key={truck.id}>
+                                        <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                                          <td
+                                            className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium"
+                                            style={{
+                                              width: "77px",
+                                              minWidth: "77px",
+                                              maxWidth: "77px",
+                                              ...getCompanyBackgroundColor(truck.companyName),
+                                            }}
+                                          >
+                                            <div className="flex flex-col gap-0.5">
+                                              <div className="flex items-center gap-1 font-bold text-black">
+                                                {truck.truckNumber}
+                                                {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                                                {truck.twoWeekBlockDate && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                      >
+                                                        <Ban className="h-3 w-3 text-destructive cursor-pointer" />
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-2">
+                                                      <p className="text-xs font-medium">2-Week Notice</p>
+                                                      <p className="text-xs">
+                                                        Last day:{" "}
+                                                        {format(new Date(truck.twoWeekBlockDate), "MMM dd, yyyy")}
+                                                      </p>
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                )}
+                                                {(() => {
+                                                  const dotStatus = getDotInspectionIconStatus(truck);
+                                                  if (dotStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <img
+                                                            src={dotInspectionIcon}
+                                                            alt="DOT Inspection"
+                                                            className="h-4 w-4"
+                                                            style={{
+                                                              filter:
+                                                                dotStatus.color === "red"
+                                                                  ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                                  : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                            }}
+                                                          />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{dotStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                              </div>
+                                              {truck.companyName && (
+                                                <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
+                                                  {truck.companyName}
+                                                </div>
+                                              )}
+                                              {truck.hasMultipleOrders && (
+                                                <TooltipProvider>
                                                   <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <img
-                                                        src={dotInspectionIcon}
-                                                        alt="DOT Inspection"
-                                                        className="h-4 w-4"
-                                                        style={{
-                                                          filter:
-                                                            dotStatus.color === "red"
-                                                              ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
-                                                              : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
-                                                        }}
-                                                      />
-                                                    </TooltipTrigger>
                                                     <TooltipContent>
-                                                      <p className="text-xs">{dotStatus.tooltip}</p>
+                                                      <p className="text-[10px]">
+                                                        {truck.totalOrdersCount} total orders ({truck.activeOrdersCount}{" "}
+                                                        active)
+                                                      </p>
                                                     </TooltipContent>
                                                   </Tooltip>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
-                                          </div>
-                                          {truck.companyName && (
-                                            <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
-                                              {truck.companyName}
+                                                </TooltipProvider>
+                                              )}
                                             </div>
-                                          )}
-                                          {truck.hasMultipleOrders && (
-                                            <TooltipProvider>
-                                              <Tooltip>
-                                                <TooltipContent>
-                                                  <p className="text-[10px]">
-                                                    {truck.totalOrdersCount} total orders ({truck.activeOrdersCount}{" "}
-                                                    active)
-                                                  </p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs relative ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
-                                        style={{
-                                          width: "163px",
-                                          minWidth: "163px",
-                                          maxWidth: "163px",
-                                          ...driverCellStyle,
-                                        }}
-                                        onClick={(e) => {
-                                          // Only trigger drug test dialog if clicking on the cell itself, not the info button
-                                          if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
-                                            console.log("Opening drug test dialog for:", {
-                                              driverId: truck.driverId,
-                                              driverName: truck.driver,
-                                              truckId: truck.id,
-                                              truckNumber: truck.truckNumber,
-                                            });
-                                            dialogs.setDrugTestDialog({
-                                              driverId: truck.driverId,
-                                              driverName: truck.driver,
-                                              truckId: truck.id,
-                                            });
-                                          }
-                                        }}
-                                      >
-                                        <div className="flex flex-col">
-                                          <div
-                                            className="flex items-center gap-2"
+                                          </td>
+                                          <td
+                                            className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs relative ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
+                                            style={{
+                                              width: "163px",
+                                              minWidth: "163px",
+                                              maxWidth: "163px",
+                                              ...driverCellStyle,
+                                            }}
                                             onClick={(e) => {
-                                              // Also allow clicking on the driver name text
+                                              // Only trigger drug test dialog if clicking on the cell itself, not the info button
                                               if (
                                                 shouldShowDrugTestUI &&
                                                 truck.driverId &&
@@ -3868,638 +3894,983 @@ const Reports = () => {
                                               }
                                             }}
                                           >
-                                            {truck.driverId &&
-                                              hasDriverProblem(truck.driverId) &&
-                                              !(roles.includes("dispatch") || roles.includes("afterhours")) && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <button
-                                                      className="inline-flex"
-                                                      onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                      <AlertCircle
-                                                        className="h-3.5 w-3.5 text-destructive cursor-pointer"
-                                                        strokeWidth={2.5}
-                                                      />
-                                                    </button>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent className="w-auto max-w-xs p-3">
-                                                    <p className="text-xs font-bold text-destructive mb-1">
-                                                      Driver Problem
-                                                    </p>
-                                                    <p className="text-xs whitespace-pre-wrap">
-                                                      {getProblemForDriver(truck.driverId)?.reason}
-                                                    </p>
-                                                    <p className="text-[10px] text-muted-foreground mt-2">
-                                                      {getProblemForDriver(truck.driverId)?.created_at &&
-                                                        new Date(
-                                                          getProblemForDriver(truck.driverId)!.created_at,
-                                                        ).toLocaleString("en-US", { timeZone: "America/Chicago" })}
-                                                    </p>
-                                                  </PopoverContent>
-                                                </Popover>
-                                              )}
-                                            <span>{truck.driver}</span>
-                                            {(() => {
-                                              const maintenanceStatus = getMaintenanceIconStatus(truck);
-                                              if (maintenanceStatus.show) {
-                                                return (
+                                            <div className="flex flex-col">
+                                              <div
+                                                className="flex items-center gap-2"
+                                                onClick={(e) => {
+                                                  // Also allow clicking on the driver name text
+                                                  if (
+                                                    shouldShowDrugTestUI &&
+                                                    truck.driverId &&
+                                                    e.target === e.currentTarget
+                                                  ) {
+                                                    console.log("Opening drug test dialog for:", {
+                                                      driverId: truck.driverId,
+                                                      driverName: truck.driver,
+                                                      truckId: truck.id,
+                                                      truckNumber: truck.truckNumber,
+                                                    });
+                                                    dialogs.setDrugTestDialog({
+                                                      driverId: truck.driverId,
+                                                      driverName: truck.driver,
+                                                      truckId: truck.id,
+                                                    });
+                                                  }
+                                                }}
+                                              >
+                                                {truck.driverId &&
+                                                  hasDriverProblem(truck.driverId) &&
+                                                  !(roles.includes("dispatch") || roles.includes("afterhours")) && (
+                                                    <Popover>
+                                                      <PopoverTrigger asChild>
+                                                        <button
+                                                          className="inline-flex"
+                                                          onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                          <AlertCircle
+                                                            className="h-3.5 w-3.5 text-destructive cursor-pointer"
+                                                            strokeWidth={2.5}
+                                                          />
+                                                        </button>
+                                                      </PopoverTrigger>
+                                                      <PopoverContent className="w-auto max-w-xs p-3">
+                                                        <p className="text-xs font-bold text-destructive mb-1">
+                                                          Driver Problem
+                                                        </p>
+                                                        <p className="text-xs whitespace-pre-wrap">
+                                                          {getProblemForDriver(truck.driverId)?.reason}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground mt-2">
+                                                          {getProblemForDriver(truck.driverId)?.created_at &&
+                                                            new Date(
+                                                              getProblemForDriver(truck.driverId)!.created_at,
+                                                            ).toLocaleString("en-US", { timeZone: "America/Chicago" })}
+                                                        </p>
+                                                      </PopoverContent>
+                                                    </Popover>
+                                                  )}
+                                                <span>{truck.driver}</span>
+                                                {(() => {
+                                                  const maintenanceStatus = getMaintenanceIconStatus(truck);
+                                                  if (maintenanceStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <img
+                                                            src={wrenchIcon}
+                                                            alt="Maintenance"
+                                                            className="h-3.5 w-3.5"
+                                                            style={{
+                                                              filter:
+                                                                maintenanceStatus.color === "red"
+                                                                  ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
+                                                                  : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                            }}
+                                                          />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{maintenanceStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {hasLumperMissingRC(truck.driverId) && (
                                                   <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                      <img
-                                                        src={wrenchIcon}
-                                                        alt="Maintenance"
-                                                        className="h-3.5 w-3.5"
-                                                        style={{
-                                                          filter:
-                                                            maintenanceStatus.color === "red"
-                                                              ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
-                                                              : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setLumperMissingDataDialog({
+                                                            driverId: truck.driverId!,
+                                                            driverName: truck.driver || "Unknown",
+                                                          });
                                                         }}
-                                                      />
+                                                      >
+                                                        <img
+                                                          src={lumperReceiptIcon}
+                                                          alt="Lumper Receipt"
+                                                          className="h-4 w-4 cursor-pointer"
+                                                        />
+                                                      </button>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
-                                                      <p className="text-xs">{maintenanceStatus.tooltip}</p>
+                                                      <p className="text-xs">Lumper - Missing Receipt</p>
                                                     </TooltipContent>
                                                   </Tooltip>
-                                                );
-                                              }
-                                              return null;
-                                            })()}
-                                            {hasLumperMissingRC(truck.driverId) && (
+                                                )}
+                                                {hasEfsMissingData(truck.driverId) && (
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setEfsMissingDataDialog({
+                                                            driverId: truck.driverId!,
+                                                            driverName: truck.driver || "Unknown",
+                                                          });
+                                                        }}
+                                                      >
+                                                        <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
+                                                      </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p className="text-xs">EFS Fuel - Missing Data</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                )}
+                                                {truck.randomDrugTestDate && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                      >
+                                                        <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-2">
+                                                      <p className="text-xs font-medium">Random Drug Test</p>
+                                                      <p className="text-xs">
+                                                        Date:{" "}
+                                                        {format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}
+                                                      </p>
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                )}
+                                                {(truck.driverPhone ||
+                                                  truck.driverEmail ||
+                                                  truck.trailerNumber ||
+                                                  truck.driver2Name) && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                      >
+                                                        <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto">
+                                                      <div className="space-y-1">
+                                                        {truck.driver2Name ? (
+                                                          <>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                              <p className="font-semibold text-sm">
+                                                                Driver 1: {truck.driver1Name}
+                                                              </p>
+                                                              {truck.driverId && truck.driver2Id && (
+                                                                <div className="flex items-center gap-1">
+                                                                  {truck.goingYard ? (
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        try {
+                                                                          // Cancel for both drivers
+                                                                          await supabase
+                                                                            .from("drivers")
+                                                                            .update({ going_yard: false })
+                                                                            .in("id", [
+                                                                              truck.driverId,
+                                                                              truck.driver2Id,
+                                                                            ]);
+
+                                                                          await supabase
+                                                                            .from("driver_yard_actions")
+                                                                            .delete()
+                                                                            .in("driver_id", [
+                                                                              truck.driverId,
+                                                                              truck.driver2Id,
+                                                                            ]);
+
+                                                                          toast({
+                                                                            title: "Yard action canceled for team",
+                                                                          });
+                                                                          // Real-time subscription handles cache updates
+                                                                        } catch (error) {
+                                                                          console.error("Error:", error);
+                                                                          toast({
+                                                                            title: "Error",
+                                                                            description: "Failed to cancel",
+                                                                            variant: "destructive",
+                                                                          });
+                                                                        }
+                                                                      }}
+                                                                    >
+                                                                      <X className="h-3 w-3 text-destructive" />
+                                                                    </Button>
+                                                                  ) : (
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setYardActionDialog({
+                                                                          driverId: truck.driverId!,
+                                                                          driverName: truck.driver1Name,
+                                                                          driver2Id: truck.driver2Id!,
+                                                                          driver2Name: truck.driver2Name,
+                                                                          truckNumber: truck.truckNumber,
+                                                                        });
+                                                                      }}
+                                                                    >
+                                                                      <Warehouse className="h-3 w-3" />
+                                                                    </Button>
+                                                                  )}
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setTwoWeekNoticeDialog({
+                                                                        driverId: truck.driverId!,
+                                                                        driverName: truck.driver1Name,
+                                                                        driver2Id: truck.driver2Id!,
+                                                                        driver2Name: truck.driver2Name,
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <CalendarIcon className="h-3 w-3" />
+                                                                  </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setEfsRequestDialog({
+                                                                        driverId: truck.driverId!,
+                                                                        driverName: truck.driver1Name,
+                                                                        truckNumber: truck.truckNumber,
+                                                                        companyName: truck.companyName || "",
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <DollarSign className="h-3 w-3" />
+                                                                  </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setHosRequestDialog({
+                                                                        driverName: truck.driver1Name,
+                                                                        truckNumber: truck.truckNumber,
+                                                                        companyName: truck.companyName || "",
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <Clock className="h-3 w-3" />
+                                                                  </Button>
+                                                                  {(hasRole("manager") ||
+                                                                    hasRole("supervisor") ||
+                                                                    hasRole("admin")) && (
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setProblemDialog({
+                                                                          driverId: truck.driverId!,
+                                                                          driverName: truck.driver1Name,
+                                                                          truckNumber: truck.truckNumber,
+                                                                          dispatcherName: truck.dispatcher || "",
+                                                                        });
+                                                                      }}
+                                                                    >
+                                                                      <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                    </Button>
+                                                                  )}
+                                                                </div>
+                                                              )}
+                                                            </div>
+                                                            {truck.driverPhone && (
+                                                              <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                            )}
+                                                            {truck.driverEmail && (
+                                                              <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                            )}
+                                                            <div className="border-t pt-1 mt-1">
+                                                              <div className="flex items-center justify-between gap-2">
+                                                                <p className="font-semibold text-sm">
+                                                                  Driver 2: {truck.driver2Name}
+                                                                </p>
+                                                                <div className="flex items-center gap-1">
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setEfsRequestDialog({
+                                                                        driverId: truck.driver2Id!,
+                                                                        driverName: truck.driver2Name!,
+                                                                        truckNumber: truck.truckNumber,
+                                                                        companyName: truck.companyName || "",
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <DollarSign className="h-3 w-3" />
+                                                                  </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setHosRequestDialog({
+                                                                        driverName: truck.driver2Name!,
+                                                                        truckNumber: truck.truckNumber,
+                                                                        companyName: truck.companyName || "",
+                                                                      });
+                                                                    }}
+                                                                  >
+                                                                    <Clock className="h-3 w-3" />
+                                                                  </Button>
+                                                                </div>
+                                                              </div>
+                                                              {truck.driver2Phone && (
+                                                                <p className="text-xs">📞 {truck.driver2Phone}</p>
+                                                              )}
+                                                              {truck.driver2Email && (
+                                                                <p className="text-xs">✉️ {truck.driver2Email}</p>
+                                                              )}
+                                                            </div>
+                                                            <div className="border-t pt-1 mt-1">
+                                                              <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                              {truck.trailerNumber && (
+                                                                <p className="text-xs">
+                                                                  🚛 Trailer: {truck.trailerNumber}
+                                                                </p>
+                                                              )}
+                                                            </div>
+                                                            {((truck as any).emergencyContactName ||
+                                                              (truck as any).emergencyContactPhone) && (
+                                                              <div className="border-t pt-1 mt-1">
+                                                                <p className="font-semibold text-xs mb-0.5">
+                                                                  Emergency Contact
+                                                                </p>
+                                                                {(truck as any).emergencyContactName && (
+                                                                  <p className="text-xs">
+                                                                    👤 {(truck as any).emergencyContactName}
+                                                                    {(truck as any).emergencyContactRelation
+                                                                      ? ` (${(truck as any).emergencyContactRelation})`
+                                                                      : ""}
+                                                                  </p>
+                                                                )}
+                                                                {(truck as any).emergencyContactPhone && (
+                                                                  <p className="text-xs">
+                                                                    📞 {(truck as any).emergencyContactPhone}
+                                                                  </p>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                          </>
+                                                        ) : (
+                                                          <>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                              <p className="font-semibold text-sm">{truck.driver}</p>
+                                                              <div className="flex items-center gap-1">
+                                                                {truck.driverId && (
+                                                                  <>
+                                                                    {truck.goingYard ? (
+                                                                      <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 w-6 p-0"
+                                                                        onClick={async (e) => {
+                                                                          e.stopPropagation();
+                                                                          try {
+                                                                            await supabase
+                                                                              .from("drivers")
+                                                                              .update({ going_yard: false })
+                                                                              .eq("id", truck.driverId);
+
+                                                                            await supabase
+                                                                              .from("driver_yard_actions")
+                                                                              .delete()
+                                                                              .eq("driver_id", truck.driverId)
+                                                                              .order("created_at", { ascending: false })
+                                                                              .limit(1);
+
+                                                                            toast({
+                                                                              title: "Yard action canceled",
+                                                                            });
+                                                                            // Real-time subscription handles cache updates
+                                                                          } catch (error) {
+                                                                            console.error("Error:", error);
+                                                                            toast({
+                                                                              title: "Error",
+                                                                              description: "Failed to cancel",
+                                                                              variant: "destructive",
+                                                                            });
+                                                                          }
+                                                                        }}
+                                                                      >
+                                                                        <X className="h-3 w-3 text-destructive" />
+                                                                      </Button>
+                                                                    ) : (
+                                                                      <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 w-6 p-0"
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          setYardActionDialog({
+                                                                            driverId: truck.driverId!,
+                                                                            driverName: truck.driver,
+                                                                            truckNumber: truck.truckNumber,
+                                                                          });
+                                                                        }}
+                                                                      >
+                                                                        <Warehouse className="h-3 w-3" />
+                                                                      </Button>
+                                                                    )}
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setTwoWeekNoticeDialog({
+                                                                          driverId: truck.driverId!,
+                                                                          driverName: truck.driver,
+                                                                        });
+                                                                      }}
+                                                                    >
+                                                                      <CalendarIcon className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEfsRequestDialog({
+                                                                          driverId: truck.driverId!,
+                                                                          driverName: truck.driver,
+                                                                          truckNumber: truck.truckNumber,
+                                                                          companyName: truck.companyName || "",
+                                                                        });
+                                                                      }}
+                                                                    >
+                                                                      <DollarSign className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setHosRequestDialog({
+                                                                          driverName: truck.driver,
+                                                                          truckNumber: truck.truckNumber,
+                                                                          companyName: truck.companyName || "",
+                                                                        });
+                                                                      }}
+                                                                    >
+                                                                      <Clock className="h-3 w-3" />
+                                                                    </Button>
+                                                                    {(hasRole("manager") ||
+                                                                      hasRole("supervisor") ||
+                                                                      hasRole("admin")) && (
+                                                                      <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 w-6 p-0"
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          setProblemDialog({
+                                                                            driverId: truck.driverId!,
+                                                                            driverName: truck.driver,
+                                                                            truckNumber: truck.truckNumber,
+                                                                            dispatcherName: truck.dispatcher || "",
+                                                                          });
+                                                                        }}
+                                                                      >
+                                                                        <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                      </Button>
+                                                                    )}
+                                                                  </>
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                            <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                            {truck.trailerNumber && (
+                                                              <p className="text-xs">
+                                                                🚛 Trailer: {truck.trailerNumber}
+                                                              </p>
+                                                            )}
+                                                            {truck.driverPhone && (
+                                                              <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                            )}
+                                                            {truck.driverEmail && (
+                                                              <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                            )}
+                                                            {((truck as any).emergencyContactName ||
+                                                              (truck as any).emergencyContactPhone) && (
+                                                              <div className="border-t pt-1 mt-1">
+                                                                <p className="font-semibold text-xs mb-0.5">
+                                                                  Emergency Contact
+                                                                </p>
+                                                                {(truck as any).emergencyContactName && (
+                                                                  <p className="text-xs">
+                                                                    👤 {(truck as any).emergencyContactName}
+                                                                    {(truck as any).emergencyContactRelation
+                                                                      ? ` (${(truck as any).emergencyContactRelation})`
+                                                                      : ""}
+                                                                  </p>
+                                                                )}
+                                                                {(truck as any).emergencyContactPhone && (
+                                                                  <p className="text-xs">
+                                                                    📞 {(truck as any).emergencyContactPhone}
+                                                                  </p>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                )}
+                                              </div>
+                                              {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
+                                              {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
+                                                <div className="text-[9px] text-muted-foreground italic mt-0.5">
+                                                  Disp: {(truck as any).originalDispatcherName}
+                                                </div>
+                                              )}
+                                              {/* Show current dispatcher name for drivers in off-duty sections */}
+                                              {(truck as any).currentDispatcherName && (group as any).isOffDuty && (
+                                                <div className="text-xs text-foreground font-medium mt-0.5">
+                                                  Disp: {(truck as any).currentDispatcherName}
+                                                </div>
+                                              )}
+                                            </div>
+                                            {/* Weekly Plan Icon - Bottom Right Corner */}
+                                            {truck.driverId && (
                                               <Tooltip>
                                                 <TooltipTrigger asChild>
                                                   <button
-                                                    className="inline-flex"
+                                                    className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      setLumperMissingDataDialog({
-                                                        driverId: truck.driverId!,
-                                                        driverName: truck.driver || "Unknown",
+                                                      setWeeklyPlanDialog({
+                                                        driverId: truck.driverId,
+                                                        driverName: truck.driver || "Unknown Driver",
                                                       });
                                                     }}
                                                   >
                                                     <img
-                                                      src={lumperReceiptIcon}
-                                                      alt="Lumper Receipt"
-                                                      className="h-4 w-4 cursor-pointer"
+                                                      src={weeklyPlanIcon}
+                                                      alt="Weekly Plan"
+                                                      className="h-4 w-4"
+                                                      style={{
+                                                        filter: (() => {
+                                                          const color = getWeeklyPlanIconColor(
+                                                            hasWeeklyPlan(truck.driverId),
+                                                          );
+                                                          if (color === "red") {
+                                                            return "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)";
+                                                          } else if (color === "yellow") {
+                                                            return "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)";
+                                                          }
+                                                          // Gray
+                                                          return "invert(50%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%)";
+                                                        })(),
+                                                      }}
                                                     />
                                                   </button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                  <p className="text-xs">Lumper - Missing Receipt</p>
+                                                  <p className="text-xs">Weekly Plan</p>
                                                 </TooltipContent>
                                               </Tooltip>
                                             )}
-                                            {hasEfsMissingData(truck.driverId) && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <button
-                                                    className="inline-flex"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setEfsMissingDataDialog({
-                                                        driverId: truck.driverId!,
-                                                        driverName: truck.driver || "Unknown",
-                                                      });
+                                          </td>
+                                          <td
+                                            className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
+                                            style={{
+                                              width: "136px",
+                                              minWidth: "136px",
+                                              maxWidth: "136px",
+                                            }}
+                                          >
+                                            <div
+                                              className="flex items-center gap-1"
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                              }}
+                                            >
+                                              {!truck.home || truck.home === "—" ? (
+                                                <TruckMapDialog
+                                                  truckNumber={truck.truckNumber}
+                                                  truckId={truck.id}
+                                                  pickupAddress={
+                                                    currentOrder?.pickupStop
+                                                      ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
+                                                      : undefined
+                                                  }
+                                                  deliveryAddress={
+                                                    currentOrder?.deliveryStop
+                                                      ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
+                                                      : undefined
+                                                  }
+                                                  pickupDate={truck.pickup?.date}
+                                                  pickupTime={truck.pickup?.time}
+                                                  deliveryDate={truck.delivery?.date}
+                                                  deliveryTime={truck.delivery?.time}
+                                                  loadNumber={currentOrder?.load_number}
+                                                  brokerLoadNumber={currentOrder?.broker_load_number}
+                                                  hasBOL={hasBOL}
+                                                  hasPOD={hasPOD}
+                                                  pickupArrived={pickupArrived}
+                                                  isOpen={isMapExpanded}
+                                                  onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
+                                                >
+                                                  <MapPin
+                                                    className="text-destructive cursor-pointer hover:text-destructive/80 transition-colors"
+                                                    style={{
+                                                      width: "12px",
+                                                      height: "12px",
+                                                      flexShrink: 0,
                                                     }}
+                                                    size={12}
+                                                  />
+                                                </TruckMapDialog>
+                                              ) : (
+                                                <>
+                                                  <TruckMapDialog
+                                                    truckNumber={truck.truckNumber}
+                                                    truckId={truck.id}
+                                                    pickupAddress={
+                                                      currentOrder?.pickupStop
+                                                        ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
+                                                        : undefined
+                                                    }
+                                                    deliveryAddress={
+                                                      currentOrder?.deliveryStop
+                                                        ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
+                                                        : undefined
+                                                    }
+                                                    pickupDate={truck.pickup?.date}
+                                                    pickupTime={truck.pickup?.time}
+                                                    deliveryDate={truck.delivery?.date}
+                                                    deliveryTime={truck.delivery?.time}
+                                                    loadNumber={currentOrder?.load_number}
+                                                    brokerLoadNumber={currentOrder?.broker_load_number}
+                                                    hasBOL={hasBOL}
+                                                    hasPOD={hasPOD}
+                                                    pickupArrived={pickupArrived}
+                                                    isOpen={isMapExpanded}
+                                                    onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
                                                   >
-                                                    <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
-                                                  </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p className="text-xs">EFS Fuel - Missing Data</p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            )}
-                                            {truck.randomDrugTestDate && (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                    <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
-                                                  </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-2">
-                                                  <p className="text-xs font-medium">Random Drug Test</p>
-                                                  <p className="text-xs">
-                                                    Date: {format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}
-                                                  </p>
-                                                </PopoverContent>
-                                              </Popover>
-                                            )}
-                                            {(truck.driverPhone ||
-                                              truck.driverEmail ||
-                                              truck.trailerNumber ||
-                                              truck.driver2Name) && (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                                    <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                                  </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto">
-                                                  <div className="space-y-1">
-                                                    {truck.driver2Name ? (
-                                                      <>
-                                                        <div className="flex items-center justify-between gap-2">
-                                                          <p className="font-semibold text-sm">
-                                                            Driver 1: {truck.driver1Name}
-                                                          </p>
-                                                          {truck.driverId && truck.driver2Id && (
-                                                            <div className="flex items-center gap-1">
-                                                              {truck.goingYard ? (
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={async (e) => {
-                                                                    e.stopPropagation();
-                                                                    try {
-                                                                      // Cancel for both drivers
-                                                                      await supabase
-                                                                        .from("drivers")
-                                                                        .update({ going_yard: false })
-                                                                        .in("id", [truck.driverId, truck.driver2Id]);
-
-                                                                      await supabase
-                                                                        .from("driver_yard_actions")
-                                                                        .delete()
-                                                                        .in("driver_id", [
-                                                                          truck.driverId,
-                                                                          truck.driver2Id,
-                                                                        ]);
-
-                                                                      toast({
-                                                                        title: "Yard action canceled for team",
-                                                                      });
-                                                                      // Real-time subscription handles cache updates
-                                                                    } catch (error) {
-                                                                      console.error("Error:", error);
-                                                                      toast({
-                                                                        title: "Error",
-                                                                        description: "Failed to cancel",
-                                                                        variant: "destructive",
-                                                                      });
-                                                                    }
-                                                                  }}
-                                                                >
-                                                                  <X className="h-3 w-3 text-destructive" />
-                                                                </Button>
-                                                              ) : (
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setYardActionDialog({
-                                                                      driverId: truck.driverId!,
-                                                                      driverName: truck.driver1Name,
-                                                                      driver2Id: truck.driver2Id!,
-                                                                      driver2Name: truck.driver2Name,
-                                                                      truckNumber: truck.truckNumber,
-                                                                    });
-                                                                  }}
-                                                                >
-                                                                  <Warehouse className="h-3 w-3" />
-                                                                </Button>
-                                                              )}
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setTwoWeekNoticeDialog({
-                                                                    driverId: truck.driverId!,
-                                                                    driverName: truck.driver1Name,
-                                                                    driver2Id: truck.driver2Id!,
-                                                                    driver2Name: truck.driver2Name,
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <CalendarIcon className="h-3 w-3" />
-                                                              </Button>
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setEfsRequestDialog({
-                                                                    driverId: truck.driverId!,
-                                                                    driverName: truck.driver1Name,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    companyName: truck.companyName || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <DollarSign className="h-3 w-3" />
-                                                              </Button>
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setHosRequestDialog({
-                                                                    driverName: truck.driver1Name,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    companyName: truck.companyName || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <Clock className="h-3 w-3" />
-                                                              </Button>
-                                                              {(hasRole("manager") ||
-                                                                hasRole("supervisor") ||
-                                                                hasRole("admin")) && (
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setProblemDialog({
-                                                                      driverId: truck.driverId!,
-                                                                      driverName: truck.driver1Name,
-                                                                      truckNumber: truck.truckNumber,
-                                                                      dispatcherName: truck.dispatcher || "",
-                                                                    });
-                                                                  }}
-                                                                >
-                                                                  <AlertCircle className="h-3 w-3 text-destructive" />
-                                                                </Button>
-                                                              )}
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                        {truck.driverPhone && (
-                                                          <p className="text-xs">📞 {truck.driverPhone}</p>
-                                                        )}
-                                                        {truck.driverEmail && (
-                                                          <p className="text-xs">✉️ {truck.driverEmail}</p>
-                                                        )}
-                                                        <div className="border-t pt-1 mt-1">
-                                                          <div className="flex items-center justify-between gap-2">
-                                                            <p className="font-semibold text-sm">
-                                                              Driver 2: {truck.driver2Name}
-                                                            </p>
-                                                            <div className="flex items-center gap-1">
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setEfsRequestDialog({
-                                                                    driverId: truck.driver2Id!,
-                                                                    driverName: truck.driver2Name!,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    companyName: truck.companyName || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <DollarSign className="h-3 w-3" />
-                                                              </Button>
-                                                              <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 w-6 p-0"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  setHosRequestDialog({
-                                                                    driverName: truck.driver2Name!,
-                                                                    truckNumber: truck.truckNumber,
-                                                                    companyName: truck.companyName || "",
-                                                                  });
-                                                                }}
-                                                              >
-                                                                <Clock className="h-3 w-3" />
-                                                              </Button>
-                                                            </div>
-                                                          </div>
-                                                          {truck.driver2Phone && (
-                                                            <p className="text-xs">📞 {truck.driver2Phone}</p>
-                                                          )}
-                                                          {truck.driver2Email && (
-                                                            <p className="text-xs">✉️ {truck.driver2Email}</p>
-                                                          )}
-                                                        </div>
-                                                        <div className="border-t pt-1 mt-1">
-                                                          <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                          {truck.trailerNumber && (
-                                                            <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
-                                                          )}
-                                                        </div>
-                                                        {((truck as any).emergencyContactName ||
-                                                          (truck as any).emergencyContactPhone) && (
-                                                          <div className="border-t pt-1 mt-1">
-                                                            <p className="font-semibold text-xs mb-0.5">
-                                                              Emergency Contact
-                                                            </p>
-                                                            {(truck as any).emergencyContactName && (
-                                                              <p className="text-xs">
-                                                                👤 {(truck as any).emergencyContactName}
-                                                                {(truck as any).emergencyContactRelation
-                                                                  ? ` (${(truck as any).emergencyContactRelation})`
-                                                                  : ""}
-                                                              </p>
-                                                            )}
-                                                            {(truck as any).emergencyContactPhone && (
-                                                              <p className="text-xs">
-                                                                📞 {(truck as any).emergencyContactPhone}
-                                                              </p>
-                                                            )}
-                                                          </div>
-                                                        )}
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        <div className="flex items-center justify-between gap-2">
-                                                          <p className="font-semibold text-sm">{truck.driver}</p>
-                                                          <div className="flex items-center gap-1">
-                                                            {truck.driverId && (
-                                                              <>
-                                                                {truck.goingYard ? (
-                                                                  <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={async (e) => {
-                                                                      e.stopPropagation();
-                                                                      try {
-                                                                        await supabase
-                                                                          .from("drivers")
-                                                                          .update({ going_yard: false })
-                                                                          .eq("id", truck.driverId);
-
-                                                                        await supabase
-                                                                          .from("driver_yard_actions")
-                                                                          .delete()
-                                                                          .eq("driver_id", truck.driverId)
-                                                                          .order("created_at", { ascending: false })
-                                                                          .limit(1);
-
-                                                                        toast({
-                                                                          title: "Yard action canceled",
-                                                                        });
-                                                                        // Real-time subscription handles cache updates
-                                                                      } catch (error) {
-                                                                        console.error("Error:", error);
-                                                                        toast({
-                                                                          title: "Error",
-                                                                          description: "Failed to cancel",
-                                                                          variant: "destructive",
-                                                                        });
-                                                                      }
-                                                                    }}
-                                                                  >
-                                                                    <X className="h-3 w-3 text-destructive" />
-                                                                  </Button>
-                                                                ) : (
-                                                                  <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      setYardActionDialog({
-                                                                        driverId: truck.driverId!,
-                                                                        driverName: truck.driver,
-                                                                        truckNumber: truck.truckNumber,
-                                                                      });
-                                                                    }}
-                                                                  >
-                                                                    <Warehouse className="h-3 w-3" />
-                                                                  </Button>
-                                                                )}
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setTwoWeekNoticeDialog({
-                                                                      driverId: truck.driverId!,
-                                                                      driverName: truck.driver,
-                                                                    });
-                                                                  }}
-                                                                >
-                                                                  <CalendarIcon className="h-3 w-3" />
-                                                                </Button>
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setEfsRequestDialog({
-                                                                      driverId: truck.driverId!,
-                                                                      driverName: truck.driver,
-                                                                      truckNumber: truck.truckNumber,
-                                                                      companyName: truck.companyName || "",
-                                                                    });
-                                                                  }}
-                                                                >
-                                                                  <DollarSign className="h-3 w-3" />
-                                                                </Button>
-                                                                <Button
-                                                                  variant="ghost"
-                                                                  size="sm"
-                                                                  className="h-6 w-6 p-0"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setHosRequestDialog({
-                                                                      driverName: truck.driver,
-                                                                      truckNumber: truck.truckNumber,
-                                                                      companyName: truck.companyName || "",
-                                                                    });
-                                                                  }}
-                                                                >
-                                                                  <Clock className="h-3 w-3" />
-                                                                </Button>
-                                                                {(hasRole("manager") ||
-                                                                  hasRole("supervisor") ||
-                                                                  hasRole("admin")) && (
-                                                                  <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      setProblemDialog({
-                                                                        driverId: truck.driverId!,
-                                                                        driverName: truck.driver,
-                                                                        truckNumber: truck.truckNumber,
-                                                                        dispatcherName: truck.dispatcher || "",
-                                                                      });
-                                                                    }}
-                                                                  >
-                                                                    <AlertCircle className="h-3 w-3 text-destructive" />
-                                                                  </Button>
-                                                                )}
-                                                              </>
-                                                            )}
-                                                          </div>
-                                                        </div>
-                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                        {truck.trailerNumber && (
-                                                          <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
-                                                        )}
-                                                        {truck.driverPhone && (
-                                                          <p className="text-xs">📞 {truck.driverPhone}</p>
-                                                        )}
-                                                        {truck.driverEmail && (
-                                                          <p className="text-xs">✉️ {truck.driverEmail}</p>
-                                                        )}
-                                                        {((truck as any).emergencyContactName ||
-                                                          (truck as any).emergencyContactPhone) && (
-                                                          <div className="border-t pt-1 mt-1">
-                                                            <p className="font-semibold text-xs mb-0.5">
-                                                              Emergency Contact
-                                                            </p>
-                                                            {(truck as any).emergencyContactName && (
-                                                              <p className="text-xs">
-                                                                👤 {(truck as any).emergencyContactName}
-                                                                {(truck as any).emergencyContactRelation
-                                                                  ? ` (${(truck as any).emergencyContactRelation})`
-                                                                  : ""}
-                                                              </p>
-                                                            )}
-                                                            {(truck as any).emergencyContactPhone && (
-                                                              <p className="text-xs">
-                                                                📞 {(truck as any).emergencyContactPhone}
-                                                              </p>
-                                                            )}
-                                                          </div>
-                                                        )}
-                                                      </>
+                                                    <MapPin
+                                                      className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                                                      style={{
+                                                        width: "12px",
+                                                        height: "12px",
+                                                        flexShrink: 0,
+                                                      }}
+                                                      size={12}
+                                                    />
+                                                  </TruckMapDialog>
+                                                  <span className="text-[10px]">{truck.home}</span>
+                                                </>
+                                              )}
+                                            </div>
+                                          </td>
+                                          {modifiedCells}
+                                          {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
+                                          <td
+                                            colSpan={4}
+                                            className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
+                                            style={{
+                                              height: "64px",
+                                            }}
+                                          >
+                                            <div
+                                              className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
+                                            >
+                                              {/* Away Days - Show distance in miles if available */}
+                                              <div className="flex flex-col items-center">
+                                                {editing?.truckId === truck.id && editing?.field === "miles-away" ? (
+                                                  <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value={editing.value}
+                                                    onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === "Enter") handleSave();
+                                                      if (e.key === "Escape") handleCancel();
+                                                    }}
+                                                    className="w-12 h-5 text-xs p-1"
+                                                    autoFocus
+                                                  />
+                                                ) : truck.milesAway > 0 ? (
+                                                  <div className="flex items-center w-[58px] justify-end">
+                                                    <div
+                                                      className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
+                                                      onClick={() =>
+                                                        handleEdit(truck.id, "miles-away", truck.milesAway.toString())
+                                                      }
+                                                    >
+                                                      {Math.round(truck.milesAway)}
+                                                    </div>
+                                                    {truck.totalMiles > 0 && (
+                                                      <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                                                        /{Math.round(truck.totalMiles)}
+                                                      </span>
                                                     )}
                                                   </div>
-                                                </PopoverContent>
-                                              </Popover>
-                                            )}
-                                          </div>
-                                          {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
-                                          {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
-                                            <div className="text-[9px] text-muted-foreground italic mt-0.5">
-                                              Disp: {(truck as any).originalDispatcherName}
-                                            </div>
-                                          )}
-                                          {/* Show current dispatcher name for drivers in off-duty sections */}
-                                          {(truck as any).currentDispatcherName && (group as any).isOffDuty && (
-                                            <div className="text-xs text-foreground font-medium mt-0.5">
-                                              Disp: {(truck as any).currentDispatcherName}
-                                            </div>
-                                          )}
-                                        </div>
-                                        {/* Weekly Plan Icon - Bottom Right Corner */}
-                                        {truck.driverId && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button
-                                                className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setWeeklyPlanDialog({
-                                                    driverId: truck.driverId,
-                                                    driverName: truck.driver || "Unknown Driver",
-                                                  });
-                                                }}
-                                              >
-                                                <img
-                                                  src={weeklyPlanIcon}
-                                                  alt="Weekly Plan"
-                                                  className="h-4 w-4"
-                                                  style={{
-                                                    filter: (() => {
-                                                      const color = getWeeklyPlanIconColor(
-                                                        hasWeeklyPlan(truck.driverId),
-                                                      );
-                                                      if (color === "red") {
-                                                        return "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)";
-                                                      } else if (color === "yellow") {
-                                                        return "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)";
-                                                      }
-                                                      // Gray
-                                                      return "invert(50%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%)";
-                                                    })(),
-                                                  }}
-                                                />
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p className="text-xs">Weekly Plan</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        )}
-                                      </td>
-                                      <td
-                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
-                                        style={{
-                                          width: "136px",
-                                          minWidth: "136px",
-                                          maxWidth: "136px",
-                                        }}
-                                      >
-                                        <div
-                                          className="flex items-center gap-1"
-                                          style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                          }}
-                                        >
-                                          {!truck.home || truck.home === "—" ? (
-                                            <TruckMapDialog
-                                              truckNumber={truck.truckNumber}
-                                              truckId={truck.id}
-                                              pickupAddress={
-                                                currentOrder?.pickupStop
-                                                  ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
-                                                  : undefined
-                                              }
-                                              deliveryAddress={
-                                                currentOrder?.deliveryStop
-                                                  ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
-                                                  : undefined
-                                              }
-                                              pickupDate={truck.pickup?.date}
-                                              pickupTime={truck.pickup?.time}
-                                              deliveryDate={truck.delivery?.date}
-                                              deliveryTime={truck.delivery?.time}
-                                              loadNumber={currentOrder?.load_number}
-                                              brokerLoadNumber={currentOrder?.broker_load_number}
-                                              hasBOL={hasBOL}
-                                              hasPOD={hasPOD}
-                                              pickupArrived={pickupArrived}
-                                              isOpen={isMapExpanded}
-                                              onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
-                                            >
-                                              <MapPin
-                                                className="text-destructive cursor-pointer hover:text-destructive/80 transition-colors"
-                                                style={{
-                                                  width: "12px",
-                                                  height: "12px",
-                                                  flexShrink: 0,
-                                                }}
-                                                size={12}
+                                                ) : (
+                                                  <div className="flex items-center w-[58px] justify-end">
+                                                    <div
+                                                      className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
+                                                      onClick={() => handleEdit(truck.id, "miles-away", "0")}
+                                                    >
+                                                      0
+                                                    </div>
+                                                    {truck.totalMiles > 0 && (
+                                                      <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                                                        /{Math.round(truck.totalMiles)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </div>
+
+                                              {/* HOS Circular Timers */}
+                                              <HosCircularTimer
+                                                minutes={truck.driveMinutes}
+                                                maxMinutes={11 * 60} // 11 hours max drive time
+                                                label="DRIVE"
+                                                color="#84cc16" // green
+                                                size={31}
+                                                strokeWidth={3}
                                               />
-                                            </TruckMapDialog>
-                                          ) : (
-                                            <>
-                                              <TruckMapDialog
+                                              <HosCircularTimer
+                                                minutes={truck.shiftMinutes}
+                                                maxMinutes={14 * 60} // 14 hours max shift time
+                                                label="SHIFT"
+                                                color="#06b6d4" // cyan
+                                                size={31}
+                                                strokeWidth={3}
+                                              />
+                                              <HosCircularTimer
+                                                minutes={truck.breakMinutes}
+                                                maxMinutes={8 * 60} // 8 hours max break time
+                                                label="BREAK"
+                                                color="#8b5cf6" // purple
+                                                size={31}
+                                                strokeWidth={3}
+                                              />
+                                              <HosCircularTimer
+                                                minutes={truck.cycleMinutes}
+                                                maxMinutes={70 * 60} // 70 hours max cycle time
+                                                label="CYCLE"
+                                                color="hsl(var(--muted-foreground))" // muted foreground color
+                                                size={31}
+                                                strokeWidth={3}
+                                              />
+                                            </div>
+                                            <div className="h-8 p-0 w-full">
+                                              <EditableNoteField
+                                                truckId={truck.id}
+                                                driverId={truck.driverId}
+                                                value={truck.note}
+                                                handleNoteChange={handleNoteChange}
+                                                setNoteDialogContent={setNoteDialogContent}
+                                                setNoteDialogOpen={setNoteDialogOpen}
+                                                onHistoryClick={setHistoryDialogDriverId}
+                                              />
+                                            </div>
+                                          </td>
+                                          <td
+                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
+                                            style={{
+                                              width: "80px",
+                                              minWidth: "80px",
+                                              maxWidth: "80px",
+                                            }}
+                                          >
+                                            {truck.lastEdit}
+                                          </td>
+                                          <td
+                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
+                                            style={{
+                                              width: "80px",
+                                              minWidth: "80px",
+                                              maxWidth: "80px",
+                                            }}
+                                          >
+                                            {activeTab === "Recovery" &&
+                                              truck.activeOrders?.some((o: any) => {
+                                                const order = o as any;
+                                                // Hide Revert button if POD is uploaded
+                                                const hasPOD = order.order_files?.some(
+                                                  (file: any) => file.file_category === "POD",
+                                                );
+                                                return order.is_recovery && !hasPOD;
+                                              }) && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    // Revert recovery load
+                                                    const recoveryOrder = truck.activeOrders.find((o: any) => {
+                                                      const order = o as any;
+                                                      const hasPOD = order.order_files?.some(
+                                                        (file: any) => file.file_category === "POD",
+                                                      );
+                                                      return order.is_recovery && !hasPOD;
+                                                    });
+                                                    if (!recoveryOrder) return;
+
+                                                    try {
+                                                      const order = recoveryOrder as any;
+
+                                                      // Get recovery history from the table
+                                                      const { data: recoveryHistory, error: historyError } =
+                                                        await supabase
+                                                          .from("recovery_history")
+                                                          .select("*")
+                                                          .eq("order_id", order.id)
+                                                          .is("reverted_at", null)
+                                                          .order("created_at", { ascending: false })
+                                                          .limit(1)
+                                                          .single();
+
+                                                      if (historyError || !recoveryHistory) {
+                                                        toast({
+                                                          title: "No recovery history found",
+                                                          description: "Cannot revert this load",
+                                                          variant: "destructive",
+                                                        });
+                                                        return;
+                                                      }
+
+                                                      // Revert the order to original assignment
+                                                      const { error: orderError } = await supabase
+                                                        .from("orders")
+                                                        .update({
+                                                          is_recovery: false,
+                                                          driver1_id: recoveryHistory.original_driver1_id,
+                                                          driver2_id: recoveryHistory.original_driver2_id,
+                                                          truck_id: recoveryHistory.original_truck_id,
+                                                          trailer_id: recoveryHistory.original_trailer_id,
+                                                          original_driver1_id: null,
+                                                          original_driver2_id: null,
+                                                          original_truck_id: null,
+                                                          original_trailer_id: null,
+                                                          original_miles: null,
+                                                          original_freight_amount: null,
+                                                          original_driver_price: null,
+                                                          recovery_miles: null,
+                                                          recovery_freight_amount: null,
+                                                          recovery_driver_price: null,
+                                                          recovery_date: null,
+                                                        })
+                                                        .eq("id", order.id);
+
+                                                      if (orderError) throw orderError;
+
+                                                      // Update the original truck - reassign original drivers and clear recovery status
+                                                      const { error: truckError } = await supabase
+                                                        .from("trucks")
+                                                        .update({
+                                                          driver1_id: recoveryHistory.original_driver1_id,
+                                                          driver2_id: recoveryHistory.original_driver2_id,
+                                                          needs_recovery: false,
+                                                          left_by_driver_id: null,
+                                                        })
+                                                        .eq("id", recoveryHistory.original_truck_id);
+
+                                                      if (truckError) throw truckError;
+
+                                                      // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
+                                                      if (
+                                                        recoveryHistory.original_driver1_id &&
+                                                        recoveryHistory.original_dispatcher_id
+                                                      ) {
+                                                        const { error: dispatcherError } = await supabase
+                                                          .from("drivers")
+                                                          .update({
+                                                            dispatcher_id: recoveryHistory.original_dispatcher_id,
+                                                          })
+                                                          .eq("id", recoveryHistory.original_driver1_id);
+
+                                                        if (dispatcherError) throw dispatcherError;
+                                                      }
+
+                                                      // Mark recovery history as reverted
+                                                      const {
+                                                        data: { user },
+                                                      } = await supabase.auth.getUser();
+                                                      await supabase
+                                                        .from("recovery_history")
+                                                        .update({
+                                                          reverted_at: new Date().toISOString(),
+                                                          reverted_by: user?.id || null,
+                                                        })
+                                                        .eq("id", recoveryHistory.id);
+
+                                                      toast({
+                                                        title: "Recovery reverted",
+                                                        description: `Load ${recoveryOrder.load_number} returned to original driver`,
+                                                      });
+                                                      // Real-time subscription handles cache updates
+                                                    } catch (error) {
+                                                      toast({
+                                                        title: "Failed to revert",
+                                                        description:
+                                                          error instanceof Error ? error.message : "Unknown error",
+                                                        variant: "destructive",
+                                                      });
+                                                    }
+                                                  }}
+                                                >
+                                                  <span className="text-[10px] text-green-600">Revert</span>
+                                                </Button>
+                                              )}
+                                            {truck.editDate}
+                                          </td>
+                                        </tr>
+                                        {isMapExpanded && (
+                                          <tr key={`${truck.id}-map`}>
+                                            <td colSpan={13} className="p-4 border-b-[3px] border-border">
+                                              <TruckMapView
                                                 truckNumber={truck.truckNumber}
                                                 truckId={truck.id}
-                                                pickupAddress={
-                                                  currentOrder?.pickupStop
-                                                    ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
-                                                    : undefined
-                                                }
-                                                deliveryAddress={
-                                                  currentOrder?.deliveryStop
-                                                    ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
-                                                    : undefined
+                                                pickupAddresses={currentOrder?.pickupStops
+                                                  ?.map((stop: any) =>
+                                                    `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
+                                                  )
+                                                  .filter((addr: string) => addr && addr !== ", ,")}
+                                                deliveryAddresses={currentOrder?.deliveryStops
+                                                  ?.map((stop: any) =>
+                                                    `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
+                                                  )
+                                                  .filter((addr: string) => addr && addr !== ", ,")}
+                                                completedDeliveryCount={
+                                                  currentOrder?.order_files?.filter(
+                                                    (file: any) => file.file_category === "POD",
+                                                  ).length || 0
                                                 }
                                                 pickupDate={truck.pickup?.date}
                                                 pickupTime={truck.pickup?.time}
@@ -4510,337 +4881,33 @@ const Reports = () => {
                                                 hasBOL={hasBOL}
                                                 hasPOD={hasPOD}
                                                 pickupArrived={pickupArrived}
-                                                isOpen={isMapExpanded}
-                                                onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
-                                              >
-                                                <MapPin
-                                                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                                                  style={{
-                                                    width: "12px",
-                                                    height: "12px",
-                                                    flexShrink: 0,
-                                                  }}
-                                                  size={12}
-                                                />
-                                              </TruckMapDialog>
-                                              <span className="text-[10px]">{truck.home}</span>
-                                            </>
-                                          )}
-                                        </div>
-                                      </td>
-                                      {modifiedCells}
-                                      {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                                      <td
-                                        colSpan={4}
-                                        className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
-                                        style={{
-                                          height: "64px",
-                                        }}
-                                      >
-                                        <div
-                                          className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
-                                        >
-                                          {/* Away Days - Show distance in miles if available */}
-                                          <div className="flex flex-col items-center">
-                                            {editing?.truckId === truck.id && editing?.field === "miles-away" ? (
-                                              <Input
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                value={editing.value}
-                                                onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === "Enter") handleSave();
-                                                  if (e.key === "Escape") handleCancel();
-                                                }}
-                                                className="w-12 h-5 text-xs p-1"
-                                                autoFocus
                                               />
-                                            ) : truck.milesAway > 0 ? (
-                                              <div className="flex items-center w-[58px] justify-end">
-                                                <div
-                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
-                                                  onClick={() =>
-                                                    handleEdit(truck.id, "miles-away", truck.milesAway.toString())
-                                                  }
-                                                >
-                                                  {Math.round(truck.milesAway)}
-                                                </div>
-                                                {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                                                    /{Math.round(truck.totalMiles)}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center w-[58px] justify-end">
-                                                <div
-                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
-                                                  onClick={() => handleEdit(truck.id, "miles-away", "0")}
-                                                >
-                                                  0
-                                                </div>
-                                                {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                                                    /{Math.round(truck.totalMiles)}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
+                              </tbody>
+                            </table>
 
-                                          {/* HOS Circular Timers */}
-                                          <HosCircularTimer
-                                            minutes={truck.driveMinutes}
-                                            maxMinutes={11 * 60} // 11 hours max drive time
-                                            label="DRIVE"
-                                            color="#84cc16" // green
-                                            size={31}
-                                            strokeWidth={3}
-                                          />
-                                          <HosCircularTimer
-                                            minutes={truck.shiftMinutes}
-                                            maxMinutes={14 * 60} // 14 hours max shift time
-                                            label="SHIFT"
-                                            color="#06b6d4" // cyan
-                                            size={31}
-                                            strokeWidth={3}
-                                          />
-                                          <HosCircularTimer
-                                            minutes={truck.breakMinutes}
-                                            maxMinutes={8 * 60} // 8 hours max break time
-                                            label="BREAK"
-                                            color="#8b5cf6" // purple
-                                            size={31}
-                                            strokeWidth={3}
-                                          />
-                                          <HosCircularTimer
-                                            minutes={truck.cycleMinutes}
-                                            maxMinutes={70 * 60} // 70 hours max cycle time
-                                            label="CYCLE"
-                                            color="hsl(var(--muted-foreground))" // muted foreground color
-                                            size={31}
-                                            strokeWidth={3}
-                                          />
-                                        </div>
-                                        <div className="h-8 p-0 w-full">
-                                          <EditableNoteField
-                                            truckId={truck.id}
-                                            driverId={truck.driverId}
-                                            value={truck.note}
-                                            handleNoteChange={handleNoteChange}
-                                            setNoteDialogContent={setNoteDialogContent}
-                                            setNoteDialogOpen={setNoteDialogOpen}
-                                            onHistoryClick={setHistoryDialogDriverId}
-                                          />
-                                        </div>
-                                      </td>
-                                      <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
-                                        style={{
-                                          width: "80px",
-                                          minWidth: "80px",
-                                          maxWidth: "80px",
-                                        }}
-                                      >
-                                        {truck.lastEdit}
-                                      </td>
-                                      <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
-                                        style={{
-                                          width: "80px",
-                                          minWidth: "80px",
-                                          maxWidth: "80px",
-                                        }}
-                                      >
-                                        {activeTab === "Recovery" &&
-                                          truck.activeOrders?.some((o: any) => {
-                                            const order = o as any;
-                                            // Hide Revert button if POD is uploaded
-                                            const hasPOD = order.order_files?.some(
-                                              (file: any) => file.file_category === "POD",
-                                            );
-                                            return order.is_recovery && !hasPOD;
-                                          }) && (
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
-                                              onClick={async (e) => {
-                                                e.stopPropagation();
-                                                // Revert recovery load
-                                                const recoveryOrder = truck.activeOrders.find((o: any) => {
-                                                  const order = o as any;
-                                                  const hasPOD = order.order_files?.some(
-                                                    (file: any) => file.file_category === "POD",
-                                                  );
-                                                  return order.is_recovery && !hasPOD;
-                                                });
-                                                if (!recoveryOrder) return;
-
-                                                try {
-                                                  const order = recoveryOrder as any;
-
-                                                  // Get recovery history from the table
-                                                  const { data: recoveryHistory, error: historyError } = await supabase
-                                                    .from("recovery_history")
-                                                    .select("*")
-                                                    .eq("order_id", order.id)
-                                                    .is("reverted_at", null)
-                                                    .order("created_at", { ascending: false })
-                                                    .limit(1)
-                                                    .single();
-
-                                                  if (historyError || !recoveryHistory) {
-                                                    toast({
-                                                      title: "No recovery history found",
-                                                      description: "Cannot revert this load",
-                                                      variant: "destructive",
-                                                    });
-                                                    return;
-                                                  }
-
-                                                  // Revert the order to original assignment
-                                                  const { error: orderError } = await supabase
-                                                    .from("orders")
-                                                    .update({
-                                                      is_recovery: false,
-                                                      driver1_id: recoveryHistory.original_driver1_id,
-                                                      driver2_id: recoveryHistory.original_driver2_id,
-                                                      truck_id: recoveryHistory.original_truck_id,
-                                                      trailer_id: recoveryHistory.original_trailer_id,
-                                                      original_driver1_id: null,
-                                                      original_driver2_id: null,
-                                                      original_truck_id: null,
-                                                      original_trailer_id: null,
-                                                      original_miles: null,
-                                                      original_freight_amount: null,
-                                                      original_driver_price: null,
-                                                      recovery_miles: null,
-                                                      recovery_freight_amount: null,
-                                                      recovery_driver_price: null,
-                                                      recovery_date: null,
-                                                    })
-                                                    .eq("id", order.id);
-
-                                                  if (orderError) throw orderError;
-
-                                                  // Update the original truck - reassign original drivers and clear recovery status
-                                                  const { error: truckError } = await supabase
-                                                    .from("trucks")
-                                                    .update({
-                                                      driver1_id: recoveryHistory.original_driver1_id,
-                                                      driver2_id: recoveryHistory.original_driver2_id,
-                                                      needs_recovery: false,
-                                                      left_by_driver_id: null,
-                                                    })
-                                                    .eq("id", recoveryHistory.original_truck_id);
-
-                                                  if (truckError) throw truckError;
-
-                                                  // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
-                                                  if (
-                                                    recoveryHistory.original_driver1_id &&
-                                                    recoveryHistory.original_dispatcher_id
-                                                  ) {
-                                                    const { error: dispatcherError } = await supabase
-                                                      .from("drivers")
-                                                      .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
-                                                      .eq("id", recoveryHistory.original_driver1_id);
-
-                                                    if (dispatcherError) throw dispatcherError;
-                                                  }
-
-                                                  // Mark recovery history as reverted
-                                                  const {
-                                                    data: { user },
-                                                  } = await supabase.auth.getUser();
-                                                  await supabase
-                                                    .from("recovery_history")
-                                                    .update({
-                                                      reverted_at: new Date().toISOString(),
-                                                      reverted_by: user?.id || null,
-                                                    })
-                                                    .eq("id", recoveryHistory.id);
-
-                                                  toast({
-                                                    title: "Recovery reverted",
-                                                    description: `Load ${recoveryOrder.load_number} returned to original driver`,
-                                                  });
-                                                  // Real-time subscription handles cache updates
-                                                } catch (error) {
-                                                  toast({
-                                                    title: "Failed to revert",
-                                                    description:
-                                                      error instanceof Error ? error.message : "Unknown error",
-                                                    variant: "destructive",
-                                                  });
-                                                }
-                                              }}
-                                            >
-                                              <span className="text-[10px] text-green-600">Revert</span>
-                                            </Button>
-                                          )}
-                                        {truck.editDate}
-                                      </td>
-                                    </tr>
-                                    {isMapExpanded && (
-                                      <tr key={`${truck.id}-map`}>
-                                        <td colSpan={13} className="p-4 border-b-[3px] border-border">
-                                          <TruckMapView
-                                            truckNumber={truck.truckNumber}
-                                            truckId={truck.id}
-                                            pickupAddresses={currentOrder?.pickupStops
-                                              ?.map((stop: any) =>
-                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
-                                              )
-                                              .filter((addr: string) => addr && addr !== ", ,")}
-                                            deliveryAddresses={currentOrder?.deliveryStops
-                                              ?.map((stop: any) =>
-                                                `${stop.address || ""}, ${stop.city || ""}, ${stop.state || ""} ${stop.zip_code || ""}`.trim(),
-                                              )
-                                              .filter((addr: string) => addr && addr !== ", ,")}
-                                            completedDeliveryCount={
-                                              currentOrder?.order_files?.filter(
-                                                (file: any) => file.file_category === "POD",
-                                              ).length || 0
-                                            }
-                                            pickupDate={truck.pickup?.date}
-                                            pickupTime={truck.pickup?.time}
-                                            deliveryDate={truck.delivery?.date}
-                                            deliveryTime={truck.delivery?.time}
-                                            loadNumber={currentOrder?.load_number}
-                                            brokerLoadNumber={currentOrder?.broker_load_number}
-                                            hasBOL={hasBOL}
-                                            hasPOD={hasPOD}
-                                            pickupArrived={pickupArrived}
-                                          />
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                          </tbody>
-                        </table>
-
-                        {/* Load More Trigger */}
-                        {group.trucks.length > (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT) && (
-                          <div className="flex justify-center py-4">
-                            <Button
-                              variant="outline"
-                              onClick={() => handleLoadMore(group.dispatcherId)}
-                              className="w-full max-w-md"
-                            >
-                              Load More Trucks (
-                              {group.trucks.length - (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)}{" "}
-                              remaining)
-                            </Button>
+                            {/* Load More Trigger */}
+                            {group.trucks.length > (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT) && (
+                              <div className="flex justify-center py-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleLoadMore(group.dispatcherId)}
+                                  className="w-full max-w-md"
+                                >
+                                  Load More Trucks (
+                                  {group.trucks.length - (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)}{" "}
+                                  remaining)
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  );
+                        </div>
+                      );
                     }}
                   />
                 ))}
@@ -5140,7 +5207,7 @@ const Reports = () => {
                         .invoke("send-sms", {
                           body: {
                             message: smsMessage,
-                            phoneNumbers: ["+12192465764", "+18474835375"],
+                            phoneNumbers: ["+12192465764", "+18474835375", "+15743787396"],
                           },
                         })
                         .catch((smsError) => {
