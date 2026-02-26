@@ -718,7 +718,21 @@ const NewOrder = () => {
         }));
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          setFiles(Array.from(files));
+          if (fileType === "email") {
+            const selected = Array.from(files);
+            const rcFileNames = new Set(rcFiles.map(f => f.name));
+            const filtered = selected.filter(f => !rcFileNames.has(f.name));
+            if (filtered.length < selected.length) {
+              toast({
+                title: "Duplicate file skipped",
+                description: "Files already uploaded as RC cannot be used for email to driver.",
+                variant: "destructive",
+              });
+            }
+            setFiles(filtered);
+          } else {
+            setFiles(Array.from(files));
+          }
         }
       },
       onClick: (e: React.MouseEvent) => {
@@ -3069,7 +3083,20 @@ const NewOrder = () => {
                   type="file"
                   multiple
                   accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => setEmailFiles(e.target.files ? Array.from(e.target.files) : [])}
+                  onChange={(e) => {
+                    if (!e.target.files) return;
+                    const selected = Array.from(e.target.files);
+                    const rcFileNames = new Set(rcFiles.map(f => f.name));
+                    const filtered = selected.filter(f => !rcFileNames.has(f.name));
+                    if (filtered.length < selected.length) {
+                      toast({
+                        title: "Duplicate file skipped",
+                        description: "Files already uploaded as RC cannot be used for email to driver.",
+                        variant: "destructive",
+                      });
+                    }
+                    setEmailFiles(filtered);
+                  }}
                   className="hidden"
                 />
                 <p className="text-xs text-blue-600">Upload file to email to driver</p>

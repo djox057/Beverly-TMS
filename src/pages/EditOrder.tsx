@@ -1536,9 +1536,21 @@ const EditOrder = () => {
         }));
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          // Convert FileList to File[] for email type, otherwise use FileList
           if (fileType === "email") {
-            (setFiles as React.Dispatch<React.SetStateAction<File[]>>)(Array.from(files));
+            const selected = Array.from(files);
+            const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map(f => f.name) : []);
+            const rcExistingNames = new Set(
+              existingFiles.filter(f => f.file_category === 'RC').map(f => f.file_name)
+            );
+            const filtered = selected.filter(f => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name));
+            if (filtered.length < selected.length) {
+              toast({
+                title: "Duplicate file skipped",
+                description: "Files already uploaded as RC cannot be used for email to driver.",
+                variant: "destructive",
+              });
+            }
+            (setFiles as React.Dispatch<React.SetStateAction<File[]>>)(filtered);
           } else {
             (setFiles as React.Dispatch<React.SetStateAction<FileList>>)(files);
           }
@@ -4510,7 +4522,21 @@ const EditOrder = () => {
                       accept=".pdf,.jpg,.jpeg,.png"
                       onChange={(e) => {
                         if (e.target.files && e.target.files.length > 0) {
-                          setEmailFiles(Array.from(e.target.files));
+                          const selected = Array.from(e.target.files);
+                          // Block files that match RC uploads (new or existing)
+                          const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map(f => f.name) : []);
+                          const rcExistingNames = new Set(
+                            existingFiles.filter(f => f.file_category === 'RC').map(f => f.file_name)
+                          );
+                          const filtered = selected.filter(f => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name));
+                          if (filtered.length < selected.length) {
+                            toast({
+                              title: "Duplicate file skipped",
+                              description: "Files already uploaded as RC cannot be used for email to driver.",
+                              variant: "destructive",
+                            });
+                          }
+                          setEmailFiles(filtered);
                         }
                       }}
                       className="hidden"
