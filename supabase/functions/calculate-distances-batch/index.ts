@@ -18,36 +18,18 @@ interface TruckResult {
   miles_away: number;
 }
 
-async function calculateDistance(
-  startLat: number,
-  startLon: number,
-  endLat: number,
-  endLon: number
-): Promise<number | null> {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=false`;
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`OSRM error: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
-    if (data.code !== 'Ok' || !data.routes?.[0]) {
-      console.error(`OSRM no route: ${data.code}`);
-      return null;
-    }
-    
-    // Convert meters to miles
-    const distanceMeters = data.routes[0].distance;
-    const distanceMiles = Math.round(distanceMeters / 1609.344);
-    
-    return distanceMiles;
-  } catch (error) {
-    console.error(`Distance calc error:`, error);
-    return null;
-  }
+/**
+ * Haversine distance (pure math, no external API)
+ * Returns straight-line distance in miles between two coordinates
+ */
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3959; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 serve(async (req) => {
@@ -76,40 +58,19 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📍 Processing ${trucks.length} trucks for distance calculation`);
+    console.log(`📍 Processing ${trucks.length} trucks for distance calculation (Haversine × 1.3)`);
 
-    // Process in batches of 10 to avoid rate limits
-    const results: TruckResult[] = [];
-    const batchSize = 10;
-    
-    for (let i = 0; i < trucks.length; i += batchSize) {
-      const batch = trucks.slice(i, i + batchSize);
-      
-      const batchPromises = batch.map(async (truck) => {
-        const miles = await calculateDistance(
-          truck.current_lat,
-          truck.current_lon,
-          truck.destination_lat,
-          truck.destination_lon
-        );
-        
-        if (miles !== null) {
-          return {
-            truck_number: truck.truck_number,
-            miles_away: miles
-          };
-        }
-        return null;
-      });
-      
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults.filter((r): r is TruckResult => r !== null));
-      
-      // Small delay between batches to be nice to OSRM
-      if (i + batchSize < trucks.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
+    // Pure math — no batching or delays needed
+    const results: TruckResult[] = trucks.map((truck) => {
+      const straightLine = haversineDistance(
+        truck.current_lat, truck.current_lon,
+        truck.destination_lat, truck.destination_lon
+      );
+      return {
+        truck_number: truck.truck_number,
+        miles_away: Math.round(straightLine * 1.3),
+      };
+    });
 
     console.log(`✅ Calculated distances for ${results.length}/${trucks.length} trucks`);
 

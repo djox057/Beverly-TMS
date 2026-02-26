@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.validate-analytics-aggregates]
 verify_jwt = false
+
+[functions.update-truck-distances]
+verify_jwt = false
