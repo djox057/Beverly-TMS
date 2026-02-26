@@ -8,10 +8,7 @@ const corsHeaders = {
 // Terminal coordinates (Lynwood, IL)
 const TERMINAL_COORDINATES = { lat: 41.575968, lon: -87.578131 };
 
-const OSRM_BATCH_SIZE = 5;
 const DB_BATCH_SIZE = 10;
-const OSRM_RETRY_COUNT = 2;
-const OSRM_RETRY_DELAYS = [500, 1000]; // ms
 
 interface TruckLocation {
   truck_id: string;
@@ -26,19 +23,6 @@ interface Coordinates {
   lon: number;
 }
 
-interface RouteResult {
-  distance: number | null;
-  duration: number | null;
-}
-
-interface TruckCalcEntry {
-  truckId: string;
-  truckNumber: string;
-  start: Coordinates;
-  end: Coordinates;
-  targetDesc: string;
-}
-
 interface TruckUpdatePayload {
   truckId: string;
   truckNumber: string;
@@ -47,41 +31,17 @@ interface TruckUpdatePayload {
 }
 
 // ═══════════════════════════════════════════════════════════
-// OSRM: Direct call with retry + exponential backoff
-// On failure after retries, returns null (preserves previous DB value)
+// HAVERSINE DISTANCE (pure math, no external API)
+// Returns straight-line distance in miles between two coordinates
 // ═══════════════════════════════════════════════════════════
-async function callOSRM(start: Coordinates, end: Coordinates, truckNumber: string): Promise<RouteResult> {
-  const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
-
-  for (let attempt = 0; attempt <= OSRM_RETRY_COUNT; attempt++) {
-    try {
-      if (attempt > 0) {
-        const delay = OSRM_RETRY_DELAYS[attempt - 1] || 1000;
-        console.log(`[${truckNumber}] ⏳ Retry ${attempt}/${OSRM_RETRY_COUNT} after ${delay}ms`);
-        await new Promise(r => setTimeout(r, delay));
-      }
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.error(`[${truckNumber}] OSRM HTTP ${response.status}`);
-        continue;
-      }
-
-      const data = await response.json();
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        const distanceMiles = Math.round(data.routes[0].distance / 1609.344);
-        const durationSec = data.routes[0].duration;
-        return { distance: distanceMiles, duration: durationSec };
-      }
-      console.error(`[${truckNumber}] OSRM no route: ${data.code}`);
-      return { distance: null, duration: null }; // no route exists, don't retry
-    } catch (error) {
-      console.error(`[${truckNumber}] OSRM error (attempt ${attempt + 1}):`, error);
-    }
-  }
-
-  console.error(`[${truckNumber}] OSRM failed after ${OSRM_RETRY_COUNT + 1} attempts — preserving previous value`);
-  return { distance: null, duration: null };
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3959; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -170,7 +130,7 @@ Deno.serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    console.log('🚀 Starting optimized truck distances update...');
+    console.log('🚀 Starting truck distances update (Haversine × 1.3)...');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -246,12 +206,13 @@ Deno.serve(async (req) => {
     if (trucksError) throw trucksError;
     console.log(`🚛 Got ${trucks?.length || 0} trucks`);
 
-    // ── Step 3: Pure logic pass — classify all trucks ──
-    console.log('🧠 Step 3: Classifying trucks...');
-    const zeroMilesUpdates: TruckUpdatePayload[] = [];
-    const needsCalculation: TruckCalcEntry[] = [];
+    // ── Step 3: Classify trucks and compute distances in one pass ──
+    console.log('🧮 Step 3: Computing Haversine distances...');
+    const allUpdates: TruckUpdatePayload[] = [];
     let skippedNoLocation = 0;
     let skippedNoDestCoords = 0;
+    let zeroMilesCount = 0;
+    let calculatedCount = 0;
 
     for (const truck of trucks || []) {
       const truckLocation = locationMap.get(truck.truck_number);
@@ -263,12 +224,13 @@ Deno.serve(async (req) => {
       const currentOrder = findCurrentOrder(truck.orders || []);
 
       if (isZeroMilesTruck(truck.status, currentOrder)) {
-        zeroMilesUpdates.push({
+        allUpdates.push({
           truckId: truck.id,
           truckNumber: truck.truck_number,
           miles_away: 0,
           eta_minutes: null,
         });
+        zeroMilesCount++;
         continue;
       }
 
@@ -276,69 +238,38 @@ Deno.serve(async (req) => {
       const dest = getDestination(currentOrder);
       if (!dest) {
         skippedNoDestCoords++;
-        zeroMilesUpdates.push({
+        allUpdates.push({
           truckId: truck.id,
           truckNumber: truck.truck_number,
           miles_away: 0,
           eta_minutes: null,
         });
+        zeroMilesCount++;
         continue;
       }
 
-      needsCalculation.push({
+      // Haversine × 1.3 road correction
+      const straightLine = haversineDistance(
+        truckLocation.latitude, truckLocation.longitude,
+        dest.coords.lat, dest.coords.lon
+      );
+      const roadMiles = Math.round(straightLine * 1.3);
+      const etaMinutes = Math.round(roadMiles / 45 * 60); // 45 mph average
+
+      allUpdates.push({
         truckId: truck.id,
         truckNumber: truck.truck_number,
-        start: { lat: truckLocation.latitude, lon: truckLocation.longitude },
-        end: dest.coords,
-        targetDesc: dest.desc,
+        miles_away: roadMiles,
+        eta_minutes: etaMinutes,
       });
+      calculatedCount++;
+      console.log(`✅ ${truck.truck_number}: ${roadMiles} mi (${etaMinutes} min) → ${dest.desc}`);
     }
 
-    console.log(`🧠 Classification: ${zeroMilesUpdates.length} zero-miles, ${needsCalculation.length} need OSRM, ${skippedNoLocation} no location, ${skippedNoDestCoords} no dest coords`);
+    console.log(`🧮 Classification: ${zeroMilesCount} zero-miles, ${calculatedCount} calculated, ${skippedNoLocation} no location, ${skippedNoDestCoords} no dest coords`);
 
-    // ── Step 4: Parallel batched OSRM calls ──
-    console.log(`🌐 Step 4: Calling OSRM for ${needsCalculation.length} trucks (batches of ${OSRM_BATCH_SIZE})...`);
-    const calculatedUpdates: TruckUpdatePayload[] = [];
-    let osrmFailed = 0;
-
-    for (let i = 0; i < needsCalculation.length; i += OSRM_BATCH_SIZE) {
-      const batch = needsCalculation.slice(i, i + OSRM_BATCH_SIZE);
-
-      const results = await Promise.all(
-        batch.map(async (entry) => {
-          const result = await callOSRM(entry.start, entry.end, entry.truckNumber);
-          return { entry, result };
-        })
-      );
-
-      for (const { entry, result } of results) {
-        if (result.distance !== null) {
-          const etaMinutes = result.duration ? Math.round(result.duration / 60) : null;
-          calculatedUpdates.push({
-            truckId: entry.truckId,
-            truckNumber: entry.truckNumber,
-            miles_away: result.distance,
-            eta_minutes: etaMinutes,
-          });
-          console.log(`✅ ${entry.truckNumber}: ${result.distance} mi → ${entry.targetDesc}`);
-        } else {
-          // Preserve previous value — do NOT add to updates
-          osrmFailed++;
-          console.log(`⚠️ ${entry.truckNumber}: OSRM failed, preserving previous value`);
-        }
-      }
-
-      // Small delay between batches to be polite to OSRM
-      if (i + OSRM_BATCH_SIZE < needsCalculation.length) {
-        await new Promise(r => setTimeout(r, 100));
-      }
-    }
-
-    console.log(`🌐 OSRM complete: ${calculatedUpdates.length} calculated, ${osrmFailed} failed (preserved)`);
-
-    // ── Step 5: Batch DB updates ──
-    const allUpdates = [...zeroMilesUpdates, ...calculatedUpdates];
-    console.log(`💾 Step 5: Updating ${allUpdates.length} trucks in DB (batches of ${DB_BATCH_SIZE})...`);
+    // ── Step 4: Batch DB updates ──
+    console.log(`💾 Step 4: Updating ${allUpdates.length} trucks in DB (batches of ${DB_BATCH_SIZE})...`);
     let dbUpdated = 0;
     let dbFailed = 0;
 
@@ -366,7 +297,7 @@ Deno.serve(async (req) => {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`🏁 Done in ${duration}ms — Updated: ${dbUpdated}, DB errors: ${dbFailed}, OSRM skipped: ${osrmFailed}`);
+    console.log(`🏁 Done in ${duration}ms — Updated: ${dbUpdated}, DB errors: ${dbFailed}`);
 
     // Release session-level advisory lock
     await supabase.rpc('advisory_unlock_truck_distances');
@@ -377,9 +308,8 @@ Deno.serve(async (req) => {
         duration_ms: duration,
         trucks_total: trucks?.length || 0,
         trucks_updated: dbUpdated,
-        trucks_zero_miles: zeroMilesUpdates.length,
-        trucks_calculated: calculatedUpdates.length,
-        trucks_osrm_failed: osrmFailed,
+        trucks_zero_miles: zeroMilesCount,
+        trucks_calculated: calculatedCount,
         trucks_db_failed: dbFailed,
         trucks_no_location: skippedNoLocation,
       }),
