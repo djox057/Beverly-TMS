@@ -1,64 +1,66 @@
 
 
-# Fix: Next-Order Lookup Failing Due to Supabase 1000-Row Limit
-
-## Root Cause
-
-The query at line 297-303 fetches ALL non-canceled orders for each driver (up to 200 drivers per batch), ordered by `pickup_datetime ASC`. Supabase returns at most 1000 rows per query. With ~72 orders per driver, a single chunk of 200 drivers would need ~14,400 rows -- but only the oldest 1000 come back. The heatmap orders (recent dates) are never in this truncated result, so the index lookup always fails and no "next order" is found.
-
-## Fix
-
-Constrain the driver-orders query by date. We know the heatmap orders' pickup dates, so we only need orders from slightly before the earliest heatmap pickup to slightly after the latest one (to find the "next" order). This dramatically reduces the result set.
-
-### Changes in `src/pages/BeverlyHeatmap.tsx`
-
-**1. Compute a date window from the heatmap orders (after Step 1, around line 257)**
-
-After fetching `heatmapOrders`, find the min and max `pickup_datetime`. Set the query window from `minDate` to `maxDate + 30 days` (30 days gives enough room to find a next order even if the driver was idle for a while).
-
-**2. Add date filters to the driver-orders query (lines 297-303)**
-
-Add `.gte("pickup_datetime", minDate)` and `.lte("pickup_datetime", maxDatePlus30)` to the query. This ensures we only fetch a narrow band of orders per driver, keeping results well under 1000 rows per chunk.
-
-**3. Add pagination as a safety net**
-
-Use a `.range()` pagination loop (as done in `useLumperMissingRevisedRC`) so that even if a chunk somehow exceeds 1000 rows, all data is fetched. Each page fetches 1000 rows; loop until fewer than 1000 are returned.
-
-## Technical Detail
-
-```text
-Before (line 297-303):
-  supabase.from("orders")
-    .select(columns)
-    .in("driver1_id", chunk)
-    .eq("canceled", false)
-    .order("pickup_datetime", { ascending: true })
-    // No date filter --> returns oldest 1000 rows only
-
-After:
-  supabase.from("orders")
-    .select(columns)
-    .in("driver1_id", chunk)
-    .eq("canceled", false)
-    .gte("pickup_datetime", minPickup)      // NEW
-    .lte("pickup_datetime", maxPickupPlus30) // NEW
-    .order("pickup_datetime", { ascending: true })
-    .range(offset, offset + 999)            // NEW: pagination loop
-```
-
-The date window calculation:
-- `minPickup` = earliest `pickup_datetime` from heatmap orders
-- `maxPickupPlus30` = latest `pickup_datetime` + 30 days
-
-This keeps each chunk to roughly `(drivers_in_chunk * orders_in_30_day_window)` rows, which for 200 drivers with ~2-3 orders per month each is ~400-600 rows -- well within limits.
+# Replace OSRM with Haversine Distance in Truck Distance Functions
 
 ## Summary
+Replace all external OSRM routing API calls with a pure-math Haversine distance formula (x 1.3 road correction factor) for the "miles away" dashboard indicator. This eliminates external API dependencies, retry logic, and batch throttling.
 
-| What | Where |
-|---|---|
-| Compute min/max pickup date window | After line 257, new code |
-| Add `.gte()` and `.lte()` date filters | Lines 297-303 |
-| Add `.range()` pagination loop | Lines 297-303 |
+## Why This Works
+"Miles away" is a dispatcher glance metric. Haversine x 1.3 is within 10-15% of actual road distance for US routes. The difference between 247 vs 270 miles doesn't change dispatcher decisions.
 
-This is a surgical fix -- only the driver-orders fetch query changes. No other logic is affected.
+## Changes
+
+### 1. `supabase/functions/update-truck-distances/index.ts` (rewrite)
+
+**Remove:**
+- `callOSRM` function (lines 53-85) with retry logic, exponential backoff
+- `OSRM_BATCH_SIZE`, `OSRM_RETRY_COUNT`, `OSRM_RETRY_DELAYS` constants
+- `RouteResult` interface
+- Batched OSRM calls loop (Step 4, lines 299-335) with 100ms inter-batch delays
+- Separate `calculatedUpdates` and `zeroMilesUpdates` arrays
+
+**Add:**
+- `haversineDistance(lat1, lon1, lat2, lon2)` pure math function
+- Single loop that classifies trucks AND computes distance in one pass
+- ETA estimate: `Math.round(roadMiles / 45 * 60)` (45 mph average)
+- Road correction: `Math.round(straightLineMiles * 1.3)`
+
+**Keep unchanged:**
+- Advisory lock logic (concurrency guard)
+- Samsara locations fetch (Step 1)
+- Trucks + orders fetch (Step 2)
+- `findCurrentOrder`, `isZeroMilesTruck`, `getDestination` functions
+- DB batch update logic (Step 5 becomes Step 4)
+- Error handling with lock release
+
+### 2. `supabase/functions/calculate-distances-batch/index.ts` (rewrite)
+
+**Remove:**
+- `calculateDistance` async function with OSRM fetch
+- Batch processing with 100ms delays between groups of 10
+- `Promise.all` batching logic
+
+**Add:**
+- Same `haversineDistance` function
+- Simple synchronous `.map()` over all trucks — no batching needed
+
+### 3. `supabase/config.toml` (add entry)
+
+Add at the end:
+```toml
+[functions.update-truck-distances]
+verify_jwt = false
+```
+
+This function is currently missing from config.toml, meaning it may not be deployed.
+
+### 4. NOT changed (intentionally)
+- `recalculate-load-miles` — uses OSRM for billing-accurate load miles
+- `calculate-mapbox-route` — client-side Mapbox for order creation
+- `get-truck-distances-batch` — separate function with different purpose
+
+## Performance Impact
+- Before: 30-60s (network calls to public OSRM with retries and throttling)
+- After: under 2s (pure math + DB writes only)
+- Zero external routing API dependencies for the cron job
 
