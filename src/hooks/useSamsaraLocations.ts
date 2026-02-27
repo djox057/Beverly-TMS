@@ -23,9 +23,9 @@ export const useSamsaraLocations = () => {
       return data.locations as TruckLocation[];
     },
     enabled: true,
-    refetchInterval: 15 * 60 * 1000, // Refresh every 15 minutes (reduced from 5 min to lower invocations)
-    staleTime: 14 * 60 * 1000, // Consider data fresh for 14 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    refetchInterval: 20 * 60 * 1000, // Refresh every 20 minutes (server cache ensures 5-min freshness)
+    staleTime: 19 * 60 * 1000, // Consider data fresh for 19 minutes
+    gcTime: 45 * 60 * 1000, // Keep in cache for 45 minutes
     refetchOnWindowFocus: false, // Don't refetch on tab focus
     refetchOnReconnect: false, // Don't refetch on reconnect
   });

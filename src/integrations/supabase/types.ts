@@ -3335,6 +3335,30 @@ export type Database = {
           },
         ]
       }
+      samsara_locations_cache: {
+        Row: {
+          fetch_started_at: string | null
+          fetched_at: string
+          id: string
+          is_fetching: boolean
+          locations: Json
+        }
+        Insert: {
+          fetch_started_at?: string | null
+          fetched_at?: string
+          id?: string
+          is_fetching?: boolean
+          locations?: Json
+        }
+        Update: {
+          fetch_started_at?: string | null
+          fetched_at?: string
+          id?: string
+          is_fetching?: boolean
+          locations?: Json
+        }
+        Relationships: []
+      }
       trailer_files: {
         Row: {
           content_type: string | null
