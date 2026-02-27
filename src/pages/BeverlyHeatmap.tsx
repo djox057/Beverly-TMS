@@ -64,12 +64,28 @@ const formatRpm = (freight: number, miles: number) =>
 
 interface CityAgg {
   city: string;
+  lat: number;
+  lng: number;
   total: number;
   totalFreight: number;
   totalMiles: number;
   daysWithData: number;
   orderIds: string[];
 }
+
+/** Haversine distance in miles between two lat/lng points */
+function haversineDistanceMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const CLUSTER_RADIUS_MILES = 60;
 
 interface CityNextData {
   freight: number;
@@ -208,6 +224,7 @@ export default function BeverlyHeatmap() {
     const cityMiles = new Map<string, number>();
     const cityDays = new Map<string, Set<string>>();
     const cityOrderIds = new Map<string, Set<string>>();
+    const cityCoords = new Map<string, { lat: number; lng: number }>();
 
     for (const row of rawData) {
       const ck = `${row.city_name}, ${row.city_state}`;
@@ -220,10 +237,13 @@ export default function BeverlyHeatmap() {
       if (row.order_ids) {
         for (const oid of row.order_ids) cityOrderIds.get(ck)!.add(oid);
       }
+      if (!cityCoords.has(ck)) cityCoords.set(ck, { lat: row.city_lat, lng: row.city_lng });
     }
 
     return [...cityTotals.entries()].map(([city, total]) => ({
       city,
+      lat: cityCoords.get(city)?.lat || 0,
+      lng: cityCoords.get(city)?.lng || 0,
       total,
       totalFreight: cityFreight.get(city) || 0,
       totalMiles: cityMiles.get(city) || 0,
@@ -254,6 +274,26 @@ export default function BeverlyHeatmap() {
           .select("id, driver1_id, pickup_datetime")
           .in("id", chunk);
         if (data) heatmapOrders.push(...(data as any[]));
+      }
+
+      // Step 2: Fetch pickup_drops with coordinates for all heatmap orders
+      const allPds: { order_id: string; type: string; latitude: number | null; longitude: number | null }[] = [];
+      for (let i = 0; i < allOrderIds.length; i += 200) {
+        const chunk = allOrderIds.slice(i, i + 200);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, type, latitude, longitude")
+          .in("order_id", chunk);
+        if (pds) allPds.push(...(pds as any[]));
+      }
+
+      // Build map: orderId -> delivery stops with coords
+      const orderDeliveryStops = new Map<string, { lat: number; lng: number }[]>();
+      for (const pd of allPds) {
+        if (pd.type === "delivery" && pd.latitude != null && pd.longitude != null) {
+          if (!orderDeliveryStops.has(pd.order_id)) orderDeliveryStops.set(pd.order_id, []);
+          orderDeliveryStops.get(pd.order_id)!.push({ lat: pd.latitude, lng: pd.longitude });
+        }
       }
 
       // Build a map: orderId -> { driver1_id, pickup_datetime }
@@ -328,7 +368,6 @@ export default function BeverlyHeatmap() {
         let nextCandidate: (typeof dOrders)[number] | undefined;
 
         if (idx != null) {
-          // Preferred: use sequence position, handles same timestamp correctly
           for (let i = idx + 1; i < dOrders.length; i++) {
             if (dOrders[i].id !== orderId) {
               nextCandidate = dOrders[i];
@@ -338,7 +377,6 @@ export default function BeverlyHeatmap() {
         }
 
         if (!nextCandidate) {
-          // Fallback: source order might be canceled/missing in non-canceled list
           nextCandidate = dOrders.find(
             (o) => o.id !== orderId && o.pickup_datetime >= info.pickup_datetime
           );
@@ -358,25 +396,62 @@ export default function BeverlyHeatmap() {
         });
       }
 
-      // Step 5: Aggregate per city using ALL clustered order IDs
+      // Collect all next-order IDs to fetch their pickup stops
+      const allNextOrderIds = [...new Set([...nextOrderForHeatmap.values()].map(v => v.id))];
+      const nextOrderPickupStops = new Map<string, { lat: number; lng: number }[]>();
+      for (let i = 0; i < allNextOrderIds.length; i += 200) {
+        const chunk = allNextOrderIds.slice(i, i + 200);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, type, latitude, longitude")
+          .in("order_id", chunk)
+          .eq("type", "pickup");
+        if (pds) {
+          for (const pd of pds) {
+            if (pd.latitude != null && pd.longitude != null) {
+              if (!nextOrderPickupStops.has(pd.order_id)) nextOrderPickupStops.set(pd.order_id, []);
+              nextOrderPickupStops.get(pd.order_id)!.push({ lat: pd.latitude, lng: pd.longitude });
+            }
+          }
+        }
+      }
+
+      // Step 5: Aggregate per city — only delivery-to-cluster orders, verify next pickup is near cluster
       const cityNextMap = new Map<string, CityNextData>();
       for (const cityAgg of baseCities) {
+        // Filter to orders that have a delivery stop within 60 miles of this cluster center
+        const deliveryFilteredIds = cityAgg.orderIds.filter((oid) => {
+          const delivStops = orderDeliveryStops.get(oid);
+          if (!delivStops) return false;
+          return delivStops.some(
+            (s) => haversineDistanceMiles(s.lat, s.lng, cityAgg.lat, cityAgg.lng) <= CLUSTER_RADIUS_MILES
+          );
+        });
+
         let freight = 0, miles = 0, count = 0;
         const nextIds: string[] = [];
-        for (const oid of cityAgg.orderIds) {
+        for (const oid of deliveryFilteredIds) {
           const next = nextOrderForHeatmap.get(oid);
-          if (next) {
-            freight += next.freight;
-            miles += next.miles;
-            count++;
-            nextIds.push(next.id);
-          }
+          if (!next) continue;
+
+          // Verify next order has a pickup within 60 miles of this cluster
+          const pickupStops = nextOrderPickupStops.get(next.id);
+          if (!pickupStops) continue;
+          const pickupNearCluster = pickupStops.some(
+            (s) => haversineDistanceMiles(s.lat, s.lng, cityAgg.lat, cityAgg.lng) <= CLUSTER_RADIUS_MILES
+          );
+          if (!pickupNearCluster) continue;
+
+          freight += next.freight;
+          miles += next.miles;
+          count++;
+          nextIds.push(next.id);
         }
         cityNextMap.set(cityAgg.city, {
           freight,
           miles,
           count,
-          deliveryTotal: cityAgg.orderIds.length,
+          deliveryTotal: deliveryFilteredIds.length,
           nextOrderIds: [...new Set(nextIds)],
         });
       }
