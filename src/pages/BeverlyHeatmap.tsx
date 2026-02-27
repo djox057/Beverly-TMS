@@ -240,7 +240,7 @@ export default function BeverlyHeatmap() {
   }, [baseCities]);
 
   // Fetch next-order financials + delivery-only filtering
-  const { data: nextOrderMap } = useQuery({
+  const { data: nextOrderMap, isLoading: isLoadingNext } = useQuery({
     queryKey: ["heatmap-next-orders", allOrderIds],
     queryFn: async () => {
       if (allOrderIds.length === 0) return new Map<string, CityNextData>();
@@ -623,7 +623,7 @@ export default function BeverlyHeatmap() {
         </CardHeader>
 
         <CardContent>
-          {isLoading ? (
+          {isLoading || (allOrderIds.length > 0 && isLoadingNext) ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
           ) : sortedCities.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
