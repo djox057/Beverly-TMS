@@ -396,25 +396,8 @@ export default function BeverlyHeatmap() {
         });
       }
 
-      // Collect all next-order IDs to fetch their pickup stops
-      const allNextOrderIds = [...new Set([...nextOrderForHeatmap.values()].map(v => v.id))];
-      const nextOrderPickupStops = new Map<string, { lat: number; lng: number }[]>();
-      for (let i = 0; i < allNextOrderIds.length; i += 200) {
-        const chunk = allNextOrderIds.slice(i, i + 200);
-        const { data: pds } = await supabase
-          .from("pickup_drops")
-          .select("order_id, type, latitude, longitude")
-          .in("order_id", chunk)
-          .eq("type", "pickup");
-        if (pds) {
-          for (const pd of pds) {
-            if (pd.latitude != null && pd.longitude != null) {
-              if (!nextOrderPickupStops.has(pd.order_id)) nextOrderPickupStops.set(pd.order_id, []);
-              nextOrderPickupStops.get(pd.order_id)!.push({ lat: pd.latitude, lng: pd.longitude });
-            }
-          }
-        }
-      }
+
+      // Step 5: Aggregate per city — only delivery-to-cluster orders, include ALL next orders
 
       // Step 5: Aggregate per city — only delivery-to-cluster orders, verify next pickup is near cluster
       const cityNextMap = new Map<string, CityNextData>();
@@ -433,14 +416,6 @@ export default function BeverlyHeatmap() {
         for (const oid of deliveryFilteredIds) {
           const next = nextOrderForHeatmap.get(oid);
           if (!next) continue;
-
-          // Verify next order has a pickup within 60 miles of this cluster
-          const pickupStops = nextOrderPickupStops.get(next.id);
-          if (!pickupStops) continue;
-          const pickupNearCluster = pickupStops.some(
-            (s) => haversineDistanceMiles(s.lat, s.lng, cityAgg.lat, cityAgg.lng) <= CLUSTER_RADIUS_MILES
-          );
-          if (!pickupNearCluster) continue;
 
           freight += next.freight;
           miles += next.miles;
