@@ -416,22 +416,15 @@ export default function BeverlyHeatmap() {
 
   // Apply sorting
   const sortedCities = useMemo(() => {
-    // Filter out cities with 0 delivery orders when nextOrderMap is available
     let cities = [...baseCities];
-    if (nextOrderMap) {
-      cities = cities.filter((c) => {
-        const nd = nextOrderMap.get(c.city);
-        return nd ? nd.deliveryTotal > 0 : true;
-      });
-    }
     const { key, dir } = sortConfig;
     cities.sort((a, b) => {
       let cmp = 0;
       if (key === "city") {
         cmp = a.city.localeCompare(b.city);
       } else if (key === "total") {
-        const aTotal = nextOrderMap?.get(a.city)?.deliveryTotal ?? a.total;
-        const bTotal = nextOrderMap?.get(b.city)?.deliveryTotal ?? b.total;
+        const aTotal = a.total;
+        const bTotal = b.total;
         cmp = aTotal - bTotal;
       } else if (key === "rpm") {
         const aNext = nextOrderMap?.get(a.city);
@@ -623,7 +616,7 @@ export default function BeverlyHeatmap() {
         </CardHeader>
 
         <CardContent>
-          {isLoading || (allOrderIds.length > 0 && isLoadingNext) ? (
+          {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Loading heatmap data...</div>
           ) : sortedCities.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -666,7 +659,7 @@ export default function BeverlyHeatmap() {
                   {sortedCities.map((cityAgg) => {
                     const { city } = cityAgg;
                     const nextData = nextOrderMap?.get(city);
-                    const displayTotal = nextData?.deliveryTotal ?? cityAgg.total;
+                    const displayTotal = cityAgg.total;
                     const avgFreight = nextData && nextData.count > 0 ? nextData.freight / nextData.count : 0;
                     const avgMiles = nextData && nextData.count > 0 ? nextData.miles / nextData.count : 0;
                     const totalNextFreight = nextData?.freight || 0;
