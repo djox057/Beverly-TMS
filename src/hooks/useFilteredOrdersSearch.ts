@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -63,6 +63,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   // Track current filters and pagination
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [activeFilterKey, setActiveFilterKey] = useState<(string | boolean | undefined)[] | null>(null);
   
   const offsetRef = useRef(0);
   const isLoadingRef = useRef(false);
@@ -81,6 +82,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     // Update refs BEFORE any async work
     activeQueryKeyRef.current = newQueryKey;
     activeFiltersRef.current = filters;
+    setActiveFilterKey(newQueryKey);
     
     console.log("[FilteredSearch] Starting search with filters:", filters);
     
@@ -187,13 +189,21 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     activeFiltersRef.current = null;
     hasMoreRef.current = false;
     setTotalCount(null);
+    setActiveFilterKey(null);
     offsetRef.current = 0;
   }, [queryClient]);
 
-  // Get data from React Query cache using stable ref
-  const cachedOrders = activeQueryKeyRef.current 
-    ? (queryClient.getQueryData<any[]>(activeQueryKeyRef.current) || [])
-    : [];
+  // Subscribe to cache updates using useQuery with enabled: false
+  const cacheQueryKey = useMemo(() => {
+    return activeFilterKey || ["orders", "filtered", "__disabled__"];
+  }, [activeFilterKey]);
+
+  const { data: cachedOrders = [] } = useQuery<any[]>({
+    queryKey: cacheQueryKey,
+    queryFn: () => [],
+    enabled: false,
+    staleTime: Infinity,
+  });
 
   return {
     orders: cachedOrders,
