@@ -1,119 +1,93 @@
 
 
-# Restrict Manager & Supervisor from Lock, Invoiced, and Paid Controls
+## Problem Analysis
 
-## Summary
-Remove interactive control of lock, invoiced, and paid fields from manager and supervisor roles. Values remain visible as read-only text. Enforcement is applied at three layers: UI visibility, handler-level guards, and a database trigger.
+The "Next Orders" feature in the Beverly Heatmap is answering the wrong question.
 
-## 1. Orders Page (`src/pages/Orders.tsx`)
+### How It Works Now (Incorrect)
 
-### Lock/Unlock button (line 1822) and Bulk Lock (line 2032)
-- Change condition from `(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor"))` to `(hasRole("admin") || hasRole("accounting"))` in both places.
+The heatmap clusters ALL stops (pickups AND deliveries) within 60 miles of a city. For Houston, this means orders that either pick up OR deliver near Houston are all in the `order_ids` list. Then for EVERY order in that list, it finds the driver's chronologically next order -- regardless of where that next order picks up.
 
-### Invoiced toggle (line 1683-1696)
-- For manager/supervisor: render as plain text ("Yes"/"No") without the click handler and `cursor-pointer` styling.
-- For other allowed roles: keep the existing clickable span.
+**Example with driver Donald Moisant last week:**
 
-### Paid checkbox (line 1841-1851)
-- For manager/supervisor: render as plain text ("Yes"/"No") instead of a Checkbox.
-- For other allowed roles: keep the existing Checkbox.
+| # | Load | Pickup City | Delivery City | In Houston Cluster? |
+|---|------|------------|---------------|-------------------|
+| 1 | 0172171 | Shreveport, LA | Porter, TX (near Houston) | Yes (delivery stop) |
+| 2 | 15739071 | La Porte, TX (near Houston) | Sioux Falls, SD | Yes (pickup stop) |
+| 3 | 5042742 | Sioux City, IA | Jefferson, GA | No |
 
-### Handler guards (safety net)
+Current logic treats both orders 0172171 and 15739071 as "Houston orders" and finds:
+- Next after 0172171 = 15739071 (La Porte pickup -- this is correct, truck leaves Houston area)
+- Next after 15739071 = **5042742** (Sioux City, IA pickup -- WRONG, this isn't "from Houston")
 
-**`toggleOrderLock`** (~line 801): Add early return at the top:
-```
-if (primaryRole === 'manager' || primaryRole === 'supervisor') {
-  toast.error("Managers and supervisors cannot change lock status");
-  return;
-}
-```
+Load 5042742 appears in Houston's "next orders" even though it picks up 1,200 miles away in Iowa.
 
-**`bulkLockOrders`** (~line 695): Same early return guard.
+### How It Should Work (Correct)
 
-**`handleConfirmInvoicedChange`** (~line 1068): Same pattern with "cannot change invoiced status" message.
+"Next orders from Houston" should only include orders where the driver **DELIVERS** to the Houston area and then the **next load picks up from** the Houston area. This answers: "When a truck arrives in Houston, what load does it take out?"
 
-**`handleConfirmPaidChange`** (~line 1035): Same pattern with "cannot change paid status" message.
+Using the same example:
+- Order 0172171 delivers to Porter, TX (near Houston) -- qualifies as a "delivery to Houston"
+- Its next order 15739071 picks up from La Porte, TX (near Houston) -- this IS a valid "next from Houston"
+- Order 15739071 picks up FROM Houston (not delivers TO Houston) -- should NOT be used as a base for "next order" lookup
 
-## 2. Trips Page (`src/pages/Trips.tsx`)
+So only load 15739071 should appear as a "next order" for Houston (not 5042742).
 
-### Paid column (line 482)
-- Keep `canSeePaidColumn` as-is (visible for manager). Do NOT hide the column.
-- Instead, introduce a new variable: `const canTogglePaid = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && primaryRole !== 'manager';`
+### Implementation Plan
 
-### Individual order paid (line 5470-5480)
-- When `!canTogglePaid`: render plain text (checkmark or dash) instead of Checkbox.
-- When `canTogglePaid`: keep existing Checkbox.
+**Step 1: Identify delivery-only orders per cluster**
 
-### Week-level paid checkbox (line ~5050-5052)
-- Same conditional: plain text for manager/supervisor, Checkbox for admin/accounting.
+In the `nextOrderMap` query function (BeverlyHeatmap.tsx ~line 245), after fetching heatmap orders and their stops:
 
-### Week-level "Mark all paid/unpaid" button (line ~5110)
-- Hide for manager/supervisor using `canTogglePaid`.
+1. Fetch `pickup_drops` for all `allOrderIds` to get each stop's type (pickup vs delivery) and coordinates
+2. For each city cluster, filter `orderIds` to keep only orders that have a **delivery** stop within 60 miles of the cluster city coordinates (using the `city_lat`/`city_lng` from `heatmap_city_counts`)
 
-### Handler guards
+**Step 2: Find next pickup-from-area orders**
 
-**`confirmOrderPaidToggle`** (~line 691): Early return with toast error for manager/supervisor.
+For each delivery-to-cluster order, find the driver's next order and verify it picks up from the same cluster area (within 60 miles). Only include it in the financial aggregation if it does.
 
-**`confirmPaidToggle`** (~line 740): Same guard.
+**Step 3: Update aggregation**
 
-## 3. Database Trigger (new migration)
+In Step 5 of the query, iterate only over delivery-filtered order IDs (not all cluster order IDs) and only count next orders whose pickup is near the cluster city.
 
-Create a BEFORE UPDATE trigger on `public.orders` that prevents manager/supervisor roles from modifying `locked`, `invoiced`, `invoiced_at`, and `paid`.
+### Technical Details
 
-```sql
--- Rollback commands (at top of migration, commented for reference)
--- DROP TRIGGER IF EXISTS enforce_manager_supervisor_field_restrictions ON public.orders;
--- DROP FUNCTION IF EXISTS public.prevent_manager_supervisor_restricted_fields();
+**Files to modify:** `src/pages/BeverlyHeatmap.tsx`
 
-CREATE OR REPLACE FUNCTION public.prevent_manager_supervisor_restricted_fields()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  user_roles app_role[];
-BEGIN
-  user_roles := public.auth_user_roles();
+**Changes in the `nextOrderMap` query function:**
 
-  IF user_roles && ARRAY['manager'::app_role, 'supervisor'::app_role]
-     AND NOT user_roles && ARRAY['admin'::app_role, 'accounting'::app_role]
-  THEN
-    IF OLD.locked IS DISTINCT FROM NEW.locked THEN
-      RAISE EXCEPTION 'Manager/Supervisor cannot change lock status';
-    END IF;
-    IF OLD.invoiced IS DISTINCT FROM NEW.invoiced THEN
-      RAISE EXCEPTION 'Manager/Supervisor cannot change invoiced status';
-    END IF;
-    IF OLD.invoiced_at IS DISTINCT FROM NEW.invoiced_at THEN
-      RAISE EXCEPTION 'Manager/Supervisor cannot change invoiced_at';
-    END IF;
-    IF OLD.paid IS DISTINCT FROM NEW.paid THEN
-      RAISE EXCEPTION 'Manager/Supervisor cannot change paid status';
-    END IF;
-  END IF;
+1. Add a fetch of `pickup_drops` (type, latitude, longitude) for all `allOrderIds` -- needed to determine which are deliveries to the cluster
+2. Store cluster city coordinates (already available in `baseCities` but need `city_lat`/`city_lng` from `rawData`) -- extend `CityAgg` type to include lat/lng
+3. Add a haversine helper function (client-side, same formula as edge function) to check if a stop is within 60 miles
+4. For each city in Step 5:
+   - Filter `cityAgg.orderIds` to only orders with a delivery stop within 60 miles of the city center
+   - For each of those, get the driver's next order
+   - Fetch pickup stops for those next orders and verify the pickup is also within 60 miles of the city
+   - Only include verified next orders in freight/miles/count aggregation
+5. Update `deliveryTotal` to reflect the delivery-filtered count
 
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER enforce_manager_supervisor_field_restrictions
-  BEFORE UPDATE ON public.orders
-  FOR EACH ROW
-  EXECUTE FUNCTION public.prevent_manager_supervisor_restricted_fields();
+**Data flow:**
+```text
+heatmap_city_counts (order_ids per cluster)
+  |
+  v
+Filter to orders with DELIVERY stop near cluster city
+  |
+  v
+Find each driver's next chronological order
+  |
+  v
+Verify next order has PICKUP stop near cluster city
+  |
+  v
+Aggregate freight/miles/RPM from verified next orders
 ```
 
-### Rollback SQL (included in migration as comments)
-```sql
-DROP TRIGGER IF EXISTS enforce_manager_supervisor_field_restrictions ON public.orders;
-DROP FUNCTION IF EXISTS public.prevent_manager_supervisor_restricted_fields();
-```
+**Additional queries needed:**
+- Fetch `pickup_drops` for all heatmap order IDs (already done in a previous version of the code, just add back with lat/lng and type)
+- Fetch `pickup_drops` for next-order candidates to verify pickup location
 
-## 4. No trigger conflicts
-Verified: no existing trigger auto-sets `invoiced_at`. The only BEFORE UPDATE trigger on orders is `update_updated_at_column` (sets `updated_at = now()`), which does not touch any of the restricted fields. The `capture_original_delivery_datetime` trigger only touches `original_delivery_datetime`. No chained conflict.
-
-## Files Modified
-- `src/pages/Orders.tsx` -- UI read-only + handler guards for lock, invoiced, paid
-- `src/pages/Trips.tsx` -- paid column read-only + handler guards
-- New database migration -- BEFORE UPDATE trigger with rollback SQL
-
+**Edge cases:**
+- Orders with multiple delivery stops: use the one closest to the cluster city
+- Next order has no pickup_drops with coordinates: exclude from aggregation
+- Same order appears in multiple clusters: handled independently per cluster
