@@ -480,6 +480,8 @@ const Trips = () => {
   
   // Check if user can see paid columns - dispatch/supervisor cannot
   const canSeePaidColumn = primaryRole !== 'dispatch' && primaryRole !== 'supervisor';
+  // Check if user can toggle paid - manager/supervisor/dispatch cannot
+  const canTogglePaid = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && primaryRole !== 'manager';
 
 
   // Fetch week overrides
@@ -689,6 +691,11 @@ const Trips = () => {
 
   // Confirm individual order paid status change
   const confirmOrderPaidToggle = async () => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change paid status");
+      setOrderPaidConfirmDialog(null);
+      return;
+    }
     if (!orderPaidConfirmDialog) return;
     
     try {
@@ -738,6 +745,11 @@ const Trips = () => {
 
   // Confirm paid status toggle
   const confirmPaidToggle = () => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change paid status");
+      setPaidConfirmDialog(null);
+      return;
+    }
     if (paidConfirmDialog) {
       togglePaidMutation.mutate({
         truckNumber: paidConfirmDialog.truckNumber,
@@ -5049,17 +5061,25 @@ const Trips = () => {
                                 <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
                                 {canSeePaidColumn && (
                                   <div className="flex items-center gap-2">
-                                    <Checkbox
-                                      id={`paid-${week.weekStart}`}
-                                      checked={weekIsPaid}
-                                      onCheckedChange={() => handlePaidToggle(weekTruckNumber, firstActualOrder?.truckId || "", weekDriverName, week.weekStart, actualOrders)}
-                                    />
-                                    <label
-                                      htmlFor={`paid-${week.weekStart}`}
-                                      className={`text-sm cursor-pointer ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
-                                    >
-                                      {weekIsPaid ? "Paid" : "Paid"}
-                                    </label>
+                                    {canTogglePaid ? (
+                                      <>
+                                        <Checkbox
+                                          id={`paid-${week.weekStart}`}
+                                          checked={weekIsPaid}
+                                          onCheckedChange={() => handlePaidToggle(weekTruckNumber, firstActualOrder?.truckId || "", weekDriverName, week.weekStart, actualOrders)}
+                                        />
+                                        <label
+                                          htmlFor={`paid-${week.weekStart}`}
+                                          className={`text-sm cursor-pointer ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+                                        >
+                                          {weekIsPaid ? "Paid" : "Paid"}
+                                        </label>
+                                      </>
+                                    ) : (
+                                      <span className={`text-sm ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                                        {weekIsPaid ? "✓ Paid" : "Unpaid"}
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                                 {canMoveLoads && (
@@ -5470,11 +5490,15 @@ const Trips = () => {
                               {canSeePaidColumn && (
                                 <TableCell className="text-center">
                                   <div className="flex justify-center">
-                                    <Checkbox
-                                      checked={order.paid === true}
-                                      onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
-                                      aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
-                                    />
+                                    {canTogglePaid ? (
+                                      <Checkbox
+                                        checked={order.paid === true}
+                                        onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
+                                        aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
+                                      />
+                                    ) : (
+                                      <span className="text-sm">{order.paid ? "✓" : "—"}</span>
+                                    )}
                                   </div>
                                 </TableCell>
                               )}

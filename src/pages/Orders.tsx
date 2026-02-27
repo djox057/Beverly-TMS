@@ -693,6 +693,10 @@ const Orders = () => {
 
   // Bulk lock selected orders
   const bulkLockOrders = async () => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change lock status");
+      return;
+    }
     if (selectedOrderIds.size === 0) return;
     const unlocked = selectedOrders.filter(o => !o.locked);
     if (unlocked.length === 0) {
@@ -799,6 +803,10 @@ const Orders = () => {
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change lock status");
+      return;
+    }
     try {
       // When unlocking, also set invoiced to false and clear invoiced_at
       const updateData = currentLockStatus ? {
@@ -1033,6 +1041,12 @@ const Orders = () => {
     }
   };
   const handleConfirmPaidChange = async () => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change paid status");
+      setPaidConfirmDialogOpen(false);
+      setPendingPaidOrder(null);
+      return;
+    }
     if (!pendingPaidOrder) return;
     try {
       const newPaidStatus = !pendingPaidOrder.currentPaid;
@@ -1066,6 +1080,12 @@ const Orders = () => {
     }
   };
   const handleConfirmInvoicedChange = async () => {
+    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+      toast.error("Managers and supervisors cannot change invoiced status");
+      setInvoicedConfirmDialogOpen(false);
+      setPendingInvoicedOrder(null);
+      return;
+    }
     if (!pendingInvoicedOrder) return;
     try {
       const newInvoicedStatus = !pendingInvoicedOrder.currentInvoiced;
@@ -1681,18 +1701,22 @@ const Orders = () => {
                               </TooltipProvider> : <>{order.brokerLoadNumber}</>}
                           </TableCell>
                           {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <TableCell className="w-20">
-                            <span
-                              className="cursor-pointer hover:underline"
-                              onClick={() => {
-                                setPendingInvoicedOrder({
-                                  id: order.id,
-                                  currentInvoiced: order.invoiced === true
-                                });
-                                setInvoicedConfirmDialogOpen(true);
-                              }}
-                            >
-                              {order.invoiced ? "Yes" : "No"}
-                            </span>
+                            {primaryRole === 'manager' || primaryRole === 'supervisor' ? (
+                              <span>{order.invoiced ? "Yes" : "No"}</span>
+                            ) : (
+                              <span
+                                className="cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setPendingInvoicedOrder({
+                                    id: order.id,
+                                    currentInvoiced: order.invoiced === true
+                                  });
+                                  setInvoicedConfirmDialogOpen(true);
+                                }}
+                              >
+                                {order.invoiced ? "Yes" : "No"}
+                              </span>
+                            )}
                           </TableCell>}
                           <TableCell className="w-20">
                             {order.notes && <Button variant="ghost" size="sm" className="h-auto p-1 text-xs font-normal hover:underline" onClick={() => {
@@ -1819,14 +1843,14 @@ const Orders = () => {
                               <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && <>
-                                  <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? "Unlock load" : "Lock load"}>
+                              {(hasRole("admin") || hasRole("accounting")) && <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? "Unlock load" : "Lock load"}>
                                     {order.locked ? <Lock className="h-4 w-4 text-destructive" /> : <LockOpen className="h-4 w-4 text-muted-foreground" />}
-                                  </Button>
+                                  </Button>}
+                              {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && <>
                                   {!order.locked && !order.canceled && <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
                                       <XCircle className="h-4 w-4 text-destructive" />
                                     </Button>}
-                                  {order.canceled && !order.locked && (hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor") || canCancelOrders) && <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
+                                  {order.canceled && !order.locked && <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
                                         <Undo2 className="h-4 w-4 text-primary" />
                                       </Button>}
                                 </>}
@@ -1840,13 +1864,17 @@ const Orders = () => {
                           </TableCell>
                           {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <TableCell className="w-20 text-center">
                               <div className="flex justify-center">
-                                <Checkbox checked={order.paid === true} onCheckedChange={() => {
-                          setPendingPaidOrder({
-                            id: order.id,
-                            currentPaid: order.paid === true
-                          });
-                          setPaidConfirmDialogOpen(true);
-                        }} aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`} />
+                                {primaryRole === 'manager' || primaryRole === 'supervisor' ? (
+                                  <span className="text-sm">{order.paid ? "Yes" : "No"}</span>
+                                ) : (
+                                  <Checkbox checked={order.paid === true} onCheckedChange={() => {
+                                    setPendingPaidOrder({
+                                      id: order.id,
+                                      currentPaid: order.paid === true
+                                    });
+                                    setPaidConfirmDialogOpen(true);
+                                  }} aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`} />
+                                )}
                               </div>
                             </TableCell>}
                         </TableRow>;
@@ -2029,7 +2057,7 @@ const Orders = () => {
                     </div>)}
                 </div>}
               
-              {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && <Button className="w-full mt-3" size="sm" onClick={bulkLockOrders} disabled={selectedOrderIds.size === 0}>
+              {(hasRole("admin") || hasRole("accounting")) && <Button className="w-full mt-3" size="sm" onClick={bulkLockOrders} disabled={selectedOrderIds.size === 0}>
                   <Lock className="h-4 w-4 mr-2" />
                   Lock Selected ({selectedOrders.filter(o => !o.locked).length})
                 </Button>}
