@@ -212,7 +212,8 @@ export const Sidebar = () => {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
       ];
     }
     
