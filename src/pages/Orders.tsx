@@ -1843,7 +1843,7 @@ const Orders = () => {
                               <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              {(hasRole("admin") || hasRole("accounting")) && <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? "Unlock load" : "Lock load"}>
+                              {primaryRole !== 'manager' && primaryRole !== 'supervisor' && (hasRole("admin") || hasRole("accounting")) && <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? "Unlock load" : "Lock load"}>
                                     {order.locked ? <Lock className="h-4 w-4 text-destructive" /> : <LockOpen className="h-4 w-4 text-muted-foreground" />}
                                   </Button>}
                               {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && <>
@@ -2057,7 +2057,7 @@ const Orders = () => {
                     </div>)}
                 </div>}
               
-              {(hasRole("admin") || hasRole("accounting")) && <Button className="w-full mt-3" size="sm" onClick={bulkLockOrders} disabled={selectedOrderIds.size === 0}>
+              {primaryRole !== 'manager' && primaryRole !== 'supervisor' && (hasRole("admin") || hasRole("accounting")) && <Button className="w-full mt-3" size="sm" onClick={bulkLockOrders} disabled={selectedOrderIds.size === 0}>
                   <Lock className="h-4 w-4 mr-2" />
                   Lock Selected ({selectedOrders.filter(o => !o.locked).length})
                 </Button>}
