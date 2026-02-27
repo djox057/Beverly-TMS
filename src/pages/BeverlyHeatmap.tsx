@@ -256,27 +256,6 @@ export default function BeverlyHeatmap() {
         if (data) heatmapOrders.push(...(data as any[]));
       }
 
-      // Step 2: Fetch pickup_drops for all heatmap orders to determine delivery cities
-      const allPds: { order_id: string; city: string; state: string; type: string }[] = [];
-      for (let i = 0; i < allOrderIds.length; i += 200) {
-        const chunk = allOrderIds.slice(i, i + 200);
-        const { data: pds } = await supabase
-          .from("pickup_drops")
-          .select("order_id, city, state, type")
-          .in("order_id", chunk);
-        if (pds) allPds.push(...(pds as any[]));
-      }
-
-      // Build delivery city map: "City, ST" -> Set<orderId>
-      const deliveryCityOrders = new Map<string, Set<string>>();
-      for (const pd of allPds) {
-        if (pd.type === "delivery" && pd.city && pd.state) {
-          const ck = `${pd.city}, ${pd.state}`;
-          if (!deliveryCityOrders.has(ck)) deliveryCityOrders.set(ck, new Set());
-          deliveryCityOrders.get(ck)!.add(pd.order_id);
-        }
-      }
-
       // Build a map: orderId -> { driver1_id, pickup_datetime }
       const orderDriverMap = new Map<string, { driver1_id: string; pickup_datetime: string }>();
       const driverIds = new Set<string>();
@@ -379,18 +358,12 @@ export default function BeverlyHeatmap() {
         });
       }
 
-      // Step 5: Aggregate per city using DELIVERY-ONLY filtered orders
+      // Step 5: Aggregate per city using ALL clustered order IDs
       const cityNextMap = new Map<string, CityNextData>();
       for (const cityAgg of baseCities) {
-        // Filter to only orders that have a delivery stop at this city
-        const deliveryOids = deliveryCityOrders.get(cityAgg.city);
-        const deliveryFilteredIds = deliveryOids
-          ? cityAgg.orderIds.filter((oid) => deliveryOids.has(oid))
-          : [];
-
         let freight = 0, miles = 0, count = 0;
         const nextIds: string[] = [];
-        for (const oid of deliveryFilteredIds) {
+        for (const oid of cityAgg.orderIds) {
           const next = nextOrderForHeatmap.get(oid);
           if (next) {
             freight += next.freight;
@@ -403,7 +376,7 @@ export default function BeverlyHeatmap() {
           freight,
           miles,
           count,
-          deliveryTotal: deliveryFilteredIds.length,
+          deliveryTotal: cityAgg.orderIds.length,
           nextOrderIds: [...new Set(nextIds)],
         });
       }
