@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useMemo } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { transformOrders } from "@/utils/ordersTransform";
@@ -330,10 +330,19 @@ export function useOrdersSearch() {
     setSearchError(null);
   }, [queryClient]); // Stable deps - no queryKey!
 
-  // Use ref-based query key for reading results (avoids reactive dependency)
-  const searchResults = activeQueryKeyRef.current 
-    ? (queryClient.getQueryData<any[] | null>(activeQueryKeyRef.current) ?? null)
-    : null;
+  // Derive query key from state so useQuery subscribes to cache changes
+  const searchQueryKey = useMemo(() => {
+    if (!activeSearchTerm) return ["orders", "search", "__disabled__"];
+    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId);
+  }, [activeSearchTerm, activeOptions]);
+
+  // useQuery subscribes to cache updates (setQueryData) even with enabled: false
+  const { data: searchResults = null } = useQuery<any[] | null>({
+    queryKey: searchQueryKey,
+    queryFn: () => null,
+    enabled: false,
+    staleTime: Infinity,
+  });
 
   return {
     searchResults,
