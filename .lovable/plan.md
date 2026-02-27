@@ -1,66 +1,119 @@
 
 
-# Replace OSRM with Haversine Distance in Truck Distance Functions
+# Restrict Manager & Supervisor from Lock, Invoiced, and Paid Controls
 
 ## Summary
-Replace all external OSRM routing API calls with a pure-math Haversine distance formula (x 1.3 road correction factor) for the "miles away" dashboard indicator. This eliminates external API dependencies, retry logic, and batch throttling.
+Remove interactive control of lock, invoiced, and paid fields from manager and supervisor roles. Values remain visible as read-only text. Enforcement is applied at three layers: UI visibility, handler-level guards, and a database trigger.
 
-## Why This Works
-"Miles away" is a dispatcher glance metric. Haversine x 1.3 is within 10-15% of actual road distance for US routes. The difference between 247 vs 270 miles doesn't change dispatcher decisions.
+## 1. Orders Page (`src/pages/Orders.tsx`)
 
-## Changes
+### Lock/Unlock button (line 1822) and Bulk Lock (line 2032)
+- Change condition from `(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor"))` to `(hasRole("admin") || hasRole("accounting"))` in both places.
 
-### 1. `supabase/functions/update-truck-distances/index.ts` (rewrite)
+### Invoiced toggle (line 1683-1696)
+- For manager/supervisor: render as plain text ("Yes"/"No") without the click handler and `cursor-pointer` styling.
+- For other allowed roles: keep the existing clickable span.
 
-**Remove:**
-- `callOSRM` function (lines 53-85) with retry logic, exponential backoff
-- `OSRM_BATCH_SIZE`, `OSRM_RETRY_COUNT`, `OSRM_RETRY_DELAYS` constants
-- `RouteResult` interface
-- Batched OSRM calls loop (Step 4, lines 299-335) with 100ms inter-batch delays
-- Separate `calculatedUpdates` and `zeroMilesUpdates` arrays
+### Paid checkbox (line 1841-1851)
+- For manager/supervisor: render as plain text ("Yes"/"No") instead of a Checkbox.
+- For other allowed roles: keep the existing Checkbox.
 
-**Add:**
-- `haversineDistance(lat1, lon1, lat2, lon2)` pure math function
-- Single loop that classifies trucks AND computes distance in one pass
-- ETA estimate: `Math.round(roadMiles / 45 * 60)` (45 mph average)
-- Road correction: `Math.round(straightLineMiles * 1.3)`
+### Handler guards (safety net)
 
-**Keep unchanged:**
-- Advisory lock logic (concurrency guard)
-- Samsara locations fetch (Step 1)
-- Trucks + orders fetch (Step 2)
-- `findCurrentOrder`, `isZeroMilesTruck`, `getDestination` functions
-- DB batch update logic (Step 5 becomes Step 4)
-- Error handling with lock release
-
-### 2. `supabase/functions/calculate-distances-batch/index.ts` (rewrite)
-
-**Remove:**
-- `calculateDistance` async function with OSRM fetch
-- Batch processing with 100ms delays between groups of 10
-- `Promise.all` batching logic
-
-**Add:**
-- Same `haversineDistance` function
-- Simple synchronous `.map()` over all trucks — no batching needed
-
-### 3. `supabase/config.toml` (add entry)
-
-Add at the end:
-```toml
-[functions.update-truck-distances]
-verify_jwt = false
+**`toggleOrderLock`** (~line 801): Add early return at the top:
+```
+if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+  toast.error("Managers and supervisors cannot change lock status");
+  return;
+}
 ```
 
-This function is currently missing from config.toml, meaning it may not be deployed.
+**`bulkLockOrders`** (~line 695): Same early return guard.
 
-### 4. NOT changed (intentionally)
-- `recalculate-load-miles` — uses OSRM for billing-accurate load miles
-- `calculate-mapbox-route` — client-side Mapbox for order creation
-- `get-truck-distances-batch` — separate function with different purpose
+**`handleConfirmInvoicedChange`** (~line 1068): Same pattern with "cannot change invoiced status" message.
 
-## Performance Impact
-- Before: 30-60s (network calls to public OSRM with retries and throttling)
-- After: under 2s (pure math + DB writes only)
-- Zero external routing API dependencies for the cron job
+**`handleConfirmPaidChange`** (~line 1035): Same pattern with "cannot change paid status" message.
+
+## 2. Trips Page (`src/pages/Trips.tsx`)
+
+### Paid column (line 482)
+- Keep `canSeePaidColumn` as-is (visible for manager). Do NOT hide the column.
+- Instead, introduce a new variable: `const canTogglePaid = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && primaryRole !== 'manager';`
+
+### Individual order paid (line 5470-5480)
+- When `!canTogglePaid`: render plain text (checkmark or dash) instead of Checkbox.
+- When `canTogglePaid`: keep existing Checkbox.
+
+### Week-level paid checkbox (line ~5050-5052)
+- Same conditional: plain text for manager/supervisor, Checkbox for admin/accounting.
+
+### Week-level "Mark all paid/unpaid" button (line ~5110)
+- Hide for manager/supervisor using `canTogglePaid`.
+
+### Handler guards
+
+**`confirmOrderPaidToggle`** (~line 691): Early return with toast error for manager/supervisor.
+
+**`confirmPaidToggle`** (~line 740): Same guard.
+
+## 3. Database Trigger (new migration)
+
+Create a BEFORE UPDATE trigger on `public.orders` that prevents manager/supervisor roles from modifying `locked`, `invoiced`, `invoiced_at`, and `paid`.
+
+```sql
+-- Rollback commands (at top of migration, commented for reference)
+-- DROP TRIGGER IF EXISTS enforce_manager_supervisor_field_restrictions ON public.orders;
+-- DROP FUNCTION IF EXISTS public.prevent_manager_supervisor_restricted_fields();
+
+CREATE OR REPLACE FUNCTION public.prevent_manager_supervisor_restricted_fields()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  user_roles app_role[];
+BEGIN
+  user_roles := public.auth_user_roles();
+
+  IF user_roles && ARRAY['manager'::app_role, 'supervisor'::app_role]
+     AND NOT user_roles && ARRAY['admin'::app_role, 'accounting'::app_role]
+  THEN
+    IF OLD.locked IS DISTINCT FROM NEW.locked THEN
+      RAISE EXCEPTION 'Manager/Supervisor cannot change lock status';
+    END IF;
+    IF OLD.invoiced IS DISTINCT FROM NEW.invoiced THEN
+      RAISE EXCEPTION 'Manager/Supervisor cannot change invoiced status';
+    END IF;
+    IF OLD.invoiced_at IS DISTINCT FROM NEW.invoiced_at THEN
+      RAISE EXCEPTION 'Manager/Supervisor cannot change invoiced_at';
+    END IF;
+    IF OLD.paid IS DISTINCT FROM NEW.paid THEN
+      RAISE EXCEPTION 'Manager/Supervisor cannot change paid status';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enforce_manager_supervisor_field_restrictions
+  BEFORE UPDATE ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_manager_supervisor_restricted_fields();
+```
+
+### Rollback SQL (included in migration as comments)
+```sql
+DROP TRIGGER IF EXISTS enforce_manager_supervisor_field_restrictions ON public.orders;
+DROP FUNCTION IF EXISTS public.prevent_manager_supervisor_restricted_fields();
+```
+
+## 4. No trigger conflicts
+Verified: no existing trigger auto-sets `invoiced_at`. The only BEFORE UPDATE trigger on orders is `update_updated_at_column` (sets `updated_at = now()`), which does not touch any of the restricted fields. The `capture_original_delivery_datetime` trigger only touches `original_delivery_datetime`. No chained conflict.
+
+## Files Modified
+- `src/pages/Orders.tsx` -- UI read-only + handler guards for lock, invoiced, paid
+- `src/pages/Trips.tsx` -- paid column read-only + handler guards
+- New database migration -- BEFORE UPDATE trigger with rollback SQL
 
