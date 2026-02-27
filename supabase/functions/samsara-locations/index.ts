@@ -15,8 +15,10 @@ const LOCATION_BOUNDS = {
 
 const MAX_LOCATION_AGE_MINUTES = 30;
 const FETCH_TIMEOUT_MS = 15_000;
-const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 const CIRCUIT_BREAKER_THRESHOLD = 3;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
 
 function getLocationTime(vehicle: any): number {
   const loc = vehicle.location || vehicle.gps;
@@ -45,7 +47,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-    // --- Circuit Breaker: check state (defensive try/catch) ---
+    // --- Circuit Breaker: check state ---
     let circuitOpen = false;
     try {
       const { data: cbState } = await supabase
@@ -65,6 +67,75 @@ serve(async (req) => {
         JSON.stringify({ locations: [], stale: true, circuit_open: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // --- Cache check: return cached data if fresh ---
+    let cachedLocations: any[] | null = null;
+    let cacheIsFresh = false;
+    let wonLock = false;
+
+    try {
+      const { data: cacheRow } = await supabase
+        .from('samsara_locations_cache')
+        .select('locations, fetched_at, is_fetching, fetch_started_at')
+        .eq('id', 'latest')
+        .maybeSingle();
+
+      if (cacheRow) {
+        const cacheAge = Date.now() - new Date(cacheRow.fetched_at).getTime();
+        cachedLocations = cacheRow.locations as any[];
+
+        if (cacheAge < CACHE_TTL_MS) {
+          // Cache is fresh — return immediately
+          cacheIsFresh = true;
+          console.log(`📦 Cache HIT (${Math.round(cacheAge / 1000)}s old, ${cachedLocations?.length || 0} locations)`);
+          return new Response(
+            JSON.stringify({ locations: cachedLocations || [], cached: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Cache is stale — try to acquire fetch lock atomically
+        const fetchStartedAge = cacheRow.fetch_started_at
+          ? Date.now() - new Date(cacheRow.fetch_started_at).getTime()
+          : Infinity;
+        const lockExpired = fetchStartedAge > FETCH_LOCK_TIMEOUT_MS;
+
+        if (!cacheRow.is_fetching || lockExpired) {
+          // If lock expired, first reset it so our eq filter matches
+          if (cacheRow.is_fetching && lockExpired) {
+            await supabase
+              .from('samsara_locations_cache')
+              .update({ is_fetching: false })
+              .eq('id', 'latest');
+          }
+
+          // Atomic lock: only succeeds if is_fetching is still false
+          const { data: lockResult } = await supabase
+            .from('samsara_locations_cache')
+            .update({ is_fetching: true, fetch_started_at: new Date().toISOString() })
+            .eq('id', 'latest')
+            .eq('is_fetching', false)
+            .select('id');
+
+          wonLock = (lockResult?.length ?? 0) > 0;
+          if (wonLock) {
+            console.log(`🔓 Won fetch lock — proceeding with Samsara API call`);
+          }
+        }
+
+        if (!wonLock) {
+          // Another caller is fetching — return stale cached data
+          console.log(`🔒 Cache STALE but another caller is fetching — returning stale data (${cachedLocations?.length || 0} locations)`);
+          return new Response(
+            JSON.stringify({ locations: cachedLocations || [], stale: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+      }
+    } catch (err) {
+      console.warn('Cache check failed, proceeding with direct fetch:', err);
     }
 
     // --- Fetch trucks from DB ---
@@ -106,7 +177,7 @@ serve(async (req) => {
           const vehicles = data.data || [];
           vehicles.forEach((v: any) => allVehicles.push({ ...v, apiKeyIndex: keyIndex }));
           anySuccess = true;
-          break; // got data from this key, skip fallback endpoint
+          break;
         } catch (error) {
           clearTimeout(timeout);
           if ((error as any).name === 'AbortError') {
@@ -118,7 +189,7 @@ serve(async (req) => {
       }
     }
 
-    // --- Circuit Breaker: update state (defensive try/catch) ---
+    // --- Circuit Breaker: update state ---
     if (anySuccess) {
       try {
         await supabase
@@ -134,7 +205,7 @@ serve(async (req) => {
         console.warn('Circuit breaker reset failed (non-fatal):', err);
       }
     } else {
-      // All fetches failed/timed out
+      // All fetches failed/timed out — release lock and return
       try {
         const { data: currentState } = await supabase
           .from('circuit_breaker_state')
@@ -161,9 +232,21 @@ serve(async (req) => {
         console.warn('Circuit breaker increment failed (non-fatal):', err);
       }
 
+      // Release fetch lock on failure
+      if (wonLock) {
+        try {
+          await supabase
+            .from('samsara_locations_cache')
+            .update({ is_fetching: false })
+            .eq('id', 'latest');
+        } catch (err) {
+          console.warn('Failed to release fetch lock (non-fatal):', err);
+        }
+      }
+
       console.warn('All Samsara API calls failed/timed out — returning empty locations');
       return new Response(
-        JSON.stringify({ locations: [], stale: true }),
+        JSON.stringify({ locations: cachedLocations || [], stale: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -225,6 +308,22 @@ serve(async (req) => {
 
     console.log(`Matched ${successfulMatches}/${trucks?.length || 0} trucks, ${allLocations.length} valid locations`);
 
+    // --- Update cache with fresh data (try/catch so failure doesn't kill response) ---
+    try {
+      await supabase
+        .from('samsara_locations_cache')
+        .update({
+          locations: allLocations,
+          fetched_at: new Date().toISOString(),
+          is_fetching: false,
+          fetch_started_at: null,
+        })
+        .eq('id', 'latest');
+      console.log(`📦 Cache UPDATED with ${allLocations.length} locations`);
+    } catch (err) {
+      console.error('Failed to update cache (non-fatal):', err);
+    }
+
     return new Response(
       JSON.stringify({ locations: allLocations }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -239,17 +338,12 @@ serve(async (req) => {
   }
 });
 
-/**
- * Fast truck matching using a pre-built name lookup map + fallback patterns.
- * For fallback paths, collects ALL candidates and returns the freshest.
- */
 function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, truckNumber: string): any | null {
   if (!truckNumber) return null;
 
   const norm = String(truckNumber).replace(/^#/, '').trim();
   const pad4 = norm.padStart(4, '0');
 
-  // Fast exact lookups via map (map already has freshest per name)
   const exactKeys = [
     `TRUCK ${pad4}`, `TRUCK #${pad4}`, `TRUCK${pad4}`,
     `TRUCK #${norm}`, `TRUCK ${norm}`, `TRUCK${norm}`,
@@ -261,7 +355,6 @@ function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, t
     if (match) return match;
   }
 
-  // Regex fallbacks — collect ALL matches, return freshest
   const truckExactPattern = new RegExp(`^TRUCK\\s*#?0*${norm}$`, 'i');
   const truckWithSuffixPattern = new RegExp(`^TRUCK\\s*#?0*${norm}\\s*[-\\s]`, 'i');
 
