@@ -178,7 +178,6 @@ Deno.serve(async (req) => {
     console.log(`📍 Got ${samsaraLocations.length} cached locations (${cacheAge}s old)`);
 
     if (samsaraLocations.length === 0) {
-      await supabase.rpc('advisory_unlock_truck_distances');
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: 'no cached locations' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -292,8 +291,6 @@ Deno.serve(async (req) => {
     const duration = Date.now() - startTime;
     console.log(`🏁 Done in ${duration}ms`);
 
-    await supabase.rpc('advisory_unlock_truck_distances');
-
     return new Response(
       JSON.stringify({
         success: true, duration_ms: duration,
@@ -306,11 +303,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`❌ Fatal error after ${duration}ms:`, error);
-
-    try {
-      const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-      await supabase.rpc('advisory_unlock_truck_distances');
-    } catch (_) { /* best effort */ }
 
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error', duration_ms: duration }),
