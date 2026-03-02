@@ -66,6 +66,15 @@ export function formatPhoneNumber(value: string): string {
  * Format a ZIP code to add a dash after the 5th digit if more than 5 digits.
  * Examples: "12345" → "12345", "123456" → "12345-6", "123456789" → "12345-6789"
  */
+/**
+ * Returns a jittered polling interval to prevent thundering herd effects.
+ * Adds 0 to maxJitterMs random milliseconds to the base interval.
+ * Use with useMemo(() => jitteredInterval(baseMs), []) to keep stable across re-renders.
+ */
+export function jitteredInterval(baseMs: number, maxJitterMs = 15000): number {
+  return baseMs + Math.floor(Math.random() * maxJitterMs);
+}
+
 export function formatZipCode(value: string): string {
   // Remove all non-alphanumeric characters (including existing dashes)
   const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');

@@ -4006,6 +4006,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"][]
       }
       bulk_update_hos: { Args: { updates: Json }; Returns: number }
+      bulk_update_truck_distances: {
+        Args: { updates: Json }
+        Returns: undefined
+      }
       calculate_empty_days_by_dispatcher: {
         Args: { p_end_date: string; p_office?: string; p_start_date: string }
         Returns: {
