@@ -942,7 +942,7 @@ const Fleets = () => {
         setDayOffToggle(false);
       }
     }}>
-        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <AlertDialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <div className="flex items-center justify-between">
               <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
@@ -978,11 +978,11 @@ const Fleets = () => {
                       const isTeam = drivers.length > 1;
                       const firstDriverId = drivers[0].id;
                       entries.push(
-                        <div key={`truck-${truckNum}`} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Users className="h-4 w-4" />
-                            <div>
-                              <div className="font-medium">
+                        <div key={`truck-${truckNum}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Users className="h-4 w-4 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">
                                 {isTeam ? "TEAM" : drivers[0].name}
                                 {isTeam && <span className="text-xs text-muted-foreground ml-2">({drivers.map(d => d.name).join(" & ")})</span>}
                               </div>
@@ -997,18 +997,18 @@ const Fleets = () => {
                           })} options={allDispatchers.filter(d => d.id !== dispatcherToToggle?.id).map(dispatcher => ({
                             value: dispatcher.id,
                             label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ""}`
-                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-[250px]" />
+                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-full sm:w-[250px]" />
                         </div>
                       );
                     });
 
                     noTruckDrivers.forEach(driver => {
                       entries.push(
-                        <div key={driver.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Users className="h-4 w-4" />
-                            <div>
-                              <div className="font-medium">{driver.name}</div>
+                        <div key={driver.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 p-3 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Users className="h-4 w-4 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{driver.name}</div>
                             </div>
                           </div>
                           <Combobox value={driverCoverAssignments[driver.id] || ""} onValueChange={value => setDriverCoverAssignments(prev => ({
@@ -1017,7 +1017,7 @@ const Fleets = () => {
                           }))} options={allDispatchers.filter(d => d.id !== dispatcherToToggle?.id).map(dispatcher => ({
                             value: dispatcher.id,
                             label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ""}`
-                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-[250px]" />
+                          }))} placeholder="Select cover..." emptyText="No dispatchers found" searchPlaceholder="Search dispatchers..." className="w-full sm:w-[250px]" />
                         </div>
                       );
                     });
