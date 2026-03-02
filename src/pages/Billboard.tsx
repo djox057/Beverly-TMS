@@ -51,23 +51,18 @@ const Billboard = () => {
     fetchManagerIds();
   }, []);
 
-  // Get current week's Monday and Sunday (same logic as Analytics)
-  const getWeekBounds = () => {
-    const today = new Date();
+  const { weekStart, weekEnd } = useMemo(() => {
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
     const dayOfWeek = today.getDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - diff);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-
-    return { weekStart, weekEnd };
-  };
-
-  const { weekStart, weekEnd } = getWeekBounds();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const ws = new Date(today);
+    ws.setDate(today.getDate() - diff);
+    ws.setHours(0, 0, 0, 0);
+    const we = new Date(ws);
+    we.setDate(ws.getDate() + 6);
+    we.setHours(23, 59, 59, 999);
+    return { weekStart: ws, weekEnd: we };
+  }, []); // [] intentional — week bounds are stable for the lifetime of this session
 
   // Fetch average truck counts for dispatchers this week (fallback to previous week if empty)
   useEffect(() => {
@@ -102,23 +97,29 @@ const Billboard = () => {
         return;
       }
 
-      // Fallback: use the most recent 7 days of data available
-      const { data: fallback } = await supabase
+      // Fallback: fetch just the latest date, then query only that week
+      const { data: latestRow } = await supabase
         .from("dispatcher_daily_driver_counts")
-        .select("dispatcher_id, driver_count, date")
+        .select("date")
         .order("date", { ascending: false })
-        .limit(1000);
+        .limit(1);
 
-      if (fallback && fallback.length > 0) {
-        // Get the latest date and use its week
-        const latestDate = fallback[0].date;
-        const latestDateObj = new Date(latestDate + "T00:00:00");
+      if (latestRow && latestRow.length > 0) {
+        const latestDateObj = new Date(
+          new Date(latestRow[0].date + "T12:00:00").toLocaleString('en-US', { timeZone: 'America/Chicago' })
+        );
         const fallbackStart = new Date(latestDateObj);
         fallbackStart.setDate(fallbackStart.getDate() - 6);
-        const fallbackStartStr = fallbackStart.toISOString().split("T")[0];
-
-        const recentData = fallback.filter((r) => r.date >= fallbackStartStr);
-        setDispatcherTruckCounts(computeAvgCounts(recentData));
+        const fmt = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const { data: fallback } = await supabase
+          .from("dispatcher_daily_driver_counts")
+          .select("dispatcher_id, driver_count, truck_count, date")
+          .gte("date", fmt(fallbackStart))
+          .lte("date", fmt(latestDateObj));
+        if (fallback) {
+          setDispatcherTruckCounts(computeAvgCounts(fallback));
+        }
       }
     };
     fetchTruckCounts();
