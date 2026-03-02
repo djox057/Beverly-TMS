@@ -30,6 +30,7 @@ interface PayrollPreviewDialogProps {
   onEmailSent: () => void;
   onAdjustmentsChanged?: () => void; // Called when adjustments are saved to DB
   onCheckedChanged?: () => void; // Called when checked status changes
+  onPtoChanged?: (userId: string, ptoCount: number) => void; // Called when PTO selections change
   previewOnly?: boolean; // When true, hide send button and PTO editing
   isDeletedUser?: boolean; // When true, add future month salary/bonus rows
   futureSalary1Percent?: number; // Salary 1% for next month
@@ -59,6 +60,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   onEmailSent,
   onAdjustmentsChanged,
   onCheckedChanged,
+  onPtoChanged,
   previewOnly = false,
   isDeletedUser = false,
   futureSalary1Percent = 0,
@@ -411,6 +413,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     const updated = { ...ptoSelections, [date]: checked };
     setPtoSelections(updated);
     savePtoToDb(updated);
+    // Notify parent of PTO count change for instant salary update
+    const newPtoCount = Object.values(updated).filter(Boolean).length;
+    onPtoChanged?.(dispatcherUserId, newPtoCount);
   };
 
   const handleSendEmail = async () => {
