@@ -225,6 +225,7 @@ const Analytics = () => {
   const [lostDaysByUser, setLostDaysByUser] = useState<Record<string, number>>({});
   const [lostDayDatesByUser, setLostDayDatesByUser] = useState<Record<string, string[]>>({});
   const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
+  const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
   const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
 
   // Salary selection and payment states
@@ -841,6 +842,51 @@ const Analytics = () => {
     };
     fetchLostDays();
   }, [selectedMonth, dateRange]);
+
+  // Fetch PTO (sick) days per dispatcher for the selected month
+  useEffect(() => {
+    const fetchPtoDays = async () => {
+      try {
+        let targetYear: number | null = null;
+        let targetMonthNum: number | null = null;
+        if (selectedMonth && selectedMonth !== "all" && selectedMonth.includes("-")) {
+          const parts = selectedMonth.split("-");
+          targetYear = parseInt(parts[0], 10);
+          targetMonthNum = parseInt(parts[1], 10);
+        } else if (dateRange?.from) {
+          targetYear = dateRange.from.getFullYear();
+          targetMonthNum = dateRange.from.getMonth() + 1;
+        }
+        if (targetYear === null || targetMonthNum === null || isNaN(targetYear) || isNaN(targetMonthNum)) {
+          setPtoDaysByUser({});
+          return;
+        }
+        const monthStr = `${targetYear}-${String(targetMonthNum).padStart(2, "0")}`;
+        const monthStart = `${monthStr}-01`;
+        const monthEnd = `${monthStr}-31`;
+
+        const { data, error } = await supabase
+          .from("dispatcher_sick_days" as any)
+          .select("user_id, sick_date")
+          .gte("sick_date", monthStart)
+          .lte("sick_date", monthEnd);
+
+        if (error) {
+          console.error("Error fetching PTO days:", error);
+          return;
+        }
+        const countsMap: Record<string, number> = {};
+        (data || []).forEach((row: any) => {
+          countsMap[row.user_id] = (countsMap[row.user_id] || 0) + 1;
+        });
+        setPtoDaysByUser(countsMap);
+      } catch (error) {
+        console.error("Error in fetchPtoDays:", error);
+      }
+    };
+    fetchPtoDays();
+  }, [selectedMonth, dateRange]);
+
   const getPreviousMonth = (month: string): string | null => {
     if (!month || month === "all" || !month.includes("-")) return null;
     const [yearStr, monthStr] = month.split("-");
@@ -3385,7 +3431,9 @@ const Analytics = () => {
                         // Calculate per-day rate and components for full total
                         const perDayRate = workDaysInMonth > 0 ? baseRate / workDaysInMonth : 0;
                         const extraDaysAmount = extraDays * perDayRate;
-                        const daysOffDeduction = lostDays * perDayRate;
+                        const ptoCount = stat.userId ? (ptoDaysByUser[stat.userId] || 0) : 0;
+                        const nonSickLostDays = Math.max(0, lostDays - ptoCount);
+                        const daysOffDeduction = nonSickLostDays * perDayRate;
                         const foodAllowance = hasFoodOffice(stat.office) ? 70 : 0;
 
                         // Store base rate for carry-over calculations
@@ -4045,7 +4093,9 @@ const Analytics = () => {
                     const extraDays = extraDaysByUser[stat.userId] || 0;
                     const lostDays = lostDaysByUser[stat.userId] || 0;
                     const extraDaysAmount = extraDays * perDayRate;
-                    const daysOffDeduction = lostDays * perDayRate;
+                    const ptoCount = ptoDaysByUser[stat.userId] || 0;
+                    const nonSickLostDays = Math.max(0, lostDays - ptoCount);
+                    const daysOffDeduction = nonSickLostDays * perDayRate;
                     const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
                     const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                     const payment = salaryPayments[stat.userId];
