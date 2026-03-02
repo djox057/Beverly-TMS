@@ -515,7 +515,7 @@ const Analytics = () => {
           const {
             data,
             error
-          } = await supabase.from("dispatcher_daily_driver_counts" as any).select("*").gte("date", fromDate).lte("date", toDate).range(offset, offset + batchSize - 1);
+          } = await supabase.from("dispatcher_daily_driver_counts" as any).select("dispatcher_id, driver_count, truck_count, date").gte("date", fromDate).lte("date", toDate).range(offset, offset + batchSize - 1);
           if (error) {
             console.error("Error fetching driver counts:", error);
             return;
