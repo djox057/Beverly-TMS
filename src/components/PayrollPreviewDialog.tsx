@@ -734,22 +734,19 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               </Button>
             )}
             {!previewOnly && (
-              <div className="flex flex-col items-end gap-1">
-                <Button onClick={handleSendEmail} disabled={sending}>
-                  {sending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send & Mark as Paid
-                    </>
-                  )}
-                </Button>
-                <span className="text-xs text-muted-foreground">{recipientEmail}</span>
-              </div>
+              <Button onClick={handleSendEmail} disabled={sending}>
+                {sending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send & Mark as Paid
+                  </>
+                )}
+              </Button>
             )}
           </div>
         </DialogFooter>
