@@ -1,81 +1,75 @@
 
 
-## Server-Side Caching for Samsara Locations (with Thundering Herd Protection)
+## Cleanup: Remove Unused/Legacy Code (Revised)
 
-### Problem
-With 100+ concurrent users, every browser tab independently calls `samsara-locations`, each hitting the Samsara API. When the cache expires, dozens of simultaneous requests could all call the external API at once.
+Incorporates all feedback. Changes from original plan are marked with **[REVISED]**.
 
-### Solution
-A single-row database cache with an atomic locking mechanism so only one caller fetches from Samsara while all others return slightly stale (but valid) cached data.
+---
 
-### Changes
+### 1. Dead Edge Functions -- Delete 6 function directories
 
-**1. Database Migration: Create `samsara_locations_cache` table**
+| Function | Status |
+|---|---|
+| `hello-world` | Delete directory, remove from `config.toml` |
+| `cleanup-yard-arrivals` | Delete directory, remove from `config.toml` |
+| `samsara-debug` | Delete directory (no config.toml entry exists) |
+| `hos-debug` | Delete directory (no config.toml entry exists) |
+| `geocode-address` | Delete directory (no config.toml entry exists) |
+| `calculate-route` | Delete directory (no config.toml entry exists) |
 
-```sql
-CREATE TABLE IF NOT EXISTS public.samsara_locations_cache (
-  id text PRIMARY KEY DEFAULT 'latest',
-  locations jsonb NOT NULL DEFAULT '[]',
-  fetched_at timestamptz NOT NULL DEFAULT now(),
-  is_fetching boolean NOT NULL DEFAULT false,
-  fetch_started_at timestamptz
-);
+**[REVISED] Config.toml**: Only 2 entries need removal (`hello-world`, `cleanup-yard-arrivals`). The other 4 functions have no config entries -- confirmed by inspecting the file.
 
-ALTER TABLE public.samsara_locations_cache ENABLE ROW LEVEL SECURITY;
+**[REVISED] External webhooks**: None of these 6 functions are registered as external webhooks. `samsara-debug` and `hos-debug` are ad-hoc debug endpoints only ever called manually via `TestHosSync.tsx` or direct curl. The actual Samsara integration uses `samsara-locations`. No external services point at these endpoints.
 
-INSERT INTO public.samsara_locations_cache (id, locations, fetched_at, is_fetching)
-VALUES ('latest', '[]', '1970-01-01T00:00:00Z', false)
-ON CONFLICT (id) DO NOTHING;
-```
+Also call the `delete_edge_functions` tool to remove deployed instances from Supabase.
 
-**2. Modify `supabase/functions/samsara-locations/index.ts`**
+---
 
-Add constants:
-- `CACHE_TTL_MS = 5 * 60 * 1000` (5 minutes)
-- `FETCH_LOCK_TIMEOUT_MS = 30 * 1000` (30 seconds -- safety timeout for stuck fetches)
+### 2. Dead Frontend Files -- Delete 2 files
 
-New logic inserted after circuit breaker check, before truck/Samsara fetch:
+| File | Why |
+|---|---|
+| `src/components/TestHosSync.tsx` | Unused dev component with hardcoded auth tokens (security liability) |
+| `src/App.css` | Vite boilerplate CSS, never imported -- all styling uses Tailwind |
 
-1. Read cache row (`locations`, `fetched_at`, `is_fetching`, `fetch_started_at`)
-2. If `fetched_at` is less than 5 minutes old: return cached `locations` immediately
-3. If stale:
-   a. Atomically attempt: `UPDATE ... SET is_fetching = true, fetch_started_at = now() WHERE is_fetching = false OR fetch_started_at < now() - 30s`
-   b. If zero rows updated (another caller already fetching): return stale cached `locations` with `stale: true`
-   c. If one row updated (we won the lock): proceed with existing Samsara API fetch logic
-4. After successful fetch and location processing:
-   - `try { UPDATE cache SET locations = ..., fetched_at = now(), is_fetching = false } catch { log error }`
-   - Return fresh data regardless of cache write success
-5. On fetch failure (all Samsara calls fail):
-   - `try { UPDATE cache SET is_fetching = false } catch { log }`
-   - Return empty/stale as before
+---
 
-**3. Update `src/hooks/useSamsaraLocations.ts`**
+### 3. Fix npm Dependencies
 
-- `refetchInterval`: 15 min -> 20 min
-- `staleTime`: 14 min -> 19 min
-- `gcTime`: 30 min -> 45 min
+**[REVISED] `@playwright/test`**: Move from `dependencies` to `devDependencies` (currently incorrectly in production deps at line 17). This keeps the test infrastructure functional while removing ~50MB from production builds.
 
-### Edge Function Flow (pseudocode)
+**Remove entirely**:
+- `@opencvjs/web` (~8MB WASM, zero imports in src/)
+- `@types/xlsx` (zero imports, `xlsx` ships its own types)
 
-```text
-1. CORS check (unchanged)
-2. Circuit breaker check (unchanged)
-3. Read cache row
-4. If fresh (< 5 min) -> return cached locations
-5. If stale -> atomic lock attempt
-   - Lost lock -> return stale cached locations
-   - Won lock -> continue
-6. Fetch trucks from DB (existing)
-7. Fetch from Samsara API (existing)
-8. Circuit breaker update (existing)
-9. Match vehicles, build locations array (existing)
-10. try { UPDATE cache with new data + is_fetching=false } catch { log }
-11. Return locations
-```
+---
 
-### Impact
-- At most 1 Samsara API call per 5 minutes regardless of user count
-- 100+ concurrent users on cache expiry: 1 fetches, 99 get stale data instantly
-- Edge function CPU drops ~95%+ for this function (most calls = single DB read)
-- 30-second safety timeout prevents permanent lock from crashed functions
+### 4. Remove Wasted Prefetches from App.tsx
+
+Remove the `trucks` and `trailers` prefetch entries from `prefetchData()`. These use simple `select('*')` queries but the actual hooks (`useTrucks`, `useTrailers`) use enriched queryFns under the same keys, causing an immediate refetch that wastes the prefetch entirely.
+
+Keep `brokers` and `companies` prefetches (their query keys and queryFns match their hooks).
+
+---
+
+### 5. What is NOT being removed
+
+- All other edge functions (have active frontend references)
+- `DocumentScannerDialog.tsx`, `documentScanner.ts`, `jscanify` (actively used)
+- `clear-weekly-plans` (active CRON job with real logic)
+- `playwright.config.ts`, `playwright-fixture.ts` (test infrastructure, kept alongside the moved devDependency)
+
+---
+
+### Summary of all file changes
+
+| Change | Files |
+|---|---|
+| Delete 6 edge function dirs | `supabase/functions/{hello-world,samsara-debug,hos-debug,geocode-address,calculate-route,cleanup-yard-arrivals}/index.ts` |
+| Remove 2 config.toml entries | `supabase/config.toml` (lines for `hello-world` and `cleanup-yard-arrivals`) |
+| Delete dead component | `src/components/TestHosSync.tsx` |
+| Delete dead CSS | `src/App.css` |
+| Move Playwright to devDeps | `package.json` (move from dependencies to devDependencies) |
+| Remove 2 unused packages | `package.json` (delete `@opencvjs/web`, `@types/xlsx`) |
+| Remove wasted prefetches | `src/App.tsx` (remove trucks + trailers from `prefetchData`) |
 
