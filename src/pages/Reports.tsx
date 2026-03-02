@@ -3115,14 +3115,14 @@ const Reports = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
             {/* Filters Section */}
-            <div className="flex gap-2 mb-2 items-center">
+            <div className="flex flex-wrap gap-2 mb-2 items-center">
               <div className="relative">
                 <Input
                   placeholder="Truck # / Driver name"
                   value={truckDriverFilter}
                   onChange={(e) => setTruckDriverFilter(e.target.value)}
                   className={cn(
-                    "max-w-[200px] pr-8",
+                    "w-[140px] sm:max-w-[200px] pr-8",
                     ambiguousMatch?.filter === "truck" && "border-amber-500",
                     searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && "border-red-400",
                   )}
@@ -3166,11 +3166,11 @@ const Reports = () => {
               </div>
               <div className="relative">
                 <Input
-                  placeholder="Dispatch name"
+                  placeholder="Dispatch"
                   value={dispatchNameFilter}
                   onChange={(e) => setDispatchNameFilter(e.target.value)}
                   className={cn(
-                    "max-w-[180px] pr-8",
+                    "w-[120px] sm:max-w-[180px] pr-8",
                     ambiguousMatch?.filter === "dispatch" && "border-amber-500",
                     searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400",
                   )}
@@ -3218,7 +3218,7 @@ const Reports = () => {
                   value={loadNumberFilter}
                   onChange={(e) => setLoadNumberFilter(e.target.value)}
                   className={cn(
-                    "max-w-[200px] pr-8",
+                    "w-[120px] sm:max-w-[200px] pr-8",
                     ambiguousMatch?.filter === "load" && "border-amber-500",
                     searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && "border-red-400",
                   )}
@@ -3306,20 +3306,21 @@ const Reports = () => {
                 </Button>
               </div>
             </div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
-                  <TabsTrigger key={office} value={office}>
+                  <TabsTrigger key={office} value={office} className="text-xs sm:text-sm">
                     {getOfficeDisplayName(office)}
                   </TabsTrigger>
                 ))}
               </TabsList>
               {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
-                <div className="flex gap-2 ml-4">
+                <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
+                    className="text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                   >
                     Empty trucks
                   </Button>
@@ -3327,35 +3328,35 @@ const Reports = () => {
                     variant={showLateTrucks ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowLateTrucks(!showLateTrucks)}
-                    className="gap-2"
+                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                   >
-                    <Clock className="h-4 w-4" />
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
                   <Button
                     variant={showTwoWeekNotice ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowTwoWeekNotice(!showTwoWeekNotice)}
-                    className="gap-2"
+                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                   >
-                    <Ban className="h-4 w-4" />2 Week Notice
+                    <Ban className="h-3 w-3 sm:h-4 sm:w-4" />2 Week Notice
                   </Button>
                   <Button
                     variant={showNewDrivers ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowNewDrivers(!showNewDrivers)}
-                    className="gap-2"
+                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                   >
-                    <UserPlus className="h-4 w-4" />
+                    <UserPlus className="h-3 w-3 sm:h-4 sm:w-4" />
                     New drivers
                   </Button>
                   <Button
                     variant={showProblems ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowProblems(!showProblems)}
-                    className="gap-2"
+                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                   >
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                     Problems
                   </Button>
                 </div>
