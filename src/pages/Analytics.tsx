@@ -4155,6 +4155,9 @@ const Analytics = () => {
           futureSalary1Percent={payrollPreviewData.futureSalary1Percent}
            futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
            office={payrollPreviewData.office}
+           onPtoChanged={(userId, ptoCount) => {
+             setPtoDaysByUser(prev => ({ ...prev, [userId]: ptoCount }));
+           }}
            onAdjustmentsChanged={() => {
             queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
           }}
