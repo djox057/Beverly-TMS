@@ -1104,6 +1104,7 @@ export type Database = {
           created_at: string
           dispatcher_name: string | null
           id: string
+          is_checked: boolean
           lost_days: number | null
           month: string
           paid_amount: number
@@ -1118,6 +1119,7 @@ export type Database = {
           created_at?: string
           dispatcher_name?: string | null
           id?: string
+          is_checked?: boolean
           lost_days?: number | null
           month: string
           paid_amount?: number
@@ -1132,6 +1134,7 @@ export type Database = {
           created_at?: string
           dispatcher_name?: string | null
           id?: string
+          is_checked?: boolean
           lost_days?: number | null
           month?: string
           paid_amount?: number
