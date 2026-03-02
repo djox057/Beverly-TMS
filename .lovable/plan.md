@@ -1,70 +1,75 @@
 
 
-## CPU Spike Optimization -- Implementation Plan (COMPLETED)
+## Cleanup: Remove Unused/Legacy Code (Revised)
 
-### Overview
-
-Five changes targeting the 37% CPU spike, executed in order of safety and impact.
-
-**STATUS: ✅ ALL STEPS IMPLEMENTED**
+Incorporates all feedback. Changes from original plan are marked with **[REVISED]**.
 
 ---
 
-### Step 1: Cron Schedule Tuning ✅
+### 1. Dead Edge Functions -- Delete 6 function directories
 
-Updated `update-truck-distances-cron` from every 5 minutes to every 10 minutes.
-Schedule: `3,13,23,33,43,53 * * * *`
+| Function | Status |
+|---|---|
+| `hello-world` | Delete directory, remove from `config.toml` |
+| `cleanup-yard-arrivals` | Delete directory, remove from `config.toml` |
+| `samsara-debug` | Delete directory (no config.toml entry exists) |
+| `hos-debug` | Delete directory (no config.toml entry exists) |
+| `geocode-address` | Delete directory (no config.toml entry exists) |
+| `calculate-route` | Delete directory (no config.toml entry exists) |
 
----
+**[REVISED] Config.toml**: Only 2 entries need removal (`hello-world`, `cleanup-yard-arrivals`). The other 4 functions have no config entries -- confirmed by inspecting the file.
 
-### Step 2: Bulk RPC for Truck Distance Updates ✅
+**[REVISED] External webhooks**: None of these 6 functions are registered as external webhooks. `samsara-debug` and `hos-debug` are ad-hoc debug endpoints only ever called manually via `TestHosSync.tsx` or direct curl. The actual Samsara integration uses `samsara-locations`. No external services point at these endpoints.
 
-Created `bulk_update_truck_distances(updates jsonb)` function using `jsonb_to_recordset`.
-Replaces N sequential UPDATE statements with a single bulk RPC call.
-
----
-
-### Step 3: Flatten Nested Query + Bulk RPC + Shared Samsara Import ✅
-
-- **3a.** Created shared utility at `supabase/functions/_shared/samsara.ts`
-- **3b.** Flattened nested PostgREST query in `update-truck-distances` to flat batch-fetch pattern with 200-ID chunking
-- **3c.** Replaced batch UPDATE loop with single `bulk_update_truck_distances` RPC call
-- **3d.** Replaced HTTP fetch to `samsara-locations` with direct TypeScript import
+Also call the `delete_edge_functions` tool to remove deployed instances from Supabase.
 
 ---
 
-### Step 4: Client-Side Polling Jitter ✅
+### 2. Dead Frontend Files -- Delete 2 files
 
-Added `jitteredInterval(baseMs, maxJitterMs)` helper to `src/lib/utils.ts`.
-Applied via `useMemo` to:
-- `useDashboardStats` (60s + 0-15s jitter)
-- `useRecentOrders` (60s + 0-15s jitter)
-- `useRecoveryTrucks` (60s + 0-15s jitter)
-- `useReportsDateWindowAdapter` drivers query (60s + 0-15s jitter)
+| File | Why |
+|---|---|
+| `src/components/TestHosSync.tsx` | Unused dev component with hardcoded auth tokens (security liability) |
+| `src/App.css` | Vite boilerplate CSS, never imported -- all styling uses Tailwind |
 
 ---
 
-### Step 5: Samsara Locations Refactored ✅
+### 3. Fix npm Dependencies
 
-Refactored `samsara-locations/index.ts` to import core fetch logic from `../_shared/samsara.ts`.
-Caching layer (cache check, lock acquisition, circuit breaker) stays in the edge function.
+**[REVISED] `@playwright/test`**: Move from `dependencies` to `devDependencies` (currently incorrectly in production deps at line 17). This keeps the test infrastructure functional while removing ~50MB from production builds.
+
+**Remove entirely**:
+- `@opencvjs/web` (~8MB WASM, zero imports in src/)
+- `@types/xlsx` (zero imports, `xlsx` ships its own types)
 
 ---
 
-### Files Modified
+### 4. Remove Wasted Prefetches from App.tsx
 
-| # | File | Change |
-|---|------|--------|
-| 1 | SQL migration | Updated cron schedule via `cron.alter_job` |
-| 2 | SQL migration | Created `bulk_update_truck_distances` function |
-| 3 | `supabase/functions/_shared/samsara.ts` | **New** -- shared Samsara fetch logic |
-| 4 | `supabase/functions/update-truck-distances/index.ts` | Flatten query + bulk RPC + shared import |
-| 5 | `supabase/functions/samsara-locations/index.ts` | Refactored to use shared utility |
-| 6 | `src/lib/utils.ts` | Added `jitteredInterval` helper |
-| 7 | `src/hooks/useDashboard.ts` | Applied jitter to polling |
-| 8 | `src/hooks/useRecoveryTrucks.ts` | Applied jitter to polling |
-| 9 | `src/hooks/useReportsDateWindowAdapter.ts` | Applied jitter to drivers query |
+Remove the `trucks` and `trailers` prefetch entries from `prefetchData()`. These use simple `select('*')` queries but the actual hooks (`useTrucks`, `useTrailers`) use enriched queryFns under the same keys, causing an immediate refetch that wastes the prefetch entirely.
 
-### Expected Impact
+Keep `brokers` and `companies` prefetches (their query keys and queryFns match their hooks).
 
-Peak concurrent DB queries reduced from ~50 to ~15-20 (jitter). Heaviest single query eliminated (flatten). N sequential writes replaced by 1 bulk RPC. Cron frequency halved. Combined: **~37% CPU down to ~15-20%**.
+---
+
+### 5. What is NOT being removed
+
+- All other edge functions (have active frontend references)
+- `DocumentScannerDialog.tsx`, `documentScanner.ts`, `jscanify` (actively used)
+- `clear-weekly-plans` (active CRON job with real logic)
+- `playwright.config.ts`, `playwright-fixture.ts` (test infrastructure, kept alongside the moved devDependency)
+
+---
+
+### Summary of all file changes
+
+| Change | Files |
+|---|---|
+| Delete 6 edge function dirs | `supabase/functions/{hello-world,samsara-debug,hos-debug,geocode-address,calculate-route,cleanup-yard-arrivals}/index.ts` |
+| Remove 2 config.toml entries | `supabase/config.toml` (lines for `hello-world` and `cleanup-yard-arrivals`) |
+| Delete dead component | `src/components/TestHosSync.tsx` |
+| Delete dead CSS | `src/App.css` |
+| Move Playwright to devDeps | `package.json` (move from dependencies to devDependencies) |
+| Remove 2 unused packages | `package.json` (delete `@opencvjs/web`, `@types/xlsx`) |
+| Remove wasted prefetches | `src/App.tsx` (remove trucks + trailers from `prefetchData`) |
+

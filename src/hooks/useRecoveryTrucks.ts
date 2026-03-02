@@ -1,10 +1,7 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { jitteredInterval } from "@/lib/utils";
 
 export const useRecoveryTrucks = () => {
-  const refetchInterval = useMemo(() => jitteredInterval(60000), []);
   return useQuery({
     queryKey: ["recovery-trucks"],
     queryFn: async () => {
@@ -105,7 +102,7 @@ export const useRecoveryTrucks = () => {
       });
     },
     staleTime: 30000,
-    refetchInterval,
+    refetchInterval: 60000,
     retry: 1,
   });
 };

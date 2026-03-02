@@ -1,7 +1,5 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { jitteredInterval } from "@/lib/utils";
 
 export interface DashboardStats {
   activeOrders: number;
@@ -41,6 +39,7 @@ const fetchDashboardStats = async (): Promise<DashboardStats> => {
 };
 
 const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
+  // Stage 1: Flat orders fetch
   const { data: orders, error } = await supabase
     .from('orders')
     .select('id, load_number, status, updated_at, truck_id')
@@ -51,6 +50,7 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
   if (error) throw error;
   if (!orders || orders.length === 0) return [];
 
+  // Stage 2: Batch fetch trucks and pickup_drops
   const truckIds = [...new Set(orders.map(o => o.truck_id).filter(Boolean))] as string[];
   const orderIds = orders.map(o => o.id);
 
@@ -69,6 +69,7 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
     pickupDropsByOrder.set(pd.order_id, arr);
   }
 
+  // Stage 3: Assemble
   return orders.map(order => {
     const drops = pickupDropsByOrder.get(order.id) || [];
     const pickupStop = drops.find(pd => pd.type === 'pickup');
@@ -91,23 +92,21 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
 };
 
 export const useDashboardStats = () => {
-  const refetchInterval = useMemo(() => jitteredInterval(60000), []);
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
     staleTime: 60000,
-    refetchInterval,
+    refetchInterval: 60000,
     retry: 1,
   });
 };
 
 export const useRecentOrders = () => {
-  const refetchInterval = useMemo(() => jitteredInterval(60000), []);
   return useQuery({
     queryKey: ['recent-orders'],
     queryFn: fetchRecentOrders,
     staleTime: 60000,
-    refetchInterval,
+    refetchInterval: 60000,
     retry: 1,
   });
 };

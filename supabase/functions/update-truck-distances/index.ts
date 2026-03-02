@@ -5,14 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CHUNK_SIZE = 200;
+// Terminal coordinates (Lynwood, IL)
+const TERMINAL_COORDINATES = { lat: 41.575968, lon: -87.578131 };
+
+const DB_BATCH_SIZE = 10;
 
 interface TruckLocation {
   truck_id: string;
   truck_number: string;
   latitude: number;
   longitude: number;
-  timestamp: string;
+  location_timestamp: string;
 }
 
 interface Coordinates {
@@ -27,9 +30,12 @@ interface TruckUpdatePayload {
   eta_minutes: number | null;
 }
 
-// Haversine distance in miles
+// ═══════════════════════════════════════════════════════════
+// HAVERSINE DISTANCE (pure math, no external API)
+// Returns straight-line distance in miles between two coordinates
+// ═══════════════════════════════════════════════════════════
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 3959;
+  const R = 3959; // Earth radius in miles
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 +
@@ -38,7 +44,11 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findCurrentOrder(orders: any[], orderFilesMap: Map<string, any[]>): any | null {
+// ═══════════════════════════════════════════════════════════
+// CURRENT ORDER LOGIC (unchanged from original)
+// Source of truth for order selection — mirrors Reports page logic.
+// ═══════════════════════════════════════════════════════════
+function findCurrentOrder(orders: any[]): any | null {
   const allOrders = orders
     .filter((order: any) => !order.canceled)
     .sort((a: any, b: any) => {
@@ -50,45 +60,47 @@ function findCurrentOrder(orders: any[], orderFilesMap: Map<string, any[]>): any
   if (allOrders.length === 0) return null;
 
   const lastOrder = allOrders[allOrders.length - 1];
-  const lastOrderFiles = orderFilesMap.get(lastOrder.id) || [];
-  const lastOrderHasBOL = lastOrderFiles.some((file: any) => file.file_category === 'BOL');
+  const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
 
   if (lastOrderHasBOL) return lastOrder;
 
   if (allOrders.length >= 2) {
     const previousOrder = allOrders[allOrders.length - 2];
-    const previousFiles = orderFilesMap.get(previousOrder.id) || [];
-    const previousHasPOD = previousFiles.some((file: any) => file.file_category === 'POD');
+    const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
     if (previousHasPOD) return lastOrder;
 
-    const lastWithBOL = [...allOrders].reverse().find((order: any) => {
-      const files = orderFilesMap.get(order.id) || [];
-      return files.some((file: any) => file.file_category === 'BOL');
-    });
+    const lastWithBOL = [...allOrders].reverse().find((order: any) =>
+      order.order_files?.some((file: any) => file.file_category === 'BOL')
+    );
     return lastWithBOL || lastOrder;
   }
 
   return lastOrder;
 }
 
-function isZeroMilesTruck(truckStatus: string | null, currentOrder: any | null, orderFilesMap: Map<string, any[]>): boolean {
+// ═══════════════════════════════════════════════════════════
+// ZERO-MILES CHECK (mirrors calculateOrderDistance logic)
+// Returns true if this truck should be set to 0 miles with no API call.
+// ═══════════════════════════════════════════════════════════
+function isZeroMilesTruck(truckStatus: string | null, currentOrder: any | null): boolean {
   if (!currentOrder) return true;
   if (truckStatus === 'Maintenance' || truckStatus === 'Available') return true;
-  const files = orderFilesMap.get(currentOrder.id) || [];
-  const hasPOD = files.some((f: any) => f.file_category === 'POD');
+  const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === 'POD');
   if (hasPOD) return true;
   return false;
 }
 
-function getDestination(currentOrder: any, pickupDropsMap: Map<string, any[]>, orderFilesMap: Map<string, any[]>): { coords: Coordinates; desc: string } | null {
-  const drops = pickupDropsMap.get(currentOrder.id) || [];
-  const pickupStop = drops.find((pd: any) => pd.type === 'pickup');
-  const deliveryStop = drops.find((pd: any) => pd.type === 'delivery');
+// ═══════════════════════════════════════════════════════════
+// Determine destination coordinates for a truck that needs calculation
+// ═══════════════════════════════════════════════════════════
+function getDestination(currentOrder: any): { coords: Coordinates; desc: string } | null {
+  const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+  const deliveryStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'delivery');
 
-  const files = orderFilesMap.get(currentOrder.id) || [];
-  const hasBOL = files.some((f: any) => f.file_category === 'BOL');
+  const hasBOL = currentOrder.order_files?.some((f: any) => f.file_category === 'BOL');
   const pickupArrived = pickupStop?.arrived_at;
 
+  // Pending: calculate to pickup
   if (!pickupArrived && !hasBOL) {
     if (pickupStop?.latitude && pickupStop?.longitude) {
       return {
@@ -99,6 +111,7 @@ function getDestination(currentOrder: any, pickupDropsMap: Map<string, any[]>, o
     return null;
   }
 
+  // In transit: calculate to delivery
   if ((pickupArrived || hasBOL) && deliveryStop?.latitude && deliveryStop?.longitude) {
     return {
       coords: { lat: deliveryStop.latitude, lon: deliveryStop.longitude },
@@ -107,35 +120,6 @@ function getDestination(currentOrder: any, pickupDropsMap: Map<string, any[]>, o
   }
 
   return null;
-}
-
-/** Chunk an array of IDs and fetch in parallel batches */
-async function chunkedIn<T>(
-  supabase: any,
-  table: string,
-  column: string,
-  ids: string[],
-  selectCols: string,
-  extraFilter?: (q: any) => any,
-): Promise<T[]> {
-  if (ids.length === 0) return [];
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-    chunks.push(ids.slice(i, i + CHUNK_SIZE));
-  }
-  const results = await Promise.all(
-    chunks.map(async (chunk) => {
-      let q = supabase.from(table).select(selectCols).in(column, chunk);
-      if (extraFilter) q = extraFilter(q);
-      const { data, error } = await q;
-      if (error) {
-        console.error(`Error fetching ${table}:`, error);
-        return [];
-      }
-      return data || [];
-    }),
-  );
-  return results.flat();
 }
 
 Deno.serve(async (req) => {
@@ -153,7 +137,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // ── Concurrency guard ──
+    // ── Concurrency guard: session-level advisory lock ──
     const { data: lockAcquired } = await supabase.rpc('try_advisory_lock_truck_distances');
     if (!lockAcquired) {
       console.log('⏭️ Skipping: previous run still in progress');
@@ -163,140 +147,171 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Step 1: Read locations from cache (NO Samsara API call) ──
-    console.log('📍 Step 1: Reading cached Samsara locations...');
-    const { data: cacheRow } = await supabase
-      .from('samsara_locations_cache')
-      .select('locations, fetched_at')
-      .eq('id', 'latest')
-      .maybeSingle();
+    // ── Step 1: Fetch Samsara locations ──
+    console.log('📍 Step 1: Fetching Samsara locations...');
+    const locationsResponse = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/samsara-locations`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+      }
+    );
 
-    const samsaraLocations: TruckLocation[] = (cacheRow?.locations as TruckLocation[]) || [];
-    const cacheAge = cacheRow?.fetched_at
-      ? Math.round((Date.now() - new Date(cacheRow.fetched_at).getTime()) / 1000)
-      : -1;
-    console.log(`📍 Got ${samsaraLocations.length} cached locations (${cacheAge}s old)`);
-
-    if (samsaraLocations.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: 'no cached locations' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+    if (!locationsResponse.ok) {
+      throw new Error('Failed to fetch Samsara locations');
     }
 
-    // Build lookup map
+    const locationsData = await locationsResponse.json();
+    const samsaraLocations: TruckLocation[] = locationsData.locations || [];
+    console.log(`📍 Got ${samsaraLocations.length} truck locations`);
+
+    // Build lookup map for O(1) access
     const locationMap = new Map<string, TruckLocation>();
     for (const loc of samsaraLocations) {
       locationMap.set(loc.truck_number, loc);
     }
 
-    // ── Step 2: Fetch trucks with drivers ──
-    console.log('🚛 Step 2: Fetching trucks...');
+    // ── Step 2: Fetch trucks with orders ──
+    console.log('🚛 Step 2: Fetching trucks with orders...');
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
-      .select('id, truck_number, status')
-      .not('driver1_id', 'is', null);
+      .select(`
+        id,
+        truck_number,
+        status,
+        orders!orders_truck_id_fkey(
+          id,
+          load_number,
+          status,
+          pickup_datetime,
+          canceled,
+          order_files(id, file_category),
+          pickup_drops(
+            id,
+            type,
+            city,
+            state,
+            arrived_at,
+            latitude,
+            longitude
+          )
+        )
+      `)
+      .eq('orders.locked', false)
+      .order('id', { ascending: true });
 
     if (trucksError) throw trucksError;
-    console.log(`🚛 Got ${trucks?.length || 0} trucks with drivers`);
+    console.log(`🚛 Got ${trucks?.length || 0} trucks`);
 
-    const truckIds = (trucks || []).map((t: any) => t.id);
-
-    // ── Step 3: Fetch unlocked orders + related data ──
-    const allOrders = await chunkedIn<any>(
-      supabase, 'orders', 'truck_id', truckIds,
-      'id, truck_id, load_number, status, pickup_datetime, canceled',
-      (q: any) => q.eq('locked', false),
-    );
-    const orderIds = allOrders.map((o: any) => o.id);
-    console.log(`📋 Got ${allOrders.length} unlocked orders`);
-
-    const [allOrderFiles, allPickupDrops] = await Promise.all([
-      chunkedIn<any>(supabase, 'order_files', 'order_id', orderIds, 'id, order_id, file_category'),
-      chunkedIn<any>(supabase, 'pickup_drops', 'order_id', orderIds, 'id, order_id, type, city, state, arrived_at, latitude, longitude'),
-    ]);
-
-    // Build lookup maps
-    const ordersByTruck = new Map<string, any[]>();
-    for (const o of allOrders) {
-      const arr = ordersByTruck.get(o.truck_id) || [];
-      arr.push(o);
-      ordersByTruck.set(o.truck_id, arr);
-    }
-
-    const orderFilesMap = new Map<string, any[]>();
-    for (const f of allOrderFiles) {
-      const arr = orderFilesMap.get(f.order_id) || [];
-      arr.push(f);
-      orderFilesMap.set(f.order_id, arr);
-    }
-
-    const pickupDropsMap = new Map<string, any[]>();
-    for (const pd of allPickupDrops) {
-      const arr = pickupDropsMap.get(pd.order_id) || [];
-      arr.push(pd);
-      pickupDropsMap.set(pd.order_id, arr);
-    }
-
-    // ── Step 4: Compute distances ──
-    console.log('🧮 Step 4: Computing Haversine distances...');
+    // ── Step 3: Classify trucks and compute distances in one pass ──
+    console.log('🧮 Step 3: Computing Haversine distances...');
     const allUpdates: TruckUpdatePayload[] = [];
+    let skippedNoLocation = 0;
+    let skippedNoDestCoords = 0;
     let zeroMilesCount = 0;
     let calculatedCount = 0;
-    let skippedNoLocation = 0;
 
     for (const truck of trucks || []) {
       const truckLocation = locationMap.get(truck.truck_number);
-      if (!truckLocation) { skippedNoLocation++; continue; }
+      if (!truckLocation) {
+        skippedNoLocation++;
+        continue;
+      }
 
-      const truckOrders = ordersByTruck.get(truck.id) || [];
-      const currentOrder = findCurrentOrder(truckOrders, orderFilesMap);
+      const currentOrder = findCurrentOrder(truck.orders || []);
 
-      if (isZeroMilesTruck(truck.status, currentOrder, orderFilesMap)) {
-        allUpdates.push({ truckId: truck.id, truckNumber: truck.truck_number, miles_away: 0, eta_minutes: null });
+      if (isZeroMilesTruck(truck.status, currentOrder)) {
+        allUpdates.push({
+          truckId: truck.id,
+          truckNumber: truck.truck_number,
+          miles_away: 0,
+          eta_minutes: null,
+        });
         zeroMilesCount++;
         continue;
       }
 
-      const dest = getDestination(currentOrder, pickupDropsMap, orderFilesMap);
+      // Determine destination
+      const dest = getDestination(currentOrder);
       if (!dest) {
-        allUpdates.push({ truckId: truck.id, truckNumber: truck.truck_number, miles_away: 0, eta_minutes: null });
+        skippedNoDestCoords++;
+        allUpdates.push({
+          truckId: truck.id,
+          truckNumber: truck.truck_number,
+          miles_away: 0,
+          eta_minutes: null,
+        });
         zeroMilesCount++;
         continue;
       }
 
-      const straightLine = haversineDistance(truckLocation.latitude, truckLocation.longitude, dest.coords.lat, dest.coords.lon);
+      // Haversine × 1.3 road correction
+      const straightLine = haversineDistance(
+        truckLocation.latitude, truckLocation.longitude,
+        dest.coords.lat, dest.coords.lon
+      );
       const roadMiles = Math.round(straightLine * 1.3);
-      const etaMinutes = Math.round(roadMiles / 45 * 60);
+      const etaMinutes = Math.round(roadMiles / 45 * 60); // 45 mph average
 
-      allUpdates.push({ truckId: truck.id, truckNumber: truck.truck_number, miles_away: roadMiles, eta_minutes: etaMinutes });
+      allUpdates.push({
+        truckId: truck.id,
+        truckNumber: truck.truck_number,
+        miles_away: roadMiles,
+        eta_minutes: etaMinutes,
+      });
       calculatedCount++;
+      console.log(`✅ ${truck.truck_number}: ${roadMiles} mi (${etaMinutes} min) → ${dest.desc}`);
     }
 
-    console.log(`🧮 ${zeroMilesCount} zero, ${calculatedCount} calculated, ${skippedNoLocation} no location`);
+    console.log(`🧮 Classification: ${zeroMilesCount} zero-miles, ${calculatedCount} calculated, ${skippedNoLocation} no location, ${skippedNoDestCoords} no dest coords`);
 
-    // ── Step 5: Bulk update ──
-    if (allUpdates.length > 0) {
-      const { error: rpcError } = await supabase.rpc('bulk_update_truck_distances', {
-        updates: JSON.stringify(allUpdates.map(u => ({
-          id: u.truckId,
-          miles_away: u.miles_away,
-          eta_minutes: u.eta_minutes,
-        }))),
-      });
-      if (rpcError) console.error('❌ Bulk RPC failed:', rpcError);
-      else console.log(`✅ Bulk updated ${allUpdates.length} trucks`);
+    // ── Step 4: Batch DB updates ──
+    console.log(`💾 Step 4: Updating ${allUpdates.length} trucks in DB (batches of ${DB_BATCH_SIZE})...`);
+    let dbUpdated = 0;
+    let dbFailed = 0;
+
+    for (let i = 0; i < allUpdates.length; i += DB_BATCH_SIZE) {
+      const batch = allUpdates.slice(i, i + DB_BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async (update) => {
+          const { error } = await supabase
+            .from('trucks')
+            .update({ miles_away: update.miles_away, eta_minutes: update.eta_minutes })
+            .eq('id', update.truckId);
+          return { truckNumber: update.truckNumber, error };
+        })
+      );
+
+      for (const { truckNumber, error } of results) {
+        if (error) {
+          dbFailed++;
+          console.error(`❌ DB update failed for ${truckNumber}:`, error);
+        } else {
+          dbUpdated++;
+        }
+      }
     }
 
     const duration = Date.now() - startTime;
-    console.log(`🏁 Done in ${duration}ms`);
+    console.log(`🏁 Done in ${duration}ms — Updated: ${dbUpdated}, DB errors: ${dbFailed}`);
+
+    // Release session-level advisory lock
+    await supabase.rpc('advisory_unlock_truck_distances');
 
     return new Response(
       JSON.stringify({
-        success: true, duration_ms: duration,
-        trucks_total: trucks?.length || 0, trucks_updated: allUpdates.length,
-        trucks_zero_miles: zeroMilesCount, trucks_calculated: calculatedCount,
-        cache_age_seconds: cacheAge,
+        success: true,
+        duration_ms: duration,
+        trucks_total: trucks?.length || 0,
+        trucks_updated: dbUpdated,
+        trucks_zero_miles: zeroMilesCount,
+        trucks_calculated: calculatedCount,
+        trucks_db_failed: dbFailed,
+        trucks_no_location: skippedNoLocation,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
@@ -304,8 +319,21 @@ Deno.serve(async (req) => {
     const duration = Date.now() - startTime;
     console.error(`❌ Fatal error after ${duration}ms:`, error);
 
+    // Release session-level advisory lock even on error
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      await supabase.rpc('advisory_unlock_truck_distances');
+    } catch (_) { /* best effort */ }
+
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error', duration_ms: duration }),
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration_ms: duration,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

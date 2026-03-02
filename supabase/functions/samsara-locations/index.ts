@@ -1,16 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-import { fetchSamsaraLocations } from "../_shared/samsara.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const LOCATION_BOUNDS = {
+  minLat: 25.0,
+  maxLat: 50.0,
+  minLon: -125.0,
+  maxLon: -65.0,
+};
+
+const MAX_LOCATION_AGE_MINUTES = 30;
+const FETCH_TIMEOUT_MS = 15_000;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 const CIRCUIT_BREAKER_THRESHOLD = 3;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
+
+function getLocationTime(vehicle: any): number {
+  const loc = vehicle.location || vehicle.gps;
+  if (loc?.time) return new Date(loc.time).getTime();
+  return 0;
+}
+
+function isFresher(a: any, b: any): boolean {
+  return getLocationTime(a) > getLocationTime(b);
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -53,6 +71,7 @@ serve(async (req) => {
 
     // --- Cache check: return cached data if fresh ---
     let cachedLocations: any[] | null = null;
+    let cacheIsFresh = false;
     let wonLock = false;
 
     try {
@@ -67,6 +86,8 @@ serve(async (req) => {
         cachedLocations = cacheRow.locations as any[];
 
         if (cacheAge < CACHE_TTL_MS) {
+          // Cache is fresh — return immediately
+          cacheIsFresh = true;
           console.log(`📦 Cache HIT (${Math.round(cacheAge / 1000)}s old, ${cachedLocations?.length || 0} locations)`);
           return new Response(
             JSON.stringify({ locations: cachedLocations || [], cached: true }),
@@ -81,6 +102,7 @@ serve(async (req) => {
         const lockExpired = fetchStartedAge > FETCH_LOCK_TIMEOUT_MS;
 
         if (!cacheRow.is_fetching || lockExpired) {
+          // If lock expired, first reset it so our eq filter matches
           if (cacheRow.is_fetching && lockExpired) {
             await supabase
               .from('samsara_locations_cache')
@@ -88,6 +110,7 @@ serve(async (req) => {
               .eq('id', 'latest');
           }
 
+          // Atomic lock: only succeeds if is_fetching is still false
           const { data: lockResult } = await supabase
             .from('samsara_locations_cache')
             .update({ is_fetching: true, fetch_started_at: new Date().toISOString() })
@@ -102,22 +125,69 @@ serve(async (req) => {
         }
 
         if (!wonLock) {
+          // Another caller is fetching — return stale cached data
           console.log(`🔒 Cache STALE but another caller is fetching — returning stale data (${cachedLocations?.length || 0} locations)`);
           return new Response(
             JSON.stringify({ locations: cachedLocations || [], stale: true }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+
       }
     } catch (err) {
       console.warn('Cache check failed, proceeding with direct fetch:', err);
     }
 
-    // --- Fetch from Samsara using shared utility ---
-    const { locations: allLocations, anySuccess } = await fetchSamsaraLocations(
-      supabase,
-      [apiKey1, apiKey2],
-    );
+    // --- Fetch trucks from DB ---
+    const { data: trucks, error: trucksError } = await supabase
+      .from('trucks')
+      .select('id, truck_number');
+
+    if (trucksError) throw trucksError;
+
+    // --- Fetch from Samsara with 15s AbortController per call ---
+    const apiKeys = [apiKey1, apiKey2];
+    const allVehicles: any[] = [];
+    let anySuccess = false;
+
+    for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex++) {
+      const apiKey = apiKeys[keyIndex];
+      const endpoints = [
+        'https://api.samsara.com/fleet/vehicles/locations',
+        'https://api.samsara.com/fleet/vehicles',
+      ];
+
+      for (const endpoint of endpoints) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              Accept: 'application/json',
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+
+          if (!response.ok) continue;
+
+          const data = await response.json();
+          const vehicles = data.data || [];
+          vehicles.forEach((v: any) => allVehicles.push({ ...v, apiKeyIndex: keyIndex }));
+          anySuccess = true;
+          break;
+        } catch (error) {
+          clearTimeout(timeout);
+          if ((error as any).name === 'AbortError') {
+            console.warn(`⏱️ Samsara API timeout (${FETCH_TIMEOUT_MS / 1000}s) for key ${keyIndex + 1} at ${endpoint}`);
+            continue;
+          }
+          console.error(`Error fetching from ${endpoint}:`, error);
+        }
+      }
+    }
 
     // --- Circuit Breaker: update state ---
     if (anySuccess) {
@@ -162,6 +232,7 @@ serve(async (req) => {
         console.warn('Circuit breaker increment failed (non-fatal):', err);
       }
 
+      // Release fetch lock on failure
       if (wonLock) {
         try {
           await supabase
@@ -180,7 +251,64 @@ serve(async (req) => {
       );
     }
 
-    // --- Update cache with fresh data ---
+    console.log(`Fetched ${allVehicles.length} vehicles, ${trucks?.length || 0} trucks in DB`);
+
+    // Build a lookup map for fast matching
+    const vehicleByName = new Map<string, any>();
+    for (const v of allVehicles) {
+      if (!v.name) continue;
+      const key = String(v.name).toUpperCase().trim();
+      const existing = vehicleByName.get(key);
+      if (!existing || isFresher(v, existing)) {
+        vehicleByName.set(key, v);
+      }
+    }
+
+    const allLocations: any[] = [];
+    let successfulMatches = 0;
+
+    for (const truck of trucks || []) {
+      const matchedVehicle = findMatchingVehicle(allVehicles, vehicleByName, truck.truck_number);
+
+      if (matchedVehicle) {
+        successfulMatches++;
+        const location = matchedVehicle.location || matchedVehicle.gps;
+
+        if (location && location.latitude && location.longitude) {
+          const ageMinutes = location.time
+            ? (Date.now() - new Date(location.time).getTime()) / 1000 / 60
+            : 999999;
+          const isValid = validateLocationBounds(location.latitude, location.longitude);
+
+          if (isValid) {
+            const now = new Date();
+            const timestamp =
+              location.time ||
+              `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+                now.getDate()
+              ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(
+                now.getMinutes()
+              ).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+            allLocations.push({
+              truck_id: truck.id,
+              truck_number: truck.truck_number,
+              latitude: location.latitude,
+              longitude: location.longitude,
+              timestamp,
+              speed: location.speed || 0,
+              ageMinutes,
+              isValid: ageMinutes <= MAX_LOCATION_AGE_MINUTES,
+              apiSource: matchedVehicle.apiKeyIndex,
+            });
+          }
+        }
+      }
+    }
+
+    console.log(`Matched ${successfulMatches}/${trucks?.length || 0} trucks, ${allLocations.length} valid locations`);
+
+    // --- Update cache with fresh data (try/catch so failure doesn't kill response) ---
     try {
       await supabase
         .from('samsara_locations_cache')
@@ -209,3 +337,69 @@ serve(async (req) => {
     );
   }
 });
+
+function findMatchingVehicle(vehicles: any[], vehicleByName: Map<string, any>, truckNumber: string): any | null {
+  if (!truckNumber) return null;
+
+  const norm = String(truckNumber).replace(/^#/, '').trim();
+  const pad4 = norm.padStart(4, '0');
+
+  const exactKeys = [
+    `TRUCK ${pad4}`, `TRUCK #${pad4}`, `TRUCK${pad4}`,
+    `TRUCK #${norm}`, `TRUCK ${norm}`, `TRUCK${norm}`,
+    pad4, norm, String(truckNumber).toUpperCase().trim(),
+  ];
+
+  for (const key of exactKeys) {
+    const match = vehicleByName.get(key.toUpperCase());
+    if (match) return match;
+  }
+
+  const truckExactPattern = new RegExp(`^TRUCK\\s*#?0*${norm}$`, 'i');
+  const truckWithSuffixPattern = new RegExp(`^TRUCK\\s*#?0*${norm}\\s*[-\\s]`, 'i');
+
+  let candidates: any[] = [];
+
+  for (const vehicle of vehicles) {
+    if (!vehicle.name) continue;
+    const vn = String(vehicle.name).trim();
+    if (truckExactPattern.test(vn) || truckWithSuffixPattern.test(vn)) {
+      candidates.push(vehicle);
+    }
+  }
+
+  if (candidates.length > 0) {
+    if (candidates.length > 1) {
+      console.log(`⚠️ Duplicate match for truck ${norm}: ${candidates.map(c => `API_KEY_${c.apiKeyIndex + 1}:${c.name}@${getLocationTime(c)}`).join(' vs ')}`);
+    }
+    return candidates.reduce((best, c) => isFresher(c, best) ? c : best);
+  }
+
+  const completeNumberPattern = new RegExp(`(?<![0-9])0*${norm}(?![0-9])`, 'i');
+  candidates = [];
+  for (const vehicle of vehicles) {
+    if (!vehicle.name) continue;
+    const vn = String(vehicle.name).trim();
+    if (completeNumberPattern.test(vn)) {
+      const allNumbers = vn.match(/\d+/g) || [];
+      if (allNumbers.some(n => n === norm || n === pad4 || n.replace(/^0+/, '') === norm.replace(/^0+/, ''))) {
+        candidates.push(vehicle);
+      }
+    }
+  }
+
+  if (candidates.length > 0) {
+    if (candidates.length > 1) {
+      console.log(`⚠️ Duplicate match for truck ${norm}: ${candidates.map(c => `API_KEY_${c.apiKeyIndex + 1}:${c.name}@${getLocationTime(c)}`).join(' vs ')}`);
+    }
+    return candidates.reduce((best, c) => isFresher(c, best) ? c : best);
+  }
+
+  return null;
+}
+
+function validateLocationBounds(lat: number, lon: number): boolean {
+  if (lat === 0 && lon === 0) return false;
+  return lat >= LOCATION_BOUNDS.minLat && lat <= LOCATION_BOUNDS.maxLat &&
+         lon >= LOCATION_BOUNDS.minLon && lon <= LOCATION_BOUNDS.maxLon;
+}

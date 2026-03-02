@@ -9,7 +9,6 @@
 
 import { useMemo, useCallback, useEffect, useRef } from "react";
 import { isValidUUID } from "@/utils/validation";
-import { jitteredInterval } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
@@ -438,7 +437,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return data || [];
     },
     staleTime: 300000,
-    refetchInterval: useMemo(() => jitteredInterval(60000), []), // Refresh HOS data with jitter
+    refetchInterval: 60000, // Refresh HOS data every 60 seconds
     enabled: globalEnabled,
   });
 
