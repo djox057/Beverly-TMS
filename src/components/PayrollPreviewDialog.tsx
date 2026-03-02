@@ -359,7 +359,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
         // Remove existing PTO days for this month
         const monthStart = `${selectedMonth}-01`;
-        const monthEnd = `${selectedMonth}-31`;
+        const monthNum = parseInt(selectedMonth.split("-")[1], 10);
+        const lastDayOfMonth = !isNaN(monthNum) ? new Date(year, monthNum, 0).getDate() : 31;
+        const monthEnd = `${selectedMonth}-${String(lastDayOfMonth).padStart(2, "0")}`;
         await supabase
           .from("dispatcher_sick_days" as any)
           .delete()
