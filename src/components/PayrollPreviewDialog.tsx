@@ -701,40 +701,40 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           )}
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <div className="flex items-center gap-2">
-            {!previewOnly && (
-              <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer border transition-colors ${isCheckedState ? "bg-green-100 dark:bg-green-950/30 border-green-300 dark:border-green-800" : "border-input"}`}>
-                <Checkbox
-                  checked={isCheckedState}
-                  onCheckedChange={handleToggleChecked}
-                />
-                <span className="text-sm font-medium">Checked</span>
-              </label>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {previewOnly ? "Close" : "Cancel"}
-            </Button>
-            {pdfUrl && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const a = document.createElement("a");
-                  a.href = pdfUrl;
-                  a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              {!previewOnly && (
+                <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer border transition-colors ${isCheckedState ? "bg-green-100 dark:bg-green-950/30 border-green-300 dark:border-green-800" : "border-input"}`}>
+                  <Checkbox
+                    checked={isCheckedState}
+                    onCheckedChange={handleToggleChecked}
+                  />
+                  <span className="text-sm font-medium">Checked</span>
+                </label>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                {previewOnly ? "Close" : "Cancel"}
               </Button>
-            )}
-            {!previewOnly && (
-              <div className="flex flex-col items-end gap-1">
+              {pdfUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfUrl;
+                    a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              )}
+              {!previewOnly && (
                 <Button onClick={handleSendEmail} disabled={sending}>
                   {sending ? (
                     <>
@@ -748,10 +748,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     </>
                   )}
                 </Button>
-                <span className="text-xs text-muted-foreground">{recipientEmail}</span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+          {!previewOnly && (
+            <div className="flex justify-end w-full">
+              <span className="text-xs text-muted-foreground">{recipientEmail}</span>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
