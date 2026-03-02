@@ -235,6 +235,7 @@ const Analytics = () => {
     paid_at: string | null;
     additionals?: any[] | null;
     lost_days?: number | null;
+    is_checked?: boolean;
   }>>({});
   // Salary sorting state
   const [salarySortBy, setSalarySortBy] = useState<"name" | "salary">("name");
@@ -867,7 +868,7 @@ const Analytics = () => {
           : Promise.resolve({ data: null, error: null })
       ]);
       
-      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null; additionals: any[] | null; lost_days?: number | null }> = {};
+      const paymentsMap: Record<string, { paid_amount: number; paid_at: string | null; additionals: any[] | null; lost_days?: number | null; is_checked?: boolean }> = {};
       if (currentResult.data && Array.isArray(currentResult.data)) {
         currentResult.data.forEach((record: any) => {
           paymentsMap[record.user_id] = {
@@ -875,6 +876,7 @@ const Analytics = () => {
             paid_at: record.paid_at,
             additionals: record.additionals || null,
             lost_days: record.lost_days != null ? Number(record.lost_days) : null,
+            is_checked: record.is_checked || false,
           };
         });
       }
@@ -1019,6 +1021,49 @@ const Analytics = () => {
       setSelectedDispatcherIds(new Set());
     } else {
       setSelectedDispatcherIds(new Set(allUserIds));
+    }
+  };
+
+  // Toggle is_checked for a dispatcher salary payment
+  const toggleSalaryChecked = async (userId: string, currentChecked: boolean) => {
+    if (!selectedMonth || selectedMonth === "all") return;
+    try {
+      const { data: existing } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("id")
+        .eq("user_id", userId)
+        .eq("month", selectedMonth)
+        .maybeSingle();
+      
+      if (existing) {
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .update({ is_checked: !currentChecked })
+          .eq("user_id", userId)
+          .eq("month", selectedMonth);
+      } else {
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .insert({
+            user_id: userId,
+            month: selectedMonth,
+            is_checked: true,
+            paid_amount: 0,
+          });
+      }
+      
+      setSalaryPayments(prev => ({
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          paid_amount: prev[userId]?.paid_amount || 0,
+          paid_at: prev[userId]?.paid_at || null,
+          is_checked: !currentChecked,
+        }
+      }));
+    } catch (error) {
+      console.error("Error toggling checked:", error);
+      toast.error("Failed to update checked status");
     }
   };
 
@@ -3283,6 +3328,7 @@ const Analytics = () => {
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
                           </TableHead>
                         <TableHead className="text-right">Paid</TableHead>
+                        {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TableHead className="w-[60px] text-center">Checked</TableHead>}
                       </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3331,8 +3377,6 @@ const Analytics = () => {
                         // The adjustment = 0 unless paid_amount differs from calculated_salary (meaning extras/deductions were applied)
                         // Per user request: adjustment based on salary column changes, not paid changes
                         // So we don't carry over here - the salary column is pure baseRate
-                        
-                        const displaySalary = baseRate;
 
                         // Get dispatcher bonus for this month
                         const bonusInfo = stat.userId ? dispatcherBonuses[stat.userId] : null;
@@ -3353,6 +3397,12 @@ const Analytics = () => {
                         // Get payment info
                         const payment = stat.userId ? salaryPayments[stat.userId] : null;
                         const isPaid = payment && payment.paid_at;
+                        const isChecked = payment?.is_checked || false;
+
+                        // Calculate full total for salary and paid columns
+                        const adj = payment?.additionals as any[] | null;
+                        const adjustmentsTotal = adj ? adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0) : 0;
+                        const fullTotal = baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmount + adjustmentsTotal;
 
                         // Helper to render rank icon
                         const renderRankIcon = () => {
@@ -3373,7 +3423,7 @@ const Analytics = () => {
                               return null;
                           }
                         };
-                        return <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                        return <TableRow key={stat.name} className={`${index === dispatcherStats.length - 1 ? "border-b" : ""} ${isChecked ? "bg-green-100 dark:bg-green-950/30" : ""}`}>
                                 {/* Hide selection checkbox for dispatch-only users */}
                                 {!isDispatchOnly && <TableCell className="w-[50px]">
                                     {salarySelectionMode && stat.userId ? <Checkbox checked={selectedDispatcherIds.has(stat.userId)} onCheckedChange={() => toggleDispatcherSelection(stat.userId!)} /> : null}
@@ -3887,13 +3937,13 @@ const Analytics = () => {
                                 <TableCell className="text-right">
                                   <span>
                                     $
-                                    {displaySalary.toLocaleString(undefined, {
+                                    {fullTotal.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
                                   </span>
                                 </TableCell>
-                                {/* Paid column - read-only for dispatchers */}
+                                {/* Paid column - shows full total */}
                                 <TableCell className="text-right">
                                 {isPaid ? <span className="text-green-600 font-medium">
                                       $
@@ -3901,13 +3951,22 @@ const Analytics = () => {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
-                                    </span> : !stat.userId ? <span className="text-green-600 font-medium">
-                                      ${(baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + bonusAmount).toLocaleString(undefined, {
+                                    </span> : <span className="font-medium">
+                                      ${fullTotal.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
-                                    </span> : <span className="text-muted-foreground">—</span>}
+                                    </span>}
                                 </TableCell>
+                                {/* Checked column */}
+                                {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TableCell className="text-center">
+                                  {stat.userId && (
+                                    <Checkbox
+                                      checked={isChecked}
+                                      onCheckedChange={() => toggleSalaryChecked(stat.userId!, isChecked)}
+                                    />
+                                  )}
+                                </TableCell>}
                               </TableRow>;
                       });
                     })()}
@@ -4078,12 +4137,14 @@ const Analytics = () => {
                     paid_amount: number;
                     paid_at: string | null;
                     additionals?: any[] | null;
+                    is_checked?: boolean;
                   }> = {};
                   data.forEach((payment: any) => {
                     paymentsMap[payment.user_id] = {
                       paid_amount: payment.paid_amount,
                       paid_at: payment.paid_at,
                       additionals: payment.additionals || null,
+                      is_checked: payment.is_checked || false,
                     };
                   });
                   setSalaryPayments(paymentsMap);
