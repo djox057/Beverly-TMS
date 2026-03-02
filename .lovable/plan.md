@@ -1,75 +1,31 @@
 
 
-## Cleanup: Remove Unused/Legacy Code (Revised)
+# Fix 1: Analytics -- Select Only Needed Columns
 
-Incorporates all feedback. Changes from original plan are marked with **[REVISED]**.
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
----
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-### 1. Dead Edge Functions -- Delete 6 function directories
+**Before:**
+```typescript
+.select("*")
+```
 
-| Function | Status |
-|---|---|
-| `hello-world` | Delete directory, remove from `config.toml` |
-| `cleanup-yard-arrivals` | Delete directory, remove from `config.toml` |
-| `samsara-debug` | Delete directory (no config.toml entry exists) |
-| `hos-debug` | Delete directory (no config.toml entry exists) |
-| `geocode-address` | Delete directory (no config.toml entry exists) |
-| `calculate-route` | Delete directory (no config.toml entry exists) |
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-**[REVISED] Config.toml**: Only 2 entries need removal (`hello-world`, `cleanup-yard-arrivals`). The other 4 functions have no config entries -- confirmed by inspecting the file.
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-**[REVISED] External webhooks**: None of these 6 functions are registered as external webhooks. `samsara-debug` and `hos-debug` are ad-hoc debug endpoints only ever called manually via `TestHosSync.tsx` or direct curl. The actual Samsara integration uses `samsara-locations`. No external services point at these endpoints.
-
-Also call the `delete_edge_functions` tool to remove deployed instances from Supabase.
-
----
-
-### 2. Dead Frontend Files -- Delete 2 files
-
-| File | Why |
-|---|---|
-| `src/components/TestHosSync.tsx` | Unused dev component with hardcoded auth tokens (security liability) |
-| `src/App.css` | Vite boilerplate CSS, never imported -- all styling uses Tailwind |
-
----
-
-### 3. Fix npm Dependencies
-
-**[REVISED] `@playwright/test`**: Move from `dependencies` to `devDependencies` (currently incorrectly in production deps at line 17). This keeps the test infrastructure functional while removing ~50MB from production builds.
-
-**Remove entirely**:
-- `@opencvjs/web` (~8MB WASM, zero imports in src/)
-- `@types/xlsx` (zero imports, `xlsx` ships its own types)
-
----
-
-### 4. Remove Wasted Prefetches from App.tsx
-
-Remove the `trucks` and `trailers` prefetch entries from `prefetchData()`. These use simple `select('*')` queries but the actual hooks (`useTrucks`, `useTrailers`) use enriched queryFns under the same keys, causing an immediate refetch that wastes the prefetch entirely.
-
-Keep `brokers` and `companies` prefetches (their query keys and queryFns match their hooks).
-
----
-
-### 5. What is NOT being removed
-
-- All other edge functions (have active frontend references)
-- `DocumentScannerDialog.tsx`, `documentScanner.ts`, `jscanify` (actively used)
-- `clear-weekly-plans` (active CRON job with real logic)
-- `playwright.config.ts`, `playwright-fixture.ts` (test infrastructure, kept alongside the moved devDependency)
-
----
-
-### Summary of all file changes
-
-| Change | Files |
-|---|---|
-| Delete 6 edge function dirs | `supabase/functions/{hello-world,samsara-debug,hos-debug,geocode-address,calculate-route,cleanup-yard-arrivals}/index.ts` |
-| Remove 2 config.toml entries | `supabase/config.toml` (lines for `hello-world` and `cleanup-yard-arrivals`) |
-| Delete dead component | `src/components/TestHosSync.tsx` |
-| Delete dead CSS | `src/App.css` |
-| Move Playwright to devDeps | `package.json` (move from dependencies to devDependencies) |
-| Remove 2 unused packages | `package.json` (delete `@opencvjs/web`, `@types/xlsx`) |
-| Remove wasted prefetches | `src/App.tsx` (remove trucks + trailers from `prefetchData`) |
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
