@@ -3328,7 +3328,6 @@ const Analytics = () => {
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
                           </TableHead>
                         <TableHead className="text-right">Paid</TableHead>
-                        {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TableHead className="w-[60px] text-center">Checked</TableHead>}
                       </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -3943,7 +3942,7 @@ const Analytics = () => {
                               })}
                                   </span>
                                 </TableCell>
-                                {/* Paid column - shows full total */}
+                                {/* Paid column - only show when actually paid */}
                                 <TableCell className="text-right">
                                 {isPaid ? <span className="text-green-600 font-medium">
                                       $
@@ -3951,22 +3950,8 @@ const Analytics = () => {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2
                               })}
-                                    </span> : <span className="font-medium">
-                                      ${fullTotal.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                                    </span>}
+                                    </span> : <span className="text-muted-foreground">—</span>}
                                 </TableCell>
-                                {/* Checked column */}
-                                {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TableCell className="text-center">
-                                  {stat.userId && (
-                                    <Checkbox
-                                      checked={isChecked}
-                                      onCheckedChange={() => toggleSalaryChecked(stat.userId!, isChecked)}
-                                    />
-                                  )}
-                                </TableCell>}
                               </TableRow>;
                       });
                     })()}
@@ -4120,6 +4105,9 @@ const Analytics = () => {
            futureBonus5Percent={payrollPreviewData.futureBonus5Percent}
            office={payrollPreviewData.office}
            onAdjustmentsChanged={() => {
+            queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
+          }}
+           onCheckedChanged={() => {
             queryClient.invalidateQueries({ queryKey: ["salary-payments", selectedMonth] });
           }}
           onEmailSent={() => {

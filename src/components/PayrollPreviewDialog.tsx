@@ -29,6 +29,7 @@ interface PayrollPreviewDialogProps {
   perDayRate?: number;
   onEmailSent: () => void;
   onAdjustmentsChanged?: () => void; // Called when adjustments are saved to DB
+  onCheckedChanged?: () => void; // Called when checked status changes
   previewOnly?: boolean; // When true, hide send button and PTO editing
   isDeletedUser?: boolean; // When true, add future month salary/bonus rows
   futureSalary1Percent?: number; // Salary 1% for next month
@@ -57,6 +58,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   perDayRate = 0,
   onEmailSent,
   onAdjustmentsChanged,
+  onCheckedChanged,
   previewOnly = false,
   isDeletedUser = false,
   futureSalary1Percent = 0,
@@ -77,6 +79,64 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
+  
+  // Checked state
+  const [isCheckedState, setIsCheckedState] = useState(false);
+
+  // Load checked state when dialog opens
+  useEffect(() => {
+    if (open && dispatcherUserId && selectedMonth) {
+      loadCheckedState();
+    }
+  }, [open, dispatcherUserId, selectedMonth]);
+
+  const loadCheckedState = async () => {
+    try {
+      const { data } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("is_checked")
+        .eq("month", selectedMonth)
+        .eq("user_id", dispatcherUserId)
+        .maybeSingle();
+      setIsCheckedState((data as any)?.is_checked || false);
+    } catch (err) {
+      console.error("Error loading checked state:", err);
+    }
+  };
+
+  const handleToggleChecked = async () => {
+    const newChecked = !isCheckedState;
+    setIsCheckedState(newChecked);
+    try {
+      const { data: existing } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("id")
+        .eq("month", selectedMonth)
+        .eq("user_id", dispatcherUserId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .update({ is_checked: newChecked })
+          .eq("user_id", dispatcherUserId)
+          .eq("month", selectedMonth);
+      } else {
+        await supabase
+          .from("dispatcher_salary_payments" as any)
+          .insert({
+            user_id: dispatcherUserId,
+            month: selectedMonth,
+            is_checked: newChecked,
+            paid_amount: 0,
+          });
+      }
+      onCheckedChanged?.();
+    } catch (err) {
+      console.error("Error toggling checked:", err);
+      setIsCheckedState(!newChecked); // revert
+    }
+  };
 
   // Persist adjustments to DB immediately
   const saveAdjustmentsToDb = async (newAdjustments: PayrollAdjustment[]) => {
@@ -641,44 +701,57 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {previewOnly ? "Close" : "Cancel"}
-          </Button>
-          {pdfUrl && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = pdfUrl;
-                a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-              }}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
+        <DialogFooter className="flex items-center justify-between sm:justify-between">
+          <div className="flex items-center gap-2">
+            {!previewOnly && (
+              <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer border transition-colors ${isCheckedState ? "bg-green-100 dark:bg-green-950/30 border-green-300 dark:border-green-800" : "border-input"}`}>
+                <Checkbox
+                  checked={isCheckedState}
+                  onCheckedChange={handleToggleChecked}
+                />
+                <span className="text-sm font-medium">Checked</span>
+              </label>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {previewOnly ? "Close" : "Cancel"}
             </Button>
-          )}
-          {!previewOnly && (
-            <div className="flex flex-col items-end gap-1">
-              <Button onClick={handleSendEmail} disabled={sending}>
-                {sending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send & Mark as Paid
-                  </>
-                )}
+            {pdfUrl && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = pdfUrl;
+                  a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
               </Button>
-              <span className="text-xs text-muted-foreground">{recipientEmail}</span>
-            </div>
-          )}
+            )}
+            {!previewOnly && (
+              <div className="flex flex-col items-end gap-1">
+                <Button onClick={handleSendEmail} disabled={sending}>
+                  {sending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send & Mark as Paid
+                    </>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">{recipientEmail}</span>
+              </div>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
