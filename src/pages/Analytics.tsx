@@ -863,7 +863,8 @@ const Analytics = () => {
         }
         const monthStr = `${targetYear}-${String(targetMonthNum).padStart(2, "0")}`;
         const monthStart = `${monthStr}-01`;
-        const monthEnd = `${monthStr}-31`;
+        const lastDayOfMonth = new Date(targetYear, targetMonthNum, 0).getDate();
+        const monthEnd = `${monthStr}-${String(lastDayOfMonth).padStart(2, "0")}`;
 
         const { data, error } = await supabase
           .from("dispatcher_sick_days" as any)
