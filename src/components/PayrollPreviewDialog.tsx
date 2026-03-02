@@ -160,7 +160,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       } else {
         // Create a record with just additionals (not yet paid)
         const baseRate = salary1Percent + bonus5Percent;
-        const daysOffDeduction = lostDays * perDayRate;
+        const selectedPtoDates = Object.entries(ptoSelections).filter(([_, v]) => v).map(([d]) => d);
+        const nonSickLostDays = Math.max(0, lostDays - selectedPtoDates.length);
+        const daysOffDeduction = nonSickLostDays * perDayRate;
         const adjTotal = newAdjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
         const fullTotal = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
         await supabase
@@ -338,50 +340,56 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     saveAdjustmentsToDb(updated);
   };
 
-  const savePtoToDb = async (selections: Record<string, boolean>) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Use a ref to serialize PTO saves and prevent race conditions
+  const ptoSaveQueue = React.useRef<Promise<void>>(Promise.resolve());
 
-      const selectedPtoDays = Object.entries(selections)
-        .filter(([_, isChecked]) => isChecked)
-        .map(([date]) => {
-          const [month, day] = date.split("/");
-          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-        });
+  const savePtoToDb = (selections: Record<string, boolean>) => {
+    // Chain saves to prevent race conditions when toggling multiple days quickly
+    ptoSaveQueue.current = ptoSaveQueue.current.then(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      // Remove existing PTO days for this month
-      const monthStart = `${selectedMonth}-01`;
-      const monthEnd = `${selectedMonth}-31`;
-      await supabase
-        .from("dispatcher_sick_days" as any)
-        .delete()
-        .eq("user_id", dispatcherUserId)
-        .gte("sick_date", monthStart)
-        .lte("sick_date", monthEnd);
+        const selectedPtoDays = Object.entries(selections)
+          .filter(([_, isChecked]) => isChecked)
+          .map(([date]) => {
+            const [month, day] = date.split("/");
+            return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+          });
 
-      // Insert new PTO days
-      if (selectedPtoDays.length > 0) {
+        // Remove existing PTO days for this month
+        const monthStart = `${selectedMonth}-01`;
+        const monthEnd = `${selectedMonth}-31`;
         await supabase
           .from("dispatcher_sick_days" as any)
-          .insert(
-            selectedPtoDays.map(date => ({
-              user_id: dispatcherUserId,
-              sick_date: date,
-              year,
-              created_by: user.id,
-            }))
-          );
-      }
+          .delete()
+          .eq("user_id", dispatcherUserId)
+          .gte("sick_date", monthStart)
+          .lte("sick_date", monthEnd);
 
-      // Update existingPtoDays to reflect saved state
-      const otherMonthDays = existingPtoDays.filter(d => d.substring(0, 7) !== selectedMonth);
-      setExistingPtoDays([...otherMonthDays, ...selectedPtoDays]);
-      setUsedPtoDaysThisYear(otherMonthDays.length + selectedPtoDays.length);
-    } catch (err) {
-      console.error("Error saving PTO:", err);
-      toast.error("Failed to save PTO");
-    }
+        // Insert new PTO days
+        if (selectedPtoDays.length > 0) {
+          await supabase
+            .from("dispatcher_sick_days" as any)
+            .insert(
+              selectedPtoDays.map(date => ({
+                user_id: dispatcherUserId,
+                sick_date: date,
+                year,
+                created_by: user.id,
+              }))
+            );
+        }
+
+        // Update existingPtoDays to reflect saved state
+        const otherMonthDays = existingPtoDays.filter(d => d.substring(0, 7) !== selectedMonth);
+        setExistingPtoDays([...otherMonthDays, ...selectedPtoDays]);
+        setUsedPtoDaysThisYear(otherMonthDays.length + selectedPtoDays.length);
+      } catch (err) {
+        console.error("Error saving PTO:", err);
+        toast.error("Failed to save PTO");
+      }
+    });
   };
 
   const handlePtoToggle = (date: string, checked: boolean) => {
@@ -413,7 +421,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       }
 
       // PTO selections are already saved to DB on toggle - just get them for PDF
-      const selectedPtoDates = Object.entries(ptoSelections)
+      const ptoDatesForEmail = Object.entries(ptoSelections)
         .filter(([_, isChecked]) => isChecked)
         .map(([date]) => date);
 
@@ -431,7 +439,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         extraDaysAmount,
         dispatcherBonus,
         perDayRate,
-        sickDayDates: selectedPtoDates,
+        sickDayDates: ptoDatesForEmail,
         totalSickDaysAvailable: maxPtoDays,
         adjustments,
         isDeletedUser,
@@ -469,7 +477,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
       // Calculate the full total for paid_amount (salary + all components)
       const baseRate = salary1Percent + bonus5Percent;
-      const daysOffDeduction = lostDays * perDayRate;
+      const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
+      const nonSickLostDays = Math.max(0, lostDays - ptoCount);
+      const daysOffDeduction = nonSickLostDays * perDayRate;
       const adjTotal = adjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
       const fullPaidAmount = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
 
