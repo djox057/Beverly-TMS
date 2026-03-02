@@ -51,27 +51,8 @@ const queryClient = new QueryClient({
 // Prefetch common data on app load
 const prefetchData = async () => {
   const prefetchPromises = [
-    queryClient.prefetchQuery({
-      queryKey: ['trucks', 'v2'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('trucks')
-          .select('*')
-          .order('truck_number');
-        return data || [];
-      },
-    }),
-    queryClient.prefetchQuery({
-      queryKey: ['trailers', 'v2'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('trailers')
-          .select('*')
-          .order('trailer_number');
-        return data || [];
-      },
-    }),
-    // Note: drivers prefetch removed - useDrivers hook handles enriched data fetching
+    // Note: trucks/trailers/drivers prefetches removed - their hooks use enriched queryFns
+    // that don't match the simple select('*') used here, causing wasted double-fetches
     queryClient.prefetchQuery({
       queryKey: ['brokers'],
       queryFn: async () => {

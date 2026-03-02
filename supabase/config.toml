@@ -1,12 +1,6 @@
 project_id = "wjkbtagwgjniilmgwutb"
 
-[functions.hello-world]
-verify_jwt = false
-
 [functions.record-dispatcher-driver-counts]
-verify_jwt = false
-
-[functions.cleanup-yard-arrivals]
 verify_jwt = false
 
 [functions.process-afterhours-schedule]
