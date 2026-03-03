@@ -1222,7 +1222,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       debounceTimer = setTimeout(flushPending, 1000);
     };
 
-    const channelName = `adapter-orders-realtime-${priorityOffice || 'default'}`;
+    const channelName = "adapter-orders-realtime-global";
 
     const channel = supabase
       .channel(channelName)
@@ -1283,14 +1283,19 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     ordersRealtimeChannelRef.current = channel;
 
     return () => {
+      // CRITICAL: Flush any pending order IDs before cleanup
+      // Tab switches trigger effect cleanup, which would otherwise drop queued IDs
+      if (pendingOrderIds.size > 0 || pendingDeletes.size > 0) {
+        flushPending();
+      }
       if (debounceTimer) clearTimeout(debounceTimer);
       if (ordersRealtimeChannelRef.current) {
-        console.log(`[adapter] Unsubscribing from orders realtime for office: ${priorityOffice}`);
+        console.log("[adapter] Unsubscribing from orders realtime (global)");
         supabase.removeChannel(ordersRealtimeChannelRef.current);
         ordersRealtimeChannelRef.current = null;
       }
     };
-  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
+  }, [scopeEnabled, driverIdsForScope.length, queryClient]);
 
   // Build order_files lookup map (include files from last loads)
   const orderFilesMap = useMemo(() => {
