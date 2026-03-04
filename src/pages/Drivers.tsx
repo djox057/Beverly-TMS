@@ -92,7 +92,9 @@ interface DriverFormData {
   fein: string;
   drugTestResult: "positive" | "negative" | "pending" | null;
   is_company_driver: boolean;
+  is_recovery: boolean;
   cents_per_mile: string;
+  note: string;
 }
 const Drivers = () => {
   const location = useLocation();
@@ -170,7 +172,9 @@ const Drivers = () => {
     fein: "",
     drugTestResult: null,
     is_company_driver: false,
+    is_recovery: false,
     cents_per_mile: "",
+    note: "",
   });
   const { toast } = useToast();
   const { data: drivers, isLoading, refetch } = useDrivers();
@@ -343,7 +347,9 @@ const Drivers = () => {
       fein: "",
       drugTestResult: null,
       is_company_driver: false,
+      is_recovery: false,
       cents_per_mile: "",
+      note: "",
     });
     setSelectedTruckId("");
     setNewlyCreatedDriverId(null);
@@ -445,7 +451,9 @@ const Drivers = () => {
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
+          is_recovery: formData.is_recovery || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          note: formData.note || null,
         })
         .select()
         .single();
