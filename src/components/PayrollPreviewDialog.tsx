@@ -741,7 +741,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                   onClick={() => {
                     const a = document.createElement("a");
                     a.href = pdfUrl;
-                    a.download = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/\s+/g, "_")}.pdf`;
+                    a.download = `${dispatcherName}.pdf`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

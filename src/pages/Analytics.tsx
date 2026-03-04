@@ -3522,7 +3522,7 @@ const Analytics = () => {
                                         dispatcherBonus: bonusAmount,
                                         perDayRate,
                                         office: stat.office,
-                                      }, `Payroll_${stat.name.replace(/\s+/g, "_")}_${selectedMonth}.docx`);
+                                      }, `${stat.name}.docx`);
                                       toast.success(`Payroll document generated for ${stat.name}`);
                                     }}>
                                               <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary" />

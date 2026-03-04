@@ -32,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
     const uint8Array = new Uint8Array(pdfBytes);
     const base64Content = btoa(String.fromCharCode.apply(null, [...uint8Array]));
 
-    const filename = `Payroll_${dispatcherName.replace(/\s+/g, "_")}_${payPeriod.replace(/,?\s+/g, "_")}.pdf`;
+    const filename = `${dispatcherName}.pdf`;
 
     const emailResponse = await resend.emails.send({
       from: "Beverly Freight Management <statements@beverlyfreight.net>",
