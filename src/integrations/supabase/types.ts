@@ -1786,6 +1786,7 @@ export type Database = {
           medical_card_expiration_date: string | null
           mvr_date: string | null
           name: string | null
+          note: string | null
           phone: string | null
           random_drug_test_date: string | null
           termination_date: string | null
@@ -1835,6 +1836,7 @@ export type Database = {
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string | null
+          note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
           termination_date?: string | null
@@ -1884,6 +1886,7 @@ export type Database = {
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string | null
+          note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
           termination_date?: string | null

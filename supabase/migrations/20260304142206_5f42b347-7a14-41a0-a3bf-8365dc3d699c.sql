@@ -1,0 +1,1 @@
+ALTER TABLE public.drivers ADD COLUMN note text DEFAULT NULL;
