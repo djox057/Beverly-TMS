@@ -1,38 +1,31 @@
 
 
-# Confirmation: Both Pre-Merge Items Verified
+# Fix 1: Analytics -- Select Only Needed Columns
 
-## Item 1: No server-side filter on the channel ✅
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-Line 1227-1276 shows the channel subscription uses:
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
+
+**Before:**
 ```typescript
-.on("postgres_changes", { event: "*", schema: "public", table: "orders" }, ...)
-.on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, ...)
-.on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, ...)
+.select("*")
 ```
 
-No `filter:` parameter exists on any of the three listeners. The channel receives events for ALL orders regardless of office or driver. Client-side scope checking happens inside the callback via `driverIdsSetRef.current`. Removing `priorityOffice` from the dependency array is safe.
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-## Item 2: `flushPending` closure is safe ✅
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-`flushPending` (lines 1100-1218) references only:
-- `pendingDeletes`, `pendingOrderIds` — local `Set` objects scoped to the effect closure (not React state)
-- `isFlushing` — local boolean in the effect closure
-- `removeOrderFromGlobalStore`, `patchOrderInGlobalStore`, `flushGlobalStoreNotifications`, `hasOrderInGlobalStore` — **module-level** functions imported from `useReportsDateWindow` (line 14). They operate on the module-scoped global store, not component state.
-- `driverIdsSetRef` — a ref, stable across renders
-- `queryClient` — from TanStack, stable object
-- `fetchPickupDropsForOrders`, `fetchOrderTransfersForOrders` — module-level imports
-
-No React state setters are called. Fire-and-forget from cleanup is safe — no stale closures, no React warnings.
-
-## Plan: Three surgical edits to `src/hooks/useReportsDateWindowAdapter.ts`
-
-### Change 1 — Flush before cleanup (line 1285-1291)
-Replace the cleanup function to call `flushPending()` before clearing the timer and removing the channel.
-
-### Change 2 — Stable channel name (line 1225)
-Change from `` `adapter-orders-realtime-${priorityOffice || 'default'}` `` to `"adapter-orders-realtime-global"`.
-
-### Change 3 — Remove `priorityOffice` from deps (line 1293)
-Change from `[scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]` to `[scopeEnabled, driverIdsForScope.length, queryClient]`.
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
