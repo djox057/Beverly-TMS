@@ -2083,13 +2083,42 @@ const Analytics = () => {
         if (stat.totalFreight <= 0) return false;
         if (!selectedMonth || selectedMonth === "all") return true;
 
-        // Check 1: If this deleted dispatcher has a salary payment record, use that
+        // Check 1: If this deleted dispatcher has a salary payment record,
+        // only hide future months when the prior paid month included rollover.
         const lastPaid = deletedDispatcherLastPaidMonth?.[stat.name];
         if (lastPaid && selectedMonth > lastPaid) {
-          return false; // Already paid in a previous month
+          let shouldHideFutureMonths = true;
+
+          if (orders) {
+            let lastOrderCreatedAt: Date | null = null;
+            orders.forEach(order => {
+              const orderDispatcher = order.bookedBy || "";
+              if (orderDispatcher !== stat.name || !order.createdAt) return;
+              const createdAtDate = new Date(order.createdAt);
+              if (!Number.isNaN(createdAtDate.getTime()) && (!lastOrderCreatedAt || createdAtDate > lastOrderCreatedAt)) {
+                lastOrderCreatedAt = createdAtDate;
+              }
+            });
+
+            const [lpYearStr, lpMonthStr] = lastPaid.split("-");
+            const lpYear = Number(lpYearStr);
+            const lpMonth = Number(lpMonthStr);
+
+            if (lastOrderCreatedAt && lpYear && lpMonth) {
+              const nextMonth10th = new Date(lpYear, lpMonth, 10); // month after lastPaid
+              // Deleted after 10th => prior month did NOT include rollover, so keep future month visible
+              if (lastOrderCreatedAt > nextMonth10th) {
+                shouldHideFutureMonths = false;
+              }
+            }
+          }
+
+          if (shouldHideFutureMonths) {
+            return false;
+          }
         }
 
-        // Check 2: If no salary payment record, still show them if they have freight in this period
+        // Check 2: If no blocking paid rollover, show them if they have freight in this period
         // (totalFreight > 0 is already checked above)
 
         return true;
