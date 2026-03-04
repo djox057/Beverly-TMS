@@ -2890,6 +2890,15 @@ const Drivers = () => {
                         placeholder="FEIN"
                       />
                     </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label>Note</Label>
+                      <Textarea
+                        value={formData.note}
+                        onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                        placeholder="Driver note..."
+                        rows={2}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -2908,6 +2917,21 @@ const Drivers = () => {
                     />
                     <Label htmlFor="edit_is_company_driver" className="cursor-pointer">
                       Company Driver
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_is_recovery"
+                      checked={formData.is_recovery}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          is_recovery: checked === true,
+                        })
+                      }
+                    />
+                    <Label htmlFor="edit_is_recovery" className="cursor-pointer">
+                      Recovery Driver
                     </Label>
                   </div>
                   {formData.is_company_driver && (
