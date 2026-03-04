@@ -716,7 +716,9 @@ const Drivers = () => {
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
+          is_recovery: formData.is_recovery || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          note: formData.note || null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
