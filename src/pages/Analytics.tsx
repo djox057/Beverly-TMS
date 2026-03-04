@@ -3565,6 +3565,26 @@ const Analytics = () => {
                                       // Check if this is a deleted user
                                       const isDeletedUserFlag = dispatcherProfile?.email?.includes("@deleted.user") || false;
                                       
+                                      // Determine the deleted user's last activity date from their last booked order's created_at
+                                      let shouldIncludeFutureMonth = false;
+                                      if (isDeletedUserFlag && orders) {
+                                        let lastOrderCreatedAt: Date | null = null;
+                                        orders.forEach(order => {
+                                          const orderDispatcher = order.bookedBy || "";
+                                          if (orderDispatcher !== stat.name) return;
+                                          if (order.createdAt) {
+                                            const d = new Date(order.createdAt);
+                                            if (!lastOrderCreatedAt || d > lastOrderCreatedAt) lastOrderCreatedAt = d;
+                                          }
+                                        });
+                                        // If deleted by the 10th of next month, combine into one statement
+                                        // Otherwise, each month is separate (no future month rows)
+                                        if (lastOrderCreatedAt) {
+                                          const nextMonth10th = new Date(year, monthNum + 1, 10);
+                                          shouldIncludeFutureMonth = lastOrderCreatedAt <= nextMonth10th;
+                                        }
+                                      }
+                                      
                                       // Calculate future month data for deleted users
                                       const nextMonthDate = new Date(year, monthNum + 1, 1);
                                       const futureMonthLabel = format(nextMonthDate, "MMMM");
@@ -3577,7 +3597,7 @@ const Analytics = () => {
                                       // Calculate next month freight/cut for this dispatcher
                                       let nextMonthFreight = 0;
                                       let nextMonthDriverRate = 0;
-                                      if (isDeletedUserFlag && orders) {
+                                      if (isDeletedUserFlag && shouldIncludeFutureMonth && orders) {
                                         orders.forEach(order => {
                                           const orderDispatcher = order.bookedBy || "";
                                           if (orderDispatcher !== stat.name) return;
@@ -3615,9 +3635,9 @@ const Analytics = () => {
                                         dispatcherBonus: bonusAmount,
                                         perDayRate,
                                          isDeletedUser: isDeletedUserFlag,
-                                        futureMonthLabel: isDeletedUserFlag ? futureMonthLabel : undefined,
-                                        futureSalary1Percent: isDeletedUserFlag ? nextMonthFreight * 0.01 : undefined,
-                                        futureBonus5Percent: isDeletedUserFlag ? nextMonthCut * 0.05 : undefined,
+                                        futureMonthLabel: (isDeletedUserFlag && shouldIncludeFutureMonth) ? futureMonthLabel : undefined,
+                                        futureSalary1Percent: (isDeletedUserFlag && shouldIncludeFutureMonth) ? nextMonthFreight * 0.01 : undefined,
+                                        futureBonus5Percent: (isDeletedUserFlag && shouldIncludeFutureMonth) ? nextMonthCut * 0.05 : undefined,
                                         office: stat.office,
                                       });
                                       setPayrollPreviewOpen(true);
