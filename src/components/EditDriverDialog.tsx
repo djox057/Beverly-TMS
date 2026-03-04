@@ -70,7 +70,9 @@ interface DriverFormData {
   ssn: string;
   fein: string;
   is_company_driver: boolean;
+  is_recovery: boolean;
   cents_per_mile: string;
+  note: string;
 }
 
 interface EditDriverDialogProps {
@@ -157,7 +159,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     ssn: "",
     fein: "",
     is_company_driver: false,
+    is_recovery: false,
     cents_per_mile: "",
+    note: "",
   });
 
   // Get available trucks (excluding ones assigned to other drivers)
@@ -286,7 +290,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
       is_company_driver: driver.is_company_driver || false,
+      is_recovery: driver.is_recovery || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
+      note: driver.note || "",
     });
 
     if (truckData?.id) {
@@ -479,7 +485,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
+          is_recovery: formData.is_recovery || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          note: formData.note || null,
         })
         .eq("id", editingDriver.id);
 
@@ -1025,6 +1033,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                             placeholder="FEIN"
                           />
                         </div>
+                        <div className="space-y-2 col-span-2">
+                          <Label>Note</Label>
+                          <Textarea
+                            value={formData.note}
+                            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                            placeholder="Driver note..."
+                            rows={2}
+                          />
+                        </div>
                       </div>
                     </div>
                   </>
@@ -1118,6 +1135,21 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     />
                     <Label htmlFor="edit_is_company_driver" className="cursor-pointer">
                       Company Driver
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_is_recovery"
+                      checked={formData.is_recovery}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          is_recovery: checked === true,
+                        })
+                      }
+                    />
+                    <Label htmlFor="edit_is_recovery" className="cursor-pointer">
+                      Recovery Driver
                     </Label>
                   </div>
                   {formData.is_company_driver && (

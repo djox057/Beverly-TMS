@@ -92,7 +92,9 @@ interface DriverFormData {
   fein: string;
   drugTestResult: "positive" | "negative" | "pending" | null;
   is_company_driver: boolean;
+  is_recovery: boolean;
   cents_per_mile: string;
+  note: string;
 }
 const Drivers = () => {
   const location = useLocation();
@@ -170,7 +172,9 @@ const Drivers = () => {
     fein: "",
     drugTestResult: null,
     is_company_driver: false,
+    is_recovery: false,
     cents_per_mile: "",
+    note: "",
   });
   const { toast } = useToast();
   const { data: drivers, isLoading, refetch } = useDrivers();
@@ -343,7 +347,9 @@ const Drivers = () => {
       fein: "",
       drugTestResult: null,
       is_company_driver: false,
+      is_recovery: false,
       cents_per_mile: "",
+      note: "",
     });
     setSelectedTruckId("");
     setNewlyCreatedDriverId(null);
@@ -445,7 +451,9 @@ const Drivers = () => {
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
+          is_recovery: formData.is_recovery || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          note: formData.note || null,
         })
         .select()
         .single();
@@ -708,7 +716,9 @@ const Drivers = () => {
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
+          is_recovery: formData.is_recovery || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          note: formData.note || null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
@@ -1278,7 +1288,9 @@ const Drivers = () => {
       fein: sensitivePIIData?.fein || "",
       drugTestResult: null,
       is_company_driver: driver.is_company_driver || false,
+      is_recovery: driver.is_recovery || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
+      note: driver.note || "",
     });
     if (truckData?.id) {
       setSelectedTruckId(truckData.id);
@@ -1890,6 +1902,16 @@ const Drivers = () => {
                     </Select>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label>Note</Label>
+                    <Textarea
+                      value={formData.note}
+                      onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                      placeholder="Driver note..."
+                      rows={2}
+                    />
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox
@@ -1905,6 +1927,21 @@ const Drivers = () => {
                       />
                       <Label htmlFor="is_company_driver" className="cursor-pointer">
                         Company Driver
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_recovery"
+                        checked={formData.is_recovery}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            is_recovery: checked === true,
+                          })
+                        }
+                      />
+                      <Label htmlFor="is_recovery" className="cursor-pointer">
+                        Recovery Driver
                       </Label>
                     </div>
                     {formData.is_company_driver && (
