@@ -117,6 +117,8 @@ const Drivers = () => {
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date" | null>(null);
+  const [inactiveSortDir, setInactiveSortDir] = useState<"asc" | "desc">("desc");
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
@@ -298,11 +300,35 @@ const Drivers = () => {
       return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany;
     }) || [];
 
+  // Sort inactive drivers by date if sort is active
+  const sortedFilteredDrivers = (() => {
+    if (statusFilter === "inactive" && inactiveSortField) {
+      return [...filteredDrivers].sort((a, b) => {
+        const aVal = a[inactiveSortField] || "";
+        const bVal = b[inactiveSortField] || "";
+        if (aVal === bVal) return 0;
+        if (!aVal) return 1;
+        if (!bVal) return -1;
+        return inactiveSortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      });
+    }
+    return filteredDrivers;
+  })();
+
   // Pagination
-  const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedFilteredDrivers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedDrivers = filteredDrivers.slice(startIndex, endIndex);
+  const paginatedDrivers = sortedFilteredDrivers.slice(startIndex, endIndex);
+
+  const handleInactiveSort = (field: "hire_date" | "termination_date") => {
+    if (inactiveSortField === field) {
+      setInactiveSortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setInactiveSortField(field);
+      setInactiveSortDir("desc");
+    }
+  };
 
   // Reset to first page when search term changes
   const handleSearchChange = (value: string) => {
@@ -2122,9 +2148,22 @@ const Drivers = () => {
                 <TableRow>
                   <TableHead className="w-[200px]">Name</TableHead>
                   <TableHead className="w-[140px]">Company</TableHead>
-                  <TableHead className="w-[70px]">Truck #</TableHead>
-                  <TableHead className="w-[70px]">Trailer #</TableHead>
-                  <TableHead className="w-[140px]">Dispatcher</TableHead>
+                  {statusFilter === "inactive" ? (
+                    <>
+                      <TableHead className="w-[120px] cursor-pointer select-none" onClick={() => handleInactiveSort("hire_date")}>
+                        Hire Date {inactiveSortField === "hire_date" ? (inactiveSortDir === "asc" ? "↑" : "↓") : ""}
+                      </TableHead>
+                      <TableHead className="w-[120px] cursor-pointer select-none" onClick={() => handleInactiveSort("termination_date")}>
+                        Termination Date {inactiveSortField === "termination_date" ? (inactiveSortDir === "asc" ? "↑" : "↓") : ""}
+                      </TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="w-[70px]">Truck #</TableHead>
+                      <TableHead className="w-[70px]">Trailer #</TableHead>
+                      <TableHead className="w-[140px]">Dispatcher</TableHead>
+                    </>
+                  )}
                   <TableHead className="w-[220px]">Contact</TableHead>
                   <TableHead className="w-[120px]">Home Location</TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
@@ -2151,9 +2190,18 @@ const Drivers = () => {
                         </div>
                       </TableCell>
                       <TableCell className="truncate">{driver.company?.name || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap">{driver.truck_info?.truck_number || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap">{driver.truck_info?.trailer_number || "—"}</TableCell>
-                      <TableCell className="truncate">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
+                      {statusFilter === "inactive" ? (
+                        <>
+                          <TableCell className="whitespace-nowrap">{driver.hire_date ? format(new Date(driver.hire_date + "T00:00:00"), "MM/dd/yyyy") : "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{driver.termination_date ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy") : "—"}</TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="whitespace-nowrap">{driver.truck_info?.truck_number || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{driver.truck_info?.trailer_number || "—"}</TableCell>
+                          <TableCell className="truncate">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
+                        </>
+                      )}
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {driver.phone && (
