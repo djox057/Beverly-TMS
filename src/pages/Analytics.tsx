@@ -2089,15 +2089,8 @@ const Analytics = () => {
           return false; // Already paid in a previous month
         }
 
-        // Check 2: Use pickup dates - only show in the month of the latest pickup
-        // If the dispatcher's latest pickup is in January but orders deliver in February,
-        // they should only appear in January's salary (their last active month)
-        if (stat.latestPickupDate && !lastPaid) {
-          const pickupMonth = stat.latestPickupDate.substring(0, 7); // "YYYY-MM"
-          if (selectedMonth > pickupMonth) {
-            return false; // Their last pickup was in a previous month
-          }
-        }
+        // Check 2: If no salary payment record, still show them if they have freight in this period
+        // (totalFreight > 0 is already checked above)
 
         return true;
       }
