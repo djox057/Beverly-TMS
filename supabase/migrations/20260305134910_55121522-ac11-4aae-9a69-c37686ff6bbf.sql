@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_orders_broker_load_number_prefix ON orders (broker_load_number text_pattern_ops);
