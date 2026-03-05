@@ -213,19 +213,40 @@ async function searchByTruckOrDriver(searchTerm: string): Promise<any[]> {
   return transformOrders(enriched);
 }
 
-// Search by load number - flat+batch pattern
+// Joined select string for small result sets — single round trip instead of 7+ batch queries.
+// Safe for small datasets (<50 rows) where RLS amplification is negligible.
+const ORDERS_JOINED_SELECT = `
+  *,
+  broker:brokers(id, name, mc_number, address),
+  company:companies!company_id(id, name),
+  booked_by_company:companies!booked_by_company_id(id, name),
+  truck:trucks!truck_id(id, truck_number, company_id, company:companies(id, name)),
+  trailer:trailers!trailer_id(id, trailer_number),
+  driver1:drivers!driver1_id(id, name, company_id, company:companies(id, name)),
+  driver2:drivers!driver2_id(id, name, company_id, company:companies(id, name)),
+  original_truck:trucks!original_truck_id(id, truck_number),
+  original_trailer:trailers!original_trailer_id(id, trailer_number),
+  original_driver1:drivers!original_driver1_id(id, name),
+  original_driver2:drivers!original_driver2_id(id, name),
+  pickup_drops(*),
+  order_files(id, order_id, file_category, file_name, file_path),
+  order_transfers(*),
+  recovery_history(*)
+`.replace(/\n/g, "").trim();
+
+// Search by load number - uses joined query for speed (small result sets)
 async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   if (!loadNumber || loadNumber.length < 2) return [];
 
   const searchLower = loadNumber.toLowerCase().trim();
   const parsedNumber = parseInternalLoadNumber(searchLower);
 
-  // Run both searches in parallel to avoid relying on .or() wildcard behavior
+  // Run both searches in parallel with full joins (single round trip per query)
   const [internalResult, brokerResult] = await Promise.all([
     parsedNumber !== null
-      ? supabase.from("orders").select("*").eq("internal_load_number", parsedNumber).limit(50)
+      ? supabase.from("orders").select(ORDERS_JOINED_SELECT).eq("internal_load_number", parsedNumber).limit(50)
       : Promise.resolve({ data: [] as any[], error: null }),
-    supabase.from("orders").select("*").ilike("broker_load_number", `%${searchLower}%`).limit(50),
+    supabase.from("orders").select(ORDERS_JOINED_SELECT).ilike("broker_load_number", `%${searchLower}%`).limit(50),
   ]);
 
   if (internalResult.error) console.error("Error fetching by internal load#:", internalResult.error);
@@ -242,6 +263,6 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
 
   if (unique.length === 0) return [];
 
-  const enriched = await enrichOrdersWithRelations(unique);
-  return transformOrders(enriched);
+  // Data already has joins — skip enrichOrdersWithRelations, go straight to transform
+  return transformOrders(unique);
 }
