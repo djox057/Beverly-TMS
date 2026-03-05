@@ -38,7 +38,7 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
 
   // Debounce search inputs to prevent rapid state changes
   const debouncedTruckDriverSearch = useDebounce(searchState?.truckDriverSearch?.trim() || "", 500);
-  const debouncedLoadNumberSearch = useDebounce(searchState?.loadNumberSearch?.trim() || "", 150);
+  const debouncedLoadNumberSearch = useDebounce(searchState?.loadNumberSearch?.trim() || "", 500);
 
   // Memoized search function to prevent flickering
   const performSearch = useCallback(
