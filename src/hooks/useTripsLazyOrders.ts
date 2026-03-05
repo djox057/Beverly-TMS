@@ -220,21 +220,28 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   const searchLower = loadNumber.toLowerCase().trim();
   const parsedNumber = parseInternalLoadNumber(searchLower);
 
-  let query = supabase.from("orders").select("*").limit(50);
+  // Run both searches in parallel to avoid relying on .or() wildcard behavior
+  const [internalResult, brokerResult] = await Promise.all([
+    parsedNumber !== null
+      ? supabase.from("orders").select("*").eq("internal_load_number", parsedNumber).limit(50)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    supabase.from("orders").select("*").ilike("broker_load_number", `%${searchLower}%`).limit(50),
+  ]);
 
-  if (parsedNumber !== null) {
-    query = query.or(`internal_load_number.eq.${parsedNumber},broker_load_number.ilike.*${searchLower}*`);
-  } else {
-    query = query.ilike("broker_load_number", `%${searchLower}%`);
-  }
+  if (internalResult.error) console.error("Error fetching by internal load#:", internalResult.error);
+  if (brokerResult.error) console.error("Error fetching by broker load#:", brokerResult.error);
 
-  const { data: orders, error } = await query;
+  // Merge and deduplicate
+  const allOrders = [...(internalResult.data || []), ...(brokerResult.data || [])];
+  const seen = new Set<string>();
+  const unique = allOrders.filter(o => {
+    if (seen.has(o.id)) return false;
+    seen.add(o.id);
+    return true;
+  });
 
-  if (error) {
-    console.error("Error fetching order by load number:", error);
-    return [];
-  }
+  if (unique.length === 0) return [];
 
-  const enriched = await enrichOrdersWithRelations(orders || []);
+  const enriched = await enrichOrdersWithRelations(unique);
   return transformOrders(enriched);
 }
