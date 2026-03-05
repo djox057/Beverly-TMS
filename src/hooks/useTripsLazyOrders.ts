@@ -223,7 +223,7 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   let query = supabase.from("orders").select("*").limit(50);
 
   if (parsedNumber !== null) {
-    query = query.or(`internal_load_number.eq.${parsedNumber},broker_load_number.ilike.*${searchLower}*`);
+    query = query.or(`internal_load_number.eq.${parsedNumber},broker_load_number.ilike.%${searchLower}%`);
   } else {
     query = query.ilike("broker_load_number", `%${searchLower}%`);
   }
