@@ -229,7 +229,6 @@ const ORDERS_JOINED_SELECT = `
   original_driver1:drivers!original_driver1_id(id, name),
   original_driver2:drivers!original_driver2_id(id, name),
   pickup_drops(*),
-  order_files(id, order_id, file_category, file_name, file_path),
   order_transfers(*),
   recovery_history(*)
 `.replace(/\n/g, "").trim();
@@ -246,7 +245,7 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
     parsedNumber !== null
       ? supabase.from("orders").select(ORDERS_JOINED_SELECT).eq("internal_load_number", parsedNumber).limit(50)
       : Promise.resolve({ data: [] as any[], error: null }),
-    supabase.from("orders").select(ORDERS_JOINED_SELECT).ilike("broker_load_number", `%${searchLower}%`).limit(50),
+    supabase.from("orders").select(ORDERS_JOINED_SELECT).ilike("broker_load_number", `${searchLower}%`).limit(50),
   ]);
 
   if (internalResult.error) console.error("Error fetching by internal load#:", internalResult.error);
