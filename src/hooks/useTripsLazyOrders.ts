@@ -241,19 +241,15 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   const parsedNumber = parseInternalLoadNumber(searchLower);
 
   // Run both searches in parallel with full joins (single round trip per query)
-  console.time("[TripsSearch] DB queries");
   const [internalResult, brokerResult] = await Promise.all([
     parsedNumber !== null
       ? supabase.from("orders").select(ORDERS_JOINED_SELECT).eq("internal_load_number", parsedNumber).limit(50)
       : Promise.resolve({ data: [] as any[], error: null }),
     supabase.from("orders").select(ORDERS_JOINED_SELECT).ilike("broker_load_number", `${searchLower}%`).limit(50),
   ]);
-  console.timeEnd("[TripsSearch] DB queries");
 
   if (internalResult.error) console.error("Error fetching by internal load#:", internalResult.error);
   if (brokerResult.error) console.error("Error fetching by broker load#:", brokerResult.error);
-
-  console.log("[TripsSearch] internal rows:", internalResult.data?.length ?? 0, "broker rows:", brokerResult.data?.length ?? 0);
 
   // Merge and deduplicate
   const allOrders = [...(internalResult.data || []), ...(brokerResult.data || [])];
@@ -267,8 +263,5 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
   if (unique.length === 0) return [];
 
   // Data already has joins — skip enrichOrdersWithRelations, go straight to transform
-  console.time("[TripsSearch] transformOrders");
-  const result = transformOrders(unique);
-  console.timeEnd("[TripsSearch] transformOrders");
-  return result;
+  return transformOrders(unique);
 }

@@ -64,5 +64,7 @@ export function parseInternalLoadNumber(formattedNumber: string | null | undefin
   const numericPart = formattedNumber.split("-")[0];
   const parsed = parseInt(numericPart, 10);
   
-  return isNaN(parsed) ? null : parsed;
+  // Guard against Postgres int4 overflow (max 2,147,483,647)
+  if (isNaN(parsed) || parsed > 2147483647 || parsed < 0) return null;
+  return parsed;
 }
