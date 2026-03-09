@@ -352,6 +352,37 @@ const Fleets = () => {
         <div className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Fleet Summary */}
+            {(() => {
+              const officeFilterFn = (office: string | null | undefined) =>
+                officeFilter === "all" || (office || "").toLowerCase() === officeFilter.toLowerCase();
+
+              const filteredDispatchers = dispatchers.filter(d => officeFilterFn(d.dispatcher.office));
+              const filteredAllDispatchers = allDispatchers.filter((d: any) => officeFilterFn(d.office));
+
+              // Assigned trucks = unique trucks from filtered dispatchers' drivers
+              const filteredAssignedTrucks = new Set<string>();
+              filteredDispatchers.forEach(d => {
+                d.drivers.forEach((driver: any) => {
+                  if (driver.truck?.id) filteredAssignedTrucks.add(driver.truck.id);
+                });
+              });
+
+              const dispatchOnly = filteredDispatchers.filter(d => d.dispatcher.roles?.includes("dispatch"));
+              const onDutyDispatchers = dispatchOnly.filter(d => d.isActive);
+              const allDispCount = filteredAllDispatchers.filter((d: any) => d.roles?.includes("dispatch")).length;
+
+              const truckCounts = dispatchOnly.map(d => {
+                const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                return uniqueTrucks.size;
+              });
+              const totalTrucks = truckCounts.reduce((sum, count) => sum + count, 0);
+
+              const sortedCounts = [...truckCounts].sort((a, b) => a - b);
+              const median = sortedCounts.length > 0 ? sortedCounts.length % 2 === 0 ? ((sortedCounts[sortedCounts.length / 2 - 1] + sortedCounts[sortedCounts.length / 2]) / 2).toFixed(1) : sortedCounts[Math.floor(sortedCounts.length / 2)].toString() : "0";
+              const avgOnDuty = onDutyDispatchers.length > 0 ? (totalTrucks / onDutyDispatchers.length).toFixed(1) : "0";
+              const avgAll = allDispCount > 0 ? (totalTrucks / allDispCount).toFixed(1) : "0";
+
+              return (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
@@ -360,8 +391,7 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                   <div className="text-lg sm:text-2xl font-bold text-primary">
-                    {dispatchers.filter(d => d.isActive && d.dispatcher.roles?.includes("dispatch")).length} /{" "}
-                    {allDispatchers.filter((d: any) => d.roles?.includes("dispatch")).length}
+                    {onDutyDispatchers.length} / {allDispCount}
                   </div>
                 </CardContent>
               </Card>
@@ -372,7 +402,7 @@ const Fleets = () => {
                   <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                  <div className="text-lg sm:text-2xl font-bold text-success">{assignedTrucksCount}</div>
+                  <div className="text-lg sm:text-2xl font-bold text-success">{officeFilter === "all" ? assignedTrucksCount : filteredAssignedTrucks.size}</div>
                 </CardContent>
               </Card>
 
@@ -382,7 +412,7 @@ const Fleets = () => {
                   <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-warning" />
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                  <div className="text-lg sm:text-2xl font-bold text-warning">{unassignedTrucksCount}</div>
+                  <div className="text-lg sm:text-2xl font-bold text-warning">{officeFilter === "all" ? unassignedTrucksCount : "—"}</div>
                 </CardContent>
               </Card>
 
@@ -392,36 +422,16 @@ const Fleets = () => {
                   <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                 </CardHeader>
                 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                  {(() => {
-                  // Only count trucks assigned to users with 'dispatch' role
-                  const dispatchOnlyFleets = dispatchers.filter(d => d.dispatcher.roles?.includes("dispatch"));
-                  const onDutyDispatchers = dispatchOnlyFleets.filter(d => d.isActive);
-                  const allDispatchersCount = allDispatchers.filter((d: any) => d.roles?.includes("dispatch")).length;
-
-                  // Calculate truck counts per dispatcher
-                  const truckCounts = dispatchOnlyFleets.map(d => {
-                    const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
-                    return uniqueTrucks.size;
-                  });
-                  const totalTrucks = truckCounts.reduce((sum, count) => sum + count, 0);
-
-                  // Calculate median
-                  const sortedCounts = [...truckCounts].sort((a, b) => a - b);
-                  const median = sortedCounts.length > 0 ? sortedCounts.length % 2 === 0 ? ((sortedCounts[sortedCounts.length / 2 - 1] + sortedCounts[sortedCounts.length / 2]) / 2).toFixed(1) : sortedCounts[Math.floor(sortedCounts.length / 2)].toString() : "0";
-                  const avgOnDuty = onDutyDispatchers.length > 0 ? (totalTrucks / onDutyDispatchers.length).toFixed(1) : "0";
-                  const avgAll = allDispatchersCount > 0 ? (totalTrucks / allDispatchersCount).toFixed(1) : "0";
-                  return <>
                         <div className="text-lg sm:text-2xl font-bold text-primary">
                           {avgOnDuty} / {avgAll}
                         </div>
                         <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 font-mono">{`median: ${median}`}</div>
-                      </>;
-                })()}
                 </CardContent>
               </Card>
             </div>
+              );
+            })()}
 
-            {/* Tabs for Dispatchers and Supervisors */}
             <Tabs defaultValue="dispatchers" className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2">
                 <TabsTrigger value="dispatchers" className="flex items-center gap-2">
