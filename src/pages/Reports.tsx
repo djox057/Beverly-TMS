@@ -4432,7 +4432,22 @@ const Reports = () => {
                                                               <p className="text-xs">📞 {truck.driverPhone}</p>
                                                             )}
                                                             {truck.driverEmail && (
-                                                              <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                              <div className="flex items-center justify-between gap-1">
+                                                                <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-5 w-5 p-0 flex-shrink-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const text = `Driver name: ${truck.driver}\n🚚 Truck: ${truck.truckNumber}\n🚛 Trailer: ${truck.trailerNumber || "N/A"}\n📞 ${truck.driverPhone || "N/A"}`;
+                                                                    navigator.clipboard.writeText(text);
+                                                                    toast({ title: "Copied to clipboard" });
+                                                                  }}
+                                                                >
+                                                                  <ClipboardCopy className="h-3 w-3" />
+                                                                </Button>
+                                                              </div>
                                                             )}
                                                             {((truck as any).emergencyContactName ||
                                                               (truck as any).emergencyContactPhone) && (
