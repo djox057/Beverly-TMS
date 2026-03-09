@@ -38,6 +38,7 @@ import {
   DollarSign,
   Map as MapIcon,
   Undo2,
+  ClipboardCopy,
   Fuel,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
