@@ -119,7 +119,7 @@ export default function Stuff() {
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search drivers by name, truck, or company..."
+            placeholder="Search drivers by name, truck, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
