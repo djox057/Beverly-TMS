@@ -429,8 +429,9 @@ const Fleets = () => {
                 </CardContent>
               </Card>
             </div>
+              );
+            })()}
 
-            {/* Tabs for Dispatchers and Supervisors */}
             <Tabs defaultValue="dispatchers" className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2">
                 <TabsTrigger value="dispatchers" className="flex items-center gap-2">
