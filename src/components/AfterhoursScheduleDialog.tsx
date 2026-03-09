@@ -458,7 +458,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-hidden">
+        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-visible sm:overflow-hidden">
           {/* Left side - Calendar */}
           <div className="flex flex-col space-y-3 sm:space-y-4">
             <h3 className="font-medium text-xs sm:text-sm">Select Date (Weekends & Holidays)</h3>
