@@ -4208,7 +4208,7 @@ const Reports = () => {
                                                                   className="h-5 w-5 p-0 flex-shrink-0"
                                                                   onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const text = `Driver name: ${truck.driver1Name}\n🚚 Truck: ${truck.truckNumber}\n🚛 Trailer: ${truck.trailerNumber || "N/A"}\n📞 ${truck.driverPhone || "N/A"}`;
+                                                                    const text = `Driver 1: ${truck.driver1Name}\n📞 ${truck.driverPhone || "N/A"}\nDriver 2: ${truck.driver2Name || "N/A"}\n📞 ${truck.driver2Phone || "N/A"}\n🚚 Truck: ${truck.truckNumber}\n🚛 Trailer: ${truck.trailerNumber || "N/A"}`;
                                                                     navigator.clipboard.writeText(text);
                                                                     toast({ title: "Copied to clipboard" });
                                                                   }}
