@@ -19,7 +19,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History, CalendarIcon, Download } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Edit,
+  Phone,
+  Mail,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  Play,
+  RefreshCw,
+  History,
+  CalendarIcon,
+  Download,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -100,7 +114,7 @@ const Drivers = () => {
   const location = useLocation();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
-  const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
+  const canDelete = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
   const { upsertDrugTest } = useDriverDrugTests();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,14 +142,17 @@ const Drivers = () => {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState(false);
   const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
-  
+
   // Assignment reason dialog state
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both" | null>(null);
   const [assignmentConflicts, setAssignmentConflicts] = useState<AssignmentConflict[]>([]);
-  const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({ truckId: null, trailerId: null });
+  const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({
+    truckId: null,
+    trailerId: null,
+  });
   const isDriver2Ref = useRef(false);
-  
+
   const itemsPerPage = 100;
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
@@ -229,9 +246,9 @@ const Drivers = () => {
           ascending: false,
         });
       if (error) throw error;
-      
+
       // Fetch creator names for notes with created_by
-      const allCreatorIds = [...new Set((data || []).map(n => n.created_by).filter(Boolean))] as string[];
+      const allCreatorIds = [...new Set((data || []).map((n) => n.created_by).filter(Boolean))] as string[];
       const creatorIds = allCreatorIds.filter(isValidUUID);
       if (creatorIds.length < allCreatorIds.length) {
         console.warn(`[Drivers] Filtered ${allCreatorIds.length - creatorIds.length} invalid UUIDs from created_by`);
@@ -242,13 +259,16 @@ const Drivers = () => {
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", creatorIds);
-        creatorsMap = (profiles || []).reduce((acc, p) => {
-          if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
-          return acc;
-        }, {} as Record<string, string>);
+        creatorsMap = (profiles || []).reduce(
+          (acc, p) => {
+            if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
+            return acc;
+          },
+          {} as Record<string, string>,
+        );
       }
-      
-      const notesWithCreators = (data || []).map(note => ({
+
+      const notesWithCreators = (data || []).map((note) => ({
         ...note,
         creator_name: note.created_by ? creatorsMap[note.created_by] || null : null,
       }));
@@ -266,13 +286,11 @@ const Drivers = () => {
       // Search filter
       const matchesSearch =
         driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Status filter
       const matchesStatus =
@@ -322,7 +340,7 @@ const Drivers = () => {
 
   const handleInactiveSort = (field: "hire_date" | "termination_date") => {
     if (inactiveSortField === field) {
-      setInactiveSortDir(prev => prev === "asc" ? "desc" : "asc");
+      setInactiveSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setInactiveSortField(field);
       setInactiveSortDir("desc");
@@ -477,7 +495,8 @@ const Drivers = () => {
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
-          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          cents_per_mile:
+            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
         })
         .select()
@@ -622,20 +641,20 @@ const Drivers = () => {
   // Check if assignment change requires a reason
   const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
     const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
-    
+
     // Normalize to null for empty strings
     const newTruckId = formData.truck_id && formData.truck_id.trim() !== "" ? formData.truck_id : null;
     const newTrailerId = formData.trailer_id && formData.trailer_id.trim() !== "" ? formData.trailer_id : null;
     const origTruck = origTruckId && origTruckId.trim() !== "" ? origTruckId : null;
     const origTrailer = origTrailerId && origTrailerId.trim() !== "" ? origTrailerId : null;
-    
+
     const truckChanged = newTruckId !== origTruck;
     const trailerChanged = newTrailerId !== origTrailer;
-    
+
     // Only require reason if there was a previous assignment (not null/empty)
     const hadTruck = origTruck !== null;
     const hadTrailer = origTrailer !== null;
-    
+
     if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
       return "both";
     } else if (truckChanged && hadTruck) {
@@ -650,48 +669,46 @@ const Drivers = () => {
   const checkAssignmentConflicts = (): AssignmentConflict[] => {
     if (!editingDriver) return [];
     const conflicts: AssignmentConflict[] = [];
-    
+
     // Check truck conflict - if selected truck already has a different driver
     if (formData.truck_id) {
-      const selectedTruck = trucks?.find(t => t.id === formData.truck_id);
+      const selectedTruck = trucks?.find((t) => t.id === formData.truck_id);
       // Skip conflict if this driver is driver2 on the same (unchanged) truck
       const isSameTruck = formData.truck_id === originalAssignmentRef.current.truckId;
       const skipConflict = isSameTruck && isDriver2Ref.current;
       if (!skipConflict && selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver.id) {
-        const currentDriver = drivers?.find(d => d.id === selectedTruck.driver1_id);
+        const currentDriver = drivers?.find((d) => d.id === selectedTruck.driver1_id);
         conflicts.push({
           type: "driver",
           name: selectedTruck.truck_number,
-          currentTruck: currentDriver?.name || "another driver"
+          currentTruck: currentDriver?.name || "another driver",
         });
       }
     }
-    
+
     // Check trailer conflict - if selected trailer is on another truck
     if (formData.trailer_id) {
-      const conflictTruck = trucks?.find(t => 
-        t.trailer_id === formData.trailer_id && t.id !== formData.truck_id
-      );
+      const conflictTruck = trucks?.find((t) => t.trailer_id === formData.trailer_id && t.id !== formData.truck_id);
       if (conflictTruck) {
-        const trailer = trailers?.find(tr => tr.id === formData.trailer_id);
+        const trailer = trailers?.find((tr) => tr.id === formData.trailer_id);
         conflicts.push({
           type: "trailer",
           name: trailer?.trailer_number || "Unknown",
-          currentTruck: conflictTruck.truck_number
+          currentTruck: conflictTruck.truck_number,
         });
       }
     }
-    
+
     return conflicts;
   };
 
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check if reason is needed for assignment change
     const reasonNeeded = checkAssignmentChangeNeedsReason();
     const conflicts = checkAssignmentConflicts();
-    
+
     if (reasonNeeded || conflicts.length > 0) {
       setPendingReasonType(reasonNeeded || "truck");
       setAssignmentConflicts(conflicts);
@@ -742,7 +759,8 @@ const Drivers = () => {
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
-          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+          cents_per_mile:
+            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
@@ -828,10 +846,7 @@ const Drivers = () => {
 
         // Clear trailer from old truck when driver moves to a new truck
         if (origTruckId && formData.truck_id !== origTruckId) {
-          await supabase
-            .from("trucks")
-            .update({ trailer_id: null })
-            .eq("id", origTruckId);
+          await supabase.from("trucks").update({ trailer_id: null }).eq("id", origTruckId);
         }
       } else if (formData.trailer_id && existingTruckId) {
         // Only trailer is selected and driver has an existing truck - update trailer on existing truck
@@ -1099,7 +1114,7 @@ const Drivers = () => {
     setIsSubmitting(true);
     try {
       const blockDate = format(twoWeekNoticeDate, "yyyy-MM-dd");
-      
+
       const { error: blockError } = await supabase
         .from("drivers")
         .update({
@@ -1132,29 +1147,28 @@ const Drivers = () => {
     try {
       // Get driver data to save to history
       const { data: driverData, error: fetchError } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('id', driverId)
+        .from("drivers")
+        .select("*")
+        .eq("id", driverId)
         .single();
-      
+
       if (fetchError) throw fetchError;
 
       // Save driver name to orders and nullify driver1_id before deletion
       await supabase
-        .from('orders')
+        .from("orders")
         .update({ deleted_driver1_name: driverData.name, driver1_id: null })
-        .eq('driver1_id', driverId);
+        .eq("driver1_id", driverId);
 
       // Save driver name to orders and nullify driver2_id before deletion
       await supabase
-        .from('orders')
+        .from("orders")
         .update({ deleted_driver2_name: driverData.name, driver2_id: null })
-        .eq('driver2_id', driverId);
+        .eq("driver2_id", driverId);
 
       // Save to deleted_drivers history table (insert-only; ignore duplicates)
-      const { error: historyError } = await supabase
-        .from('deleted_drivers')
-        .upsert({
+      const { error: historyError } = await supabase.from("deleted_drivers").upsert(
+        {
           id: driverData.id,
           first_name: driverData.first_name,
           last_name: driverData.last_name,
@@ -1193,8 +1207,10 @@ const Drivers = () => {
           emergency_contact_name: driverData.emergency_contact_name,
           emergency_contact_relation: driverData.emergency_contact_relation,
           emergency_contact_phone: driverData.emergency_contact_phone,
-          deleted_by: profile?.user_id
-        }, { onConflict: 'id', ignoreDuplicates: true });
+          deleted_by: profile?.user_id,
+        },
+        { onConflict: "id", ignoreDuplicates: true },
+      );
 
       if (historyError) throw historyError;
 
@@ -1204,14 +1220,14 @@ const Drivers = () => {
       // Delete from drivers
       const { error } = await supabase.from("drivers").delete().eq("id", driverId);
       if (error) throw error;
-      
+
       toast({
         title: "Success",
         description: "Driver deleted and archived successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       refetch();
     } catch (error: any) {
       toast({
@@ -1224,30 +1240,30 @@ const Drivers = () => {
 
   const exportToExcel = () => {
     const exportData = filteredDrivers.map((driver: any) => ({
-      "Name": driver.name || "",
-      "Phone": driver.phone || "",
-      "Email": driver.email || "",
+      Name: driver.name || "",
+      Phone: driver.phone || "",
+      Email: driver.email || "",
       "Home City": driver.home_city || "",
       "Home State": driver.home_state || "",
       "Truck #": driver.truck_info?.truck_number || "",
       "Trailer #": driver.truck_info?.trailer_number || "",
-      "Dispatcher": driver.dispatcher_info?.full_name || "",
-      "Company": driver.company?.name || "",
+      Dispatcher: driver.dispatcher_info?.full_name || "",
+      Company: driver.company?.name || "",
       "CDL #": driver.cdl_number || "",
       "CDL Exp.": driver.cdl_expiration_date || "",
       "Medical Exp.": driver.medical_card_expiration_date || "",
       "Hire Date": driver.hire_date || "",
-      "Status": driver.is_active ? "Active" : "Inactive"
+      Status: driver.is_active ? "Active" : "Inactive",
     }));
-    
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Drivers");
-    XLSX.writeFile(wb, `drivers_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-    
+    XLSX.writeFile(wb, `drivers_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+
     toast({
       title: "Export Complete",
-      description: `Exported ${exportData.length} drivers to Excel`
+      description: `Exported ${exportData.length} drivers to Excel`,
     });
   };
   const openEditDialog = async (driver: any) => {
@@ -1364,691 +1380,691 @@ const Drivers = () => {
                 Add Driver
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Driver</DialogTitle>
-            </DialogHeader>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Driver</DialogTitle>
+              </DialogHeader>
 
-            <Tabs value={addDialogTab} onValueChange={setAddDialogTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="info">Driver Info</TabsTrigger>
-                <TabsTrigger value="files">Driver Files</TabsTrigger>
-              </TabsList>
+              <Tabs value={addDialogTab} onValueChange={setAddDialogTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="info">Driver Info</TabsTrigger>
+                  <TabsTrigger value="files">Driver Files</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="info">
-                <form id="add-driver-form" onSubmit={handleAddDriver} className="space-y-4">
-                  <div className="grid grid-cols-12 gap-4">
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="first_name">First Name*</Label>
-                      <Input
-                        id="first_name"
-                        value={formData.first_name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            first_name: e.target.value.trimStart(),
-                          })
-                        }
-                        placeholder="John"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2">
-                      <Label htmlFor="last_name">Last Name*</Label>
-                      <Input
-                        id="last_name"
-                        value={formData.last_name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            last_name: e.target.value.trimStart(),
-                          })
-                        }
-                        placeholder="Smith"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-3">
-                      <Label htmlFor="phone">Phone *</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            phone: formatPhoneNumber(e.target.value),
-                          })
-                        }
-                        placeholder="(555) 123-4567"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-4">
-                      <Label htmlFor="email">Email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            email: e.target.value,
-                          })
-                        }
-                        placeholder="john.smith@company.com"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company *</Label>
-                    <Select
-                      value={formData.company_id}
-                      onValueChange={(value) => setFormData({ ...formData, company_id: value })}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select company..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(companies || []).map((company) => (
-                          <SelectItem key={company.id} value={company.id}>
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
-                      <Input
-                        id="emergency_contact_name"
-                        value={formData.emergency_contact_name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            emergency_contact_name: e.target.value,
-                          })
-                        }
-                        placeholder="Jane Doe"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergency_contact_relation">Relation</Label>
-                      <Input
-                        id="emergency_contact_relation"
-                        value={formData.emergency_contact_relation}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            emergency_contact_relation: e.target.value,
-                          })
-                        }
-                        placeholder="Spouse"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
-                      <Input
-                        id="emergency_contact_phone"
-                        value={formData.emergency_contact_phone}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            emergency_contact_phone: formatPhoneNumber(e.target.value),
-                          })
-                        }
-                        placeholder="(555) 987-6543"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="truck">Truck Number</Label>
-                      <Combobox
-                        options={(availableTrucks || []).map((truck) => ({
-                          value: truck.id,
-                          label: truck.truck_number,
-                        }))}
-                        value={formData.truck_id}
-                        onValueChange={(value) => {
-                          const selectedTruck = availableTrucks?.find((truck) => truck.id === value);
-                          setFormData({
-                            ...formData,
-                            truck_id: value,
-                            trailer_id: selectedTruck?.trailer_id || "",
-                          });
-                          setSelectedTruckId(value);
-                        }}
-                        placeholder="Select truck..."
-                        emptyText="No available trucks"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="trailer">Trailer Number</Label>
-                      <Combobox
-                        options={(availableTrailers || []).map((trailer) => ({
-                          value: trailer.id,
-                          label: trailer.trailer_number,
-                        }))}
-                        value={formData.trailer_id}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            trailer_id: value,
-                          })
-                        }
-                        placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
-                        emptyText="No available trailers"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                    <div className="space-y-2">
-                      <Label htmlFor="weekly_payment">Weekly Payment</Label>
-                      <Input
-                        id="weekly_payment"
-                        type="number"
-                        step="1"
-                        value={formData.weekly_payment}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            weekly_payment: e.target.value,
-                          })
-                        }
-                        placeholder="Weekly Payment"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="weeks_count">Weeks</Label>
-                      <Input
-                        id="weeks_count"
-                        type="number"
-                        step="1"
-                        value={formData.weeks_count}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            weeks_count: e.target.value,
-                          })
-                        }
-                        placeholder="Weeks"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="agreement_start_date">Agreement Start Date</Label>
-                      <Input
-                        id="agreement_start_date"
-                        type="date"
-                        value={formData.agreement_start_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            agreement_start_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="dispatcher">Dispatcher</Label>
-                    <Select
-                      value={formData.dispatcher_id}
-                      onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select dispatcher..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allDispatchers.map((dispatcher) => (
-                          <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                            {dispatcher.full_name || dispatcher.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="border-t pt-4">
+                <TabsContent value="info">
+                  <form id="add-driver-form" onSubmit={handleAddDriver} className="space-y-4">
                     <div className="grid grid-cols-12 gap-4">
-                      <div className="space-y-2 col-span-7">
-                        <Label htmlFor="home_address">Home Address</Label>
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="first_name">First Name*</Label>
                         <Input
-                          id="home_address"
-                          value={formData.home_address}
+                          id="first_name"
+                          value={formData.first_name}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              home_address: e.target.value,
+                              first_name: e.target.value.trimStart(),
                             })
                           }
-                          placeholder="1234 Oak Street"
-                        />
-                      </div>
-                      <div className="space-y-2 col-span-3">
-                        <Label htmlFor="home_city">Home City *</Label>
-                        <Input
-                          id="home_city"
-                          value={formData.home_city}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              home_city: e.target.value,
-                            })
-                          }
-                          placeholder="Chicago"
+                          placeholder="John"
                           required
                         />
                       </div>
                       <div className="space-y-2 col-span-2">
-                        <Label htmlFor="home_state">Home State *</Label>
+                        <Label htmlFor="last_name">Last Name*</Label>
                         <Input
-                          id="home_state"
-                          value={formData.home_state}
+                          id="last_name"
+                          value={formData.last_name}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              home_state: e.target.value,
+                              last_name: e.target.value.trimStart(),
                             })
                           }
-                          placeholder="IL"
+                          placeholder="Smith"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2 col-span-3">
+                        <Label htmlFor="phone">Phone *</Label>
+                        <Input
+                          id="phone"
+                          value={formData.phone}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              phone: formatPhoneNumber(e.target.value),
+                            })
+                          }
+                          placeholder="(555) 123-4567"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2 col-span-4">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              email: e.target.value,
+                            })
+                          }
+                          placeholder="john.smith@company.com"
                           required
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {canViewSensitiveData && (
-                    <>
-                      <div className="border-t pt-4">
-                        <p className="text-sm font-medium text-muted-foreground mb-4">
-                          🔒 Sensitive Information (Managers/Admins Only)
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="personal_id">Personal ID</Label>
-                            <Input
-                              id="personal_id"
-                              value={formData.personal_id}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  personal_id: e.target.value,
-                                })
-                              }
-                              placeholder="Personal ID"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="fuel_card_number">Fuel Card #</Label>
-                            <Input
-                              id="fuel_card_number"
-                              value={formData.fuel_card_number}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  fuel_card_number: e.target.value,
-                                })
-                              }
-                              placeholder="Fuel Card Number"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="company_name">Company Name</Label>
-                            <Input
-                              id="company_name"
-                              value={formData.company_name}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  company_name: e.target.value,
-                                })
-                              }
-                              placeholder="Company Name"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="company_address">Company Address</Label>
-                            <Input
-                              id="company_address"
-                              value={formData.company_address}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  company_address: e.target.value,
-                                })
-                              }
-                              placeholder="Company Address"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="mc_number">FEIN #</Label>
-                            <Input
-                              id="mc_number"
-                              value={formData.mc_number}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  mc_number: e.target.value,
-                                })
-                              }
-                              placeholder="MC Number"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                          <div className="space-y-2">
-                            <Label htmlFor="ssn">SSN #</Label>
-                            <Input
-                              id="ssn"
-                              value={formData.ssn}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  ssn: e.target.value,
-                                })
-                              }
-                              placeholder="SSN"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="fein">FEIN #</Label>
-                            <Input
-                              id="fein"
-                              value={formData.fein}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  fein: e.target.value,
-                                })
-                              }
-                              placeholder="FEIN"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cdl_number">CDL Number</Label>
-                      <Input
-                        id="cdl_number"
-                        value={formData.cdl_number}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            cdl_number: e.target.value,
-                          })
-                        }
-                        placeholder="CDL Number"
-                      />
+                      <Label htmlFor="company">Company *</Label>
+                      <Select
+                        value={formData.company_id}
+                        onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select company..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(companies || []).map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              {company.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
-                      <Input
-                        id="cdl_expiration_date"
-                        type="date"
-                        value={formData.cdl_expiration_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            cdl_expiration_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="hire_date">Hire Date</Label>
-                      <Input
-                        id="hire_date"
-                        type="date"
-                        value={formData.hire_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            hire_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="termination_date">Termination Date</Label>
-                      <Input
-                        id="termination_date"
-                        type="date"
-                        value={formData.termination_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            termination_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="mvr_date">MVR Date</Label>
-                      <Input
-                        id="mvr_date"
-                        type="date"
-                        value={formData.mvr_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            mvr_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="medical_card_expiration_date">Medical Card Expiration Date</Label>
-                      <Input
-                        id="medical_card_expiration_date"
-                        type="date"
-                        value={formData.medical_card_expiration_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            medical_card_expiration_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="random_drug_test_date">Random Drug Test Date</Label>
-                      <Input
-                        id="random_drug_test_date"
-                        type="date"
-                        value={formData.random_drug_test_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            random_drug_test_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="clearing_house">Clearing House</Label>
-                      <Input
-                        id="clearing_house"
-                        value={formData.clearing_house}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            clearing_house: e.target.value,
-                          })
-                        }
-                        placeholder="Clearing house number"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Drug Test Result</Label>
-                    <Select
-                      value={formData.drugTestResult || "pending"}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          drugTestResult: value as "positive" | "negative" | "pending",
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select result" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="negative">Negative</SelectItem>
-                        <SelectItem value="positive">Positive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Note</Label>
-                    <Textarea
-                      value={formData.note}
-                      onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                      placeholder="Driver note..."
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_company_driver"
-                        checked={formData.is_company_driver}
-                        onCheckedChange={(checked) =>
-                          setFormData({
-                            ...formData,
-                            is_company_driver: checked === true,
-                            cents_per_mile: checked ? formData.cents_per_mile : "",
-                          })
-                        }
-                      />
-                      <Label htmlFor="is_company_driver" className="cursor-pointer">
-                        Company Driver
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_recovery"
-                        checked={formData.is_recovery}
-                        onCheckedChange={(checked) =>
-                          setFormData({
-                            ...formData,
-                            is_recovery: checked === true,
-                          })
-                        }
-                      />
-                      <Label htmlFor="is_recovery" className="cursor-pointer">
-                        Recovery Driver
-                      </Label>
-                    </div>
-                    {formData.is_company_driver && (
-                      <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
                         <Input
-                          id="cents_per_mile"
+                          id="emergency_contact_name"
+                          value={formData.emergency_contact_name}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              emergency_contact_name: e.target.value,
+                            })
+                          }
+                          placeholder="Jane Doe"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="emergency_contact_relation">Relation</Label>
+                        <Input
+                          id="emergency_contact_relation"
+                          value={formData.emergency_contact_relation}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              emergency_contact_relation: e.target.value,
+                            })
+                          }
+                          placeholder="Spouse"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                        <Input
+                          id="emergency_contact_phone"
+                          value={formData.emergency_contact_phone}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              emergency_contact_phone: formatPhoneNumber(e.target.value),
+                            })
+                          }
+                          placeholder="(555) 987-6543"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="truck">Truck Number</Label>
+                        <Combobox
+                          options={(availableTrucks || []).map((truck) => ({
+                            value: truck.id,
+                            label: truck.truck_number,
+                          }))}
+                          value={formData.truck_id}
+                          onValueChange={(value) => {
+                            const selectedTruck = availableTrucks?.find((truck) => truck.id === value);
+                            setFormData({
+                              ...formData,
+                              truck_id: value,
+                              trailer_id: selectedTruck?.trailer_id || "",
+                            });
+                            setSelectedTruckId(value);
+                          }}
+                          placeholder="Select truck..."
+                          emptyText="No available trucks"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="trailer">Trailer Number</Label>
+                        <Combobox
+                          options={(availableTrailers || []).map((trailer) => ({
+                            value: trailer.id,
+                            label: trailer.trailer_number,
+                          }))}
+                          value={formData.trailer_id}
+                          onValueChange={(value) =>
+                            setFormData({
+                              ...formData,
+                              trailer_id: value,
+                            })
+                          }
+                          placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
+                          emptyText="No available trailers"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                      <div className="space-y-2">
+                        <Label htmlFor="weekly_payment">Weekly Payment</Label>
+                        <Input
+                          id="weekly_payment"
                           type="number"
-                          min="1"
                           step="1"
-                          value={formData.cents_per_mile}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === "" || (parseInt(value) > 0 && Number.isInteger(parseFloat(value)))) {
+                          value={formData.weekly_payment}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              weekly_payment: e.target.value,
+                            })
+                          }
+                          placeholder="Weekly Payment"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="weeks_count">Weeks</Label>
+                        <Input
+                          id="weeks_count"
+                          type="number"
+                          step="1"
+                          value={formData.weeks_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              weeks_count: e.target.value,
+                            })
+                          }
+                          placeholder="Weeks"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="agreement_start_date">Agreement Start Date</Label>
+                        <Input
+                          id="agreement_start_date"
+                          type="date"
+                          value={formData.agreement_start_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              agreement_start_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dispatcher">Dispatcher</Label>
+                      <Select
+                        value={formData.dispatcher_id}
+                        onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select dispatcher..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allDispatchers.map((dispatcher) => (
+                            <SelectItem key={dispatcher.id} value={dispatcher.id}>
+                              {dispatcher.full_name || dispatcher.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <div className="grid grid-cols-12 gap-4">
+                        <div className="space-y-2 col-span-7">
+                          <Label htmlFor="home_address">Home Address</Label>
+                          <Input
+                            id="home_address"
+                            value={formData.home_address}
+                            onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                cents_per_mile: value,
-                              });
+                                home_address: e.target.value,
+                              })
                             }
-                          }}
-                          placeholder="60"
-                          className="w-24"
-                        />
-                        <span className="text-sm text-muted-foreground">cents/mile</span>
+                            placeholder="1234 Oak Street"
+                          />
+                        </div>
+                        <div className="space-y-2 col-span-3">
+                          <Label htmlFor="home_city">Home City *</Label>
+                          <Input
+                            id="home_city"
+                            value={formData.home_city}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                home_city: e.target.value,
+                              })
+                            }
+                            placeholder="Chicago"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2 col-span-2">
+                          <Label htmlFor="home_state">Home State *</Label>
+                          <Input
+                            id="home_state"
+                            value={formData.home_state}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                home_state: e.target.value,
+                              })
+                            }
+                            placeholder="IL"
+                            required
+                          />
+                        </div>
                       </div>
+                    </div>
+
+                    {canViewSensitiveData && (
+                      <>
+                        <div className="border-t pt-4">
+                          <p className="text-sm font-medium text-muted-foreground mb-4">
+                            🔒 Sensitive Information (Managers/Admins Only)
+                          </p>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="personal_id">Personal ID</Label>
+                              <Input
+                                id="personal_id"
+                                value={formData.personal_id}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    personal_id: e.target.value,
+                                  })
+                                }
+                                placeholder="Personal ID"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="fuel_card_number">Fuel Card #</Label>
+                              <Input
+                                id="fuel_card_number"
+                                value={formData.fuel_card_number}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    fuel_card_number: e.target.value,
+                                  })
+                                }
+                                placeholder="Fuel Card Number"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="company_name">Company Name</Label>
+                              <Input
+                                id="company_name"
+                                value={formData.company_name}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    company_name: e.target.value,
+                                  })
+                                }
+                                placeholder="Company Name"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="company_address">Company Address</Label>
+                              <Input
+                                id="company_address"
+                                value={formData.company_address}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    company_address: e.target.value,
+                                  })
+                                }
+                                placeholder="Company Address"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="mc_number">FEIN #</Label>
+                              <Input
+                                id="mc_number"
+                                value={formData.mc_number}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    mc_number: e.target.value,
+                                  })
+                                }
+                                placeholder="MC Number"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                            <div className="space-y-2">
+                              <Label htmlFor="ssn">SSN #</Label>
+                              <Input
+                                id="ssn"
+                                value={formData.ssn}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    ssn: e.target.value,
+                                  })
+                                }
+                                placeholder="SSN"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="fein">FEIN #</Label>
+                              <Input
+                                id="fein"
+                                value={formData.fein}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    fein: e.target.value,
+                                  })
+                                }
+                                placeholder="FEIN"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
-                  </div>
-                </form>
-              </TabsContent>
 
-              <TabsContent value="files">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cdl_number">CDL Number</Label>
+                        <Input
+                          id="cdl_number"
+                          value={formData.cdl_number}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              cdl_number: e.target.value,
+                            })
+                          }
+                          placeholder="CDL Number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
+                        <Input
+                          id="cdl_expiration_date"
+                          type="date"
+                          value={formData.cdl_expiration_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              cdl_expiration_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="hire_date">Hire Date</Label>
+                        <Input
+                          id="hire_date"
+                          type="date"
+                          value={formData.hire_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              hire_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="termination_date">Termination Date</Label>
+                        <Input
+                          id="termination_date"
+                          type="date"
+                          value={formData.termination_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              termination_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="mvr_date">MVR Date</Label>
+                        <Input
+                          id="mvr_date"
+                          type="date"
+                          value={formData.mvr_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              mvr_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="medical_card_expiration_date">Medical Card Expiration Date</Label>
+                        <Input
+                          id="medical_card_expiration_date"
+                          type="date"
+                          value={formData.medical_card_expiration_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              medical_card_expiration_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="random_drug_test_date">Random Drug Test Date</Label>
+                        <Input
+                          id="random_drug_test_date"
+                          type="date"
+                          value={formData.random_drug_test_date}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              random_drug_test_date: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="clearing_house">Clearing House</Label>
+                        <Input
+                          id="clearing_house"
+                          value={formData.clearing_house}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              clearing_house: e.target.value,
+                            })
+                          }
+                          placeholder="Clearing house number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Drug Test Result</Label>
+                      <Select
+                        value={formData.drugTestResult || "pending"}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            drugTestResult: value as "positive" | "negative" | "pending",
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select result" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="negative">Negative</SelectItem>
+                          <SelectItem value="positive">Positive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Note</Label>
+                      <Textarea
+                        value={formData.note}
+                        onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                        placeholder="Driver note..."
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="is_company_driver"
+                          checked={formData.is_company_driver}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              is_company_driver: checked === true,
+                              cents_per_mile: checked ? formData.cents_per_mile : "",
+                            })
+                          }
+                        />
+                        <Label htmlFor="is_company_driver" className="cursor-pointer">
+                          Company Driver
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="is_recovery"
+                          checked={formData.is_recovery}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              is_recovery: checked === true,
+                            })
+                          }
+                        />
+                        <Label htmlFor="is_recovery" className="cursor-pointer">
+                          Recovery Driver
+                        </Label>
+                      </div>
+                      {formData.is_company_driver && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="cents_per_mile"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={formData.cents_per_mile}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || (parseInt(value) > 0 && Number.isInteger(parseFloat(value)))) {
+                                setFormData({
+                                  ...formData,
+                                  cents_per_mile: value,
+                                });
+                              }
+                            }}
+                            placeholder="60"
+                            className="w-24"
+                          />
+                          <span className="text-sm text-muted-foreground">cents/mile</span>
+                        </div>
+                      )}
+                    </div>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="files">
+                  {newlyCreatedDriverId ? (
+                    <DriverFilesManager
+                      driverId={newlyCreatedDriverId}
+                      driverName={`${formData.first_name} ${formData.last_name}`.trim()}
+                    />
+                  ) : (
+                    <DriverFilesManagerPending
+                      pendingFiles={pendingFiles}
+                      onFilesChange={setPendingFiles}
+                      isUploading={isUploadingFiles}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* Action buttons - appear on all tabs */}
+              <div className="mt-6">
                 {newlyCreatedDriverId ? (
-                  <DriverFilesManager
-                    driverId={newlyCreatedDriverId}
-                    driverName={`${formData.first_name} ${formData.last_name}`.trim()}
-                  />
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      onClick={() => {
+                        resetForm();
+                        setIsAddDialogOpen(false);
+                      }}
+                    >
+                      Done
+                    </Button>
+                  </div>
                 ) : (
-                  <DriverFilesManagerPending
-                    pendingFiles={pendingFiles}
-                    onFilesChange={setPendingFiles}
-                    isUploading={isUploadingFiles}
-                  />
-                )}
-              </TabsContent>
-            </Tabs>
-
-            {/* Action buttons - appear on all tabs */}
-            <div className="mt-6">
-              {newlyCreatedDriverId ? (
-                <div className="flex justify-end gap-3">
                   <Button
-                    onClick={() => {
-                      resetForm();
-                      setIsAddDialogOpen(false);
+                    type="submit"
+                    disabled={isSubmitting || isUploadingFiles}
+                    className="w-full"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const form = document.getElementById("add-driver-form") as HTMLFormElement;
+                      if (form) form.requestSubmit();
                     }}
                   >
-                    Done
+                    {isSubmitting || isUploadingFiles ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {isUploadingFiles ? "Uploading Files..." : "Adding Driver..."}
+                      </>
+                    ) : (
+                      "Add Driver"
+                    )}
                   </Button>
-                </div>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || isUploadingFiles}
-                  className="w-full"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const form = document.getElementById("add-driver-form") as HTMLFormElement;
-                    if (form) form.requestSubmit();
-                  }}
-                >
-                  {isSubmitting || isUploadingFiles ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isUploadingFiles ? "Uploading Files..." : "Adding Driver..."}
-                    </>
-                  ) : (
-                    "Add Driver"
-                  )}
-                </Button>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -2112,10 +2128,10 @@ const Drivers = () => {
                 <Combobox
                   options={[
                     { value: "all", label: "All Companies" },
-                    ...(companies?.map(company => ({
+                    ...(companies?.map((company) => ({
                       value: company.id,
-                      label: company.name
-                    })) || [])
+                      label: company.name,
+                    })) || []),
                   ]}
                   value={companyFilter}
                   onValueChange={(value) => {
@@ -2149,11 +2165,18 @@ const Drivers = () => {
                   <TableHead className="w-[140px]">Company</TableHead>
                   {statusFilter === "inactive" ? (
                     <>
-                      <TableHead className="w-[120px] cursor-pointer select-none" onClick={() => handleInactiveSort("hire_date")}>
+                      <TableHead
+                        className="w-[120px] cursor-pointer select-none"
+                        onClick={() => handleInactiveSort("hire_date")}
+                      >
                         Hire Date {inactiveSortField === "hire_date" ? (inactiveSortDir === "asc" ? "↑" : "↓") : ""}
                       </TableHead>
-                      <TableHead className="w-[120px] cursor-pointer select-none" onClick={() => handleInactiveSort("termination_date")}>
-                        Termination Date {inactiveSortField === "termination_date" ? (inactiveSortDir === "asc" ? "↑" : "↓") : ""}
+                      <TableHead
+                        className="w-[120px] cursor-pointer select-none"
+                        onClick={() => handleInactiveSort("termination_date")}
+                      >
+                        Termination Date{" "}
+                        {inactiveSortField === "termination_date" ? (inactiveSortDir === "asc" ? "↑" : "↓") : ""}
                       </TableHead>
                     </>
                   ) : (
@@ -2191,14 +2214,24 @@ const Drivers = () => {
                       <TableCell className="truncate">{driver.company?.name || "—"}</TableCell>
                       {statusFilter === "inactive" ? (
                         <>
-                          <TableCell className="whitespace-nowrap">{driver.hire_date ? format(new Date(driver.hire_date + "T00:00:00"), "MM/dd/yyyy") : "—"}</TableCell>
-                          <TableCell className="whitespace-nowrap">{driver.termination_date ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy") : "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {driver.hire_date ? format(new Date(driver.hire_date + "T00:00:00"), "MM/dd/yyyy") : "—"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {driver.termination_date
+                              ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy")
+                              : "—"}
+                          </TableCell>
                         </>
                       ) : (
                         <>
                           <TableCell className="whitespace-nowrap">{driver.truck_info?.truck_number || "—"}</TableCell>
-                          <TableCell className="whitespace-nowrap">{driver.truck_info?.trailer_number || "—"}</TableCell>
-                          <TableCell className="truncate">{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {driver.truck_info?.trailer_number || "—"}
+                          </TableCell>
+                          <TableCell className="truncate">
+                            {driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}
+                          </TableCell>
                         </>
                       )}
                       <TableCell>
@@ -2506,7 +2539,7 @@ const Drivers = () => {
                   <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_truck">Truck Number</Label>
                     <Combobox
-                      options={(trucks?.filter(t => t.is_active !== false) || []).map((truck) => ({
+                      options={(trucks?.filter((t) => t.is_active !== false) || []).map((truck) => ({
                         value: truck.id,
                         label: truck.truck_number,
                       }))}
@@ -3077,11 +3110,7 @@ const Drivers = () => {
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
-                        {note.creator_name && (
-                          <p className="text-xs text-muted-foreground">
-                            By: {note.creator_name}
-                          </p>
-                        )}
+                        {note.creator_name && <p className="text-xs text-muted-foreground">By: {note.creator_name}</p>}
                       </CardContent>
                     </Card>
                   ))}
@@ -3167,14 +3196,11 @@ const Drivers = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Last Date of 2 Week Notice</Label>
-              <DatePicker
-                date={twoWeekNoticeDate}
-                onDateChange={setTwoWeekNoticeDate}
-                placeholder="Select last date"
-              />
+              <DatePicker date={twoWeekNoticeDate} onDateChange={setTwoWeekNoticeDate} placeholder="Select last date" />
               {twoWeekNoticeDate && (
                 <p className="text-xs text-muted-foreground">
-                  Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                  Start date was:{" "}
+                  {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -3188,10 +3214,7 @@ const Drivers = () => {
               >
                 Cancel
               </Button>
-              <Button
-                disabled={!twoWeekNoticeDate || isSubmitting}
-                onClick={handleSetTwoWeekNotice}
-              >
+              <Button disabled={!twoWeekNoticeDate || isSubmitting} onClick={handleSetTwoWeekNotice}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save
               </Button>
