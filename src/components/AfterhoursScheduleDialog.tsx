@@ -446,7 +446,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
         <DialogHeader className="space-y-1 sm:space-y-2">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -458,7 +458,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-hidden">
+        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-visible sm:overflow-hidden">
           {/* Left side - Calendar */}
           <div className="flex flex-col space-y-3 sm:space-y-4">
             <h3 className="font-medium text-xs sm:text-sm">Select Date (Weekends & Holidays)</h3>
