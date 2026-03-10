@@ -4065,19 +4065,33 @@ export type Database = {
         }[]
       }
       get_driver_id_for_user: { Args: never; Returns: string }
-      get_facility_visit_counts: {
-        Args: never
-        Returns: {
-          address: string
-          city: string
-          company_name: string
-          delivery_count: number
-          pickup_count: number
-          state: string
-          total_visits: number
-          zip_code: string
-        }[]
-      }
+      get_facility_visit_counts:
+        | {
+            Args: never
+            Returns: {
+              address: string
+              city: string
+              company_name: string
+              delivery_count: number
+              pickup_count: number
+              state: string
+              total_visits: number
+              zip_code: string
+            }[]
+          }
+        | {
+            Args: { p_end_date?: string; p_start_date?: string }
+            Returns: {
+              address: string
+              city: string
+              company_name: string
+              delivery_count: number
+              pickup_count: number
+              state: string
+              total_visits: number
+              zip_code: string
+            }[]
+          }
       get_latest_truck_locations: {
         Args: never
         Returns: {

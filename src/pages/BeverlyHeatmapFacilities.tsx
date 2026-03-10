@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import {
   Table,
   TableBody,
@@ -28,15 +31,22 @@ type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "to
 
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
   });
 
+  const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+  const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
+
   const { data: facilities = [], isLoading } = useQuery({
-    queryKey: ["facility-visit-counts"],
+    queryKey: ["facility-visit-counts", startDateStr, endDateStr],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_facility_visit_counts");
+      const { data, error } = await supabase.rpc("get_facility_visit_counts", {
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+      });
       if (error) throw error;
       return (data || []) as FacilityRow[];
     },
@@ -86,8 +96,8 @@ export default function BeverlyHeatmapFacilities() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search company, city, or address..."
@@ -96,6 +106,12 @@ export default function BeverlyHeatmapFacilities() {
             className="pl-9"
           />
         </div>
+        <DateRangePicker
+          date={dateRange}
+          onDateChange={setDateRange}
+          placeholder="Filter by date range"
+          className="w-[260px]"
+        />
         <Badge variant="outline" className="text-xs whitespace-nowrap">
           {filtered.length} facilities
         </Badge>
