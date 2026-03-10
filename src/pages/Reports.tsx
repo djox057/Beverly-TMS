@@ -4850,6 +4850,12 @@ const Reports = () => {
                                                         if (dispatcherError) throw dispatcherError;
                                                       }
 
+                                                      // Delete order_transfers records for this order
+                                                      await supabase
+                                                        .from("order_transfers")
+                                                        .delete()
+                                                        .eq("order_id", order.id);
+
                                                       // Mark recovery history as reverted
                                                       const {
                                                         data: { user },

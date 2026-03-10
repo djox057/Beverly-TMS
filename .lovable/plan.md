@@ -1,37 +1,31 @@
 
 
+# Fix 1: Analytics -- Select Only Needed Columns
+
 ## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-Load 546143199 was transferred from Gary Newman to Thomas Rogers, then the transfer was reverted. After revert:
-- `orders.is_recovery` = false (correct)
-- `orders.driver1_id` = Gary Newman (correct, reverted back)
-- `recovery_history.reverted_at` is set (correct)
-- But `order_transfers` records still exist with both drivers
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-The Reports page groups orders by driver using `order_transfers` data (lines 1422-1438 in `useReportsDateWindowAdapter.ts`). It iterates over all `order_transfers` and adds the order to each transfer driver — **without checking if the recovery was reverted**. This causes the load to appear for both the original driver and the former recovery driver.
-
-## Fix
-
-Two changes needed:
-
-### 1. Skip transfer driver grouping when recovery is reverted
-In `src/hooks/useReportsDateWindowAdapter.ts`, at the order grouping logic (around line 1422), add a check: only process `order_transfers` for transfer driver assignment when `order.is_recovery` is true. When `is_recovery` is false, the transfer was reverted and the order should only show for the current `driver1_id`/`driver2_id`.
-
-```ts
-// Add to transfer drivers — only if order is still a recovery load
-if (order.is_recovery) {
-  for (const transfer of order.order_transfers || []) {
-    // ... existing logic
-  }
-}
+**Before:**
+```typescript
+.select("*")
 ```
 
-### 2. Clean up order_transfers on revert (defensive)
-In `src/pages/Reports.tsx` (revert handler, around line 4863), delete the `order_transfers` records for the order after marking recovery as reverted. This prevents stale data from accumulating:
-
-```ts
-await supabase.from("order_transfers").delete().eq("order_id", order.id);
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
 ```
 
-Also apply the same cleanup in `src/pages/EditOrder.tsx` revert handler if it exists there.
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 

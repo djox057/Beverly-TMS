@@ -1419,7 +1419,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         existing.push(order);
         ordersByDriverId.set(order.driver2_id, existing);
       }
-      // Add to transfer drivers
+      // Add to transfer drivers — only if order is still a recovery load
+      if (order.is_recovery) {
       for (const transfer of order.order_transfers || []) {
         if (transfer.driver1_id && !ordersByDriverId.get(transfer.driver1_id)?.includes(order)) {
           const existing = ordersByDriverId.get(transfer.driver1_id) || [];
@@ -1436,6 +1437,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           ordersByDriverId.set(transfer.driver2_id, existing);
         }
       }
+      } // end if (order.is_recovery)
     }
 
     // Add last loads for drivers with no orders in the date window
