@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
