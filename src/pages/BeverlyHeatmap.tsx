@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -566,6 +568,13 @@ export default function BeverlyHeatmap() {
         <h1 className="text-3xl font-semibold text-foreground">Beverly Heatmap</h1>
       </div>
 
+      <Tabs defaultValue="heatmap" className="w-full">
+        <TabsList>
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+          <TabsTrigger value="facilities">Facilities</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="heatmap">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -769,6 +778,12 @@ export default function BeverlyHeatmap() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="facilities">
+          <BeverlyHeatmapFacilities />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
