@@ -31,15 +31,22 @@ type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "to
 
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
   });
 
+  const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+  const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
+
   const { data: facilities = [], isLoading } = useQuery({
-    queryKey: ["facility-visit-counts"],
+    queryKey: ["facility-visit-counts", startDateStr, endDateStr],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_facility_visit_counts");
+      const { data, error } = await supabase.rpc("get_facility_visit_counts", {
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+      });
       if (error) throw error;
       return (data || []) as FacilityRow[];
     },
