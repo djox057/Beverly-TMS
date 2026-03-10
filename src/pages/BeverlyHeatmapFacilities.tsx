@@ -96,8 +96,8 @@ export default function BeverlyHeatmapFacilities() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search company, city, or address..."
@@ -106,6 +106,12 @@ export default function BeverlyHeatmapFacilities() {
             className="pl-9"
           />
         </div>
+        <DateRangePicker
+          date={dateRange}
+          onDateChange={setDateRange}
+          placeholder="Filter by date range"
+          className="w-[260px]"
+        />
         <Badge variant="outline" className="text-xs whitespace-nowrap">
           {filtered.length} facilities
         </Badge>
