@@ -568,6 +568,13 @@ export default function BeverlyHeatmap() {
         <h1 className="text-3xl font-semibold text-foreground">Beverly Heatmap</h1>
       </div>
 
+      <Tabs defaultValue="heatmap" className="w-full">
+        <TabsList>
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+          <TabsTrigger value="facilities">Facilities</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="heatmap">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
