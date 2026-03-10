@@ -1437,6 +1437,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           ordersByDriverId.set(transfer.driver2_id, existing);
         }
       }
+      } // end if (order.is_recovery)
     }
 
     // Add last loads for drivers with no orders in the date window
