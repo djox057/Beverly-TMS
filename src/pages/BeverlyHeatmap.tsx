@@ -778,6 +778,12 @@ export default function BeverlyHeatmap() {
           )}
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="facilities">
+          <BeverlyHeatmapFacilities />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
