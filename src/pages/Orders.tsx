@@ -69,6 +69,19 @@ const Orders = () => {
   } = useIndividualMode();
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
+  // Fetch all user profiles for the "All Users" filter (not limited to current orders)
+  const { data: allUserProfiles } = useQuery({
+    queryKey: ["all-user-profiles-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .order("full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   console.log("🟦 [Orders Page] Component rendering");
 
   // Debug navigation function with filter persistence
@@ -769,19 +782,7 @@ const Orders = () => {
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
-  // Fetch all user profiles for the "All Users" filter (not limited to current orders)
-  const { data: allUserProfiles } = useQuery({
-    queryKey: ["all-user-profiles-orders"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .order("full_name");
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  
 
   const uniqueBookedBy = (() => {
     if (!allUserProfiles) return [];
