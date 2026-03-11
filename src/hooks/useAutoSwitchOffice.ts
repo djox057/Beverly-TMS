@@ -1002,7 +1002,7 @@ export function useAutoSwitchOffice({
 
         if (result.type === "found") {
           setLoadSearchStatus("found");
-          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
+          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
