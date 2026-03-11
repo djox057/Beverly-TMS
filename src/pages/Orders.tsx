@@ -201,6 +201,19 @@ const Orders = () => {
   } = useLumperMissingRevisedRC();
   const orderIdsWithMissingLumperRC = new Set(lumperRequests.map(r => r.id));
 
+  // Fetch all dispatcher profiles for the "All Users" filter dropdown (must stay before early returns)
+  const { data: allDispatcherProfiles } = useQuery({
+    queryKey: ["profiles-for-orders-filter"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .order("full_name");
+      return (data || []).map((p: any) => p.full_name).filter(Boolean);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Restore filter state from localStorage on mount
   useEffect(() => {
     const shouldRestore = localStorage.getItem("returnToOrders");
