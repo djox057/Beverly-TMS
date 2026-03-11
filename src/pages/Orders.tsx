@@ -786,10 +786,18 @@ const Orders = () => {
 
   const uniqueBookedBy = (() => {
     if (!allUserProfiles) return [];
-    const names = allUserProfiles
-      .map(p => (p.full_name?.trim() || p.email || "").trim())
-      .filter(Boolean);
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+    const seen = new Set<string>();
+    return allUserProfiles
+      .map(p => ({
+        value: p.full_name || p.email || "",
+        label: (p.full_name?.trim() || p.email || "").trim(),
+      }))
+      .filter(item => {
+        if (!item.value || seen.has(item.value)) return false;
+        seen.add(item.value);
+        return true;
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
   })();
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
