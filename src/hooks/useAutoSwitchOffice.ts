@@ -8,7 +8,7 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
-  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean }
+  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean; pickupDate?: string }
   | { type: "ambiguous"; offices: string[] }
   | { type: "not_found" }
   | { type: "error"; error: Error };
