@@ -769,7 +769,27 @@ const Orders = () => {
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
-  const uniqueBookedBy = [...new Set(currentPageOrdersFromHook?.map(order => order.bookedBy) || [])].filter(Boolean);
+  // Fetch all user profiles for the "All Users" filter (not limited to current orders)
+  const { data: allUserProfiles } = useQuery({
+    queryKey: ["all-user-profiles-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .order("full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const uniqueBookedBy = (() => {
+    if (!allUserProfiles) return [];
+    const names = allUserProfiles
+      .map(p => (p.full_name?.trim() || p.email || "").trim())
+      .filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  })();
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
   }));
