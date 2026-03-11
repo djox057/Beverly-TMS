@@ -72,7 +72,8 @@ import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback, startTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Combobox } from "@/components/ui/combobox";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
@@ -308,6 +309,30 @@ const Reports = () => {
 
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
+
+  // Fetch all dispatcher profiles for the dispatch name filter combobox
+  const { data: allDispatcherProfiles } = useQuery({
+    queryKey: ["all-dispatcher-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .order("full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const dispatcherOptions = useMemo(() => {
+    if (!allDispatcherProfiles) return [];
+    return allDispatcherProfiles
+      .filter((p) => p.full_name)
+      .map((p) => ({
+        value: p.full_name!,
+        label: p.full_name!,
+      }));
+  }, [allDispatcherProfiles]);
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
@@ -3180,52 +3205,19 @@ const Reports = () => {
                 </div>
               </div>
               <div className="relative">
-                <Input
-                  placeholder="Dispatch"
+                <Combobox
+                  options={dispatcherOptions}
                   value={dispatchNameFilter}
-                  onChange={(e) => setDispatchNameFilter(e.target.value)}
+                  onValueChange={(val) => setDispatchNameFilter(val)}
+                  placeholder="All Users"
+                  searchPlaceholder="Search dispatcher..."
+                  emptyText="No dispatcher found."
                   className={cn(
-                    "w-[120px] sm:max-w-[180px] pr-8",
+                    "w-[160px] sm:w-[200px] h-9",
                     ambiguousMatch?.filter === "dispatch" && "border-amber-500",
                     searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400",
                   )}
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  {searchStatus.dispatch === "searching" && (
-                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-                  )}
-                  {searchStatus.dispatch === "found" && !ambiguousMatch?.filter && (
-                    <Check className="h-4 w-4 text-green-500" />
-                  )}
-                  {searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && (
-                    <X className="h-4 w-4 text-red-400" />
-                  )}
-                  {ambiguousMatch?.filter === "dispatch" && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <AlertCircle className="h-4 w-4 text-amber-500 cursor-pointer hover:text-amber-600" />
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-3" align="end">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Found in multiple offices:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {ambiguousMatch.offices.map((office) => (
-                              <Button
-                                key={office}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setActiveTab(office)}
-                                className={cn(office === activeTab && "bg-primary text-primary-foreground")}
-                              >
-                                {office}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </div>
               </div>
               <div className="relative">
                 <Input
