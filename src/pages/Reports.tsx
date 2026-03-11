@@ -309,34 +309,6 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
 
-  // Fetch all user profiles for the "All Users" filter combobox
-  const { data: allDispatcherProfiles } = useQuery({
-    queryKey: ["all-user-profiles"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email")
-        .order("full_name");
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const dispatcherOptions = useMemo(() => {
-    if (!allDispatcherProfiles) return [];
-    const seen = new Set<string>();
-    return allDispatcherProfiles
-      .map((p) => {
-        const name = (p.full_name?.trim() || p.email || "").trim();
-        return { value: name, label: name };
-      })
-      .filter((o) => {
-        if (!o.value || seen.has(o.value)) return false;
-        seen.add(o.value);
-        return true;
-      });
-  }, [allDispatcherProfiles]);
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
