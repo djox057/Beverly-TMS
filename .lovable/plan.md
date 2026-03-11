@@ -1,36 +1,31 @@
 
-Goal: Fix the Reports “All Users” dropdown so it truly shows all users (including Filip Stevanović- Phillip), while changing only the All Users filter logic.
 
-What I found:
-- The current dropdown data source in `src/pages/Reports.tsx` is role-filtered:
-  - `profiles` joined with `user_roles!inner(role)`
-  - restricted to `["dispatch", "afterhours", "manager", "supervisor", "admin"]`
-- This can still hide users because visibility of `user_roles` rows is RLS-dependent by viewer role.
-- Also, profile names can contain extra whitespace (e.g. trailing spaces), which can make matching inconsistent.
+# Fix 1: Analytics -- Select Only Needed Columns
 
-Implementation plan (only All Users filter area):
-1. Update the dropdown query in `Reports.tsx` to fetch from `profiles` only (no `user_roles` join, no role filter):
-   - Select: `user_id, full_name, email`
-   - Keep this query dedicated to the All Users combobox only.
-2. Normalize user display values before building options:
-   - Trim `full_name`
-   - Fallback to `email` if `full_name` is empty
-   - Deduplicate cleanly to avoid repeated entries
-3. Keep existing filter behavior untouched:
-   - Continue writing selected value into `dispatchNameFilter`
-   - Continue existing downstream filtering logic exactly as-is
-4. Minor text cleanup in this same filter control only:
-   - Change empty text from dispatcher wording to user wording (optional but scoped to this filter)
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-Technical details:
-- File to change: `src/pages/Reports.tsx` (only)
-- Replace `allDispatcherProfiles` role-joined query with an “all profiles” query.
-- Keep `Combobox` component unchanged globally.
-- Keep all non-filter logic (search by load number, office auto-switch, date window, report rendering) unchanged.
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-Validation checklist:
-1. Open Reports → All Users dropdown.
-2. Type `Filip` and `Phillip`; confirm `Filip Stevanović- Phillip` appears.
-3. Select that user and confirm report filtering still works.
-4. Spot-check other roles/users (afterhours, manager, supervisor, admin, and non-dispatch users) appear in dropdown.
-5. Confirm no changes in other filters or report behavior.
+**Before:**
+```typescript
+.select("*")
+```
+
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
+
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
+

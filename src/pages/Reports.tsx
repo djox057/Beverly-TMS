@@ -310,35 +310,33 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
 
-  // Fetch dispatcher/manager/admin profiles for the dispatch name filter combobox
+  // Fetch all user profiles for the "All Users" filter combobox
   const { data: allDispatcherProfiles } = useQuery({
-    queryKey: ["all-dispatcher-profiles"],
+    queryKey: ["all-user-profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, user_roles!inner(role)")
-        .in("user_roles.role", ["dispatch", "afterhours", "manager", "supervisor", "admin"])
+        .select("user_id, full_name, email")
         .order("full_name");
       if (error) throw error;
-      // Deduplicate by user_id (users with multiple matching roles appear once)
-      const seen = new Set<string>();
-      return (data || []).filter((p) => {
-        if (seen.has(p.user_id)) return false;
-        seen.add(p.user_id);
-        return true;
-      });
+      return data || [];
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const dispatcherOptions = useMemo(() => {
     if (!allDispatcherProfiles) return [];
+    const seen = new Set<string>();
     return allDispatcherProfiles
-      .filter((p) => p.full_name)
-      .map((p) => ({
-        value: p.full_name!,
-        label: p.full_name!,
-      }));
+      .map((p) => {
+        const name = (p.full_name?.trim() || p.email || "").trim();
+        return { value: name, label: name };
+      })
+      .filter((o) => {
+        if (!o.value || seen.has(o.value)) return false;
+        seen.add(o.value);
+        return true;
+      });
   }, [allDispatcherProfiles]);
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
