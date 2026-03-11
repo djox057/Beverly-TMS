@@ -975,7 +975,7 @@ export function useAutoSwitchOffice({
             lastSwitchTimeRef.current = Date.now();
             setAmbiguousMatch(null);
             setLoadSearchStatus("found");
-            setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
+            setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
             setActiveTab(targetOffice);
             return;
           }
