@@ -69,6 +69,19 @@ const Orders = () => {
   } = useIndividualMode();
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
+  // Fetch all user profiles for the "All Users" filter (not limited to current orders)
+  const { data: allUserProfiles } = useQuery({
+    queryKey: ["all-user-profiles-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .order("full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   console.log("🟦 [Orders Page] Component rendering");
 
   // Debug navigation function with filter persistence
