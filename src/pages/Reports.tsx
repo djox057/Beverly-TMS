@@ -426,6 +426,20 @@ const Reports = () => {
     groupedReports,
   });
 
+  // Auto-navigate calendar when load search finds an order outside the visible date window
+  useEffect(() => {
+    if (foundOrderMeta?.pickupDate) {
+      const loadDate = new Date(foundOrderMeta.pickupDate);
+      if (isNaN(loadDate.getTime())) return;
+      const windowStart = addDays(selectedDateForWindow, -2);
+      const windowEnd = addDays(selectedDateForWindow, 3);
+      const loadDateStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
+      if (loadDateStart < windowStart || loadDateStart > windowEnd) {
+        setSelectedDateForWindow(loadDateStart);
+      }
+    }
+  }, [foundOrderMeta?.pickupDate]);
+
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
