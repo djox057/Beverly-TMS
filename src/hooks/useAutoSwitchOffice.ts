@@ -515,7 +515,7 @@ export function useAutoSwitchOffice({
       const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
-        return { type: "found", office: foundOffices[0], isLocked, isCanceled };
+        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate };
       } else if (foundOffices.length > 1) {
         return { type: "ambiguous", offices: foundOffices };
       }
