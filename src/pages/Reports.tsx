@@ -309,6 +309,30 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
 
+  // Fetch all dispatcher profiles for the dispatch name filter combobox
+  const { data: allDispatcherProfiles } = useQuery({
+    queryKey: ["all-dispatcher-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .order("full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const dispatcherOptions = useMemo(() => {
+    if (!allDispatcherProfiles) return [];
+    return allDispatcherProfiles
+      .filter((p) => p.full_name)
+      .map((p) => ({
+        value: p.full_name!,
+        label: p.full_name!,
+      }));
+  }, [allDispatcherProfiles]);
+
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
