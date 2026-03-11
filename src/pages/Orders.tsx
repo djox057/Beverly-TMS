@@ -783,12 +783,10 @@ const Orders = () => {
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
 
-  const uniqueBookedBy = useMemo(() => {
-    // Merge profile names with any booked_by names from orders (handles legacy/external names)
-    const fromProfiles = allDispatcherProfiles || [];
-    const fromOrders = (currentPageOrdersFromHook || []).map(o => o.bookedBy).filter(Boolean);
-    return [...new Set([...fromProfiles, ...fromOrders])].sort();
-  }, [allDispatcherProfiles, currentPageOrdersFromHook]);
+  // Merge profile names with any booked_by names from orders (handles legacy/external names)
+  const fromProfiles = allDispatcherProfiles || [];
+  const fromOrders = (currentPageOrdersFromHook || []).map(o => o.bookedBy).filter(Boolean);
+  const uniqueBookedBy = [...new Set([...fromProfiles, ...fromOrders])].sort();
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
   }));
