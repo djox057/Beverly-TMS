@@ -1,31 +1,55 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Problem Analysis
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+The load number search (2002485230) correctly finds the order and auto-switches to the KRAGUJEVAC office tab. However, the Reports grid shows "No drivers assigned" because:
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+- The order's pickup/delivery date is **March 5, 2026**
+- Today is **March 11, 2026**
+- The Reports date window shows **2 days before → 3 days after** the selected date (March 9–14)
+- March 5 falls outside this window, so the grid is empty
 
-**Before:**
-```typescript
-.select("*")
+The auto-switch engine finds the office but **never adjusts the calendar date** to match the found load.
+
+## Solution
+
+When a load number search finds a match via DB lookup, also fetch the order's `pickup_datetime` and pass it back to the Reports page. If the found date falls outside the current date window, automatically set `selectedDateForWindow` to the order's pickup date so the grid shows the relevant data.
+
+### Changes
+
+1. **`src/hooks/useAutoSwitchOffice.ts`** — In `lookupLoadOffice`, also select `pickup_datetime` from the orders query. Include `pickupDate` in the returned `OfficeResult` when `type === "found"`. Return it via `foundOrderMeta`.
+
+2. **`src/pages/Reports.tsx`** — After `useAutoSwitchOffice` returns, check if `foundOrderMeta.pickupDate` exists and falls outside the current date window. If so, call `setSelectedDateForWindow(new Date(foundOrderMeta.pickupDate))` to auto-navigate the calendar.
+
+### Detail
+
+In `lookupLoadOffice`, change the select from:
+```sql
+select("driver1_id, locked, canceled")
+```
+to:
+```sql
+select("driver1_id, locked, canceled, pickup_datetime")
 ```
 
-**After:**
+Add `pickupDate` to `foundOrderMeta`:
 ```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
+foundOrderMeta: { isLocked?: boolean; isCanceled?: boolean; pickupDate?: string }
 ```
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+In Reports.tsx, add an effect:
+```typescript
+useEffect(() => {
+  if (foundOrderMeta?.pickupDate) {
+    const loadDate = new Date(foundOrderMeta.pickupDate);
+    const windowStart = subDays(startOfDay(selectedDateForWindow), 2);
+    const windowEnd = addDays(startOfDay(selectedDateForWindow), 3);
+    if (loadDate < windowStart || loadDate > windowEnd) {
+      setSelectedDateForWindow(startOfDay(loadDate));
+    }
+  }
+}, [foundOrderMeta?.pickupDate]);
+```
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+This ensures that when a load is found outside the visible date window, the calendar automatically navigates to show it.
 
