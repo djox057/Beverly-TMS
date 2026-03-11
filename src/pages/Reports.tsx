@@ -3186,7 +3186,7 @@ const Reports = () => {
                   value={dispatchNameFilter}
                   onChange={(e) => setDispatchNameFilter(e.target.value)}
                   className={cn(
-                    "w-[120px] sm:max-w-[180px] pr-8",
+                    "w-[150px] sm:w-[180px] pr-8",
                     ambiguousMatch?.filter === "dispatch" && "border-amber-500",
                     searchStatus.dispatch === "not_found" && dispatchNameFilter.length >= 2 && "border-red-400",
                   )}
