@@ -310,16 +310,23 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
 
-  // Fetch all dispatcher profiles for the dispatch name filter combobox
+  // Fetch dispatcher/manager/admin profiles for the dispatch name filter combobox
   const { data: allDispatcherProfiles } = useQuery({
     queryKey: ["all-dispatcher-profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name")
+        .select("user_id, full_name, user_roles!inner(role)")
+        .in("user_roles.role", ["dispatch", "afterhours", "manager", "supervisor", "admin"])
         .order("full_name");
       if (error) throw error;
-      return data || [];
+      // Deduplicate by user_id (users with multiple matching roles appear once)
+      const seen = new Set<string>();
+      return (data || []).filter((p) => {
+        if (seen.has(p.user_id)) return false;
+        seen.add(p.user_id);
+        return true;
+      });
     },
     staleTime: 5 * 60 * 1000,
   });
