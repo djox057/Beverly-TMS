@@ -3138,7 +3138,7 @@ const Reports = () => {
                   value={truckDriverFilter}
                   onChange={(e) => setTruckDriverFilter(e.target.value)}
                   className={cn(
-                    "w-[140px] sm:max-w-[200px] pr-8",
+                    "w-[170px] sm:w-[200px] pr-8",
                     ambiguousMatch?.filter === "truck" && "border-amber-500",
                     searchStatus.truck === "not_found" && truckDriverFilter.length >= 2 && "border-red-400",
                   )}
