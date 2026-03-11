@@ -10,6 +10,7 @@ import { IndividualModeProvider } from "./contexts/IndividualModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { supabase } from "./integrations/supabase/client";
+import { useRealtimeTokenRefresh } from "./hooks/useRealtimeTokenRefresh";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
@@ -79,6 +80,8 @@ const prefetchData = async () => {
 };
 
 const AppContent = () => {
+  useRealtimeTokenRefresh();
+
   useEffect(() => {
     prefetchData();
   }, []);
