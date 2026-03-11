@@ -468,7 +468,7 @@ export function useAutoSwitchOffice({
         // NO STATUS FILTERS - search ALL orders
         const { data: internalMatches, error: internalError } = await supabase
           .from("orders")
-          .select("driver1_id, locked, canceled")
+          .select("driver1_id, locked, canceled, pickup_datetime")
           .eq("internal_load_number", internalNum)
           .not("driver1_id", "is", null)
           .limit(10);
