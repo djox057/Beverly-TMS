@@ -8,7 +8,7 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
-  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean }
+  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean; pickupDate?: string }
   | { type: "ambiguous"; offices: string[] }
   | { type: "not_found" }
   | { type: "error"; error: Error };
@@ -95,10 +95,11 @@ export function useAutoSwitchOffice({
   const [dispatchSearchStatus, setDispatchSearchStatus] = useState<SearchStatus>("idle");
   const [loadSearchStatus, setLoadSearchStatus] = useState<SearchStatus>("idle");
 
-  // Found order metadata (for showing locked/canceled badges)
+  // Found order metadata (for showing locked/canceled badges + date navigation)
   const [foundOrderMeta, setFoundOrderMeta] = useState<{
     isLocked?: boolean;
     isCanceled?: boolean;
+    pickupDate?: string;
   } | null>(null);
 
   /**
@@ -438,7 +439,7 @@ export function useAutoSwitchOffice({
       // Search by broker_load_number first - NO STATUS FILTERS
       const { data: brokerMatches, error: brokerError } = await supabase
         .from("orders")
-        .select("driver1_id, locked, canceled")
+        .select("driver1_id, locked, canceled, pickup_datetime")
         .ilike("broker_load_number", `%${term}%`)
         .not("driver1_id", "is", null)
         .limit(10);
@@ -448,12 +449,15 @@ export function useAutoSwitchOffice({
       const driver1Ids: string[] = [];
       let isLocked = false;
       let isCanceled = false;
+      let pickupDate: string | undefined;
       
       if (brokerMatches && brokerMatches.length > 0) {
         driver1Ids.push(...brokerMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
         // Track if any match is locked/canceled for UI indication
         isLocked = brokerMatches.some(o => o.locked);
         isCanceled = brokerMatches.some(o => o.canceled);
+        // Use first match's pickup date for calendar navigation
+        pickupDate = brokerMatches[0]?.pickup_datetime ?? undefined;
       }
       
       // Also search by internal_load_number (strip suffix if present)
@@ -464,7 +468,7 @@ export function useAutoSwitchOffice({
         // NO STATUS FILTERS - search ALL orders
         const { data: internalMatches, error: internalError } = await supabase
           .from("orders")
-          .select("driver1_id, locked, canceled")
+          .select("driver1_id, locked, canceled, pickup_datetime")
           .eq("internal_load_number", internalNum)
           .not("driver1_id", "is", null)
           .limit(10);
@@ -475,6 +479,7 @@ export function useAutoSwitchOffice({
           driver1Ids.push(...internalMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
           if (!isLocked) isLocked = internalMatches.some(o => o.locked);
           if (!isCanceled) isCanceled = internalMatches.some(o => o.canceled);
+          if (!pickupDate) pickupDate = internalMatches[0]?.pickup_datetime ?? undefined;
         }
       }
       
@@ -510,7 +515,7 @@ export function useAutoSwitchOffice({
       const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
-        return { type: "found", office: foundOffices[0], isLocked, isCanceled };
+        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate };
       } else if (foundOffices.length > 1) {
         return { type: "ambiguous", offices: foundOffices };
       }
@@ -970,7 +975,7 @@ export function useAutoSwitchOffice({
             lastSwitchTimeRef.current = Date.now();
             setAmbiguousMatch(null);
             setLoadSearchStatus("found");
-            setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
+            setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
             setActiveTab(targetOffice);
             return;
           }
@@ -997,7 +1002,7 @@ export function useAutoSwitchOffice({
 
         if (result.type === "found") {
           setLoadSearchStatus("found");
-          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled });
+          setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
         } else {
           setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
