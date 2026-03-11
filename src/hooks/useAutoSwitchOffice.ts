@@ -95,10 +95,11 @@ export function useAutoSwitchOffice({
   const [dispatchSearchStatus, setDispatchSearchStatus] = useState<SearchStatus>("idle");
   const [loadSearchStatus, setLoadSearchStatus] = useState<SearchStatus>("idle");
 
-  // Found order metadata (for showing locked/canceled badges)
+  // Found order metadata (for showing locked/canceled badges + date navigation)
   const [foundOrderMeta, setFoundOrderMeta] = useState<{
     isLocked?: boolean;
     isCanceled?: boolean;
+    pickupDate?: string;
   } | null>(null);
 
   /**
