@@ -3234,7 +3234,7 @@ const Reports = () => {
                   value={loadNumberFilter}
                   onChange={(e) => setLoadNumberFilter(e.target.value)}
                   className={cn(
-                    "w-[120px] sm:max-w-[200px] pr-8",
+                    "w-[150px] sm:w-[180px] pr-8",
                     ambiguousMatch?.filter === "load" && "border-amber-500",
                     searchStatus.load === "not_found" && loadNumberFilter.length >= 3 && "border-red-400",
                   )}
