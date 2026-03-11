@@ -27,7 +27,7 @@ import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { generateInvoicePDF, InvoiceProgress, InvoiceWarning } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -200,19 +200,6 @@ const Orders = () => {
     lumperRequests
   } = useLumperMissingRevisedRC();
   const orderIdsWithMissingLumperRC = new Set(lumperRequests.map(r => r.id));
-
-  // Fetch all dispatcher profiles for the "All Users" filter dropdown (must stay before early returns)
-  const { data: allDispatcherProfiles } = useQuery({
-    queryKey: ["profiles-for-orders-filter"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .order("full_name");
-      return (data || []).map((p: any) => p.full_name).filter(Boolean);
-    },
-    staleTime: 5 * 60 * 1000,
-  });
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
@@ -782,11 +769,7 @@ const Orders = () => {
   // Filter option sources (canonical tables → stable IDs for server-side filtering)
   const uniqueCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
   const uniqueTruckCompanies = (companies || []).map((c: any) => c.name).filter(Boolean).sort();
-
-  // Merge profile names with any booked_by names from orders (handles legacy/external names)
-  const fromProfiles = allDispatcherProfiles || [];
-  const fromOrders = (currentPageOrdersFromHook || []).map(o => o.bookedBy).filter(Boolean);
-  const uniqueBookedBy = [...new Set([...fromProfiles, ...fromOrders])].sort();
+  const uniqueBookedBy = [...new Set(currentPageOrdersFromHook?.map(order => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
   }));
