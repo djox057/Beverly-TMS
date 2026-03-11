@@ -1,31 +1,44 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Plan: Fix Realtime JWT Token Refresh
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+### Problem
+Realtime WebSocket stops receiving updates ~1 hour after login because the JWT auto-refreshes for REST calls but the persistent WebSocket keeps using the stale token.
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+### Implementation
 
-**Before:**
+**New file: `src/hooks/useRealtimeTokenRefresh.ts`**
+- Listen to `supabase.auth.onAuthStateChange` for `TOKEN_REFRESHED`, `SIGNED_IN`, and `INITIAL_SESSION` events
+- Call `supabase.realtime.setAuth(session.access_token)` with the fresh token
+- Return cleanup subscription in useEffect
+- Add debug log with event name for production diagnostics
+
+**Modified file: `src/App.tsx`**
+- Import and call `useRealtimeTokenRefresh()` inside `AppContent` (top-level, before routes)
+
+### Technical Detail
+
 ```typescript
-.select("*")
+// src/hooks/useRealtimeTokenRefresh.ts
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export function useRealtimeTokenRefresh() {
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "INITIAL_SESSION") &&
+        session?.access_token
+      ) {
+        console.log(`[RealtimeAuth] Updating realtime token (${event})`);
+        supabase.realtime.setAuth(session.access_token);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+}
 ```
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
-
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
-
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+No database changes. No channel teardown needed — all existing realtime hooks share the same `supabase` singleton and benefit automatically.
 
