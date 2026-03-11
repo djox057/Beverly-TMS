@@ -439,7 +439,7 @@ export function useAutoSwitchOffice({
       // Search by broker_load_number first - NO STATUS FILTERS
       const { data: brokerMatches, error: brokerError } = await supabase
         .from("orders")
-        .select("driver1_id, locked, canceled")
+        .select("driver1_id, locked, canceled, pickup_datetime")
         .ilike("broker_load_number", `%${term}%`)
         .not("driver1_id", "is", null)
         .limit(10);
