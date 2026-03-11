@@ -80,6 +80,8 @@ const prefetchData = async () => {
 };
 
 const AppContent = () => {
+  useRealtimeTokenRefresh();
+
   useEffect(() => {
     prefetchData();
   }, []);
