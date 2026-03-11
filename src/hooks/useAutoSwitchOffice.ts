@@ -479,6 +479,7 @@ export function useAutoSwitchOffice({
           driver1Ids.push(...internalMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
           if (!isLocked) isLocked = internalMatches.some(o => o.locked);
           if (!isCanceled) isCanceled = internalMatches.some(o => o.canceled);
+          if (!pickupDate) pickupDate = internalMatches[0]?.pickup_datetime ?? undefined;
         }
       }
       
