@@ -27,7 +27,7 @@ import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import { generateInvoicePDF, InvoiceProgress, InvoiceWarning } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
