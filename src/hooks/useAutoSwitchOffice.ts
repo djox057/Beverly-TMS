@@ -449,12 +449,15 @@ export function useAutoSwitchOffice({
       const driver1Ids: string[] = [];
       let isLocked = false;
       let isCanceled = false;
+      let pickupDate: string | undefined;
       
       if (brokerMatches && brokerMatches.length > 0) {
         driver1Ids.push(...brokerMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
         // Track if any match is locked/canceled for UI indication
         isLocked = brokerMatches.some(o => o.locked);
         isCanceled = brokerMatches.some(o => o.canceled);
+        // Use first match's pickup date for calendar navigation
+        pickupDate = brokerMatches[0]?.pickup_datetime ?? undefined;
       }
       
       // Also search by internal_load_number (strip suffix if present)
