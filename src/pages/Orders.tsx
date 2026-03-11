@@ -1228,10 +1228,7 @@ const Orders = () => {
                   {!isDispatchOnly && <Combobox value={bookedByFilter} onValueChange={setBookedByFilter} placeholder="All Users" searchPlaceholder="Search users..." options={[{
                   value: "all-users",
                   label: "All Users"
-                }, ...uniqueBookedBy.map(user => ({
-                  value: user,
-                  label: user
-                }))]} className="w-full" />}
+                }, ...uniqueBookedBy]} className="w-full" />}
 
                   {/* Column 6 Row 1: Missing Docs Filter */}
                   <Combobox value={missingDocsFilter} onValueChange={setMissingDocsFilter} placeholder="All Orders" searchPlaceholder="Search status..." options={[{
