@@ -908,6 +908,10 @@ const Fleets = () => {
               <TabsContent value="supervisors" className="mt-4">
                 <SupervisorsSection allDispatchers={allDispatchers} hasRole={hasRole} />
               </TabsContent>
+
+              <TabsContent value="afterhours" className="mt-4">
+                <AfterhoursFleetTab hasRole={hasRole} />
+              </TabsContent>
             </Tabs>
           </div>
         </div>
