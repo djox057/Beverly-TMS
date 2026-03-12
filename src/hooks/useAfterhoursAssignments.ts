@@ -7,6 +7,7 @@ interface AfterhoursUser {
   full_name: string | null;
   email: string;
   office: string | null;
+  scheduledDays: string[]; // e.g. ['Saturday', 'Sunday']
 }
 
 interface AfterhoursAssignment {
