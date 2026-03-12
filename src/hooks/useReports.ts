@@ -1700,6 +1700,7 @@ export const useReports = (options?: UseReportsOptions) => {
               goingYard: truck.driver1?.going_yard || false,
               needsRecovery: truck.needs_recovery || false,
               isRecoveryDriver: truck.driver1?.is_recovery || false,
+              doNotTouchHos: truck.driver1?.do_not_touch_hos || false,
               trailerId: truck.trailer_id || null,
               dispatcherEmail: dispatcherInfo?.email || null,
               dispatcherName: dispatcherInfo?.full_name || null,
