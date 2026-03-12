@@ -315,7 +315,7 @@ const Reports = () => {
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
-  const { driverAfterhoursMap } = useAfterhoursDriverMap();
+  const { driverAfterhoursMap, isWeekendWindow } = useAfterhoursDriverMap();
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
