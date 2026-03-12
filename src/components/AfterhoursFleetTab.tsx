@@ -30,6 +30,10 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
       const office = fleet.user.office || "";
       if (office.toLowerCase() !== officeFilter.toLowerCase()) return false;
     }
+    if (dispatcherFilter) {
+      const name = fleet.user.full_name || fleet.user.email || "";
+      if (!name.toLowerCase().includes(dispatcherFilter.toLowerCase())) return false;
+    }
     return true;
   });
 
