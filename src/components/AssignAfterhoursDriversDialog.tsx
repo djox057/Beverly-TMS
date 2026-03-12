@@ -242,7 +242,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
           <span className="text-sm text-muted-foreground">
