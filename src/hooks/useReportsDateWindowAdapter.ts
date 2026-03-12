@@ -1176,13 +1176,6 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
                 .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
             };
 
-            // Canceled orders must be evicted from the store (mirrors initial load filtering)
-            if (fullOrder.canceled) {
-              removeOrderFromGlobalStore(fullOrder.id, false);
-              affectedOrderIds.push(fullOrder.id);
-              continue;
-            }
-
             // Out-of-scope check: if neither driver is in scope, remove instead of patching
             const inScope =
               (fullOrder.driver1_id && currentDriverIds.has(fullOrder.driver1_id)) ||
