@@ -161,6 +161,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     fein: "",
     is_company_driver: false,
     is_recovery: false,
+    do_not_touch_hos: false,
     cents_per_mile: "",
     note: "",
   });
