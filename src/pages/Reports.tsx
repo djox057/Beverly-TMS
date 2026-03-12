@@ -4507,21 +4507,23 @@ const Reports = () => {
                                                                     >
                                                                       <DollarSign className="h-3 w-3" />
                                                                     </Button>
-                                                                    <Button
-                                                                      variant="ghost"
-                                                                      size="sm"
-                                                                      className="h-6 w-6 p-0"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setHosRequestDialog({
-                                                                          driverName: truck.driver,
-                                                                          truckNumber: truck.truckNumber,
-                                                                          companyName: truck.companyName || "",
-                                                                        });
-                                                                      }}
-                                                                    >
-                                                                      <Clock className="h-3 w-3" />
-                                                                    </Button>
+                                                                     {!truck.doNotTouchHos && (
+                                                                     <Button
+                                                                       variant="ghost"
+                                                                       size="sm"
+                                                                       className="h-6 w-6 p-0"
+                                                                       onClick={(e) => {
+                                                                         e.stopPropagation();
+                                                                         setHosRequestDialog({
+                                                                           driverName: truck.driver,
+                                                                           truckNumber: truck.truckNumber,
+                                                                           companyName: truck.companyName || "",
+                                                                         });
+                                                                       }}
+                                                                     >
+                                                                       <Clock className="h-3 w-3" />
+                                                                     </Button>
+                                                                     )}
                                                                     {(hasRole("manager") ||
                                                                       hasRole("supervisor") ||
                                                                       hasRole("admin")) && (
