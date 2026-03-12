@@ -910,7 +910,7 @@ const Fleets = () => {
               </TabsContent>
 
               <TabsContent value="afterhours" className="mt-4">
-                <AfterhoursFleetTab hasRole={hasRole} />
+                <AfterhoursFleetTab hasRole={hasRole} searchTerm={searchTerm} dispatcherFilter={dispatcherFilter} officeFilter={officeFilter} />
               </TabsContent>
             </Tabs>
           </div>

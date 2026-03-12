@@ -4,22 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Moon, Plus, Minus, Truck, Search } from "lucide-react";
+import { Moon, Plus, Minus, Truck } from "lucide-react";
 import { useAfterhoursAssignments } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface AfterhoursFleetTabProps {
   hasRole: (role: string) => boolean;
+  searchTerm: string;
+  dispatcherFilter: string;
+  officeFilter: string;
 }
 
-const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
+const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
   const { afterhoursFleets, allDriversWithTrucks, loading, assignDriver, removeDriver } = useAfterhoursAssignments();
   const [selectedDriver, setSelectedDriver] = useState("");
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [officeFilter, setOfficeFilter] = useState("all");
   const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
 
   const canManage = hasRole("admin") || hasRole("manager");
@@ -28,6 +27,10 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
     if (officeFilter !== "all") {
       const office = fleet.user.office || "";
       if (office.toLowerCase() !== officeFilter.toLowerCase()) return false;
+    }
+    if (dispatcherFilter) {
+      const name = fleet.user.full_name || fleet.user.email || "";
+      if (!name.toLowerCase().includes(dispatcherFilter.toLowerCase())) return false;
     }
     return true;
   });
