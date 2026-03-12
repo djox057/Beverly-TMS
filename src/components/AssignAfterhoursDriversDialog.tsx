@@ -168,7 +168,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           />
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[60vh] border rounded-md">
+        <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto border rounded-md">
           <div className="p-2 space-y-1">
             {officeGroups.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
