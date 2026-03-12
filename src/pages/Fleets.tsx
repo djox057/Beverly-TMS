@@ -20,6 +20,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { SupervisorsSection } from "@/components/SupervisorsSection";
+import AfterhoursFleetTab from "@/components/AfterhoursFleetTab";
 import { supabase } from "@/integrations/supabase/client";
 
 // Generate month options for the last 12 months
