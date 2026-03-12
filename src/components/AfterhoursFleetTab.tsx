@@ -128,11 +128,6 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       {day}
                     </Badge>
                   ))}
-                  {fleet.user.office &&
-                  <Badge variant="outline" className="text-xs">
-                      {fleet.user.office}
-                    </Badge>
-                  }
                   <Badge variant="secondary" className="text-xs">
                     {fleet.drivers.length} drivers
                   </Badge>
