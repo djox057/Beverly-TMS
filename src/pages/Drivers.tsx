@@ -392,6 +392,7 @@ const Drivers = () => {
       drugTestResult: null,
       is_company_driver: false,
       is_recovery: false,
+      do_not_touch_hos: false,
       cents_per_mile: "",
       note: "",
     });
