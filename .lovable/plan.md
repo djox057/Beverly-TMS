@@ -1,31 +1,15 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Change HOS Sync to Every 5 Minutes
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+**Current state**: The `hos-sync` cron job runs every 3 minutes (at minutes 1,4,7,10,...58).
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+**Change**: Update the cron schedule to run every 5 minutes at minutes 1,6,11,16,21,26,31,36,41,46,51,56.
 
-**Before:**
-```typescript
-.select("*")
-```
+### Steps
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
+1. **Unschedule the existing cron job** (jobid 23, name `hos-sync-every-minute`)
+2. **Create a new cron job** with the 5-minute schedule: `1,6,11,16,21,26,31,36,41,46,51,56 * * * *`
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
-
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+This is a single SQL operation via `cron.unschedule` + `cron.schedule`. No code or edge function changes needed.
 
