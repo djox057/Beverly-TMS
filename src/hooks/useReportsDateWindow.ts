@@ -167,7 +167,6 @@ const fetchOrdersForDateWindow = async (
         tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
       `)
       .eq("locked", false)
-      .eq("canceled", false)
       .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
       .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
       .order("pickup_datetime", { ascending: false })
