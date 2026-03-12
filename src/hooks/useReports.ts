@@ -858,7 +858,7 @@ export const useReports = (options?: UseReportsOptions) => {
     // Parallel batch fetches for truck relations
     const [truckDriversRes, truckTrailersRes, truckCompaniesRes] = await Promise.all([
       truckDriverIdsBatch.size > 0
-        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id").in("id", Array.from(truckDriverIdsBatch))
+        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos").in("id", Array.from(truckDriverIdsBatch))
         : { data: [], error: null },
       truckTrailerIdsBatch.size > 0
         ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date").in("id", Array.from(truckTrailerIdsBatch))
@@ -1700,6 +1700,7 @@ export const useReports = (options?: UseReportsOptions) => {
               goingYard: truck.driver1?.going_yard || false,
               needsRecovery: truck.needs_recovery || false,
               isRecoveryDriver: truck.driver1?.is_recovery || false,
+              doNotTouchHos: truck.driver1?.do_not_touch_hos || false,
               trailerId: truck.trailer_id || null,
               dispatcherEmail: dispatcherInfo?.email || null,
               dispatcherName: dispatcherInfo?.full_name || null,
@@ -1717,7 +1718,7 @@ export const useReports = (options?: UseReportsOptions) => {
         let driversQuery = supabase
           .from("drivers")
           .select(
-            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, is_active, going_yard, company_id",
+            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, is_active, going_yard, company_id, do_not_touch_hos",
           )
           .eq("is_active", true)
           .order("name", { ascending: true });
@@ -1998,6 +1999,7 @@ export const useReports = (options?: UseReportsOptions) => {
             hosLastUpdated: driver.hos_last_updated || null,
             twoWeekBlockDate: driver.two_week_block_date || null,
             randomDrugTestDate: driver.random_drug_test_date || null,
+            doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
             lastEdit: driverNote?.updated_at
               ? new Date(driverNote.updated_at).toLocaleTimeString()
@@ -2111,7 +2113,7 @@ export const useReports = (options?: UseReportsOptions) => {
             const { data: realDriverData } = driverIds.length > 0 
               ? await supabase
                   .from("drivers")
-                  .select("id, name, phone, email, home_city, home_state, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated")
+                  .select("id, name, phone, email, home_city, home_state, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, do_not_touch_hos")
                   .in("id", driverIds)
               : { data: [] };
             
@@ -2310,6 +2312,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 hosLastUpdated: realDriver?.hos_last_updated || null,
                 twoWeekBlockDate: null,
                 randomDrugTestDate: null,
+                doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: "",
                 lastEdit: new Date().toLocaleTimeString(),
                 editDate: new Date().toLocaleDateString(),

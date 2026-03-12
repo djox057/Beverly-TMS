@@ -4278,21 +4278,23 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
-                                                                  <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      setHosRequestDialog({
-                                                                        driverName: truck.driver1Name,
-                                                                        truckNumber: truck.truckNumber,
-                                                                        companyName: truck.companyName || "",
-                                                                      });
-                                                                    }}
-                                                                  >
-                                                                    <Clock className="h-3 w-3" />
-                                                                  </Button>
+                                                                   {!truck.doNotTouchHos && (
+                                                                   <Button
+                                                                     variant="ghost"
+                                                                     size="sm"
+                                                                     className="h-6 w-6 p-0"
+                                                                     onClick={(e) => {
+                                                                       e.stopPropagation();
+                                                                       setHosRequestDialog({
+                                                                         driverName: truck.driver1Name,
+                                                                         truckNumber: truck.truckNumber,
+                                                                         companyName: truck.companyName || "",
+                                                                       });
+                                                                     }}
+                                                                   >
+                                                                     <Clock className="h-3 w-3" />
+                                                                   </Button>
+                                                                   )}
                                                                   {(hasRole("manager") ||
                                                                     hasRole("supervisor") ||
                                                                     hasRole("admin")) && (
@@ -4359,21 +4361,23 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
-                                                                  <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      setHosRequestDialog({
-                                                                        driverName: truck.driver2Name!,
-                                                                        truckNumber: truck.truckNumber,
-                                                                        companyName: truck.companyName || "",
-                                                                      });
-                                                                    }}
-                                                                  >
-                                                                    <Clock className="h-3 w-3" />
-                                                                  </Button>
+                                                                   {!truck.doNotTouchHos && (
+                                                                   <Button
+                                                                     variant="ghost"
+                                                                     size="sm"
+                                                                     className="h-6 w-6 p-0"
+                                                                     onClick={(e) => {
+                                                                       e.stopPropagation();
+                                                                       setHosRequestDialog({
+                                                                         driverName: truck.driver2Name!,
+                                                                         truckNumber: truck.truckNumber,
+                                                                         companyName: truck.companyName || "",
+                                                                       });
+                                                                     }}
+                                                                   >
+                                                                     <Clock className="h-3 w-3" />
+                                                                   </Button>
+                                                                   )}
                                                                 </div>
                                                               </div>
                                                               {truck.driver2Phone && (
@@ -4503,21 +4507,23 @@ const Reports = () => {
                                                                     >
                                                                       <DollarSign className="h-3 w-3" />
                                                                     </Button>
-                                                                    <Button
-                                                                      variant="ghost"
-                                                                      size="sm"
-                                                                      className="h-6 w-6 p-0"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setHosRequestDialog({
-                                                                          driverName: truck.driver,
-                                                                          truckNumber: truck.truckNumber,
-                                                                          companyName: truck.companyName || "",
-                                                                        });
-                                                                      }}
-                                                                    >
-                                                                      <Clock className="h-3 w-3" />
-                                                                    </Button>
+                                                                     {!truck.doNotTouchHos && (
+                                                                     <Button
+                                                                       variant="ghost"
+                                                                       size="sm"
+                                                                       className="h-6 w-6 p-0"
+                                                                       onClick={(e) => {
+                                                                         e.stopPropagation();
+                                                                         setHosRequestDialog({
+                                                                           driverName: truck.driver,
+                                                                           truckNumber: truck.truckNumber,
+                                                                           companyName: truck.companyName || "",
+                                                                         });
+                                                                       }}
+                                                                     >
+                                                                       <Clock className="h-3 w-3" />
+                                                                     </Button>
+                                                                     )}
                                                                     {(hasRole("manager") ||
                                                                       hasRole("supervisor") ||
                                                                       hasRole("admin")) && (
@@ -4815,35 +4821,39 @@ const Reports = () => {
                                               {/* HOS Circular Timers */}
                                               <HosCircularTimer
                                                 minutes={truck.driveMinutes}
-                                                maxMinutes={11 * 60} // 11 hours max drive time
+                                                maxMinutes={11 * 60}
                                                 label="DRIVE"
-                                                color="#84cc16" // green
+                                                color="#84cc16"
                                                 size={31}
                                                 strokeWidth={3}
+                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.shiftMinutes}
-                                                maxMinutes={14 * 60} // 14 hours max shift time
+                                                maxMinutes={14 * 60}
                                                 label="SHIFT"
-                                                color="#06b6d4" // cyan
+                                                color="#06b6d4"
                                                 size={31}
                                                 strokeWidth={3}
+                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.breakMinutes}
-                                                maxMinutes={8 * 60} // 8 hours max break time
+                                                maxMinutes={8 * 60}
                                                 label="BREAK"
-                                                color="#8b5cf6" // purple
+                                                color="#8b5cf6"
                                                 size={31}
                                                 strokeWidth={3}
+                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.cycleMinutes}
-                                                maxMinutes={70 * 60} // 70 hours max cycle time
+                                                maxMinutes={70 * 60}
                                                 label="CYCLE"
-                                                color="hsl(var(--muted-foreground))" // muted foreground color
+                                                color="hsl(var(--muted-foreground))"
                                                 size={31}
                                                 strokeWidth={3}
+                                                disabled={truck.doNotTouchHos}
                                               />
                                             </div>
                                             <div className="h-8 p-0 w-full">

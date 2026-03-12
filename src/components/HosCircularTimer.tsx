@@ -6,6 +6,7 @@ interface HosCircularTimerProps {
   color: string;
   size?: number;
   strokeWidth?: number;
+  disabled?: boolean;
 }
 export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
   minutes,
@@ -13,7 +14,8 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
   label,
   color,
   size = 60,
-  strokeWidth = 6
+  strokeWidth = 6,
+  disabled = false,
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -29,7 +31,7 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
   // Turn red if time is 0 or below
   const circleColor = minutes <= 0 ? '#ef4444' : color;
   
-  return <div className="flex flex-col items-center">
+  return <div className={`flex flex-col items-center ${disabled ? 'opacity-25' : ''}`}>
       <div className="relative" style={{
       width: size,
       height: size
@@ -43,9 +45,15 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
         
         {/* Time display in center */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`font-medium text-muted-foreground ${size < 40 ? 'text-[9px]' : 'text-sm'}`}>
-            {timeDisplay}
-          </span>
+          {disabled ? (
+            <span className={`font-bold text-destructive ${size < 40 ? 'text-[7px]' : 'text-[9px]'}`}>
+              ✕
+            </span>
+          ) : (
+            <span className={`font-medium text-muted-foreground ${size < 40 ? 'text-[9px]' : 'text-sm'}`}>
+              {timeDisplay}
+            </span>
+          )}
         </div>
       </div>
       
