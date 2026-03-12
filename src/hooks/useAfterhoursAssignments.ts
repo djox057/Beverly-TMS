@@ -31,20 +31,33 @@ export const useAfterhoursAssignments = () => {
     try {
       setLoading(true);
 
-      // Parallel: afterhours users, assignments, active drivers, trucks
-      const [rolesRes, assignmentsRes, driversRes, trucksRes] = await Promise.all([
-        supabase.from('user_roles').select('user_id').eq('role', 'afterhours'),
+      // Find the upcoming weekend (next Saturday)
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
+      const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+      const nextSaturday = new Date(today);
+      nextSaturday.setDate(today.getDate() + (dayOfWeek === 6 ? 0 : dayOfWeek === 0 ? -1 : daysUntilSat));
+      const nextSunday = new Date(nextSaturday);
+      nextSunday.setDate(nextSaturday.getDate() + 1);
+
+      const satStr = nextSaturday.toISOString().split('T')[0];
+      const sunStr = nextSunday.toISOString().split('T')[0];
+
+      // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks
+      const [scheduleRes, assignmentsRes, driversRes, trucksRes] = await Promise.all([
+        supabase.from('afterhours_schedule').select('*').in('scheduled_date', [satStr, sunStr]),
         supabase.from('afterhours_assignments').select('*'),
         supabase.from('drivers').select('id, name, dispatcher_id, is_active').eq('is_active', true),
         supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
       ]);
 
-      if (rolesRes.error) throw rolesRes.error;
+      if (scheduleRes.error) throw scheduleRes.error;
       if (assignmentsRes.error) throw assignmentsRes.error;
       if (driversRes.error) throw driversRes.error;
       if (trucksRes.error) throw trucksRes.error;
 
-      const afterhoursUserIds = (rolesRes.data || []).map(r => r.user_id);
+      // Deduplicate user_ids from schedule entries
+      const afterhoursUserIds = [...new Set((scheduleRes.data || []).filter(s => s.user_id).map(s => s.user_id!))];
 
       // Fetch profiles for afterhours users
       let afterhoursUsers: AfterhoursUser[] = [];

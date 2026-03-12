@@ -102,7 +102,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
       {filteredFleets.length === 0 &&
       <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            No afterhours dispatchers found.
+            No weekend dispatchers found.
           </CardContent>
         </Card>
       }
