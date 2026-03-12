@@ -91,7 +91,7 @@ export const fetchPickupDropsForOrders = async (orderIds: string[]): Promise<any
     const batch = orderIds.slice(i, i + BATCH_SIZE);
     const { data, error } = await supabase
       .from("pickup_drops")
-      .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at")
+      .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, latitude, longitude")
       .in("order_id", batch);
     if (error) console.error('[useReportsDateWindow] Error fetching pickup_drops batch:', error);
     if (data) allDrops.push(...data);

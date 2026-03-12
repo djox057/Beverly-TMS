@@ -704,7 +704,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         (async () => {
           const { data } = await supabase
             .from("pickup_drops")
-            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at")
+            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, latitude, longitude")
             .in("order_id", orderIds);
           return data || [];
         })(),
