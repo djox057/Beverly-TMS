@@ -1170,6 +1170,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Label htmlFor="edit_do_not_touch_hos" className="cursor-pointer">
                       Drives Legally
                     </Label>
+                  </div>
                   {formData.is_company_driver && (
                     <div className="flex items-center gap-2">
                       <Input
