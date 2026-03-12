@@ -62,16 +62,16 @@ export const useAfterhoursAssignments = () => {
         }));
       }
 
-      // Fetch dispatcher profiles to show dispatcher name on drivers
+      // Fetch dispatcher profiles to show dispatcher name + office on drivers
       const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(Boolean))] as string[];
-      let dispatcherMap = new Map<string, string>();
+      let dispatcherMap = new Map<string, { name: string; office: string | null }>();
       if (dispatcherIds.length > 0) {
         const { data: dispProfiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name, email')
+          .select('user_id, full_name, email, office')
           .in('user_id', dispatcherIds);
         (dispProfiles || []).forEach(p => {
-          dispatcherMap.set(p.user_id, p.full_name || p.email);
+          dispatcherMap.set(p.user_id, { name: p.full_name || p.email, office: p.office });
         });
       }
 
