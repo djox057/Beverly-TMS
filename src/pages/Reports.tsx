@@ -4827,7 +4827,14 @@ const Reports = () => {
                                                 strokeWidth={3}
                                               />
                                               {truck.doNotTouchHos && (
-                                                <span className="text-[10px] cursor-help" title="DRIVES LEGALLY">🚧</span>
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <span className="text-base cursor-pointer select-none">🚧</span>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent side="top" className="w-auto px-3 py-1.5 text-xs font-semibold">
+                                                    DRIVES LEGALLY
+                                                  </PopoverContent>
+                                                </Popover>
                                               )}
                                             </div>
                                             <div className="h-8 p-0 w-full">
