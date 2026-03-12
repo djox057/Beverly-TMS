@@ -4769,53 +4769,18 @@ const Reports = () => {
                                             <div
                                               className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
                                             >
-                                              {/* Away Days - Show distance in miles if available */}
+                                              {/* Away Days - Show distance in miles (read-only) */}
                                               <div className="flex flex-col items-center">
-                                                {editing?.truckId === truck.id && editing?.field === "miles-away" ? (
-                                                  <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="1"
-                                                    value={editing.value}
-                                                    onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                                                    onKeyDown={(e) => {
-                                                      if (e.key === "Enter") handleSave();
-                                                      if (e.key === "Escape") handleCancel();
-                                                    }}
-                                                    className="w-12 h-5 text-xs p-1"
-                                                    autoFocus
-                                                  />
-                                                ) : truck.milesAway > 0 ? (
-                                                  <div className="flex items-center w-[58px] justify-end">
-                                                    <div
-                                                      className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
-                                                      onClick={() =>
-                                                        handleEdit(truck.id, "miles-away", truck.milesAway.toString())
-                                                      }
-                                                    >
-                                                      {Math.round(truck.milesAway)}
-                                                    </div>
-                                                    {truck.totalMiles > 0 && (
-                                                      <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                                                        /{Math.round(truck.totalMiles)}
-                                                      </span>
-                                                    )}
+                                                <div className="flex items-center w-[58px] justify-end">
+                                                  <div className="text-xs text-[hsl(var(--info))] font-medium px-1 tabular-nums">
+                                                    {Math.round(truck.milesAway)}
                                                   </div>
-                                                ) : (
-                                                  <div className="flex items-center w-[58px] justify-end">
-                                                    <div
-                                                      className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
-                                                      onClick={() => handleEdit(truck.id, "miles-away", "0")}
-                                                    >
-                                                      0
-                                                    </div>
-                                                    {truck.totalMiles > 0 && (
-                                                      <span className="text-xs text-muted-foreground font-medium tabular-nums">
-                                                        /{Math.round(truck.totalMiles)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                )}
+                                                  {truck.totalMiles > 0 && (
+                                                    <span className="text-xs text-muted-foreground font-medium tabular-nums">
+                                                      /{Math.round(truck.totalMiles)}
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
 
                                               {/* HOS Circular Timers */}
