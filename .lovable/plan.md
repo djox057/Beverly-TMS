@@ -1,31 +1,26 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Add "Drives Legally" Checkbox to Drivers Page
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+### What
+Add a "Drives Legally" checkbox next to the existing "Recovery Driver" checkbox in both the **Add Driver** and **Edit Driver** forms. Wire it to the existing `do_not_touch_hos` column on the `drivers` table.
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+### Changes (single file: `src/pages/Drivers.tsx`)
 
-**Before:**
-```typescript
-.select("*")
-```
+1. **FormData initialization** (lines ~194, ~393, ~1332): Add `do_not_touch_hos: false` to default state, and `do_not_touch_hos: driver.do_not_touch_hos || false` when loading existing driver.
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
+2. **Insert/Update queries** (lines ~497, ~761): Include `do_not_touch_hos: formData.do_not_touch_hos || false` in the Supabase upsert/update payload.
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+3. **Add Driver form** (after line ~1987): Add a new checkbox div after "Recovery Driver":
+   ```tsx
+   <div className="flex items-center space-x-2">
+     <Checkbox id="do_not_touch_hos" checked={formData.do_not_touch_hos}
+       onCheckedChange={(checked) => setFormData({...formData, do_not_touch_hos: checked === true})} />
+     <Label htmlFor="do_not_touch_hos" className="cursor-pointer">Drives Legally</Label>
+   </div>
+   ```
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+4. **Edit Driver form** (after line ~3016): Same checkbox with `id="edit_do_not_touch_hos"`.
+
+No database changes needed — the column already exists.
 
