@@ -172,6 +172,22 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
+  const removeDriversBulk = async (afterhoursUserId: string, driverIds: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('afterhours_assignments')
+        .delete()
+        .eq('afterhours_user_id', afterhoursUserId)
+        .in('driver_id', driverIds);
+      if (error) throw error;
+      toast({ title: "Success", description: `${driverIds.length} driver(s) removed` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error bulk removing drivers:', error);
+      toast({ title: "Error", description: "Failed to remove drivers", variant: "destructive" });
+    }
+  };
+
   return {
     afterhoursFleets,
     allDriversWithTrucks,
@@ -179,6 +195,7 @@ export const useAfterhoursAssignments = () => {
     assignDriver,
     assignDriversBulk,
     removeDriver,
+    removeDriversBulk,
     refetch: fetchData,
   };
 };
