@@ -86,6 +86,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
 import { useReportsFilters } from "./Reports/useReportsFilters";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import {
@@ -314,6 +315,7 @@ const Reports = () => {
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
+  const { driverAfterhoursMap } = useAfterhoursDriverMap();
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
@@ -4502,6 +4504,12 @@ const Reports = () => {
                                               {(truck as any).currentDispatcherName && (group as any).isOffDuty && (
                                                 <div className="text-xs text-foreground font-medium mt-0.5">
                                                   Disp: {(truck as any).currentDispatcherName}
+                                                </div>
+                                              )}
+                                              {/* Afterhours/Weekend schedule assignment label */}
+                                              {truck.driverId && driverAfterhoursMap.has(truck.driverId) && (
+                                                <div className="text-[9px] font-semibold mt-0.5 px-1 rounded bg-amber-300/80 text-amber-900 w-fit">
+                                                  🌙 {driverAfterhoursMap.get(truck.driverId)!.userName}
                                                 </div>
                                               )}
                                             </div>
