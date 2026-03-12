@@ -1785,6 +1785,7 @@ export type Database = {
           company_name: string | null
           created_at: string
           dispatcher_id: string | null
+          do_not_touch_hos: boolean
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -1835,6 +1836,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -1885,6 +1887,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null

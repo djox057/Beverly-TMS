@@ -1,0 +1,1 @@
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS do_not_touch_hos boolean NOT NULL DEFAULT false;
