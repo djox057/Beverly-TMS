@@ -81,8 +81,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
       dispMap.get(dispKey)!.drivers.push(d);
     });
 
-    // We need office info - let's get it from allDrivers dispatcher mapping
-    // For now group all dispatchers, we'll add office from a separate source
+    // Group by office
     const groups = new Map<string, OfficeGroup>();
 
     dispMap.forEach((disp) => {
@@ -93,12 +92,11 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
       groups.get(office)!.dispatchers.push(disp);
     });
 
-    // Sort dispatchers by name within each office
     groups.forEach((g) => {
       g.dispatchers.sort((a, b) => a.name.localeCompare(b.name));
     });
 
-    return Array.from(groups.values());
+    return Array.from(groups.values()).sort((a, b) => a.office.localeCompare(b.office));
   }, [availableDrivers, search]);
 
   const toggleDriver = (id: string) => {
