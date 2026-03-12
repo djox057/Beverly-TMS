@@ -71,11 +71,10 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     filtered.forEach((d) => {
       const dispKey = d.dispatcher_id || "unassigned";
       if (!dispMap.has(dispKey)) {
-        // We need to find the office for this dispatcher - we'll derive from driver data or use "Other"
         dispMap.set(dispKey, {
           id: dispKey,
           name: d.dispatcher_name || "Unassigned",
-          office: "Other",
+          office: d.dispatcher_office || "Other",
           drivers: [],
         });
       }
