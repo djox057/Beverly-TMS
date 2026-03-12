@@ -4785,7 +4785,14 @@ const Reports = () => {
 
                                               {/* HOS Circular Timers */}
                                               {truck.doNotTouchHos && (
-                                                <span className="text-[10px] cursor-help" title="DRIVES LEGALLY">🚧</span>
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <span className="text-base cursor-pointer select-none">🚧</span>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent side="top" className="w-auto px-3 py-1.5 text-xs font-semibold">
+                                                    DRIVES LEGALLY
+                                                  </PopoverContent>
+                                                </Popover>
                                               )}
                                               <HosCircularTimer
                                                 minutes={truck.driveMinutes}
