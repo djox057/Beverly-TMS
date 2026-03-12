@@ -123,15 +123,15 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   <span className="text-sm sm:text-base">
                     {fleet.user.full_name || fleet.user.email}
                   </span>
-                  {fleet.user.scheduledDays?.map((day) => (
-                    <Badge key={day} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                  {fleet.user.scheduledDays?.map((day) =>
+                  <Badge key={day} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
                       {day}
                     </Badge>
-                  ))}
-                  {fleet.user.office &&
-                  <Badge variant="outline" className="text-xs">
-                      {fleet.user.office}
-                    </Badge>
+                  )}
+                  {fleet.user.office
+
+
+
                   }
                   <Badge variant="secondary" className="text-xs">
                     {fleet.drivers.length} drivers
