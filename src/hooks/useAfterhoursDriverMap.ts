@@ -24,7 +24,7 @@ export const useAfterhoursDriverMap = () => {
 
     const inWeekendWindow =
       (day === 6 && hour >= 6) || // Saturday after 6am
-      day === 0;                   // Sunday (all day)
+      (day === 0 && hour < 17);    // Sunday before 5pm
 
     setIsWeekendWindow(inWeekendWindow);
 
