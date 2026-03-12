@@ -555,6 +555,18 @@ const Reports = () => {
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+  
+  // Proximity search state
+  const [proximityAddress, setProximityAddress] = useState("");
+  const [proximitySearching, setProximitySearching] = useState(false);
+  const [proximityResults, setProximityResults] = useState<Array<{
+    truckNumber: string;
+    driverName: string;
+    lastDropCity: string;
+    lastDropState: string;
+    distance: number;
+  }>>([]);
+  const [proximityDialogOpen, setProximityDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
 
