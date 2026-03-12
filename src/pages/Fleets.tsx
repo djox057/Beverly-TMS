@@ -20,6 +20,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { SupervisorsSection } from "@/components/SupervisorsSection";
+import AfterhoursFleetTab from "@/components/AfterhoursFleetTab";
 import { supabase } from "@/integrations/supabase/client";
 
 // Generate month options for the last 12 months
@@ -433,7 +434,7 @@ const Fleets = () => {
             })()}
 
             <Tabs defaultValue="dispatchers" className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsList className="grid w-full max-w-lg grid-cols-3">
                 <TabsTrigger value="dispatchers" className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4" />
                   Dispatchers
@@ -441,6 +442,10 @@ const Fleets = () => {
                 <TabsTrigger value="supervisors" className="flex items-center gap-2">
                   <Crown className="h-4 w-4" />
                   Supervisors
+                </TabsTrigger>
+                <TabsTrigger value="afterhours" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Afterhours
                 </TabsTrigger>
               </TabsList>
 
@@ -902,6 +907,10 @@ const Fleets = () => {
 
               <TabsContent value="supervisors" className="mt-4">
                 <SupervisorsSection allDispatchers={allDispatchers} hasRole={hasRole} />
+              </TabsContent>
+
+              <TabsContent value="afterhours" className="mt-4">
+                <AfterhoursFleetTab hasRole={hasRole} />
               </TabsContent>
             </Tabs>
           </div>
