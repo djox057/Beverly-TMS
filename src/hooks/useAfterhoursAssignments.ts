@@ -173,6 +173,7 @@ export const useAfterhoursAssignments = () => {
     allDriversWithTrucks,
     loading,
     assignDriver,
+    assignDriversBulk,
     removeDriver,
     refetch: fetchData,
   };
