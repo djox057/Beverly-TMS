@@ -83,11 +83,15 @@ export const useAfterhoursAssignments = () => {
       });
 
       // Build enriched drivers list
-      const enrichedDrivers = (driversRes.data || []).map(d => ({
-        ...d,
-        truck: truckByDriver.get(d.id) || null,
-        dispatcher_name: d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) || null : null,
-      }));
+      const enrichedDrivers = (driversRes.data || []).map(d => {
+        const dispInfo = d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) : null;
+        return {
+          ...d,
+          truck: truckByDriver.get(d.id) || null,
+          dispatcher_name: dispInfo?.name || null,
+          dispatcher_office: dispInfo?.office || null,
+        };
+      });
 
       setAllDriversWithTrucks(enrichedDrivers);
 
