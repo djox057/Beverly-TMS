@@ -62,16 +62,16 @@ export const useAfterhoursAssignments = () => {
         }));
       }
 
-      // Fetch dispatcher profiles to show dispatcher name on drivers
+      // Fetch dispatcher profiles to show dispatcher name + office on drivers
       const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(Boolean))] as string[];
-      let dispatcherMap = new Map<string, string>();
+      let dispatcherMap = new Map<string, { name: string; office: string | null }>();
       if (dispatcherIds.length > 0) {
         const { data: dispProfiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name, email')
+          .select('user_id, full_name, email, office')
           .in('user_id', dispatcherIds);
         (dispProfiles || []).forEach(p => {
-          dispatcherMap.set(p.user_id, p.full_name || p.email);
+          dispatcherMap.set(p.user_id, { name: p.full_name || p.email, office: p.office });
         });
       }
 
@@ -83,11 +83,15 @@ export const useAfterhoursAssignments = () => {
       });
 
       // Build enriched drivers list
-      const enrichedDrivers = (driversRes.data || []).map(d => ({
-        ...d,
-        truck: truckByDriver.get(d.id) || null,
-        dispatcher_name: d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) || null : null,
-      }));
+      const enrichedDrivers = (driversRes.data || []).map(d => {
+        const dispInfo = d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) : null;
+        return {
+          ...d,
+          truck: truckByDriver.get(d.id) || null,
+          dispatcher_name: dispInfo?.name || null,
+          dispatcher_office: dispInfo?.office || null,
+        };
+      });
 
       setAllDriversWithTrucks(enrichedDrivers);
 
@@ -134,6 +138,24 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
+  const assignDriversBulk = async (afterhoursUserId: string, driverIds: string[]) => {
+    try {
+      const rows = driverIds.map(driver_id => ({
+        afterhours_user_id: afterhoursUserId,
+        driver_id,
+      }));
+      const { error } = await supabase
+        .from('afterhours_assignments')
+        .insert(rows);
+      if (error) throw error;
+      toast({ title: "Success", description: `${driverIds.length} driver(s) assigned` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error bulk assigning drivers:', error);
+      toast({ title: "Error", description: error.message || "Failed to assign drivers", variant: "destructive" });
+    }
+  };
+
   const removeDriver = async (afterhoursUserId: string, driverId: string) => {
     try {
       const { error } = await supabase
@@ -155,6 +177,7 @@ export const useAfterhoursAssignments = () => {
     allDriversWithTrucks,
     loading,
     assignDriver,
+    assignDriversBulk,
     removeDriver,
     refetch: fetchData,
   };
