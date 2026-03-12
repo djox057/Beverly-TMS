@@ -14,6 +14,7 @@ interface Driver {
   truck: { truck_number: string } | null;
   dispatcher_id: string | null;
   dispatcher_name: string | null;
+  dispatcher_office: string | null;
 }
 
 interface AssignAfterhoursDriversDialogProps {
