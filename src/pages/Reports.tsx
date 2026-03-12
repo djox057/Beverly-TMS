@@ -559,14 +559,76 @@ const Reports = () => {
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
   const [proximitySearching, setProximitySearching] = useState(false);
-  const [proximityResults, setProximityResults] = useState<Array<{
-    truckNumber: string;
-    driverName: string;
-    lastDropCity: string;
-    lastDropState: string;
-    distance: number;
-  }>>([]);
-  const [proximityDialogOpen, setProximityDialogOpen] = useState(false);
+  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Set<string> | null>(null);
+  const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Proximity search effect - debounced 500ms, triggers geocode + haversine filter
+  useEffect(() => {
+    if (proximityDebounceRef.current) clearTimeout(proximityDebounceRef.current);
+    
+    const trimmed = proximityAddress.trim();
+    if (!trimmed) {
+      setProximityMatchedTrucks(null);
+      setProximitySearching(false);
+      return;
+    }
+
+    setProximitySearching(true);
+    proximityDebounceRef.current = setTimeout(async () => {
+      try {
+        const { geocodeAddress } = await import("@/utils/mapboxRouteCalculator");
+        const searchCoords = await geocodeAddress(trimmed);
+        if (!searchCoords) {
+          setProximityMatchedTrucks(new Set());
+          setProximitySearching(false);
+          return;
+        }
+
+        const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+          const R = 3959;
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLon = (lon2 - lon1) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        const matched = new Set<string>();
+        const allGroups = groupedReports || [];
+        for (const group of allGroups) {
+          for (const truck of group.trucks) {
+            const sortedOrders = (truck.allOrders || [])
+              .filter((o: any) => !o.canceled && o.notes !== "GAME|OVER")
+              .sort((a: any, b: any) => {
+                const aDate = a.pickupStops?.[0]?.datetime || a.pickup_datetime || "";
+                const bDate = b.pickupStops?.[0]?.datetime || b.pickup_datetime || "";
+                return aDate.localeCompare(bDate);
+              });
+            const lastOrder = sortedOrders[sortedOrders.length - 1];
+            if (!lastOrder) continue;
+            const deliveryStops = lastOrder.deliveryStops || [];
+            const lastDrop = deliveryStops[deliveryStops.length - 1];
+            if (!lastDrop?.latitude || !lastDrop?.longitude) continue;
+
+            const straightLine = haversine(searchCoords.lat, searchCoords.lon, lastDrop.latitude, lastDrop.longitude);
+            const roadMiles = Math.round(straightLine * 1.3);
+            if (roadMiles <= 150) {
+              matched.add(truck.id);
+            }
+          }
+        }
+        setProximityMatchedTrucks(matched);
+      } catch (err) {
+        console.error("Proximity search error:", err);
+        setProximityMatchedTrucks(new Set());
+      } finally {
+        setProximitySearching(false);
+      }
+    }, 500);
+
+    return () => {
+      if (proximityDebounceRef.current) clearTimeout(proximityDebounceRef.current);
+    };
+  }, [proximityAddress, groupedReports]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
 
