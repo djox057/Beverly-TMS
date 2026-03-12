@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
         Promise.all(chunks.map(c =>
           supabase
             .from("pickup_drops")
-            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions")
+            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions, latitude, longitude")
             .in("order_id", c)
         )),
         Promise.all(chunks.map(c =>
