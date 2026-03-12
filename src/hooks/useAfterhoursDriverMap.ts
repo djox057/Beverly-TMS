@@ -8,8 +8,8 @@ interface AfterhoursDriverInfo {
 
 /**
  * Builds a map of driver_id -> afterhours user info for display in Reports.
- * Only active during the weekend window (Friday 17:00 – Monday 08:00 Chicago time).
- * Fetches afterhours_assignments + profiles for the assigned users.
+ * Only active when today is a scheduled afterhours day (weekends/holidays from afterhours_schedule),
+ * between 6:00 AM and 5:00 PM Chicago time.
  */
 export const useAfterhoursDriverMap = () => {
   const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
@@ -17,32 +17,44 @@ export const useAfterhoursDriverMap = () => {
   const [isWeekendWindow, setIsWeekendWindow] = useState(false);
 
   useEffect(() => {
-    // Check if we're in the weekend window (Saturday 6:00 AM – Sunday 11:59 PM Chicago time)
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-    const day = chicagoNow.getDay(); // 0=Sun, 6=Sat
     const hour = chicagoNow.getHours();
 
-    const inWeekendWindow =
-      (day === 6 && hour >= 6) || // Saturday after 6am
-      (day === 0 && hour < 17);    // Sunday before 5pm
-
-    setIsWeekendWindow(inWeekendWindow);
-
-    if (!inWeekendWindow) {
+    // Must be between 6 AM and 5 PM Chicago time
+    if (hour < 6 || hour >= 17) {
       setLoading(false);
       return;
     }
 
+    // Check if today is a scheduled afterhours day
+    const todayStr = `${chicagoNow.getFullYear()}-${String(chicagoNow.getMonth() + 1).padStart(2, '0')}-${String(chicagoNow.getDate()).padStart(2, '0')}`;
+
     const fetchData = async () => {
       try {
-        const [assignRes, profilesNeeded] = await Promise.all([
-          supabase.from('afterhours_assignments').select('afterhours_user_id, driver_id'),
-          null, // placeholder
-        ]);
+        // Check if today exists in afterhours_schedule
+        const { data: scheduleData, error: scheduleErr } = await supabase
+          .from('afterhours_schedule')
+          .select('id')
+          .eq('scheduled_date', todayStr)
+          .limit(1);
 
-        if (assignRes.error) throw assignRes.error;
-        const assignData = assignRes.data || [];
-        if (assignData.length === 0) {
+        if (scheduleErr) throw scheduleErr;
+
+        if (!scheduleData || scheduleData.length === 0) {
+          // Today is not a scheduled afterhours day
+          setLoading(false);
+          return;
+        }
+
+        setIsWeekendWindow(true);
+
+        // Fetch assignments and profiles
+        const { data: assignData, error: assignErr } = await supabase
+          .from('afterhours_assignments')
+          .select('afterhours_user_id, driver_id');
+
+        if (assignErr) throw assignErr;
+        if (!assignData || assignData.length === 0) {
           setLoading(false);
           return;
         }
