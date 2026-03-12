@@ -19,10 +19,10 @@ interface AfterhoursFleetTabProps {
 const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
   const { afterhoursFleets, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk } = useAfterhoursAssignments();
   const [assignDialogUserId, setAssignDialogUserId] = useState<string | null>(null);
-  const [driverToRemove, setDriverToRemove] = useState<{ afterhoursUserId: string; driverId: string; driverName: string } | null>(null);
+  const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
   // Per-fleet selected driver IDs for bulk remove
   const [selectedForRemoval, setSelectedForRemoval] = useState<Record<string, Set<string>>>({});
-  const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{ afterhoursUserId: string; count: number } | null>(null);
+  const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string;count: number;} | null>(null);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
@@ -42,16 +42,16 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
     if (!searchTerm) return drivers;
     const lower = searchTerm.toLowerCase();
     return drivers.filter((d) =>
-      d.name?.toLowerCase().includes(lower) ||
-      d.truck?.truck_number?.toString().toLowerCase().includes(lower)
+    d.name?.toLowerCase().includes(lower) ||
+    d.truck?.truck_number?.toString().toLowerCase().includes(lower)
     );
   };
 
   const toggleDriverSelection = (fleetId: string, driverId: string) => {
     setSelectedForRemoval((prev) => {
       const current = new Set(prev[fleetId] || []);
-      if (current.has(driverId)) current.delete(driverId);
-      else current.add(driverId);
+      if (current.has(driverId)) current.delete(driverId);else
+      current.add(driverId);
       return { ...prev, [fleetId]: current };
     });
   };
@@ -69,43 +69,43 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
     });
   };
 
-  const getSelectedCount = (fleetId: string) => (selectedForRemoval[fleetId]?.size || 0);
+  const getSelectedCount = (fleetId: string) => selectedForRemoval[fleetId]?.size || 0;
 
   if (loading) {
     return (
       <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i}>
+        {[1, 2, 3].map((i) =>
+        <Card key={i}>
             <CardHeader className="p-3 sm:p-6">
               <Skeleton className="h-6 w-48" />
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
               <div className="space-y-2">
-                {[1, 2, 3].map((j) => (
-                  <Skeleton key={j} className="h-12 w-full" />
-                ))}
+                {[1, 2, 3].map((j) =>
+              <Skeleton key={j} className="h-12 w-full" />
+              )}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-    );
+        )}
+      </div>);
+
   }
 
-  const assignDialogFleet = assignDialogUserId
-    ? afterhoursFleets.find((f) => f.user.id === assignDialogUserId)
-    : null;
+  const assignDialogFleet = assignDialogUserId ?
+  afterhoursFleets.find((f) => f.user.id === assignDialogUserId) :
+  null;
   const assignedIdsForDialog = new Set(assignDialogFleet?.drivers.map((d: any) => d.id) || []);
 
   return (
     <div className="space-y-4">
-      {filteredFleets.length === 0 && (
-        <Card>
+      {filteredFleets.length === 0 &&
+      <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             No afterhours dispatchers found.
           </CardContent>
         </Card>
-      )}
+      }
 
       {filteredFleets.map((fleet) => {
         const filteredDrivers = filterDriversBySearch(fleet.drivers);
@@ -123,69 +123,69 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   <span className="text-sm sm:text-base">
                     {fleet.user.full_name || fleet.user.email}
                   </span>
-                  {fleet.user.office && (
-                    <Badge variant="outline" className="text-xs">
+                  {fleet.user.office &&
+                  <Badge variant="outline" className="text-xs">
                       {fleet.user.office}
                     </Badge>
-                  )}
+                  }
                   <Badge variant="secondary" className="text-xs">
                     {fleet.drivers.length} drivers
                   </Badge>
                 </div>
 
-                {canManage && (
-                  <div className="flex items-center gap-2">
-                    {selectedCount > 0 && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setBulkRemoveConfirm({ afterhoursUserId: fleetId, count: selectedCount })}
-                      >
+                {canManage &&
+                <div className="flex items-center gap-2">
+                    {selectedCount > 0 &&
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setBulkRemoveConfirm({ afterhoursUserId: fleetId, count: selectedCount })}>
+                    
                         <Trash2 className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline">Remove {selectedCount}</span>
                       </Button>
-                    )}
+                  }
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAssignDialogUserId(fleetId)}
-                    >
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAssignDialogUserId(fleetId)}>
+                    
                       <Plus className="h-4 w-4 sm:mr-1" />
                       <span className="hidden sm:inline">Add Drivers</span>
                     </Button>
                   </div>
-                )}
+                }
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-              {filteredDrivers.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">
+              {filteredDrivers.length === 0 ?
+              <p className="text-sm text-muted-foreground py-2">
                   {searchTerm ? "No matching drivers" : "No drivers assigned yet"}
-                </p>
-              ) : (
-                <div className="grid gap-2">
+                </p> :
+
+              <div className="grid gap-2">
                   {/* Select all row */}
-                  {canManage && filteredDrivers.length > 1 && (
-                    <label className="flex items-center gap-2 px-2 py-1 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  {canManage && filteredDrivers.length > 1 &&
+                <label className="flex items-center gap-2 px-2 py-1 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
                       <Checkbox
-                        checked={allFilteredSelected}
-                        onCheckedChange={() => toggleAllDrivers(fleetId, filteredDrivers.map((d: any) => d.id))}
-                      />
+                    checked={allFilteredSelected}
+                    onCheckedChange={() => toggleAllDrivers(fleetId, filteredDrivers.map((d: any) => d.id))} />
+                  
                       Select all
                     </label>
-                  )}
-                  {filteredDrivers.map((driver: any) => (
-                    <div
-                      key={driver.id}
-                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
-                    >
+                }
+                  {filteredDrivers.map((driver: any) =>
+                <div
+                  key={driver.id}
+                  className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  
                       <div className="flex items-center gap-2 sm:gap-3">
-                        {canManage && (
-                          <Checkbox
-                            checked={selected.has(driver.id)}
-                            onCheckedChange={() => toggleDriverSelection(fleetId, driver.id)}
-                          />
-                        )}
+                        {canManage &&
+                    <Checkbox
+                      checked={selected.has(driver.id)}
+                      onCheckedChange={() => toggleDriverSelection(fleetId, driver.id)} />
+
+                    }
                         <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                         <div>
                           <div className="text-xs sm:text-sm font-medium">{driver.name}</div>
@@ -195,30 +195,30 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                           </div>
                         </div>
                       </div>
-                      {canManage && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 sm:h-8 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            setDriverToRemove({
-                              afterhoursUserId: fleetId,
-                              driverId: driver.id,
-                              driverName: driver.name,
-                            })
-                          }
-                        >
-                          <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden sm:inline ml-1">Remove</span>
-                        </Button>
-                      )}
+                      {canManage
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  }
                     </div>
-                  ))}
+                )}
                 </div>
-              )}
+              }
             </CardContent>
-          </Card>
-        );
+          </Card>);
+
       })}
 
       {/* Assign drivers dialog */}
@@ -231,8 +231,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
           if (assignDialogUserId) {
             await assignDriversBulk(assignDialogUserId, driverIds);
           }
-        }}
-      />
+        }} />
+      
 
       {/* Single remove confirmation */}
       <AlertDialog open={!!driverToRemove} onOpenChange={(open) => !open && setDriverToRemove(null)}>
@@ -251,8 +251,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   removeDriver(driverToRemove.afterhoursUserId, driverToRemove.driverId);
                   setDriverToRemove(null);
                 }
-              }}
-            >
+              }}>
+              
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -282,15 +282,15 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   });
                   setBulkRemoveConfirm(null);
                 }
-              }}
-            >
+              }}>
+              
               Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>);
+
 };
 
 export default AfterhoursFleetTab;
