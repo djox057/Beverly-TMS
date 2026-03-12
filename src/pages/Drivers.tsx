@@ -1334,6 +1334,7 @@ const Drivers = () => {
       drugTestResult: null,
       is_company_driver: driver.is_company_driver || false,
       is_recovery: driver.is_recovery || false,
+      do_not_touch_hos: driver.do_not_touch_hos || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
