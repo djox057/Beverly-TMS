@@ -134,6 +134,24 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
+  const assignDriversBulk = async (afterhoursUserId: string, driverIds: string[]) => {
+    try {
+      const rows = driverIds.map(driver_id => ({
+        afterhours_user_id: afterhoursUserId,
+        driver_id,
+      }));
+      const { error } = await supabase
+        .from('afterhours_assignments')
+        .insert(rows);
+      if (error) throw error;
+      toast({ title: "Success", description: `${driverIds.length} driver(s) assigned` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error bulk assigning drivers:', error);
+      toast({ title: "Error", description: error.message || "Failed to assign drivers", variant: "destructive" });
+    }
+  };
+
   const removeDriver = async (afterhoursUserId: string, driverId: string) => {
     try {
       const { error } = await supabase
