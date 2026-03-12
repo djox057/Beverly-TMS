@@ -176,8 +176,12 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
                 No available drivers found.
               </p>
             )}
-            {officeGroups.map((group) =>
-              group.dispatchers.map((disp) => {
+            {officeGroups.map((group) => (
+              <div key={group.office} className="space-y-1">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {group.office}
+                </div>
+                {group.dispatchers.map((disp) => {
                 const dispDriverIds = disp.drivers.map((d) => d.id);
                 const allSelected = dispDriverIds.length > 0 && dispDriverIds.every((id) => selectedIds.has(id));
                 const someSelected = dispDriverIds.some((id) => selectedIds.has(id));
