@@ -20,11 +20,11 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [officeFilter, setOfficeFilter] = useState("all");
-  const [driverToRemove, setDriverToRemove] = useState<{ afterhoursUserId: string; driverId: string; driverName: string } | null>(null);
+  const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
-  const filteredFleets = afterhoursFleets.filter(fleet => {
+  const filteredFleets = afterhoursFleets.filter((fleet) => {
     if (officeFilter !== "all") {
       const office = fleet.user.office || "";
       if (office.toLowerCase() !== officeFilter.toLowerCase()) return false;
@@ -35,9 +35,9 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
   const filterDriversBySearch = (drivers: any[]) => {
     if (!searchTerm) return drivers;
     const lower = searchTerm.toLowerCase();
-    return drivers.filter(d =>
-      d.name?.toLowerCase().includes(lower) ||
-      d.truck?.truck_number?.toString().toLowerCase().includes(lower)
+    return drivers.filter((d) =>
+    d.name?.toLowerCase().includes(lower) ||
+    d.truck?.truck_number?.toString().toLowerCase().includes(lower)
     );
   };
 
@@ -51,70 +51,70 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
   if (loading) {
     return (
       <div className="space-y-4">
-        {[1, 2, 3].map(i => (
-          <Card key={i}>
+        {[1, 2, 3].map((i) =>
+        <Card key={i}>
             <CardHeader className="p-3 sm:p-6">
               <Skeleton className="h-6 w-48" />
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
               <div className="space-y-2">
-                {[1, 2, 3].map(j => (
-                  <Skeleton key={j} className="h-12 w-full" />
-                ))}
+                {[1, 2, 3].map((j) =>
+              <Skeleton key={j} className="h-12 w-full" />
+              )}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-    );
+        )}
+      </div>);
+
   }
 
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:max-w-xl">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search drivers..."
-            className="pl-10 text-sm"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={officeFilter} onValueChange={setOfficeFilter}>
-          <SelectTrigger className="w-full sm:w-[180px] text-sm">
-            <SelectValue placeholder="All Offices" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Offices</SelectItem>
-            <SelectItem value="BEOGRAD">Beograd</SelectItem>
-            <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
-            <SelectItem value="Čačak">Čačak</SelectItem>
-            <SelectItem value="Recovery">Recovery</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      
 
-      {filteredFleets.length === 0 && (
-        <Card>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
+
+      {filteredFleets.length === 0 &&
+      <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             No afterhours dispatchers found.
           </CardContent>
         </Card>
-      )}
+      }
 
-      {filteredFleets.map(fleet => {
+      {filteredFleets.map((fleet) => {
         const filteredDrivers = filterDriversBySearch(fleet.drivers);
-        const assignedDriverIds = new Set(fleet.drivers.map(d => d.id));
+        const assignedDriverIds = new Set(fleet.drivers.map((d) => d.id));
 
         // Available drivers = all active drivers not yet assigned to this afterhours user
-        const availableForAssign = allDriversWithTrucks
-          .filter(d => !assignedDriverIds.has(d.id))
-          .map(d => ({
-            value: d.id,
-            label: `${d.name}${d.truck ? ` - Truck ${d.truck.truck_number}` : ""}${d.dispatcher_name ? ` (${d.dispatcher_name})` : ""}`,
-          }));
+        const availableForAssign = allDriversWithTrucks.
+        filter((d) => !assignedDriverIds.has(d.id)).
+        map((d) => ({
+          value: d.id,
+          label: `${d.name}${d.truck ? ` - Truck ${d.truck.truck_number}` : ""}${d.dispatcher_name ? ` (${d.dispatcher_name})` : ""}`
+        }));
 
         return (
           <Card key={fleet.user.id}>
@@ -125,70 +125,70 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
                   <span className="text-sm sm:text-base">
                     {fleet.user.full_name || fleet.user.email}
                   </span>
-                  {fleet.user.office && (
-                    <Badge variant="outline" className="text-xs">
+                  {fleet.user.office &&
+                  <Badge variant="outline" className="text-xs">
                       {fleet.user.office}
                     </Badge>
-                  )}
+                  }
                   <Badge variant="secondary" className="text-xs">
                     {fleet.drivers.length} drivers
                   </Badge>
                 </div>
 
-                {canManage && (
+                {canManage &&
+                <div className="flex items-center gap-2">
+                    {activeUserId === fleet.user.id ?
                   <div className="flex items-center gap-2">
-                    {activeUserId === fleet.user.id ? (
-                      <div className="flex items-center gap-2">
                         <Combobox
-                          options={availableForAssign}
-                          value={selectedDriver}
-                          onValueChange={setSelectedDriver}
-                          placeholder="Select driver..."
-                          searchPlaceholder="Search drivers..."
-                          emptyText="No drivers available."
-                          className="w-[250px]"
-                        />
+                      options={availableForAssign}
+                      value={selectedDriver}
+                      onValueChange={setSelectedDriver}
+                      placeholder="Select driver..."
+                      searchPlaceholder="Search drivers..."
+                      emptyText="No drivers available."
+                      className="w-[250px]" />
+                    
                         <Button
-                          size="sm"
-                          onClick={() => handleAssign(fleet.user.id)}
-                          disabled={!selectedDriver}
-                        >
+                      size="sm"
+                      onClick={() => handleAssign(fleet.user.id)}
+                      disabled={!selectedDriver}>
+                      
                           Assign
                         </Button>
                         <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => { setActiveUserId(null); setSelectedDriver(""); }}
-                        >
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {setActiveUserId(null);setSelectedDriver("");}}>
+                      
                           Cancel
                         </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setActiveUserId(fleet.user.id)}
-                      >
+                      </div> :
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveUserId(fleet.user.id)}>
+                    
                         <Plus className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline">Add Driver</span>
                       </Button>
-                    )}
+                  }
                   </div>
-                )}
+                }
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-              {filteredDrivers.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">
+              {filteredDrivers.length === 0 ?
+              <p className="text-sm text-muted-foreground py-2">
                   {searchTerm ? "No matching drivers" : "No drivers assigned yet"}
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {filteredDrivers.map((driver: any) => (
-                    <div
-                      key={driver.id}
-                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
-                    >
+                </p> :
+
+              <div className="grid gap-2">
+                  {filteredDrivers.map((driver: any) =>
+                <div
+                  key={driver.id}
+                  className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  
                       <div className="flex items-center gap-2 sm:gap-3">
                         <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                         <div>
@@ -199,28 +199,28 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
                           </div>
                         </div>
                       </div>
-                      {canManage && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 sm:h-8 text-destructive hover:text-destructive"
-                          onClick={() => setDriverToRemove({
-                            afterhoursUserId: fleet.user.id,
-                            driverId: driver.id,
-                            driverName: driver.name,
-                          })}
-                        >
+                      {canManage &&
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 sm:h-8 text-destructive hover:text-destructive"
+                    onClick={() => setDriverToRemove({
+                      afterhoursUserId: fleet.user.id,
+                      driverId: driver.id,
+                      driverName: driver.name
+                    })}>
+                    
                           <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span className="hidden sm:inline ml-1">Remove</span>
                         </Button>
-                      )}
+                  }
                     </div>
-                  ))}
+                )}
                 </div>
-              )}
+              }
             </CardContent>
-          </Card>
-        );
+          </Card>);
+
       })}
 
       {/* Remove confirmation */}
@@ -245,8 +245,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>);
+
 };
 
 export default AfterhoursFleetTab;
