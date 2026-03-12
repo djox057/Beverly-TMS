@@ -107,6 +107,7 @@ interface DriverFormData {
   drugTestResult: "positive" | "negative" | "pending" | null;
   is_company_driver: boolean;
   is_recovery: boolean;
+  do_not_touch_hos: boolean;
   cents_per_mile: string;
   note: string;
 }
