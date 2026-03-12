@@ -1672,6 +1672,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         hosLastUpdated: driver.hos_last_updated || null,
         twoWeekBlockDate: driver.two_week_block_date || null,
         randomDrugTestDate: driver.random_drug_test_date || null,
+        doNotTouchHos: driver.do_not_touch_hos || false,
         note: note?.note || "",
         lastEdit: note?.updated_at ? new Date(note.updated_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
         editDate: note?.updated_at ? new Date(note.updated_at).toLocaleDateString() : new Date().toLocaleDateString(),
