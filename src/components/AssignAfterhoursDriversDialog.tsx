@@ -239,8 +239,9 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
                     )}
                   </div>
                 );
-              })
-            )}
+              })}
+              </div>
+            ))}
           </div>
         </ScrollArea>
 
