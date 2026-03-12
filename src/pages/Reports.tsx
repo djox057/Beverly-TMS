@@ -4819,6 +4819,9 @@ const Reports = () => {
                                               </div>
 
                                               {/* HOS Circular Timers */}
+                                              {truck.doNotTouchHos && (
+                                                <span className="text-[10px] cursor-help" title="DRIVES LEGALLY">🚧</span>
+                                              )}
                                               <HosCircularTimer
                                                 minutes={truck.driveMinutes}
                                                 maxMinutes={11 * 60}
@@ -4826,7 +4829,6 @@ const Reports = () => {
                                                 color="#84cc16"
                                                 size={31}
                                                 strokeWidth={3}
-                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.shiftMinutes}
@@ -4835,7 +4837,6 @@ const Reports = () => {
                                                 color="#06b6d4"
                                                 size={31}
                                                 strokeWidth={3}
-                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.breakMinutes}
@@ -4844,7 +4845,6 @@ const Reports = () => {
                                                 color="#8b5cf6"
                                                 size={31}
                                                 strokeWidth={3}
-                                                disabled={truck.doNotTouchHos}
                                               />
                                               <HosCircularTimer
                                                 minutes={truck.cycleMinutes}
@@ -4853,8 +4853,10 @@ const Reports = () => {
                                                 color="hsl(var(--muted-foreground))"
                                                 size={31}
                                                 strokeWidth={3}
-                                                disabled={truck.doNotTouchHos}
                                               />
+                                              {truck.doNotTouchHos && (
+                                                <span className="text-[10px] cursor-help" title="DRIVES LEGALLY">🚧</span>
+                                              )}
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField
