@@ -12,14 +12,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface AfterhoursFleetTabProps {
   hasRole: (role: string) => boolean;
+  searchTerm: string;
+  dispatcherFilter: string;
+  officeFilter: string;
 }
 
-const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole }) => {
+const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
   const { afterhoursFleets, allDriversWithTrucks, loading, assignDriver, removeDriver } = useAfterhoursAssignments();
   const [selectedDriver, setSelectedDriver] = useState("");
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [officeFilter, setOfficeFilter] = useState("all");
   const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
 
   const canManage = hasRole("admin") || hasRole("manager");
