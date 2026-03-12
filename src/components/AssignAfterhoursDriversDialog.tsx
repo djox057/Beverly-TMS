@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Truck, Users, ChevronDown, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -169,7 +168,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           />
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[60vh] border rounded-md">
+        <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto border rounded-md">
           <div className="p-2 space-y-1">
             {officeGroups.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
@@ -243,7 +242,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
           <span className="text-sm text-muted-foreground">

@@ -1,22 +1,31 @@
 
 
-## Fix: Add Drivers dialog scrolling
+# Fix 1: Analytics -- Select Only Needed Columns
 
-### Root cause
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-The `ScrollArea` component (Radix `@radix-ui/react-scroll-area`) wraps content in a `Viewport` div that needs very specific height constraints to work. The `DialogContent` uses `display: grid` (from the base dialog styles), which conflicts with `flex flex-col` being added on top. The Radix ScrollArea Viewport has `h-full w-full` but the parent chain doesn't establish a concrete height for it to resolve against, so scrolling never activates.
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-### Solution
+**Before:**
+```typescript
+.select("*")
+```
 
-Replace `ScrollArea` with a plain `div` using `overflow-y-auto` and a fixed max-height. This is the native scrollbar approach, which is simpler and more reliable.
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-### Changes
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-**File: `src/components/AssignAfterhoursDriversDialog.tsx`**
-
-1. Remove the `ScrollArea` import
-2. Replace `<ScrollArea className="flex-1 min-h-0 max-h-[60vh] border rounded-md">` with `<div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto border rounded-md">`
-3. Replace closing `</ScrollArea>` with `</div>`
-
-This mirrors the pattern used successfully in other dialogs (e.g., `EditDriverDialog`, `AddTransferDialog`) that use `overflow-y-auto` directly on the `DialogContent` or inner containers.
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
