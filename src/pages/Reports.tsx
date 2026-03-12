@@ -2579,9 +2579,20 @@ const Reports = () => {
           })
           .filter((group) => group.trucks.length > 0);
       }
+
+      // Apply proximity address filter
+      if (proximityMatchedTrucks) {
+        filtered = filtered
+          .map((group) => ({
+            ...group,
+            trucks: group.trucks.filter((truck) => proximityMatchedTrucks.has(truck.id)),
+          }))
+          .filter((group) => group.trucks.length > 0);
+      }
+
       return filtered;
     };
-  }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
+  }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter, proximityMatchedTrucks]);
 
   // Collect all driver IDs for weekly plans hook
   const allDriverIds = useMemo(() => {
