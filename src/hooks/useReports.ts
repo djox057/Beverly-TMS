@@ -1999,6 +1999,7 @@ export const useReports = (options?: UseReportsOptions) => {
             hosLastUpdated: driver.hos_last_updated || null,
             twoWeekBlockDate: driver.two_week_block_date || null,
             randomDrugTestDate: driver.random_drug_test_date || null,
+            doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
             lastEdit: driverNote?.updated_at
               ? new Date(driverNote.updated_at).toLocaleTimeString()
