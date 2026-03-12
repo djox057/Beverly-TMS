@@ -17,16 +17,14 @@ export const useAfterhoursDriverMap = () => {
   const [isWeekendWindow, setIsWeekendWindow] = useState(false);
 
   useEffect(() => {
-    // Check if we're in the weekend window (Fri 17:00 – Mon 08:00 Chicago time)
+    // Check if we're in the weekend window (Saturday 6:00 AM – Sunday 11:59 PM Chicago time)
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
     const day = chicagoNow.getDay(); // 0=Sun, 6=Sat
     const hour = chicagoNow.getHours();
 
     const inWeekendWindow =
-      (day === 5 && hour >= 17) || // Friday after 5pm
-      day === 6 ||                  // Saturday
-      day === 0 ||                  // Sunday
-      (day === 1 && hour < 8);      // Monday before 8am
+      (day === 6 && hour >= 6) || // Saturday after 6am
+      day === 0;                   // Sunday (all day)
 
     setIsWeekendWindow(inWeekendWindow);
 
