@@ -40,6 +40,7 @@ import {
   Undo2,
   ClipboardCopy,
   Fuel,
+  Search,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
