@@ -315,7 +315,7 @@ const Reports = () => {
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
-  const { driverAfterhoursMap } = useAfterhoursDriverMap();
+  const { driverAfterhoursMap, isWeekendWindow } = useAfterhoursDriverMap();
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
@@ -4506,10 +4506,11 @@ const Reports = () => {
                                                   Disp: {(truck as any).currentDispatcherName}
                                                 </div>
                                               )}
-                                              {/* Afterhours/Weekend schedule assignment label */}
-                                              {truck.driverId && driverAfterhoursMap.has(truck.driverId) && (
-                                                <div className="text-[9px] font-semibold mt-0.5 px-1 rounded bg-amber-300/80 text-amber-900 w-fit">
-                                                  🌙 {driverAfterhoursMap.get(truck.driverId)!.userName}
+                                              {/* Afterhours/Weekend schedule assignment label - only visible during weekend window */}
+                                              {isWeekendWindow && truck.driverId && driverAfterhoursMap.has(truck.driverId) && (
+                                                <div className="flex items-center gap-0.5 text-[9px] font-semibold mt-0.5 px-1 rounded bg-amber-300/80 text-amber-900 w-fit">
+                                                  <CalendarIcon className="h-2.5 w-2.5" />
+                                                  {driverAfterhoursMap.get(truck.driverId)!.userName}
                                                 </div>
                                               )}
                                             </div>
