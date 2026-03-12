@@ -8,44 +8,66 @@ interface AfterhoursDriverInfo {
 
 /**
  * Builds a map of driver_id -> afterhours user info for display in Reports.
+ * Only active during the weekend window (Friday 17:00 – Monday 08:00 Chicago time).
  * Fetches afterhours_assignments + profiles for the assigned users.
  */
 export const useAfterhoursDriverMap = () => {
-  const [assignments, setAssignments] = useState<{ afterhours_user_id: string; driver_id: string }[]>([]);
-  const [userProfiles, setUserProfiles] = useState<Map<string, string>>(new Map());
+  const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [isWeekendWindow, setIsWeekendWindow] = useState(false);
 
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { data: assignData, error: assignErr } = await supabase
-          .from('afterhours_assignments')
-          .select('afterhours_user_id, driver_id');
+    // Check if we're in the weekend window (Fri 17:00 – Mon 08:00 Chicago time)
+    const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const day = chicagoNow.getDay(); // 0=Sun, 6=Sat
+    const hour = chicagoNow.getHours();
 
-        if (assignErr) throw assignErr;
-        if (!assignData || assignData.length === 0) {
-          setAssignments([]);
+    const inWeekendWindow =
+      (day === 5 && hour >= 17) || // Friday after 5pm
+      day === 6 ||                  // Saturday
+      day === 0 ||                  // Sunday
+      (day === 1 && hour < 8);      // Monday before 8am
+
+    setIsWeekendWindow(inWeekendWindow);
+
+    if (!inWeekendWindow) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        const [assignRes, profilesNeeded] = await Promise.all([
+          supabase.from('afterhours_assignments').select('afterhours_user_id, driver_id'),
+          null, // placeholder
+        ]);
+
+        if (assignRes.error) throw assignRes.error;
+        const assignData = assignRes.data || [];
+        if (assignData.length === 0) {
           setLoading(false);
           return;
         }
 
-        setAssignments(assignData);
-
-        // Get unique user IDs
         const userIds = [...new Set(assignData.map(a => a.afterhours_user_id))];
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, email')
           .in('user_id', userIds);
 
-        const map = new Map<string, string>();
+        const profileMap = new Map<string, string>();
         (profiles || []).forEach(p => {
-          // Use first name only for compact display
-          const fullName = p.full_name || p.email;
-          const firstName = fullName?.split(' ')[0] || fullName;
-          map.set(p.user_id, firstName);
+          profileMap.set(p.user_id, p.full_name || p.email);
         });
-        setUserProfiles(map);
+
+        const map = new Map<string, AfterhoursDriverInfo>();
+        assignData.forEach(a => {
+          const userName = profileMap.get(a.afterhours_user_id);
+          if (userName) {
+            map.set(a.driver_id, { userName, userId: a.afterhours_user_id });
+          }
+        });
+        setDriverAfterhoursMap(map);
       } catch (err) {
         console.error('Error fetching afterhours driver map:', err);
       } finally {
@@ -53,20 +75,8 @@ export const useAfterhoursDriverMap = () => {
       }
     };
 
-    fetch();
+    fetchData();
   }, []);
 
-  // Build driver_id -> afterhours user name map
-  const driverAfterhoursMap = useMemo(() => {
-    const map = new Map<string, AfterhoursDriverInfo>();
-    assignments.forEach(a => {
-      const userName = userProfiles.get(a.afterhours_user_id);
-      if (userName) {
-        map.set(a.driver_id, { userName, userId: a.afterhours_user_id });
-      }
-    });
-    return map;
-  }, [assignments, userProfiles]);
-
-  return { driverAfterhoursMap, loading };
+  return { driverAfterhoursMap, isWeekendWindow, loading };
 };
