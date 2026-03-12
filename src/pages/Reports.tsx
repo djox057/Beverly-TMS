@@ -3399,73 +3399,15 @@ const Reports = () => {
                     placeholder="Search address nearby..."
                     value={proximityAddress}
                     onChange={(e) => setProximityAddress(e.target.value)}
-                    onKeyDown={async (e) => {
-                      if (e.key === "Enter" && proximityAddress.trim()) {
-                        e.preventDefault();
-                        setProximitySearching(true);
-                        try {
-                          const { geocodeAddress } = await import("@/utils/mapboxRouteCalculator");
-                          const searchCoords = await geocodeAddress(proximityAddress.trim());
-                          if (!searchCoords) {
-                            toast({ title: "Could not geocode address", variant: "destructive" });
-                            setProximitySearching(false);
-                            return;
-                          }
-
-                          const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-                            const R = 3959;
-                            const dLat = (lat2 - lat1) * Math.PI / 180;
-                            const dLon = (lon2 - lon1) * Math.PI / 180;
-                            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-                            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                          };
-
-                          const results: typeof proximityResults = [];
-                          const allGroups = groupedReports || [];
-                          for (const group of allGroups) {
-                            for (const truck of group.trucks) {
-                              const sortedOrders = (truck.allOrders || [])
-                                .filter((o: any) => !o.canceled && o.notes !== "GAME|OVER")
-                                .sort((a: any, b: any) => {
-                                  const aDate = a.pickupStops?.[0]?.datetime || a.pickup_datetime || "";
-                                  const bDate = b.pickupStops?.[0]?.datetime || b.pickup_datetime || "";
-                                  return aDate.localeCompare(bDate);
-                                });
-                              const lastOrder = sortedOrders[sortedOrders.length - 1];
-                              if (!lastOrder) continue;
-                              const deliveryStops = lastOrder.deliveryStops || [];
-                              const lastDrop = deliveryStops[deliveryStops.length - 1];
-                              if (!lastDrop?.latitude || !lastDrop?.longitude) continue;
-
-                              const straightLine = haversine(searchCoords.lat, searchCoords.lon, lastDrop.latitude, lastDrop.longitude);
-                              const roadMiles = Math.round(straightLine * 1.3);
-                              if (roadMiles <= 150) {
-                                results.push({
-                                  truckNumber: truck.truckNumber || "",
-                                  driverName: truck.driver || "",
-                                  lastDropCity: lastDrop.city || "",
-                                  lastDropState: lastDrop.state || "",
-                                  distance: roadMiles,
-                                });
-                              }
-                            }
-                          }
-                          results.sort((a, b) => a.distance - b.distance);
-                          setProximityResults(results);
-                          setProximityDialogOpen(true);
-                        } catch (err) {
-                          console.error("Proximity search error:", err);
-                          toast({ title: "Proximity search failed", variant: "destructive" });
-                        } finally {
-                          setProximitySearching(false);
-                        }
-                      }
-                    }}
                     className="pl-8 w-[220px] h-8 text-sm"
-                    disabled={proximitySearching}
                   />
                   {proximitySearching && (
                     <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {!proximitySearching && proximityMatchedTrucks && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      {proximityMatchedTrucks.size}
+                    </span>
                   )}
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
