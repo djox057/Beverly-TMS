@@ -57,23 +57,43 @@ export const useAfterhoursAssignments = () => {
       if (driversRes.error) throw driversRes.error;
       if (trucksRes.error) throw trucksRes.error;
 
-      // Deduplicate user_ids from schedule entries
-      const afterhoursUserIds = [...new Set((scheduleRes.data || []).filter(s => s.user_id).map(s => s.user_id!))];
+      // Build map of user_id -> scheduled days
+      const userDaysMap = new Map<string, Set<string>>();
+      (scheduleRes.data || []).filter(s => s.user_id).forEach(s => {
+        const dayName = new Date(s.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+        if (!userDaysMap.has(s.user_id!)) userDaysMap.set(s.user_id!, new Set());
+        userDaysMap.get(s.user_id!)!.add(dayName);
+      });
 
-      // Fetch profiles for afterhours users
+      const afterhoursUserIds = [...userDaysMap.keys()];
+
+      // Fetch profiles and filter out maintenance-role users
       let afterhoursUsers: AfterhoursUser[] = [];
       if (afterhoursUserIds.length > 0) {
-        const { data: profiles, error } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, email, office')
-          .in('user_id', afterhoursUserIds);
-        if (error) throw error;
-        afterhoursUsers = (profiles || []).map(p => ({
-          id: p.user_id,
-          full_name: p.full_name,
-          email: p.email,
-          office: p.office,
-        }));
+        // Fetch profiles and maintenance roles in parallel
+        const [profilesRes, maintenanceRes] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('user_id, full_name, email, office')
+            .in('user_id', afterhoursUserIds),
+          supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'maintenance')
+            .in('user_id', afterhoursUserIds),
+        ]);
+        if (profilesRes.error) throw profilesRes.error;
+        const maintenanceUserIds = new Set((maintenanceRes.data || []).map(r => r.user_id));
+
+        afterhoursUsers = (profilesRes.data || [])
+          .filter(p => !maintenanceUserIds.has(p.user_id))
+          .map(p => ({
+            id: p.user_id,
+            full_name: p.full_name,
+            email: p.email,
+            office: p.office,
+            scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
+          }));
       }
 
       // Fetch dispatcher profiles to show dispatcher name + office on drivers
