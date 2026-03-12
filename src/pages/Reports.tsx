@@ -5954,41 +5954,7 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Proximity Search Results Dialog */}
-      <Dialog open={proximityDialogOpen} onOpenChange={setProximityDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Drivers within 150 miles ({proximityResults.length})</DialogTitle>
-            <DialogDescription className="sr-only">
-              List of drivers whose last delivery drop is within 150 miles of the searched address
-            </DialogDescription>
-          </DialogHeader>
-          {proximityResults.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No drivers found within 150 miles.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-2 font-medium text-muted-foreground">Truck #</th>
-                  <th className="text-left py-2 px-2 font-medium text-muted-foreground">Driver</th>
-                  <th className="text-left py-2 px-2 font-medium text-muted-foreground">Last Drop</th>
-                  <th className="text-right py-2 px-2 font-medium text-muted-foreground">Miles</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proximityResults.map((r, i) => (
-                  <tr key={i} className="border-b last:border-0">
-                    <td className="py-2 px-2 font-medium">{r.truckNumber}</td>
-                    <td className="py-2 px-2">{r.driverName}</td>
-                    <td className="py-2 px-2 text-muted-foreground">{r.lastDropCity}{r.lastDropState ? `, ${r.lastDropState}` : ""}</td>
-                    <td className="py-2 px-2 text-right font-medium">{r.distance}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </DialogContent>
-      </Dialog>
+
 
       {/* Legend Dialog */}
       <Dialog open={legendDialogOpen} onOpenChange={setLegendDialogOpen}>
