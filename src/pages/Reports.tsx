@@ -4506,6 +4506,12 @@ const Reports = () => {
                                                   Disp: {(truck as any).currentDispatcherName}
                                                 </div>
                                               )}
+                                              {/* Afterhours/Weekend schedule assignment label */}
+                                              {truck.driverId && driverAfterhoursMap.has(truck.driverId) && (
+                                                <div className="text-[9px] font-semibold mt-0.5 px-1 rounded bg-amber-300/80 text-amber-900 w-fit">
+                                                  🌙 {driverAfterhoursMap.get(truck.driverId)!.userName}
+                                                </div>
+                                              )}
                                             </div>
                                             {/* Weekly Plan Icon - Bottom Right Corner */}
                                             {truck.driverId && (
