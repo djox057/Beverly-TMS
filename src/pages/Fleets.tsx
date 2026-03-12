@@ -434,7 +434,7 @@ const Fleets = () => {
             })()}
 
             <Tabs defaultValue="dispatchers" className="w-full">
-              <TabsList className="grid w-full max-w-lg grid-cols-3">
+              <TabsList className="grid w-full max-w-xl grid-cols-3">
                 <TabsTrigger value="dispatchers" className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4" />
                   Dispatchers
