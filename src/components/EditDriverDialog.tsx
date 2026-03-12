@@ -71,7 +71,6 @@ interface DriverFormData {
   fein: string;
   is_company_driver: boolean;
   is_recovery: boolean;
-  do_not_touch_hos: boolean;
   cents_per_mile: string;
   note: string;
 }
@@ -161,7 +160,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     fein: "",
     is_company_driver: false,
     is_recovery: false,
-    do_not_touch_hos: false,
     cents_per_mile: "",
     note: "",
   });
@@ -293,7 +291,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       fein: sensitivePIIData?.fein || "",
       is_company_driver: driver.is_company_driver || false,
       is_recovery: driver.is_recovery || false,
-      do_not_touch_hos: driver.do_not_touch_hos || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
@@ -489,7 +486,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
-          do_not_touch_hos: formData.do_not_touch_hos || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
         })
@@ -1154,21 +1150,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     />
                     <Label htmlFor="edit_is_recovery" className="cursor-pointer">
                       Recovery Driver
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit_do_not_touch_hos"
-                      checked={formData.do_not_touch_hos}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          do_not_touch_hos: checked === true,
-                        })
-                      }
-                    />
-                    <Label htmlFor="edit_do_not_touch_hos" className="cursor-pointer">
-                      Drives Legally
                     </Label>
                   </div>
                   {formData.is_company_driver && (
