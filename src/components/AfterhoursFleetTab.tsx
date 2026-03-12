@@ -119,10 +119,15 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
             <CardHeader className="p-3 sm:p-6">
               <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   <span className="text-sm sm:text-base">
                     {fleet.user.full_name || fleet.user.email}
                   </span>
+                  {fleet.user.scheduledDays?.map((day) => (
+                    <Badge key={day} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      {day}
+                    </Badge>
+                  ))}
                   {fleet.user.office &&
                   <Badge variant="outline" className="text-xs">
                       {fleet.user.office}
