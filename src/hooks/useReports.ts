@@ -2312,6 +2312,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 hosLastUpdated: realDriver?.hos_last_updated || null,
                 twoWeekBlockDate: null,
                 randomDrugTestDate: null,
+                doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: "",
                 lastEdit: new Date().toLocaleTimeString(),
                 editDate: new Date().toLocaleDateString(),
