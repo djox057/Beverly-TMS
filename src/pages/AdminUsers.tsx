@@ -30,6 +30,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
+  phone_number: string | null;
   office: OfficeLocation;
   ext: string | null;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard')[];
