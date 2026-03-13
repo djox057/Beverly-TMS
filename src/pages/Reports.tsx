@@ -2096,22 +2096,40 @@ const Reports = () => {
           )}
 
           <div
-            className="flex flex-col relative"
+            className="flex flex-row relative"
             style={{
               width: "120px",
               height: "64px",
             }}
           >
+            {/* Two Week Notice vertical strip */}
+            {isBlockDay && (
+              <div
+                className="bg-black flex items-center justify-center shrink-0"
+                style={{
+                  width: (allDeliveryOrders.length > 0 || allPickupOrders.length > 0 || sameDayOrders.length > 0) ? "28px" : "100%",
+                  height: "64px",
+                }}
+              >
+                <span
+                  className="text-[8px] font-bold text-white whitespace-nowrap leading-tight text-center"
+                  style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                >
+                  TWO WEEK NOTICE
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col flex-1 min-w-0">
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
             <div
-              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? "" : "bg-muted"} overflow-hidden`}
+              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
+              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
                 <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {allDeliveryOrders.flatMap((order) => {
                     // Get all delivery stops for this day
@@ -2138,7 +2156,7 @@ const Reports = () => {
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        ) + (isBlockDay ? 1 : 0);
+                        );
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2197,7 +2215,7 @@ const Reports = () => {
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        ) + (isBlockDay ? 1 : 0);
+                        );
                       return (
                         <div
                           key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2231,23 +2249,6 @@ const Reports = () => {
                       );
                     });
                   })}
-                  {isBlockDay && (
-                    <div
-                      className="bg-black border rounded flex items-center justify-center shrink-0 h-full"
-                      style={{
-                        width: allDeliveryOrders.length > 0 || sameDayOrders.length > 0
-                          ? `${100 / (totalDeliveryStops + 1)}%`
-                          : "100%",
-                      }}
-                    >
-                      <span
-                        className="text-[9px] font-bold text-white whitespace-nowrap"
-                        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-                      >
-                        TWO WEEK
-                      </span>
-                    </div>
-                  )}
                 </div>
               ) : (
                 (() => {
@@ -2313,7 +2314,7 @@ const Reports = () => {
                     maxHeight: "32px",
                   }}
                 >
-                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
+                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                     <div
                       className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
                       onClick={(e) => e.stopPropagation()}
@@ -2344,7 +2345,7 @@ const Reports = () => {
                                 (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                                   .length || 0),
                               0,
-                            ) + (isBlockDay ? 1 : 0);
+                            );
                           return (
                             <div
                               key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2404,7 +2405,7 @@ const Reports = () => {
                                 (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                                   .length || 0),
                               0,
-                            ) + (isBlockDay ? 1 : 0);
+                            );
                           return (
                             <div
                               key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2438,23 +2439,6 @@ const Reports = () => {
                           );
                         });
                       })}
-                      {isBlockDay && (
-                        <div
-                          className="bg-black border rounded flex items-center justify-center shrink-0 h-full"
-                          style={{
-                            width: allPickupOrders.length > 0 || sameDayOrders.length > 0
-                              ? `${100 / (totalPickupStops + 1)}%`
-                              : "100%",
-                          }}
-                        >
-                          <span
-                            className="text-[9px] font-bold text-white whitespace-nowrap"
-                            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-                          >
-                            NOTICE
-                          </span>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     (() => {
@@ -2540,6 +2524,7 @@ const Reports = () => {
                 </div>
               );
             })()}
+           </div>
           </div>
         </td>
       );
