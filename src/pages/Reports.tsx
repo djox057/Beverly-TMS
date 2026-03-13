@@ -13,7 +13,9 @@ import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverProblemDialog } from "@/components/DriverProblemDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
+import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
+import { useDrivers } from "@/hooks/useDrivers";
 import {
   MapPin,
   AlertCircle,
@@ -683,6 +685,8 @@ const Reports = () => {
 
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
+  const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
+  const { data: allDrivers } = useDrivers();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -4199,7 +4203,7 @@ const Reports = () => {
                                                           <>
                                                             <div className="flex items-center justify-between gap-2">
                                                               <p className="font-semibold text-sm">
-                                                                Driver 1: {truck.driver1Name}
+                                                                Driver 1: <span className="text-primary hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); if (truck.driverId) setEditingDriverId(truck.driverId); }}>{truck.driver1Name}</span>
                                                               </p>
                                                               {truck.driverId && truck.driver2Id && (
                                                                 <div className="flex items-center gap-1">
@@ -4359,7 +4363,7 @@ const Reports = () => {
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
                                                                 <p className="font-semibold text-sm">
-                                                                  Driver 2: {truck.driver2Name}
+                                                                  Driver 2: <span className="text-primary hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); if (truck.driver2Id) setEditingDriverId(truck.driver2Id); }}>{truck.driver2Name}</span>
                                                                 </p>
                                                                 <div className="flex items-center gap-1">
                                                                   <Button
@@ -4437,7 +4441,7 @@ const Reports = () => {
                                                         ) : (
                                                           <>
                                                             <div className="flex items-center justify-between gap-2">
-                                                              <p className="font-semibold text-sm">{truck.driver}</p>
+                                                              <p className="font-semibold text-sm"><span className="text-primary hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); if (truck.driverId) setEditingDriverId(truck.driverId); }}>{truck.driver}</span></p>
                                                               <div className="flex items-center gap-1">
                                                                 {truck.driverId && (
                                                                   <>
@@ -6746,6 +6750,13 @@ const Reports = () => {
         onOpenChange={(open) => !open && setWeeklyPlanDialog(null)}
         driverId={weeklyPlanDialog?.driverId || ""}
         driverName={weeklyPlanDialog?.driverName || ""}
+      />
+
+      {/* Edit Driver Dialog */}
+      <EditDriverDialog
+        open={!!editingDriverId}
+        onOpenChange={(open) => { if (!open) setEditingDriverId(null); }}
+        driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
       />
     </>
   );
