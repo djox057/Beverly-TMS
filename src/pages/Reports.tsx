@@ -41,6 +41,7 @@ import {
   ClipboardCopy,
   Fuel,
   Search,
+  Download,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -5878,32 +5879,65 @@ const Reports = () => {
                             {docFiles.map((file, idx) => {
                               const signedUrl = docSignedUrls[file.id];
                               return (
-                                <a
+                                <div
                                   key={file.id}
-                                  href={signedUrl || "#"}
-                                  download={file.file_name}
-                                  draggable="true"
-                                  className="block px-3 py-2 rounded-md hover:bg-muted cursor-grab text-sm truncate no-underline text-foreground"
-                                  onClick={async (e) => {
-                                    e.preventDefault();
-                                    let url = signedUrl;
-                                    if (!url) {
-                                      const { data, error } = await supabase.storage
-                                        .from("order-files")
-                                        .createSignedUrl(file.file_path, 3600);
-                                      if (error) {
-                                        toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
-                                        return;
-                                      }
-                                      url = data.signedUrl;
-                                    }
-                                    window.open(url, "_blank");
-                                    setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
-                                  }}
-                                  title={`${file.file_name} — drag to email/chat or click to open`}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted group"
                                 >
-                                  {idx + 1}. {file.file_name}
-                                </a>
+                                  <a
+                                    href={signedUrl || "#"}
+                                    download={file.file_name}
+                                    draggable="true"
+                                    className="flex-1 text-sm truncate no-underline text-foreground cursor-grab"
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      let url = signedUrl;
+                                      if (!url) {
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
+                                          return;
+                                        }
+                                        url = data.signedUrl;
+                                      }
+                                      window.open(url, "_blank");
+                                      setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                                    }}
+                                    title={`${file.file_name} — drag to email/chat or click to open`}
+                                  >
+                                    {idx + 1}. {file.file_name}
+                                  </a>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      let url = signedUrl;
+                                      if (!url) {
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
+                                          return;
+                                        }
+                                        url = data.signedUrl;
+                                      }
+                                      // Trigger download
+                                      const link = document.createElement("a");
+                                      link.href = url;
+                                      link.download = file.file_name;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }}
+                                    title="Download file"
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               );
                             })}
                           </div>
