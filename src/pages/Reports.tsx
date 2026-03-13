@@ -2404,7 +2404,7 @@ const Reports = () => {
                                 (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                                   .length || 0),
                               0,
-                            );
+                            ) + (isBlockDay ? 1 : 0);
                           return (
                             <div
                               key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
