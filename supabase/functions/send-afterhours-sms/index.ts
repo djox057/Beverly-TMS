@@ -14,16 +14,54 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate CRON_SECRET
+  // Accept either CRON_SECRET or authenticated admin/manager user
   const cronSecret = Deno.env.get('CRON_SECRET');
   const authHeader = req.headers.get('Authorization');
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  let authorized = false;
+  let targetDate: string | null = null;
+
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    authorized = true;
+  } else if (authHeader?.startsWith('Bearer ')) {
+    // Check if it's an authenticated user with admin/manager role
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(authHeader.replace('Bearer ', ''));
+    if (!claimsErr && claimsData?.claims?.sub) {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const { data: roles } = await adminClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', claimsData.claims.sub);
+      if (roles?.some(r => r.role === 'admin' || r.role === 'manager')) {
+        authorized = true;
+      }
+    }
+  }
+
+  if (!authorized) {
     console.error('Unauthorized request');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // Check for target_date in request body (for manual invocation)
+  try {
+    if (req.method === 'POST') {
+      const body = await req.clone().json().catch(() => ({}));
+      if (body.target_date) targetDate = body.target_date;
+    }
+  } catch {}
+
 
   try {
     const supabaseAdmin = createClient(
