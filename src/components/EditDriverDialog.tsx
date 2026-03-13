@@ -489,6 +489,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
+          do_not_touch_hos: formData.do_not_touch_hos || false,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
         })
