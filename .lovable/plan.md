@@ -1,31 +1,49 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
-
 ## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+The `<a>` tag with `draggable="true"` and `download` attribute doesn't enable drag-to-external-app (Gmail, etc.) because browsers only support dragging files to external applications when using the native **drag-and-drop DataTransfer API** with a `DownloadURL` type. A simple `<a draggable>` only works for drag within the browser.
 
-**Before:**
-```typescript
-.select("*")
-```
+Unfortunately, the `DownloadURL` MIME type in `dataTransfer.setData("DownloadURL", ...)` is **only supported in Chromium-based browsers** and requires the format: `mime:filename:url`. Even then, support for dropping into Gmail compose is inconsistent — Gmail compose doesn't accept dragged files from web pages the same way it accepts files from the OS file manager.
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
+## Realistic Approach: Add a Download Button
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+Since true drag-to-Gmail from a web app is not reliably supported by browsers, the best practical solution is:
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+1. **Add a download button** (⬇ icon) next to each file in the popover list
+2. Clicking the download button triggers an actual file download to the user's computer
+3. User can then drag the downloaded file from their Downloads folder / browser download bar into Gmail
+
+Additionally, we can **add `onDragStart` with DataTransfer `DownloadURL`** as a best-effort enhancement for Chromium users — it may work for some desktop email clients.
+
+### Changes (`src/pages/Reports.tsx`)
+
+1. **Add `onDragStart` handler** to each `<a>` element that sets `DownloadURL` data:
+   ```tsx
+   onDragStart={(e) => {
+     if (signedUrl) {
+       const contentType = file.content_type || 'application/octet-stream';
+       e.dataTransfer.setData('DownloadURL', `${contentType}:${file.file_name}:${signedUrl}`);
+     }
+   }}
+   ```
+
+2. **Add a dedicated download button** (Download icon from lucide) next to each file name that programmatically fetches the blob and triggers a real browser download using `URL.createObjectURL` + hidden `<a>` click:
+   ```tsx
+   <button onClick={async (e) => {
+     e.stopPropagation();
+     const response = await fetch(signedUrl);
+     const blob = await response.blob();
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement('a');
+     a.href = url; a.download = file.file_name; a.click();
+     URL.revokeObjectURL(url);
+   }}>
+     <Download className="h-4 w-4" />
+   </button>
+   ```
+
+3. **Update the hint text** from "drag to send" to "download to send" to set correct expectations.
+
+This gives users a fast one-click download, then they can drag from their download bar into Gmail — which is the standard workflow even for most file-sharing web apps.
 
