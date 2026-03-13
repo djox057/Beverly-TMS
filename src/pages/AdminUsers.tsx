@@ -312,7 +312,7 @@ const AdminUsers = () => {
           fullName: editFullName,
           office: editOffice,
           ext: editExt || null,
-          phoneNumber: editPhoneNumber || null
+          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null
         }
       });
 
