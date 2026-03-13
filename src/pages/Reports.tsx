@@ -2524,6 +2524,7 @@ const Reports = () => {
                 </div>
               );
             })()}
+           </div>
           </div>
         </td>
       );
