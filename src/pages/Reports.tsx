@@ -556,6 +556,7 @@ const Reports = () => {
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
   const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
+  const docBlobCacheRef = useRef<Record<string, File>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   
   // Proximity search state
@@ -5830,6 +5831,7 @@ const Reports = () => {
                         if (!open) {
                           setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                           setDocSignedUrls({});
+                          docBlobCacheRef.current = {};
                         } else if (open && docFiles.length >= 1) {
                           // Pre-fetch signed URLs for all files so drag works immediately
                           const urls: Record<string, string> = {};
@@ -5842,6 +5844,18 @@ const Reports = () => {
                             })
                           );
                           setDocSignedUrls(urls);
+                          // Pre-fetch blobs for non-Chromium drag-and-drop
+                          Object.entries(urls).forEach(([fileId, url]) => {
+                            const matchedFile = docFiles.find(f => f.id === fileId);
+                            if (matchedFile) {
+                              fetch(url)
+                                .then(r => r.blob())
+                                .then(blob => {
+                                  docBlobCacheRef.current[fileId] = new File([blob], matchedFile.file_name, { type: blob.type });
+                                })
+                                .catch(() => {});
+                            }
+                          });
                         }
                       }}
                     >
@@ -5888,7 +5902,7 @@ const Reports = () => {
                                     download={file.file_name}
                                     draggable="true"
                                     className="flex-1 text-sm truncate no-underline text-foreground cursor-grab"
-                                    onDragStart={async (e) => {
+                                    onDragStart={(e) => {
                                       if (signedUrl) {
                                         const isChromium = !!(window as any).chrome;
                                         if (isChromium) {
@@ -5896,14 +5910,15 @@ const Reports = () => {
                                           const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
                                           e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
                                         } else {
-                                          // Firefox/Safari fallback: fetch blob and add as File
-                                          try {
-                                            const response = await fetch(signedUrl);
-                                            const blob = await response.blob();
-                                            const f = new File([blob], file.file_name, { type: blob.type });
-                                            e.dataTransfer.items.add(f);
-                                          } catch {
-                                            // Last resort: set plain text URL
+                                          // Non-Chromium: use pre-cached blob if available
+                                          const cachedFile = docBlobCacheRef.current[file.id];
+                                          if (cachedFile) {
+                                            try {
+                                              e.dataTransfer.items.add(cachedFile);
+                                            } catch {
+                                              e.dataTransfer.setData("text/uri-list", signedUrl);
+                                            }
+                                          } else {
                                             e.dataTransfer.setData("text/uri-list", signedUrl);
                                           }
                                         }
