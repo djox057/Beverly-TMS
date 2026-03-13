@@ -13,7 +13,9 @@ import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverProblemDialog } from "@/components/DriverProblemDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
+import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
+import { useDrivers } from "@/hooks/useDrivers";
 import {
   MapPin,
   AlertCircle,
