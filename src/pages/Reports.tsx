@@ -41,6 +41,7 @@ import {
   ClipboardCopy,
   Fuel,
   Search,
+  Download,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -5859,37 +5860,77 @@ const Reports = () => {
                       </PopoverTrigger>
                       {docFiles.length >= 1 && (
                         <PopoverContent className="w-64 p-2" align="start">
-                          <div className="text-sm font-semibold mb-2">{docFiles.length === 1 ? "File" : "Select File"} — drag to send</div>
+                          <div className="text-sm font-semibold mb-2">{docFiles.length === 1 ? "File" : "Select File"}</div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
                             {docFiles.map((file, idx) => {
                               const signedUrl = docSignedUrls[file.id];
                               return (
-                                <a
-                                  key={file.id}
-                                  href={signedUrl || "#"}
-                                  download={file.file_name}
-                                  draggable="true"
-                                  className="block px-3 py-2 rounded-md hover:bg-muted cursor-grab text-sm truncate no-underline text-foreground"
-                                  onClick={async (e) => {
-                                    e.preventDefault();
-                                    let url = signedUrl;
-                                    if (!url) {
-                                      const { data, error } = await supabase.storage
-                                        .from("order-files")
-                                        .createSignedUrl(file.file_path, 3600);
-                                      if (error) {
-                                        toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
-                                        return;
+                                <div key={file.id} className="flex items-center gap-1 group">
+                                  <a
+                                    href={signedUrl || "#"}
+                                    download={file.file_name}
+                                    draggable="true"
+                                    onDragStart={(e) => {
+                                      if (signedUrl) {
+                                        const contentType = 'application/octet-stream';
+                                        e.dataTransfer.setData('DownloadURL', `${contentType}:${file.file_name}:${signedUrl}`);
                                       }
-                                      url = data.signedUrl;
-                                    }
-                                    window.open(url, "_blank");
-                                    setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
-                                  }}
-                                  title={`${file.file_name} — drag to email/chat or click to open`}
-                                >
-                                  {idx + 1}. {file.file_name}
-                                </a>
+                                    }}
+                                    className="flex-1 block px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm truncate no-underline text-foreground"
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      let url = signedUrl;
+                                      if (!url) {
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
+                                          return;
+                                        }
+                                        url = data.signedUrl;
+                                      }
+                                      window.open(url, "_blank");
+                                      setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                                    }}
+                                    title={`Click to open ${file.file_name}`}
+                                  >
+                                    {idx + 1}. {file.file_name}
+                                  </a>
+                                  <button
+                                    className="p-1.5 rounded hover:bg-muted opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
+                                    title="Download file"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      let url = signedUrl;
+                                      if (!url) {
+                                        const { data, error } = await supabase.storage
+                                          .from("order-files")
+                                          .createSignedUrl(file.file_path, 3600);
+                                        if (error) {
+                                          toast({ title: "Error", description: "Failed to download file", variant: "destructive" });
+                                          return;
+                                        }
+                                        url = data.signedUrl;
+                                      }
+                                      try {
+                                        const response = await fetch(url);
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = blobUrl;
+                                        a.download = file.file_name;
+                                        a.click();
+                                        URL.revokeObjectURL(blobUrl);
+                                      } catch {
+                                        toast({ title: "Error", description: "Failed to download file", variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               );
                             })}
                           </div>
