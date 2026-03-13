@@ -5891,6 +5891,7 @@ const Reports = () => {
                                   <a
                                     href={signedUrl || "#"}
                                     download={file.file_name}
+                                    draggable={false}
                                     className="flex-1 text-sm truncate no-underline text-foreground cursor-pointer"
                                     onClick={async (e) => {
                                       e.preventDefault();
