@@ -100,6 +100,19 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
   return (
     <div className="space-y-4">
+      {canManage && afterhoursFleets.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAutoAssignConfirm(true)}
+            disabled={loading}
+          >
+            <Wand2 className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Auto Assign</span>
+          </Button>
+        </div>
+      )}
       {filteredFleets.length === 0 &&
       <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
