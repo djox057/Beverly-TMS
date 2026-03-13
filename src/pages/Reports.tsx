@@ -2058,6 +2058,42 @@ const Reports = () => {
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
+      // If this is the block day with NO orders, render full black cell
+      if (isBlockDay && allDayOrders.length === 0 && sameDayOrders.length === 0 && !isInTransit) {
+        return (
+          <td
+            key={index}
+            className={`border-b-[6px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} ${showRightBorder ? "border-r border-border" : ""} p-0 w-[12%] bg-black relative`}
+            style={{
+              minWidth: "120px",
+              maxWidth: "120px",
+              width: "120px",
+              height: "64px",
+            }}
+          >
+            {isToday && (
+              <div
+                className="absolute"
+                style={{
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  borderLeft: "6px solid #dc2626",
+                  borderRight: "6px solid #dc2626",
+                  ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
+                  zIndex: 100,
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+            <div className="border-b border-gray-400 flex flex-col items-center justify-center bg-black" style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}>
+              <div className="text-[11px] font-bold text-white leading-tight">TWO WEEK</div>
+            </div>
+            <div className="flex flex-col items-center justify-center bg-black" style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}>
+              <div className="text-[11px] font-bold text-white leading-tight">NOTICE</div>
+            </div>
+          </td>
+        );
+      }
+
       return (
         <td
           key={index}
@@ -2096,11 +2132,21 @@ const Reports = () => {
             />
           )}
 
+          {/* TWO WEEK NOTICE background indicator when block day has orders */}
+          {isBlockDay && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
+              <div className="text-[9px] font-bold text-white opacity-60 tracking-wider bg-black/70 px-1 rounded" style={{ zIndex: 1 }}>
+                2WK NOTICE
+              </div>
+            </div>
+          )}
+
           <div
             className="flex flex-col relative"
             style={{
               width: "120px",
               height: "64px",
+              ...(isBlockDay ? { zIndex: 2 } : {}),
             }}
           >
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
