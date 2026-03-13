@@ -2115,7 +2115,7 @@ const Reports = () => {
                   className="text-[8px] font-bold text-white whitespace-nowrap leading-tight text-center"
                   style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
                 >
-                  TWO WEEK NOTICE
+                  TWO WEEK{"\n"}NOTICE
                 </span>
               </div>
             )}
