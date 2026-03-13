@@ -2197,7 +2197,7 @@ const Reports = () => {
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        );
+                        ) + (isBlockDay ? 1 : 0);
                       return (
                         <div
                           key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
