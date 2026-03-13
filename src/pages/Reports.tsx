@@ -5914,6 +5914,7 @@ const Reports = () => {
                                     className="h-6 w-6 shrink-0"
                                     onClick={async (e) => {
                                       e.stopPropagation();
+                                      e.preventDefault();
                                       let url = signedUrl;
                                       if (!url) {
                                         const { data, error } = await supabase.storage
@@ -5925,13 +5926,21 @@ const Reports = () => {
                                         }
                                         url = data.signedUrl;
                                       }
-                                      // Trigger download only
-                                      const link = document.createElement("a");
-                                      link.href = url;
-                                      link.download = file.file_name;
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
+                                      // Fetch as blob to force real download
+                                      try {
+                                        const response = await fetch(url);
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const link = document.createElement("a");
+                                        link.href = blobUrl;
+                                        link.download = file.file_name;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        URL.revokeObjectURL(blobUrl);
+                                      } catch {
+                                        toast({ title: "Error", description: "Failed to download file", variant: "destructive" });
+                                      }
                                     }}
                                     title="Download file"
                                   >
