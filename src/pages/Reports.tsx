@@ -5911,7 +5911,7 @@ const Reports = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    className="h-6 w-6 shrink-0"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       let url = signedUrl;
@@ -5925,7 +5925,7 @@ const Reports = () => {
                                         }
                                         url = data.signedUrl;
                                       }
-                                      // Trigger download
+                                      // Trigger download only
                                       const link = document.createElement("a");
                                       link.href = url;
                                       link.download = file.file_name;
