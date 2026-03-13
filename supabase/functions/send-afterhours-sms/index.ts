@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
-// TEST MODE: All SMS go to this number instead of real drivers
-const TEST_OVERRIDE_NUMBER = "+15742085611";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
