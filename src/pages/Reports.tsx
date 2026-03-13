@@ -5888,6 +5888,13 @@ const Reports = () => {
                                     download={file.file_name}
                                     draggable="true"
                                     className="flex-1 text-sm truncate no-underline text-foreground cursor-grab"
+                                    onDragStart={(e) => {
+                                      if (signedUrl) {
+                                        const ext = file.file_name.split('.').pop()?.toLowerCase() || "";
+                                        const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
+                                        e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
+                                      }
+                                    }}
                                     onClick={async (e) => {
                                       e.preventDefault();
                                       let url = signedUrl;
