@@ -25,7 +25,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string; count: number; scheduledDate: string;} | null>(null);
   const [autoAssignConfirm, setAutoAssignConfirm] = useState(false);
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
+  const [allCollapsed, setAllCollapsed] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
