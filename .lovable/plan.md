@@ -1,26 +1,31 @@
 
 
-## Make Document Files Always Show as List + Draggable
+# Fix 1: Analytics -- Select Only Needed Columns
 
-### Problem
-When a document category (RC/BOL/POD/Additionals) has only 1 file, clicking opens it directly in a new tab. Users want to drag files to send them (e.g., via email/chat) without downloading first.
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-### Changes (single file: `src/pages/Reports.tsx`)
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-**1. Show popover list for single files too (line ~5811, ~5823-5838, ~5861)**
+**Before:**
+```typescript
+.select("*")
+```
 
-Change the condition `docFiles.length > 1` → `docFiles.length >= 1` in three places:
-- Popover open condition (line 5811)
-- onClick handler: remove the single-file branch that opens directly; instead show the popover for `docFiles.length >= 1`
-- PopoverContent render condition (line 5861)
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-**2. Make file list items draggable**
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-In the popover file list items (lines 5866-5888), instead of opening in a new tab on click:
-- Add a draggable `<a>` element with the signed URL as `href` and `download` attribute
-- Pre-fetch signed URLs when the popover opens so drag works immediately
-- On click, still open in new tab as fallback
-- The `<a>` tag with `href` + `download` attribute enables native browser drag-to-email/chat functionality
-
-**Implementation detail**: When the popover opens, generate signed URLs for all files in that category and store them in state. Each list item renders as `<a href={signedUrl} download={fileName} draggable="true">` which allows native OS drag-and-drop to email clients, chat apps, etc.
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 

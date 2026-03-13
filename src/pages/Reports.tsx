@@ -554,6 +554,7 @@ const Reports = () => {
     files: { id: string; file_name: string; file_path: string; file_category: string }[];
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
+  const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   
   // Proximity search state
@@ -5808,36 +5809,34 @@ const Reports = () => {
                       open={
                         additionalFilesPopover.open &&
                         additionalFilesPopover.files[0]?.file_category === doc &&
-                        docFiles.length > 1
+                        docFiles.length >= 1
                       }
-                      onOpenChange={(open) => {
-                        if (!open) setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                      onOpenChange={async (open) => {
+                        if (!open) {
+                          setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                          setDocSignedUrls({});
+                        } else if (open && docFiles.length >= 1) {
+                          // Pre-fetch signed URLs for all files so drag works immediately
+                          const urls: Record<string, string> = {};
+                          await Promise.all(
+                            docFiles.map(async (file) => {
+                              const { data } = await supabase.storage
+                                .from("order-files")
+                                .createSignedUrl(file.file_path, 3600);
+                              if (data?.signedUrl) urls[file.id] = data.signedUrl;
+                            })
+                          );
+                          setDocSignedUrls(urls);
+                        }
                       }}
                     >
                       <PopoverTrigger asChild>
                         <div
                           onClick={async (e) => {
                             if (!isChecked) {
-                              // Not uploaded - trigger upload dialog
                               handleDocumentClick(doc, false);
-                            } else if (docFiles.length === 1) {
-                              // Single file - open directly
-                              const file = docFiles[0];
-                              const { data, error } = await supabase.storage
-                                .from("order-files")
-                                .createSignedUrl(file.file_path, 3600);
-
-                              if (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to get file URL",
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
-                              window.open(data.signedUrl, "_blank");
-                            } else if (docFiles.length > 1) {
-                              // Multiple files - show popover
+                            } else if (docFiles.length >= 1) {
+                              // Always show popover list for draggable files
                               setAdditionalFilesPopover({
                                 open: true,
                                 files: docFiles,
@@ -5858,35 +5857,41 @@ const Reports = () => {
                           </div>
                         </div>
                       </PopoverTrigger>
-                      {docFiles.length > 1 && (
+                      {docFiles.length >= 1 && (
                         <PopoverContent className="w-64 p-2" align="start">
-                          <div className="text-sm font-semibold mb-2">Select File</div>
+                          <div className="text-sm font-semibold mb-2">{docFiles.length === 1 ? "File" : "Select File"} — drag to send</div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {docFiles.map((file, idx) => (
-                              <div
-                                key={file.id}
-                                className="px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm truncate"
-                                onClick={async () => {
-                                  const { data, error } = await supabase.storage
-                                    .from("order-files")
-                                    .createSignedUrl(file.file_path, 3600);
-
-                                  if (error) {
-                                    toast({
-                                      title: "Error",
-                                      description: "Failed to get file URL",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  window.open(data.signedUrl, "_blank");
-                                  setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
-                                }}
-                                title={file.file_name}
-                              >
-                                {idx + 1}. {file.file_name}
-                              </div>
-                            ))}
+                            {docFiles.map((file, idx) => {
+                              const signedUrl = docSignedUrls[file.id];
+                              return (
+                                <a
+                                  key={file.id}
+                                  href={signedUrl || "#"}
+                                  download={file.file_name}
+                                  draggable="true"
+                                  className="block px-3 py-2 rounded-md hover:bg-muted cursor-grab text-sm truncate no-underline text-foreground"
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    let url = signedUrl;
+                                    if (!url) {
+                                      const { data, error } = await supabase.storage
+                                        .from("order-files")
+                                        .createSignedUrl(file.file_path, 3600);
+                                      if (error) {
+                                        toast({ title: "Error", description: "Failed to get file URL", variant: "destructive" });
+                                        return;
+                                      }
+                                      url = data.signedUrl;
+                                    }
+                                    window.open(url, "_blank");
+                                    setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                                  }}
+                                  title={`${file.file_name} — drag to email/chat or click to open`}
+                                >
+                                  {idx + 1}. {file.file_name}
+                                </a>
+                              );
+                            })}
                           </div>
                         </PopoverContent>
                       )}
