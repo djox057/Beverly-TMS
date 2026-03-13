@@ -112,10 +112,20 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setCollapsed(prev => !prev)}
+            onClick={() => {
+              if (allCollapsed) {
+                setCollapsedCards(new Set());
+                setAllCollapsed(false);
+              } else {
+                const allKeys = new Set<string>();
+                afterhoursFleetsByDay.forEach(d => d.fleets.forEach(f => allKeys.add(`${f.user.id}_${d.date}`)));
+                setCollapsedCards(allKeys);
+                setAllCollapsed(true);
+              }
+            }}
           >
-            {collapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
-            <span className="hidden sm:inline">{collapsed ? "Expand All" : "Collapse All"}</span>
+            {allCollapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
+            <span className="hidden sm:inline">{allCollapsed ? "Expand All" : "Collapse All"}</span>
           </Button>
           <Button
             size="sm"
