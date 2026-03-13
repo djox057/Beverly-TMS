@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Plus, Minus, Truck, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Minus, Truck, Trash2, Wand2 } from "lucide-react";
 import { useAfterhoursAssignments } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
@@ -17,12 +17,13 @@ interface AfterhoursFleetTabProps {
 }
 
 const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
-  const { afterhoursFleets, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk } = useAfterhoursAssignments();
+  const { afterhoursFleets, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk, autoAssignDrivers } = useAfterhoursAssignments();
   const [assignDialogUserId, setAssignDialogUserId] = useState<string | null>(null);
   const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
   // Per-fleet selected driver IDs for bulk remove
   const [selectedForRemoval, setSelectedForRemoval] = useState<Record<string, Set<string>>>({});
   const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string;count: number;} | null>(null);
+  const [autoAssignConfirm, setAutoAssignConfirm] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
@@ -99,6 +100,19 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
   return (
     <div className="space-y-4">
+      {canManage && afterhoursFleets.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAutoAssignConfirm(true)}
+            disabled={loading}
+          >
+            <Wand2 className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Auto Assign</span>
+          </Button>
+        </div>
+      )}
       {filteredFleets.length === 0 &&
       <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
@@ -285,6 +299,28 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
               }}>
               
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Auto assign confirmation */}
+      <AlertDialog open={autoAssignConfirm} onOpenChange={setAutoAssignConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auto Assign Drivers</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace all current weekend assignments and automatically distribute drivers to weekend dispatchers by office. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setAutoAssignConfirm(false);
+                await autoAssignDrivers();
+              }}>
+              Auto Assign
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
