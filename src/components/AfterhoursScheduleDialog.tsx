@@ -641,7 +641,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <>
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
-                        <ScrollArea className="border rounded-md p-2 sm:p-3 bg-muted/30 max-h-[60vh]">
+                        <ScrollArea className={`border rounded-md p-2 sm:p-3 bg-muted/30 ${needsMoreDispatchers || forceShowOffice ? "max-h-[35vh]" : "max-h-[60vh]"}`}>
                           {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
