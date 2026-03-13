@@ -1777,73 +1777,22 @@ const Reports = () => {
       const isGameOver = gameOverCheck.isGameOver;
       const gameOverType = gameOverCheck.type;
 
-      // If this is the block day, check if there are orders on this day
-      // If orders exist, render normally (notice moves to header); if no orders, render black cell
-      if (isBlockDay) {
-        const blockDayStr = format(day, "yyyy-MM-dd");
-        const hasOrdersOnBlockDay = ordersWithDates.some((order) => {
-          return order.pickupStopsByDate?.has(blockDayStr) || order.deliveryStopsByDate?.has(blockDayStr);
-        });
-        // Also check in-transit orders
-        const hasInTransitOnBlockDay = ordersWithDates.some((order) => {
-          if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
-          const dayTime = day.getTime();
-          return dayTime > order.pickupDate.getTime() && dayTime < order.deliveryDate.getTime();
-        });
-        if (!hasOrdersOnBlockDay && !hasInTransitOnBlockDay) {
-          // No orders - render full black cell as before
-          const isToday = isSameDay(day, getChicagoToday());
-          return (
-            <td
-              key={index}
-              className={`border-b-[6px] border-gray-400 ${index > 0 ? "border-l border-border" : ""} ${index === 4 ? "border-r border-border" : ""} p-0 w-[12%] bg-black relative`}
-              style={{
-                minWidth: "120px",
-                maxWidth: "120px",
-                width: "120px",
-                height: "64px",
-              }}
-            >
-              {isToday && (
-                <div
-                  className="absolute"
-                  style={{
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    borderLeft: "6px solid #dc2626",
-                    borderRight: "6px solid #dc2626",
-                    ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
-                    zIndex: 100,
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-              <div
-                className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
-                style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}
-              >
-                <div className="text-[11px] font-bold text-white leading-tight">TWO WEEK</div>
-              </div>
-              <div
-                className="flex flex-col items-center justify-center bg-black"
-                style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}
-              >
-                <div className="text-[11px] font-bold text-white leading-tight">NOTICE</div>
-              </div>
-            </td>
-          );
-        }
-        // If orders exist on block day, fall through to normal rendering
-        // The notice will be shown in the header instead
-      }
-
-      // Game over day - always render black cell
-      if (isGameOver) {
-        const displayText = gameOverType === "yard"
-          ? { line1: "Left truck", line2: "on the Yard" }
-          : { line1: "Recovery", line2: "On the road" };
+      // If this is the block day or game over day, render black cell
+      if (isBlockDay || isGameOver) {
+        const displayText = isBlockDay
+          ? {
+              line1: "TWO WEEK",
+              line2: "NOTICE",
+            }
+          : gameOverType === "yard"
+            ? {
+                line1: "Left truck",
+                line2: "on the Yard",
+              }
+            : {
+                line1: "Recovery",
+                line2: "On the road",
+              };
         const isToday = isSameDay(day, getChicagoToday());
         return (
           <td
@@ -1856,6 +1805,7 @@ const Reports = () => {
               height: "64px",
             }}
           >
+            {/* Red border overlay for today column */}
             {isToday && (
               <div
                 className="absolute"
@@ -1866,21 +1816,37 @@ const Reports = () => {
                   bottom: 0,
                   borderLeft: "6px solid #dc2626",
                   borderRight: "6px solid #dc2626",
-                  ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
+                  ...(isLastTruck
+                    ? {
+                        borderBottom: "6px solid #dc2626",
+                      }
+                    : {}),
                   zIndex: 100,
                   pointerEvents: "none",
                 }}
               />
             )}
+
+            {/* Top half */}
             <div
               className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
-              style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}
+              style={{
+                height: "32px",
+                minHeight: "32px",
+                maxHeight: "32px",
+              }}
             >
               <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
             </div>
+
+            {/* Bottom half */}
             <div
               className="flex flex-col items-center justify-center bg-black"
-              style={{ height: "32px", minHeight: "32px", maxHeight: "32px" }}
+              style={{
+                height: "32px",
+                minHeight: "32px",
+                maxHeight: "32px",
+              }}
             >
               <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
             </div>
@@ -3568,35 +3534,6 @@ const Reports = () => {
                         },
                         (_, i) => addDays(startDate, i),
                       );
-                      // Compute which day indices have a two-week block date WITH orders (notice moves to header)
-                      const blockDayIndicesInHeader = new Set<number>();
-                      group.trucks.forEach((t: any) => {
-                        if (!t.twoWeekBlockDate) return;
-                        const blockDate = new Date(t.twoWeekBlockDate.split("T")[0] + "T00:00:00");
-                        days.forEach((d, idx) => {
-                          if (!isSameDay(d, blockDate)) return;
-                          const dStr = format(d, "yyyy-MM-dd");
-                          const hasOrders = t.allOrders?.some((order: any) => {
-                            const hasPickup = order.pickupStops?.some((stop: any) =>
-                              stop.datetime && formatDateTime(stop.datetime, "yyyy-MM-dd") === dStr
-                            );
-                            const hasDelivery = order.deliveryStops?.some((stop: any) =>
-                              stop.datetime && formatDateTime(stop.datetime, "yyyy-MM-dd") === dStr
-                            );
-                            if (hasPickup || hasDelivery) return true;
-                            // Check in-transit
-                            const pickupDt = order.pickupStops?.[0]?.datetime || order.pickup_datetime;
-                            const deliveryDt = order.deliveryStops?.[order.deliveryStops?.length - 1]?.datetime || order.delivery_datetime;
-                            if (pickupDt && deliveryDt) {
-                              const pDate = new Date(pickupDt);
-                              const delDate = new Date(deliveryDt);
-                              if (d.getTime() > pDate.getTime() && d.getTime() < delDate.getTime()) return true;
-                            }
-                            return false;
-                          });
-                          if (hasOrders) blockDayIndicesInHeader.add(idx);
-                        });
-                      });
                       return (
                         <div className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
                           {/* Google Sheets-style table */}
@@ -3651,7 +3588,7 @@ const Reports = () => {
                                       )}
                                     </div>
                                   </th>
-                                   <th
+                                  <th
                                     colSpan={6}
                                     className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50"
                                   >
@@ -3666,11 +3603,6 @@ const Reports = () => {
                                       </button>
                                       <div className="text-xs font-medium text-foreground mx-2">
                                         {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
-                                        {blockDayIndicesInHeader.size > 0 && (
-                                          <span className="ml-2 font-bold text-white bg-black px-1.5 py-0.5 rounded text-[10px]">
-                                            TWO WEEK NOTICE
-                                          </span>
-                                        )}
                                       </div>
                                       <button
                                         onClick={() =>
@@ -3825,7 +3757,7 @@ const Reports = () => {
                                     return (
                                       <th
                                         key={index}
-                                        className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium relative ${blockDayIndicesInHeader.has(index) ? "bg-black text-white" : "text-muted-foreground bg-muted/50"}`}
+                                        className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                         style={{
                                           width: "120px",
                                           minWidth: "120px",
@@ -3856,8 +3788,8 @@ const Reports = () => {
                                             }}
                                           />
                                         )}
-                                        <div className={`relative z-10 text-[10px] ${blockDayIndicesInHeader.has(index) ? "text-white" : ""}`}>{format(day, "EEEE")}</div>
-                                        <div className={`text-[9px] relative z-10 ${blockDayIndicesInHeader.has(index) ? "text-gray-300" : "text-muted-foreground"}`}>
+                                        <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
+                                        <div className="text-[9px] text-muted-foreground relative z-10">
                                           {format(day, "M/d/yyyy")}
                                         </div>
                                       </th>
