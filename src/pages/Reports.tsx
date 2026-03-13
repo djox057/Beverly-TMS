@@ -5831,6 +5831,7 @@ const Reports = () => {
                         if (!open) {
                           setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                           setDocSignedUrls({});
+                          docBlobCacheRef.current = {};
                         } else if (open && docFiles.length >= 1) {
                           // Pre-fetch signed URLs for all files so drag works immediately
                           const urls: Record<string, string> = {};
@@ -5843,6 +5844,18 @@ const Reports = () => {
                             })
                           );
                           setDocSignedUrls(urls);
+                          // Pre-fetch blobs for non-Chromium drag-and-drop
+                          Object.entries(urls).forEach(([fileId, url]) => {
+                            const matchedFile = docFiles.find(f => f.id === fileId);
+                            if (matchedFile) {
+                              fetch(url)
+                                .then(r => r.blob())
+                                .then(blob => {
+                                  docBlobCacheRef.current[fileId] = new File([blob], matchedFile.file_name, { type: blob.type });
+                                })
+                                .catch(() => {});
+                            }
+                          });
                         }
                       }}
                     >
