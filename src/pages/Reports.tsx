@@ -6751,6 +6751,13 @@ const Reports = () => {
         driverId={weeklyPlanDialog?.driverId || ""}
         driverName={weeklyPlanDialog?.driverName || ""}
       />
+
+      {/* Edit Driver Dialog */}
+      <EditDriverDialog
+        open={!!editingDriverId}
+        onOpenChange={(open) => { if (!open) setEditingDriverId(null); }}
+        driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
+      />
     </>
   );
 };
