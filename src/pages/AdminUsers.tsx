@@ -122,6 +122,7 @@ const AdminUsers = () => {
           ...profile,
           office: profile.office as OfficeLocation,
           ext: profile.ext as string | null,
+          phone_number: (profile as any).phone_number as string | null,
           roles: userRoles
         };
       });
