@@ -3651,7 +3651,7 @@ const Reports = () => {
                                       )}
                                     </div>
                                   </th>
-                                  <th
+                                   <th
                                     colSpan={6}
                                     className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50"
                                   >
@@ -3666,6 +3666,11 @@ const Reports = () => {
                                       </button>
                                       <div className="text-xs font-medium text-foreground mx-2">
                                         {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
+                                        {blockDayIndicesInHeader.size > 0 && (
+                                          <span className="ml-2 font-bold text-white bg-black px-1.5 py-0.5 rounded text-[10px]">
+                                            TWO WEEK NOTICE
+                                          </span>
+                                        )}
                                       </div>
                                       <button
                                         onClick={() =>
