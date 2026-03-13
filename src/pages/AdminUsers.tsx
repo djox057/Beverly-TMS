@@ -186,7 +186,7 @@ const AdminUsers = () => {
             role,
             office: office || null,
             ext: ext || null,
-            phoneNumber: phoneNumber || null
+            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null
           })
         }
       );
