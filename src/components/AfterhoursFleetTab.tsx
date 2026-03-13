@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX } from "lucide-react";
+import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX, ChevronDown, ChevronRight } from "lucide-react";
 import { useAfterhoursAssignments, AfterhoursFleet } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
@@ -25,7 +25,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string; count: number; scheduledDate: string;} | null>(null);
   const [autoAssignConfirm, setAutoAssignConfirm] = useState(false);
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
+  const [allCollapsed, setAllCollapsed] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
@@ -111,10 +112,20 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setCollapsed(prev => !prev)}
+            onClick={() => {
+              if (allCollapsed) {
+                setCollapsedCards(new Set());
+                setAllCollapsed(false);
+              } else {
+                const allKeys = new Set<string>();
+                afterhoursFleetsByDay.forEach(d => d.fleets.forEach(f => allKeys.add(`${f.user.id}_${d.date}`)));
+                setCollapsedCards(allKeys);
+                setAllCollapsed(true);
+              }
+            }}
           >
-            {collapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
-            <span className="hidden sm:inline">{collapsed ? "Expand All" : "Collapse All"}</span>
+            {allCollapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
+            <span className="hidden sm:inline">{allCollapsed ? "Expand All" : "Collapse All"}</span>
           </Button>
           <Button
             size="sm"
@@ -166,9 +177,22 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
               return (
                 <Card key={fleetKey}>
-                  <CardHeader className="p-3 sm:p-6">
+                  <CardHeader
+                    className="p-3 sm:p-6 cursor-pointer select-none"
+                    onClick={() => {
+                      setCollapsedCards(prev => {
+                        const next = new Set(prev);
+                        if (next.has(fleetKey)) next.delete(fleetKey); else next.add(fleetKey);
+                        return next;
+                      });
+                    }}
+                  >
                     <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {collapsedCards.has(fleetKey)
+                          ? <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        }
                         <span className="text-sm sm:text-base">
                           {fleet.user.full_name || fleet.user.email}
                         </span>
@@ -178,7 +202,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       </div>
 
                       {canManage && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           {selectedCount > 0 && (
                             <Button
                               size="sm"
@@ -201,7 +225,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       )}
                     </CardTitle>
                   </CardHeader>
-                  {!collapsed && (
+                  {!collapsedCards.has(fleetKey) && (
                   <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                     {filteredDrivers.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">
