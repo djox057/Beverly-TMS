@@ -41,6 +41,7 @@ import {
   ClipboardCopy,
   Fuel,
   Search,
+  Download,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
