@@ -3568,6 +3568,35 @@ const Reports = () => {
                         },
                         (_, i) => addDays(startDate, i),
                       );
+                      // Compute which day indices have a two-week block date WITH orders (notice moves to header)
+                      const blockDayIndicesInHeader = new Set<number>();
+                      group.trucks.forEach((t: any) => {
+                        if (!t.twoWeekBlockDate) return;
+                        const blockDate = new Date(t.twoWeekBlockDate.split("T")[0] + "T00:00:00");
+                        days.forEach((d, idx) => {
+                          if (!isSameDay(d, blockDate)) return;
+                          const dStr = format(d, "yyyy-MM-dd");
+                          const hasOrders = t.allOrders?.some((order: any) => {
+                            const hasPickup = order.pickupStops?.some((stop: any) =>
+                              stop.datetime && formatDateTime(stop.datetime, "yyyy-MM-dd") === dStr
+                            );
+                            const hasDelivery = order.deliveryStops?.some((stop: any) =>
+                              stop.datetime && formatDateTime(stop.datetime, "yyyy-MM-dd") === dStr
+                            );
+                            if (hasPickup || hasDelivery) return true;
+                            // Check in-transit
+                            const pickupDt = order.pickupStops?.[0]?.datetime || order.pickup_datetime;
+                            const deliveryDt = order.deliveryStops?.[order.deliveryStops?.length - 1]?.datetime || order.delivery_datetime;
+                            if (pickupDt && deliveryDt) {
+                              const pDate = new Date(pickupDt);
+                              const delDate = new Date(deliveryDt);
+                              if (d.getTime() > pDate.getTime() && d.getTime() < delDate.getTime()) return true;
+                            }
+                            return false;
+                          });
+                          if (hasOrders) blockDayIndicesInHeader.add(idx);
+                        });
+                      });
                       return (
                         <div className={`bg-card ${(group as any).isOffDuty ? "opacity-50" : ""}`}>
                           {/* Google Sheets-style table */}
