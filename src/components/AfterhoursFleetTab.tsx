@@ -107,7 +107,25 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   return (
     <div className="space-y-4">
       {canManage && hasAnyFleets && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCollapsed(prev => !prev)}
+          >
+            {collapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
+            <span className="hidden sm:inline">{collapsed ? "Expand All" : "Collapse All"}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setUnassignAllConfirm(true)}
+            disabled={loading}
+          >
+            <UserX className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Unassign All</span>
+          </Button>
           <Button
             size="sm"
             variant="outline"
