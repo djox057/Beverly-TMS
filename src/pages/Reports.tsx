@@ -556,6 +556,7 @@ const Reports = () => {
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
   const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
+  const docBlobCacheRef = useRef<Record<string, File>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   
   // Proximity search state
