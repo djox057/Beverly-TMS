@@ -554,6 +554,7 @@ const Reports = () => {
     files: { id: string; file_name: string; file_path: string; file_category: string }[];
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
+  const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   
   // Proximity search state
