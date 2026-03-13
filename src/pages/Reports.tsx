@@ -5834,7 +5834,6 @@ const Reports = () => {
                         if (!open) {
                           setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                           setDocSignedUrls({});
-                          docBlobCacheRef.current = {};
                         } else if (open && docFiles.length >= 1) {
                           // Pre-fetch signed URLs for all files so drag works immediately
                           const urls: Record<string, string> = {};
