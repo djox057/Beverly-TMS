@@ -222,6 +222,156 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
+  const autoAssignDrivers = async () => {
+    try {
+      setLoading(true);
+
+      // Group drivers by office (via their weekday dispatcher's office)
+      const driversByOffice = new Map<string, any[]>();
+      for (const d of allDriversWithTrucks) {
+        const office = d.dispatcher_office || 'Unknown';
+        if (!driversByOffice.has(office)) driversByOffice.set(office, []);
+        driversByOffice.get(office)!.push(d);
+      }
+
+      // Group weekend dispatchers by office
+      const weekendByOffice = new Map<string, typeof afterhoursFleets>();
+      for (const fleet of afterhoursFleets) {
+        const office = fleet.user.office || 'Unknown';
+        if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
+        weekendByOffice.get(office)!.push(fleet);
+      }
+
+      // Build assignment map: weekendUserId -> driverIds[]
+      const assignmentMap = new Map<string, string[]>();
+
+      for (const [office, weekendDispatchers] of weekendByOffice) {
+        const officeDrivers = driversByOffice.get(office) || [];
+        if (officeDrivers.length === 0 || weekendDispatchers.length === 0) continue;
+
+        const numWD = weekendDispatchers.length;
+
+        // Group drivers by their weekday dispatcher_id
+        const groupsByDispatcher = new Map<string, any[]>();
+        for (const d of officeDrivers) {
+          const key = d.dispatcher_id || '__none__';
+          if (!groupsByDispatcher.has(key)) groupsByDispatcher.set(key, []);
+          groupsByDispatcher.get(key)!.push(d);
+        }
+
+        // Sort groups largest-first
+        const groups = [...groupsByDispatcher.entries()]
+          .map(([dispId, drivers]) => ({ dispId, drivers }))
+          .sort((a, b) => b.drivers.length - a.drivers.length);
+
+        // Count how many weekday drivers each weekend dispatcher has
+        const weekdayDriverCountMap = new Map<string, number>();
+        for (const wd of weekendDispatchers) {
+          const count = officeDrivers.filter(d => d.dispatcher_id === wd.user.id).length;
+          weekdayDriverCountMap.set(wd.user.id, count);
+        }
+
+        // Sort weekend dispatchers by weekday driver count descending
+        const sortedWD = [...weekendDispatchers].sort((a, b) =>
+          (weekdayDriverCountMap.get(b.user.id) || 0) - (weekdayDriverCountMap.get(a.user.id) || 0)
+        );
+
+        // Calculate capacity per weekend dispatcher
+        const totalDrivers = officeDrivers.length;
+        const baseShare = Math.floor(totalDrivers / numWD);
+        const extra = totalDrivers % numWD;
+
+        // Dispatchers sorted by weekday count get +1 capacity for the remainder
+        const capacity = new Map<string, number>();
+        const assigned = new Map<string, string[]>();
+        sortedWD.forEach((wd, i) => {
+          capacity.set(wd.user.id, baseShare + (i < extra ? 1 : 0));
+          assigned.set(wd.user.id, []);
+        });
+
+        // First pass: assign each weekend dispatcher their own weekday drivers
+        for (const wd of sortedWD) {
+          const ownGroup = groups.find(g => g.dispId === wd.user.id);
+          if (ownGroup && ownGroup.drivers.length > 0) {
+            const cap = capacity.get(wd.user.id)!;
+            const take = ownGroup.drivers.splice(0, cap);
+            assigned.get(wd.user.id)!.push(...take.map(d => d.id));
+          }
+        }
+
+        // Remove empty groups
+        const remaining = groups.filter(g => g.drivers.length > 0);
+
+        // Second pass: greedy bin-packing of remaining groups
+        for (const group of remaining) {
+          while (group.drivers.length > 0) {
+            // Find weekend dispatcher with most remaining capacity
+            let bestWD = sortedWD[0].user.id;
+            let bestRemaining = -1;
+            for (const wd of sortedWD) {
+              const rem = capacity.get(wd.user.id)! - assigned.get(wd.user.id)!.length;
+              if (rem > bestRemaining) {
+                bestRemaining = rem;
+                bestWD = wd.user.id;
+              }
+            }
+
+            if (bestRemaining <= 0) {
+              // All full, just assign to the one with least overflow
+              let minOver = Infinity;
+              for (const wd of sortedWD) {
+                const over = assigned.get(wd.user.id)!.length - capacity.get(wd.user.id)!;
+                if (over < minOver) { minOver = over; bestWD = wd.user.id; }
+              }
+            }
+
+            const take = group.drivers.splice(0, Math.max(bestRemaining, 1));
+            assigned.get(bestWD)!.push(...take.map(d => d.id));
+          }
+        }
+
+        // Store results
+        for (const [wdId, driverIds] of assigned) {
+          if (driverIds.length > 0) {
+            assignmentMap.set(wdId, [...(assignmentMap.get(wdId) || []), ...driverIds]);
+          }
+        }
+      }
+
+      // Clear all existing assignments
+      const { error: deleteError } = await supabase
+        .from('afterhours_assignments')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all
+      if (deleteError) throw deleteError;
+
+      // Bulk insert new assignments
+      const rows: { afterhours_user_id: string; driver_id: string }[] = [];
+      for (const [wdId, driverIds] of assignmentMap) {
+        for (const dId of driverIds) {
+          rows.push({ afterhours_user_id: wdId, driver_id: dId });
+        }
+      }
+
+      if (rows.length > 0) {
+        // Insert in chunks of 500
+        for (let i = 0; i < rows.length; i += 500) {
+          const chunk = rows.slice(i, i + 500);
+          const { error } = await supabase.from('afterhours_assignments').insert(chunk);
+          if (error) throw error;
+        }
+      }
+
+      toast({ title: "Success", description: `Auto-assigned ${rows.length} drivers to ${assignmentMap.size} weekend dispatchers` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error auto-assigning drivers:', error);
+      toast({ title: "Error", description: error.message || "Failed to auto-assign drivers", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     afterhoursFleets,
     allDriversWithTrucks,
@@ -230,6 +380,7 @@ export const useAfterhoursAssignments = () => {
     assignDriversBulk,
     removeDriver,
     removeDriversBulk,
+    autoAssignDrivers,
     refetch: fetchData,
   };
 };
