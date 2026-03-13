@@ -5910,21 +5910,37 @@ const Reports = () => {
                                           const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
                                           e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
                                         } else {
-                                          // Non-Chromium: use pre-cached blob if available
-                                          const cachedFile = docBlobCacheRef.current[file.id];
-                                          let added = false;
-                                          if (cachedFile) {
-                                            try {
-                                              const item = e.dataTransfer.items.add(cachedFile);
-                                              added = item !== null;
-                                            } catch {
-                                              added = false;
-                                            }
-                                          }
-                                          if (!added) {
-                                            // Fallback: set as downloadable link
+                                          // Non-Chromium (Firefox/Safari)
+                                          const isPdf = file.file_name.toLowerCase().endsWith('.pdf');
+                                          if (isPdf) {
+                                            // Firefox cannot drag PDF blobs into Gmail — auto-download instead
                                             e.dataTransfer.setData("text/uri-list", signedUrl);
-                                            e.dataTransfer.setData("text/plain", signedUrl);
+                                            const cachedFile = docBlobCacheRef.current[file.id];
+                                            const blobUrl = cachedFile ? URL.createObjectURL(cachedFile) : signedUrl;
+                                            const link = document.createElement("a");
+                                            link.href = blobUrl;
+                                            link.download = file.file_name;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            if (cachedFile) URL.revokeObjectURL(blobUrl);
+                                            toast({ title: "PDF downloaded", description: "Attach it from your Downloads folder in Gmail" });
+                                          } else {
+                                            // Images work with items.add in Firefox
+                                            const cachedFile = docBlobCacheRef.current[file.id];
+                                            let added = false;
+                                            if (cachedFile) {
+                                              try {
+                                                const item = e.dataTransfer.items.add(cachedFile);
+                                                added = item !== null;
+                                              } catch {
+                                                added = false;
+                                              }
+                                            }
+                                            if (!added) {
+                                              e.dataTransfer.setData("text/uri-list", signedUrl);
+                                              e.dataTransfer.setData("text/plain", signedUrl);
+                                            }
                                           }
                                         }
                                       }

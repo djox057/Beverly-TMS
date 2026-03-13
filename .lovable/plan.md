@@ -1,45 +1,31 @@
 
 
+# Fix 1: Analytics -- Select Only Needed Columns
+
 ## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-Firefox's `DataTransfer.items.add(file)` works for image files (JPG/PNG) but silently fails or is ignored for PDF files. This is a known Firefox limitation — it only supports adding certain MIME types to drag data. So when dragging a PDF RC file, the code falls through to the `text/uri-list` fallback, which Gmail interprets as a link paste rather than a file attachment.
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-## Root Cause
-
-Line 5918: `e.dataTransfer.items.add(cachedFile)` — Firefox accepts this for `image/*` types but not `application/pdf`. The `item !== null` check passes but Gmail still doesn't receive a proper file drop.
-
-## Solution
-
-Since Firefox fundamentally cannot drag-and-drop PDF files as attachments into Gmail, we need a two-part approach:
-
-### 1. Detect PDF + non-Chromium and auto-download instead
-
-When a user starts dragging a PDF file in Firefox, automatically trigger a blob download of the file. The user can then attach it from their downloads folder. Show a brief toast explaining this.
-
-### 2. Keep image drag working as-is
-
-For JPG/PNG files on Firefox, the current `items.add(file)` approach works — keep it unchanged.
-
-### Changes in `src/pages/Reports.tsx`
-
-**In the `onDragStart` handler (lines 5905-5931):**
-
-For the non-Chromium branch, check if the file extension is PDF. If it is:
-- Set `text/uri-list` as drag data (so something is transferred)
-- Trigger an automatic blob download of the cached file (or fetch it)
-- Show a toast: "PDF downloaded — attach from your Downloads folder"
-
-For non-PDF files (images), keep the existing `items.add(cachedFile)` logic.
-
-```
-onDragStart (non-Chromium branch):
-  if file is PDF:
-    → setData("text/uri-list", signedUrl)
-    → auto-download the PDF via blob + hidden <a> click
-    → toast("PDF downloaded — drag from Downloads or attach manually")
-  else (images):
-    → existing items.add(cachedFile) logic (works fine)
+**Before:**
+```typescript
+.select("*")
 ```
 
-This is the only reliable cross-browser approach since Firefox does not support dragging PDF blobs into web applications like Gmail.
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
+
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
