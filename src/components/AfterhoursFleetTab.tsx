@@ -17,12 +17,13 @@ interface AfterhoursFleetTabProps {
 }
 
 const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
-  const { afterhoursFleets, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk } = useAfterhoursAssignments();
+  const { afterhoursFleets, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk, autoAssignDrivers } = useAfterhoursAssignments();
   const [assignDialogUserId, setAssignDialogUserId] = useState<string | null>(null);
   const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string;driverId: string;driverName: string;} | null>(null);
   // Per-fleet selected driver IDs for bulk remove
   const [selectedForRemoval, setSelectedForRemoval] = useState<Record<string, Set<string>>>({});
   const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string;count: number;} | null>(null);
+  const [autoAssignConfirm, setAutoAssignConfirm] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
