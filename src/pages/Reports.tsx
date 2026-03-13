@@ -2107,7 +2107,7 @@ const Reports = () => {
               <div
                 className="bg-black flex items-center justify-center shrink-0"
                 style={{
-                  width: (allDeliveryOrders.length > 0 || allPickupOrders.length > 0 || sameDayOrders.length > 0) ? "50%" : "100%",
+                  width: (allDeliveryOrders.length > 0 || allPickupOrders.length > 0 || sameDayOrders.length > 0) ? "40%" : "100%",
                   height: "64px",
                 }}
               >
