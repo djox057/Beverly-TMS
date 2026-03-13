@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName, ext } = await req.json()
+    const { userId: targetUserId, role, office, fullName, ext, phoneNumber } = await req.json()
 
     console.log('Request body:', { targetUserId, role, office, fullName, ext })
 
