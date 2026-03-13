@@ -3090,6 +3090,7 @@ export type Database = {
           id: string
           individual_mode: boolean | null
           office: Database["public"]["Enums"]["office_location"] | null
+          phone_number: string | null
           updated_at: string
           user_id: string
         }
@@ -3102,6 +3103,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
+          phone_number?: string | null
           updated_at?: string
           user_id: string
         }
@@ -3114,6 +3116,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
+          phone_number?: string | null
           updated_at?: string
           user_id?: string
         }

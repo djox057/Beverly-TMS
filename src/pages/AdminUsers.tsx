@@ -30,6 +30,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
+  phone_number: string | null;
   office: OfficeLocation;
   ext: string | null;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard')[];
@@ -49,6 +50,7 @@ const AdminUsers = () => {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -64,6 +66,7 @@ const AdminUsers = () => {
   const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   const filteredUsers = useMemo(() => {
@@ -119,6 +122,7 @@ const AdminUsers = () => {
           ...profile,
           office: profile.office as OfficeLocation,
           ext: profile.ext as string | null,
+          phone_number: (profile as any).phone_number as string | null,
           roles: userRoles
         };
       });
@@ -181,7 +185,8 @@ const AdminUsers = () => {
             fullName: fullName || email, 
             role,
             office: office || null,
-            ext: ext || null
+            ext: ext || null,
+            phoneNumber: phoneNumber || null
           })
         }
       );
@@ -206,6 +211,7 @@ const AdminUsers = () => {
       setRole('dispatch');
       setOffice(null);
       setExt("");
+      setPhoneNumber("");
       setFormErrors({});
       setIsDialogOpen(false);
       
@@ -287,6 +293,7 @@ const AdminUsers = () => {
     setUserToEdit(user);
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
+    setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
     setIsEditDialogOpen(true);
@@ -304,7 +311,8 @@ const AdminUsers = () => {
           role: editRole,
           fullName: editFullName,
           office: editOffice,
-          ext: editExt || null
+          ext: editExt || null,
+          phoneNumber: editPhoneNumber || null
         }
       });
 
@@ -579,6 +587,15 @@ const AdminUsers = () => {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="new-phone">Phone Number (Optional)</Label>
+                <Input
+                  id="new-phone"
+                  placeholder="e.g. +1 234 567 8900"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="new-ext">Extension (Optional)</Label>
                 <Input
                   id="new-ext"
@@ -651,6 +668,7 @@ const AdminUsers = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>Ext</TableHead>
                 <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
@@ -663,6 +681,7 @@ const AdminUsers = () => {
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.phone_number || '-'}</TableCell>
                   <TableCell>{user.ext || '-'}</TableCell>
                   <TableCell>{user.office || '-'}</TableCell>
                   <TableCell>
@@ -710,7 +729,7 @@ const AdminUsers = () => {
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     {users.length === 0 ? "No users found" : "No users match the current filters"}
                   </TableCell>
                 </TableRow>
@@ -778,6 +797,16 @@ const AdminUsers = () => {
                   <SelectItem value="Recovery">Recovery</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone Number</Label>
+              <Input
+                id="edit-phone"
+                value={editPhoneNumber}
+                onChange={(e) => setEditPhoneNumber(e.target.value)}
+                placeholder="e.g. +1 234 567 8900"
+              />
             </div>
 
             <div className="space-y-2">

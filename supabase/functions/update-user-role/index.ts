@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName, ext } = await req.json()
+    const { userId: targetUserId, role, office, fullName, ext, phoneNumber } = await req.json()
 
     console.log('Request body:', { targetUserId, role, office, fullName, ext })
 
@@ -130,6 +130,10 @@ Deno.serve(async (req) => {
     
     if (ext !== undefined) {
       profileUpdates.ext = ext === null || ext === '' ? null : ext
+    }
+
+    if (phoneNumber !== undefined) {
+      profileUpdates.phone_number = phoneNumber === null || phoneNumber === '' ? null : phoneNumber
     }
     
     if (Object.keys(profileUpdates).length > 0) {
