@@ -211,6 +211,7 @@ const AdminUsers = () => {
       setRole('dispatch');
       setOffice(null);
       setExt("");
+      setPhoneNumber("");
       setFormErrors({});
       setIsDialogOpen(false);
       
