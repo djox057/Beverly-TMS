@@ -805,12 +805,16 @@ const AdminUsers = () => {
 
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone Number</Label>
-              <Input
-                id="edit-phone"
-                value={editPhoneNumber}
-                onChange={(e) => setEditPhoneNumber(e.target.value)}
-                placeholder="e.g. +1 234 567 8900"
-              />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">+1</span>
+                <Input
+                  id="edit-phone"
+                  className="rounded-l-none"
+                  value={editPhoneNumber.replace(/^\+1\s?/, '')}
+                  onChange={(e) => setEditPhoneNumber(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                  placeholder="234 567 8900"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
