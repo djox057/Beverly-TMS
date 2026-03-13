@@ -2112,7 +2112,7 @@ const Reports = () => {
                 }}
               >
                 <span
-                  className="text-[8px] font-bold text-white whitespace-nowrap leading-tight text-center"
+                  className="text-[8px] font-bold text-white whitespace-pre-line leading-tight text-center"
                   style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
                 >
                   TWO WEEK{"\n"}NOTICE
