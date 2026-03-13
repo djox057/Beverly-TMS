@@ -720,7 +720,7 @@ const AdminUsers = () => {
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     {users.length === 0 ? "No users found" : "No users match the current filters"}
                   </TableCell>
                 </TableRow>
