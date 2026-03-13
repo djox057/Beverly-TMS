@@ -5892,6 +5892,10 @@ const Reports = () => {
                           <div className="space-y-1 max-h-48 overflow-y-auto">
                             {docFiles.map((file, idx) => {
                               const signedUrl = docSignedUrls[file.id];
+                              const ext = file.file_name.split(".").pop()?.toLowerCase() || "";
+                              const isImage = ext === "jpg" || ext === "jpeg" || ext === "png";
+                              const isDragEnabled = (doc === "BOL" || doc === "POD") && isImage;
+
                               return (
                                 <div
                                   key={file.id}
@@ -5900,48 +5904,35 @@ const Reports = () => {
                                   <a
                                     href={signedUrl || "#"}
                                     download={file.file_name}
-                                    draggable="true"
-                                    className="flex-1 text-sm truncate no-underline text-foreground cursor-grab"
+                                    draggable={isDragEnabled}
+                                    className={`flex-1 text-sm truncate no-underline text-foreground ${isDragEnabled ? "cursor-grab" : "cursor-pointer"}`}
                                     onDragStart={(e) => {
-                                      if (signedUrl) {
-                                        const isChromium = !!(window as any).chrome;
-                                        if (isChromium) {
-                                          const ext = file.file_name.split('.').pop()?.toLowerCase() || "";
-                                          const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
-                                          e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
-                                        } else {
-                                          // Non-Chromium (Firefox/Safari)
-                                          const isPdf = file.file_name.toLowerCase().endsWith('.pdf');
-                                          if (isPdf) {
-                                            // Firefox cannot drag PDF blobs into Gmail — auto-download instead
-                                            e.dataTransfer.setData("text/uri-list", signedUrl);
-                                            const cachedFile = docBlobCacheRef.current[file.id];
-                                            const blobUrl = cachedFile ? URL.createObjectURL(cachedFile) : signedUrl;
-                                            const link = document.createElement("a");
-                                            link.href = blobUrl;
-                                            link.download = file.file_name;
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                            if (cachedFile) URL.revokeObjectURL(blobUrl);
-                                            toast({ title: "PDF downloaded", description: "Attach it from your Downloads folder in Gmail" });
-                                          } else {
-                                            // Images work with items.add in Firefox
-                                            const cachedFile = docBlobCacheRef.current[file.id];
-                                            let added = false;
-                                            if (cachedFile) {
-                                              try {
-                                                const item = e.dataTransfer.items.add(cachedFile);
-                                                added = item !== null;
-                                              } catch {
-                                                added = false;
-                                              }
-                                            }
-                                            if (!added) {
-                                              e.dataTransfer.setData("text/uri-list", signedUrl);
-                                              e.dataTransfer.setData("text/plain", signedUrl);
-                                            }
+                                      if (!isDragEnabled || !signedUrl) {
+                                        e.preventDefault();
+                                        return;
+                                      }
+
+                                      const isChromium = !!(window as any).chrome;
+                                      const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+
+                                      if (isChromium) {
+                                        e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
+                                      } else {
+                                        const cachedFile = docBlobCacheRef.current[file.id];
+                                        let added = false;
+
+                                        if (cachedFile) {
+                                          try {
+                                            const item = e.dataTransfer.items.add(cachedFile);
+                                            added = item !== null;
+                                          } catch {
+                                            added = false;
                                           }
+                                        }
+
+                                        if (!added) {
+                                          e.dataTransfer.setData("text/uri-list", signedUrl);
+                                          e.dataTransfer.setData("text/plain", signedUrl);
                                         }
                                       }
                                     }}
@@ -5961,7 +5952,7 @@ const Reports = () => {
                                       window.open(url, "_blank");
                                       setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                                     }}
-                                    title={`${file.file_name} — drag to email/chat or click to open`}
+                                    title={isDragEnabled ? `${file.file_name} — drag to email/chat or click to open` : `${file.file_name} — click to open`}
                                   >
                                     {idx + 1}. {file.file_name}
                                   </a>
