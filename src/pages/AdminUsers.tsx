@@ -672,6 +672,7 @@ const AdminUsers = () => {
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.phone_number || '-'}</TableCell>
                   <TableCell>{user.ext || '-'}</TableCell>
                   <TableCell>{user.office || '-'}</TableCell>
                   <TableCell>
