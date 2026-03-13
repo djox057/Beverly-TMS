@@ -29,6 +29,25 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [sendingSms, setSendingSms] = useState<string | null>(null);
+
+  const handleTestSms = async (date: string) => {
+    setSendingSms(date);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-afterhours-sms', {
+        body: { target_date: date }
+      });
+      if (error) throw error;
+      const sent = data?.results?.filter((r: any) => r.status === 'sent').length || 0;
+      const skipped = data?.results?.filter((r: any) => r.status === 'skipped').length || 0;
+      const failed = data?.results?.filter((r: any) => r.status === 'failed').length || 0;
+      toast.success(`SMS sent: ${sent}, skipped: ${skipped}, failed: ${failed}`);
+    } catch (err: any) {
+      toast.error(`SMS failed: ${err.message}`);
+    } finally {
+      setSendingSms(null);
+    }
+  };
 
   const canManage = hasRole("admin") || hasRole("manager");
 
