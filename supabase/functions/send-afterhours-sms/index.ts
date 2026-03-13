@@ -173,9 +173,10 @@ serve(async (req) => {
         continue;
       }
 
-      // Extract last name (last word of full_name)
+      // Extract nickname (part after hyphen in last word, e.g. "Stefan Nesovanovic-Peter" → "Peter")
       const nameParts = dispatcher.full_name.trim().split(/\s+/);
-      const lastName = nameParts[nameParts.length - 1];
+      const lastWord = nameParts[nameParts.length - 1];
+      const lastName = lastWord.includes('-') ? lastWord.split('-').pop()! : lastWord;
 
       // Strip +1 prefix from dispatcher phone for message
       const dispatcherPhone = dispatcher.phone_number.replace(/^\+1\s?/, '');
