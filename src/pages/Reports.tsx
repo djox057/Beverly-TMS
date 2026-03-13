@@ -1776,14 +1776,9 @@ const Reports = () => {
       const isGameOver = gameOverCheck.isGameOver;
       const gameOverType = gameOverCheck.type;
 
-      // If this is the block day or game over day, render black cell
-      if (isBlockDay || isGameOver) {
-        const displayText = isBlockDay
-          ? {
-              line1: "TWO WEEK",
-              line2: "NOTICE",
-            }
-          : gameOverType === "yard"
+      // If this is the game over day, render black cell (full takeover)
+      if (isGameOver) {
+        const displayText = gameOverType === "yard"
             ? {
                 line1: "Left truck",
                 line2: "on the Yard",
@@ -2109,14 +2104,14 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
             <div
-              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
+              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? "" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
+              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
                 <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {allDeliveryOrders.flatMap((order) => {
                     // Get all delivery stops for this day
@@ -2143,7 +2138,7 @@ const Reports = () => {
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        );
+                        ) + (isBlockDay ? 1 : 0);
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2202,7 +2197,7 @@ const Reports = () => {
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        );
+                        ) + (isBlockDay ? 1 : 0);
                       return (
                         <div
                           key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2236,6 +2231,23 @@ const Reports = () => {
                       );
                     });
                   })}
+                  {isBlockDay && (
+                    <div
+                      className="bg-black border rounded flex items-center justify-center shrink-0 h-full"
+                      style={{
+                        width: allDeliveryOrders.length > 0 || sameDayOrders.length > 0
+                          ? `${100 / (totalDeliveryStops + 1)}%`
+                          : "100%",
+                      }}
+                    >
+                      <span
+                        className="text-[9px] font-bold text-white whitespace-nowrap"
+                        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                      >
+                        TWO WEEK
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 (() => {
@@ -2301,7 +2313,7 @@ const Reports = () => {
                     maxHeight: "32px",
                   }}
                 >
-                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
+                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
                     <div
                       className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
                       onClick={(e) => e.stopPropagation()}
@@ -2332,7 +2344,7 @@ const Reports = () => {
                                 (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                                   .length || 0),
                               0,
-                            );
+                            ) + (isBlockDay ? 1 : 0);
                           return (
                             <div
                               key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2392,7 +2404,7 @@ const Reports = () => {
                                 (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                                   .length || 0),
                               0,
-                            );
+                            ) + (isBlockDay ? 1 : 0);
                           return (
                             <div
                               key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2426,6 +2438,23 @@ const Reports = () => {
                           );
                         });
                       })}
+                      {isBlockDay && (
+                        <div
+                          className="bg-black border rounded flex items-center justify-center shrink-0 h-full"
+                          style={{
+                            width: allPickupOrders.length > 0 || sameDayOrders.length > 0
+                              ? `${100 / (totalPickupStops + 1)}%`
+                              : "100%",
+                          }}
+                        >
+                          <span
+                            className="text-[9px] font-bold text-white whitespace-nowrap"
+                            style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                          >
+                            NOTICE
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     (() => {
