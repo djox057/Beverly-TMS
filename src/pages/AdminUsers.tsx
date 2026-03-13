@@ -587,6 +587,15 @@ const AdminUsers = () => {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="new-phone">Phone Number (Optional)</Label>
+                <Input
+                  id="new-phone"
+                  placeholder="e.g. +1 234 567 8900"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="new-ext">Extension (Optional)</Label>
                 <Input
                   id="new-ext"
