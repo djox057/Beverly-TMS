@@ -170,17 +170,6 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                 <CalendarDays className="h-4 w-4" />
                 {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </h3>
-              {canManage && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleTestSms(dayData.date)}
-                  disabled={sendingSms === dayData.date}
-                >
-                  <MessageSquare className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">{sendingSms === dayData.date ? "Sending..." : "Test SMS"}</span>
-                </Button>
-              )}
             </div>
 
             {filteredFleets.map((fleet) => {

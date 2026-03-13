@@ -181,8 +181,7 @@ serve(async (req) => {
 
       const message = `Good morning, your dispatcher for today will be ${lastName}, you can contact him directly via this number ${dispatcherPhone}`;
 
-      // TEST MODE: send to override number
-      const toNumber = TEST_OVERRIDE_NUMBER || driver.phone;
+      const toNumber = driver.phone;
 
       console.log(`Sending SMS to ${toNumber} (driver: ${driver.name}): ${message}`);
 
