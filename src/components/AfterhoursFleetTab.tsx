@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
 import { useAfterhoursAssignments, AfterhoursFleet } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AfterhoursFleetTabProps {
   hasRole: (role: string) => boolean;
@@ -27,6 +29,25 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [sendingSms, setSendingSms] = useState<string | null>(null);
+
+  const handleTestSms = async (date: string) => {
+    setSendingSms(date);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-afterhours-sms', {
+        body: { target_date: date }
+      });
+      if (error) throw error;
+      const sent = data?.results?.filter((r: any) => r.status === 'sent').length || 0;
+      const skipped = data?.results?.filter((r: any) => r.status === 'skipped').length || 0;
+      const failed = data?.results?.filter((r: any) => r.status === 'failed').length || 0;
+      toast.success(`SMS sent: ${sent}, skipped: ${skipped}, failed: ${failed}`);
+    } catch (err: any) {
+      toast.error(`SMS failed: ${err.message}`);
+    } finally {
+      setSendingSms(null);
+    }
+  };
 
   const canManage = hasRole("admin") || hasRole("manager");
 
@@ -163,10 +184,23 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
         return (
           <div key={dayData.date} className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </h3>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTestSms(dayData.date)}
+                  disabled={sendingSms === dayData.date}
+                >
+                  <MessageSquare className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">{sendingSms === dayData.date ? "Sending..." : "Test SMS"}</span>
+                </Button>
+              )}
+            </div>
 
             {filteredFleets.map((fleet) => {
               const filteredDrivers = filterDriversBySearch(fleet.drivers);
