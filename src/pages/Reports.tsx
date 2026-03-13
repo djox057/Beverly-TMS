@@ -2314,7 +2314,7 @@ const Reports = () => {
                     maxHeight: "32px",
                   }}
                 >
-                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
+                  {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                     <div
                       className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
                       onClick={(e) => e.stopPropagation()}
