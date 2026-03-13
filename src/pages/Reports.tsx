@@ -5869,7 +5869,7 @@ const Reports = () => {
                             if (!isChecked) {
                               handleDocumentClick(doc, false);
                             } else if (docFiles.length >= 1) {
-                              // Always show popover list for draggable files
+                              // Always show popover list for files
                               setAdditionalFilesPopover({
                                 open: true,
                                 files: docFiles,
