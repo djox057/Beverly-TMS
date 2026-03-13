@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     }
 
     // Get user data from request body
-    const { email, password, fullName, role, office, ext } = await req.json()
+    const { email, password, fullName, role, office, ext, phoneNumber } = await req.json()
     
     if (!email || !password || !role) {
       throw new Error('Email, password, and role are required')
