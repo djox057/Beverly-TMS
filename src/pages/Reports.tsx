@@ -4441,7 +4441,7 @@ const Reports = () => {
                                                         ) : (
                                                           <>
                                                             <div className="flex items-center justify-between gap-2">
-                                                              <p className="font-semibold text-sm"><span className="text-primary hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); if (truck.driverId) setEditingDriverId(truck.driverId); }}>{truck.driver}</span></p>
+                                                              <p className="font-semibold text-sm"><span className="cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => { e.stopPropagation(); if (truck.driverId) setEditingDriverId(truck.driverId); }}>{truck.driver}</span></p>
                                                               <div className="flex items-center gap-1">
                                                                 {truck.driverId && (
                                                                   <>
