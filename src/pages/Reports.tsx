@@ -1776,14 +1776,9 @@ const Reports = () => {
       const isGameOver = gameOverCheck.isGameOver;
       const gameOverType = gameOverCheck.type;
 
-      // If this is the block day or game over day, render black cell
-      if (isBlockDay || isGameOver) {
-        const displayText = isBlockDay
-          ? {
-              line1: "TWO WEEK",
-              line2: "NOTICE",
-            }
-          : gameOverType === "yard"
+      // If this is the game over day, render black cell (full takeover)
+      if (isGameOver) {
+        const displayText = gameOverType === "yard"
             ? {
                 line1: "Left truck",
                 line2: "on the Yard",
