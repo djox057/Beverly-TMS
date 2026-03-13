@@ -117,8 +117,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update profile with office and ext if provided
-    if ((office || ext) && newUser?.user?.id) {
+    // Update profile with office, ext, and phone if provided
+    if ((office || ext || phoneNumber) && newUser?.user?.id) {
       const profileUpdates: Record<string, any> = {}
       
       if (office) {
@@ -130,6 +130,10 @@ Deno.serve(async (req) => {
       
       if (ext) {
         profileUpdates.ext = ext
+      }
+
+      if (phoneNumber) {
+        profileUpdates.phone_number = phoneNumber
       }
       
       if (Object.keys(profileUpdates).length > 0) {

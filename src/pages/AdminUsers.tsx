@@ -800,6 +800,16 @@ const AdminUsers = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone Number</Label>
+              <Input
+                id="edit-phone"
+                value={editPhoneNumber}
+                onChange={(e) => setEditPhoneNumber(e.target.value)}
+                placeholder="e.g. +1 234 567 8900"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="edit-ext">Extension</Label>
               <Input
                 id="edit-ext"

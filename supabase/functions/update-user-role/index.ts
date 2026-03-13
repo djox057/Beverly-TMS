@@ -131,6 +131,10 @@ Deno.serve(async (req) => {
     if (ext !== undefined) {
       profileUpdates.ext = ext === null || ext === '' ? null : ext
     }
+
+    if (phoneNumber !== undefined) {
+      profileUpdates.phone_number = phoneNumber === null || phoneNumber === '' ? null : phoneNumber
+    }
     
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseAdmin
