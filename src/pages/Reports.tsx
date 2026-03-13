@@ -4363,7 +4363,7 @@ const Reports = () => {
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
                                                                 <p className="font-semibold text-sm">
-                                                                  Driver 2: {truck.driver2Name}
+                                                                  Driver 2: <span className="text-primary hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); if (truck.driver2Id) setEditingDriverId(truck.driver2Id); }}>{truck.driver2Name}</span>
                                                                 </p>
                                                                 <div className="flex items-center gap-1">
                                                                   <Button
