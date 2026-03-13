@@ -186,7 +186,7 @@ const AdminUsers = () => {
             role,
             office: office || null,
             ext: ext || null,
-            phoneNumber: phoneNumber || null
+            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null
           })
         }
       );
@@ -312,7 +312,7 @@ const AdminUsers = () => {
           fullName: editFullName,
           office: editOffice,
           ext: editExt || null,
-          phoneNumber: editPhoneNumber || null
+          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null
         }
       });
 
@@ -588,12 +588,16 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-phone">Phone Number (Optional)</Label>
-                <Input
-                  id="new-phone"
-                  placeholder="e.g. +1 234 567 8900"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">+1</span>
+                  <Input
+                    id="new-phone"
+                    className="rounded-l-none"
+                    placeholder="234 567 8900"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-ext">Extension (Optional)</Label>
@@ -801,12 +805,16 @@ const AdminUsers = () => {
 
             <div className="space-y-2">
               <Label htmlFor="edit-phone">Phone Number</Label>
-              <Input
-                id="edit-phone"
-                value={editPhoneNumber}
-                onChange={(e) => setEditPhoneNumber(e.target.value)}
-                placeholder="e.g. +1 234 567 8900"
-              />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">+1</span>
+                <Input
+                  id="edit-phone"
+                  className="rounded-l-none"
+                  value={editPhoneNumber.replace(/^\+1\s?/, '')}
+                  onChange={(e) => setEditPhoneNumber(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                  placeholder="234 567 8900"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
