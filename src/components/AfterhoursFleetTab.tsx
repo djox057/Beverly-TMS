@@ -344,6 +344,30 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Unassign all confirmation */}
+      <AlertDialog open={unassignAllConfirm} onOpenChange={setUnassignAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unassign All Drivers</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all driver assignments from all weekend dispatchers. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                setUnassignAllConfirm(false);
+                await unassignAll();
+              }}
+            >
+              Unassign All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
