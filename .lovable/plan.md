@@ -1,38 +1,31 @@
 
 
-## Create `send-afterhours-sms` Edge Function (Test Mode)
+# Fix 1: Analytics -- Select Only Needed Columns
 
-### Overview
-Create the new Edge Function that sends morning SMS to afterhours-assigned drivers. For testing, **all messages will be sent to `+1 5742085611`** instead of actual driver phone numbers.
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-### New File: `supabase/functions/send-afterhours-sms/index.ts`
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-**Logic flow:**
-1. Authenticate via `CRON_SECRET` (same as `process-afterhours-schedule`)
-2. Get today's date in Chicago timezone
-3. Query `afterhours_schedule` for today to confirm it's a scheduled day
-4. Query `afterhours_assignments` for today, joined with:
-   - `profiles` (on `afterhours_user_id`) → dispatcher `full_name` + `phone_number`
-   - `drivers` (on `driver_id`) → driver `phone`
-5. For each assignment:
-   - Extract dispatcher last name (last word of `full_name`)
-   - Strip `+1` from dispatcher's `phone_number`
-   - **TEST MODE: Send SMS to `+15742085611`** instead of driver's actual phone
-   - Message: `"Good morning, your dispatcher for today will be {LastName}, you can contact him directly via this number {dispatcherPhone}"`
-6. Uses RingCentral auth (same pattern as existing `send-sms` function)
-
-**Test override** — a constant at the top of the file:
+**Before:**
 ```typescript
-const TEST_OVERRIDE_NUMBER = "+15742085611"; // Remove to send to real drivers
+.select("*")
 ```
 
-### Config Update: `supabase/config.toml`
-Add:
-```toml
-[functions.send-afterhours-sms]
-verify_jwt = false
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
 ```
 
-### Cron Job
-A `pg_cron` schedule to trigger daily at 13:00 UTC (7 AM Chicago CDT). The function checks `afterhours_schedule` so it only sends on scheduled days. Will be set up via SQL editor after deployment.
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
