@@ -577,7 +577,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </div>
 
           {/* Right side - Schedule for selected date */}
-          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-hidden min-h-0">
+          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-y-auto min-h-0">
             {selectedDate ? (
               <>
                 <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
@@ -641,7 +641,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <>
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
-                        <ScrollArea className="border rounded-md p-2 sm:p-3 bg-muted/30 max-h-[60vh]">
+                        <ScrollArea className={`border rounded-md p-2 sm:p-3 bg-muted/30 ${needsMoreDispatchers || forceShowOffice ? "max-h-[35vh]" : "max-h-[60vh]"}`}>
                           {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
@@ -824,7 +824,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 </div>
                               ) : (
                                 <>
-                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[40vh]">
+                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[30vh]">
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
                                     const config = OFFICE_CONFIG[office];
