@@ -659,6 +659,7 @@ const AdminUsers = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>Ext</TableHead>
                 <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
