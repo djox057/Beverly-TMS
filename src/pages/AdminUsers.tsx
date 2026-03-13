@@ -50,6 +50,7 @@ const AdminUsers = () => {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
