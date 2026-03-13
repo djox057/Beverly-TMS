@@ -10,21 +10,22 @@ interface AfterhoursUser {
   scheduledDays: string[]; // e.g. ['Saturday', 'Sunday']
 }
 
-interface AfterhoursAssignment {
-  id: string;
-  afterhours_user_id: string;
-  driver_id: string;
-  assigned_at: string;
-}
-
 export interface AfterhoursFleet {
   user: AfterhoursUser;
   drivers: any[];
 }
 
+export interface AfterhoursFleetDay {
+  date: string;       // e.g. '2026-03-14'
+  dayName: string;    // e.g. 'Saturday'
+  fleets: AfterhoursFleet[];
+}
+
 export const useAfterhoursAssignments = () => {
+  const [afterhoursFleetsByDay, setAfterhoursFleetsByDay] = useState<AfterhoursFleetDay[]>([]);
   const [afterhoursFleets, setAfterhoursFleets] = useState<AfterhoursFleet[]>([]);
   const [allDriversWithTrucks, setAllDriversWithTrucks] = useState<any[]>([]);
+  const [weekendDates, setWeekendDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -43,11 +44,13 @@ export const useAfterhoursAssignments = () => {
 
       const satStr = nextSaturday.toISOString().split('T')[0];
       const sunStr = nextSunday.toISOString().split('T')[0];
+      const dates = [satStr, sunStr];
+      setWeekendDates(dates);
 
       // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks
       const [scheduleRes, assignmentsRes, driversRes, trucksRes] = await Promise.all([
-        supabase.from('afterhours_schedule').select('*').in('scheduled_date', [satStr, sunStr]),
-        supabase.from('afterhours_assignments').select('*'),
+        supabase.from('afterhours_schedule').select('*').in('scheduled_date', dates),
+        supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates),
         supabase.from('drivers').select('id, name, dispatcher_id, is_active').eq('is_active', true),
         supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
       ]);
@@ -57,20 +60,26 @@ export const useAfterhoursAssignments = () => {
       if (driversRes.error) throw driversRes.error;
       if (trucksRes.error) throw trucksRes.error;
 
-      // Build map of user_id -> scheduled days
+      // Build map of user_id -> scheduled dates and days
       const userDaysMap = new Map<string, Set<string>>();
+      const userDatesMap = new Map<string, Set<string>>();
+      // Also build date -> user_ids
+      const dateUsersMap = new Map<string, Set<string>>();
       (scheduleRes.data || []).filter(s => s.user_id).forEach(s => {
         const dayName = new Date(s.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
         if (!userDaysMap.has(s.user_id!)) userDaysMap.set(s.user_id!, new Set());
         userDaysMap.get(s.user_id!)!.add(dayName);
+        if (!userDatesMap.has(s.user_id!)) userDatesMap.set(s.user_id!, new Set());
+        userDatesMap.get(s.user_id!)!.add(s.scheduled_date);
+        if (!dateUsersMap.has(s.scheduled_date)) dateUsersMap.set(s.scheduled_date, new Set());
+        dateUsersMap.get(s.scheduled_date)!.add(s.user_id!);
       });
 
       const afterhoursUserIds = [...userDaysMap.keys()];
 
       // Fetch profiles and filter out maintenance-role users
-      let afterhoursUsers: AfterhoursUser[] = [];
+      let afterhoursUsers: (AfterhoursUser & { scheduledDatesList: string[] })[] = [];
       if (afterhoursUserIds.length > 0) {
-        // Fetch profiles and maintenance roles in parallel
         const [profilesRes, maintenanceRes] = await Promise.all([
           supabase
             .from('profiles')
@@ -93,10 +102,11 @@ export const useAfterhoursAssignments = () => {
             email: p.email,
             office: p.office,
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
+            scheduledDatesList: [...(userDatesMap.get(p.user_id) || [])],
           }));
       }
 
-      // Fetch dispatcher profiles to show dispatcher name + office on drivers
+      // Fetch dispatcher profiles
       const dispatcherIds = [...new Set((driversRes.data || []).map(d => d.dispatcher_id).filter(Boolean))] as string[];
       let dispatcherMap = new Map<string, { name: string; office: string | null }>();
       if (dispatcherIds.length > 0) {
@@ -129,19 +139,42 @@ export const useAfterhoursAssignments = () => {
 
       setAllDriversWithTrucks(enrichedDrivers);
 
-      const assignments = assignmentsRes.data as AfterhoursAssignment[] || [];
+      const assignments = assignmentsRes.data || [];
       const driverMap = new Map(enrichedDrivers.map(d => [d.id, d]));
 
-      // Build fleets
-      const fleets: AfterhoursFleet[] = afterhoursUsers.map(user => ({
-        user,
-        drivers: assignments
-          .filter(a => a.afterhours_user_id === user.id)
-          .map(a => driverMap.get(a.driver_id))
-          .filter(Boolean),
-      }));
+      // Build per-day fleets
+      const fleetsByDay: AfterhoursFleetDay[] = [];
+      for (const dateStr of dates) {
+        const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+        const usersForDay = afterhoursUsers.filter(u => u.scheduledDatesList.includes(dateStr));
+        const dayAssignments = assignments.filter((a: any) => a.scheduled_date === dateStr);
 
-      setAfterhoursFleets(fleets);
+        const fleets: AfterhoursFleet[] = usersForDay.map(user => ({
+          user,
+          drivers: dayAssignments
+            .filter((a: any) => a.afterhours_user_id === user.id)
+            .map((a: any) => driverMap.get(a.driver_id))
+            .filter(Boolean),
+        }));
+
+        if (fleets.length > 0) {
+          fleetsByDay.push({ date: dateStr, dayName, fleets });
+        }
+      }
+
+      setAfterhoursFleetsByDay(fleetsByDay);
+      // Keep flat list for compat
+      const allFleets = fleetsByDay.flatMap(d => d.fleets);
+      // Dedupe by user id (keep first)
+      const seen = new Set<string>();
+      const uniqueFleets: AfterhoursFleet[] = [];
+      for (const f of allFleets) {
+        if (!seen.has(f.user.id)) {
+          seen.add(f.user.id);
+          uniqueFleets.push(f);
+        }
+      }
+      setAfterhoursFleets(uniqueFleets);
     } catch (error: any) {
       console.error('Error fetching afterhours assignments:', error);
       toast({
@@ -158,11 +191,11 @@ export const useAfterhoursAssignments = () => {
     fetchData();
   }, [fetchData]);
 
-  const assignDriver = async (afterhoursUserId: string, driverId: string) => {
+  const assignDriver = async (afterhoursUserId: string, driverId: string, scheduledDate?: string) => {
     try {
       const { error } = await supabase
         .from('afterhours_assignments')
-        .insert({ afterhours_user_id: afterhoursUserId, driver_id: driverId });
+        .insert({ afterhours_user_id: afterhoursUserId, driver_id: driverId, scheduled_date: scheduledDate || null });
       if (error) throw error;
       toast({ title: "Success", description: "Driver assigned to afterhours dispatcher" });
       fetchData();
@@ -172,11 +205,12 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
-  const assignDriversBulk = async (afterhoursUserId: string, driverIds: string[]) => {
+  const assignDriversBulk = async (afterhoursUserId: string, driverIds: string[], scheduledDate?: string) => {
     try {
       const rows = driverIds.map(driver_id => ({
         afterhours_user_id: afterhoursUserId,
         driver_id,
+        scheduled_date: scheduledDate || null,
       }));
       const { error } = await supabase
         .from('afterhours_assignments')
@@ -190,13 +224,15 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
-  const removeDriver = async (afterhoursUserId: string, driverId: string) => {
+  const removeDriver = async (afterhoursUserId: string, driverId: string, scheduledDate?: string) => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('afterhours_assignments')
         .delete()
         .eq('afterhours_user_id', afterhoursUserId)
         .eq('driver_id', driverId);
+      if (scheduledDate) query = query.eq('scheduled_date', scheduledDate);
+      const { error } = await query;
       if (error) throw error;
       toast({ title: "Success", description: "Driver removed from afterhours dispatcher" });
       fetchData();
@@ -206,13 +242,15 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
-  const removeDriversBulk = async (afterhoursUserId: string, driverIds: string[]) => {
+  const removeDriversBulk = async (afterhoursUserId: string, driverIds: string[], scheduledDate?: string) => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from('afterhours_assignments')
         .delete()
         .eq('afterhours_user_id', afterhoursUserId)
         .in('driver_id', driverIds);
+      if (scheduledDate) query = query.eq('scheduled_date', scheduledDate);
+      const { error } = await query;
       if (error) throw error;
       toast({ title: "Success", description: `${driverIds.length} driver(s) removed` });
       fetchData();
@@ -234,135 +272,131 @@ export const useAfterhoursAssignments = () => {
         driversByOffice.get(office)!.push(d);
       }
 
-      // Group weekend dispatchers by office
-      const weekendByOffice = new Map<string, typeof afterhoursFleets>();
-      for (const fleet of afterhoursFleets) {
-        const office = fleet.user.office || 'Unknown';
-        if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
-        weekendByOffice.get(office)!.push(fleet);
-      }
-
-      // Build assignment map: weekendUserId -> driverIds[]
-      const assignmentMap = new Map<string, string[]>();
-
-      for (const [office, weekendDispatchers] of weekendByOffice) {
-        const officeDrivers = driversByOffice.get(office) || [];
-        if (officeDrivers.length === 0 || weekendDispatchers.length === 0) continue;
-
-        const numWD = weekendDispatchers.length;
-
-        // Group drivers by their weekday dispatcher_id
-        const groupsByDispatcher = new Map<string, any[]>();
-        for (const d of officeDrivers) {
-          const key = d.dispatcher_id || '__none__';
-          if (!groupsByDispatcher.has(key)) groupsByDispatcher.set(key, []);
-          groupsByDispatcher.get(key)!.push(d);
-        }
-
-        // Sort groups largest-first
-        const groups = [...groupsByDispatcher.entries()]
-          .map(([dispId, drivers]) => ({ dispId, drivers }))
-          .sort((a, b) => b.drivers.length - a.drivers.length);
-
-        // Count how many weekday drivers each weekend dispatcher has
-        const weekdayDriverCountMap = new Map<string, number>();
-        for (const wd of weekendDispatchers) {
-          const count = officeDrivers.filter(d => d.dispatcher_id === wd.user.id).length;
-          weekdayDriverCountMap.set(wd.user.id, count);
-        }
-
-        // Sort weekend dispatchers by weekday driver count descending
-        const sortedWD = [...weekendDispatchers].sort((a, b) =>
-          (weekdayDriverCountMap.get(b.user.id) || 0) - (weekdayDriverCountMap.get(a.user.id) || 0)
-        );
-
-        // Calculate capacity per weekend dispatcher
-        const totalDrivers = officeDrivers.length;
-        const baseShare = Math.floor(totalDrivers / numWD);
-        const extra = totalDrivers % numWD;
-
-        // Dispatchers sorted by weekday count get +1 capacity for the remainder
-        const capacity = new Map<string, number>();
-        const assigned = new Map<string, string[]>();
-        sortedWD.forEach((wd, i) => {
-          capacity.set(wd.user.id, baseShare + (i < extra ? 1 : 0));
-          assigned.set(wd.user.id, []);
-        });
-
-        // First pass: assign each weekend dispatcher their own weekday drivers
-        for (const wd of sortedWD) {
-          const ownGroup = groups.find(g => g.dispId === wd.user.id);
-          if (ownGroup && ownGroup.drivers.length > 0) {
-            const cap = capacity.get(wd.user.id)!;
-            const take = ownGroup.drivers.splice(0, cap);
-            assigned.get(wd.user.id)!.push(...take.map(d => d.id));
-          }
-        }
-
-        // Remove empty groups
-        const remaining = groups.filter(g => g.drivers.length > 0);
-
-        // Second pass: greedy bin-packing of remaining groups
-        for (const group of remaining) {
-          while (group.drivers.length > 0) {
-            // Find weekend dispatcher with most remaining capacity
-            let bestWD = sortedWD[0].user.id;
-            let bestRemaining = -1;
-            for (const wd of sortedWD) {
-              const rem = capacity.get(wd.user.id)! - assigned.get(wd.user.id)!.length;
-              if (rem > bestRemaining) {
-                bestRemaining = rem;
-                bestWD = wd.user.id;
-              }
-            }
-
-            if (bestRemaining <= 0) {
-              // All full, just assign to the one with least overflow
-              let minOver = Infinity;
-              for (const wd of sortedWD) {
-                const over = assigned.get(wd.user.id)!.length - capacity.get(wd.user.id)!;
-                if (over < minOver) { minOver = over; bestWD = wd.user.id; }
-              }
-            }
-
-            const take = group.drivers.splice(0, Math.max(bestRemaining, 1));
-            assigned.get(bestWD)!.push(...take.map(d => d.id));
-          }
-        }
-
-        // Store results
-        for (const [wdId, driverIds] of assigned) {
-          if (driverIds.length > 0) {
-            assignmentMap.set(wdId, [...(assignmentMap.get(wdId) || []), ...driverIds]);
-          }
-        }
-      }
-
-      // Clear all existing assignments
+      // Clear all existing assignments for these weekend dates
       const { error: deleteError } = await supabase
         .from('afterhours_assignments')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all
+        .in('scheduled_date', weekendDates);
       if (deleteError) throw deleteError;
 
-      // Bulk insert new assignments
-      const rows: { afterhours_user_id: string; driver_id: string }[] = [];
-      for (const [wdId, driverIds] of assignmentMap) {
-        for (const dId of driverIds) {
-          rows.push({ afterhours_user_id: wdId, driver_id: dId });
+      // Also clear legacy assignments without date
+      await supabase
+        .from('afterhours_assignments')
+        .delete()
+        .is('scheduled_date', null);
+
+      const allRows: { afterhours_user_id: string; driver_id: string; scheduled_date: string }[] = [];
+
+      // For each day, run distribution independently
+      for (const dayData of afterhoursFleetsByDay) {
+        const { date, fleets: dayFleets } = dayData;
+
+        // Group weekend dispatchers for this day by office
+        const weekendByOffice = new Map<string, AfterhoursFleet[]>();
+        for (const fleet of dayFleets) {
+          const office = fleet.user.office || 'Unknown';
+          if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
+          weekendByOffice.get(office)!.push(fleet);
+        }
+
+        for (const [office, weekendDispatchers] of weekendByOffice) {
+          const officeDrivers = driversByOffice.get(office) || [];
+          if (officeDrivers.length === 0 || weekendDispatchers.length === 0) continue;
+
+          const numWD = weekendDispatchers.length;
+
+          // Group drivers by their weekday dispatcher_id
+          const groupsByDispatcher = new Map<string, any[]>();
+          for (const d of officeDrivers) {
+            const key = d.dispatcher_id || '__none__';
+            if (!groupsByDispatcher.has(key)) groupsByDispatcher.set(key, []);
+            groupsByDispatcher.get(key)!.push(d);
+          }
+
+          // Deep clone groups for this day (so splicing doesn't affect next day)
+          const groups = [...groupsByDispatcher.entries()]
+            .map(([dispId, drivers]) => ({ dispId, drivers: [...drivers] }))
+            .sort((a, b) => b.drivers.length - a.drivers.length);
+
+          // Count how many weekday drivers each weekend dispatcher has
+          const weekdayDriverCountMap = new Map<string, number>();
+          for (const wd of weekendDispatchers) {
+            const count = officeDrivers.filter(d => d.dispatcher_id === wd.user.id).length;
+            weekdayDriverCountMap.set(wd.user.id, count);
+          }
+
+          // Sort weekend dispatchers by weekday driver count descending
+          const sortedWD = [...weekendDispatchers].sort((a, b) =>
+            (weekdayDriverCountMap.get(b.user.id) || 0) - (weekdayDriverCountMap.get(a.user.id) || 0)
+          );
+
+          const totalDrivers = officeDrivers.length;
+          const baseShare = Math.floor(totalDrivers / numWD);
+          const extra = totalDrivers % numWD;
+
+          const capacity = new Map<string, number>();
+          const assigned = new Map<string, string[]>();
+          sortedWD.forEach((wd, i) => {
+            capacity.set(wd.user.id, baseShare + (i < extra ? 1 : 0));
+            assigned.set(wd.user.id, []);
+          });
+
+          // First pass: assign own weekday drivers
+          for (const wd of sortedWD) {
+            const ownGroup = groups.find(g => g.dispId === wd.user.id);
+            if (ownGroup && ownGroup.drivers.length > 0) {
+              const cap = capacity.get(wd.user.id)!;
+              const take = ownGroup.drivers.splice(0, cap);
+              assigned.get(wd.user.id)!.push(...take.map(d => d.id));
+            }
+          }
+
+          // Second pass: greedy bin-packing of remaining
+          const remaining = groups.filter(g => g.drivers.length > 0);
+          for (const group of remaining) {
+            while (group.drivers.length > 0) {
+              let bestWD = sortedWD[0].user.id;
+              let bestRemaining = -1;
+              for (const wd of sortedWD) {
+                const rem = capacity.get(wd.user.id)! - assigned.get(wd.user.id)!.length;
+                if (rem > bestRemaining) {
+                  bestRemaining = rem;
+                  bestWD = wd.user.id;
+                }
+              }
+
+              if (bestRemaining <= 0) {
+                let minOver = Infinity;
+                for (const wd of sortedWD) {
+                  const over = assigned.get(wd.user.id)!.length - capacity.get(wd.user.id)!;
+                  if (over < minOver) { minOver = over; bestWD = wd.user.id; }
+                }
+              }
+
+              const take = group.drivers.splice(0, Math.max(bestRemaining, 1));
+              assigned.get(bestWD)!.push(...take.map(d => d.id));
+            }
+          }
+
+          // Add to rows with scheduled_date
+          for (const [wdId, driverIds] of assigned) {
+            for (const dId of driverIds) {
+              allRows.push({ afterhours_user_id: wdId, driver_id: dId, scheduled_date: date });
+            }
+          }
         }
       }
 
-      if (rows.length > 0) {
-        // Insert in chunks of 500
-        for (let i = 0; i < rows.length; i += 500) {
-          const chunk = rows.slice(i, i + 500);
+      // Bulk insert
+      if (allRows.length > 0) {
+        for (let i = 0; i < allRows.length; i += 500) {
+          const chunk = allRows.slice(i, i + 500);
           const { error } = await supabase.from('afterhours_assignments').insert(chunk);
           if (error) throw error;
         }
       }
 
-      toast({ title: "Success", description: `Auto-assigned ${rows.length} drivers to ${assignmentMap.size} weekend dispatchers` });
+      toast({ title: "Success", description: `Auto-assigned ${allRows.length} driver-day assignments across ${weekendDates.length} days` });
       fetchData();
     } catch (error: any) {
       console.error('Error auto-assigning drivers:', error);
@@ -374,7 +408,9 @@ export const useAfterhoursAssignments = () => {
 
   return {
     afterhoursFleets,
+    afterhoursFleetsByDay,
     allDriversWithTrucks,
+    weekendDates,
     loading,
     assignDriver,
     assignDriversBulk,
