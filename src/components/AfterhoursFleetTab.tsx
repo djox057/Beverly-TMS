@@ -177,9 +177,22 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
               return (
                 <Card key={fleetKey}>
-                  <CardHeader className="p-3 sm:p-6">
+                  <CardHeader
+                    className="p-3 sm:p-6 cursor-pointer select-none"
+                    onClick={() => {
+                      setCollapsedCards(prev => {
+                        const next = new Set(prev);
+                        if (next.has(fleetKey)) next.delete(fleetKey); else next.add(fleetKey);
+                        return next;
+                      });
+                    }}
+                  >
                     <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {collapsedCards.has(fleetKey)
+                          ? <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        }
                         <span className="text-sm sm:text-base">
                           {fleet.user.full_name || fleet.user.email}
                         </span>
@@ -189,7 +202,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       </div>
 
                       {canManage && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           {selectedCount > 0 && (
                             <Button
                               size="sm"
@@ -212,7 +225,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       )}
                     </CardTitle>
                   </CardHeader>
-                  {!collapsed && (
+                  {!collapsedCards.has(fleetKey) && (
                   <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                     {filteredDrivers.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">
