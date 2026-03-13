@@ -184,10 +184,23 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
         return (
           <div key={dayData.date} className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </h3>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTestSms(dayData.date)}
+                  disabled={sendingSms === dayData.date}
+                >
+                  <MessageSquare className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">{sendingSms === dayData.date ? "Sending..." : "Test SMS"}</span>
+                </Button>
+              )}
+            </div>
 
             {filteredFleets.map((fleet) => {
               const filteredDrivers = filterDriversBySearch(fleet.drivers);
