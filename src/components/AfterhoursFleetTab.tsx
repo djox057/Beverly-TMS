@@ -303,6 +303,28 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Auto assign confirmation */}
+      <AlertDialog open={autoAssignConfirm} onOpenChange={setAutoAssignConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auto Assign Drivers</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will replace all current weekend assignments and automatically distribute drivers to weekend dispatchers by office. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setAutoAssignConfirm(false);
+                await autoAssignDrivers();
+              }}>
+              Auto Assign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>);
 
 };
