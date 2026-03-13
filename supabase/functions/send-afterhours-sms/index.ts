@@ -70,10 +70,15 @@ serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Get today in Chicago timezone
-    const chicagoTime = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
-    const chicagoDate = new Date(chicagoTime);
-    const todayStr = chicagoDate.toISOString().split('T')[0];
+    // Get target date (from body or Chicago timezone today)
+    let todayStr: string;
+    if (targetDate) {
+      todayStr = targetDate;
+    } else {
+      const chicagoTime = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+      const chicagoDate = new Date(chicagoTime);
+      todayStr = chicagoDate.toISOString().split('T')[0];
+    }
 
     console.log(`send-afterhours-sms: Chicago date=${todayStr}`);
 
