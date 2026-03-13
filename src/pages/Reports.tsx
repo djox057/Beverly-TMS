@@ -5912,14 +5912,19 @@ const Reports = () => {
                                         } else {
                                           // Non-Chromium: use pre-cached blob if available
                                           const cachedFile = docBlobCacheRef.current[file.id];
+                                          let added = false;
                                           if (cachedFile) {
                                             try {
-                                              e.dataTransfer.items.add(cachedFile);
+                                              const item = e.dataTransfer.items.add(cachedFile);
+                                              added = item !== null;
                                             } catch {
-                                              e.dataTransfer.setData("text/uri-list", signedUrl);
+                                              added = false;
                                             }
-                                          } else {
+                                          }
+                                          if (!added) {
+                                            // Fallback: set as downloadable link
                                             e.dataTransfer.setData("text/uri-list", signedUrl);
+                                            e.dataTransfer.setData("text/plain", signedUrl);
                                           }
                                         }
                                       }
