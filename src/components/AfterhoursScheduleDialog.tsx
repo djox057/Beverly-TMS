@@ -824,7 +824,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 </div>
                               ) : (
                                 <>
-                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[40vh]">
+                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[30vh]">
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
                                     const config = OFFICE_CONFIG[office];
