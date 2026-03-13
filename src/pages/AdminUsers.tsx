@@ -293,6 +293,7 @@ const AdminUsers = () => {
     setUserToEdit(user);
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
+    setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
     setIsEditDialogOpen(true);
