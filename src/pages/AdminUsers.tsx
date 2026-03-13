@@ -66,6 +66,7 @@ const AdminUsers = () => {
   const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   const filteredUsers = useMemo(() => {
