@@ -685,6 +685,8 @@ const Reports = () => {
 
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
+  const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
+  const { data: allDrivers } = useDrivers();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
