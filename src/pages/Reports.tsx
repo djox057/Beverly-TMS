@@ -3951,7 +3951,7 @@ const Reports = () => {
                                                       <p className="text-xs font-medium">2-Week Notice</p>
                                                       <p className="text-xs">
                                                         Last day:{" "}
-                                                        {format(new Date(truck.twoWeekBlockDate), "MMM dd, yyyy")}
+                                                        {format(new Date(truck.twoWeekBlockDate.split("T")[0] + "T00:00:00"), "MMM dd, yyyy")}
                                                       </p>
                                                     </PopoverContent>
                                                   </Popover>
