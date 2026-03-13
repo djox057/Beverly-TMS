@@ -588,12 +588,16 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-phone">Phone Number (Optional)</Label>
-                <Input
-                  id="new-phone"
-                  placeholder="e.g. +1 234 567 8900"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">+1</span>
+                  <Input
+                    id="new-phone"
+                    className="rounded-l-none"
+                    placeholder="234 567 8900"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-ext">Extension (Optional)</Label>
