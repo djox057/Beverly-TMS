@@ -5888,11 +5888,25 @@ const Reports = () => {
                                     download={file.file_name}
                                     draggable="true"
                                     className="flex-1 text-sm truncate no-underline text-foreground cursor-grab"
-                                    onDragStart={(e) => {
+                                    onDragStart={async (e) => {
                                       if (signedUrl) {
-                                        const ext = file.file_name.split('.').pop()?.toLowerCase() || "";
-                                        const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
-                                        e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
+                                        const isChromium = !!(window as any).chrome;
+                                        if (isChromium) {
+                                          const ext = file.file_name.split('.').pop()?.toLowerCase() || "";
+                                          const mimeType = ext === "pdf" ? "application/pdf" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : "application/octet-stream";
+                                          e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
+                                        } else {
+                                          // Firefox/Safari fallback: fetch blob and add as File
+                                          try {
+                                            const response = await fetch(signedUrl);
+                                            const blob = await response.blob();
+                                            const f = new File([blob], file.file_name, { type: blob.type });
+                                            e.dataTransfer.items.add(f);
+                                          } catch {
+                                            // Last resort: set plain text URL
+                                            e.dataTransfer.setData("text/uri-list", signedUrl);
+                                          }
+                                        }
                                       }
                                     }}
                                     onClick={async (e) => {
