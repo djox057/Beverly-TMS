@@ -2231,6 +2231,23 @@ const Reports = () => {
                       );
                     });
                   })}
+                  {isBlockDay && (
+                    <div
+                      className="bg-black border rounded flex items-center justify-center shrink-0 h-full"
+                      style={{
+                        width: allDeliveryOrders.length > 0 || sameDayOrders.length > 0
+                          ? `${100 / (totalDeliveryStops + 1)}%`
+                          : "100%",
+                      }}
+                    >
+                      <span
+                        className="text-[9px] font-bold text-white whitespace-nowrap"
+                        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                      >
+                        TWO WEEK
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 (() => {
