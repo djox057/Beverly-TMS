@@ -185,7 +185,8 @@ const AdminUsers = () => {
             fullName: fullName || email, 
             role,
             office: office || null,
-            ext: ext || null
+            ext: ext || null,
+            phoneNumber: phoneNumber || null
           })
         }
       );
