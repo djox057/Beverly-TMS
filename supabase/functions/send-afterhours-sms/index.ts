@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
-// TEST MODE: All SMS go to this number instead of real drivers
-const TEST_OVERRIDE_NUMBER = "+15742085611";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -183,8 +181,7 @@ serve(async (req) => {
 
       const message = `Good morning, your dispatcher for today will be ${lastName}, you can contact him directly via this number ${dispatcherPhone}`;
 
-      // TEST MODE: send to override number
-      const toNumber = TEST_OVERRIDE_NUMBER || driver.phone;
+      const toNumber = driver.phone;
 
       console.log(`Sending SMS to ${toNumber} (driver: ${driver.name}): ${message}`);
 
