@@ -20,18 +20,21 @@ export type Database = {
           assigned_at: string
           driver_id: string
           id: string
+          scheduled_date: string | null
         }
         Insert: {
           afterhours_user_id: string
           assigned_at?: string
           driver_id: string
           id?: string
+          scheduled_date?: string | null
         }
         Update: {
           afterhours_user_id?: string
           assigned_at?: string
           driver_id?: string
           id?: string
+          scheduled_date?: string | null
         }
         Relationships: [
           {
