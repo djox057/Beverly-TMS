@@ -201,6 +201,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       )}
                     </CardTitle>
                   </CardHeader>
+                  {!collapsed && (
                   <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                     {filteredDrivers.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">
@@ -243,6 +244,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       </div>
                     )}
                   </CardContent>
+                  )}
                 </Card>
               );
             })}
