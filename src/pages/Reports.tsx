@@ -5892,13 +5892,10 @@ const Reports = () => {
                       </PopoverTrigger>
                       {docFiles.length >= 1 && (
                         <PopoverContent className="w-64 p-2" align="start">
-                          <div className="text-sm font-semibold mb-2">{docFiles.length === 1 ? "File" : "Select File"} — drag to send</div>
+                          <div className="text-sm font-semibold mb-2">{docFiles.length === 1 ? "File" : "Select File"}</div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
                             {docFiles.map((file, idx) => {
                               const signedUrl = docSignedUrls[file.id];
-                              const ext = file.file_name.split(".").pop()?.toLowerCase() || "";
-                              const isImage = ext === "jpg" || ext === "jpeg" || ext === "png";
-                              const isDragEnabled = (doc === "BOL" || doc === "POD") && isImage;
 
                               return (
                                 <div
@@ -5908,38 +5905,7 @@ const Reports = () => {
                                   <a
                                     href={signedUrl || "#"}
                                     download={file.file_name}
-                                    draggable={isDragEnabled}
-                                    className={`flex-1 text-sm truncate no-underline text-foreground ${isDragEnabled ? "cursor-grab" : "cursor-pointer"}`}
-                                    onDragStart={(e) => {
-                                      if (!isDragEnabled || !signedUrl) {
-                                        e.preventDefault();
-                                        return;
-                                      }
-
-                                      const isChromium = !!(window as any).chrome;
-                                      const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-
-                                      if (isChromium) {
-                                        e.dataTransfer.setData("DownloadURL", `${mimeType}:${file.file_name}:${signedUrl}`);
-                                      } else {
-                                        const cachedFile = docBlobCacheRef.current[file.id];
-                                        let added = false;
-
-                                        if (cachedFile) {
-                                          try {
-                                            const item = e.dataTransfer.items.add(cachedFile);
-                                            added = item !== null;
-                                          } catch {
-                                            added = false;
-                                          }
-                                        }
-
-                                        if (!added) {
-                                          e.dataTransfer.setData("text/uri-list", signedUrl);
-                                          e.dataTransfer.setData("text/plain", signedUrl);
-                                        }
-                                      }
-                                    }}
+                                    className="flex-1 text-sm truncate no-underline text-foreground cursor-pointer"
                                     onClick={async (e) => {
                                       e.preventDefault();
                                       let url = signedUrl;
@@ -5956,7 +5922,7 @@ const Reports = () => {
                                       window.open(url, "_blank");
                                       setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                                     }}
-                                    title={isDragEnabled ? `${file.file_name} — drag to email/chat or click to open` : `${file.file_name} — click to open`}
+                                    title={`${file.file_name} — click to open`}
                                   >
                                     {idx + 1}. {file.file_name}
                                   </a>
