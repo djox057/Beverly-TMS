@@ -5872,7 +5872,7 @@ const Reports = () => {
                                     draggable="true"
                                     onDragStart={(e) => {
                                       if (signedUrl) {
-                                        const contentType = file.content_type || 'application/octet-stream';
+                                        const contentType = 'application/octet-stream';
                                         e.dataTransfer.setData('DownloadURL', `${contentType}:${file.file_name}:${signedUrl}`);
                                       }
                                     }}
