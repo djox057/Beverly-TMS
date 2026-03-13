@@ -577,7 +577,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </div>
 
           {/* Right side - Schedule for selected date */}
-          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-hidden min-h-0">
+          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-y-auto min-h-0">
             {selectedDate ? (
               <>
                 <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
