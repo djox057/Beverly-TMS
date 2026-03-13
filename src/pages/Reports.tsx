@@ -2112,7 +2112,7 @@ const Reports = () => {
                 }}
               >
                 <span
-                  className="text-[10px] font-normal text-white whitespace-pre-line leading-tight text-center"
+                  className="text-[10px] font-semibold text-white whitespace-pre-line leading-tight text-center tracking-wide"
                   style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
                 >
                   TWO WEEK{"\n"}NOTICE
@@ -3951,7 +3951,7 @@ const Reports = () => {
                                                       <p className="text-xs font-medium">2-Week Notice</p>
                                                       <p className="text-xs">
                                                         Last day:{" "}
-                                                        {format(new Date(truck.twoWeekBlockDate), "MMM dd, yyyy")}
+                                                        {format(new Date(truck.twoWeekBlockDate.split("T")[0] + "T00:00:00"), "MMM dd, yyyy")}
                                                       </p>
                                                     </PopoverContent>
                                                   </Popover>
