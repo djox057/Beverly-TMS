@@ -3825,7 +3825,7 @@ const Reports = () => {
                                     return (
                                       <th
                                         key={index}
-                                        className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
+                                        className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium relative ${blockDayIndicesInHeader.has(index) ? "bg-black text-white" : "text-muted-foreground bg-muted/50"}`}
                                         style={{
                                           width: "120px",
                                           minWidth: "120px",
@@ -3856,8 +3856,8 @@ const Reports = () => {
                                             }}
                                           />
                                         )}
-                                        <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
-                                        <div className="text-[9px] text-muted-foreground relative z-10">
+                                        <div className={`relative z-10 text-[10px] ${blockDayIndicesInHeader.has(index) ? "text-white" : ""}`}>{format(day, "EEEE")}</div>
+                                        <div className={`text-[9px] relative z-10 ${blockDayIndicesInHeader.has(index) ? "text-gray-300" : "text-muted-foreground"}`}>
                                           {format(day, "M/d/yyyy")}
                                         </div>
                                       </th>
