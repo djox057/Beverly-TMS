@@ -311,7 +311,8 @@ const AdminUsers = () => {
           role: editRole,
           fullName: editFullName,
           office: editOffice,
-          ext: editExt || null
+          ext: editExt || null,
+          phoneNumber: editPhoneNumber || null
         }
       });
 
