@@ -2096,12 +2096,30 @@ const Reports = () => {
           )}
 
           <div
-            className="flex flex-col relative"
+            className="flex flex-row relative"
             style={{
               width: "120px",
               height: "64px",
             }}
           >
+            {/* Two Week Notice vertical strip */}
+            {isBlockDay && (
+              <div
+                className="bg-black flex items-center justify-center shrink-0"
+                style={{
+                  width: (allDeliveryOrders.length > 0 || allPickupOrders.length > 0 || sameDayOrders.length > 0) ? "28px" : "100%",
+                  height: "64px",
+                }}
+              >
+                <span
+                  className="text-[8px] font-bold text-white whitespace-nowrap leading-tight text-center"
+                  style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                >
+                  TWO WEEK NOTICE
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col flex-1 min-w-0">
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
             <div
               className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? "" : "bg-muted"} overflow-hidden`}
