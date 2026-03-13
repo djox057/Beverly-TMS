@@ -2104,14 +2104,14 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
             <div
-              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
+              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? "" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
+              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 || isBlockDay ? (
                 <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {allDeliveryOrders.flatMap((order) => {
                     // Get all delivery stops for this day
