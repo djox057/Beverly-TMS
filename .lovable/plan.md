@@ -1,31 +1,22 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Fix Display Issue: Adding Dispatchers Beyond Office Thresholds
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+### Problem
+In the AfterhoursScheduleDialog, when an office already has its threshold met (3 KG, 2 CA, 2 BG) and the user clicks "+" to add more, the add section may be clipped or invisible. This happens because:
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+1. The existing schedules `ScrollArea` has `max-h-[60vh]`
+2. The add section `ScrollArea` has `max-h-48 sm:max-h-[40vh]`
+3. Together they can total up to 100vh inside a 90vh dialog, causing the add section to overflow below the visible area
+4. The parent container has `overflow-hidden min-h-0` which clips the overflowing content
 
-**Before:**
-```typescript
-.select("*")
-```
+### Fix in `src/components/AfterhoursScheduleDialog.tsx`
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
+1. **Reduce the existing schedules ScrollArea max-height** when the add section is also visible — change from `max-h-[60vh]` to a smaller value like `max-h-[35vh]` when `needsMoreDispatchers || forceShowOffice` is true, keeping `max-h-[60vh]` when only viewing existing schedules.
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+2. **Make the right-side column scrollable** — change the right column from `overflow-hidden` to `overflow-y-auto` so both sections can be reached by scrolling.
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+3. **Adjust the add section ScrollArea** — reduce `max-h-48 sm:max-h-[40vh]` to `max-h-48 sm:max-h-[30vh]` to better share space.
+
+This ensures both the existing schedule list and the "add more" checkboxes are visible and scrollable within the dialog.
 
