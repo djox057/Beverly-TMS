@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.update-truck-distances]
 verify_jwt = false
+
+[functions.send-afterhours-sms]
+verify_jwt = false
