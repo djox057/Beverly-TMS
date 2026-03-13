@@ -406,6 +406,30 @@ export const useAfterhoursAssignments = () => {
     }
   };
 
+  const unassignAll = async () => {
+    try {
+      setLoading(true);
+      // Delete assignments for current weekend dates
+      const { error: e1 } = await supabase
+        .from('afterhours_assignments')
+        .delete()
+        .in('scheduled_date', weekendDates);
+      if (e1) throw e1;
+      // Also clear legacy null-date assignments
+      await supabase
+        .from('afterhours_assignments')
+        .delete()
+        .is('scheduled_date', null);
+      toast({ title: "Success", description: "All weekend assignments cleared" });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error unassigning all:', error);
+      toast({ title: "Error", description: error.message || "Failed to unassign all", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     afterhoursFleets,
     afterhoursFleetsByDay,
@@ -417,6 +441,7 @@ export const useAfterhoursAssignments = () => {
     removeDriver,
     removeDriversBulk,
     autoAssignDrivers,
+    unassignAll,
     refetch: fetchData,
   };
 };

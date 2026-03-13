@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Plus, Truck, Trash2, Wand2 } from "lucide-react";
+import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX } from "lucide-react";
 import { useAfterhoursAssignments, AfterhoursFleet } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
@@ -17,13 +17,15 @@ interface AfterhoursFleetTabProps {
 }
 
 const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
-  const { afterhoursFleetsByDay, allDriversWithTrucks, loading, assignDriversBulk, removeDriver, removeDriversBulk, autoAssignDrivers } = useAfterhoursAssignments();
+  const { afterhoursFleetsByDay, allDriversWithTrucks, weekendDates, loading, assignDriversBulk, removeDriver, removeDriversBulk, autoAssignDrivers, unassignAll } = useAfterhoursAssignments();
   const [assignDialogUserId, setAssignDialogUserId] = useState<string | null>(null);
   const [assignDialogDate, setAssignDialogDate] = useState<string | null>(null);
   const [driverToRemove, setDriverToRemove] = useState<{afterhoursUserId: string; driverId: string; driverName: string; scheduledDate: string;} | null>(null);
   const [selectedForRemoval, setSelectedForRemoval] = useState<Record<string, Set<string>>>({});
   const [bulkRemoveConfirm, setBulkRemoveConfirm] = useState<{afterhoursUserId: string; count: number; scheduledDate: string;} | null>(null);
   const [autoAssignConfirm, setAutoAssignConfirm] = useState(false);
+  const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
 
@@ -105,7 +107,25 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   return (
     <div className="space-y-4">
       {canManage && hasAnyFleets && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCollapsed(prev => !prev)}
+          >
+            {collapsed ? <ChevronsUpDown className="h-4 w-4 sm:mr-1" /> : <ChevronsDownUp className="h-4 w-4 sm:mr-1" />}
+            <span className="hidden sm:inline">{collapsed ? "Expand All" : "Collapse All"}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setUnassignAllConfirm(true)}
+            disabled={loading}
+          >
+            <UserX className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Unassign All</span>
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -181,6 +201,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       )}
                     </CardTitle>
                   </CardHeader>
+                  {!collapsed && (
                   <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                     {filteredDrivers.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-2">
@@ -223,6 +244,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       </div>
                     )}
                   </CardContent>
+                  )}
                 </Card>
               );
             })}
@@ -318,6 +340,30 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
               }}
             >
               Auto Assign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unassign all confirmation */}
+      <AlertDialog open={unassignAllConfirm} onOpenChange={setUnassignAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unassign All Drivers</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all driver assignments from all weekend dispatchers. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                setUnassignAllConfirm(false);
+                await unassignAll();
+              }}
+            >
+              Unassign All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
