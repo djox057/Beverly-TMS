@@ -29,8 +29,32 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
 
   const canManage = hasRole("admin") || hasRole("manager");
+
+  const handleSendSms = async (targetDate?: string) => {
+    setSendingSms(true);
+    try {
+      const body: any = {};
+      if (targetDate) body.target_date = targetDate;
+      const { data, error } = await supabase.functions.invoke('send-afterhours-sms', { body });
+      if (error) throw error;
+      const results = data?.results || [];
+      const sent = results.filter((r: any) => r.status === 'sent').length;
+      const failed = results.filter((r: any) => r.status === 'failed').length;
+      const skipped = results.filter((r: any) => r.status === 'skipped').length;
+      toast.success(`SMS sent: ${sent}, failed: ${failed}, skipped: ${skipped}`);
+      if (failed > 0) {
+        console.error('SMS failures:', results.filter((r: any) => r.status === 'failed'));
+      }
+    } catch (err: any) {
+      console.error('Send SMS error:', err);
+      toast.error(`Failed to send SMS: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSendingSms(false);
+    }
+  };
 
   const filterFleets = (fleets: AfterhoursFleet[]) =>
     fleets.filter((fleet) => {
