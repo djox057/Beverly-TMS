@@ -153,7 +153,47 @@ serve(async (req) => {
     const { access_token } = await authResponse.json();
     console.log('RingCentral authenticated');
 
-    // Send SMS for each assignment
+    // Helper: delay between messages to avoid RingCentral rate limits
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper: send SMS with retry on rate limit
+    const sendSmsWithRetry = async (toNumber: string, message: string, driverName: string, retries = 3): Promise<{ status: string; driver: string; messageId?: string; error?: string }> => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        const smsResponse = await fetch(`${SERVER_URL}/restapi/v1.0/account/~/extension/~/sms`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: { phoneNumber: FROM_NUMBER },
+            to: [{ phoneNumber: toNumber }],
+            text: message
+          })
+        });
+
+        if (smsResponse.ok) {
+          const data = await smsResponse.json();
+          console.log(`SMS sent for ${driverName}, id: ${data.id}`);
+          return { driver: driverName, status: 'sent', messageId: data.id };
+        }
+
+        const err = await smsResponse.text();
+        if (err.includes('CMN-301') && attempt < retries - 1) {
+          // Rate limited — wait longer before retry
+          const backoff = (attempt + 1) * 3000;
+          console.log(`Rate limited for ${driverName}, retrying in ${backoff}ms (attempt ${attempt + 1}/${retries})`);
+          await delay(backoff);
+          continue;
+        }
+
+        console.error(`SMS failed for ${driverName}:`, err);
+        return { driver: driverName, status: 'failed', error: err };
+      }
+      return { driver: driverName, status: 'failed', error: 'Max retries exceeded' };
+    };
+
+    // Send SMS for each assignment with 1.5s spacing
     const results = [];
     for (const assignment of assignments) {
       const dispatcher = profileMap.get(assignment.afterhours_user_id);
@@ -182,30 +222,14 @@ serve(async (req) => {
       const message = `Good morning, your dispatcher for today will be ${lastName}, you can contact him directly via this number ${dispatcherPhone}`;
 
       const toNumber = driver.phone;
+      console.log(`Sending SMS to ${toNumber} (driver: ${driver.name})`);
 
-      console.log(`Sending SMS to ${toNumber} (driver: ${driver.name}): ${message}`);
+      const result = await sendSmsWithRetry(toNumber, message, driver.name);
+      results.push(result);
 
-      const smsResponse = await fetch(`${SERVER_URL}/restapi/v1.0/account/~/extension/~/sms`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: { phoneNumber: FROM_NUMBER },
-          to: [{ phoneNumber: toNumber }],
-          text: message
-        })
-      });
-
-      if (!smsResponse.ok) {
-        const err = await smsResponse.text();
-        console.error(`SMS failed for ${driver.name}:`, err);
-        results.push({ driver: driver.name, status: 'failed', error: err });
-      } else {
-        const data = await smsResponse.json();
-        console.log(`SMS sent for ${driver.name}, id: ${data.id}`);
-        results.push({ driver: driver.name, status: 'sent', messageId: data.id });
+      // Wait 1.5s between messages to stay under RingCentral rate limit
+      if (results.length < assignments.length) {
+        await delay(1500);
       }
     }
 
