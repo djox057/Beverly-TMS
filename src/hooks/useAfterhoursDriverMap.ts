@@ -48,10 +48,11 @@ export const useAfterhoursDriverMap = () => {
 
         setIsWeekendWindow(true);
 
-        // Fetch assignments and profiles
+        // Fetch assignments for today only
         const { data: assignData, error: assignErr } = await supabase
           .from('afterhours_assignments')
-          .select('afterhours_user_id, driver_id');
+          .select('afterhours_user_id, driver_id')
+          .eq('scheduled_date', todayStr);
 
         if (assignErr) throw assignErr;
         if (!assignData || assignData.length === 0) {
