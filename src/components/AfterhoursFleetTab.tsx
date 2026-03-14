@@ -172,6 +172,15 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
             <Wand2 className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">Auto Assign</span>
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleSendSms()}
+            disabled={sendingSms}
+          >
+            <MessageSquare className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">{sendingSms ? "Sending..." : "Send SMS"}</span>
+          </Button>
         </div>
       )}
 
