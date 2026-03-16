@@ -135,21 +135,59 @@ export function DateTimeRangePicker({
                 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Start Time</label>
+                    <label className="text-xs text-muted-foreground">Start Time (24h)</label>
                     <Input
-                      type="time"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="00:00"
                       value={startTime}
-                      onChange={(e) => onStartTimeChange?.(e.target.value)}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/[^0-9:]/g, '');
+                        if (value.length === 2 && !value.includes(':')) {
+                          value = value + ':';
+                        }
+                        if (value.length <= 5) {
+                          onStartTimeChange?.(value);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value;
+                        const match = value.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                        if (match) {
+                          const hours = match[1].padStart(2, '0');
+                          const minutes = match[2];
+                          onStartTimeChange?.(`${hours}:${minutes}`);
+                        }
+                      }}
                       className="text-sm"
                     />
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">End Time</label>
+                    <label className="text-xs text-muted-foreground">End Time (24h)</label>
                     <Input
-                      type="time"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="00:00"
                       value={endTime}
-                      onChange={(e) => onEndTimeChange?.(e.target.value)}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/[^0-9:]/g, '');
+                        if (value.length === 2 && !value.includes(':')) {
+                          value = value + ':';
+                        }
+                        if (value.length <= 5) {
+                          onEndTimeChange?.(value);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value;
+                        const match = value.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                        if (match) {
+                          const hours = match[1].padStart(2, '0');
+                          const minutes = match[2];
+                          onEndTimeChange?.(`${hours}:${minutes}`);
+                        }
+                      }}
                       className="text-sm"
                     />
                   </div>
