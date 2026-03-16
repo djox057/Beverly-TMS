@@ -21,6 +21,7 @@ interface TransitRecord {
   statusAbbreviation?: string;
   hosUtcTimestamp?: string;
   utcTimestamp?: string;
+  fuel?: number;
 }
 
 interface HosUpdate {
