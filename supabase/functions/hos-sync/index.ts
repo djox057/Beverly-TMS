@@ -21,6 +21,7 @@ interface TransitRecord {
   statusAbbreviation?: string;
   hosUtcTimestamp?: string;
   utcTimestamp?: string;
+  fuel?: number;
 }
 
 interface HosUpdate {
@@ -190,6 +191,7 @@ serve(async (req) => {
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select(`
+        id,
         truck_number,
         driver1_id,
         driver2_id,
@@ -209,18 +211,22 @@ serve(async (req) => {
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     
     const updates: HosUpdate[] = [];
+    const fuelUpdates: { id: string; fuel: number }[] = [];
 
     for (const truck of trucks) {
       const driversToUpdate = [truck.driver1, truck.driver2].filter(Boolean);
+      const truckNum = truck.truck_number;
+      const normalizedTruckNum = normalizeTruckNumber(truckNum);
+      const hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
+
+      // Collect fuel level for this truck regardless of driver HOS validity
+      if (hosData && hosData.fuel != null) {
+        fuelUpdates.push({ id: truck.id, fuel: Math.round(hosData.fuel) });
+      }
       
       for (const driver of driversToUpdate) {
         if (driver && typeof driver === 'object' && 'id' in driver) {
-          const truckNum = truck.truck_number;
-          const normalizedTruckNum = normalizeTruckNumber(truckNum);
-          const hosData = byOriginal[truckNum] || byNormalized[normalizedTruckNum];
-          
           if (hosData && isValidHosRecord(hosData)) {
-            // Valid HOS data from API — update with real values
             updates.push({
               id: driver.id as string,
               drive: hosData.minsTillDriving || 0,
@@ -231,10 +237,6 @@ serve(async (req) => {
               updated: timestamp
             });
           } else if (hosData && !isValidHosRecord(hosData)) {
-            // API knows this truck but returned zeroed/invalid HOS data.
-            // This typically means the driver completed a full reset.
-            // Update status but preserve the last valid timer values
-            // by only writing status + timestamp (not zeroing timers).
             updates.push({
               id: driver.id as string,
               drive: -1,
@@ -249,7 +251,7 @@ serve(async (req) => {
       }
     }
 
-    // Single batch RPC call instead of ~50 individual updates
+    // Single batch RPC call for driver HOS updates
     let updatedCount = 0;
     if (updates.length > 0) {
       const { data: count, error: rpcError } = await supabase.rpc('bulk_update_hos', {
@@ -262,6 +264,14 @@ serve(async (req) => {
       }
       updatedCount = count || 0;
       console.log(`Batch updated ${updatedCount} drivers in 1 query`);
+    }
+
+    // Batch update truck fuel levels
+    if (fuelUpdates.length > 0) {
+      await Promise.all(fuelUpdates.map(u =>
+        supabase.from('trucks').update({ fuel_level: u.fuel }).eq('id', u.id)
+      ));
+      console.log(`Updated fuel levels for ${fuelUpdates.length} trucks`);
     }
 
     console.log(`HOS sync complete. ${updatedCount} drivers updated from ${allApiData.length} API records.`);
