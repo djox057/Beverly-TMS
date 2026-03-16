@@ -803,7 +803,14 @@ const Orders = () => {
     numeric: true
   }));
   const uniqueDrivers = (drivers || []).map((d: any) => d.name).filter(Boolean).sort();
-  const uniqueBrokers = (brokers || []).map((b: any) => b.name).filter(Boolean).sort();
+  const uniqueBrokerOptions = (brokers || [])
+    .filter((b: any) => b.name)
+    .sort((a: any, b: any) => a.name.localeCompare(b.name))
+    .map((b: any) => ({
+      value: b.name,
+      label: b.mc_number ? `${b.name} (MC: ${b.mc_number})` : b.name,
+      searchText: `${b.name} ${b.mc_number || ""}`.toLowerCase(),
+    }));
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
