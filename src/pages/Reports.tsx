@@ -4900,7 +4900,7 @@ const Reports = () => {
                                             </div>
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
+                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground text-center ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                             style={{
                                               width: "80px",
                                               minWidth: "80px",
