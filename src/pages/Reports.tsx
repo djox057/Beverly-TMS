@@ -4854,35 +4854,11 @@ const Reports = () => {
                                                 </Popover>
                                               )}
                                               {/* Fuel Indicator */}
-                                              <div className="flex flex-col items-center" style={{ width: 31 }}>
-                                                <div className="relative" style={{ width: 31, height: 31 }}>
-                                                  <Fuel
-                                                    size={18}
-                                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-                                                    style={{
-                                                      color: (truck.fuelLevel != null && truck.fuelLevel < 10) ? '#ef4444' : 'hsl(var(--muted-foreground))',
-                                                    }}
-                                                  />
-                                                  {truck.fuelLevel != null && (
-                                                    <svg className="absolute inset-0" width={31} height={31} viewBox="0 0 31 31">
-                                                      <rect
-                                                        x={3} y={3} width={25} height={25} rx={4}
-                                                        fill="none"
-                                                        stroke="hsl(var(--border))"
-                                                        strokeWidth={2}
-                                                      />
-                                                      <rect
-                                                        x={3}
-                                                        y={3 + 25 * (1 - truck.fuelLevel / 100)}
-                                                        width={25}
-                                                        height={25 * (truck.fuelLevel / 100)}
-                                                        rx={4}
-                                                        fill={truck.fuelLevel < 10 ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}
-                                                      />
-                                                    </svg>
-                                                  )}
-                                                </div>
-                                                <span className={`text-[8px] tabular-nums leading-none ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                              <div className="relative flex items-center justify-center" style={{ width: 31, height: 42 }}>
+                                                <img src={gasStationIcon} alt="fuel" className="w-[31px] h-[31px] opacity-60" style={{
+                                                  filter: (truck.fuelLevel != null && truck.fuelLevel < 10) ? 'invert(22%) sepia(95%) saturate(6000%) hue-rotate(355deg) brightness(95%) contrast(95%)' : undefined,
+                                                }} />
+                                                <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive' : 'text-foreground'}`}>
                                                   {truck.fuelLevel != null ? `${truck.fuelLevel}%` : '—'}
                                                 </span>
                                               </div>

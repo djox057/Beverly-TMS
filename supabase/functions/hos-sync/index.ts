@@ -237,15 +237,8 @@ serve(async (req) => {
               updated: timestamp
             });
           } else if (hosData && !isValidHosRecord(hosData)) {
-            updates.push({
-              id: driver.id as string,
-              drive: -1,
-              shift: -1,
-              break: -1,
-              cycle: -1,
-              status: hosData.statusAbbreviation || 'OFF',
-              updated: timestamp
-            });
+            // Skip updating HOS for invalid timestamps - keep previous valid data
+            console.log(`Skipping HOS update for driver ${driver.id} - invalid timestamp`);
           }
         }
       }
