@@ -1,31 +1,42 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+# Add Fuel Level to Trucks via HOS Sync
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+## Database Change
+Add a `fuel_level` integer column (nullable) to the `trucks` table to store the fuel percentage from the Transit Tracking API.
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
-
-**Before:**
-```typescript
-.select("*")
+```sql
+ALTER TABLE public.trucks ADD COLUMN fuel_level integer;
 ```
 
-**After:**
+## Edge Function: `hos-sync/index.ts`
+
+1. **Update `TransitRecord` interface** — add `fuel?: number`
+2. **After matching a truck to API data**, write the fuel value to the truck record
+3. Since HOS sync currently updates `drivers` (not trucks), we need a separate batch update for trucks' fuel levels
+4. Collect `{ truck_id, fuel_level }` pairs during the truck loop, then do a single batch update on the `trucks` table at the end
+
+### Implementation detail:
+- In the main truck loop, after matching `hosData` for a truck, capture `hosData.fuel` (it's already a number, 0-100 range based on the sample data)
+- After the driver HOS updates, run a batch update: `UPDATE trucks SET fuel_level = X WHERE id = Y` for all matched trucks
+- Use a simple `.upsert()` or loop of `.update()` calls, or a new small RPC. Given the truck count is manageable (~50-100), a single `Promise.all` of individual updates or a simple RPC is fine.
+
+### Simplest approach — direct updates in a loop:
 ```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
+const fuelUpdates: { id: string; fuel: number }[] = [];
+// In truck loop:
+if (hosData) fuelUpdates.push({ id: truck.id, fuel: hosData.fuel ?? 0 });
+// After driver updates:
+if (fuelUpdates.length) {
+  await Promise.all(fuelUpdates.map(u =>
+    supabase.from('trucks').update({ fuel_level: u.fuel }).eq('id', u.id)
+  ));
+}
 ```
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+## Files Changed
+1. **Migration** — add `fuel_level` column to `trucks`
+2. **`supabase/functions/hos-sync/index.ts`** — add `fuel` to interface, collect fuel per truck, batch update trucks table
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+No UI changes needed yet (fuel display can be added separately).
 
