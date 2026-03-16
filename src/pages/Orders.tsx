@@ -1289,13 +1289,10 @@ const Orders = () => {
                 }))]} className="w-full" />
 
                   {/* Column 5 Row 2: Brokers */}
-                  <Combobox value={brokerFilter} onValueChange={setBrokerFilter} placeholder="All Brokers" searchPlaceholder="Search brokers..." options={[{
+                  <Combobox value={brokerFilter} onValueChange={setBrokerFilter} placeholder="All Brokers" searchPlaceholder="Search by name or MC#..." options={[{
                   value: "all-brokers",
                   label: "All Brokers"
-                }, ...uniqueBrokers.map(broker => ({
-                  value: broker,
-                  label: broker
-                }))]} className="w-full" />
+                }, ...uniqueBrokerOptions]} className="w-full" />
 
                   {/* Column 6 Row 2: Show Invoiced - hidden for dispatch/afterhours */}
                   {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <div className="flex flex-col gap-1">
