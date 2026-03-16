@@ -191,6 +191,7 @@ serve(async (req) => {
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
       .select(`
+        id,
         truck_number,
         driver1_id,
         driver2_id,
