@@ -1997,12 +1997,8 @@ export const useReports = (options?: UseReportsOptions) => {
             randomDrugTestDate: driver.random_drug_test_date || null,
             doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
-            lastEdit: driverNote?.updated_at
-              ? new Date(driverNote.updated_at).toLocaleTimeString()
-              : new Date().toLocaleTimeString(),
-            editDate: driverNote?.updated_at
-              ? new Date(driverNote.updated_at).toLocaleDateString()
-              : new Date().toLocaleDateString(),
+            lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); })(),
+            editDate: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; })(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
