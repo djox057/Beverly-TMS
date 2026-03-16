@@ -3817,18 +3817,18 @@ const Reports = () => {
                                     colSpan={4}
                                     className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
                                     style={{
-                                      width: "220px",
-                                      minWidth: "220px",
-                                      maxWidth: "220px",
+                                      width: "260px",
+                                      minWidth: "260px",
+                                      maxWidth: "260px",
                                     }}
                                   >
                                     Away (D) | Drive | Shift | Break | Cycle
                                   </th>
-                                  <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
+                                  <th className="border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[52px] min-w-[52px] max-w-[52px]">
                                     Last Edit
                                   </th>
                                   <th
-                                    className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? "border-r border-border" : ""}`}
+                                    className={`border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[48px] min-w-[48px] max-w-[48px] ${sidebarOpen ? "border-r border-border" : ""}`}
                                   >
                                     Date
                                   </th>
@@ -4870,21 +4870,21 @@ const Reports = () => {
                                             </div>
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
+                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground`}
                                             style={{
-                                              width: "80px",
-                                              minWidth: "80px",
-                                              maxWidth: "80px",
+                                              width: "52px",
+                                              minWidth: "52px",
+                                              maxWidth: "52px",
                                             }}
                                           >
                                             {truck.lastEdit}
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
+                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                             style={{
-                                              width: "80px",
-                                              minWidth: "80px",
-                                              maxWidth: "80px",
+                                              width: "48px",
+                                              minWidth: "48px",
+                                              maxWidth: "48px",
                                             }}
                                           >
                                             {activeTab === "Recovery" &&
