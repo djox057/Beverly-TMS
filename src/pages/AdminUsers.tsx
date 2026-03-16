@@ -466,6 +466,26 @@ const AdminUsers = () => {
         </div>
         
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              setIsHosInspectOpen(true);
+              setHosInspectLoading(true);
+              setHosInspectData(null);
+              try {
+                const { data, error } = await supabase.functions.invoke('hos-api-inspect');
+                if (error) throw error;
+                setHosInspectData(data);
+              } catch (err: any) {
+                toast({ title: "Error", description: err.message || "Failed to inspect HOS API", variant: "destructive" });
+              } finally {
+                setHosInspectLoading(false);
+              }
+            }}
+          >
+            <Microscope className="mr-2 h-4 w-4" />
+            Inspect HOS API
+          </Button>
           <Button variant="outline" onClick={fetchUsers}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
