@@ -19,6 +19,7 @@ import {
 interface Option {
   value: string;
   label: string;
+  searchText?: string;
 }
 
 interface ComboboxProps {
