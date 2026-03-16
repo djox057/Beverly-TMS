@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.send-afterhours-sms]
 verify_jwt = false
+
+[functions.hos-api-inspect]
+verify_jwt = false
