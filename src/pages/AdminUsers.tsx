@@ -59,6 +59,9 @@ const AdminUsers = () => {
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [isHosInspectOpen, setIsHosInspectOpen] = useState(false);
+  const [hosInspectLoading, setHosInspectLoading] = useState(false);
+  const [hosInspectData, setHosInspectData] = useState<any>(null);
   
   // Form state
   const [email, setEmail] = useState("");
