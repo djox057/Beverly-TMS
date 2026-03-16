@@ -3825,7 +3825,7 @@ const Reports = () => {
                                     Away (D) | Drive | Shift | Break | Cycle | Fuel
                                   </th>
                                   <th
-                                    className={`border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[80px] min-w-[80px] max-w-[80px] ${sidebarOpen ? "border-r border-border" : ""}`}
+                                    className={`border-t border-b-[3px] border-gray-400 px-1 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 w-[80px] min-w-[80px] max-w-[80px] ${sidebarOpen ? "border-r border-border" : ""}`}
                                   >
                                     Last Edit
                                   </th>
