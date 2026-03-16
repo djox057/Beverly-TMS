@@ -523,8 +523,7 @@ export const useReports = (options?: UseReportsOptions) => {
 
       const now = new Date();
       const nowIso = now.toISOString();
-      const lastEdit = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const editDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const lastEdit = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
 
       // New note object for cache patch
       const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };

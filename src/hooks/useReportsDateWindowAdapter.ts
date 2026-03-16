@@ -1683,6 +1683,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         lost_day_notes: driverLostNotes,
         lostDayNotes: driverLostNotes,
         milesAway: truck?.miles_away || 0,
+        fuelLevel: truck?.fuel_level ?? null,
         totalMiles: currentOrder?.loaded_miles || 0,
         goingYard: driver.going_yard || false,
         isOffDutyDriver: false,
