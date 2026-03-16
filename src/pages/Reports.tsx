@@ -4859,7 +4859,7 @@ const Reports = () => {
                                                 <img src={gasStationIcon} alt="fuel" className="w-[31px] h-[31px] opacity-60" style={{
                                                   filter: (truck.fuelLevel != null && truck.fuelLevel < 10) ? 'invert(22%) sepia(95%) saturate(6000%) hue-rotate(355deg) brightness(95%) contrast(95%)' : undefined,
                                                 }} />
-                                                <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive' : 'text-foreground'}`}>
+                                                <span className={`absolute inset-0 flex items-center justify-center text-[8px] font-bold tabular-nums ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive' : 'text-foreground'}`} style={{ paddingTop: 2 }}>
                                                   {truck.fuelLevel != null ? `${truck.fuelLevel}%` : '—'}
                                                 </span>
                                               </div>
