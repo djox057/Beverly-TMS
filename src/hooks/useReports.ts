@@ -353,7 +353,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note: note.trim(), lastEdit, editDate };
+              return { ...truck, note: note.trim(), lastEdit };
             }
             return truck;
           }),
