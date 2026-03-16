@@ -65,6 +65,7 @@ import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
 import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
 import weeklyPlanIcon from "@/assets/weekly-plan-icon.png";
+import gasStationIcon from "@/assets/gas-station.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
