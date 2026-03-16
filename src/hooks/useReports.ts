@@ -337,8 +337,7 @@ export const useReports = (options?: UseReportsOptions) => {
       const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-truck-notes"] });
 
       const now = new Date();
-      const lastEdit = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const editDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const lastEdit = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
       const nowIso = now.toISOString();
 
       // Determine the actual driverId for adapter cache update
@@ -354,7 +353,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note: note.trim(), lastEdit, editDate };
+              return { ...truck, note: note.trim(), lastEdit };
             }
             return truck;
           }),
@@ -524,8 +523,7 @@ export const useReports = (options?: UseReportsOptions) => {
 
       const now = new Date();
       const nowIso = now.toISOString();
-      const lastEdit = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const editDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+      const lastEdit = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
 
       // New note object for cache patch
       const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
@@ -549,7 +547,6 @@ export const useReports = (options?: UseReportsOptions) => {
               lost_day_notes: updatedNotes,
               lostDayNotes: updatedNotes,
               lastEdit,
-              editDate,
             };
           }),
         }));
@@ -1681,8 +1678,7 @@ export const useReports = (options?: UseReportsOptions) => {
               twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
-              lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); })(),
-              editDate: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; })(),
+              lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
@@ -1997,8 +1993,7 @@ export const useReports = (options?: UseReportsOptions) => {
             randomDrugTestDate: driver.random_drug_test_date || null,
             doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
-            lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); })(),
-            editDate: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; })(),
+            lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
@@ -2306,8 +2301,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 randomDrugTestDate: null,
                 doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: "",
-                lastEdit: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                editDate: (() => { const d = new Date(); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; })(),
+                lastEdit: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
                 allOrders: allOrdersWithStops,
                 activeOrders: allOrdersWithStops.filter(o => o.isActive),
                 activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,

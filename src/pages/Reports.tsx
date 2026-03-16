@@ -3817,20 +3817,17 @@ const Reports = () => {
                                     colSpan={4}
                                     className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
                                     style={{
-                                      width: "260px",
-                                      minWidth: "260px",
-                                      maxWidth: "260px",
+                                      width: "300px",
+                                      minWidth: "300px",
+                                      maxWidth: "300px",
                                     }}
                                   >
-                                    Away (D) | Drive | Shift | Break | Cycle
-                                  </th>
-                                  <th className="border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[52px] min-w-[52px] max-w-[52px]">
-                                    Last Edit
+                                    Away (D) | Drive | Shift | Break | Cycle | Fuel
                                   </th>
                                   <th
-                                    className={`border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[48px] min-w-[48px] max-w-[48px] ${sidebarOpen ? "border-r border-border" : ""}`}
+                                    className={`border-t border-b-[3px] border-gray-400 px-1 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-[80px] min-w-[80px] max-w-[80px] ${sidebarOpen ? "border-r border-border" : ""}`}
                                   >
-                                    Date
+                                    Last Edit
                                   </th>
                                 </tr>
                               </thead>
@@ -4856,6 +4853,39 @@ const Reports = () => {
                                                   </PopoverContent>
                                                 </Popover>
                                               )}
+                                              {/* Fuel Indicator */}
+                                              <div className="flex flex-col items-center" style={{ width: 31 }}>
+                                                <div className="relative" style={{ width: 31, height: 31 }}>
+                                                  <Fuel
+                                                    size={18}
+                                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                                                    style={{
+                                                      color: (truck.fuelLevel != null && truck.fuelLevel < 10) ? '#ef4444' : 'hsl(var(--muted-foreground))',
+                                                    }}
+                                                  />
+                                                  {truck.fuelLevel != null && (
+                                                    <svg className="absolute inset-0" width={31} height={31} viewBox="0 0 31 31">
+                                                      <rect
+                                                        x={3} y={3} width={25} height={25} rx={4}
+                                                        fill="none"
+                                                        stroke="hsl(var(--border))"
+                                                        strokeWidth={2}
+                                                      />
+                                                      <rect
+                                                        x={3}
+                                                        y={3 + 25 * (1 - truck.fuelLevel / 100)}
+                                                        width={25}
+                                                        height={25 * (truck.fuelLevel / 100)}
+                                                        rx={4}
+                                                        fill={truck.fuelLevel < 10 ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}
+                                                      />
+                                                    </svg>
+                                                  )}
+                                                </div>
+                                                <span className={`text-[8px] tabular-nums leading-none ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                                  {truck.fuelLevel != null ? `${truck.fuelLevel}%` : '—'}
+                                                </span>
+                                              </div>
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField
@@ -4870,27 +4900,16 @@ const Reports = () => {
                                             </div>
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground`}
-                                            style={{
-                                              width: "52px",
-                                              minWidth: "52px",
-                                              maxWidth: "52px",
-                                            }}
-                                          >
-                                            {truck.lastEdit}
-                                          </td>
-                                          <td
                                             className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                             style={{
-                                              width: "48px",
-                                              minWidth: "48px",
-                                              maxWidth: "48px",
+                                              width: "80px",
+                                              minWidth: "80px",
+                                              maxWidth: "80px",
                                             }}
                                           >
                                             {activeTab === "Recovery" &&
                                               truck.activeOrders?.some((o: any) => {
                                                 const order = o as any;
-                                                // Hide Revert button if POD is uploaded
                                                 const hasPOD = order.order_files?.some(
                                                   (file: any) => file.file_category === "POD",
                                                 );
@@ -4902,7 +4921,6 @@ const Reports = () => {
                                                   className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
                                                   onClick={async (e) => {
                                                     e.stopPropagation();
-                                                    // Revert recovery load
                                                     const recoveryOrder = truck.activeOrders.find((o: any) => {
                                                       const order = o as any;
                                                       const hasPOD = order.order_files?.some(
@@ -4915,7 +4933,6 @@ const Reports = () => {
                                                     try {
                                                       const order = recoveryOrder as any;
 
-                                                      // Get recovery history from the table
                                                       const { data: recoveryHistory, error: historyError } =
                                                         await supabase
                                                           .from("recovery_history")
@@ -4935,7 +4952,6 @@ const Reports = () => {
                                                         return;
                                                       }
 
-                                                      // Revert the order to original assignment
                                                       const { error: orderError } = await supabase
                                                         .from("orders")
                                                         .update({
@@ -4960,7 +4976,6 @@ const Reports = () => {
 
                                                       if (orderError) throw orderError;
 
-                                                      // Update the original truck - reassign original drivers and clear recovery status
                                                       const { error: truckError } = await supabase
                                                         .from("trucks")
                                                         .update({
@@ -4973,7 +4988,6 @@ const Reports = () => {
 
                                                       if (truckError) throw truckError;
 
-                                                      // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
                                                       if (
                                                         recoveryHistory.original_driver1_id &&
                                                         recoveryHistory.original_dispatcher_id
@@ -4988,13 +5002,11 @@ const Reports = () => {
                                                         if (dispatcherError) throw dispatcherError;
                                                       }
 
-                                                      // Delete order_transfers records for this order
                                                       await supabase
                                                         .from("order_transfers")
                                                         .delete()
                                                         .eq("order_id", order.id);
 
-                                                      // Mark recovery history as reverted
                                                       const {
                                                         data: { user },
                                                       } = await supabase.auth.getUser();
@@ -5010,7 +5022,6 @@ const Reports = () => {
                                                         title: "Recovery reverted",
                                                         description: `Load ${recoveryOrder.load_number} returned to original driver`,
                                                       });
-                                                      // Real-time subscription handles cache updates
                                                     } catch (error) {
                                                       toast({
                                                         title: "Failed to revert",
@@ -5024,7 +5035,7 @@ const Reports = () => {
                                                   <span className="text-[10px] text-green-600">Revert</span>
                                                 </Button>
                                               )}
-                                            {truck.editDate}
+                                            {truck.lastEdit}
                                           </td>
                                         </tr>
                                         {isMapExpanded && (
