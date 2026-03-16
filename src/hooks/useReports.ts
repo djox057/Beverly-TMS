@@ -337,8 +337,8 @@ export const useReports = (options?: UseReportsOptions) => {
       const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-truck-notes"] });
 
       const now = new Date();
-      const lastEdit = now.toLocaleTimeString();
-      const editDate = now.toLocaleDateString();
+      const lastEdit = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const editDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
       const nowIso = now.toISOString();
 
       // Determine the actual driverId for adapter cache update
