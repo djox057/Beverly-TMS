@@ -4853,6 +4853,39 @@ const Reports = () => {
                                                   </PopoverContent>
                                                 </Popover>
                                               )}
+                                              {/* Fuel Indicator */}
+                                              <div className="flex flex-col items-center" style={{ width: 31 }}>
+                                                <div className="relative" style={{ width: 31, height: 31 }}>
+                                                  <Fuel
+                                                    size={18}
+                                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                                                    style={{
+                                                      color: (truck.fuelLevel != null && truck.fuelLevel < 10) ? '#ef4444' : 'hsl(var(--muted-foreground))',
+                                                    }}
+                                                  />
+                                                  {truck.fuelLevel != null && (
+                                                    <svg className="absolute inset-0" width={31} height={31} viewBox="0 0 31 31">
+                                                      <rect
+                                                        x={3} y={3} width={25} height={25} rx={4}
+                                                        fill="none"
+                                                        stroke="hsl(var(--border))"
+                                                        strokeWidth={2}
+                                                      />
+                                                      <rect
+                                                        x={3}
+                                                        y={3 + 25 * (1 - truck.fuelLevel / 100)}
+                                                        width={25}
+                                                        height={25 * (truck.fuelLevel / 100)}
+                                                        rx={4}
+                                                        fill={truck.fuelLevel < 10 ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}
+                                                      />
+                                                    </svg>
+                                                  )}
+                                                </div>
+                                                <span className={`text-[8px] tabular-nums leading-none ${truck.fuelLevel != null && truck.fuelLevel < 10 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                                  {truck.fuelLevel != null ? `${truck.fuelLevel}%` : '—'}
+                                                </span>
+                                              </div>
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField
