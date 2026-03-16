@@ -1678,8 +1678,7 @@ export const useReports = (options?: UseReportsOptions) => {
               twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
-              lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }); })(),
-              editDate: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; })(),
+              lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
