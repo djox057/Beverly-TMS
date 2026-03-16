@@ -909,6 +909,48 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isHosInspectOpen} onOpenChange={setIsHosInspectOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🔍 HOS API Raw Data Inspector</DialogTitle>
+          </DialogHeader>
+          {hosInspectLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mr-2" />
+              <span>Fetching from Transit Tracking API...</span>
+            </div>
+          ) : hosInspectData?.keys ? (
+            <ScrollArea className="flex-1 overflow-auto">
+              <div className="space-y-6 pr-4">
+                {hosInspectData.keys.map((keyData: any) => (
+                  <div key={keyData.keyIndex} className="space-y-3">
+                    <h3 className="font-semibold text-lg">
+                      API Key #{keyData.keyIndex + 1} — {keyData.recordCount} records
+                    </h3>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">All Fields ({keyData.fieldNames?.length || 0}):</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {(keyData.fieldNames || []).map((f: string) => (
+                          <Badge key={f} variant="outline" className="text-xs">{f}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">Sample Records:</h4>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-96">
+                        {JSON.stringify(keyData.samples, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-muted-foreground">No data returned.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
