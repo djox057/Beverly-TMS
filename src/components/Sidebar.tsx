@@ -213,7 +213,8 @@ export const Sidebar = () => {
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
-        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
       ];
     }
     
