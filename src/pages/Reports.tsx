@@ -4900,27 +4900,16 @@ const Reports = () => {
                                             </div>
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground`}
-                                            style={{
-                                              width: "52px",
-                                              minWidth: "52px",
-                                              maxWidth: "52px",
-                                            }}
-                                          >
-                                            {truck.lastEdit}
-                                          </td>
-                                          <td
                                             className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                             style={{
-                                              width: "48px",
-                                              minWidth: "48px",
-                                              maxWidth: "48px",
+                                              width: "80px",
+                                              minWidth: "80px",
+                                              maxWidth: "80px",
                                             }}
                                           >
                                             {activeTab === "Recovery" &&
                                               truck.activeOrders?.some((o: any) => {
                                                 const order = o as any;
-                                                // Hide Revert button if POD is uploaded
                                                 const hasPOD = order.order_files?.some(
                                                   (file: any) => file.file_category === "POD",
                                                 );
@@ -4932,7 +4921,6 @@ const Reports = () => {
                                                   className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50"
                                                   onClick={async (e) => {
                                                     e.stopPropagation();
-                                                    // Revert recovery load
                                                     const recoveryOrder = truck.activeOrders.find((o: any) => {
                                                       const order = o as any;
                                                       const hasPOD = order.order_files?.some(
@@ -4945,7 +4933,6 @@ const Reports = () => {
                                                     try {
                                                       const order = recoveryOrder as any;
 
-                                                      // Get recovery history from the table
                                                       const { data: recoveryHistory, error: historyError } =
                                                         await supabase
                                                           .from("recovery_history")
@@ -4965,7 +4952,6 @@ const Reports = () => {
                                                         return;
                                                       }
 
-                                                      // Revert the order to original assignment
                                                       const { error: orderError } = await supabase
                                                         .from("orders")
                                                         .update({
@@ -4990,7 +4976,6 @@ const Reports = () => {
 
                                                       if (orderError) throw orderError;
 
-                                                      // Update the original truck - reassign original drivers and clear recovery status
                                                       const { error: truckError } = await supabase
                                                         .from("trucks")
                                                         .update({
@@ -5003,7 +4988,6 @@ const Reports = () => {
 
                                                       if (truckError) throw truckError;
 
-                                                      // Reassign original dispatcher to original driver ONLY (do NOT touch recovery driver)
                                                       if (
                                                         recoveryHistory.original_driver1_id &&
                                                         recoveryHistory.original_dispatcher_id
@@ -5018,13 +5002,11 @@ const Reports = () => {
                                                         if (dispatcherError) throw dispatcherError;
                                                       }
 
-                                                      // Delete order_transfers records for this order
                                                       await supabase
                                                         .from("order_transfers")
                                                         .delete()
                                                         .eq("order_id", order.id);
 
-                                                      // Mark recovery history as reverted
                                                       const {
                                                         data: { user },
                                                       } = await supabase.auth.getUser();
@@ -5040,7 +5022,6 @@ const Reports = () => {
                                                         title: "Recovery reverted",
                                                         description: `Load ${recoveryOrder.load_number} returned to original driver`,
                                                       });
-                                                      // Real-time subscription handles cache updates
                                                     } catch (error) {
                                                       toast({
                                                         title: "Failed to revert",
@@ -5054,7 +5035,7 @@ const Reports = () => {
                                                   <span className="text-[10px] text-green-600">Revert</span>
                                                 </Button>
                                               )}
-                                            {truck.editDate}
+                                            {truck.lastEdit}
                                           </td>
                                         </tr>
                                         {isMapExpanded && (
