@@ -547,7 +547,6 @@ export const useReports = (options?: UseReportsOptions) => {
               lost_day_notes: updatedNotes,
               lostDayNotes: updatedNotes,
               lastEdit,
-              editDate,
             };
           }),
         }));
