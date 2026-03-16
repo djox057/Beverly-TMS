@@ -143,20 +143,33 @@ export function DateTimeRangePicker({
                       value={startTime}
                       onChange={(e) => {
                         let value = e.target.value.replace(/[^0-9:]/g, '');
+                        // Auto-add colon after 2 digits
                         if (value.length === 2 && !value.includes(':')) {
                           value = value + ':';
                         }
+                        // Limit to 5 chars (HH:MM)
                         if (value.length <= 5) {
                           onStartTimeChange?.(value);
                         }
                       }}
                       onBlur={(e) => {
                         const value = e.target.value;
-                        const match = value.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                        if (!value) return;
+                        
+                        const match = value.match(/^(\d{1,2}):(\d{2})$/);
                         if (match) {
-                          const hours = match[1].padStart(2, '0');
-                          const minutes = match[2];
-                          onStartTimeChange?.(`${hours}:${minutes}`);
+                          let hours = parseInt(match[1], 10);
+                          let minutes = parseInt(match[2], 10);
+                          
+                          // Validate ranges
+                          if (hours > 23) hours = 23;
+                          if (minutes > 59) minutes = 59;
+                          
+                          const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                          onStartTimeChange?.(formatted);
+                        } else {
+                          // Invalid format, clear it
+                          onStartTimeChange?.('');
                         }
                       }}
                       className="text-sm"
