@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut, Search } from "lucide-react";
+import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut, Search, Microscope } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,9 @@ const AdminUsers = () => {
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [isHosInspectOpen, setIsHosInspectOpen] = useState(false);
+  const [hosInspectLoading, setHosInspectLoading] = useState(false);
+  const [hosInspectData, setHosInspectData] = useState<any>(null);
   
   // Form state
   const [email, setEmail] = useState("");
@@ -462,6 +466,26 @@ const AdminUsers = () => {
         </div>
         
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              setIsHosInspectOpen(true);
+              setHosInspectLoading(true);
+              setHosInspectData(null);
+              try {
+                const { data, error } = await supabase.functions.invoke('hos-api-inspect');
+                if (error) throw error;
+                setHosInspectData(data);
+              } catch (err: any) {
+                toast({ title: "Error", description: err.message || "Failed to inspect HOS API", variant: "destructive" });
+              } finally {
+                setHosInspectLoading(false);
+              }
+            }}
+          >
+            <Microscope className="mr-2 h-4 w-4" />
+            Inspect HOS API
+          </Button>
           <Button variant="outline" onClick={fetchUsers}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
@@ -885,6 +909,48 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isHosInspectOpen} onOpenChange={setIsHosInspectOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🔍 HOS API Raw Data Inspector</DialogTitle>
+          </DialogHeader>
+          {hosInspectLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mr-2" />
+              <span>Fetching from Transit Tracking API...</span>
+            </div>
+          ) : hosInspectData?.keys ? (
+            <ScrollArea className="flex-1 overflow-auto">
+              <div className="space-y-6 pr-4">
+                {hosInspectData.keys.map((keyData: any) => (
+                  <div key={keyData.keyIndex} className="space-y-3">
+                    <h3 className="font-semibold text-lg">
+                      API Key #{keyData.keyIndex + 1} — {keyData.recordCount} records
+                    </h3>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">All Fields ({keyData.fieldNames?.length || 0}):</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {(keyData.fieldNames || []).map((f: string) => (
+                          <Badge key={f} variant="outline" className="text-xs">{f}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-1">Sample Records:</h4>
+                      <pre className="bg-muted p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-96">
+                        {JSON.stringify(keyData.samples, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-muted-foreground">No data returned.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
