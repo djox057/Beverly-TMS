@@ -4870,21 +4870,21 @@ const Reports = () => {
                                             </div>
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
+                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground`}
                                             style={{
-                                              width: "80px",
-                                              minWidth: "80px",
-                                              maxWidth: "80px",
+                                              width: "52px",
+                                              minWidth: "52px",
+                                              maxWidth: "52px",
                                             }}
                                           >
                                             {truck.lastEdit}
                                           </td>
                                           <td
-                                            className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
+                                            className={`border-b-[6px] border-gray-400 px-1 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                             style={{
-                                              width: "80px",
-                                              minWidth: "80px",
-                                              maxWidth: "80px",
+                                              width: "48px",
+                                              minWidth: "48px",
+                                              maxWidth: "48px",
                                             }}
                                           >
                                             {activeTab === "Recovery" &&
