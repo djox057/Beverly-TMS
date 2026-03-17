@@ -1675,6 +1675,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         doNotTouchHos: driver.do_not_touch_hos || false,
         note: note?.note || "",
         lastEdit: (() => { const d = note?.updated_at ? new Date(note.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+        editDate: (() => { const d = note?.updated_at ? new Date(note.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
         allOrders: allOrdersWithStops,
         activeOrders: allOrdersWithStops.filter((o) => o.isActive),
         activeOrdersCount: allOrdersWithStops.filter((o) => o.isActive).length,

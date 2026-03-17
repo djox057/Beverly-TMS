@@ -5012,7 +5012,8 @@ const Reports = () => {
                                                   <span className="text-[10px] text-green-600">Revert</span>
                                                 </Button>
                                               )}
-                                            {truck.lastEdit}
+                                            <div>{truck.lastEdit}</div>
+                                            {truck.editDate && <div className="text-muted-foreground">{truck.editDate}</div>}
                                           </td>
                                         </tr>
                                         {isMapExpanded && (

@@ -338,6 +338,7 @@ export const useReports = (options?: UseReportsOptions) => {
 
       const now = new Date();
       const lastEdit = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+      const editDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const nowIso = now.toISOString();
 
       // Determine the actual driverId for adapter cache update
@@ -353,7 +354,7 @@ export const useReports = (options?: UseReportsOptions) => {
           trucks: group.trucks.map((truck: any) => {
             // Match by truckId directly, or for unassigned drivers match the fake truckId
             if (truck.id === truckId) {
-              return { ...truck, note: note.trim(), lastEdit };
+              return { ...truck, note: note.trim(), lastEdit, editDate };
             }
             return truck;
           }),
@@ -524,6 +525,7 @@ export const useReports = (options?: UseReportsOptions) => {
       const now = new Date();
       const nowIso = now.toISOString();
       const lastEdit = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+      const editDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       // New note object for cache patch
       const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
@@ -547,6 +549,7 @@ export const useReports = (options?: UseReportsOptions) => {
               lost_day_notes: updatedNotes,
               lostDayNotes: updatedNotes,
               lastEdit,
+              editDate,
             };
           }),
         }));
@@ -1679,6 +1682,7 @@ export const useReports = (options?: UseReportsOptions) => {
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
               lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+              editDate: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
@@ -1994,6 +1998,7 @@ export const useReports = (options?: UseReportsOptions) => {
             doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
             lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+            editDate: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
@@ -2302,6 +2307,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: "",
                 lastEdit: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
+                editDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 allOrders: allOrdersWithStops,
                 activeOrders: allOrdersWithStops.filter(o => o.isActive),
                 activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
