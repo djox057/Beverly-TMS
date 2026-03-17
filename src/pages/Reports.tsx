@@ -66,6 +66,12 @@ import wrenchIcon from "@/assets/wrench-icon.png";
 import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
 import weeklyPlanIcon from "@/assets/weekly-plan-icon.png";
 import gasStationIcon from "@/assets/gas-station.png";
+import biohazardSignIcon from "@/assets/biohazard-sign.png";
+import tankerTruckIcon from "@/assets/tanker-truck.png";
+import portIcon from "@/assets/port.png";
+import passportIcon from "@/assets/passport.png";
+import greenCardIcon from "@/assets/green-card.png";
+import criminalDatabaseIcon from "@/assets/criminal-database.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
@@ -4434,6 +4440,25 @@ const Reports = () => {
                                                                 )}
                                                               </div>
                                                             )}
+                                                            <div className="flex items-center gap-1.5 border-t pt-1 mt-1 flex-wrap">
+                                                              {(truck as any).driverHazmat && (
+                                                                <img src={biohazardSignIcon} alt="Hazmat" className="h-5 w-5" title="Hazmat" />
+                                                              )}
+                                                              {(truck as any).driverTanker && (
+                                                                <img src={tankerTruckIcon} alt="Tanker" className="h-5 w-5" title="Tanker" />
+                                                              )}
+                                                              {(truck as any).driverTwic && (
+                                                                <img src={portIcon} alt="TWIC" className="h-5 w-5" title="TWIC" />
+                                                              )}
+                                                              {(truck as any).driverCitizen ? (
+                                                                <img src={passportIcon} alt="Citizen" className="h-5 w-5" title="Citizen" />
+                                                              ) : (
+                                                                <img src={greenCardIcon} alt="Non-Citizen" className="h-5 w-5" title="Non-Citizen" />
+                                                              )}
+                                                              {(truck as any).driverCriminal && (
+                                                                <img src={criminalDatabaseIcon} alt="Criminal" className="h-5 w-5" title="Criminal Record" />
+                                                              )}
+                                                            </div>
                                                           </>
                                                         ) : (
                                                           <>
@@ -4614,6 +4639,25 @@ const Reports = () => {
                                                                 )}
                                                               </div>
                                                             )}
+                                                            <div className="flex items-center gap-1.5 border-t pt-1 mt-1 flex-wrap">
+                                                              {(truck as any).driverHazmat && (
+                                                                <img src={biohazardSignIcon} alt="Hazmat" className="h-5 w-5" title="Hazmat" />
+                                                              )}
+                                                              {(truck as any).driverTanker && (
+                                                                <img src={tankerTruckIcon} alt="Tanker" className="h-5 w-5" title="Tanker" />
+                                                              )}
+                                                              {(truck as any).driverTwic && (
+                                                                <img src={portIcon} alt="TWIC" className="h-5 w-5" title="TWIC" />
+                                                              )}
+                                                              {(truck as any).driverCitizen ? (
+                                                                <img src={passportIcon} alt="Citizen" className="h-5 w-5" title="Citizen" />
+                                                              ) : (
+                                                                <img src={greenCardIcon} alt="Non-Citizen" className="h-5 w-5" title="Non-Citizen" />
+                                                              )}
+                                                              {(truck as any).driverCriminal && (
+                                                                <img src={criminalDatabaseIcon} alt="Criminal" className="h-5 w-5" title="Criminal Record" />
+                                                              )}
+                                                            </div>
                                                           </>
                                                         )}
                                                       </div>
