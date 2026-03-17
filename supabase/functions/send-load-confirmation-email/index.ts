@@ -77,6 +77,33 @@ const handler = async (req: Request): Promise<Response> => {
           ${escapeHtml(bodyText)}
         </p>
         <br/>
+        <div style="border-top: 2px solid #cc0000; margin-top: 20px; padding-top: 16px;">
+          <p style="font-size: 15px; font-weight: bold; color: #cc0000; margin-bottom: 10px;">
+            IMPORTANT – LOAD SECURITY REQUIREMENT
+          </p>
+          <p style="font-size: 14px; color: #333; margin-bottom: 8px;">
+            If you are hauling any type of beverages or food products, the following is mandatory:
+          </p>
+          <ul style="font-size: 14px; color: #333; margin-bottom: 12px; padding-left: 20px;">
+            <li>A padlock and seal must be applied immediately after leaving the shipper</li>
+            <li>You must take a clear photo as proof after sealing the trailer</li>
+            <li>You must also take a photo before arriving at the receiver to confirm the seal is intact</li>
+          </ul>
+          <p style="font-size: 14px; color: #333; margin-bottom: 8px;">Additionally:</p>
+          <ul style="font-size: 14px; color: #333; margin-bottom: 12px; padding-left: 20px;">
+            <li>The seal number must be verified and match documentation</li>
+            <li>Drivers are responsible for ensuring the trailer remains properly secured at all times</li>
+          </ul>
+          <p style="font-size: 14px; color: #333; margin-bottom: 8px;">
+            Failure to follow these procedures will result in a penalty, especially in cases where:
+          </p>
+          <ul style="font-size: 14px; color: #333; margin-bottom: 12px; padding-left: 20px;">
+            <li>The driver did not verify the seal</li>
+            <li>The seal was missing or tampered with and not properly checked</li>
+          </ul>
+          <p style="font-size: 14px; font-weight: bold; color: #cc0000;">No exceptions.</p>
+        </div>
+        <br/>
         <p style="font-size: 14px; color: #666;">
           Best regards,<br/>
           Dispatch Team
