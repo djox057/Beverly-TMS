@@ -102,6 +102,9 @@ const handler = async (req: Request): Promise<Response> => {
             <li>The seal was missing or tampered with and not properly checked</li>
           </ul>
           <p style="font-size: 14px; font-weight: bold; color: #cc0000;">No exceptions.</p>
+          <p style="font-size: 14px; color: #333; margin-top: 12px;">
+            Please remember: the load is the driver&rsquo;s responsibility from the moment the trailer doors are closed at the shipper until they are opened at the receiver.
+          </p>
         </div>
         <br/>
         <p style="font-size: 14px; color: #666;">
