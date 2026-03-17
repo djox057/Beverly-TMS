@@ -4441,24 +4441,24 @@ const Reports = () => {
                                                               </div>
                                                             )}
                                                             <div className="flex items-center gap-1.5 border-t pt-1 mt-1 flex-wrap">
-                                                              {(truck as any).driverHazmat && (
-                                                                <img src={biohazardSignIcon} alt="Hazmat" className="h-5 w-5" title="Hazmat" />
-                                                              )}
-                                                              {(truck as any).driverTanker && (
-                                                                <img src={tankerTruckIcon} alt="Tanker" className="h-5 w-5" title="Tanker" />
-                                                              )}
-                                                              {(truck as any).driverTwic && (
-                                                                <img src={portIcon} alt="TWIC" className="h-5 w-5" title="TWIC" />
-                                                              )}
-                                                              {(truck as any).driverCitizen ? (
-                                                                <img src={passportIcon} alt="Citizen" className="h-5 w-5" title="Citizen" />
-                                                              ) : (
-                                                                <img src={greenCardIcon} alt="Non-Citizen" className="h-5 w-5" title="Non-Citizen" />
-                                                              )}
-                                                              {(truck as any).driverCriminal && (
-                                                                <img src={criminalDatabaseIcon} alt="Criminal" className="h-5 w-5" title="Criminal Record" />
-                                                              )}
-                                                            </div>
+                                                               {(truck as any).driverHazmat && (
+                                                                 <Popover><PopoverTrigger asChild><img src={biohazardSignIcon} alt="Hazmat" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">Hazmat</PopoverContent></Popover>
+                                                               )}
+                                                               {(truck as any).driverTanker && (
+                                                                 <Popover><PopoverTrigger asChild><img src={tankerTruckIcon} alt="Tanker" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">Tanker</PopoverContent></Popover>
+                                                               )}
+                                                               {(truck as any).driverTwic && (
+                                                                 <Popover><PopoverTrigger asChild><img src={portIcon} alt="TWIC" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">TWIC</PopoverContent></Popover>
+                                                               )}
+                                                               {(truck as any).driverCitizen ? (
+                                                                 <Popover><PopoverTrigger asChild><img src={passportIcon} alt="Citizen" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">Citizen</PopoverContent></Popover>
+                                                               ) : (
+                                                                 <Popover><PopoverTrigger asChild><img src={greenCardIcon} alt="Non-Citizen" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">Non-Citizen</PopoverContent></Popover>
+                                                               )}
+                                                               {(truck as any).driverCriminal && (
+                                                                 <Popover><PopoverTrigger asChild><img src={criminalDatabaseIcon} alt="Criminal" className="h-5 w-5 cursor-pointer" /></PopoverTrigger><PopoverContent className="w-auto p-1.5 text-xs" side="top">Criminal Record</PopoverContent></Popover>
+                                                               )}
+                                                             </div>
                                                           </>
                                                         ) : (
                                                           <>
