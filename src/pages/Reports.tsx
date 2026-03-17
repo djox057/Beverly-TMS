@@ -4440,7 +4440,7 @@ const Reports = () => {
                                                                 )}
                                                               </div>
                                                             )}
-                                                            {((truck as any).driverHazmat || (truck as any).driverTanker || (truck as any).driverTwic || (truck as any).driverCriminal || true) && (
+                                                            <div className="flex items-center gap-1.5 border-t pt-1 mt-1 flex-wrap">
                                                               <div className="flex items-center gap-1.5 border-t pt-1 mt-1 flex-wrap">
                                                                 {(truck as any).driverHazmat && (
                                                                   <img src={biohazardSignIcon} alt="Hazmat" className="h-5 w-5" title="Hazmat" />
