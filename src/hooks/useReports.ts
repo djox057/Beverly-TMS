@@ -1682,6 +1682,7 @@ export const useReports = (options?: UseReportsOptions) => {
               randomDrugTestDate: truck.driver1?.random_drug_test_date || null,
               note: truckNote?.note || "",
               lastEdit: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+              editDate: (() => { const d = new Date(truckNote ? truckNote.updated_at : truck.updated_at); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
               // Multi-load support
               allOrders: allOrdersWithStops,
               activeOrders: activeOrders,
