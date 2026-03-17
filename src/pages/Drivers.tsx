@@ -108,6 +108,11 @@ interface DriverFormData {
   is_company_driver: boolean;
   is_recovery: boolean;
   do_not_touch_hos: boolean;
+  hazmat: boolean;
+  tanker: boolean;
+  twic: boolean;
+  citizen: boolean;
+  criminal: boolean;
   cents_per_mile: string;
   note: string;
 }
