@@ -1,29 +1,31 @@
 
 
+# Fix 1: Analytics -- Select Only Needed Columns
+
 ## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-Order LEGFSM2092 has pickup Mar 13 and delivery Mar 14 but is still `pending`. When viewing Reports on Mar 17, the date window is Mar 15–20, so neither date falls in range. The order (and its files) don't appear. Going 1 day back shifts the window to include Mar 14, making it appear.
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-The root cause is in `fetchOrdersForDateWindow` and `fetchLockedOrdersForDateWindow` in `src/hooks/useReportsDateWindow.ts`. They filter strictly by date window:
+**Before:**
+```typescript
+.select("*")
 ```
-.or(`and(pickup_datetime.gte...,pickup_datetime.lte...),and(delivery_datetime.gte...,delivery_datetime.lte...)`)
+
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
 ```
 
-The old `useReports.ts` hook handled this by also including `status.eq.in_transit,status.eq.pending` orders regardless of date — any active/in-progress order always appeared.
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-## Plan
-
-**File: `src/hooks/useReportsDateWindow.ts`**
-
-1. **Modify `fetchOrdersForDateWindow`** (unlocked orders, ~line 159-173): Change the date filter to also include orders with `status = 'pending'` or `status = 'in_transit'` that belong to the driver scope, regardless of date window. The `.or()` filter on line 171 becomes:
-   ```
-   .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59),status.eq.in_transit,status.eq.pending`)
-   ```
-   This matches what the old `useReports.ts` did — active orders always show up.
-
-2. **No change needed for `fetchLockedOrdersForDateWindow`** — locked orders are by definition completed, so they won't have pending/in_transit status.
-
-3. **No change needed for `fetchGapFillOrders`** — gap-fill is for recently locked orders, same logic applies.
-
-This is a one-line change that ensures any unlocked order that is still pending or in transit for the driver's scope is always fetched, matching the behavior of the legacy hook.
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 

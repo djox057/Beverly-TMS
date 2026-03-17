@@ -168,7 +168,7 @@ const fetchOrdersForDateWindow = async (
       `)
       .eq("locked", false)
       .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
-      .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
+      .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59),status.eq.in_transit,status.eq.pending`)
       .order("pickup_datetime", { ascending: false })
       .range(offset, offset + BATCH_SIZE - 1);
 
