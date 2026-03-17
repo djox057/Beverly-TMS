@@ -72,6 +72,11 @@ interface DriverFormData {
   is_company_driver: boolean;
   is_recovery: boolean;
   do_not_touch_hos: boolean;
+  hazmat: boolean;
+  tanker: boolean;
+  twic: boolean;
+  citizen: boolean;
+  criminal: boolean;
   cents_per_mile: string;
   note: string;
 }
@@ -162,6 +167,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     is_company_driver: false,
     is_recovery: false,
     do_not_touch_hos: false,
+    hazmat: false,
+    tanker: false,
+    twic: false,
+    citizen: true,
+    criminal: false,
     cents_per_mile: "",
     note: "",
   });
@@ -294,6 +304,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       is_company_driver: driver.is_company_driver || false,
       is_recovery: driver.is_recovery || false,
       do_not_touch_hos: driver.do_not_touch_hos || false,
+      hazmat: driver.hazmat || false,
+      tanker: driver.tanker || false,
+      twic: driver.twic || false,
+      citizen: driver.citizen !== false,
+      criminal: driver.criminal || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
@@ -490,6 +505,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
           do_not_touch_hos: formData.do_not_touch_hos || false,
+          hazmat: formData.hazmat,
+          tanker: formData.tanker,
+          twic: formData.twic,
+          citizen: formData.citizen,
+          criminal: formData.criminal,
           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
         })
@@ -1189,6 +1209,49 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       <span className="text-sm text-muted-foreground">cents/mile</span>
                     </div>
                   )}
+                </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_hazmat"
+                      checked={formData.hazmat}
+                      onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
+                    />
+                    <Label htmlFor="edit_hazmat" className="cursor-pointer">Hazmat</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_tanker"
+                      checked={formData.tanker}
+                      onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
+                    />
+                    <Label htmlFor="edit_tanker" className="cursor-pointer">Tanker</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_twic"
+                      checked={formData.twic}
+                      onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
+                    />
+                    <Label htmlFor="edit_twic" className="cursor-pointer">TWIC</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_citizen"
+                      checked={formData.citizen}
+                      onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
+                    />
+                    <Label htmlFor="edit_citizen" className="cursor-pointer">Citizen</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_criminal"
+                      checked={formData.criminal}
+                      onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
+                    />
+                    <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                  </div>
                 </div>
               </form>
             </TabsContent>

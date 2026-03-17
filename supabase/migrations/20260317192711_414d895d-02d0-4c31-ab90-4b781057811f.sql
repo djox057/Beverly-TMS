@@ -1,0 +1,7 @@
+
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS hazmat boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS tanker boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS twic boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS citizen boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS criminal boolean NOT NULL DEFAULT false;

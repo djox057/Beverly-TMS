@@ -1782,11 +1782,13 @@ export type Database = {
           cdl_expiration_date: string | null
           cdl_number: string | null
           cents_per_mile: number | null
+          citizen: boolean
           clearing_house: string | null
           company_address: string | null
           company_id: string | null
           company_name: string | null
           created_at: string
+          criminal: boolean
           dispatcher_id: string | null
           do_not_touch_hos: boolean
           email: string | null
@@ -1795,6 +1797,7 @@ export type Database = {
           emergency_contact_relation: string | null
           first_name: string | null
           going_yard: boolean
+          hazmat: boolean
           hire_date: string | null
           home_address: string | null
           home_city: string | null
@@ -1822,7 +1825,9 @@ export type Database = {
           note: string | null
           phone: string | null
           random_drug_test_date: string | null
+          tanker: boolean
           termination_date: string | null
+          twic: boolean
           two_week_block_date: string | null
           updated_at: string
           weekly_payment: number | null
@@ -1833,11 +1838,13 @@ export type Database = {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           cents_per_mile?: number | null
+          citizen?: boolean
           clearing_house?: string | null
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
           created_at?: string
+          criminal?: boolean
           dispatcher_id?: string | null
           do_not_touch_hos?: boolean
           email?: string | null
@@ -1846,6 +1853,7 @@ export type Database = {
           emergency_contact_relation?: string | null
           first_name?: string | null
           going_yard?: boolean
+          hazmat?: boolean
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -1873,7 +1881,9 @@ export type Database = {
           note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
+          tanker?: boolean
           termination_date?: string | null
+          twic?: boolean
           two_week_block_date?: string | null
           updated_at?: string
           weekly_payment?: number | null
@@ -1884,11 +1894,13 @@ export type Database = {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           cents_per_mile?: number | null
+          citizen?: boolean
           clearing_house?: string | null
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
           created_at?: string
+          criminal?: boolean
           dispatcher_id?: string | null
           do_not_touch_hos?: boolean
           email?: string | null
@@ -1897,6 +1909,7 @@ export type Database = {
           emergency_contact_relation?: string | null
           first_name?: string | null
           going_yard?: boolean
+          hazmat?: boolean
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -1924,7 +1937,9 @@ export type Database = {
           note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
+          tanker?: boolean
           termination_date?: string | null
+          twic?: boolean
           two_week_block_date?: string | null
           updated_at?: string
           weekly_payment?: number | null
