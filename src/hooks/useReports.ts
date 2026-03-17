@@ -1998,6 +1998,7 @@ export const useReports = (options?: UseReportsOptions) => {
             doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
             lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+            editDate: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
