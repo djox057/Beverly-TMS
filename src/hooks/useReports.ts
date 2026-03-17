@@ -2307,6 +2307,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: "",
                 lastEdit: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
+                editDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 allOrders: allOrdersWithStops,
                 activeOrders: allOrdersWithStops.filter(o => o.isActive),
                 activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
