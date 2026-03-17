@@ -1210,6 +1210,49 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     </div>
                   )}
                 </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_hazmat"
+                      checked={formData.hazmat}
+                      onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
+                    />
+                    <Label htmlFor="edit_hazmat" className="cursor-pointer">Hazmat</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_tanker"
+                      checked={formData.tanker}
+                      onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
+                    />
+                    <Label htmlFor="edit_tanker" className="cursor-pointer">Tanker</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_twic"
+                      checked={formData.twic}
+                      onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
+                    />
+                    <Label htmlFor="edit_twic" className="cursor-pointer">TWIC</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_citizen"
+                      checked={formData.citizen}
+                      onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
+                    />
+                    <Label htmlFor="edit_citizen" className="cursor-pointer">Citizen</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_criminal"
+                      checked={formData.criminal}
+                      onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
+                    />
+                    <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                  </div>
+                </div>
               </form>
             </TabsContent>
 
