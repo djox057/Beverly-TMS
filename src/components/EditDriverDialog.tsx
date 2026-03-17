@@ -304,6 +304,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       is_company_driver: driver.is_company_driver || false,
       is_recovery: driver.is_recovery || false,
       do_not_touch_hos: driver.do_not_touch_hos || false,
+      hazmat: driver.hazmat || false,
+      tanker: driver.tanker || false,
+      twic: driver.twic || false,
+      citizen: driver.citizen !== false,
+      criminal: driver.criminal || false,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
