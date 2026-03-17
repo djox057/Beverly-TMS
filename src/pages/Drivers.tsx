@@ -404,6 +404,11 @@ const Drivers = () => {
       is_company_driver: false,
       is_recovery: false,
       do_not_touch_hos: false,
+      hazmat: false,
+      tanker: false,
+      twic: false,
+      citizen: true,
+      criminal: false,
       cents_per_mile: "",
       note: "",
     });
