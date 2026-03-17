@@ -2045,6 +2045,49 @@ const Drivers = () => {
                         </div>
                       )}
                     </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="add_hazmat"
+                          checked={formData.hazmat}
+                          onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
+                        />
+                        <Label htmlFor="add_hazmat" className="cursor-pointer">Hazmat</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="add_tanker"
+                          checked={formData.tanker}
+                          onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
+                        />
+                        <Label htmlFor="add_tanker" className="cursor-pointer">Tanker</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="add_twic"
+                          checked={formData.twic}
+                          onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
+                        />
+                        <Label htmlFor="add_twic" className="cursor-pointer">TWIC</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="add_citizen"
+                          checked={formData.citizen}
+                          onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
+                        />
+                        <Label htmlFor="add_citizen" className="cursor-pointer">Citizen</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="add_criminal"
+                          checked={formData.criminal}
+                          onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
+                        />
+                        <Label htmlFor="add_criminal" className="cursor-pointer">Criminal</Label>
+                      </div>
+                    </div>
                   </form>
                 </TabsContent>
 
