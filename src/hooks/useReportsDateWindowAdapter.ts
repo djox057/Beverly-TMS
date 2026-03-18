@@ -1770,6 +1770,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             // Look up real driver to find current dispatcher
             const realDriver = driverMap.get(driver.id);
             if (realDriver?.dispatcher_id) {
+            // Look up real driver to find current dispatcher
+            const realDriver = allDriverMap.get(driver.id);
+              if (realDriver?.dispatcher_id) {
               const currentDispInfo = dispatcherMap.get(realDriver.dispatcher_id);
               if (currentDispInfo) {
                 driverToCurrentDispatcher.set(driver.id, currentDispInfo.full_name || currentDispInfo.email || "Unknown");
@@ -1788,9 +1791,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
         // Build truck-like objects for each off-duty driver
         const offDutyTrucks = inactiveDrivers.map((driver: any) => {
-          const realDriver = driverMap.get(driver.id);
+          const realDriver = allDriverMap.get(driver.id);
           const driverOrders = ordersByDriverId.get(driver.id) || [];
-          const truck = truckByDriverId.get(driver.id);
+          const truck = allTruckByDriverId.get(driver.id);
           const driverCompanyName = realDriver?.company_id ? companyMap.get(realDriver.company_id) || null : null;
 
           // Build home string
