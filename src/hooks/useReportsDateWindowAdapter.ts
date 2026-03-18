@@ -1256,8 +1256,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, (payload) => {
         const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
         const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
-        console.log(`[adapter] pickup_drops ${payload.eventType}: order_id=${orderId}, inStore=${inStore}`);
-        if (orderId && inStore) {
+        const alreadyPending = orderId ? pendingOrderIds.has(orderId) : false;
+        if (orderId && (inStore || alreadyPending)) {
+          console.log(`[adapter] pickup_drops ${payload.eventType}: order_id=${orderId}, inStore=${inStore}, pending=${alreadyPending}`);
           pendingOrderIds.add(orderId);
           scheduleFlush();
         }
@@ -1266,8 +1267,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, (payload) => {
         const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
         const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
-        console.log(`[adapter] order_transfers ${payload.eventType}: order_id=${orderId}, inStore=${inStore}`);
-        if (orderId && inStore) {
+        const alreadyPending = orderId ? pendingOrderIds.has(orderId) : false;
+        if (orderId && (inStore || alreadyPending)) {
+          console.log(`[adapter] order_transfers ${payload.eventType}: order_id=${orderId}, inStore=${inStore}, pending=${alreadyPending}`);
           pendingOrderIds.add(orderId);
           scheduleFlush();
         }
