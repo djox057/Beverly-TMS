@@ -1254,7 +1254,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       // pickup_drops table
       .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, (payload) => {
         const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-        if (orderId && hasOrderInGlobalStore(orderId)) {
+        const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
+        console.log(`[adapter] pickup_drops ${payload.eventType}: order_id=${orderId}, inStore=${inStore}`);
+        if (orderId && inStore) {
           pendingOrderIds.add(orderId);
           scheduleFlush();
         }
@@ -1262,7 +1264,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       // order_transfers table
       .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, (payload) => {
         const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-        if (orderId && hasOrderInGlobalStore(orderId)) {
+        const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
+        console.log(`[adapter] order_transfers ${payload.eventType}: order_id=${orderId}, inStore=${inStore}`);
+        if (orderId && inStore) {
           pendingOrderIds.add(orderId);
           scheduleFlush();
         }
