@@ -1416,6 +1416,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const allTruckByDriverId = new Map((allTrucks || []).filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     const companyMap = new Map(companies.map((c) => [c.id, c.name]));
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
+    // Merge off-duty dispatcher profiles into the map (they may not be in the main dispatchers query)
+    if (offDutyDispatchers) {
+      for (const d of offDutyDispatchers) {
+        if (!dispatcherMap.has(d.user_id)) {
+          dispatcherMap.set(d.user_id, d);
+        }
+      }
+    }
     const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
     const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
