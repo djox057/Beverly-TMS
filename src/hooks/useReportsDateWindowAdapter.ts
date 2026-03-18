@@ -2000,8 +2000,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dateWindowHook.isLoading,
     dateWindowHook.isFetching,
     filteredTrucks,
+    allTrucks,
     trailers,
     filteredDrivers,
+    allDrivers,
     dispatchers,
     companies,
     filteredTruckNotes,
@@ -2011,6 +2013,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dispatcherId,
     isOrderFilesLoading,
     lastLoadsData,
+    offDutyStatuses,
   ]);
 
   // Individual mode filtering already applied at database level in useReportsDateWindow
