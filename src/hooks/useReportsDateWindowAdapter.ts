@@ -497,6 +497,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled,
   });
 
+  // Fetch off-duty dispatcher statuses (inactive dispatchers with stored driver snapshots)
+  const { data: offDutyStatuses } = useQuery({
+    queryKey: ["adapter-off-duty-statuses"],
+    queryFn: async () => {
+      console.time('[perf] adapter-off-duty-statuses');
+      const { data, error } = await supabase
+        .from("dispatcher_status")
+        .select("dispatcher_id, inactive_trucks")
+        .eq("is_active", false);
+      console.timeEnd('[perf] adapter-off-duty-statuses');
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 300000,
+    enabled: globalEnabled,
+  });
+
   // GLOBAL FETCH: all truck notes
   const { data: allTruckNotes } = useQuery({
     queryKey: ["adapter-truck-notes", modeKeySuffix],
