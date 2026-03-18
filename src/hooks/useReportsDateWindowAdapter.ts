@@ -514,7 +514,29 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: globalEnabled,
   });
 
-  // GLOBAL FETCH: all truck notes
+  // Fetch profiles for off-duty dispatchers (they may not be in the main dispatchers query)
+  const offDutyDispatcherIds = useMemo(() => {
+    if (!offDutyStatuses || offDutyStatuses.length === 0) return [];
+    return offDutyStatuses.map(s => s.dispatcher_id).filter(Boolean).sort();
+  }, [offDutyStatuses]);
+  const offDutyDispatcherIdsKey = offDutyDispatcherIds.join(",");
+
+  const { data: offDutyDispatchers } = useQuery({
+    queryKey: ["adapter-off-duty-dispatchers", offDutyDispatcherIdsKey],
+    queryFn: async () => {
+      if (!offDutyDispatcherIdsKey) return [];
+      const ids = offDutyDispatcherIdsKey.split(",");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, office, ext, created_at")
+        .in("user_id", ids);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 300000,
+    enabled: globalEnabled && offDutyDispatcherIdsKey.length > 0,
+  });
+
   const { data: allTruckNotes } = useQuery({
     queryKey: ["adapter-truck-notes", modeKeySuffix],
     queryFn: async () => {
