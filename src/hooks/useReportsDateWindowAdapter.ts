@@ -1148,6 +1148,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             fetchPickupDropsForOrders(ids),
             fetchOrderTransfersForOrders(ids),
           ]);
+          console.log(`[adapter] flushPending: fetched ${pickupDrops.length} pickup_drops, ${transfers.length} transfers for ${ids.length} orders`);
 
           // Build lookup maps
           const pdMap = new Map<string, any[]>();
