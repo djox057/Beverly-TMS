@@ -2044,6 +2044,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     isOrderFilesLoading,
     lastLoadsData,
     offDutyStatuses,
+    offDutyDispatchers,
   ]);
 
   // Individual mode filtering already applied at database level in useReportsDateWindow
