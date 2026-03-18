@@ -1389,6 +1389,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Build lookup maps
     const truckMap = new Map(filteredTrucks.map((t: any) => [t.id, t]));
     const driverMap = new Map(filteredDrivers.map((d: any) => [d.id, d]));
+    // Global maps for off-duty driver lookups (includes ALL active drivers, not just current scope)
+    const allDriverMap = new Map((allDrivers || []).map((d: any) => [d.id, d]));
+    const allTruckByDriverId = new Map((allTrucks || []).filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     const companyMap = new Map(companies.map((c) => [c.id, c.name]));
     const dispatcherMap = new Map(dispatchers.map((d) => [d.user_id, d]));
     const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date }]));
