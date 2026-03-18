@@ -807,7 +807,7 @@ const Orders = () => {
     .filter((b: any) => b.name)
     .sort((a: any, b: any) => a.name.localeCompare(b.name))
     .map((b: any) => ({
-      value: b.name,
+      value: b.id,
       label: b.mc_number ? `${b.name} (MC: ${b.mc_number})` : b.name,
       searchText: `${b.name} ${b.mc_number || ""}`.toLowerCase(),
     }));
