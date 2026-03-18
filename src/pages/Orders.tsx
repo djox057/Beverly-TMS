@@ -406,7 +406,7 @@ const Orders = () => {
       : undefined;
 
     const brokerId = brokerFilter !== "all-brokers"
-      ? brokers?.find(b => b.name === brokerFilter)?.id
+      ? brokerFilter
       : undefined;
 
     // If a DB-backed filter is selected but we can't resolve its ID yet, don't query.
@@ -538,7 +538,7 @@ const Orders = () => {
     const matchesBookedBy = !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
-    const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerName === brokerFilter;
+    const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerId === brokerFilter;
     
     let matchesMissingDocs = true;
     if (missingDocsFilter !== "all") {
@@ -807,7 +807,7 @@ const Orders = () => {
     .filter((b: any) => b.name)
     .sort((a: any, b: any) => a.name.localeCompare(b.name))
     .map((b: any) => ({
-      value: b.name,
+      value: b.id,
       label: b.mc_number ? `${b.name} (MC: ${b.mc_number})` : b.name,
       searchText: `${b.name} ${b.mc_number || ""}`.toLowerCase(),
     }));

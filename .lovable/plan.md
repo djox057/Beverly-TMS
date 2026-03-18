@@ -1,21 +1,31 @@
 
 
-## Fix: Duplicate key warnings in Orders page broker Combobox
+# Fix 1: Analytics -- Select Only Needed Columns
 
-### Problem
-The broker filter Combobox on the Orders page uses `broker.name` as the option `value` (line 810 in Orders.tsx). Since multiple brokers can share the same name (e.g., "EVANS DELIVERY COMPANY, INC."), this creates duplicate React keys and duplicate entries.
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-### Plan
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-**File: `src/pages/Orders.tsx`**
+**Before:**
+```typescript
+.select("*")
+```
 
-1. Change `uniqueBrokerOptions` (lines 806-813) to use `b.id` as the value instead of `b.name`
-2. Update the broker filter comparison logic (line 541) from `order.brokerName === brokerFilter` to compare against `order.brokerId === brokerFilter`
-3. Update the default/reset value from `"all-brokers"` string checks — these stay the same since `"all-brokers"` is a sentinel value
-4. Remove or update the server-side filter lookup (line 408-409) since `brokerFilter` will already be the broker ID, no need to `.find()` by name
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-### Changes summary
-- `uniqueBrokerOptions`: `value: b.name` → `value: b.id`
-- Filter match (line 541): compare `order.brokerId` instead of `order.brokerName`
-- Server filter (lines 408-409): use `brokerFilter` directly as `brokerId` instead of looking up by name
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
