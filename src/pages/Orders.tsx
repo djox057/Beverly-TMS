@@ -538,7 +538,7 @@ const Orders = () => {
     const matchesBookedBy = !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
-    const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerName === brokerFilter;
+    const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerId === brokerFilter;
     
     let matchesMissingDocs = true;
     if (missingDocsFilter !== "all") {
