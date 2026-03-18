@@ -406,7 +406,7 @@ const Orders = () => {
       : undefined;
 
     const brokerId = brokerFilter !== "all-brokers"
-      ? brokers?.find(b => b.name === brokerFilter)?.id
+      ? brokerFilter
       : undefined;
 
     // If a DB-backed filter is selected but we can't resolve its ID yet, don't query.
