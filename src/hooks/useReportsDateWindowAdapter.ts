@@ -1798,11 +1798,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         for (const driver of inactiveDrivers) {
           if (driver.id) {
             // Look up real driver to find current dispatcher
-            const realDriver = driverMap.get(driver.id);
-            if (realDriver?.dispatcher_id) {
-            // Look up real driver to find current dispatcher
             const realDriver = allDriverMap.get(driver.id);
-              if (realDriver?.dispatcher_id) {
+            if (realDriver?.dispatcher_id) {
               const currentDispInfo = dispatcherMap.get(realDriver.dispatcher_id);
               if (currentDispInfo) {
                 driverToCurrentDispatcher.set(driver.id, currentDispInfo.full_name || currentDispInfo.email || "Unknown");
