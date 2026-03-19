@@ -1171,7 +1171,7 @@ const NewOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${driverForEmail.email}`,
+              description: `File sent to ${driverForEmail.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
             });
             resolve(true);
           } catch (err) {

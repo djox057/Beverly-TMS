@@ -131,9 +131,10 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`📧 Attachment filename: ${attachmentFilename}`);
     console.log(`📧 Attachment content type: ${attachmentContentType}`);
     
+    const toArray = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean);
     const emailPayload: any = {
       from: from,
-      to: [to],
+      to: toArray,
       subject: subject,
       html: emailHtml,
       attachments: [

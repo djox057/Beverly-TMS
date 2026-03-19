@@ -1245,7 +1245,7 @@ const EditOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}`,
+              description: `File sent to ${selectedDriver.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
             });
             resolve(true);
           } catch (err) {
