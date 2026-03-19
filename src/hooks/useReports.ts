@@ -1643,6 +1643,8 @@ export const useReports = (options?: UseReportsOptions) => {
               driverTwic: (truck.driver1 as any)?.twic || false,
               driverCitizen: (truck.driver1 as any)?.citizen !== false,
               driverCriminal: (truck.driver1 as any)?.criminal || false,
+              driverStraps: (truck.driver1 as any)?.straps ?? 2,
+              driverLoadBars: (truck.driver1 as any)?.load_bars ?? 0,
               driver2Id: truck.driver2?.id || null,
               driver2Name: truck.driver2?.name || null,
               driver2Phone: truck.driver2?.phone || null,

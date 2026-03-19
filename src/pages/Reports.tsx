@@ -72,6 +72,8 @@ import portIcon from "@/assets/port.png";
 import passportIcon from "@/assets/passport.png";
 import greenCardIcon from "@/assets/green-card.png";
 import criminalDatabaseIcon from "@/assets/criminal-database.png";
+import strapIcon from "@/assets/strap.png";
+import loadBarIcon from "@/assets/load_bar.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
@@ -4523,12 +4525,24 @@ const Reports = () => {
                                                               )}
                                                               {(truck as any).driverCriminal && (
                                                                 <img
-                                                                  src={criminalDatabaseIcon}
-                                                                  alt="Criminal"
-                                                                  className="h-5 w-5"
-                                                                  title="Criminal Record"
-                                                                />
-                                                              )}
+                                                                   src={criminalDatabaseIcon}
+                                                                   alt="Criminal"
+                                                                   className="h-5 w-5"
+                                                                   title="Criminal Record"
+                                                                 />
+                                                               )}
+                                                               {((truck as any).driverStraps ?? 2) > 0 && (
+                                                                 <span className="flex items-center gap-0.5" title="Straps">
+                                                                   <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
+                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5" />
+                                                                 </span>
+                                                               )}
+                                                               {((truck as any).driverLoadBars ?? 0) > 0 && (
+                                                                 <span className="flex items-center gap-0.5" title="Load Bars">
+                                                                   <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
+                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-5 w-5" />
+                                                                 </span>
+                                                               )}
                                                             </div>
                                                           </>
                                                         ) : (
@@ -4762,13 +4776,25 @@ const Reports = () => {
                                                                 />
                                                               )}
                                                               {(truck as any).driverCriminal && (
-                                                                <img
-                                                                  src={criminalDatabaseIcon}
-                                                                  alt="Criminal"
-                                                                  className="h-5 w-5"
-                                                                  title="Criminal Record"
-                                                                />
-                                                              )}
+                                                                 <img
+                                                                   src={criminalDatabaseIcon}
+                                                                   alt="Criminal"
+                                                                   className="h-5 w-5"
+                                                                   title="Criminal Record"
+                                                                 />
+                                                               )}
+                                                               {((truck as any).driverStraps ?? 2) > 0 && (
+                                                                 <span className="flex items-center gap-0.5" title="Straps">
+                                                                   <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
+                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5" />
+                                                                 </span>
+                                                               )}
+                                                               {((truck as any).driverLoadBars ?? 0) > 0 && (
+                                                                 <span className="flex items-center gap-0.5" title="Load Bars">
+                                                                   <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
+                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-5 w-5" />
+                                                                 </span>
+                                                               )}
                                                             </div>
                                                           </>
                                                         )}
