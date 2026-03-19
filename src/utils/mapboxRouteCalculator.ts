@@ -116,21 +116,19 @@ async function getMultiStopRouteDistance(coordinates: Coordinates[]): Promise<nu
 export async function calculateLoadedMiles(pickupAddress: string, deliveryAddress: string): Promise<number | null> {
   console.log('🚚 Calculating loaded miles:', { pickupAddress, deliveryAddress });
   
-  const pickupCoords = await geocodeAddress(pickupAddress);
-  if (!pickupCoords) {
-    console.error('Failed to geocode pickup address:', pickupAddress);
-    return null;
-  }
-  
-  const deliveryCoords = await geocodeAddress(deliveryAddress);
-  if (!deliveryCoords) {
-    console.error('Failed to geocode delivery address:', deliveryAddress);
-    return null;
-  }
-  
-  const miles = await getRouteDistance(pickupCoords, deliveryCoords);
-  console.log('🚚 Loaded miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const pickupCoords = await geocodeAddress(pickupAddress);
+      if (!pickupCoords) { console.error('Failed to geocode pickup:', pickupAddress); return null; }
+      const deliveryCoords = await geocodeAddress(deliveryAddress);
+      if (!deliveryCoords) { console.error('Failed to geocode delivery:', deliveryAddress); return null; }
+      const miles = await getRouteDistance(pickupCoords, deliveryCoords);
+      console.log('🚚 Loaded miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
 
 /**
