@@ -174,6 +174,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     twic: false,
     citizen: true,
     criminal: false,
+    straps: 2,
+    load_bars: 0,
     cents_per_mile: "",
     note: "",
   });
