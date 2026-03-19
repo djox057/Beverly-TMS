@@ -1225,7 +1225,7 @@ const NewOrder = () => {
       // Prepare base data for load confirmation
       const baseData = {
         brokerLoadNumber: brokerLoadNumber || "TBD",
-        driverName: selectedDriver.name,
+        driverName: driver2 ? "TEAM" : selectedDriver.name,
         truckNumber: selectedTruck.truck_number,
         trailerNumber: trailer ? trucks?.find((t) => t.id === truck)?.trailer?.trailer_number || "" : "",
         phoneNumber: selectedDriver.phone || "",

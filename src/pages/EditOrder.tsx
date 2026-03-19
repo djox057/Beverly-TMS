@@ -1334,7 +1334,7 @@ const EditOrder = () => {
       // Build confirmation data with all pickups and deliveries
       const confirmationData: any = {
         brokerLoadNumber: brokerLoadNumber || "TBD",
-        driverName: selectedDriver.name,
+        driverName: driver2 ? "TEAM" : selectedDriver.name,
         truckNumber: selectedTruck.truck_number,
         trailerNumber: trailer || "",
         phoneNumber: selectedDriver.phone || "",
