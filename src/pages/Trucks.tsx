@@ -121,6 +121,7 @@ const Trucks = () => {
     // Search filter
     const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
       truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
