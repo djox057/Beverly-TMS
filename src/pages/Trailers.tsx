@@ -61,6 +61,7 @@ const Trailers = () => {
     trailer_number: "",
     trailer_type: "",
     vin: "",
+    plate: "",
     truck_id: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
