@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface EmailRequest {
-  to: string;
+  to: string | string[];
   from: string;
   cc: string;
   subject: string;
