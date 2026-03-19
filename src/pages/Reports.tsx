@@ -4534,13 +4534,13 @@ const Reports = () => {
                                                                {((truck as any).driverStraps ?? 2) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Straps">
                                                                    <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
-                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5" />
+                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5 pt-[2px]" />
                                                                  </span>
                                                                )}
                                                                {((truck as any).driverLoadBars ?? 0) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Load Bars">
                                                                    <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
-                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-5 w-5" />
+                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-[26px] w-[26px]" />
                                                                  </span>
                                                                )}
                                                             </div>
@@ -4786,13 +4786,13 @@ const Reports = () => {
                                                                {((truck as any).driverStraps ?? 2) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Straps">
                                                                    <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
-                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5" />
+                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5 pt-[2px]" />
                                                                  </span>
                                                                )}
                                                                {((truck as any).driverLoadBars ?? 0) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Load Bars">
                                                                    <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
-                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-5 w-5" />
+                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-[26px] w-[26px]" />
                                                                  </span>
                                                                )}
                                                             </div>
