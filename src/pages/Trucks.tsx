@@ -1214,7 +1214,7 @@ const Trucks = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_trailer_id">Trailer Number</Label>
                     <Combobox
@@ -1228,6 +1228,13 @@ const Trucks = () => {
                       searchPlaceholder="Search trailers..."
                       emptyText="No trailer found."
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_plate">Plate</Label>
+                    <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({
+                      ...formData,
+                      plate: e.target.value
+                    })} placeholder="Enter plate number" />
                   </div>
                 </div>
 

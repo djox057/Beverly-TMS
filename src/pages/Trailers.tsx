@@ -878,6 +878,14 @@ const Trailers = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="edit_plate">Plate</Label>
+                  <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({
+                    ...formData,
+                    plate: e.target.value
+                  })} placeholder="Enter plate number" />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="edit_dot_inspection_date">DOT Inspection Date</Label>
                   <Input 
                     id="edit_dot_inspection_date" 
