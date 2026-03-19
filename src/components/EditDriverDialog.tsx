@@ -77,6 +77,8 @@ interface DriverFormData {
   twic: boolean;
   citizen: boolean;
   criminal: boolean;
+  straps: number;
+  load_bars: number;
   cents_per_mile: string;
   note: string;
 }
@@ -172,6 +174,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     twic: false,
     citizen: true,
     criminal: false,
+    straps: 2,
+    load_bars: 0,
     cents_per_mile: "",
     note: "",
   });
@@ -309,6 +313,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       twic: driver.twic || false,
       citizen: driver.citizen !== false,
       criminal: driver.criminal || false,
+      straps: driver.straps ?? 2,
+      load_bars: driver.load_bars ?? 0,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
@@ -508,10 +514,12 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
-          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
 
@@ -1250,9 +1258,31 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.criminal}
                       onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                     />
-                    <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
-                  </div>
-                </div>
+                     <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mt-2">
+                   <div className="space-y-2">
+                     <Label htmlFor="reports_edit_straps">Straps</Label>
+                     <Input
+                       id="reports_edit_straps"
+                       type="number"
+                       min={0}
+                       value={formData.straps}
+                       onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="reports_edit_load_bars">Load Bars</Label>
+                     <Input
+                       id="reports_edit_load_bars"
+                       type="number"
+                       min={0}
+                       value={formData.load_bars}
+                       onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                 </div>
               </form>
             </TabsContent>
 

@@ -1818,6 +1818,7 @@ export type Database = {
           last_dispatcher_id: string | null
           last_name: string | null
           license_number: string | null
+          load_bars: number
           mc_number: string | null
           medical_card_expiration_date: string | null
           mvr_date: string | null
@@ -1825,6 +1826,7 @@ export type Database = {
           note: string | null
           phone: string | null
           random_drug_test_date: string | null
+          straps: number
           tanker: boolean
           termination_date: string | null
           twic: boolean
@@ -1874,6 +1876,7 @@ export type Database = {
           last_dispatcher_id?: string | null
           last_name?: string | null
           license_number?: string | null
+          load_bars?: number
           mc_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
@@ -1881,6 +1884,7 @@ export type Database = {
           note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
+          straps?: number
           tanker?: boolean
           termination_date?: string | null
           twic?: boolean
@@ -1930,6 +1934,7 @@ export type Database = {
           last_dispatcher_id?: string | null
           last_name?: string | null
           license_number?: string | null
+          load_bars?: number
           mc_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
@@ -1937,6 +1942,7 @@ export type Database = {
           note?: string | null
           phone?: string | null
           random_drug_test_date?: string | null
+          straps?: number
           tanker?: boolean
           termination_date?: string | null
           twic?: boolean

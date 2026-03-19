@@ -113,6 +113,8 @@ interface DriverFormData {
   twic: boolean;
   citizen: boolean;
   criminal: boolean;
+  straps: number;
+  load_bars: number;
   cents_per_mile: string;
   note: string;
 }
@@ -204,6 +206,8 @@ const Drivers = () => {
     twic: false,
     citizen: true,
     criminal: false,
+    straps: 2,
+    load_bars: 0,
     cents_per_mile: "",
     note: "",
   });
@@ -409,6 +413,8 @@ const Drivers = () => {
       twic: false,
       citizen: true,
       criminal: false,
+      straps: 2,
+      load_bars: 0,
       cents_per_mile: "",
       note: "",
     });
@@ -517,8 +523,10 @@ const Drivers = () => {
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
           cents_per_mile:
             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
@@ -784,9 +792,11 @@ const Drivers = () => {
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
           do_not_touch_hos: formData.do_not_touch_hos || false,
-          cents_per_mile:
-            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile:
+             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
@@ -1361,6 +1371,8 @@ const Drivers = () => {
       twic: driver.twic || false,
       citizen: driver.citizen !== false,
       criminal: driver.criminal || false,
+      straps: driver.straps ?? 2,
+      load_bars: driver.load_bars ?? 0,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
@@ -2095,9 +2107,31 @@ const Drivers = () => {
                           checked={formData.criminal}
                           onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                         />
-                        <Label htmlFor="add_criminal" className="cursor-pointer">Criminal</Label>
-                      </div>
-                    </div>
+                         <Label htmlFor="add_criminal" className="cursor-pointer">Criminal</Label>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4 mt-2">
+                       <div className="space-y-2">
+                         <Label htmlFor="add_straps">Straps</Label>
+                         <Input
+                           id="add_straps"
+                           type="number"
+                           min={0}
+                           value={formData.straps}
+                           onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="add_load_bars">Load Bars</Label>
+                         <Input
+                           id="add_load_bars"
+                           type="number"
+                           min={0}
+                           value={formData.load_bars}
+                           onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                         />
+                       </div>
+                     </div>
                   </form>
                 </TabsContent>
 
@@ -3182,9 +3216,31 @@ const Drivers = () => {
                       checked={formData.criminal}
                       onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                     />
-                    <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
-                  </div>
-                </div>
+                     <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mt-2">
+                   <div className="space-y-2">
+                     <Label htmlFor="edit_straps">Straps</Label>
+                     <Input
+                       id="edit_straps"
+                       type="number"
+                       min={0}
+                       value={formData.straps}
+                       onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="edit_load_bars">Load Bars</Label>
+                     <Input
+                       id="edit_load_bars"
+                       type="number"
+                       min={0}
+                       value={formData.load_bars}
+                       onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                 </div>
               </form>
             </TabsContent>
 
