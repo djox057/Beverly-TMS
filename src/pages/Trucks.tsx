@@ -548,6 +548,7 @@ const Trucks = () => {
     setFormData({
       truck_number: truck.truck_number || "",
       vin: truck.vin || "",
+      plate: truck.plate || "",
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
