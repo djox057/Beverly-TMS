@@ -792,9 +792,11 @@ const Drivers = () => {
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
           do_not_touch_hos: formData.do_not_touch_hos || false,
-          cents_per_mile:
-            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile:
+             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
