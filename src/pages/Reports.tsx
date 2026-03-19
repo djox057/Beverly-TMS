@@ -4455,9 +4455,23 @@ const Reports = () => {
                                                               )}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1">
-                                                              <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                              <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const parts = [`🚚 Truck: ${truck.truckNumber}`];
+                                                                if ((truck as any).truckVin) parts.push(`VIN: ${(truck as any).truckVin}`);
+                                                                if ((truck as any).truckPlate) parts.push(`Plate: ${(truck as any).truckPlate}`);
+                                                                navigator.clipboard.writeText(parts.join('\n'));
+                                                                toast({ title: "Truck info copied" });
+                                                              }}>🚚 Truck: {truck.truckNumber}</p>
                                                               {truck.trailerNumber && (
-                                                                <p className="text-xs">
+                                                                <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  const parts = [`🚛 Trailer: ${truck.trailerNumber}`];
+                                                                  if ((truck as any).trailerVin) parts.push(`VIN: ${(truck as any).trailerVin}`);
+                                                                  if ((truck as any).trailerPlate) parts.push(`Plate: ${(truck as any).trailerPlate}`);
+                                                                  navigator.clipboard.writeText(parts.join('\n'));
+                                                                  toast({ title: "Trailer info copied" });
+                                                                }}>
                                                                   🚛 Trailer: {truck.trailerNumber}
                                                                 </p>
                                                               )}
