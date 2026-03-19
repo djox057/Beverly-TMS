@@ -1936,6 +1936,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             driver2Name: null,
             driver2Phone: null,
             driver2Email: null,
+            truckVin: truck?.vin || null,
+            trailerVin: trailerInfo?.vin || null,
             trailerNumber: trailerInfo?.trailer_number || null,
             home: homeString,
             dispatcher: offDutyDispatcherName,
