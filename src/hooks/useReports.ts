@@ -858,7 +858,7 @@ export const useReports = (options?: UseReportsOptions) => {
     // Parallel batch fetches for truck relations
     const [truckDriversRes, truckTrailersRes, truckCompaniesRes] = await Promise.all([
       truckDriverIdsBatch.size > 0
-        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos").in("id", Array.from(truckDriverIdsBatch))
+        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
         : { data: [], error: null },
       truckTrailerIdsBatch.size > 0
         ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date").in("id", Array.from(truckTrailerIdsBatch))
