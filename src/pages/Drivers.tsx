@@ -413,6 +413,8 @@ const Drivers = () => {
       twic: false,
       citizen: true,
       criminal: false,
+      straps: 2,
+      load_bars: 0,
       cents_per_mile: "",
       note: "",
     });
