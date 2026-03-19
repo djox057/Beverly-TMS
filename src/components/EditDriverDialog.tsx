@@ -514,10 +514,12 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
-          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
 
