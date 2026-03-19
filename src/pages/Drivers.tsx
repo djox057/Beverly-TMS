@@ -523,8 +523,10 @@ const Drivers = () => {
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
           cents_per_mile:
             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
