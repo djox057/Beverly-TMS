@@ -1051,11 +1051,12 @@ const NewOrder = () => {
     try {
       setIsSendingEmail(true);
 
-      // Get driver email
+      // Get driver emails (driver1 + driver2)
       const driverForEmail = allDrivers?.find((d) => d.id === driver1);
       if (!driverForEmail?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
+      const driver2ForEmail = driver2 ? allDrivers?.find((d) => d.id === driver2) : null;
 
       // Get driver company for email configuration
       let companyName = driverForEmail?.company?.name;
