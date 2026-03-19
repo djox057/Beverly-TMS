@@ -1424,7 +1424,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         }
       }
     }
-    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, vin: t.vin }]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, vin: t.vin, plate: (t as any).plate }]));
     const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
     // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
