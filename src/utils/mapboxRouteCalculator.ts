@@ -157,7 +157,7 @@ export async function calculateMultiStopMiles(addresses: string[]): Promise<numb
       console.log("🚚 Multi-stop miles result:", miles);
       return miles;
     })(),
-    8000,
+    12000,
     0,
   );
 }
