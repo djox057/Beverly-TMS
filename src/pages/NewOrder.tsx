@@ -1051,11 +1051,12 @@ const NewOrder = () => {
     try {
       setIsSendingEmail(true);
 
-      // Get driver email
+      // Get driver emails (driver1 + driver2)
       const driverForEmail = allDrivers?.find((d) => d.id === driver1);
       if (!driverForEmail?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
+      const driver2ForEmail = driver2 ? allDrivers?.find((d) => d.id === driver2) : null;
 
       // Get driver company for email configuration
       let companyName = driverForEmail?.company?.name;
@@ -1119,7 +1120,7 @@ const NewOrder = () => {
                   Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
                 },
                 body: JSON.stringify({
-                  to: driverForEmail.email,
+                  to: driver2ForEmail?.email ? [driverForEmail.email, driver2ForEmail.email] : driverForEmail.email,
                   from: emailConfig.sender,
                   cc: emailConfig.cc,
                   subject: subject,
@@ -1170,7 +1171,7 @@ const NewOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${driverForEmail.email}`,
+              description: `File sent to ${driverForEmail.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
             });
             resolve(true);
           } catch (err) {

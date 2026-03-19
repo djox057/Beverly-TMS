@@ -1148,6 +1148,7 @@ const EditOrder = () => {
       if (!selectedDriver?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
+      const driver2ForEmail = driver2 ? drivers?.find((d) => d.id === driver2) : null;
       // Get company name from driver's company (not truck's company)
       let companyName = selectedDriver?.company?.name;
 
@@ -1196,7 +1197,7 @@ const EditOrder = () => {
                   Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
                 },
                 body: JSON.stringify({
-                  to: selectedDriver.email,
+                  to: driver2ForEmail?.email ? [selectedDriver.email, driver2ForEmail.email] : selectedDriver.email,
                   from: emailConfig.sender,
                   cc: emailConfig.cc,
                   subject: subject,
@@ -1244,7 +1245,7 @@ const EditOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}`,
+              description: `File sent to ${selectedDriver.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
             });
             resolve(true);
           } catch (err) {
