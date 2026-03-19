@@ -160,19 +160,17 @@ export async function calculateMultiStopMiles(addresses: string[]): Promise<numb
 export async function calculateDhMiles(lastDeliveryAddress: string, nextPickupAddress: string): Promise<number | null> {
   console.log('🚚 Calculating DH miles:', { lastDeliveryAddress, nextPickupAddress });
   
-  const lastDeliveryCoords = await geocodeAddress(lastDeliveryAddress);
-  if (!lastDeliveryCoords) {
-    console.error('Failed to geocode last delivery address:', lastDeliveryAddress);
-    return null;
-  }
-  
-  const nextPickupCoords = await geocodeAddress(nextPickupAddress);
-  if (!nextPickupCoords) {
-    console.error('Failed to geocode next pickup address:', nextPickupAddress);
-    return null;
-  }
-  
-  const miles = await getRouteDistance(lastDeliveryCoords, nextPickupCoords);
-  console.log('🚚 DH miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const lastDeliveryCoords = await geocodeAddress(lastDeliveryAddress);
+      if (!lastDeliveryCoords) { console.error('Failed to geocode last delivery:', lastDeliveryAddress); return null; }
+      const nextPickupCoords = await geocodeAddress(nextPickupAddress);
+      if (!nextPickupCoords) { console.error('Failed to geocode next pickup:', nextPickupAddress); return null; }
+      const miles = await getRouteDistance(lastDeliveryCoords, nextPickupCoords);
+      console.log('🚚 DH miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
