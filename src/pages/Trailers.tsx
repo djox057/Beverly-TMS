@@ -106,6 +106,7 @@ const Trailers = () => {
     const matchesSearch = trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
       trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      trailer.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       (trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Assignment filter
