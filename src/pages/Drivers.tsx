@@ -1369,6 +1369,8 @@ const Drivers = () => {
       twic: driver.twic || false,
       citizen: driver.citizen !== false,
       criminal: driver.criminal || false,
+      straps: driver.straps ?? 2,
+      load_bars: driver.load_bars ?? 0,
       cents_per_mile: driver.cents_per_mile?.toString() || "",
       note: driver.note || "",
     });
