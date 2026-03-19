@@ -1736,7 +1736,8 @@ const NewOrder = () => {
       const newDh = parseInt(dhMiles) || 0;
       const oldLoaded = autoCalcLoadedMilesRef.current ?? 0;
       const newLoaded = parseInt(loadedMiles) || 0;
-      const milesCheck = checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
+      // Skip miles change check if old values were 0 (initial state)
+      const milesCheck = (oldDh === 0 && oldLoaded === 0) ? { significant: false } : checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
       if (milesCheck.significant) {
         setMilesChangeInfo({
           ...milesCheck,
