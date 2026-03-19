@@ -27,6 +27,7 @@ interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
   vin: string;
+  plate: string;
   truck_id: string;
   dot_inspection_date: string;
   plate_expiration_date: string;
