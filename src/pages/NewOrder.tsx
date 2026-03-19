@@ -1120,7 +1120,7 @@ const NewOrder = () => {
                   Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
                 },
                 body: JSON.stringify({
-                  to: driverForEmail.email,
+                  to: driver2ForEmail?.email ? [driverForEmail.email, driver2ForEmail.email] : driverForEmail.email,
                   from: emailConfig.sender,
                   cc: emailConfig.cc,
                   subject: subject,
