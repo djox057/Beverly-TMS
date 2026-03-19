@@ -4720,6 +4720,12 @@ const Reports = () => {
                                                                 </Button>
                                                               </div>
                                                             )}
+                                                            {(truck as any).truckVin && (
+                                                              <p className="text-xs">🚚 VIN: {(truck as any).truckVin}</p>
+                                                            )}
+                                                            {(truck as any).trailerVin && (
+                                                              <p className="text-xs">🚛 VIN: {(truck as any).trailerVin}</p>
+                                                            )}
                                                             {((truck as any).emergencyContactName ||
                                                               (truck as any).emergencyContactPhone) && (
                                                               <div className="border-t pt-1 mt-1">
