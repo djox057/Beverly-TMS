@@ -22,6 +22,13 @@ function cleanAddressForGeocoding(address: string): string {
 /**
  * Geocode an address using the edge function with Mapbox
  */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export async function geocodeAddress(address: string): Promise<Coordinates | null> {
   if (!address || address.trim() === '') return null;
   
