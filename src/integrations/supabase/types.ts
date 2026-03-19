@@ -3511,6 +3511,7 @@ export type Database = {
           id: string
           insurance_expiration_date: string | null
           is_active: boolean
+          plate: string | null
           plate_expiration_date: string | null
           status: string | null
           termination_date: string | null
@@ -3526,6 +3527,7 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
+          plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
@@ -3541,6 +3543,7 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
+          plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
@@ -3826,6 +3829,7 @@ export type Database = {
           model: string | null
           needs_recovery: boolean | null
           oil_change_date: string | null
+          plate: string | null
           plate_expiration_date: string | null
           status: string | null
           termination_date: string | null
@@ -3855,6 +3859,7 @@ export type Database = {
           model?: string | null
           needs_recovery?: boolean | null
           oil_change_date?: string | null
+          plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
@@ -3884,6 +3889,7 @@ export type Database = {
           model?: string | null
           needs_recovery?: boolean | null
           oil_change_date?: string | null
+          plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
           termination_date?: string | null
