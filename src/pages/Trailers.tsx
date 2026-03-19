@@ -550,6 +550,14 @@ const Trailers = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="plate">Plate</Label>
+                <Input id="plate" value={formData.plate} onChange={e => setFormData({
+                ...formData,
+                plate: e.target.value
+              })} placeholder="Enter plate number" />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="truck_id">Truck #</Label>
                 <Select value={formData.truck_id} onValueChange={value => setFormData({
                 ...formData,
