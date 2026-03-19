@@ -4396,6 +4396,12 @@ const Reports = () => {
                                                                 </Button>
                                                               </div>
                                                             )}
+                                                            {(truck as any).truckVin && (
+                                                              <p className="text-xs">🚚 VIN: {(truck as any).truckVin}</p>
+                                                            )}
+                                                            {(truck as any).trailerVin && (
+                                                              <p className="text-xs">🚛 VIN: {(truck as any).trailerVin}</p>
+                                                            )}
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
                                                                 <p className="font-semibold text-sm">
@@ -4713,6 +4719,12 @@ const Reports = () => {
                                                                   <ClipboardCopy className="h-3 w-3" />
                                                                 </Button>
                                                               </div>
+                                                            )}
+                                                            {(truck as any).truckVin && (
+                                                              <p className="text-xs">🚚 VIN: {(truck as any).truckVin}</p>
+                                                            )}
+                                                            {(truck as any).trailerVin && (
+                                                              <p className="text-xs">🚛 VIN: {(truck as any).trailerVin}</p>
                                                             )}
                                                             {((truck as any).emergencyContactName ||
                                                               (truck as any).emergencyContactPhone) && (
