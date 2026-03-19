@@ -22,6 +22,13 @@ function cleanAddressForGeocoding(address: string): string {
 /**
  * Geocode an address using the edge function with Mapbox
  */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export async function geocodeAddress(address: string): Promise<Coordinates | null> {
   if (!address || address.trim() === '') return null;
   
@@ -109,21 +116,19 @@ async function getMultiStopRouteDistance(coordinates: Coordinates[]): Promise<nu
 export async function calculateLoadedMiles(pickupAddress: string, deliveryAddress: string): Promise<number | null> {
   console.log('🚚 Calculating loaded miles:', { pickupAddress, deliveryAddress });
   
-  const pickupCoords = await geocodeAddress(pickupAddress);
-  if (!pickupCoords) {
-    console.error('Failed to geocode pickup address:', pickupAddress);
-    return null;
-  }
-  
-  const deliveryCoords = await geocodeAddress(deliveryAddress);
-  if (!deliveryCoords) {
-    console.error('Failed to geocode delivery address:', deliveryAddress);
-    return null;
-  }
-  
-  const miles = await getRouteDistance(pickupCoords, deliveryCoords);
-  console.log('🚚 Loaded miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const pickupCoords = await geocodeAddress(pickupAddress);
+      if (!pickupCoords) { console.error('Failed to geocode pickup:', pickupAddress); return null; }
+      const deliveryCoords = await geocodeAddress(deliveryAddress);
+      if (!deliveryCoords) { console.error('Failed to geocode delivery:', deliveryAddress); return null; }
+      const miles = await getRouteDistance(pickupCoords, deliveryCoords);
+      console.log('🚚 Loaded miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
 
 /**
@@ -132,20 +137,21 @@ export async function calculateLoadedMiles(pickupAddress: string, deliveryAddres
 export async function calculateMultiStopMiles(addresses: string[]): Promise<number | null> {
   console.log('🚚 Calculating multi-stop miles:', addresses);
   
-  const coordinates: Coordinates[] = [];
-  
-  for (const address of addresses) {
-    const coords = await geocodeAddress(address);
-    if (!coords) {
-      console.error('Failed to geocode address:', address);
-      return null;
-    }
-    coordinates.push(coords);
-  }
-  
-  const miles = await getMultiStopRouteDistance(coordinates);
-  console.log('🚚 Multi-stop miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const coordinates: Coordinates[] = [];
+      for (const address of addresses) {
+        const coords = await geocodeAddress(address);
+        if (!coords) { console.error('Failed to geocode address:', address); return null; }
+        coordinates.push(coords);
+      }
+      const miles = await getMultiStopRouteDistance(coordinates);
+      console.log('🚚 Multi-stop miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
 
 /**
@@ -154,19 +160,17 @@ export async function calculateMultiStopMiles(addresses: string[]): Promise<numb
 export async function calculateDhMiles(lastDeliveryAddress: string, nextPickupAddress: string): Promise<number | null> {
   console.log('🚚 Calculating DH miles:', { lastDeliveryAddress, nextPickupAddress });
   
-  const lastDeliveryCoords = await geocodeAddress(lastDeliveryAddress);
-  if (!lastDeliveryCoords) {
-    console.error('Failed to geocode last delivery address:', lastDeliveryAddress);
-    return null;
-  }
-  
-  const nextPickupCoords = await geocodeAddress(nextPickupAddress);
-  if (!nextPickupCoords) {
-    console.error('Failed to geocode next pickup address:', nextPickupAddress);
-    return null;
-  }
-  
-  const miles = await getRouteDistance(lastDeliveryCoords, nextPickupCoords);
-  console.log('🚚 DH miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const lastDeliveryCoords = await geocodeAddress(lastDeliveryAddress);
+      if (!lastDeliveryCoords) { console.error('Failed to geocode last delivery:', lastDeliveryAddress); return null; }
+      const nextPickupCoords = await geocodeAddress(nextPickupAddress);
+      if (!nextPickupCoords) { console.error('Failed to geocode next pickup:', nextPickupAddress); return null; }
+      const miles = await getRouteDistance(lastDeliveryCoords, nextPickupCoords);
+      console.log('🚚 DH miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
