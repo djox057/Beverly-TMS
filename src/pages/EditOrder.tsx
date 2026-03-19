@@ -1148,6 +1148,7 @@ const EditOrder = () => {
       if (!selectedDriver?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
+      const driver2ForEmail = driver2 ? drivers?.find((d) => d.id === driver2) : null;
       // Get company name from driver's company (not truck's company)
       let companyName = selectedDriver?.company?.name;
 
