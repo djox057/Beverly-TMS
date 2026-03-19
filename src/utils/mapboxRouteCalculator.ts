@@ -137,20 +137,21 @@ export async function calculateLoadedMiles(pickupAddress: string, deliveryAddres
 export async function calculateMultiStopMiles(addresses: string[]): Promise<number | null> {
   console.log('🚚 Calculating multi-stop miles:', addresses);
   
-  const coordinates: Coordinates[] = [];
-  
-  for (const address of addresses) {
-    const coords = await geocodeAddress(address);
-    if (!coords) {
-      console.error('Failed to geocode address:', address);
-      return null;
-    }
-    coordinates.push(coords);
-  }
-  
-  const miles = await getMultiStopRouteDistance(coordinates);
-  console.log('🚚 Multi-stop miles result:', miles);
-  return miles;
+  return withTimeout(
+    (async () => {
+      const coordinates: Coordinates[] = [];
+      for (const address of addresses) {
+        const coords = await geocodeAddress(address);
+        if (!coords) { console.error('Failed to geocode address:', address); return null; }
+        coordinates.push(coords);
+      }
+      const miles = await getMultiStopRouteDistance(coordinates);
+      console.log('🚚 Multi-stop miles result:', miles);
+      return miles;
+    })(),
+    5000,
+    0
+  );
 }
 
 /**
