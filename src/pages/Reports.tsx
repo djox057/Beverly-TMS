@@ -4534,7 +4534,7 @@ const Reports = () => {
                                                                {((truck as any).driverStraps ?? 2) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Straps">
                                                                    <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
-                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5" />
+                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5 pt-[2px]" />
                                                                  </span>
                                                                )}
                                                                {((truck as any).driverLoadBars ?? 0) > 0 && (
