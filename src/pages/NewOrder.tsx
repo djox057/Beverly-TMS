@@ -392,79 +392,58 @@ const NewOrder = () => {
     }
   }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
-  // Dedup refs to prevent redundant mile calculations
-  const lastLoadedCalcKey = useRef<string>('');
-  const lastDhCalcKey = useRef<string>('');
-
-  // Effect 1: Geocode addresses that are missing coordinates
+  // Auto-calculate loaded miles and geocode addresses when pickups/drops change
   useEffect(() => {
-    const geocodeMissing = async () => {
+    const geocodeAndCalculateMiles = async () => {
       if (pickupsDrops.length < 2) return;
 
+      // Geocode all addresses that don't have coordinates yet
       const itemsToGeocode = pickupsDrops.filter(item => 
         item.address.trim() && (item.latitude === undefined || item.longitude === undefined)
       );
       
-      if (itemsToGeocode.length === 0) return;
-
-      const updatedItems = [...pickupsDrops];
-      let hasUpdates = false;
-      
-      for (const item of itemsToGeocode) {
-        const fullAddress = [item.address, item.city, item.state, item.zipCode]
-          .filter(Boolean)
-          .join(', ');
+      if (itemsToGeocode.length > 0) {
+        const updatedItems = [...pickupsDrops];
+        let hasUpdates = false;
         
-        const coords = await geocodeAddress(fullAddress);
-        if (coords) {
-          const index = updatedItems.findIndex(i => i.id === item.id);
-          if (index !== -1) {
-            updatedItems[index] = {
-              ...updatedItems[index],
-              latitude: coords.lat,
-              longitude: coords.lon
-            };
-            hasUpdates = true;
-            console.log(`📍 Geocoded ${item.type}: ${fullAddress} -> ${coords.lat}, ${coords.lon}`);
+        for (const item of itemsToGeocode) {
+          const fullAddress = [item.address, item.city, item.state, item.zipCode]
+            .filter(Boolean)
+            .join(', ');
+          
+          const coords = await geocodeAddress(fullAddress);
+          if (coords) {
+            const index = updatedItems.findIndex(i => i.id === item.id);
+            if (index !== -1) {
+              updatedItems[index] = {
+                ...updatedItems[index],
+                latitude: coords.lat,
+                longitude: coords.lon
+              };
+              hasUpdates = true;
+              console.log(`📍 Geocoded ${item.type}: ${fullAddress} -> ${coords.lat}, ${coords.lon}`);
+            }
           }
         }
+        
+        if (hasUpdates) {
+          setPickupsDrops(updatedItems);
+          return; // Will re-trigger with updated coordinates
+        }
       }
-      
-      if (hasUpdates) {
-        setPickupsDrops(updatedItems);
-      }
-    };
 
-    const timeoutId = setTimeout(geocodeMissing, 1500);
-    return () => clearTimeout(timeoutId);
-  }, [pickupsDrops]);
-
-  // Effect 2: Calculate loaded miles only when all stops have coordinates
-  useEffect(() => {
-    const calculateMiles = async () => {
-      if (pickupsDrops.length < 2) return;
-
-      // Skip if any address still needs geocoding
-      const stopsWithAddress = pickupsDrops.filter(item => item.address.trim());
-      if (stopsWithAddress.length < 2) return;
-      const allGeocoded = stopsWithAddress.every(item => 
-        item.latitude !== undefined && item.longitude !== undefined
-      );
-      if (!allGeocoded) return;
-
-      // Build addresses and dedup key
-      const addresses = stopsWithAddress.map(item => {
+      // Get all addresses in order for mile calculation
+      // Always build full address from separate fields for consistent geocoding
+      const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
         const parts = [item.address];
         if (item.city) parts.push(item.city);
         if (item.state) parts.push(item.state);
         if (item.zipCode) parts.push(item.zipCode);
         return parts.join(', ');
       });
-      if (addresses.length < 2) return;
-
-      const calcKey = addresses.join('|');
-      if (calcKey === lastLoadedCalcKey.current) return;
-
+      if (addresses.length < 2) {
+        return;
+      }
       setIsCalculatingMiles(true);
       try {
         let miles: number | null = null;
@@ -474,7 +453,6 @@ const NewOrder = () => {
           miles = await calculateMultiStopMiles(addresses);
         }
         if (miles !== null) {
-          lastLoadedCalcKey.current = calcKey;
           setLoadedMiles(miles.toString());
           autoCalcLoadedMilesRef.current = miles;
           toast({
@@ -489,7 +467,7 @@ const NewOrder = () => {
       }
     };
 
-    const timeoutId = setTimeout(calculateMiles, 1500);
+    const timeoutId = setTimeout(geocodeAndCalculateMiles, 1500);
     return () => clearTimeout(timeoutId);
   }, [pickupsDrops, toast]);
 
@@ -513,16 +491,11 @@ const NewOrder = () => {
       
       // Use last delivery address or fallback to default base coordinates
       const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
-
-      // Dedup: skip if same truck+pickup+origin combo
-      const dhKey = `${truck}|${pickupAddress}|${dhOriginAddress}`;
-      if (dhKey === lastDhCalcKey.current) return;
       
       setIsCalculatingDhMiles(true);
       try {
         const miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
         if (miles !== null) {
-          lastDhCalcKey.current = dhKey;
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;
           toast({

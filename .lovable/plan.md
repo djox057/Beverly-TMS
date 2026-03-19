@@ -1,44 +1,31 @@
-## Fix: Duplicate mileage recalculations in New Order
 
-### Root cause
 
-Two issues cause mileage to calculate multiple times:
+# Fix 1: Analytics -- Select Only Needed Columns
 
-**1. Loaded miles effect (line 396-472) triggers itself via geocoding**
+## Problem
+Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
 
-- The effect depends on `pickupsDrops`
-- When addresses lack coordinates, it geocodes them and calls `setPickupsDrops(updatedItems)` (line 430)
-- This mutates `pickupsDrops`, which re-triggers the same effect
-- The `return` on line 431 prevents double calculation in that cycle, but the re-trigger then runs the full calculation
-- If multiple items need geocoding, each geocode pass may only update some items, causing a chain of re-triggers
+## Change
+**File:** `src/pages/Analytics.tsx`, line 518
 
-**2. DH miles effect (line 475-520) depends on `pickupsDrops**`
+**Before:**
+```typescript
+.select("*")
+```
 
-- Every time `pickupsDrops` changes (including from the geocoding updates above), DH miles recalculates
-- Combined with the loaded miles geocoding loop, DH miles can fire 2-3 times
+**After:**
+```typescript
+.select("dispatcher_id, driver_count, truck_count, date")
+```
 
-### Fix
+Only these 4 fields are used by the code:
+- `dispatcher_id` -- grouping key
+- `driver_count` -- summed per dispatcher
+- `truck_count` -- summed per dispatcher (with fallback to driver_count)
+- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
 
-**File: `src/pages/NewOrder.tsx**`
+## Expected Impact
+- Query time drops from ~145ms to ~3.6ms per call (40x faster)
+- Total DB CPU usage reduced by approximately 80%
+- No functional change -- all consumed fields are still selected
 
-**Change 1: Separate geocoding from mile calculation**
-
-- Split the loaded-miles `useEffect` into two effects:
-  - **Geocoding effect**: watches `pickupsDrops`, geocodes missing coordinates, updates state. No mile calculation.
-  - **Mile calculation effect**: watches `pickupsDrops` but only runs when ALL stops have coordinates (skip if any are missing). This ensures it fires exactly once after geocoding is complete.
-
-**Change 2: Guard DH miles with a stable pickup address ref**
-
-- Track the last pickup address + truck combo that was used for DH calculation in a ref (`lastDhCalcKey`)
-- Before calculating, compare current key to ref. If same, skip. This prevents redundant DH calls when `pickupsDrops` changes but the first pickup address hasn't actually changed.
-
-**Change 3: Guard loaded miles with a stable addresses ref**
-
-- Similarly track the last set of addresses used for loaded miles calculation in a ref (`lastLoadedCalcKey`)
-- Skip if the addresses string hasn't changed from the last successful calculation
-
-### Summary of changes
-
-- Split 1 effect into 2 (geocoding vs calculation) to break the self-triggering loop
-- Add dedup refs for both DH and loaded miles to prevent redundant API calls
-- No behavioral changes — miles still auto-calculate, just exactly once per address change
