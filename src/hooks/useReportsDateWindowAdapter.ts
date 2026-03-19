@@ -1712,6 +1712,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driverTwic: driver.twic || false,
         driverCitizen: driver.citizen !== false,
         driverCriminal: driver.criminal || false,
+        driverStraps: driver.straps ?? 2,
+        driverLoadBars: driver.load_bars ?? 0,
         trailerNumber: trailerInfo?.trailer_number || null,
         home: homeString,
         dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
