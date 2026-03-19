@@ -413,7 +413,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trailers');
       const { data, error } = await supabase
         .from("trailers")
-        .select("id, trailer_number, dot_inspection_date, vin")
+        .select("id, trailer_number, dot_inspection_date, vin, plate")
         .in("id", trailerIdsFromTrucks);
       console.timeEnd('[perf] adapter-trailers');
       if (error) throw error;
@@ -1424,7 +1424,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         }
       }
     }
-    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, vin: t.vin }]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, vin: t.vin, plate: (t as any).plate }]));
     const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
     // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
@@ -1715,7 +1715,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driverStraps: driver.straps ?? 2,
         driverLoadBars: driver.load_bars ?? 0,
         truckVin: truck?.vin || null,
+        truckPlate: truck?.plate || null,
         trailerVin: trailerInfo?.vin || null,
+        trailerPlate: trailerInfo?.plate || null,
         trailerNumber: trailerInfo?.trailer_number || null,
         home: homeString,
         dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
@@ -1937,7 +1939,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             driver2Phone: null,
             driver2Email: null,
             truckVin: truck?.vin || null,
+            truckPlate: truck?.plate || null,
             trailerVin: trailerInfo?.vin || null,
+            trailerPlate: trailerInfo?.plate || null,
             trailerNumber: trailerInfo?.trailer_number || null,
             home: homeString,
             dispatcher: offDutyDispatcherName,
