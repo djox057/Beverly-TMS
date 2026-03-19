@@ -77,6 +77,8 @@ interface DriverFormData {
   twic: boolean;
   citizen: boolean;
   criminal: boolean;
+  straps: number;
+  load_bars: number;
   cents_per_mile: string;
   note: string;
 }
