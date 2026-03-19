@@ -203,6 +203,7 @@ const Trailers = () => {
         trailer_number: formData.trailer_number,
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
+        plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null
