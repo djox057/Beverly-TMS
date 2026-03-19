@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface TruckFormData {
   truck_number: string;
   vin: string;
+  plate: string;
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
