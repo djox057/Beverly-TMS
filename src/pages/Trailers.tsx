@@ -27,6 +27,7 @@ interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
   vin: string;
+  plate: string;
   truck_id: string;
   dot_inspection_date: string;
   plate_expiration_date: string;
@@ -60,6 +61,7 @@ const Trailers = () => {
     trailer_number: "",
     trailer_type: "",
     vin: "",
+    plate: "",
     truck_id: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
@@ -134,6 +136,7 @@ const Trailers = () => {
       trailer_number: "",
       trailer_type: "",
       vin: "",
+      plate: "",
       truck_id: "",
       dot_inspection_date: "",
       plate_expiration_date: "",
@@ -152,6 +155,7 @@ const Trailers = () => {
         trailer_number: formData.trailer_number?.trim(),
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
+        plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null
@@ -199,6 +203,7 @@ const Trailers = () => {
         trailer_number: formData.trailer_number,
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
+        plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null
@@ -323,6 +328,7 @@ const Trailers = () => {
       trailer_number: trailer.trailer_number || "",
       trailer_type: trailer.trailer_type || "",
       vin: trailer.vin || "",
+      plate: trailer.plate || "",
       truck_id: trailer.trucks?.[0]?.id || "",
       dot_inspection_date: trailer.dot_inspection_date || "",
       plate_expiration_date: trailer.plate_expiration_date || "",
@@ -541,6 +547,14 @@ const Trailers = () => {
                 ...formData,
                 vin: e.target.value
               })} placeholder="Enter VIN" maxLength={17} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plate">Plate</Label>
+                <Input id="plate" value={formData.plate} onChange={e => setFormData({
+                ...formData,
+                plate: e.target.value
+              })} placeholder="Enter plate number" />
               </div>
 
               <div className="space-y-2">
@@ -861,6 +875,14 @@ const Trailers = () => {
                   ...formData,
                   vin: e.target.value
                 })} placeholder="Enter VIN" maxLength={17} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_plate">Plate</Label>
+                  <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({
+                    ...formData,
+                    plate: e.target.value
+                  })} placeholder="Enter plate number" />
                 </div>
 
                 <div className="space-y-2">

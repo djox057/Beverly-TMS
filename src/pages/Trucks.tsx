@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface TruckFormData {
   truck_number: string;
   vin: string;
+  plate: string;
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
@@ -75,6 +76,7 @@ const Trucks = () => {
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
+    plate: "",
     trailer_id: "",
     driver_id: "",
     driver2_id: "",
@@ -157,6 +159,7 @@ const Trucks = () => {
     setFormData({
       truck_number: "",
       vin: "",
+      plate: "",
       trailer_id: "",
       driver_id: "",
       driver2_id: "",
@@ -193,6 +196,7 @@ const Trucks = () => {
       } = await supabase.from('trucks').insert({
         truck_number: formData.truck_number?.trim(),
         vin: formData.vin || null,
+        plate: formData.plate || null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
@@ -386,6 +390,7 @@ const Trucks = () => {
       } = await supabase.from('trucks').update({
         truck_number: formData.truck_number,
         vin: formData.vin || null,
+        plate: formData.plate || null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
@@ -543,6 +548,7 @@ const Trucks = () => {
     setFormData({
       truck_number: truck.truck_number || "",
       vin: truck.vin || "",
+      plate: truck.plate || "",
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
@@ -789,7 +795,7 @@ const Trucks = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="trailer_id">Trailer Number</Label>
                   <Combobox
@@ -803,6 +809,13 @@ const Trucks = () => {
                     searchPlaceholder="Search trailers..."
                     emptyText="No trailer found."
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="plate">Plate</Label>
+                  <Input id="plate" value={formData.plate} onChange={e => setFormData({
+                    ...formData,
+                    plate: e.target.value
+                  })} placeholder="Enter plate number" />
                 </div>
               </div>
 
@@ -1201,7 +1214,7 @@ const Trucks = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_trailer_id">Trailer Number</Label>
                     <Combobox
@@ -1215,6 +1228,13 @@ const Trucks = () => {
                       searchPlaceholder="Search trailers..."
                       emptyText="No trailer found."
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_plate">Plate</Label>
+                    <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({
+                      ...formData,
+                      plate: e.target.value
+                    })} placeholder="Enter plate number" />
                   </div>
                 </div>
 
