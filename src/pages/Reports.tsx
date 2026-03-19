@@ -4792,7 +4792,7 @@ const Reports = () => {
                                                                {((truck as any).driverLoadBars ?? 0) > 0 && (
                                                                  <span className="flex items-center gap-0.5" title="Load Bars">
                                                                    <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
-                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-5 w-5" />
+                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-[26px] w-[26px]" />
                                                                  </span>
                                                                )}
                                                             </div>
