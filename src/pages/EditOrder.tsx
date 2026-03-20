@@ -243,6 +243,7 @@ const EditOrder = () => {
   const [yardRecoveryMiles, setYardRecoveryMiles] = useState("");
   const [yardMilesLoading, setYardMilesLoading] = useState(false);
   const [yardReason, setYardReason] = useState("");
+  const [yardBolLocation, setYardBolLocation] = useState("");
 
   // Partial load state
   const [isPartial, setIsPartial] = useState(false);
@@ -2910,13 +2911,16 @@ const EditOrder = () => {
         }
 
         // Clear current assignment but do NOT overwrite original_* fields
-        const reTransferUpdate = {
+        const reTransferUpdate: Record<string, any> = {
           driver1_id: null,
           driver2_id: null,
           truck_id: null,
           recovery_miles: recoveryMilesCalc,
           notes: fullNotes,
         };
+        if (yardBolLocation.trim()) {
+          reTransferUpdate.bol_location = yardBolLocation.trim();
+        }
 
         const { error } = await supabase
           .from("orders")
@@ -2941,6 +2945,7 @@ const EditOrder = () => {
 
         setYardDialogOpen(false);
         setYardReason("");
+        setYardBolLocation("");
         localStorage.setItem("returnToYardLoads", "true");
         navigate("/yard-loads");
         return; // Skip the first-time original_* overwrite path
@@ -2961,10 +2966,13 @@ const EditOrder = () => {
         recovery_miles: recoveryMilesCalc,
       };
 
-      const fullUpdateData = {
+      const fullUpdateData: Record<string, any> = {
         ...updateData,
         notes: fullNotes,
       };
+      if (yardBolLocation.trim()) {
+        fullUpdateData.bol_location = yardBolLocation.trim();
+      }
       
       console.log("Updating order with:", fullUpdateData);
 
@@ -2994,6 +3002,7 @@ const EditOrder = () => {
 
       setYardDialogOpen(false);
       setYardReason("");
+      setYardBolLocation("");
       localStorage.setItem("returnToYardLoads", "true");
       navigate("/yard-loads");
     } catch (error) {
@@ -4798,6 +4807,17 @@ const EditOrder = () => {
               <p className="text-xs text-muted-foreground">
                 Leave empty to auto-calculate based on miles driven to terminal
               </p>
+            </div>
+
+            {/* BOL Location */}
+            <div className="space-y-2">
+              <Label htmlFor="yardBolLocationInput">BOL Location</Label>
+              <Input
+                id="yardBolLocationInput"
+                placeholder="e.g. In the trailer, office, driver has it..."
+                value={yardBolLocation}
+                onChange={(e) => setYardBolLocation(e.target.value)}
+              />
             </div>
 
             {/* Reason for leaving at yard - MANDATORY */}
