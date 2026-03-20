@@ -58,6 +58,7 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
 } from "@/hooks/useReportsDateWindowAdapter";
+import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
