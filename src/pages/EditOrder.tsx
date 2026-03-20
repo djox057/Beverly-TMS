@@ -4796,22 +4796,19 @@ const EditOrder = () => {
 
             {/* Original Driver Rate */}
             <div className="space-y-2">
-              <Label htmlFor="originalDriverRateInput">Original Driver Rate ($)</Label>
+              <Label htmlFor="originalDriverRateInput">Original Driver Rate ($) <span className="text-destructive">*</span></Label>
               <Input
                 id="originalDriverRateInput"
                 type="number"
-                placeholder="Will be calculated proportionally"
+                placeholder="Enter original driver rate"
                 value={originalDriverPrice}
                 onChange={(e) => setOriginalDriverPrice(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Leave empty to auto-calculate based on miles driven to terminal
-              </p>
             </div>
 
             {/* BOL Location */}
             <div className="space-y-2">
-              <Label htmlFor="yardBolLocationInput">BOL Location</Label>
+              <Label htmlFor="yardBolLocationInput">BOL Location <span className="text-destructive">*</span></Label>
               <Input
                 id="yardBolLocationInput"
                 placeholder="e.g. In the trailer, office, driver has it..."
@@ -4840,7 +4837,7 @@ const EditOrder = () => {
             <Button variant="outline" onClick={() => setYardDialogOpen(false)}>Cancel</Button>
             <Button 
               onClick={handleLeftAtYard} 
-              disabled={!yardReason.trim()}
+              disabled={!yardReason.trim() || !yardBolLocation.trim() || !originalDriverPrice}
             >
               Confirm Left at Yard
             </Button>
