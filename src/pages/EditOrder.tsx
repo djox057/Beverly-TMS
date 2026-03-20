@@ -4801,6 +4801,17 @@ const EditOrder = () => {
               </p>
             </div>
 
+            {/* BOL Location */}
+            <div className="space-y-2">
+              <Label htmlFor="yardBolLocationInput">BOL Location</Label>
+              <Input
+                id="yardBolLocationInput"
+                placeholder="e.g. In the trailer, office, driver has it..."
+                value={yardBolLocation}
+                onChange={(e) => setYardBolLocation(e.target.value)}
+              />
+            </div>
+
             {/* Reason for leaving at yard - MANDATORY */}
             <div className="space-y-2">
               <Label htmlFor="yardReasonInput">Reason for Leaving at Yard <span className="text-destructive">*</span></Label>
