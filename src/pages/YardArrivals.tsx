@@ -195,7 +195,7 @@ export default function YardArrivals() {
 
       if (error) throw error;
 
-      // Fetch truck information for each driver
+      // Fetch truck information for each driver, fallback to assignment history
       const driversWithTrucks = await Promise.all(
         (data || []).map(async (driver) => {
           const { data: truckData } = await supabase
@@ -204,9 +204,36 @@ export default function YardArrivals() {
             .eq("driver1_id", driver.id)
             .maybeSingle();
 
+          if (truckData?.truck_number) {
+            return { ...driver, truck: truckData };
+          }
+
+          // Fallback: check as driver2
+          const { data: truckData2 } = await supabase
+            .from("trucks")
+            .select("truck_number")
+            .eq("driver2_id", driver.id)
+            .maybeSingle();
+
+          if (truckData2?.truck_number) {
+            return { ...driver, truck: truckData2 };
+          }
+
+          // Fallback: get last truck from assignment history
+          const { data: historyData } = await supabase
+            .from("assignment_history")
+            .select("truck_id, trucks!assignment_history_truck_id_fkey(truck_number)")
+            .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+            .not("truck_id", "is", null)
+            .order("changed_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const historyTruckNumber = (historyData?.trucks as any)?.truck_number || null;
+
           return {
             ...driver,
-            truck: truckData,
+            truck: historyTruckNumber ? { truck_number: historyTruckNumber } : null,
           };
         })
       );
