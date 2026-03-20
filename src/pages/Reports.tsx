@@ -1296,7 +1296,7 @@ const Reports = () => {
       });
 
       // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Realtime subscription handles cache update
     } catch (error) {
       console.error("Error sending lumper request:", error);
       toast({

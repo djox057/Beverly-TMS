@@ -120,11 +120,15 @@ export function useDriversRealtime() {
           for (const d of drivers) updateCache(d.id, d);
         }
       } catch (err) {
-        console.error("[DriversRT] Flush error:", err);
-      } finally {
-        isFlushing = false;
+      console.error("[DriversRT] Flush error:", err);
+    } finally {
+      isFlushing = false;
+      // Re-check for events that arrived during the async flush
+      if (pendingDriverIds.size > 0 || pendingDeletes.size > 0) {
+        scheduleFlush();
       }
-    };
+    }
+  };
 
     const scheduleFlush = () => {
       if (debounceTimer) clearTimeout(debounceTimer);

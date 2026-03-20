@@ -1177,76 +1177,79 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             if (deleteIds.length > 0) {
               flushGlobalStoreNotifications();
             }
-            isFlushing = false;
-            return;
-          }
+            // Control falls through to finally — do NOT return here
+          } else {
+            // Stage 2: Parallel relation fetches
+            const ids = flatOrders.map(o => o.id);
+            const [pickupDrops, transfers] = await Promise.all([
+              fetchPickupDropsForOrders(ids),
+              fetchOrderTransfersForOrders(ids),
+            ]);
+            console.log(`[adapter] flushPending: fetched ${pickupDrops.length} pickup_drops, ${transfers.length} transfers for ${ids.length} orders`);
 
-          // Stage 2: Parallel relation fetches
-          const ids = flatOrders.map(o => o.id);
-          const [pickupDrops, transfers] = await Promise.all([
-            fetchPickupDropsForOrders(ids),
-            fetchOrderTransfersForOrders(ids),
-          ]);
-          console.log(`[adapter] flushPending: fetched ${pickupDrops.length} pickup_drops, ${transfers.length} transfers for ${ids.length} orders`);
-
-          // Build lookup maps
-          const pdMap = new Map<string, any[]>();
-          for (const pd of pickupDrops) {
-            const arr = pdMap.get(pd.order_id) || [];
-            arr.push(pd);
-            pdMap.set(pd.order_id, arr);
-          }
-          const otMap = new Map<string, any[]>();
-          for (const t of transfers) {
-            const arr = otMap.get(t.order_id) || [];
-            arr.push(t);
-            otMap.set(t.order_id, arr);
-          }
-
-          // Stage 3: Assemble and scope-check (all silent — no notification per item)
-          const currentDriverIds = driverIdsSetRef.current;
-          const affectedOrderIds: string[] = [];
-
-          for (const order of flatOrders) {
-            const fullOrder = {
-              ...order,
-              pickup_drops: (pdMap.get(order.id) || [])
-                .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-              order_transfers: (otMap.get(order.id) || [])
-                .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-            };
-
-            // Out-of-scope check: if neither driver is in scope, remove instead of patching
-            const inScope =
-              (fullOrder.driver1_id && currentDriverIds.has(fullOrder.driver1_id)) ||
-              (fullOrder.driver2_id && currentDriverIds.has(fullOrder.driver2_id));
-
-            if (inScope) {
-              patchOrderInGlobalStore(fullOrder, false);
-            } else {
-              removeOrderFromGlobalStore(fullOrder.id, false);
+            // Build lookup maps
+            const pdMap = new Map<string, any[]>();
+            for (const pd of pickupDrops) {
+              const arr = pdMap.get(pd.order_id) || [];
+              arr.push(pd);
+              pdMap.set(pd.order_id, arr);
             }
-            affectedOrderIds.push(fullOrder.id);
-          }
+            const otMap = new Map<string, any[]>();
+            for (const t of transfers) {
+              const arr = otMap.get(t.order_id) || [];
+              arr.push(t);
+              otMap.set(t.order_id, arr);
+            }
 
-          // Invalidate order_files for affected orders (refetchType: "active" prevents double-render)
-          if (affectedOrderIds.length > 0) {
-            queryClient.invalidateQueries({
-              queryKey: ["adapter-order-files"],
-              refetchType: "active",
-            });
-          }
-        }
+            // Stage 3: Assemble and scope-check (all silent — no notification per item)
+            const currentDriverIds = driverIdsSetRef.current;
+            const affectedOrderIds: string[] = [];
 
-        // Single notification for all changes (deletes + patches + out-of-scope removes)
-        const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
-        if (hadChanges) {
-          flushGlobalStoreNotifications();
+            for (const order of flatOrders) {
+              const fullOrder = {
+                ...order,
+                pickup_drops: (pdMap.get(order.id) || [])
+                  .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+                order_transfers: (otMap.get(order.id) || [])
+                  .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
+              };
+
+              // Out-of-scope check: if neither driver is in scope, remove instead of patching
+              const inScope =
+                (fullOrder.driver1_id && currentDriverIds.has(fullOrder.driver1_id)) ||
+                (fullOrder.driver2_id && currentDriverIds.has(fullOrder.driver2_id));
+
+              if (inScope) {
+                patchOrderInGlobalStore(fullOrder, false);
+              } else {
+                removeOrderFromGlobalStore(fullOrder.id, false);
+              }
+              affectedOrderIds.push(fullOrder.id);
+            }
+
+            // Invalidate order_files for affected orders (refetchType: "active" prevents double-render)
+            if (affectedOrderIds.length > 0) {
+              queryClient.invalidateQueries({
+                queryKey: ["adapter-order-files"],
+                refetchType: "active",
+              });
+            }
+
+            // Single notification for all changes (deletes + patches + out-of-scope removes)
+            const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
+            if (hadChanges) {
+              flushGlobalStoreNotifications();
+            }
+          }
         }
       } catch (err) {
         console.error("[adapter] Orders realtime flush error:", err);
       } finally {
         isFlushing = false;
+        // Re-check for events that arrived during the async flush
+        if (pendingOrderIds.size > 0 || pendingDeletes.size > 0) {
+          scheduleFlush();
+        }
       }
     };
 
