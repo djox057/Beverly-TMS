@@ -699,7 +699,15 @@ export default function YardArrivals() {
             />
           </div>
         </div>
-        <CompletedDriversDialog />
+        <div className="flex items-center gap-2">
+          {canRemoveYardArrival && (
+            <Button variant="outline" size="sm" onClick={() => setCleanupDialogOpen(true)}>
+              <XCircle className="h-4 w-4 mr-1" />
+              Clean Up Checked
+            </Button>
+          )}
+          <CompletedDriversDialog />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
