@@ -397,6 +397,56 @@ export default function YardArrivals() {
     }
   };
 
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+  const handleCleanupChecked = async () => {
+    setIsCleaningUp(true);
+    try {
+      const todayStr = formatDate(startOfDay(new Date()), "yyyy-MM-dd") + "T23:59:59";
+
+      const { data: toDelete, error: fetchError } = await supabase
+        .from("driver_yard_actions")
+        .select("id, driver_id, is_team")
+        .in("action_type", ["maintenance", "safety"])
+        .eq("is_checked", true)
+        .lte("arrival_datetime", todayStr);
+
+      if (fetchError) throw fetchError;
+      if (!toDelete || toDelete.length === 0) {
+        toast({ title: "No checked maintenance/safety arrivals to clean up" });
+        setCleanupDialogOpen(false);
+        setIsCleaningUp(false);
+        return;
+      }
+
+      const ids = toDelete.map(a => a.id);
+      const driverIds = [...new Set(toDelete.map(a => a.driver_id))];
+
+      const { error: deleteError } = await supabase
+        .from("driver_yard_actions")
+        .delete()
+        .in("id", ids);
+
+      if (deleteError) throw deleteError;
+
+      if (driverIds.length > 0) {
+        await supabase.from("drivers").update({ going_yard: false }).in("id", driverIds);
+      }
+
+      toast({ title: `Cleaned up ${toDelete.length} checked arrival(s)` });
+      queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    } catch (error) {
+      console.error("Error cleaning up yard actions:", error);
+      toast({ title: "Error", description: "Failed to clean up", variant: "destructive" });
+    } finally {
+      setCleanupDialogOpen(false);
+      setIsCleaningUp(false);
+    }
+  };
+
   const handleCheckYardAction = async (actionId: string, currentChecked: boolean) => {
     try {
       await supabase
