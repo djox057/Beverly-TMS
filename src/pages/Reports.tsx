@@ -1235,7 +1235,7 @@ const Reports = () => {
       setZoomedLoad(null);
 
       // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Realtime subscription handles cache update
     } catch (error) {
       console.error("Error reverting cancellation:", error);
       toast({
