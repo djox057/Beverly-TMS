@@ -2911,13 +2911,16 @@ const EditOrder = () => {
         }
 
         // Clear current assignment but do NOT overwrite original_* fields
-        const reTransferUpdate = {
+        const reTransferUpdate: Record<string, any> = {
           driver1_id: null,
           driver2_id: null,
           truck_id: null,
           recovery_miles: recoveryMilesCalc,
           notes: fullNotes,
         };
+        if (yardBolLocation.trim()) {
+          reTransferUpdate.bol_location = yardBolLocation.trim();
+        }
 
         const { error } = await supabase
           .from("orders")
