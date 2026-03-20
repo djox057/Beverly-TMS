@@ -28,7 +28,7 @@ import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { format as formatDate } from "date-fns";
+import { format as formatDate, startOfDay } from "date-fns";
 import { useState, useMemo } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -397,6 +397,56 @@ export default function YardArrivals() {
     }
   };
 
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+  const handleCleanupChecked = async () => {
+    setIsCleaningUp(true);
+    try {
+      const todayStr = formatDate(startOfDay(new Date()), "yyyy-MM-dd") + "T23:59:59";
+
+      const { data: toDelete, error: fetchError } = await supabase
+        .from("driver_yard_actions")
+        .select("id, driver_id, is_team")
+        .in("action_type", ["maintenance", "safety"])
+        .eq("is_checked", true)
+        .lte("arrival_datetime", todayStr);
+
+      if (fetchError) throw fetchError;
+      if (!toDelete || toDelete.length === 0) {
+        toast({ title: "No checked maintenance/safety arrivals to clean up" });
+        setCleanupDialogOpen(false);
+        setIsCleaningUp(false);
+        return;
+      }
+
+      const ids = toDelete.map(a => a.id);
+      const driverIds = [...new Set(toDelete.map(a => a.driver_id))];
+
+      const { error: deleteError } = await supabase
+        .from("driver_yard_actions")
+        .delete()
+        .in("id", ids);
+
+      if (deleteError) throw deleteError;
+
+      if (driverIds.length > 0) {
+        await supabase.from("drivers").update({ going_yard: false }).in("id", driverIds);
+      }
+
+      toast({ title: `Cleaned up ${toDelete.length} checked arrival(s)` });
+      queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    } catch (error) {
+      console.error("Error cleaning up yard actions:", error);
+      toast({ title: "Error", description: "Failed to clean up", variant: "destructive" });
+    } finally {
+      setCleanupDialogOpen(false);
+      setIsCleaningUp(false);
+    }
+  };
+
   const handleCheckYardAction = async (actionId: string, currentChecked: boolean) => {
     try {
       await supabase
@@ -649,7 +699,15 @@ export default function YardArrivals() {
             />
           </div>
         </div>
-        <CompletedDriversDialog />
+        <div className="flex items-center gap-2">
+          {canRemoveYardArrival && (
+            <Button variant="outline" size="sm" onClick={() => setCleanupDialogOpen(true)}>
+              <XCircle className="h-4 w-4 mr-1" />
+              Clean Up Checked
+            </Button>
+          )}
+          <CompletedDriversDialog />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
@@ -1269,6 +1327,24 @@ export default function YardArrivals() {
           onRemoveAll={handleRemoveAllStatus}
         />
       )}
+      {/* Cleanup Checked Confirmation Dialog */}
+      <AlertDialog open={cleanupDialogOpen} onOpenChange={setCleanupDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clean Up Checked Arrivals</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all checked Maintenance and Safety yard arrivals dated today or earlier, and reset drivers' yard status. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCleaningUp}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCleanupChecked} disabled={isCleaningUp} className="bg-destructive hover:bg-destructive/90">
+              {isCleaningUp ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
