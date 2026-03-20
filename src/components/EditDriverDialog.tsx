@@ -692,6 +692,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           is_active: false,
           termination_date: new Date().toISOString().split("T")[0],
           dispatcher_id: null,
+          two_week_block_date: null,
         })
         .eq("id", editingDriver.id);
       if (driverError) throw driverError;
