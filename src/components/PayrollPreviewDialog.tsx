@@ -450,6 +450,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         sickDayDates: ptoDatesForEmail,
         totalSickDaysAvailable: maxPtoDays,
         adjustments,
+        usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
         futureSalary1Percent,
