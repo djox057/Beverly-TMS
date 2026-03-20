@@ -1586,11 +1586,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         return bDate - aDate;
       });
 
+      // Filter canceled orders: only show if pickup is today AND no other non-canceled order with same/later pickup
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const filteredOrders = sortedOrders.filter((order) => {
+        if (!order.canceled) return true;
+        const pickupDate = order.pickup_datetime ? order.pickup_datetime.slice(0, 10) : null;
+        if (pickupDate !== todayStr) return false;
+        const hasOtherOrder = sortedOrders.some(
+          (o) => o.id !== order.id && !o.canceled && o.pickup_datetime && o.pickup_datetime.slice(0, 10) >= pickupDate
+        );
+        return !hasOtherOrder;
+      });
+
       // Find current order (most recent with BOL but no POD, or most recent)
-      let currentOrder = sortedOrders[0] || null;
+      let currentOrder = filteredOrders[0] || null;
 
       // Build allOrders array with pickup/delivery stops
-      const allOrdersWithStops = sortedOrders.map((order) => {
+      const allOrdersWithStops = filteredOrders.map((order) => {
         const pickupStops = (order.pickup_drops || [])
           .filter((pd: any) => pd.type === "pickup")
           .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0));
