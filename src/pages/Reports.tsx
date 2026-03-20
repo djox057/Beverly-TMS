@@ -475,6 +475,7 @@ const Reports = () => {
       const { error } = await supabase.from("lost_day_notes").delete().eq("driver_id", driverId).eq("date", date);
       if (error) throw error;
     },
+    // Keep: lost_day_notes has no realtime subscription, optimistic update is the only UI path
     onMutate: async ({ driverId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
       const previousData = queryClient.getQueryData(["reports"]);
