@@ -4837,7 +4837,7 @@ const EditOrder = () => {
             <Button variant="outline" onClick={() => setYardDialogOpen(false)}>Cancel</Button>
             <Button 
               onClick={handleLeftAtYard} 
-              disabled={!yardReason.trim()}
+              disabled={!yardReason.trim() || !yardBolLocation.trim() || !originalDriverPrice}
             >
               Confirm Left at Yard
             </Button>
