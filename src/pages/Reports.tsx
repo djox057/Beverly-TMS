@@ -1157,8 +1157,8 @@ const Reports = () => {
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
       setZoomedLoad(null);
 
-      // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Optimistic removal — idempotent with the subsequent realtime flush
+      removeOrderFromGlobalStore(zoomedLoad.orderId);
     } catch (error) {
       console.error("Error cancelling order:", error);
       toast({
