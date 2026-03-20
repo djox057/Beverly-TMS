@@ -1,30 +1,36 @@
 
 
-## Fix: Realtime Flush Race Condition + Reports Cleanup
+## Fix: Yard Arrivals 2-Week Notice Truck Number Still Showing N/A
 
-Three separable fixes applied in priority order.
+### Root Cause
 
-### Fix 1: Re-schedule stranded events in `finally` (Correctness)
+The assignment history fallback query (line 223-230 in `YardArrivals.tsx`) filters with:
+```
+.or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+```
 
-**4 hooks need the same addition** — after `isFlushing = false` in each `finally` block, check if pending sets have items and call `scheduleFlush()`:
+But when a driver is **removed** from a truck, the history record stores:
+- `driver1_id: null` (new state — no driver)
+- `old_driver1_id: <driver_id>` (previous state — the driver who was removed)
+- `truck_id: <truck_id>` (the truck they were on)
 
-1. **`src/hooks/useOrdersRealtime.ts`** (line 208): Add check for `pendingOrderIds` and `pendingDeletes`
-2. **`src/hooks/useDriversRealtime.ts`** (line 125): Add check for `pendingDriverIds` and `pendingDeletes`
-3. **`src/hooks/useTrucksRealtime.ts`** (line 119): Add check for `pendingTruckIds` and `pendingDeletes`
-4. **`src/hooks/useReportsDateWindowAdapter.ts`** (line 1249): Add check for `pendingOrderIds` and `pendingDeletes`
+So the query never matches the most recent record because it doesn't check `old_driver1_id` or `old_driver2_id`.
 
-**Adapter early-return fix** (lines 1174-1181): The error/empty branch currently does `isFlushing = false; return;` outside the `finally` block. Fix: remove the `isFlushing = false; return;` and wrap the remaining fetch logic (lines 1184-1238) inside `if (flatOrders && flatOrders.length > 0) { ... }`. The delete notification at line 1177 stays in the error/empty branch. Control then falls through to the existing `finally` block which handles `isFlushing = false` and the re-schedule check.
+### Fix
 
-### Fix 2: Remove stale `["reports"]` invalidations (Maintenance)
+**File:** `src/pages/YardArrivals.tsx` (line ~226)
 
-Remove 4 no-op `invalidateQueries({ queryKey: ["reports"] })` in `src/pages/Reports.tsx`:
-- Line 1159 (cancel), 1201 (revert fallback), 1236 (revert main), 1297 (lumper)
+Expand the `.or()` filter to also match on `old_driver1_id` and `old_driver2_id`:
 
-**Keep intact**: `deleteLostDayNote` mutation (lines 478-496) uses `setQueryData(["reports"], ...)` — `lost_day_notes` has no realtime subscription. Add comment: `// Keep: lost_day_notes has no realtime subscription, optimistic update is the only UI path`
+```
+.or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id},old_driver1_id.eq.${driver.id},old_driver2_id.eq.${driver.id}`)
+```
 
-### Fix 3: Optimistic cancel removal (UX polish)
+Also exclude `dispatcher_assignment` records (which have `truck_id: null`) to avoid wasting the `limit(1)` on a non-truck record:
 
-In `src/pages/Reports.tsx` cancel handler (after line 1156), call `removeOrderFromGlobalStore(orderId)` to instantly remove the canceled order from the reports view. Import from the adapter. Idempotent with the subsequent realtime flush — second call finds no matching order.
+```
+.not("change_type", "eq", "dispatcher_assignment")
+```
 
-Revert and lumper handlers do NOT get optimistic updates — revert restores multiple fields (realtime is the correct source), lumper goes through an edge function that doesn't return the full order shape.
+Single line change, no structural modifications needed.
 
