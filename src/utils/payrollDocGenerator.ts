@@ -31,6 +31,7 @@ interface PayrollData {
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
   office?: string; // Dispatcher's office for conditional logic
+  usedPtoDaysYearly?: number; // Total PTO days used this year (cumulative)
 }
 
 const BLACK_COLOR = "000000";
@@ -321,7 +322,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, size: TABLE_SIZE })],
+                children: [new TextRun({ text: `Days off ${sickDatesText} used ${data.usedPtoDaysYearly ?? sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
