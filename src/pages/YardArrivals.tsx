@@ -223,8 +223,9 @@ export default function YardArrivals() {
           const { data: historyData } = await supabase
             .from("assignment_history")
             .select("truck_id, trucks!assignment_history_truck_id_fkey(truck_number)")
-            .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+            .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id},old_driver1_id.eq.${driver.id},old_driver2_id.eq.${driver.id}`)
             .not("truck_id", "is", null)
+            .not("change_type", "eq", "dispatcher_assignment")
             .order("changed_at", { ascending: false })
             .limit(1)
             .maybeSingle();
