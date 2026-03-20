@@ -321,7 +321,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, size: TABLE_SIZE })],
+                children: [new TextRun({ text: `Days off ${sickDatesText} used ${data.usedPtoDaysYearly ?? sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, size: TABLE_SIZE })],
               }),
             ],
             verticalAlign: VerticalAlign.CENTER,
