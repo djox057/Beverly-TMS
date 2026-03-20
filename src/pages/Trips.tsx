@@ -875,26 +875,21 @@ const Trips = () => {
           const isOriginal = seq === 0;
           const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
 
-          // Chain logic: each segment's delivery = next handoff, last segment = order delivery
-          const nextTransfer = transfers[idx + 1];
-          const isLastSegment = !nextTransfer;
+          // Chain logic: handoff data is stored on the originating transfer record
+          // So current transfer's handoff = this segment's delivery point
+          // Previous transfer's handoff = this segment's pickup point (for non-original)
+          const prevTransfer = idx > 0 ? transfers[idx - 1] : null;
 
-          // DELIVERY: next handoff location/date, or order's original delivery if last
-          const segDeliveryDate = isLastSegment
-            ? order.deliveryDate
-            : (nextTransfer.transfer_datetime || order.deliveryDate);
-          const segDeliveryCity = isLastSegment
-            ? order.deliveryCity
-            : (nextTransfer.transfer_city || order.deliveryCity);
-          const segDeliveryState = isLastSegment
-            ? order.deliveryState
-            : (nextTransfer.transfer_state || order.deliveryState);
+          // DELIVERY: current transfer's handoff location/date, or order's delivery if no handoff
+          const segDeliveryCity = transfer.transfer_city || order.deliveryCity;
+          const segDeliveryState = transfer.transfer_state || order.deliveryState;
+          const segDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
 
-          // PICKUP: original uses order pickup; others use own handoff location/date
-          const segPickupCity = isOriginal ? order.pickupCity : (transfer.transfer_city || order.pickupCity);
-          const segPickupState = isOriginal ? order.pickupState : (transfer.transfer_state || order.pickupState);
-          const segPickupDate = isOriginal ? order.pickupDate : (transfer.transfer_datetime || order.pickupDate);
-          const segPickupDatetime = isOriginal ? order.pickupDatetime : (transfer.transfer_datetime || order.pickupDatetime);
+          // PICKUP: original uses order pickup; others use previous transfer's handoff
+          const segPickupCity = isOriginal ? order.pickupCity : (prevTransfer?.transfer_city || order.pickupCity);
+          const segPickupState = isOriginal ? order.pickupState : (prevTransfer?.transfer_state || order.pickupState);
+          const segPickupDate = isOriginal ? order.pickupDate : (prevTransfer?.transfer_datetime || order.pickupDate);
+          const segPickupDatetime = isOriginal ? order.pickupDatetime : (prevTransfer?.transfer_datetime || order.pickupDatetime);
 
           const driverName = isOriginal
             ? (order.originalDriver1Name || order.originalDriver2Name || transfer.driver1?.name || transfer.manual_driver_name || order.driverName)
