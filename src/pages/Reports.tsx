@@ -58,6 +58,7 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
 } from "@/hooks/useReportsDateWindowAdapter";
+import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
@@ -474,6 +475,7 @@ const Reports = () => {
       const { error } = await supabase.from("lost_day_notes").delete().eq("driver_id", driverId).eq("date", date);
       if (error) throw error;
     },
+    // Keep: lost_day_notes has no realtime subscription, optimistic update is the only UI path
     onMutate: async ({ driverId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
       const previousData = queryClient.getQueryData(["reports"]);
@@ -1155,8 +1157,8 @@ const Reports = () => {
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
       setZoomedLoad(null);
 
-      // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Optimistic removal — idempotent with the subsequent realtime flush
+      removeOrderFromGlobalStore(zoomedLoad.orderId);
     } catch (error) {
       console.error("Error cancelling order:", error);
       toast({
@@ -1198,7 +1200,7 @@ const Reports = () => {
           description: "Load uncanceled",
         });
         setZoomedLoad(null);
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        // Realtime subscription handles cache update
         return;
       }
 
@@ -1233,7 +1235,7 @@ const Reports = () => {
       setZoomedLoad(null);
 
       // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Realtime subscription handles cache update
     } catch (error) {
       console.error("Error reverting cancellation:", error);
       toast({
@@ -1294,7 +1296,7 @@ const Reports = () => {
       });
 
       // Refresh reports list
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      // Realtime subscription handles cache update
     } catch (error) {
       console.error("Error sending lumper request:", error);
       toast({

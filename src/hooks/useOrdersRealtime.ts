@@ -203,11 +203,15 @@ export function useOrdersRealtime() {
           }
         }
       } catch (err) {
-        console.error("[Realtime] Flush error:", err);
-      } finally {
-        isFlushing = false;
+      console.error("[Realtime] Flush error:", err);
+    } finally {
+      isFlushing = false;
+      // Re-check for events that arrived during the async flush
+      if (pendingOrderIds.size > 0 || pendingDeletes.size > 0) {
+        scheduleFlush();
       }
-    };
+    }
+  };
 
     /**
      * Schedule a flush — debounced at 1 second.

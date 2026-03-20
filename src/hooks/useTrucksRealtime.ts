@@ -114,11 +114,15 @@ export function useTrucksRealtime() {
           for (const t of trucks) updateCache(t.id, t);
         }
       } catch (err) {
-        console.error("[TrucksRT] Flush error:", err);
-      } finally {
-        isFlushing = false;
+      console.error("[TrucksRT] Flush error:", err);
+    } finally {
+      isFlushing = false;
+      // Re-check for events that arrived during the async flush
+      if (pendingTruckIds.size > 0 || pendingDeletes.size > 0) {
+        scheduleFlush();
       }
-    };
+    }
+  };
 
     const scheduleFlush = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
