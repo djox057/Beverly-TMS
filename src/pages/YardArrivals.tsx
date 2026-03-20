@@ -1327,6 +1327,24 @@ export default function YardArrivals() {
           onRemoveAll={handleRemoveAllStatus}
         />
       )}
+      {/* Cleanup Checked Confirmation Dialog */}
+      <AlertDialog open={cleanupDialogOpen} onOpenChange={setCleanupDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clean Up Checked Arrivals</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all checked Maintenance and Safety yard arrivals dated today or earlier, and reset drivers' yard status. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCleaningUp}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCleanupChecked} disabled={isCleaningUp} className="bg-destructive hover:bg-destructive/90">
+              {isCleaningUp ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
