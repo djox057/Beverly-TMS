@@ -998,13 +998,14 @@ const Drivers = () => {
       });
       if (noteError) throw noteError;
 
-      // Set termination date, mark as inactive, and clear dispatcher
+      // Set termination date, mark as inactive, clear dispatcher and 2-week notice
       const { error: driverError } = await supabase
         .from("drivers")
         .update({
           is_active: false,
           termination_date: new Date().toISOString().split("T")[0],
           dispatcher_id: null,
+          two_week_block_date: null,
         })
         .eq("id", editingDriver.id);
       if (driverError) throw driverError;
