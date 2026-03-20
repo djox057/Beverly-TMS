@@ -2945,6 +2945,7 @@ const EditOrder = () => {
 
         setYardDialogOpen(false);
         setYardReason("");
+        setYardBolLocation("");
         localStorage.setItem("returnToYardLoads", "true");
         navigate("/yard-loads");
         return; // Skip the first-time original_* overwrite path
