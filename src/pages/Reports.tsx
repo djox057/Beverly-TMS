@@ -1200,7 +1200,7 @@ const Reports = () => {
           description: "Load uncanceled",
         });
         setZoomedLoad(null);
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        // Realtime subscription handles cache update
         return;
       }
 
