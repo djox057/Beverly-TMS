@@ -2965,10 +2965,13 @@ const EditOrder = () => {
         recovery_miles: recoveryMilesCalc,
       };
 
-      const fullUpdateData = {
+      const fullUpdateData: Record<string, any> = {
         ...updateData,
         notes: fullNotes,
       };
+      if (yardBolLocation.trim()) {
+        fullUpdateData.bol_location = yardBolLocation.trim();
+      }
       
       console.log("Updating order with:", fullUpdateData);
 
