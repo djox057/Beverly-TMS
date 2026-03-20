@@ -23,6 +23,7 @@ interface PayrollData {
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
   adjustments?: PayrollAdjustment[]; // Extra pay and charges
+  usedPtoDaysYearly?: number; // Total PTO days used this year (cumulative)
   isDeletedUser?: boolean; // If true, add future month salary/bonus rows
   futureMonthLabel?: string; // e.g., "February" for the next month
   futureSalary1Percent?: number; // Salary 1% for next month
