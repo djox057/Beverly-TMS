@@ -202,7 +202,7 @@ export const useAuth = () => {
       const { data, error } = await supabase.functions.invoke('send-password-reset', {
         body: {
           email,
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `https://fleetcarrier.us/reset-password`,
         },
       });
 
