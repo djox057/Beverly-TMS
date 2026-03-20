@@ -1,31 +1,30 @@
 
 
-# Fix 1: Analytics -- Select Only Needed Columns
+## Fix: Realtime Flush Race Condition + Reports Cleanup
 
-## Problem
-Line 518 in `Analytics.tsx` uses `.select("*")` on `dispatcher_daily_driver_counts`, pulling every column. This query runs 108,645 times and accounts for **81.6% of total database CPU**. The selective version (fetching just 2 columns) only takes 3.6ms vs 145ms -- a 40x difference.
+Three separable fixes applied in priority order.
 
-## Change
-**File:** `src/pages/Analytics.tsx`, line 518
+### Fix 1: Re-schedule stranded events in `finally` (Correctness)
 
-**Before:**
-```typescript
-.select("*")
-```
+**4 hooks need the same addition** — after `isFlushing = false` in each `finally` block, check if pending sets have items and call `scheduleFlush()`:
 
-**After:**
-```typescript
-.select("dispatcher_id, driver_count, truck_count, date")
-```
+1. **`src/hooks/useOrdersRealtime.ts`** (line 208): Add check for `pendingOrderIds` and `pendingDeletes`
+2. **`src/hooks/useDriversRealtime.ts`** (line 125): Add check for `pendingDriverIds` and `pendingDeletes`
+3. **`src/hooks/useTrucksRealtime.ts`** (line 119): Add check for `pendingTruckIds` and `pendingDeletes`
+4. **`src/hooks/useReportsDateWindowAdapter.ts`** (line 1249): Add check for `pendingOrderIds` and `pendingDeletes`
 
-Only these 4 fields are used by the code:
-- `dispatcher_id` -- grouping key
-- `driver_count` -- summed per dispatcher
-- `truck_count` -- summed per dispatcher (with fallback to driver_count)
-- `date` -- used in the `.gte()` / `.lte()` filters (still needed in response for counting `daysCount`)
+**Adapter early-return fix** (lines 1174-1181): The error/empty branch currently does `isFlushing = false; return;` outside the `finally` block. Fix: remove the `isFlushing = false; return;` and wrap the remaining fetch logic (lines 1184-1238) inside `if (flatOrders && flatOrders.length > 0) { ... }`. The delete notification at line 1177 stays in the error/empty branch. Control then falls through to the existing `finally` block which handles `isFlushing = false` and the re-schedule check.
 
-## Expected Impact
-- Query time drops from ~145ms to ~3.6ms per call (40x faster)
-- Total DB CPU usage reduced by approximately 80%
-- No functional change -- all consumed fields are still selected
+### Fix 2: Remove stale `["reports"]` invalidations (Maintenance)
+
+Remove 4 no-op `invalidateQueries({ queryKey: ["reports"] })` in `src/pages/Reports.tsx`:
+- Line 1159 (cancel), 1201 (revert fallback), 1236 (revert main), 1297 (lumper)
+
+**Keep intact**: `deleteLostDayNote` mutation (lines 478-496) uses `setQueryData(["reports"], ...)` — `lost_day_notes` has no realtime subscription. Add comment: `// Keep: lost_day_notes has no realtime subscription, optimistic update is the only UI path`
+
+### Fix 3: Optimistic cancel removal (UX polish)
+
+In `src/pages/Reports.tsx` cancel handler (after line 1156), call `removeOrderFromGlobalStore(orderId)` to instantly remove the canceled order from the reports view. Import from the adapter. Idempotent with the subsequent realtime flush — second call finds no matching order.
+
+Revert and lumper handlers do NOT get optimistic updates — revert restores multiple fields (realtime is the correct source), lumper goes through an edge function that doesn't return the full order shape.
 
