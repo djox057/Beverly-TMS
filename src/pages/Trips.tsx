@@ -867,15 +867,34 @@ const Trips = () => {
         }
 
         // Add all transfers from order_transfers (skip duplicates)
-        transfers.forEach((transfer: any) => {
+        transfers.forEach((transfer: any, idx: number) => {
           const seq = Number(transfer.sequence_number);
           if (addedSequences.has(seq)) return; // Skip if already added
           addedSequences.add(seq);
 
           const isOriginal = seq === 0;
           const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
-          // Use transfer's datetime for the delivery date if available
-          const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
+
+          // Chain logic: each segment's delivery = next handoff, last segment = order delivery
+          const nextTransfer = transfers[idx + 1];
+          const isLastSegment = !nextTransfer;
+
+          // DELIVERY: next handoff location/date, or order's original delivery if last
+          const segDeliveryDate = isLastSegment
+            ? order.deliveryDate
+            : (nextTransfer.transfer_datetime || order.deliveryDate);
+          const segDeliveryCity = isLastSegment
+            ? order.deliveryCity
+            : (nextTransfer.transfer_city || order.deliveryCity);
+          const segDeliveryState = isLastSegment
+            ? order.deliveryState
+            : (nextTransfer.transfer_state || order.deliveryState);
+
+          // PICKUP: original uses order pickup; others use own handoff location/date
+          const segPickupCity = isOriginal ? order.pickupCity : (transfer.transfer_city || order.pickupCity);
+          const segPickupState = isOriginal ? order.pickupState : (transfer.transfer_state || order.pickupState);
+          const segPickupDate = isOriginal ? order.pickupDate : (transfer.transfer_datetime || order.pickupDate);
+          const segPickupDatetime = isOriginal ? order.pickupDatetime : (transfer.transfer_datetime || order.pickupDatetime);
 
           const driverName = isOriginal
             ? (order.originalDriver1Name || order.originalDriver2Name || transfer.driver1?.name || transfer.manual_driver_name || order.driverName)
@@ -921,9 +940,15 @@ const Trips = () => {
             mileage,
             totalDriverPay: driverPay,
             driverPrice: driverPay,
-            // Override delivery date with transfer's specific datetime
-            deliveryDatetime: transferDeliveryDate,
-            deliveryDate: transferDeliveryDate,
+            // Chained pickup/delivery overrides
+            pickupCity: segPickupCity,
+            pickupState: segPickupState,
+            pickupDate: segPickupDate,
+            pickupDatetime: segPickupDatetime,
+            deliveryCity: segDeliveryCity,
+            deliveryState: segDeliveryState,
+            deliveryDatetime: segDeliveryDate,
+            deliveryDate: segDeliveryDate,
           });
         });
 
