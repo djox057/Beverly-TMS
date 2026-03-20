@@ -243,6 +243,7 @@ const EditOrder = () => {
   const [yardRecoveryMiles, setYardRecoveryMiles] = useState("");
   const [yardMilesLoading, setYardMilesLoading] = useState(false);
   const [yardReason, setYardReason] = useState("");
+  const [yardBolLocation, setYardBolLocation] = useState("");
 
   // Partial load state
   const [isPartial, setIsPartial] = useState(false);
