@@ -3002,6 +3002,7 @@ const EditOrder = () => {
 
       setYardDialogOpen(false);
       setYardReason("");
+      setYardBolLocation("");
       localStorage.setItem("returnToYardLoads", "true");
       navigate("/yard-loads");
     } catch (error) {
