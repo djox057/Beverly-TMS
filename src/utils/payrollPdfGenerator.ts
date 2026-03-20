@@ -263,8 +263,9 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
 
   // PTO row (if any PTO days used) - shows $0.00
   if (hasSickDays) {
+    const yearlyPtoUsed = data.usedPtoDaysYearly ?? sickDayDates.length;
     drawRow(
-      `Days off ${sickDatesText} used ${sickDayDates.length} of ${totalSickDaysAvailable} PTO days`, 
+      `Days off ${sickDatesText} used ${yearlyPtoUsed} of ${totalSickDaysAvailable} PTO days`, 
       `$0.00`, 
       "#FFFFFF", 
       LIGHT_BLUE_BG
