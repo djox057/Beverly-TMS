@@ -42,22 +42,31 @@ serve(async (req) => {
 
     console.log(`Processing afterhours schedule - Chicago time: ${chicagoTime}, hour: ${currentHour}, date: ${todayStr}`);
 
-    // Get the action type from query params or determine based on time
+    // Read action from POST body first, then fall back to query param
     const url = new URL(req.url);
-    const action = url.searchParams.get('action');
-    
+    let bodyAction: string | null = null;
+    try {
+      const body = await req.json();
+      bodyAction = body?.action || null;
+    } catch {
+      // No JSON body or parse error — that's fine
+    }
+    const action = bodyAction || url.searchParams.get('action');
+
+    console.log(`Action source: body=${bodyAction}, queryParam=${url.searchParams.get('action')}, resolved=${action}`);
+
     let scheduleAction: 'start' | 'end' | null = null;
     
     if (action === 'start' || action === 'end') {
       scheduleAction = action;
     } else {
-      // Auto-determine based on Chicago time
-      // 6am = start afterhours, 5pm (17:00) = end afterhours
-      if (currentHour === 6) {
+      // Auto-determine based on Chicago time with DST-safe ranges
+      if (currentHour >= 6 && currentHour <= 7) {
         scheduleAction = 'start';
-      } else if (currentHour === 17) {
+      } else if (currentHour >= 17 && currentHour <= 18) {
         scheduleAction = 'end';
       }
+      console.log(`Auto-determined action from hour ${currentHour}: ${scheduleAction}`);
     }
 
     if (!scheduleAction) {
@@ -96,7 +105,6 @@ serve(async (req) => {
 
       if (scheduleAction === 'start') {
         // Change role from dispatch to afterhours
-        // First check if user has dispatch role
         const { data: hasDispatch } = await supabaseAdmin
           .from('user_roles')
           .select('id')
@@ -105,17 +113,29 @@ serve(async (req) => {
           .single();
 
         if (hasDispatch) {
-          // Delete dispatch role
-          await supabaseAdmin
+          const { error: deleteErr } = await supabaseAdmin
             .from('user_roles')
             .delete()
             .eq('user_id', userId)
             .eq('role', 'dispatch');
 
-          // Add afterhours role
-          await supabaseAdmin
+          if (deleteErr) {
+            console.error(`User ${userId}: Failed to delete dispatch role:`, deleteErr);
+            results.push({ userId, action: 'error - delete dispatch failed', error: deleteErr.message });
+            continue;
+          }
+
+          const { error: insertErr } = await supabaseAdmin
             .from('user_roles')
             .insert({ user_id: userId, role: 'afterhours' });
+
+          if (insertErr) {
+            console.error(`User ${userId}: Failed to insert afterhours role:`, insertErr);
+            // Attempt to restore dispatch role
+            await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: 'dispatch' });
+            results.push({ userId, action: 'error - insert afterhours failed, dispatch restored', error: insertErr.message });
+            continue;
+          }
 
           console.log(`User ${userId}: Changed from dispatch to afterhours`);
           results.push({ userId, action: 'dispatch -> afterhours' });
@@ -133,17 +153,29 @@ serve(async (req) => {
           .single();
 
         if (hasAfterhours) {
-          // Delete afterhours role
-          await supabaseAdmin
+          const { error: deleteErr } = await supabaseAdmin
             .from('user_roles')
             .delete()
             .eq('user_id', userId)
             .eq('role', 'afterhours');
 
-          // Add dispatch role back
-          await supabaseAdmin
+          if (deleteErr) {
+            console.error(`User ${userId}: Failed to delete afterhours role:`, deleteErr);
+            results.push({ userId, action: 'error - delete afterhours failed', error: deleteErr.message });
+            continue;
+          }
+
+          const { error: insertErr } = await supabaseAdmin
             .from('user_roles')
             .insert({ user_id: userId, role: 'dispatch' });
+
+          if (insertErr) {
+            console.error(`User ${userId}: Failed to insert dispatch role:`, insertErr);
+            // Attempt to restore afterhours role
+            await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: 'afterhours' });
+            results.push({ userId, action: 'error - insert dispatch failed, afterhours restored', error: insertErr.message });
+            continue;
+          }
 
           console.log(`User ${userId}: Changed from afterhours to dispatch`);
           results.push({ userId, action: 'afterhours -> dispatch' });
@@ -151,9 +183,6 @@ serve(async (req) => {
           console.log(`User ${userId}: No afterhours role found, skipping`);
           results.push({ userId, action: 'skipped - no afterhours role' });
         }
-
-        // Note: We no longer delete old schedule entries to preserve history
-        // Historical records are kept for reference
       }
     }
 
