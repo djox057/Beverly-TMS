@@ -1,46 +1,50 @@
 
 
-## Fix: Transfer Segment Location Mapping — Use Previous Transfer's Handoff
+## Fix: Afterhours Schedule Role Switching Not Working
 
-### Root Cause
+### Root Cause (Two issues)
 
-The handoff location/date is stored on the **originating** transfer record (seq 0), not on the receiving transfer (seq 1). In the DB for load 10936:
+**Issue 1: Query params likely not received.** The cron jobs pass `?action=start` / `?action=end` as URL query parameters. Supabase Edge Functions can be unreliable with query params passed via `net.http_post`. When `action` is `null`, the function falls into the auto-determine logic.
 
-- Seq 0 (Pablo/Orig): `transfer_city=Lynwood, IL`, `transfer_datetime=2026-03-19`
-- Seq 1 (Rolando/Rec): `transfer_city=null`, `transfer_datetime=null`
+**Issue 2: Auto-determine hours are wrong due to DST.** The fallback checks `currentHour === 6` for start and `currentHour === 17` for end. But:
+- Cron `afterhours-start` runs at `0 12 * * 0,6` (12:00 UTC). In CDT (March = daylight saving, UTC-5), that's **7 AM Chicago**, not 6 AM.
+- Cron `afterhours-end` runs at `0 23 * * 0,6` (23:00 UTC). In CDT, that's **6 PM Chicago**, not 5 PM.
 
-The current code tries to read the **next** transfer's handoff for delivery and the **current** transfer's handoff for pickup — but the data model stores the handoff point on the transfer that **initiated** the handoff, not the one that received it.
+Result: `scheduleAction` stays `null` → function returns "No action needed at this time" → no roles are switched. This explains why Saturday users are still stuck in `afterhours` and the end action never fires.
 
-### How It Should Look
+**Evidence:** Cron job runs show `succeeded` (HTTP request was submitted), but no edge function logs exist, and Saturday's scheduled users (3/21) are still in `afterhours` role despite the end cron having fired.
 
-- **Pablo Ortiz (Orig)**: Pickup = El Paso, TX (03/16) → Delivery = Lynwood, IL (03/19)
-- **Rolando Gonzalez (Rec)**: Pickup = Lynwood, IL (03/19) → Delivery = Huron, OH (03/20)
+### Fix Plan
 
-### Fix
+**File: `supabase/functions/process-afterhours-schedule/index.ts`**
 
-**File:** `src/pages/Trips.tsx` (lines 878-897)
+1. **Pass action in POST body instead of query params** — Change the function to read `action` from the JSON body as primary source, with query param as fallback:
+   ```typescript
+   const body = await req.json().catch(() => ({}));
+   const action = body.action || url.searchParams.get('action');
+   ```
 
-Change the chain logic so:
-- **DELIVERY** for each segment uses the **current** transfer's own `transfer_city/state/datetime` (if it has one). If null (last segment), use order's delivery.
-- **PICKUP** for non-original segments uses the **previous** transfer's `transfer_city/state/datetime`. If null, fall back to order's pickup.
+2. **Widen the auto-determine hour windows** — Instead of checking exact hours, use ranges to handle DST drift:
+   ```typescript
+   if (currentHour >= 6 && currentHour <= 7) scheduleAction = 'start';
+   else if (currentHour >= 17 && currentHour <= 18) scheduleAction = 'end';
+   ```
 
-```typescript
-const prevTransfer = idx > 0 ? transfers[idx - 1] : null;
+3. **Add error handling on role delete/insert** — Currently errors are silently ignored. Log and track failures.
 
-// DELIVERY: current transfer's handoff is where this segment ends
-// Last segment (no handoff data) delivers to order's final destination
-const segDeliveryCity = transfer.transfer_city || order.deliveryCity;
-const segDeliveryState = transfer.transfer_state || order.deliveryState;
-const segDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
+**Cron jobs (SQL update via migration or direct SQL):**
 
-// PICKUP: original uses order pickup; others use previous transfer's handoff
-const segPickupCity = isOriginal ? order.pickupCity : (prevTransfer?.transfer_city || order.pickupCity);
-const segPickupState = isOriginal ? order.pickupState : (prevTransfer?.transfer_state || order.pickupState);
-const segPickupDate = isOriginal ? order.pickupDate : (prevTransfer?.transfer_datetime || order.pickupDate);
-const segPickupDatetime = isOriginal ? order.pickupDatetime : (prevTransfer?.transfer_datetime || order.pickupDatetime);
-```
+4. **Update cron jobs to pass action in the body** instead of query params:
+   - `afterhours-start`: Change `body` from `'{}'::jsonb` to `'{"action":"start"}'::jsonb`, and remove `?action=start` from URL
+   - `afterhours-end`: Change `body` from `'{}'::jsonb` to `'{"action":"end"}'::jsonb`, and remove `?action=end` from URL
 
-This matches the actual data model: seq 0 stores the handoff point where the original driver dropped the load, so seq 0's delivery = Lynwood, IL and seq 1's pickup = Lynwood, IL (from prev transfer). Seq 1 has no handoff data, so its delivery falls through to order's delivery = Huron, OH.
+5. **Fix cron UTC times for CDT** (optional, since body-based action removes the dependency on auto-determine):
+   - Start: `0 11 * * 0,6` (11:00 UTC = 6 AM CDT)
+   - End: `0 22 * * 0,6` (22:00 UTC = 5 PM CDT)
 
-Single-location change, no other files affected.
+**Immediate manual fix:** After deploying, manually invoke the end action to switch Saturday's stuck users back to `dispatch`.
+
+### Files Changed
+- `supabase/functions/process-afterhours-schedule/index.ts` — Read action from body, widen hour fallback, add error handling
+- Cron job SQL update — Pass action in body, fix UTC schedule times
 
