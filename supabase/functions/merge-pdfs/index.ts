@@ -83,7 +83,7 @@ serve(async (req) => {
   }
 
   try {
-    const { invoicePdfBytes, rcFiles, podFiles, additionalFiles } = await req.json()
+    const { invoicePdfBytes, rcFiles, bolFiles, podFiles, additionalFiles } = await req.json()
     
     if (!invoicePdfBytes) {
       return new Response(
