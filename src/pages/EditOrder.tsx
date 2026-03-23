@@ -2113,29 +2113,30 @@ const EditOrder = () => {
 
       if (transfersDeleteError) throw transfersDeleteError;
 
-      // If trailers were swapped, swap them back
+      // If trailers were swapped, swap them back using two-stage approach
+      // to avoid trucks_trailer_id_unique constraint violation
       if (
         recoveryHistory.trailers_swapped &&
         recoveryHistory.original_trailer_id &&
         recoveryHistory.recovery_trailer_id
       ) {
-        // Revert original truck to have its original trailer
-        const { error: originalTruckError } = await supabase
-          .from("trucks")
-          .update({ trailer_id: recoveryHistory.original_trailer_id })
-          .eq("id", recoveryHistory.original_truck_id);
+        // Stage 1: Clear trailers from ALL trucks that currently hold them
+        const [c1, c2, c3, c4] = await Promise.all([
+          supabase.from("trucks").update({ trailer_id: null }).eq("id", recoveryHistory.original_truck_id),
+          supabase.from("trucks").update({ trailer_id: null }).eq("id", recoveryHistory.recovery_truck_id),
+          supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", recoveryHistory.original_trailer_id),
+          supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", recoveryHistory.recovery_trailer_id),
+        ]);
+        if (c1.error || c2.error || c3.error || c4.error) throw (c1.error || c2.error || c3.error || c4.error);
 
-        if (originalTruckError) throw originalTruckError;
+        // Stage 2: Assign correct trailers back
+        const [r1, r2] = await Promise.all([
+          supabase.from("trucks").update({ trailer_id: recoveryHistory.original_trailer_id }).eq("id", recoveryHistory.original_truck_id),
+          supabase.from("trucks").update({ trailer_id: recoveryHistory.recovery_trailer_id }).eq("id", recoveryHistory.recovery_truck_id),
+        ]);
+        if (r1.error || r2.error) throw (r1.error || r2.error);
 
-        // Revert recovery truck to have its original trailer
-        const { error: recoveryTruckError } = await supabase
-          .from("trucks")
-          .update({ trailer_id: recoveryHistory.recovery_trailer_id })
-          .eq("id", recoveryHistory.recovery_truck_id);
-
-        if (recoveryTruckError) throw recoveryTruckError;
-
-        // Invalidate trucks cache
+        // Hard refetch ensures UI shows final DB state
         await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
       }
 
