@@ -556,6 +556,7 @@ const Reports = () => {
     internalLoadNumber: string;
     freightAmount: number;
     loadedMiles: number;
+    dhMiles: number;
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
