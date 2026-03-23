@@ -456,7 +456,7 @@ const NewOrder = () => {
           autoCalcLoadedMilesRef.current = miles;
           toast({
             title: "Loaded Miles Calculated",
-            description: addresses.length > 2 ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops` : `Route distance: ${miles} miles`
+            description: stopsWithCoords.length > 2 ? `Multi-stop route distance: ${miles} miles through ${stopsWithCoords.length} stops` : `Route distance: ${miles} miles`
           });
         }
       } catch (error) {
