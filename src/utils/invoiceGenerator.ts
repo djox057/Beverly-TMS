@@ -586,6 +586,7 @@ export const generateInvoicePDF = async (
       // Get PDF bytes and collect RC/POD/Additional files for this order
       const invoicePdfBytes = doc.output('arraybuffer');
       const rcFiles = order.rcFiles || [];
+      const bolFiles = order.bolFiles || [];
       const podFiles = order.podFiles || [];
       const additionalFiles = order.additionalFiles || [];
       
@@ -595,6 +596,7 @@ export const generateInvoicePDF = async (
       mergeTasks.push({
         invoicePdfBytes,
         rcFiles,
+        bolFiles,
         podFiles,
         additionalFiles,
         baseFilename,
