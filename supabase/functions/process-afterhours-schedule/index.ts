@@ -107,7 +107,7 @@ serve(async (req) => {
         // Change role from dispatch to afterhours via atomic UPDATE
         const { error: updateErr, count } = await supabaseAdmin
           .from('user_roles')
-          .update({ role: 'afterhours' })
+          .update({ role: 'afterhours' }, { count: 'exact' })
           .eq('user_id', userId)
           .eq('role', 'dispatch');
 
