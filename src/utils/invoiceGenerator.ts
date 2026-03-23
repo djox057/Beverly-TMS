@@ -97,6 +97,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T | null> => {
 interface MergeTask {
   invoicePdfBytes: ArrayBuffer;
   rcFiles: OrderFile[];
+  bolFiles: OrderFile[];
   podFiles: OrderFile[];
   additionalFiles: OrderFile[];
   baseFilename: string;
