@@ -131,7 +131,7 @@ export async function calculateLoadedMiles(pickupAddress: string, deliveryAddres
       console.log("🚚 Loaded miles result:", miles);
       return miles;
     })(),
-    8000,
+    15000,
     0,
   );
 }
@@ -157,7 +157,7 @@ export async function calculateMultiStopMiles(addresses: string[]): Promise<numb
       console.log("🚚 Multi-stop miles result:", miles);
       return miles;
     })(),
-    12000,
+    20000,
     0,
   );
 }
