@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import JSZip from 'jszip';
+import { PDFDocument } from 'pdf-lib';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDateNoTimezone } from '@/lib/utils';
 import ExcelJS from 'exceljs';
