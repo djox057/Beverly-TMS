@@ -512,7 +512,6 @@ const NewOrder = () => {
         }
 
         if (miles !== null) {
-        if (miles !== null) {
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;
           toast({
