@@ -29,7 +29,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
-import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates } from "@/utils/mapboxRouteCalculator";
+import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates, calculateRouteFromCoords, calculateMultiStopRouteFromCoords } from "@/utils/mapboxRouteCalculator";
 import { toZonedTime } from "date-fns-tz";
 import {
   AlertDialog,
