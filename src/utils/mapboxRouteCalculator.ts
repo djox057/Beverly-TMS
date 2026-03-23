@@ -184,7 +184,7 @@ export async function calculateDhMiles(lastDeliveryAddress: string, nextPickupAd
       console.log("🚚 DH miles result:", miles);
       return miles;
     })(),
-    8000,
+    15000,
     0,
   );
 }
