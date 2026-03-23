@@ -906,6 +906,7 @@ const Reports = () => {
       internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
       freightAmount,
       loadedMiles,
+      dhMiles: toNum(order.dh_miles),
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
