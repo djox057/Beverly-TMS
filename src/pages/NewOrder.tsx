@@ -29,7 +29,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
-import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates } from "@/utils/mapboxRouteCalculator";
+import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates, calculateRouteFromCoords, calculateMultiStopRouteFromCoords } from "@/utils/mapboxRouteCalculator";
 import { toZonedTime } from "date-fns-tz";
 import {
   AlertDialog,
@@ -432,32 +432,31 @@ const NewOrder = () => {
         }
       }
 
-      // Get all addresses in order for mile calculation
-      // Always build full address from separate fields for consistent geocoding
-      const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
-        const parts = [item.address];
-        if (item.city) parts.push(item.city);
-        if (item.state) parts.push(item.state);
-        if (item.zipCode) parts.push(item.zipCode);
-        return parts.join(', ');
-      });
-      if (addresses.length < 2) {
+      // Use pre-geocoded coordinates directly to avoid re-geocoding
+      const stopsWithCoords = pickupsDrops.filter(
+        item => item.address.trim() && item.latitude !== undefined && item.longitude !== undefined
+      );
+      if (stopsWithCoords.length < 2) {
         return;
       }
       setIsCalculatingMiles(true);
       try {
         let miles: number | null = null;
-        if (addresses.length === 2) {
-          miles = await calculateLoadedMiles(addresses[0], addresses[1]);
+        const coords: Coordinates[] = stopsWithCoords.map(item => ({
+          lat: item.latitude!,
+          lon: item.longitude!,
+        }));
+        if (coords.length === 2) {
+          miles = await calculateRouteFromCoords(coords[0], coords[1]);
         } else {
-          miles = await calculateMultiStopMiles(addresses);
+          miles = await calculateMultiStopRouteFromCoords(coords);
         }
         if (miles !== null) {
           setLoadedMiles(miles.toString());
           autoCalcLoadedMilesRef.current = miles;
           toast({
             title: "Loaded Miles Calculated",
-            description: addresses.length > 2 ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops` : `Route distance: ${miles} miles`
+            description: stopsWithCoords.length > 2 ? `Multi-stop route distance: ${miles} miles through ${stopsWithCoords.length} stops` : `Route distance: ${miles} miles`
           });
         }
       } catch (error) {
@@ -482,19 +481,36 @@ const NewOrder = () => {
         return;
       }
 
-      // Always build full address from separate parts for consistent geocoding
-      const addressParts = [firstPickup.address];
-      if (firstPickup.city) addressParts.push(firstPickup.city);
-      if (firstPickup.state) addressParts.push(firstPickup.state);
-      if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
-      const pickupAddress = addressParts.join(', ');
-      
-      // Use last delivery address or fallback to default base coordinates
-      const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
-      
       setIsCalculatingDhMiles(true);
       try {
-        const miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
+        let miles: number | null = null;
+
+        // If pickup has pre-geocoded coordinates, use them directly
+        if (firstPickup.latitude !== undefined && firstPickup.longitude !== undefined) {
+          const pickupCoords: Coordinates = { lat: firstPickup.latitude, lon: firstPickup.longitude };
+
+          if (lastDelivery?.deliveryAddress) {
+            // Need to geocode only the DH origin (last delivery)
+            const originCoords = await geocodeAddress(lastDelivery.deliveryAddress);
+            if (originCoords) {
+              miles = await calculateRouteFromCoords(originCoords, pickupCoords);
+            }
+          } else {
+            // Use default base coordinates
+            const baseCoords: Coordinates = { lat: 41.538030, lon: -87.578617 };
+            miles = await calculateRouteFromCoords(baseCoords, pickupCoords);
+          }
+        } else {
+          // Fallback: full address-based calculation
+          const addressParts = [firstPickup.address];
+          if (firstPickup.city) addressParts.push(firstPickup.city);
+          if (firstPickup.state) addressParts.push(firstPickup.state);
+          if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
+          const pickupAddress = addressParts.join(', ');
+          const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
+          miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
+        }
+
         if (miles !== null) {
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;

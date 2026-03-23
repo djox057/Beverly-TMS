@@ -83,6 +83,44 @@ async function getRouteDistance(start: Coordinates, end: Coordinates): Promise<n
 }
 
 /**
+ * Calculate driving distance between two sets of pre-geocoded coordinates (skips geocoding)
+ */
+export async function calculateRouteFromCoords(
+  start: Coordinates,
+  end: Coordinates
+): Promise<number | null> {
+  console.log("🚚 Calculating route from coords:", { start, end });
+  return withTimeout(
+    (async () => {
+      const miles = await getRouteDistance(start, end);
+      console.log("🚚 Route from coords result:", miles);
+      return miles;
+    })(),
+    10000,
+    0,
+  );
+}
+
+/**
+ * Calculate driving distance for a multi-stop route using pre-geocoded coordinates
+ */
+export async function calculateMultiStopRouteFromCoords(
+  coordinates: Coordinates[]
+): Promise<number | null> {
+  if (coordinates.length < 2) return null;
+  console.log("🚚 Calculating multi-stop route from coords:", coordinates);
+  return withTimeout(
+    (async () => {
+      const miles = await getMultiStopRouteDistance(coordinates);
+      console.log("🚚 Multi-stop route from coords result:", miles);
+      return miles;
+    })(),
+    10000,
+    0,
+  );
+}
+
+/**
  * Calculate driving distance for a multi-stop route using the edge function
  */
 async function getMultiStopRouteDistance(coordinates: Coordinates[]): Promise<number | null> {
@@ -131,7 +169,7 @@ export async function calculateLoadedMiles(pickupAddress: string, deliveryAddres
       console.log("🚚 Loaded miles result:", miles);
       return miles;
     })(),
-    8000,
+    15000,
     0,
   );
 }
@@ -157,7 +195,7 @@ export async function calculateMultiStopMiles(addresses: string[]): Promise<numb
       console.log("🚚 Multi-stop miles result:", miles);
       return miles;
     })(),
-    12000,
+    20000,
     0,
   );
 }
@@ -184,7 +222,7 @@ export async function calculateDhMiles(lastDeliveryAddress: string, nextPickupAd
       console.log("🚚 DH miles result:", miles);
       return miles;
     })(),
-    8000,
+    15000,
     0,
   );
 }
