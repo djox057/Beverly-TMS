@@ -92,8 +92,8 @@ serve(async (req) => {
       )
     }
 
-    const totalFiles = (rcFiles?.length || 0) + (podFiles?.length || 0) + (additionalFiles?.length || 0);
-    console.log(`Starting PDF merge: invoice + ${totalFiles} files (RC: ${rcFiles?.length || 0}, POD: ${podFiles?.length || 0}, Additional: ${additionalFiles?.length || 0})`)
+    const totalFiles = (rcFiles?.length || 0) + (bolFiles?.length || 0) + (podFiles?.length || 0) + (additionalFiles?.length || 0);
+    console.log(`Starting PDF merge: invoice + ${totalFiles} files (RC: ${rcFiles?.length || 0}, BOL: ${bolFiles?.length || 0}, POD: ${podFiles?.length || 0}, Additional: ${additionalFiles?.length || 0})`)
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
