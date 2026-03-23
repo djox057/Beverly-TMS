@@ -556,6 +556,7 @@ const Reports = () => {
     internalLoadNumber: string;
     freightAmount: number;
     loadedMiles: number;
+    dhMiles: number;
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
@@ -905,6 +906,7 @@ const Reports = () => {
       internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
       freightAmount,
       loadedMiles,
+      dhMiles: toNum(order.dh_miles),
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
@@ -5762,6 +5764,9 @@ const Reports = () => {
 
                     <div className="flex flex-col leading-tight">
                       <span>{zoomedLoad?.loadedMiles?.toLocaleString() || 0} mi</span>
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <span>{zoomedLoad?.dhMiles?.toLocaleString() || 0} dh mi</span>
                     </div>
                   </div>
                 </div>
