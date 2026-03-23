@@ -105,14 +105,14 @@ interface MergeTask {
 }
 
 interface SkippedFile {
-  file_type: 'RC' | 'POD' | 'ADDITIONAL';
+  file_type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL';
   file_name: string;
   file_path: string;
   reason: string;
 }
 
 interface IncludedFile {
-  file_type: 'RC' | 'POD' | 'ADDITIONAL';
+  file_type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL';
   file_name: string;
   resolved_path: string;
   fallback?: boolean;
