@@ -1735,13 +1735,18 @@ const EditOrder = () => {
 
       // Handle trailer swap if requested (only if both trucks have trailers)
       if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
-        // Step 1: Clear both trailers to avoid unique constraint violation
-        const [c1, c2] = await Promise.all([
+        // Step 1: Clear both trailers from ALL trucks that currently hold them
+        // (the order's trailer may have moved to a third truck since the order was created)
+        const [c1, c2, c3, c4] = await Promise.all([
           supabase.from("trucks").update({ trailer_id: null }).eq("id", truck),
           supabase.from("trucks").update({ trailer_id: null }).eq("id", data.recoveryTruckId),
+          supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", trailerId),
+          supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", data.recoveryTrailerId),
         ]);
         if (c1.error) throw c1.error;
         if (c2.error) throw c2.error;
+        if (c3.error) throw c3.error;
+        if (c4.error) throw c4.error;
 
         // Step 2: Assign swapped trailers
         const [r1, r2] = await Promise.all([
