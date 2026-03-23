@@ -432,25 +432,24 @@ const NewOrder = () => {
         }
       }
 
-      // Get all addresses in order for mile calculation
-      // Always build full address from separate fields for consistent geocoding
-      const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
-        const parts = [item.address];
-        if (item.city) parts.push(item.city);
-        if (item.state) parts.push(item.state);
-        if (item.zipCode) parts.push(item.zipCode);
-        return parts.join(', ');
-      });
-      if (addresses.length < 2) {
+      // Use pre-geocoded coordinates directly to avoid re-geocoding
+      const stopsWithCoords = pickupsDrops.filter(
+        item => item.address.trim() && item.latitude !== undefined && item.longitude !== undefined
+      );
+      if (stopsWithCoords.length < 2) {
         return;
       }
       setIsCalculatingMiles(true);
       try {
         let miles: number | null = null;
-        if (addresses.length === 2) {
-          miles = await calculateLoadedMiles(addresses[0], addresses[1]);
+        const coords: Coordinates[] = stopsWithCoords.map(item => ({
+          lat: item.latitude!,
+          lon: item.longitude!,
+        }));
+        if (coords.length === 2) {
+          miles = await calculateRouteFromCoords(coords[0], coords[1]);
         } else {
-          miles = await calculateMultiStopMiles(addresses);
+          miles = await calculateMultiStopRouteFromCoords(coords);
         }
         if (miles !== null) {
           setLoadedMiles(miles.toString());
