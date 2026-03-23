@@ -1,41 +1,61 @@
 
 
-## Fix: Swap Trailers Race Condition in EditOrder
+## Analysis: Why DH and Loaded Miles Fail on New Order
 
-### Problem
+### How They're Called
 
-The trailer swap executes two sequential DB writes with no transactional guarantee. The `useTrucksRealtime` hook patches cache key `["trucks", "v2"]`, but the invalidation at line 1758 targets `["trucks"]` — a key nothing reads from. The invalidation is a no-op. The UI only updates if/when both realtime events happen to arrive and flush correctly.
+**Loaded Miles** (line 396-472):
+- A `useEffect` watches `[pickupsDrops, toast]`
+- Fires 1500ms after `pickupsDrops` changes (debounce)
+- First pass: geocodes any stops missing coordinates, calls `setPickupsDrops(updatedItems)` then **returns early** (line 431)
+- The `setPickupsDrops` triggers the effect again — second pass should skip geocoding and proceed to mile calculation
+- Calls `calculateLoadedMiles` (2 stops) or `calculateMultiStopMiles` (3+ stops)
 
-### Fix (3 parts)
+**DH Miles** (line 474-520):
+- A separate `useEffect` watches `[truck, lastDelivery, pickupsDrops, toast]`
+- Fires 1500ms after dependencies change
+- Requires a truck to be selected AND a pickup address to exist
+- Calls `calculateDhMiles(lastDeliveryAddress, pickupAddress)`
 
-**1. Parallel writes + correct refetch (lines 1737-1758)**
+### Why They Return 0
 
-Replace the two sequential updates with `Promise.all` for shorter partial-state window, then `await refetchQueries` on the correct key:
+**Root cause: The `withTimeout` fallback returns `0` too aggressively.**
 
-```typescript
-if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
-  const [r1, r2] = await Promise.all([
-    supabase.from("trucks").update({ trailer_id: data.recoveryTrailerId }).eq("id", truck),
-    supabase.from("trucks").update({ trailer_id: trailerId }).eq("id", data.recoveryTruckId),
-  ]);
-  if (r1.error) throw r1.error;
-  if (r2.error) throw r2.error;
+Each mile calculation involves 2-3 sequential network calls to the `calculate-mapbox-route` edge function:
+1. Geocode address A (~1-3s)
+2. Geocode address B (~1-3s)
+3. Route calculation (~1-3s)
 
-  // Hard refetch ensures UI shows final DB state regardless of realtime event ordering
-  await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
-}
-```
+Total: 3-9 seconds. But `withTimeout` is set to **8 seconds** for single routes and the geocoding in the effect already consumed time before the mile calc starts. When the timeout fires, the fallback value `0` is returned silently.
 
-No delay. The refetch is the correctness guarantee; the parallelization is performance hygiene.
+**Additionally, the geocode-first-then-return pattern causes a race:**
+- First render: geocode runs, sets state, returns early (no mile calc)
+- State change triggers DH effect too (pickupsDrops changed)
+- Both effects now fire simultaneously after 1500ms
+- The loaded miles effect runs the calculation for real this time
+- But the DH effect was ALSO re-triggered and may overlap with loaded miles, hitting Mapbox rate limits
 
-**2. Fix the same stale key at line 2137**
+### Fix Plan
 
-There's a second `invalidateQueries({ queryKey: ["trucks"] })` at line 2137. Change to `refetchQueries({ queryKey: ["trucks", "v2"] })` for consistency.
+**File: `src/utils/mapboxRouteCalculator.ts`**
 
-**3. Note on transactional RPC (not in scope)**
+1. **Increase `withTimeout` from 8s→15s for single routes, 12s→20s for multi-stop** — the calculations are sequential (geocode + geocode + route), each taking 1-3s. 8s is too tight.
 
-A Postgres RPC that swaps both trailer_ids in a single transaction would eliminate the partial-state window entirely. This is the robust long-term fix but is out of scope for this change — the hard refetch makes the UI correct regardless.
+**File: `src/pages/NewOrder.tsx`**
 
-### Files Changed
-- `src/pages/EditOrder.tsx` — lines 1737-1758 and line 2137
+2. **Deduplicate geocoding** — The loaded miles effect geocodes addresses, then the mile calculation re-geocodes them via `calculateLoadedMiles` (which calls `geocodeAddress` internally). The effect should pass the already-geocoded coordinates directly to a route calculation instead of re-geocoding.
+
+3. **Stagger DH and loaded miles calculations** — Both effects fire when `pickupsDrops` changes. Add a guard so DH calculation waits until loaded miles calculation completes (or use a ref to track calculation state).
+
+4. **Skip re-geocoding in calculateLoadedMiles/calculateDhMiles** — Since the effect already geocodes and stores lat/lon on the pickupsDrops items, pass coordinates directly to the route API instead of re-geocoding addresses. This cuts the time from ~6-9s to ~1-3s.
+
+### Specific Changes
+
+**`mapboxRouteCalculator.ts`**: Increase timeouts to 15s/20s as a safety net.
+
+**`NewOrder.tsx` (lines 396-472)**: After geocoding completes and coordinates exist on all stops, call the route API directly with coordinates instead of calling `calculateLoadedMiles(address1, address2)` which re-geocodes. Use `supabase.functions.invoke('calculate-mapbox-route', { body: { type: 'route', start, end } })` with the stored coordinates.
+
+**`NewOrder.tsx` (lines 474-520)**: Similarly for DH miles — if the first pickup already has coordinates from the geocode pass, use them directly instead of re-geocoding the address string.
+
+This eliminates 2-4 redundant geocode API calls per order, bringing total time from ~6-9s down to ~2-4s, well within timeout bounds.
 
