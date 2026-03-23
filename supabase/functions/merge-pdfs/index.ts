@@ -126,8 +126,8 @@ serve(async (req) => {
       return hasImageExtension || hasImageType
     }
 
-    const includedFiles: Array<{ file_type: 'RC' | 'POD' | 'ADDITIONAL'; file_name: string; resolved_path: string; fallback?: boolean }> = [];
-    const skippedFiles: Array<{ file_type: 'RC' | 'POD' | 'ADDITIONAL'; file_name: string; file_path: string; reason: string }> = [];
+    const includedFiles: Array<{ file_type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; file_name: string; resolved_path: string; fallback?: boolean }> = [];
+    const skippedFiles: Array<{ file_type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; file_name: string; file_path: string; reason: string }> = [];
 
     let helveticaFont: any | null = null;
     const getHelvetica = async () => {

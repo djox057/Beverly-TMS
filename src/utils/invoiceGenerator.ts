@@ -250,7 +250,7 @@ export interface InvoiceProgress {
 
 export interface InvoiceWarning {
   invoice: string;
-  files: Array<{ type: 'RC' | 'POD' | 'ADDITIONAL'; name: string }>;
+  files: Array<{ type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; name: string }>;
   reason: 'skipped' | 'fallback';
 }
 

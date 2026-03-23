@@ -2206,22 +2206,62 @@ const Orders = () => {
                 Invoice File Attachment Issues
               </DialogTitle>
               <DialogDescription>
-                The following files could not be merged inline and were embedded as attachments instead.
-                Open the PDF in Adobe Acrobat and look for the Attachments panel (paperclip icon) to access them.
+                Some files had issues during invoice generation. See details below.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 mt-4">
-              {invoiceWarnings.map((warning, idx) => <div key={idx} className="border rounded-lg p-3 bg-muted/50">
-                  <div className="font-medium text-sm mb-2">Invoice: {warning.invoice}</div>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    {warning.files.map((file, fileIdx) => <li key={fileIdx} className="flex items-center gap-2">
-                        <span className="text-xs font-medium bg-secondary px-1.5 py-0.5 rounded">
-                          {file.type}
-                        </span>
-                        <span className="truncate">{file.name}</span>
-                      </li>)}
-                  </ul>
-                </div>)}
+              {(() => {
+                const skippedWarnings = invoiceWarnings.filter(w => w.reason === 'skipped');
+                const fallbackWarnings = invoiceWarnings.filter(w => w.reason === 'fallback');
+                return <>
+                  {skippedWarnings.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold text-destructive mb-2 flex items-center gap-1.5">
+                        <XCircle className="h-4 w-4" />
+                        Missing Files — could NOT be attached
+                      </div>
+                      {skippedWarnings.map((warning, idx) => (
+                        <div key={`skip-${idx}`} className="border border-destructive/30 rounded-lg p-3 bg-destructive/5 mb-2">
+                          <div className="font-medium text-sm mb-2">Invoice: {warning.invoice}</div>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {warning.files.map((file, fileIdx) => (
+                              <li key={fileIdx} className="flex items-center gap-2">
+                                <span className="text-xs font-medium bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">
+                                  {file.type}
+                                </span>
+                                <span className="truncate">{file.name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {fallbackWarnings.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold text-yellow-600 mb-2 flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4" />
+                        Embedded as Attachments — open in Adobe Acrobat (paperclip icon)
+                      </div>
+                      {fallbackWarnings.map((warning, idx) => (
+                        <div key={`fb-${idx}`} className="border border-yellow-500/30 rounded-lg p-3 bg-yellow-500/5 mb-2">
+                          <div className="font-medium text-sm mb-2">Invoice: {warning.invoice}</div>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {warning.files.map((file, fileIdx) => (
+                              <li key={fileIdx} className="flex items-center gap-2">
+                                <span className="text-xs font-medium bg-yellow-500/10 text-yellow-700 px-1.5 py-0.5 rounded">
+                                  {file.type}
+                                </span>
+                                <span className="truncate">{file.name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>;
+              })()}
             </div>
             <DialogFooter>
               <Button onClick={() => setInvoiceWarningDialogOpen(false)}>
