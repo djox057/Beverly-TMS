@@ -10,7 +10,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2, Info, Layers, CalendarClock, CheckSquare, Square, ChevronDown } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2, Info, Layers, CalendarClock, CheckSquare, Square, ChevronDown, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import moneyStackIcon from "@/assets/money-stack.png";
