@@ -1735,27 +1735,16 @@ const EditOrder = () => {
 
       // Handle trailer swap if requested (only if both trucks have trailers)
       if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
-        const originalTrailerId = trailerId;
-        const transferTrailerId = data.recoveryTrailerId;
+        // Parallel writes to minimize partial-state window
+        const [r1, r2] = await Promise.all([
+          supabase.from("trucks").update({ trailer_id: data.recoveryTrailerId }).eq("id", truck),
+          supabase.from("trucks").update({ trailer_id: trailerId }).eq("id", data.recoveryTruckId),
+        ]);
+        if (r1.error) throw r1.error;
+        if (r2.error) throw r2.error;
 
-        // Update original truck to have transfer truck's trailer
-        const { error: originalTruckError } = await supabase
-          .from("trucks")
-          .update({ trailer_id: transferTrailerId })
-          .eq("id", truck);
-
-        if (originalTruckError) throw originalTruckError;
-
-        // Update transfer truck to have original trailer
-        const { error: transferTruckError } = await supabase
-          .from("trucks")
-          .update({ trailer_id: originalTrailerId })
-          .eq("id", data.recoveryTruckId);
-
-        if (transferTruckError) throw transferTruckError;
-
-        // Invalidate trucks cache to refresh data
-        queryClient.invalidateQueries({ queryKey: ["trucks"] });
+        // Hard refetch ensures UI shows final DB state regardless of realtime event ordering
+        await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
       }
 
       // Update display state with manual values if provided
