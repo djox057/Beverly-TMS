@@ -79,6 +79,7 @@ interface Order {
   driverName: string;
   mileage: number;
   rcFiles?: OrderFile[];
+  bolFiles?: OrderFile[];
   podFiles?: OrderFile[];
   additionalFiles?: OrderFile[];
   pickup_drops?: PickupDrop[];
