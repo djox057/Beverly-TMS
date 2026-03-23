@@ -137,7 +137,7 @@ serve(async (req) => {
       return helveticaFont;
     };
 
-    const addFileToPdf = async (file: any, fileType: 'RC' | 'POD' | 'ADDITIONAL'): Promise<boolean> => {
+    const addFileToPdf = async (file: any, fileType: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'): Promise<boolean> => {
       try {
         console.log(`Processing ${fileType} file: ${file.file_name} at path: ${file.file_path}`);
         
