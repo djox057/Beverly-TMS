@@ -481,19 +481,37 @@ const NewOrder = () => {
         return;
       }
 
-      // Always build full address from separate parts for consistent geocoding
-      const addressParts = [firstPickup.address];
-      if (firstPickup.city) addressParts.push(firstPickup.city);
-      if (firstPickup.state) addressParts.push(firstPickup.state);
-      if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
-      const pickupAddress = addressParts.join(', ');
-      
-      // Use last delivery address or fallback to default base coordinates
-      const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
-      
       setIsCalculatingDhMiles(true);
       try {
-        const miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
+        let miles: number | null = null;
+
+        // If pickup has pre-geocoded coordinates, use them directly
+        if (firstPickup.latitude !== undefined && firstPickup.longitude !== undefined) {
+          const pickupCoords: Coordinates = { lat: firstPickup.latitude, lon: firstPickup.longitude };
+
+          if (lastDelivery?.deliveryAddress) {
+            // Need to geocode only the DH origin (last delivery)
+            const originCoords = await geocodeAddress(lastDelivery.deliveryAddress);
+            if (originCoords) {
+              miles = await calculateRouteFromCoords(originCoords, pickupCoords);
+            }
+          } else {
+            // Use default base coordinates
+            const baseCoords: Coordinates = { lat: 41.538030, lon: -87.578617 };
+            miles = await calculateRouteFromCoords(baseCoords, pickupCoords);
+          }
+        } else {
+          // Fallback: full address-based calculation
+          const addressParts = [firstPickup.address];
+          if (firstPickup.city) addressParts.push(firstPickup.city);
+          if (firstPickup.state) addressParts.push(firstPickup.state);
+          if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
+          const pickupAddress = addressParts.join(', ');
+          const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
+          miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
+        }
+
+        if (miles !== null) {
         if (miles !== null) {
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;
