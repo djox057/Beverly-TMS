@@ -104,84 +104,46 @@ serve(async (req) => {
       const userId = scheduled.user_id;
 
       if (scheduleAction === 'start') {
-        // Change role from dispatch to afterhours
-        const { data: hasDispatch } = await supabaseAdmin
+        // Change role from dispatch to afterhours via atomic UPDATE
+        const { error: updateErr, count } = await supabaseAdmin
           .from('user_roles')
-          .select('id')
+          .update({ role: 'afterhours' })
           .eq('user_id', userId)
-          .eq('role', 'dispatch')
-          .single();
+          .eq('role', 'dispatch');
 
-        if (hasDispatch) {
-          const { error: deleteErr } = await supabaseAdmin
-            .from('user_roles')
-            .delete()
-            .eq('user_id', userId)
-            .eq('role', 'dispatch');
+        if (updateErr) {
+          console.error(`User ${userId}: Failed to update to afterhours:`, updateErr);
+          results.push({ userId, action: 'error - update to afterhours failed', error: updateErr.message });
+          continue;
+        }
 
-          if (deleteErr) {
-            console.error(`User ${userId}: Failed to delete dispatch role:`, deleteErr);
-            results.push({ userId, action: 'error - delete dispatch failed', error: deleteErr.message });
-            continue;
-          }
-
-          const { error: insertErr } = await supabaseAdmin
-            .from('user_roles')
-            .insert({ user_id: userId, role: 'afterhours' });
-
-          if (insertErr) {
-            console.error(`User ${userId}: Failed to insert afterhours role:`, insertErr);
-            // Attempt to restore dispatch role
-            await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: 'dispatch' });
-            results.push({ userId, action: 'error - insert afterhours failed, dispatch restored', error: insertErr.message });
-            continue;
-          }
-
-          console.log(`User ${userId}: Changed from dispatch to afterhours`);
-          results.push({ userId, action: 'dispatch -> afterhours' });
-        } else {
+        if (count === 0) {
           console.log(`User ${userId}: No dispatch role found, skipping`);
           results.push({ userId, action: 'skipped - no dispatch role' });
+        } else {
+          console.log(`User ${userId}: Changed from dispatch to afterhours`);
+          results.push({ userId, action: 'dispatch -> afterhours' });
         }
       } else if (scheduleAction === 'end') {
-        // Change role from afterhours back to dispatch
-        const { data: hasAfterhours } = await supabaseAdmin
+        // Change role from afterhours back to dispatch via atomic UPDATE
+        const { error: updateErr, count } = await supabaseAdmin
           .from('user_roles')
-          .select('id')
+          .update({ role: 'dispatch' })
           .eq('user_id', userId)
-          .eq('role', 'afterhours')
-          .single();
+          .eq('role', 'afterhours');
 
-        if (hasAfterhours) {
-          const { error: deleteErr } = await supabaseAdmin
-            .from('user_roles')
-            .delete()
-            .eq('user_id', userId)
-            .eq('role', 'afterhours');
+        if (updateErr) {
+          console.error(`User ${userId}: Failed to update to dispatch:`, updateErr);
+          results.push({ userId, action: 'error - update to dispatch failed', error: updateErr.message });
+          continue;
+        }
 
-          if (deleteErr) {
-            console.error(`User ${userId}: Failed to delete afterhours role:`, deleteErr);
-            results.push({ userId, action: 'error - delete afterhours failed', error: deleteErr.message });
-            continue;
-          }
-
-          const { error: insertErr } = await supabaseAdmin
-            .from('user_roles')
-            .insert({ user_id: userId, role: 'dispatch' });
-
-          if (insertErr) {
-            console.error(`User ${userId}: Failed to insert dispatch role:`, insertErr);
-            // Attempt to restore afterhours role
-            await supabaseAdmin.from('user_roles').insert({ user_id: userId, role: 'afterhours' });
-            results.push({ userId, action: 'error - insert dispatch failed, afterhours restored', error: insertErr.message });
-            continue;
-          }
-
-          console.log(`User ${userId}: Changed from afterhours to dispatch`);
-          results.push({ userId, action: 'afterhours -> dispatch' });
-        } else {
+        if (count === 0) {
           console.log(`User ${userId}: No afterhours role found, skipping`);
           results.push({ userId, action: 'skipped - no afterhours role' });
+        } else {
+          console.log(`User ${userId}: Changed from afterhours to dispatch`);
+          results.push({ userId, action: 'afterhours -> dispatch' });
         }
       }
     }
