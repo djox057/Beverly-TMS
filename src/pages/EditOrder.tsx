@@ -2123,7 +2123,7 @@ const EditOrder = () => {
         if (recoveryTruckError) throw recoveryTruckError;
 
         // Invalidate trucks cache
-        queryClient.invalidateQueries({ queryKey: ["trucks"] });
+        await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
       }
 
       // Mark recovery as reverted
