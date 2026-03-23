@@ -310,6 +310,14 @@ serve(async (req) => {
       }
     }
 
+    if (bolFiles && bolFiles.length > 0) {
+      console.log(`Processing ${bolFiles.length} BOL file(s)...`);
+      for (const bolFile of bolFiles) {
+        const success = await addFileToPdf(bolFile, 'BOL');
+        if (success) successCount++;
+      }
+    }
+
     if (podFiles && podFiles.length > 0) {
       console.log(`Processing ${podFiles.length} POD file(s)...`);
       for (const podFile of podFiles) {
