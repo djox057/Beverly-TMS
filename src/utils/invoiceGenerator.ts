@@ -124,38 +124,120 @@ interface MergeTaskResult {
   fallbackFiles?: IncludedFile[];
 }
 
+// Download a file from Supabase storage and return its bytes
+const downloadFileFromStorage = async (filePath: string): Promise<{ data: Uint8Array | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('order-files')
+      .download(filePath);
+    
+    if (error || !data) {
+      console.error(`Download failed for ${filePath}:`, error);
+      return { data: null, error: error?.message || 'download_failed' };
+    }
+    
+    const arrayBuffer = await data.arrayBuffer();
+    return { data: new Uint8Array(arrayBuffer), error: null };
+  } catch (e) {
+    console.error(`Download exception for ${filePath}:`, e);
+    return { data: null, error: e instanceof Error ? e.message : 'unknown_error' };
+  }
+};
+
+const isImageFile = (fileName: string, contentType?: string) => {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+  const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
+  const hasImageExtension = imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+  const hasImageType = contentType && imageTypes.includes(contentType.toLowerCase());
+  return hasImageExtension || hasImageType;
+};
+
 const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
   const { invoicePdfBytes, rcFiles, podFiles, additionalFiles, baseFilename } = task;
   
-  if (rcFiles.length > 0 || podFiles.length > 0 || additionalFiles.length > 0) {
-    try {
-      const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
-        body: {
-          invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
-          rcFiles,
-          podFiles,
-          additionalFiles
-        }
-      });
-      
-      if (!mergeError && mergeResult?.pdfBytes) {
-        // Extract files that used the fallback (attachment) path
-        const fallbackFiles = (mergeResult.includedFiles || []).filter((f: IncludedFile) => f.fallback === true);
-        
-        return { 
-          filename: baseFilename, 
-          pdfBytes: mergeResult.pdfBytes,
-          skippedFiles: mergeResult.skippedFiles || [],
-          fallbackFiles
-        };
-      }
-    } catch (error) {
-      console.error(`Error merging ${baseFilename}:`, error);
-    }
+  const allFiles: Array<{ file: OrderFile; type: 'RC' | 'POD' | 'ADDITIONAL' }> = [
+    ...rcFiles.map(f => ({ file: f, type: 'RC' as const })),
+    ...podFiles.map(f => ({ file: f, type: 'POD' as const })),
+    ...additionalFiles.map(f => ({ file: f, type: 'ADDITIONAL' as const })),
+  ];
+
+  if (allFiles.length === 0) {
+    return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [], fallbackFiles: [] };
   }
-  
-  // Fallback to just the invoice
-  return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [], fallbackFiles: [] };
+
+  const skippedFiles: SkippedFile[] = [];
+  const includedFiles: IncludedFile[] = [];
+
+  try {
+    const mainPdf = await PDFDocument.load(invoicePdfBytes, { ignoreEncryption: true });
+
+    for (const { file, type } of allFiles) {
+      try {
+        console.log(`[merge] Downloading ${type}: ${file.file_name}`);
+        const { data: fileBytes, error } = await downloadFileFromStorage(file.file_path);
+        
+        if (!fileBytes || error) {
+          console.warn(`[merge] Failed to download ${file.file_name}: ${error}`);
+          skippedFiles.push({ file_type: type, file_name: file.file_name, file_path: file.file_path, reason: error || 'download_failed' });
+          continue;
+        }
+
+        if (isImageFile(file.file_name, file.content_type)) {
+          // Embed image as a PDF page
+          let image;
+          if (file.file_name.toLowerCase().includes('.png') || file.content_type?.includes('png')) {
+            image = await mainPdf.embedPng(fileBytes);
+          } else {
+            image = await mainPdf.embedJpg(fileBytes);
+          }
+          
+          const page = mainPdf.addPage();
+          const { width, height } = image.scale(1);
+          const pageWidth = page.getWidth();
+          const pageHeight = page.getHeight();
+          const scaleFactor = Math.min(pageWidth / width, pageHeight / height, 1);
+          
+          page.drawImage(image, {
+            x: (pageWidth - width * scaleFactor) / 2,
+            y: (pageHeight - height * scaleFactor) / 2,
+            width: width * scaleFactor,
+            height: height * scaleFactor,
+          });
+          
+          console.log(`[merge] Added image ${file.file_name} as PDF page`);
+          includedFiles.push({ file_type: type, file_name: file.file_name, resolved_path: file.file_path });
+        } else {
+          // Handle PDF files
+          try {
+            const filePdf = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
+            const pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices());
+            pages.forEach(page => mainPdf.addPage(page));
+            console.log(`[merge] Added ${pages.length} page(s) from PDF ${file.file_name}`);
+            includedFiles.push({ file_type: type, file_name: file.file_name, resolved_path: file.file_path });
+          } catch (pdfError) {
+            console.warn(`[merge] Failed to merge PDF ${file.file_name}:`, pdfError);
+            skippedFiles.push({ file_type: type, file_name: file.file_name, file_path: file.file_path, reason: pdfError instanceof Error ? pdfError.message : 'pdf_merge_failed' });
+          }
+        }
+      } catch (fileError) {
+        console.error(`[merge] Error processing ${type} file ${file.file_name}:`, fileError);
+        skippedFiles.push({ file_type: type, file_name: file.file_name, file_path: file.file_path, reason: fileError instanceof Error ? fileError.message : 'processing_failed' });
+      }
+    }
+
+    const mergedBytes = await mainPdf.save();
+    console.log(`[merge] Completed ${baseFilename}: ${includedFiles.length} files merged, ${skippedFiles.length} skipped`);
+    
+    return {
+      filename: baseFilename,
+      pdfBytes: Array.from(new Uint8Array(mergedBytes)),
+      skippedFiles,
+      fallbackFiles: includedFiles.filter(f => f.fallback),
+    };
+  } catch (error) {
+    console.error(`[merge] Fatal error merging ${baseFilename}:`, error);
+    return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles, fallbackFiles: [] };
+  }
 };
 
 export interface InvoiceProgress {
