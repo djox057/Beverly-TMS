@@ -1,50 +1,41 @@
 
 
-## Fix: Afterhours Schedule Role Switching Not Working
+## Fix: Swap Trailers Race Condition in EditOrder
 
-### Root Cause (Two issues)
+### Problem
 
-**Issue 1: Query params likely not received.** The cron jobs pass `?action=start` / `?action=end` as URL query parameters. Supabase Edge Functions can be unreliable with query params passed via `net.http_post`. When `action` is `null`, the function falls into the auto-determine logic.
+The trailer swap executes two sequential DB writes with no transactional guarantee. The `useTrucksRealtime` hook patches cache key `["trucks", "v2"]`, but the invalidation at line 1758 targets `["trucks"]` — a key nothing reads from. The invalidation is a no-op. The UI only updates if/when both realtime events happen to arrive and flush correctly.
 
-**Issue 2: Auto-determine hours are wrong due to DST.** The fallback checks `currentHour === 6` for start and `currentHour === 17` for end. But:
-- Cron `afterhours-start` runs at `0 12 * * 0,6` (12:00 UTC). In CDT (March = daylight saving, UTC-5), that's **7 AM Chicago**, not 6 AM.
-- Cron `afterhours-end` runs at `0 23 * * 0,6` (23:00 UTC). In CDT, that's **6 PM Chicago**, not 5 PM.
+### Fix (3 parts)
 
-Result: `scheduleAction` stays `null` → function returns "No action needed at this time" → no roles are switched. This explains why Saturday users are still stuck in `afterhours` and the end action never fires.
+**1. Parallel writes + correct refetch (lines 1737-1758)**
 
-**Evidence:** Cron job runs show `succeeded` (HTTP request was submitted), but no edge function logs exist, and Saturday's scheduled users (3/21) are still in `afterhours` role despite the end cron having fired.
+Replace the two sequential updates with `Promise.all` for shorter partial-state window, then `await refetchQueries` on the correct key:
 
-### Fix Plan
+```typescript
+if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
+  const [r1, r2] = await Promise.all([
+    supabase.from("trucks").update({ trailer_id: data.recoveryTrailerId }).eq("id", truck),
+    supabase.from("trucks").update({ trailer_id: trailerId }).eq("id", data.recoveryTruckId),
+  ]);
+  if (r1.error) throw r1.error;
+  if (r2.error) throw r2.error;
 
-**File: `supabase/functions/process-afterhours-schedule/index.ts`**
+  // Hard refetch ensures UI shows final DB state regardless of realtime event ordering
+  await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
+}
+```
 
-1. **Pass action in POST body instead of query params** — Change the function to read `action` from the JSON body as primary source, with query param as fallback:
-   ```typescript
-   const body = await req.json().catch(() => ({}));
-   const action = body.action || url.searchParams.get('action');
-   ```
+No delay. The refetch is the correctness guarantee; the parallelization is performance hygiene.
 
-2. **Widen the auto-determine hour windows** — Instead of checking exact hours, use ranges to handle DST drift:
-   ```typescript
-   if (currentHour >= 6 && currentHour <= 7) scheduleAction = 'start';
-   else if (currentHour >= 17 && currentHour <= 18) scheduleAction = 'end';
-   ```
+**2. Fix the same stale key at line 2137**
 
-3. **Add error handling on role delete/insert** — Currently errors are silently ignored. Log and track failures.
+There's a second `invalidateQueries({ queryKey: ["trucks"] })` at line 2137. Change to `refetchQueries({ queryKey: ["trucks", "v2"] })` for consistency.
 
-**Cron jobs (SQL update via migration or direct SQL):**
+**3. Note on transactional RPC (not in scope)**
 
-4. **Update cron jobs to pass action in the body** instead of query params:
-   - `afterhours-start`: Change `body` from `'{}'::jsonb` to `'{"action":"start"}'::jsonb`, and remove `?action=start` from URL
-   - `afterhours-end`: Change `body` from `'{}'::jsonb` to `'{"action":"end"}'::jsonb`, and remove `?action=end` from URL
-
-5. **Fix cron UTC times for CDT** (optional, since body-based action removes the dependency on auto-determine):
-   - Start: `0 11 * * 0,6` (11:00 UTC = 6 AM CDT)
-   - End: `0 22 * * 0,6` (22:00 UTC = 5 PM CDT)
-
-**Immediate manual fix:** After deploying, manually invoke the end action to switch Saturday's stuck users back to `dispatch`.
+A Postgres RPC that swaps both trailer_ids in a single transaction would eliminate the partial-state window entirely. This is the robust long-term fix but is out of scope for this change — the hard refetch makes the UI correct regardless.
 
 ### Files Changed
-- `supabase/functions/process-afterhours-schedule/index.ts` — Read action from body, widen hour fallback, add error handling
-- Cron job SQL update — Pass action in body, fix UTC schedule times
+- `src/pages/EditOrder.tsx` — lines 1737-1758 and line 2137
 
