@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.hos-api-inspect]
 verify_jwt = false
+
+[functions.cleanup-yard-arrivals]
+verify_jwt = false
