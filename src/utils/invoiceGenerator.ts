@@ -180,7 +180,7 @@ export interface InvoiceProgress {
 
 export interface InvoiceWarning {
   invoice: string;
-  files: Array<{ type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; name: string }>;
+  files: Array<{ type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; name: string; skipReason?: string }>;
   reason: 'skipped' | 'fallback';
 }
 
