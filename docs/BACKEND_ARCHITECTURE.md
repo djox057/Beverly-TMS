@@ -1158,10 +1158,10 @@ Batch mileage calculations for multiple origin-destination pairs.
 Recalculates mileage for an order based on stops.
 
 #### `merge-pdfs`
-Combines multiple PDFs into one (for invoicing).
+Combines invoice PDF with attachment files (RC, BOL, POD, Additional). Handles PNG→JPEG conversion with downscaling to stay within Deno's 150MB memory limit. Returns machine-readable skip reasons (`storage_missing`, `download_timeout`, `download_failed`) and supports PDF attachment fallback for non-standard PDFs.
 
-#### `create-invoice-folder`
-Creates a Google Drive folder structure for invoices.
+#### `create-invoice-folder` *(deprecated)*
+Legacy server-side ZIP builder. Not called by the frontend — invoicing uses client-side ZIP assembly with `merge-pdfs` for attachments. Retained for potential external callers.
 
 ---
 

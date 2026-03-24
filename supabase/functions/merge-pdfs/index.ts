@@ -180,12 +180,16 @@ serve(async (req) => {
         );
 
         if (error || !fileData) {
-          console.error(`Error downloading ${fileType} file ${file.file_name}:`, error)
+          const isTimeout = error?.message?.includes('timeout');
+          const reason = isTimeout ? 'download_timeout'
+            : error?.message?.includes('not found') || error?.message?.includes('404') ? 'storage_missing'
+            : error?.message || error?.name || 'download_failed';
+          console.error(`Error downloading ${fileType} file ${file.file_name}: ${reason}`, error)
           skippedFiles.push({
             file_type: fileType,
             file_name: file.file_name,
             file_path: file.file_path,
-            reason: error?.message || error?.name || 'download_failed',
+            reason,
           });
           return false
         }

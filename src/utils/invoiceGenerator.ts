@@ -180,7 +180,7 @@ export interface InvoiceProgress {
 
 export interface InvoiceWarning {
   invoice: string;
-  files: Array<{ type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; name: string }>;
+  files: Array<{ type: 'RC' | 'BOL' | 'POD' | 'ADDITIONAL'; name: string; skipReason?: string }>;
   reason: 'skipped' | 'fallback';
 }
 
@@ -747,7 +747,7 @@ export const generateInvoicePDF = async (
     for (const item of invoicesWithSkippedFiles) {
       warnings.push({
         invoice: item.invoice.replace('.pdf', ''),
-        files: item.skippedFiles.map(f => ({ type: f.file_type, name: f.file_name })),
+        files: item.skippedFiles.map(f => ({ type: f.file_type, name: f.file_name, skipReason: f.reason })),
         reason: 'skipped'
       });
     }
