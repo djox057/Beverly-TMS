@@ -1,41 +1,35 @@
-## Fix: Create the Missing `cleanup-yard-arrivals` Edge Function
+
+
+## Fix: Billboard "Top 5 by Gross" missing dispatchers due to truck count data gaps
 
 ### Problem
+Anastasija Jankovic-Stacy is excluded from "Top 5 Dispatchers by Gross" because:
+1. The `dispatcher_daily_driver_counts` cron records dates in UTC, not Chicago time
+2. She has data through March 22 but not March 23 (while other dispatchers do have March 23 data)
+3. The Billboard queries truck counts for the current week (March 23-29). Since other dispatchers have data, the global fallback never triggers. Her individual `avgTrucks` resolves to 0.
+4. The `>= 4.8` truck filter removes her.
 
-A `pg_cron` job runs at midnight UTC calling `https://.../functions/v1/cleanup-yard-arrivals`, but **this edge function was never created**. The function directory doesn't exist in `supabase/functions/`. Every night the cron fires and gets a 404.
+### Root cause
+The `computeAvgCounts` in `Billboard.tsx` only averages rows present in the query result. If a dispatcher has zero rows in the date range, they get `avgTrucks = 0` — there's no per-dispatcher fallback.
 
-### Solution
+### Fix (single file: `src/pages/Billboard.tsx`)
 
-Create the `cleanup-yard-arrivals` edge function that mirrors the existing manual cleanup logic from `YardArrivals.tsx` (lines 431-476).
+**Change the truck count fetching logic** (lines 68-126) to add a per-dispatcher fallback:
 
-### Implementation
+After the primary query returns data, identify dispatchers who appear in orders but have no truck count rows. For those dispatchers, query their most recent `dispatcher_daily_driver_counts` entry and use that value as their `avgTrucks`.
 
-**1. Create `supabase/functions/cleanup-yard-arrivals/index.ts**`
+Concretely:
+1. After `setDispatcherTruckCounts(computeAvgCounts(data))`, check if any dispatchers from the current week's orders are missing from the result.
+2. For missing dispatchers, fetch their latest single row from `dispatcher_daily_driver_counts` ordered by `date DESC` limit 1.
+3. Merge those values into the truck counts map.
 
-Logic (using service role client):
+This is a lightweight change — just extending the existing `fetchTruckCounts` function to fill gaps individually rather than relying on the all-or-nothing global fallback.
 
-- Get current date in Chicago timezone (consistent with the rest of the app)
-- Query `driver_yard_actions` where `action_type` IN ('maintenance', 'safety'), `is_checked = true`, and `arrival_datetime <= today 23:59:59 Chicago time`
-- Delete matching rows
-- Collect unique `driver_id`s from deleted rows and set `going_yard = false` on those drivers
-- Log counts and return summary JSON
+### Technical detail
+- The `dispatcherStats` computation at line 320 builds the list of active dispatcher names from orders.
+- The profile map at line 338 resolves name → userId.
+- We need to cross-reference: for each dispatcher in `dispatcherStats` whose userId has no entry in `dispatcherTruckCounts`, fetch their latest count.
+- Since `dispatcherStats` depends on `dispatcherTruckCounts`, the fallback fetch must happen inside the same `useEffect` that sets `dispatcherTruckCounts`, using the profile map to find all relevant dispatcher user IDs.
 
-Standard CORS headers + auth validation (cron secret or service role key, same pattern as `clear-weekly-plans`).
+Alternative simpler approach: after the initial query, fetch the latest 7 days of data (regardless of week bounds) for ALL dispatchers as a fallback pool, then merge — prioritizing current-week data but filling gaps from the fallback pool. This avoids per-dispatcher queries.
 
-**2. Add to `supabase/config.toml**`
-
-```toml
-[functions.cleanup-yard-arrivals]
-verify_jwt = false
-```
-
-### Cron Schedule Note
-
-The existing cron job runs at `0 0 * * *` (midnight UTC = ~7PM Chicago / ~6PM Chicago DST). If you want it to run at midnight Chicago time instead, the cron schedule would need updating to `0 5 * * *` (5 AM UTC ≈ midnight CDT) or `0 6 * * *` (6 AM UTC ≈ midnight CST). The function itself will use Chicago time for date comparison regardless, so the current schedule will still work — it just runs in the evening Chicago time rather than midnight.
-
-### Files
-
-- **Create**: `supabase/functions/cleanup-yard-arrivals/index.ts`
-- **Edit**: `supabase/config.toml` — add verify_jwt = false entry
-
-Activate it once you create it
