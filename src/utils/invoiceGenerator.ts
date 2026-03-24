@@ -141,7 +141,7 @@ const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
       body: {
         invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
         rcFiles,
-        bolFiles,
+        bolFiles: [],
         podFiles,
         additionalFiles,
       }
