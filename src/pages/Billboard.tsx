@@ -93,7 +93,31 @@ const Billboard = () => {
         .lte("date", endStr);
 
       if (data && data.length > 0) {
-        setDispatcherTruckCounts(computeAvgCounts(data));
+        const avgCounts = computeAvgCounts(data);
+
+        // Per-dispatcher fallback: find dispatchers with no rows in this week
+        // by fetching the latest 14 days as a fallback pool
+        const fallbackStart = new Date(weekStart);
+        fallbackStart.setDate(fallbackStart.getDate() - 14);
+        const fallbackStartStr = fallbackStart.toISOString().split("T")[0];
+
+        const { data: fallbackData } = await supabase
+          .from("dispatcher_daily_driver_counts")
+          .select("dispatcher_id, driver_count")
+          .gte("date", fallbackStartStr)
+          .lt("date", startStr);
+
+        if (fallbackData && fallbackData.length > 0) {
+          const fallbackAvg = computeAvgCounts(fallbackData);
+          // Merge: only fill gaps, don't overwrite current-week data
+          Object.entries(fallbackAvg).forEach(([id, avg]) => {
+            if (!(id in avgCounts)) {
+              avgCounts[id] = avg;
+            }
+          });
+        }
+
+        setDispatcherTruckCounts(avgCounts);
         return;
       }
 
