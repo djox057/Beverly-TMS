@@ -2460,10 +2460,17 @@ const EditOrder = () => {
       if (rcFiles && rcFiles.length > 0) {
         const existingRcFiles = existingFiles.filter((f) => f.file_category === "RC");
         for (const file of existingRcFiles) {
-          // Delete from storage
-          await supabase.storage.from("order-files").remove([file.file_path]);
-          // Delete from database
-          await supabase.from("order_files").delete().eq("id", file.id);
+          // Delete from storage first
+          const { error: storageErr } = await supabase.storage.from("order-files").remove([file.file_path]);
+          if (storageErr) {
+            console.error(`Storage delete failed for ${file.file_path}:`, storageErr);
+          }
+          // Delete from database only if storage succeeded (or file was already gone)
+          const { error: dbErr } = await supabase.from("order_files").delete().eq("id", file.id);
+          if (dbErr) {
+            console.error(`DB delete failed for order_files id=${file.id}:`, dbErr);
+            toast({ title: "Error", description: `Failed to delete file record for ${file.file_name}. Please try again.`, variant: "destructive" });
+          }
         }
         // Update local state to remove deleted RC files
         setExistingFiles((prev) => prev.filter((f) => f.file_category !== "RC"));
