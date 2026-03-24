@@ -1,29 +1,63 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.49.1"
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1"
+import { decode as decodePng } from "https://deno.land/x/pngs@0.1.1/mod.ts"
+import JPEG from "https://deno.land/x/jpeg@v1.0.1/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper to download with timeout
+const MAX_DIMENSION = 1650; // ~150 DPI on letter page
+
+const convertPngToJpeg = (pngBytes: Uint8Array): Uint8Array => {
+  const decoded = decodePng(pngBytes);
+  let { width, height, image: pixels } = decoded;
+
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+    const scale = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+    const newW = Math.floor(width * scale);
+    const newH = Math.floor(height * scale);
+    const resized = new Uint8Array(newW * newH * 4);
+    for (let y = 0; y < newH; y++) {
+      for (let x = 0; x < newW; x++) {
+        const srcX = Math.floor(x / scale);
+        const srcY = Math.floor(y / scale);
+        const srcIdx = (srcY * width + srcX) * 4;
+        const dstIdx = (y * newW + x) * 4;
+        resized[dstIdx] = pixels[srcIdx];
+        resized[dstIdx + 1] = pixels[srcIdx + 1];
+        resized[dstIdx + 2] = pixels[srcIdx + 2];
+        resized[dstIdx + 3] = pixels[srcIdx + 3];
+      }
+    }
+    pixels = resized;
+    width = newW;
+    height = newH;
+  }
+
+  const jpegData = JPEG.encode({ data: pixels, width, height }, 80);
+  return new Uint8Array(jpegData.data);
+};
+
+// Helper to download with timeout using Promise.race
 const downloadWithTimeout = async (
   supabase: any,
   filePath: string,
-  timeoutMs = 10000
+  timeoutMs = 30000
 ): Promise<{ data: Blob | null; error: any }> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Download timeout after ${timeoutMs}ms for ${filePath}`)), timeoutMs)
+  );
+
   try {
-    const { data, error } = await supabase.storage
-      .from('order-files')
-      .download(filePath);
-    clearTimeout(timeout);
-    return { data, error };
+    const result = await Promise.race([
+      supabase.storage.from('order-files').download(filePath),
+      timeoutPromise,
+    ]) as { data: Blob | null; error: any };
+    return result;
   } catch (e) {
-    clearTimeout(timeout);
     console.error(`Download timeout or error for ${filePath}:`, e);
     return { data: null, error: e };
   }
@@ -34,7 +68,7 @@ const downloadOrderFileWithFallback = async (
   supabase: any,
   filePath: string,
   fileName: string,
-  timeoutMs = 10000
+  timeoutMs = 30000
 ): Promise<{ data: Blob | null; error: any; resolvedPath: string }> => {
   const first = await downloadWithTimeout(supabase, filePath, timeoutMs);
   if (first.data && !first.error) {
@@ -160,11 +194,22 @@ serve(async (req) => {
         const fileBytesU8 = new Uint8Array(fileBytes)
         
         if (isImageFile(file.file_name, file.content_type)) {
-          let image
-          if (file.file_name.toLowerCase().includes('.png') || file.content_type?.includes('png')) {
-            image = await mainPdf.embedPng(fileBytes)
+          let image;
+          const isPng = file.file_name.toLowerCase().endsWith('.png')
+            || file.content_type?.includes('png');
+
+          if (isPng) {
+            console.log(`Converting PNG to JPEG for embedding: ${file.file_name} (${fileBytesU8.length} bytes)`);
+            try {
+              const jpegBytes = convertPngToJpeg(fileBytesU8);
+              console.log(`PNG->JPEG conversion complete: ${fileBytesU8.length} -> ${jpegBytes.length} bytes`);
+              image = await mainPdf.embedJpg(jpegBytes);
+            } catch (convErr) {
+              console.warn(`PNG->JPEG conversion failed for ${file.file_name}, falling back to embedPng:`, convErr);
+              image = await mainPdf.embedPng(fileBytes);
+            }
           } else {
-            image = await mainPdf.embedJpg(fileBytes)
+            image = await mainPdf.embedJpg(fileBytes);
           }
           
           const page = mainPdf.addPage()
@@ -205,8 +250,7 @@ serve(async (req) => {
             console.log(`Added ${pages.length} page(s) from PDF ${file.file_name}`);
             pages.forEach((page) => mainPdf.addPage(page))
           } else {
-            // Attachment fallback - embed the original PDF as an attachment
-            // and add a notice page explaining the situation
+            // Attachment fallback
             try {
               ;(mainPdf as any).attach(fileBytesU8, file.file_name, {
                 mimeType: file.content_type || 'application/pdf',
@@ -241,7 +285,6 @@ serve(async (req) => {
                 color: rgb(0.2, 0.2, 0.2),
               });
 
-              // Explain the situation
               const explanation = [
                 'This document could not be merged inline due to its internal',
                 'structure (e.g., encryption or non-standard formatting).',
