@@ -1,67 +1,41 @@
+## Fix: Create the Missing `cleanup-yard-arrivals` Edge Function
 
-Investigation summary (current state)
+### Problem
 
-1) The two red “Missing files” in your screenshot are real storage misses, not merge bugs:
-- Invoice 10903-UE → `RC/RateConf_2002509104.pdf` exists in `order_files` table, but does NOT exist in `storage.objects`.
-- Invoice 10876-UE → `BOL/217979284010.jpg` exists in `order_files`, but does NOT exist in storage (while sibling `217979285010.jpg` does exist).
+A `pg_cron` job runs at midnight UTC calling `https://.../functions/v1/cleanup-yard-arrivals`, but **this edge function was never created**. The function directory doesn't exist in `supabase/functions/`. Every night the cron fires and gets a 404.
 
-2) The amber “Embedded as Attachments” warnings are expected fallback behavior:
-- Those RC PDFs do exist in storage.
-- `merge-pdfs` is intentionally attaching them (paperclip fallback) when inline page merge fails.
+### Solution
 
-3) This is a broader data-integrity issue, not just two files:
-- `order_files` rows with no matching storage object: 463
-- Category split of missing rows: RC 206, POD 145, BOL 103, ADDITIONAL 9
+Create the `cleanup-yard-arrivals` edge function that mirrors the existing manual cleanup logic from `YardArrivals.tsx` (lines 431-476).
 
-4) Root-cause likely path:
-- Client file deletion in `EditOrder.tsx` does storage delete + DB delete as separate calls, and does not check/handle errors for either call robustly.
-- Role policy mismatch increases risk of partial operations:
-  - `order_files` DELETE policy excludes `supervisor`
-  - storage `order-files` DELETE policies also exclude `supervisor`
-  - insert/view permissions include more roles
-- Result: orphan metadata rows (DB references to files no longer in storage).
+### Implementation
 
-What `https://.../functions/v1/create-invoice-folder` is used for
+**1. Create `supabase/functions/cleanup-yard-arrivals/index.ts**`
 
-- Function behavior today: accepts `invoices[]` + `xlsxData` + `folderName`, builds a ZIP in-memory, returns `zipBytes` JSON payload.
-- It does NOT create a Google Drive folder (docs are outdated there).
-- It appears unused by the current app flow:
-  - no frontend reference to `create-invoice-folder`
-  - current invoicing path builds ZIP client-side and uses `merge-pdfs` for attachments
-- So this function is effectively legacy/orphaned unless an external caller uses it.
+Logic (using service role client):
 
-Implementation plan
+- Get current date in Chicago timezone (consistent with the rest of the app)
+- Query `driver_yard_actions` where `action_type` IN ('maintenance', 'safety'), `is_checked = true`, and `arrival_datetime <= today 23:59:59 Chicago time`
+- Delete matching rows
+- Collect unique `driver_id`s from deleted rows and set `going_yard = false` on those drivers
+- Log counts and return summary JSON
 
-Phase 1 — Stop new corruption
-1. Harden client deletion flow (`EditOrder.tsx`):
-   - Explicitly validate both storage delete result and DB delete result.
-   - If either fails, show user-facing error and do not silently continue.
-2. Align permissions:
-   - Decide role policy consistency for delete (include `supervisor` in both DB + storage, or exclude in UI).
-3. Add guardrails in UI:
-   - Hide/disable delete action for roles that cannot delete both layers.
+Standard CORS headers + auth validation (cron secret or service role key, same pattern as `clear-weekly-plans`).
 
-Phase 2 — Repair existing bad rows
-4. Add one-time reconciliation job:
-   - Scan `order_files` against `storage.objects` (`order-files` bucket).
-   - Mark or remove orphaned rows (recommended: soft-mark first, then cleanup).
-5. Add a quick admin report:
-   - “Missing file references” view so ops can review/restore/delete rows safely.
+**2. Add to `supabase/config.toml**`
 
-Phase 3 — Improve invoice diagnostics
-6. Enrich `merge-pdfs` skip reasons:
-   - Return machine-readable reason codes (`storage_missing`, `download_failed`, `unsupported_format`, etc.).
-7. Show better warning copy in Orders dialog:
-   - Differentiate “file missing from storage” vs “format fallback attachment”.
+```toml
+[functions.cleanup-yard-arrivals]
+verify_jwt = false
+```
 
-Phase 4 — Decide fate of create-invoice-folder
-8. Either:
-   - remove/deprecate it (if truly unused), or
-   - keep it and document it as “server-side ZIP builder,” not Drive folder creator.
-9. Update `docs/BACKEND_ARCHITECTURE.md` to match real behavior.
+### Cron Schedule Note
 
-Validation checklist after implementation
-- Re-test invoice generation end-to-end for the loads from your screenshot.
-- Verify red warnings only appear for truly missing storage objects.
-- Verify amber warnings still open as paperclip attachments in Acrobat.
-- Verify deleting/replacing files never leaves `order_files` orphan rows.
+The existing cron job runs at `0 0 * * *` (midnight UTC = ~7PM Chicago / ~6PM Chicago DST). If you want it to run at midnight Chicago time instead, the cron schedule would need updating to `0 5 * * *` (5 AM UTC ≈ midnight CDT) or `0 6 * * *` (6 AM UTC ≈ midnight CST). The function itself will use Chicago time for date comparison regardless, so the current schedule will still work — it just runs in the evening Chicago time rather than midnight.
+
+### Files
+
+- **Create**: `supabase/functions/cleanup-yard-arrivals/index.ts`
+- **Edit**: `supabase/config.toml` — add verify_jwt = false entry
+
+Activate it once you create it
