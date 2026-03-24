@@ -126,9 +126,9 @@ interface MergeTaskResult {
 }
 
 const processMergeTask = async (task: MergeTask): Promise<MergeTaskResult> => {
-  const { invoicePdfBytes, rcFiles, bolFiles, podFiles, additionalFiles, baseFilename } = task;
+  const { invoicePdfBytes, rcFiles, podFiles, additionalFiles, baseFilename } = task;
   
-  const totalFiles = rcFiles.length + bolFiles.length + podFiles.length + additionalFiles.length;
+  const totalFiles = rcFiles.length + podFiles.length + additionalFiles.length;
   
   if (totalFiles === 0) {
     return { filename: baseFilename, pdfBytes: Array.from(new Uint8Array(invoicePdfBytes)), skippedFiles: [], fallbackFiles: [] };
