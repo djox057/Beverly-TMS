@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.49.1"
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1"
 import { decode as decodePng } from "https://deno.land/x/pngs@0.1.1/mod.ts"
-import JPEG from "https://deno.land/x/jpeg@v1.0.1/mod.ts"
+import JPEG from "npm:jpeg-js@0.4.4"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
