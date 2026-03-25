@@ -3966,22 +3966,6 @@ const Reports = () => {
                                               ...getCompanyBackgroundColor(truck.companyName),
                                             }}
                                           >
-                                            {/* Proximity sticky note */}
-                                            {proximityMatchedTrucks?.has(truck.id) && (
-                                              <div
-                                                className="absolute z-[60] pointer-events-none"
-                                                style={{ top: "-6px", left: "50%", transform: "translateX(-50%)" }}
-                                              >
-                                                <div className="relative">
-                                                  <svg width="90" height="32" viewBox="0 0 90 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M2 2 H88 V22 H24 L10 30 L16 22 H2 Z" fill="#F5E6A3" stroke="#333" strokeWidth="1"/>
-                                                  </svg>
-                                                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-[#1a1a5e]" style={{ paddingBottom: "8px" }}>
-                                                    ~{proximityMatchedTrucks.get(truck.id)} mi away
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            )}
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
                                                 {truck.truckNumber}
@@ -5140,6 +5124,22 @@ const Reports = () => {
                                               maxWidth: "80px",
                                             }}
                                           >
+                                            {/* Proximity sticky note - points from last drop */}
+                                            {proximityMatchedTrucks?.has(truck.id) && (
+                                              <div
+                                                className="absolute z-[60] pointer-events-none"
+                                                style={{ top: "-14px", left: "-70px" }}
+                                              >
+                                                <div className="relative">
+                                                  <svg width="135" height="48" viewBox="0 0 135 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M3 3 H132 V33 H36 L15 45 L24 33 H3 Z" fill="#F5E6A3" stroke="#333" strokeWidth="1.2"/>
+                                                  </svg>
+                                                  <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold text-[#1a1a5e]" style={{ paddingBottom: "14px" }}>
+                                                    ~{proximityMatchedTrucks.get(truck.id)} mi away
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )}
                                             {activeTab === "Recovery" &&
                                               truck.activeOrders?.some((o: any) => {
                                                 const order = o as any;
