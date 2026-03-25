@@ -5019,8 +5019,8 @@ const Reports = () => {
                                                   </span>
                                                 </div>
                                               </div>
-                                            )
-                                          >
+                                            )}
+                                          
                                             <div
                                               className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
                                             >
