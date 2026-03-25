@@ -594,7 +594,7 @@ const Reports = () => {
         const { geocodeAddress } = await import("@/utils/mapboxRouteCalculator");
         const searchCoords = await geocodeAddress(trimmed);
         if (!searchCoords) {
-          setProximityMatchedTrucks(new Set());
+          setProximityMatchedTrucks(new Map());
           setProximitySearching(false);
           return;
         }
