@@ -3966,22 +3966,6 @@ const Reports = () => {
                                               ...getCompanyBackgroundColor(truck.companyName),
                                             }}
                                           >
-                                            {/* Proximity sticky note */}
-                                            {proximityMatchedTrucks?.has(truck.id) && (
-                                              <div
-                                                className="absolute z-[60] pointer-events-none"
-                                                style={{ top: "-6px", left: "50%", transform: "translateX(-50%)" }}
-                                              >
-                                                <div className="relative">
-                                                  <svg width="90" height="32" viewBox="0 0 90 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M2 2 H88 V22 H24 L10 30 L16 22 H2 Z" fill="#F5E6A3" stroke="#333" strokeWidth="1"/>
-                                                  </svg>
-                                                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-[#1a1a5e]" style={{ paddingBottom: "8px" }}>
-                                                    ~{proximityMatchedTrucks.get(truck.id)} mi away
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            )}
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
                                                 {truck.truckNumber}
