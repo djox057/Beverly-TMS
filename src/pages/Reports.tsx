@@ -4999,11 +4999,44 @@ const Reports = () => {
                                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                           <td
                                             colSpan={4}
-                                            className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
+                                            className={`border-r border-b-[6px] border-gray-400 p-0 relative ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
                                             style={{
                                               height: "64px",
                                             }}
                                           >
+                                            {/* Proximity sticky note */}
+                                            {proximityMatchedTrucks && proximityMatchedTrucks.has(truck.id) && (
+                                              <div
+                                                className="absolute pointer-events-none"
+                                                style={{
+                                                  left: "-140px",
+                                                  top: "-14px",
+                                                  zIndex: 60,
+                                                  width: "135px",
+                                                  height: "48px",
+                                                }}
+                                              >
+                                                <svg width="135" height="48" viewBox="0 0 135 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                  <path
+                                                    d="M2 2 L133 2 L133 34 L20 34 L10 46 L10 34 L2 34 Z"
+                                                    fill="#F5E6A3"
+                                                    stroke="#333"
+                                                    strokeWidth="1.2"
+                                                  />
+                                                </svg>
+                                                <span
+                                                  className="absolute inset-0 flex items-start justify-center font-bold"
+                                                  style={{
+                                                    fontSize: "13px",
+                                                    color: "#1a1a5e",
+                                                    paddingTop: "8px",
+                                                    paddingBottom: "14px",
+                                                  }}
+                                                >
+                                                  ~{proximityMatchedTrucks.get(truck.id)} mi away
+                                                </span>
+                                              </div>
+                                            )}
                                             <div
                                               className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
                                             >
