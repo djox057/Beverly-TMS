@@ -609,7 +609,7 @@ const Reports = () => {
           return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         };
 
-        const matched = new Set<string>();
+        const matched = new Map<string, number>();
         const allGroups = groupedReports || [];
         for (const group of allGroups) {
           for (const truck of group.trucks) {
@@ -629,7 +629,7 @@ const Reports = () => {
             const straightLine = haversine(searchCoords.lat, searchCoords.lon, lastDrop.latitude, lastDrop.longitude);
             const roadMiles = Math.round(straightLine * 1.3);
             if (roadMiles <= 150) {
-              matched.add(truck.id);
+              matched.set(truck.id, roadMiles);
             }
           }
         }
