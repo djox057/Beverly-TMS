@@ -1,35 +1,24 @@
+# Delete 10 Users Without Profiles
 
+## Summary
 
-## Fix: Billboard "Top 5 by Gross" missing dispatchers due to truck count data gaps
+Delete 10 auth.users entries that have no corresponding profile in `public.profiles`. These appear to be orphaned accounts.
 
-### Problem
-Anastasija Jankovic-Stacy is excluded from "Top 5 Dispatchers by Gross" because:
-1. The `dispatcher_daily_driver_counts` cron records dates in UTC, not Chicago time
-2. She has data through March 22 but not March 23 (while other dispatchers do have March 23 data)
-3. The Billboard queries truck counts for the current week (March 23-29). Since other dispatchers have data, the global fallback never triggers. Her individual `avgTrucks` resolves to 0.
-4. The `>= 4.8` truck filter removes her.
+## Users to Delete
 
-### Root cause
-The `computeAvgCounts` in `Billboard.tsx` only averages rows present in the query result. If a dispatcher has zero rows in the date range, they get `avgTrucks = 0` — there's no per-dispatcher fallback.
+[matthew@bfprime.net](mailto:matthew@bfprime.net), [eric@bfprime.net](mailto:eric@bfprime.net), [noah@bfprime.net](mailto:noah@bfprime.net), [carter@bfprime.net](mailto:carter@bfprime.net), [victor@bfprime.net](mailto:victor@bfprime.net), [will@bfprime.net](mailto:will@bfprime.net), [carl@bfprime.net](mailto:carl@bfprime.net), [roger@bfprime.net](mailto:roger@bfprime.net), [jonathan@bfprime.net](mailto:jonathan@bfprime.net), [cole@bfprime.net](mailto:cole@bfprime.net)
 
-### Fix (single file: `src/pages/Billboard.tsx`)
+## Steps
 
-**Change the truck count fetching logic** (lines 68-126) to add a per-dispatcher fallback:
+1. **Delete from `user_roles**` — Remove any role entries for these 10 user IDs.
+2. **Delete from `auth.users**` — Use the Supabase Admin API (`DELETE /auth/v1/admin/users/{id}`) with the service role key for each user.
 
-After the primary query returns data, identify dispatchers who appear in orders but have no truck count rows. For those dispatchers, query their most recent `dispatcher_daily_driver_counts` entry and use that value as their `avgTrucks`.
+All 10 deletions will be executed in sequence via API calls.
 
-Concretely:
-1. After `setDispatcherTruckCounts(computeAvgCounts(data))`, check if any dispatchers from the current week's orders are missing from the result.
-2. For missing dispatchers, fetch their latest single row from `dispatcher_daily_driver_counts` ordered by `date DESC` limit 1.
-3. Merge those values into the truck counts map.
+## Technical Details
 
-This is a lightweight change — just extending the existing `fetchTruckCounts` function to fill gaps individually rather than relying on the all-or-nothing global fallback.
+- Uses the same cleanup logic as the existing `delete-user` edge function
+- Calls `DELETE` on the Supabase Auth Admin endpoint for each user
+- No code changes needed — this is a one-time data cleanup operation
 
-### Technical detail
-- The `dispatcherStats` computation at line 320 builds the list of active dispatcher names from orders.
-- The profile map at line 338 resolves name → userId.
-- We need to cross-reference: for each dispatcher in `dispatcherStats` whose userId has no entry in `dispatcherTruckCounts`, fetch their latest count.
-- Since `dispatcherStats` depends on `dispatcherTruckCounts`, the fallback fetch must happen inside the same `useEffect` that sets `dispatcherTruckCounts`, using the profile map to find all relevant dispatcher user IDs.
-
-Alternative simpler approach: after the initial query, fetch the latest 7 days of data (regardless of week bounds) for ALL dispatchers as a fallback pool, then merge — prioritizing current-week data but filling gaps from the fallback pool. This avoids per-dispatcher queries.
-
+Only delete users from table users nothing else!!!
