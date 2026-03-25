@@ -619,7 +619,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   const scheduledByOffice = officeSchedulesOnly.reduce(
                     (acc, schedule) => {
                       const officeRaw = schedule.user?.office?.toLowerCase() || "";
-                      let office: OfficeKey | null = null;
+                      let office: OfficeKey = "kragujevac"; // Default fallback
                       if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
                         office = "cacak";
                       } else if (officeRaw.includes("beograd")) {
@@ -627,11 +627,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       } else if (officeRaw.includes("kragujevac")) {
                         office = "kragujevac";
                       }
-                      // Only group if we found a valid office, otherwise skip
-                      if (office) {
-                        if (!acc[office]) acc[office] = [];
-                        acc[office].push(schedule);
-                      }
+                      if (!acc[office]) acc[office] = [];
+                      acc[office].push(schedule);
                       return acc;
                     },
                     {} as Record<OfficeKey, ScheduleEntry[]>,
