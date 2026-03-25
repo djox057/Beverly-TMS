@@ -574,7 +574,7 @@ const Reports = () => {
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
   const [proximitySearching, setProximitySearching] = useState(false);
-  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Set<string> | null>(null);
+  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Proximity search effect - debounced 500ms, triggers geocode + haversine filter
