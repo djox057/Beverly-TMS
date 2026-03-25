@@ -1,24 +1,37 @@
-# Delete 10 Users Without Profiles
 
-## Summary
+Root cause (why you see no users):
+- This is not an RLS visibility issue; your policies for `afterhours_schedule` and `profiles` allow authenticated reads.
+- `afterhours_schedule` currently contains orphaned rows with `user_id = NULL` (24 rows).
+- In `AfterhoursScheduleDialog.fetchExistingSchedules`, the code builds `userIds` from all schedule rows and sends `.in("user_id", userIds)` to `profiles` and `user_roles` without filtering null IDs or checking query errors.
+- When that query fails/returns unusable data, every `schedule.user` becomes `undefined`, and the UI grouping logic skips all office sections (`KG/CA/BG`), so the date looks empty even though schedule rows exist.
 
-Delete 10 auth.users entries that have no corresponding profile in `public.profiles`. These appear to be orphaned accounts.
+Implementation plan:
+1) Harden schedule data fetch in `src/components/AfterhoursScheduleDialog.tsx`
+- In `fetchExistingSchedules`, split IDs into valid UUIDs only (`filter(Boolean)`), and skip profile/role fetch if the list is empty.
+- Add explicit error handling for profile/role lookups (fail gracefully instead of silently producing empty UI).
+- Build a `profilesById` map for reliable matching and avoid repeated `.find()` calls.
 
-## Users to Delete
+2) Make rendering resilient to bad rows (no layout changes for normal data)
+- Keep existing KG/CA/BG sections exactly as-is for valid office users.
+- Add a fallback bucket only when needed:
+  - `missingProfile` (deleted/orphaned user rows)
+  - `noOffice` (profile exists but office is null/unrecognized)
+- Render these only if they exist, so normal weekends look unchanged.
 
-[matthew@bfprime.net](mailto:matthew@bfprime.net), [eric@bfprime.net](mailto:eric@bfprime.net), [noah@bfprime.net](mailto:noah@bfprime.net), [carter@bfprime.net](mailto:carter@bfprime.net), [victor@bfprime.net](mailto:victor@bfprime.net), [will@bfprime.net](mailto:will@bfprime.net), [carl@bfprime.net](mailto:carl@bfprime.net), [roger@bfprime.net](mailto:roger@bfprime.net), [jonathan@bfprime.net](mailto:jonathan@bfprime.net), [cole@bfprime.net](mailto:cole@bfprime.net)
+3) One-time data cleanup migration
+- Remove truly orphaned schedule rows:
+  - `DELETE FROM public.afterhours_schedule WHERE user_id IS NULL;`
+- (Optional safe extension) also remove rows where `user_id` no longer exists in `profiles` to avoid future ghost records.
 
-## Steps
+4) Verification checklist
+- Test dates with known data (e.g., Mar 7 and Mar 28) and confirm users appear under office sections.
+- Confirm past dates still display records read-only.
+- Confirm extra-days sidebar still computes correctly.
+- Confirm adding/removing schedule entries still works.
 
-1. **Delete from `user_roles**` — Remove any role entries for these 10 user IDs.
-2. **Delete from `auth.users**` — Use the Supabase Admin API (`DELETE /auth/v1/admin/users/{id}`) with the service role key for each user.
-
-All 10 deletions will be executed in sequence via API calls.
-
-## Technical Details
-
-- Uses the same cleanup logic as the existing `delete-user` edge function
-- Calls `DELETE` on the Supabase Auth Admin endpoint for each user
-- No code changes needed — this is a one-time data cleanup operation
-
-Only delete users from table users nothing else!!!
+Technical details:
+- File to update: `src/components/AfterhoursScheduleDialog.tsx`
+  - `fetchExistingSchedules` (null-safe ID extraction + error handling)
+  - office grouping reducer (fallback buckets)
+- DB cleanup: new migration in `supabase/migrations/` for orphan rows
+- This fix is backward-compatible and does not alter the standard weekend schedule UI when data is clean.
