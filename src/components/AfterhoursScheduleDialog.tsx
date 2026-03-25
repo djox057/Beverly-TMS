@@ -135,36 +135,43 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
       // Fetch user profiles and roles for the schedules
       if (data && data.length > 0) {
-        const userIds = [...new Set(data.map((s) => s.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, email, full_name, office")
-          .in("user_id", userIds);
+        // Filter out null/undefined user_ids (orphaned rows)
+        const validData = data.filter((s) => s.user_id != null);
+        const userIds = [...new Set(validData.map((s) => s.user_id).filter(Boolean))] as string[];
 
-        // Check maintenance roles
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .in("user_id", userIds)
-          .eq("role", "maintenance");
+        let profilesMap = new Map<string, { user_id: string; email: string; full_name: string | null; office: string | null }>();
+        let maintenanceUserIds = new Set<string>();
 
-        const maintenanceUserIds = new Set(roleData?.map((r) => r.user_id) || []);
+        if (userIds.length > 0) {
+          const [profilesRes, roleRes] = await Promise.all([
+            supabase.from("profiles").select("user_id, email, full_name, office").in("user_id", userIds),
+            supabase.from("user_roles").select("user_id").in("user_id", userIds).eq("role", "maintenance"),
+          ]);
 
-        const schedulesWithUsers = data.map((schedule) => {
-          const profile = profiles?.find((p) => p.user_id === schedule.user_id);
-          return {
-            ...schedule,
-            user: profile
-              ? {
-                  id: profile.user_id,
-                  email: profile.email,
-                  full_name: profile.full_name,
-                  office: profile.office as ScheduleUser["office"],
-                  isMaintenance: maintenanceUserIds.has(profile.user_id),
-                }
-              : undefined,
-          };
-        });
+          if (profilesRes.error) console.error("Error fetching schedule profiles:", profilesRes.error);
+          if (roleRes.error) console.error("Error fetching schedule roles:", roleRes.error);
+
+          (profilesRes.data || []).forEach((p) => profilesMap.set(p.user_id, p));
+          maintenanceUserIds = new Set((roleRes.data || []).map((r) => r.user_id));
+        }
+
+        const schedulesWithUsers = validData
+          .map((schedule) => {
+            const profile = profilesMap.get(schedule.user_id);
+            return {
+              ...schedule,
+              user: profile
+                ? {
+                    id: profile.user_id,
+                    email: profile.email,
+                    full_name: profile.full_name,
+                    office: profile.office as ScheduleUser["office"],
+                    isMaintenance: maintenanceUserIds.has(profile.user_id),
+                  }
+                : undefined,
+            };
+          })
+          .filter((s) => s.user !== undefined); // Drop entries with no matching profile
 
         setExistingSchedules(schedulesWithUsers);
       } else {
@@ -612,7 +619,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   const scheduledByOffice = officeSchedulesOnly.reduce(
                     (acc, schedule) => {
                       const officeRaw = schedule.user?.office?.toLowerCase() || "";
-                      let office: OfficeKey | null = null;
+                      let office: OfficeKey = "kragujevac"; // Default fallback
                       if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
                         office = "cacak";
                       } else if (officeRaw.includes("beograd")) {
@@ -620,11 +627,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       } else if (officeRaw.includes("kragujevac")) {
                         office = "kragujevac";
                       }
-                      // Only group if we found a valid office, otherwise skip
-                      if (office) {
-                        if (!acc[office]) acc[office] = [];
-                        acc[office].push(schedule);
-                      }
+                      if (!acc[office]) acc[office] = [];
+                      acc[office].push(schedule);
                       return acc;
                     },
                     {} as Record<OfficeKey, ScheduleEntry[]>,
