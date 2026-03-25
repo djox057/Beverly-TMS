@@ -574,7 +574,7 @@ const Reports = () => {
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
   const [proximitySearching, setProximitySearching] = useState(false);
-  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Set<string> | null>(null);
+  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Proximity search effect - debounced 500ms, triggers geocode + haversine filter
@@ -594,7 +594,7 @@ const Reports = () => {
         const { geocodeAddress } = await import("@/utils/mapboxRouteCalculator");
         const searchCoords = await geocodeAddress(trimmed);
         if (!searchCoords) {
-          setProximityMatchedTrucks(new Set());
+          setProximityMatchedTrucks(new Map());
           setProximitySearching(false);
           return;
         }
@@ -609,7 +609,7 @@ const Reports = () => {
           return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         };
 
-        const matched = new Set<string>();
+        const matched = new Map<string, number>();
         const allGroups = groupedReports || [];
         for (const group of allGroups) {
           for (const truck of group.trucks) {
@@ -629,14 +629,14 @@ const Reports = () => {
             const straightLine = haversine(searchCoords.lat, searchCoords.lon, lastDrop.latitude, lastDrop.longitude);
             const roadMiles = Math.round(straightLine * 1.3);
             if (roadMiles <= 150) {
-              matched.add(truck.id);
+              matched.set(truck.id, roadMiles);
             }
           }
         }
         setProximityMatchedTrucks(matched);
       } catch (err) {
         console.error("Proximity search error:", err);
-        setProximityMatchedTrucks(new Set());
+        setProximityMatchedTrucks(new Map());
       } finally {
         setProximitySearching(false);
       }
@@ -3956,9 +3956,9 @@ const Reports = () => {
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
                                     return (
                                       <React.Fragment key={truck.id}>
-                                        <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                                        <tr className={`${truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"} relative`}>
                                           <td
-                                            className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium"
+                                            className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium relative"
                                             style={{
                                               width: "77px",
                                               minWidth: "77px",
@@ -3966,6 +3966,22 @@ const Reports = () => {
                                               ...getCompanyBackgroundColor(truck.companyName),
                                             }}
                                           >
+                                            {/* Proximity sticky note */}
+                                            {proximityMatchedTrucks?.has(truck.id) && (
+                                              <div
+                                                className="absolute z-[60] pointer-events-none"
+                                                style={{ top: "-6px", left: "50%", transform: "translateX(-50%)" }}
+                                              >
+                                                <div className="relative">
+                                                  <svg width="90" height="32" viewBox="0 0 90 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M2 2 H88 V22 H24 L10 30 L16 22 H2 Z" fill="#F5E6A3" stroke="#333" strokeWidth="1"/>
+                                                  </svg>
+                                                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-[#1a1a5e]" style={{ paddingBottom: "8px" }}>
+                                                    ~{proximityMatchedTrucks.get(truck.id)} mi away
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )}
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
                                                 {truck.truckNumber}
