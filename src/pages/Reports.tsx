@@ -4999,10 +4999,27 @@ const Reports = () => {
                                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                           <td
                                             colSpan={4}
-                                            className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
+                                            className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""} relative`}
                                             style={{
                                               height: "64px",
                                             }}
+                                          >
+                                            {/* Proximity sticky note - points from last drop area */}
+                                            {proximityMatchedTrucks?.has(truck.id) && (
+                                              <div
+                                                className="absolute z-[60] pointer-events-none"
+                                                style={{ top: "-14px", left: "-140px" }}
+                                              >
+                                                <div className="relative">
+                                                  <svg width="135" height="48" viewBox="0 0 135 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M3 3 H132 V33 H36 L15 45 L24 33 H3 Z" fill="#F5E6A3" stroke="#333" strokeWidth="1.2"/>
+                                                  </svg>
+                                                  <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold text-[#1a1a5e]" style={{ paddingBottom: "14px" }}>
+                                                    ~{proximityMatchedTrucks.get(truck.id)} mi away
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )
                                           >
                                             <div
                                               className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
