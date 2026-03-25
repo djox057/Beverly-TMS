@@ -636,7 +636,7 @@ const Reports = () => {
         setProximityMatchedTrucks(matched);
       } catch (err) {
         console.error("Proximity search error:", err);
-        setProximityMatchedTrucks(new Set());
+        setProximityMatchedTrucks(new Map());
       } finally {
         setProximitySearching(false);
       }
