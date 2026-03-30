@@ -2781,48 +2781,60 @@ const Reports = () => {
           if (!hasBOL) {
             const pickupStops = currentOrder.pickupStops || (currentOrder.pickupStop ? [currentOrder.pickupStop] : []);
             pickupStops.forEach((stop: any) => {
-              if (stop.arrived_at) return; // Already arrived at pickup
+              if (stop.arrived_at) return;
 
               const endDatetime = stop.end_datetime || stop.datetime;
               if (!endDatetime) return;
 
-              // Parse scheduled time as Chicago time
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
 
-              // Cell turns orange only when scheduled end time has passed (pickup is overdue)
-              // This matches user expectation: "late" means the deadline has passed, not future ETA projection
-              const isOverdue = now > scheduledEnd;
-
-              // Auto-mark arrival if truck is within 1 mile (check before isOverdue)
+              // Auto-mark arrival if truck is within 1 mile
               if (truck.milesAway !== undefined && truck.milesAway > 0 && truck.milesAway < 1 && stop.id) {
                 stopsToAutoArrive.push({ stopId: stop.id, stopType: "pickup" });
               }
 
-              if (isOverdue) {
-                newLatePickups.add(currentOrder.id);
-                newLateTrucks.add(truck.id);
+              // ETA-based late check: skip if miles < 10
+              const milesAway = truck.milesAway || 0;
+              if (milesAway < 10) return;
 
-                // Queue email notification for late pickup (send immediately when overdue)
-                const notifyKey = currentOrder.id;
-                if (!notifiedLateStopsRef.current.has(notifyKey) && truck.dispatcherEmail) {
-                  lateStopsToNotify.push({
-                    orderId: currentOrder.id,
-                    stopType: "pickup",
-                    stopId: stop.id,
-                    truckId: truck.id,
-                    truckNumber: truck.truckNumber,
-                    driverName: truck.driver || "Unknown",
-                    dispatcherEmail: truck.dispatcherEmail,
-                    dispatcherName: truck.dispatcherName || "Dispatcher",
-                    stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
-                    scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
-                    estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
-                    loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
-                    currentMiles: truck.milesAway,
-                  });
-                  newNotifiedKeys.push(notifyKey);
+              const travelTimeMs = (milesAway / 60) * 3600000;
+              const etaDate = new Date(now.getTime() + travelTimeMs);
+              const isLate = etaDate > scheduledEnd;
+
+              if (!isLate) return;
+
+              // Next-stop proximity caveat: if distance to next stop < next order's DH + 10, skip
+              if (stop.id) {
+                const nextStopInfo = getNextStopInSequence(stop.id, currentOrder, allSortedOrders);
+                if (nextStopInfo && stop.latitude && stop.longitude) {
+                  const distToNext = haversineDistanceMiles(stop.latitude, stop.longitude, nextStopInfo.latitude, nextStopInfo.longitude);
+                  const threshold = nextStopInfo.nextOrderDhMiles + 10;
+                  if (distToNext < threshold) return;
                 }
+              }
+
+              newLatePickups.add(currentOrder.id);
+              newLateTrucks.add(truck.id);
+
+              const notifyKey = currentOrder.id;
+              if (!notifiedLateStopsRef.current.has(notifyKey) && truck.dispatcherEmail) {
+                lateStopsToNotify.push({
+                  orderId: currentOrder.id,
+                  stopType: "pickup",
+                  stopId: stop.id,
+                  truckId: truck.id,
+                  truckNumber: truck.truckNumber,
+                  driverName: truck.driver || "Unknown",
+                  dispatcherEmail: truck.dispatcherEmail,
+                  dispatcherName: truck.dispatcherName || "Dispatcher",
+                  stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
+                  scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
+                  estimatedArrival: format(etaDate, "MMM dd, yyyy HH:mm"),
+                  loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
+                  currentMiles: milesAway,
+                });
+                newNotifiedKeys.push(notifyKey);
               }
             });
           }
