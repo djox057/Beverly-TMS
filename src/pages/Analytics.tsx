@@ -159,7 +159,7 @@ const Analytics = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays">("totalFreight");
+  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays" | "totalMiles" | "orderCount" | "avgTrucks">("totalFreight");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
@@ -2056,7 +2056,7 @@ const Analytics = () => {
       notice
     });
   }, [driverTiers, updatePerformance]);
-  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays") => {
+  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays" | "totalMiles" | "orderCount" | "avgTrucks") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
@@ -2771,7 +2771,9 @@ const Analytics = () => {
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("totalFreight")}>
                             Total Freight {sortBy === "totalFreight" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
-                          <TableHead className="text-right">Total Miles</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("totalMiles")}>
+                            Total Miles {sortBy === "totalMiles" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ratePerMile")}>
                             Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
@@ -2785,11 +2787,15 @@ const Analytics = () => {
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cutPercent")}>
                             Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
-                          <TableHead className="text-right">Avg Trucks</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgTrucks")}>
+                            Avg Trucks {sortBy === "avgTrucks" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
                             Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
-                          <TableHead className="text-right">Total Loads</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orderCount")}>
+                            Total Loads {sortBy === "orderCount" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("turnover")}>
                             Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
