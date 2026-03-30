@@ -2771,7 +2771,9 @@ const Analytics = () => {
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("totalFreight")}>
                             Total Freight {sortBy === "totalFreight" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
-                          <TableHead className="text-right">Total Miles</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("totalMiles")}>
+                            Total Miles {sortBy === "totalMiles" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ratePerMile")}>
                             Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
