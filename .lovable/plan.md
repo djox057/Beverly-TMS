@@ -1,34 +1,44 @@
 
 
-# Rename User zoey@bfprime.net → lexy@bfprime.net
+# Restore Late Trucks Detection with ETA-Based Logic (Updated)
 
 ## Summary
-Rename the dispatch user's email from `zoey@bfprime.net` to `lexy@bfprime.net` and update their display name from "Anja Delic-Zoey" to "Anja Delic-Lexy" across auth, profile, and all referencing data.
+Replace the current simple "overdue" check with ETA-based late detection using Haversine×1.3 miles_away. Add a "next stop proximity" caveat that suppresses late marking when the distance to the next stop is less than the next order's deadhead miles + 10.
 
-**User ID:** `68370b07-5a4b-4245-9e69-162f0b691a91`
+## Late Detection Logic
 
-## What gets updated
+```text
+For each truck with miles_away >= 10:
+  1. ETA = now + (miles_away ÷ 60 mph)
+  2. If ETA > stop's end_datetime → LATE
+  3. BUT check next stop in sequence:
+     - P1 → P2 (if exists) → D1 → D2 (if exists) → next load's P1
+     - Compute Haversine×1.3 from current stop to next stop
+     - Get next order's DH miles (deadhead_miles field)
+     - If next_stop_distance < (next_order_dh_miles + 10) → NOT LATE (skip)
+  4. If LATE: cell turns orange + email notification sent
+```
 
-| Location | Field | Old → New |
-|---|---|---|
-| `auth.users` | email | zoey@ → lexy@ |
-| `profiles` | email | zoey@ → lexy@ |
-| `profiles` | full_name | Anja Delic-Zoey → Anja Delic-Lexy |
-| `orders` (55 rows) | booked_by | Anja Delic-Zoey → Anja Delic-Lexy |
-| `drivers` (4 drivers) | dispatcher_id | No change needed (references UUID) |
+## Changes
 
-All other tables (assignment_history, weekly_plans, dispatcher_notes, etc.) reference this user by UUID, so they require **no updates** — they'll automatically resolve to the new name/email via joins.
+### 1. Update `checkLateStops` in `src/pages/Reports.tsx` (~lines 2672-2947)
 
-## Steps
+- Replace `isOverdue = now > scheduledEnd` with ETA-based check:
+  - Skip if `miles_away < 10`
+  - `etaDate = now + (milesAway / 60) hours`
+  - `isLate = etaDate > scheduledEnd`
+- Build full stop sequence per truck: P1 → P2 → D1 → D2 → next_load.P1
+- For current stop, find next stop and compute Haversine×1.3 distance
+- Get next order's `deadhead_miles` value
+- If `nextStopDistance < (nextOrderDH + 10)` → skip late marking
+- Re-enable email notification code calling `send-late-notification`
 
-1. **Update `auth.users` email** — Call Supabase Admin API via edge function to change the email on the auth account.
-2. **Update `profiles` table** — Set `email = 'lexy@bfprime.net'` and `full_name = 'Anja Delic-Lexy'` for user_id `68370b07-...`.
-3. **Update `orders.booked_by`** — Update 55 orders where `booked_by = 'Anja Delic-Zoey'` to `'Anja Delic-Lexy'`.
+### 2. Add helpers to `src/pages/Reports/helpers.ts`
 
-No code changes needed — this is a data-only operation.
+- `haversineDistanceMiles(lat1, lon1, lat2, lon2)` — Haversine with ×1.3 road factor
+- `getNextStopInSequence(currentStopId, allOrdersForTruck)` — returns next stop coords + the next order's DH miles
 
-## Technical Details
-- Auth email update uses the Supabase Admin API (`PUT /auth/v1/admin/users/{id}`)
-- Profile and orders updates use direct SQL via the insert tool
-- The user's password, role (dispatch), office (KRAGUJEVAC), and all UUID-based references remain unchanged
+### 3. No database or edge function changes needed
+
+All required data (stop coordinates, end_datetimes, miles_away, deadhead_miles) already exists in the reports data.
 
