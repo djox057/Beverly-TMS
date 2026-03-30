@@ -90,7 +90,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
