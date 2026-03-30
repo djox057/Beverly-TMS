@@ -1,37 +1,38 @@
 
 
-# Fix Afterhours Schedule Cron Jobs (33 & 36)
+# Fix Order File Upload Failures Due to Filenames
 
-## Root Cause
-The `process-afterhours-schedule` edge function is **not deployed** (returns 404). The cron jobs report "succeeded" because `net.http_post` only enqueues the request — it doesn't check the HTTP response.
-
-## Additional Bug
-The `todayStr` calculation uses `.toISOString().split('T')[0]` which converts Chicago time back to UTC, potentially querying the wrong date from `afterhours_schedule`.
+## Problem
+Files with characters like `-`, spaces, or other special chars in their names fail to upload to Supabase Storage. The current `sanitizeFileName` preserves hyphens and spaces, but these can cause issues. Additionally, the extraction flow in NewOrder sends the original (unsanitized) filename via FormData which may cause edge function failures.
 
 ## Plan
 
-### 1. Simplify and redeploy `process-afterhours-schedule/index.ts`
+### 1. Make `sanitizeFileName` more aggressive (`src/utils/orderFilesUpload.ts`)
 
-Strip the function down to its core job:
-- Read `action` from body or query param (`start` or `end`)
-- Get today's date in Chicago timezone (fix the UTC conversion bug)
-- Query `afterhours_schedule` for today's `user_id`s
-- If `action=start`: UPDATE `user_roles` SET `role='afterhours'` WHERE `role='dispatch'` for each user
-- If `action=end`: UPDATE `user_roles` SET `role='dispatch'` WHERE `role='afterhours'` for each user
-- Remove the hour-based auto-detection (cron already passes the action explicitly)
-- Fix date formatting to avoid the UTC reconversion issue
+- Replace spaces with underscores
+- Replace hyphens with underscores  
+- Only allow alphanumeric chars, underscores, dots, and parentheses
+- Collapse consecutive underscores/dots
 
-### 2. No cron job changes needed
+### 2. Add UUID fallback to `uploadOrderFilePreserveName`
 
-Jobs 33 and 36 already pass `?action=start` and `?action=end` respectively, and use `CRON_SECRET` from vault correctly. The only issue is the function not being deployed, which will be fixed by saving the updated file (auto-deploy).
-
-### Technical Details
-
-**Date fix**: Replace `new Date(chicagoTime).toISOString().split('T')[0]` with manual `YYYY-MM-DD` formatting from the Chicago-localized date components to avoid UTC drift.
-
-**Simplified flow**:
+After the sanitized name fails (non-conflict error), retry once with a UUID-based filename preserving only the extension:
 ```text
-Request → validate CRON_SECRET → parse action → get Chicago date
-→ query afterhours_schedule for today → update user_roles → respond
+{orderId}/{folder}/{uuid}.{ext}
 ```
+
+### 3. Fix NewOrder extraction flow (`src/pages/NewOrder.tsx`)
+
+When creating the FormData for the extraction edge function, create a new `File` object with a sanitized name before appending to FormData:
+```typescript
+const safeName = sanitizeFileName(pdfFile.name);
+const safeFile = new File([pdfFile], safeName, { type: pdfFile.type });
+formData.append("pdf", safeFile);
+```
+
+Export `sanitizeFileName` from `orderFilesUpload.ts` for reuse.
+
+### Files Changed
+- `src/utils/orderFilesUpload.ts` — aggressive sanitization + UUID fallback
+- `src/pages/NewOrder.tsx` — sanitize filename before sending to edge function
 
