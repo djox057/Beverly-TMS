@@ -127,6 +127,8 @@ import {
   getMaintenanceIconStatus,
   getDotInspectionIconStatus,
   isLateDeliveryTime,
+  haversineDistanceMiles,
+  getNextStopInSequence,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
