@@ -1,38 +1,22 @@
 
 
-# Fix Order File Upload Failures Due to Filenames
+# Add Sorting for Miles, Total Loads, and Avg Trucks in Analytics
 
-## Problem
-Files with characters like `-`, spaces, or other special chars in their names fail to upload to Supabase Storage. The current `sanitizeFileName` preserves hyphens and spaces, but these can cause issues. Additionally, the extraction flow in NewOrder sends the original (unsanitized) filename via FormData which may cause edge function failures.
+## What's Happening Now
+The dispatcher table in Analytics supports sorting by clicking column headers for Total Freight, Rate/Mile, Avg DH, Comm., Comm. %, Avg Wk Gross/Dr, Turnover, and Empty Days. However, **Total Miles**, **Total Loads**, and **Avg Trucks** columns are plain headers with no click-to-sort behavior.
 
-## Plan
+## Changes
 
-### 1. Make `sanitizeFileName` more aggressive (`src/utils/orderFilesUpload.ts`)
+### File: `src/pages/Analytics.tsx`
 
-- Replace spaces with underscores
-- Replace hyphens with underscores  
-- Only allow alphanumeric chars, underscores, dots, and parentheses
-- Collapse consecutive underscores/dots
+1. **Expand the `sortBy` type** (line ~162): Add `"totalMiles" | "orderCount" | "avgTrucks"` to the union type.
 
-### 2. Add UUID fallback to `uploadOrderFilePreserveName`
+2. **Update `handleSort`** (line ~2059): Add the three new column names to the function's parameter type.
 
-After the sanitized name fails (non-conflict error), retry once with a UUID-based filename preserving only the extension:
-```text
-{orderId}/{folder}/{uuid}.{ext}
-```
+3. **Update sort logic** (line ~1586): The existing `a[sortBy]` / `b[sortBy]` dynamic access should already work since these field names match the dispatcher stats object keys (`totalMiles`, `orderCount`, `avgTrucks`).
 
-### 3. Fix NewOrder extraction flow (`src/pages/NewOrder.tsx`)
-
-When creating the FormData for the extraction edge function, create a new `File` object with a sanitized name before appending to FormData:
-```typescript
-const safeName = sanitizeFileName(pdfFile.name);
-const safeFile = new File([pdfFile], safeName, { type: pdfFile.type });
-formData.append("pdf", safeFile);
-```
-
-Export `sanitizeFileName` from `orderFilesUpload.ts` for reuse.
-
-### Files Changed
-- `src/utils/orderFilesUpload.ts` — aggressive sanitization + UUID fallback
-- `src/pages/NewOrder.tsx` — sanitize filename before sending to edge function
+4. **Make table headers clickable** (lines ~2774, 2788, 2792):
+   - **Total Miles** (line 2774): Add `cursor-pointer hover:bg-muted/50`, `onClick={() => handleSort("totalMiles")}`, and sort indicator arrow.
+   - **Avg Trucks** (line 2788): Same treatment with `handleSort("avgTrucks")`.
+   - **Total Loads** (line 2792): Same treatment with `handleSort("orderCount")`.
 
