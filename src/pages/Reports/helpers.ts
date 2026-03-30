@@ -502,3 +502,79 @@ export const getDotInspectionIconStatus = (truck: any): { show: boolean; color: 
   const color: 'red' | 'yellow' = minDays <= 30 ? "red" : "yellow";
   return { show: true, color, tooltip: dueSoon.join(", ") };
 };
+
+// Haversine distance in miles with 1.3 road correction factor
+export const haversineDistanceMiles = (
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number => {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c * 1.3; // Apply road correction factor
+};
+
+// Get the next stop in the multi-stop / multi-order sequence for a truck
+// Sequence: P1 → P2 → D1 → D2 → next_order.P1
+// Returns { latitude, longitude, nextOrderDhMiles } or null
+export const getNextStopInSequence = (
+  currentStopId: string,
+  currentOrder: any,
+  allSortedOrders: any[]
+): { latitude: number; longitude: number; nextOrderDhMiles: number } | null => {
+  // Build stop sequence for current order: all pickups then all deliveries
+  const pickupStops = (
+    currentOrder.pickupStops ||
+    currentOrder.pickup_drops?.filter((pd: any) => pd.type === "pickup")
+      .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
+    (currentOrder.pickupStop ? [currentOrder.pickupStop] : [])
+  );
+  const deliveryStops = (
+    currentOrder.deliveryStops ||
+    currentOrder.pickup_drops?.filter((pd: any) => pd.type === "delivery")
+      .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
+    (currentOrder.deliveryStop ? [currentOrder.deliveryStop] : [])
+  );
+
+  const sequence = [...pickupStops, ...deliveryStops];
+  const currentIndex = sequence.findIndex((s: any) => s.id === currentStopId);
+
+  // If found in sequence and there's a next stop in the same order
+  if (currentIndex >= 0 && currentIndex < sequence.length - 1) {
+    const nextStop = sequence[currentIndex + 1];
+    if (nextStop.latitude && nextStop.longitude) {
+      return {
+        latitude: nextStop.latitude,
+        longitude: nextStop.longitude,
+        nextOrderDhMiles: currentOrder.deadhead_miles || currentOrder.dh_miles || 0,
+      };
+    }
+  }
+
+  // Otherwise look at the next order's first pickup
+  const currentOrderIndex = allSortedOrders.findIndex((o: any) => o.id === currentOrder.id);
+  if (currentOrderIndex >= 0 && currentOrderIndex < allSortedOrders.length - 1) {
+    const nextOrder = allSortedOrders[currentOrderIndex + 1];
+    const nextPickupStops = (
+      nextOrder.pickupStops ||
+      nextOrder.pickup_drops?.filter((pd: any) => pd.type === "pickup")
+        .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
+      (nextOrder.pickupStop ? [nextOrder.pickupStop] : [])
+    );
+    const firstPickup = nextPickupStops[0];
+    if (firstPickup?.latitude && firstPickup?.longitude) {
+      return {
+        latitude: firstPickup.latitude,
+        longitude: firstPickup.longitude,
+        nextOrderDhMiles: nextOrder.deadhead_miles || nextOrder.dh_miles || 0,
+      };
+    }
+  }
+
+  return null;
+};
