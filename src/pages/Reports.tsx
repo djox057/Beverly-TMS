@@ -2724,12 +2724,8 @@ const Reports = () => {
       // Iterate through all trucks
       Object.values(groupedReports).forEach((group: any) => {
         group.trucks?.forEach((truck: any) => {
-          // Get ETA minutes from truck (calculated by update-truck-distances)
-          const etaMinutes = truck.etaMinutes || 0;
-          if (etaMinutes <= 0) return; // No valid ETA
-
-          // Calculate estimated arrival time (now + ETA minutes)
-          const estimatedArrivalUtc = new Date(now.getTime() + etaMinutes * 60 * 1000);
+          // Skip trucks without miles_away data
+          if (!truck.milesAway && truck.milesAway !== 0) return;
 
           // Determine the current order for this truck (same logic as rendering)
           // Filter out canceled, game over, AND already delivered orders
