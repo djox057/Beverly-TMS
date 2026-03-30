@@ -2056,7 +2056,7 @@ const Analytics = () => {
       notice
     });
   }, [driverTiers, updatePerformance]);
-  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays") => {
+  const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays" | "totalMiles" | "orderCount" | "avgTrucks") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
