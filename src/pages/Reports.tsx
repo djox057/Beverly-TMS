@@ -2843,6 +2843,7 @@ const Reports = () => {
 
               const endDatetime = stop.end_datetime || stop.datetime;
               if (!endDatetime) return;
+              if (!isStopDateCurrentOrFuture(endDatetime)) return;
 
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
