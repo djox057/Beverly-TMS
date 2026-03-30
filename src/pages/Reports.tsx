@@ -2924,26 +2924,24 @@ const Reports = () => {
         }
       });
 
-      // DISABLED: Late alerts temporarily turned off
-      // const sendNotificationsSequentially = async () => {
-      //   for (const lateStop of lateStopsToNotify) {
-      //     try {
-      //       await supabase.functions.invoke("send-late-notification", {
-      //         body: lateStop,
-      //       });
-      //       console.log("📧 Late notification sent for:", lateStop.loadNumber, lateStop.stopType);
-      //       // Wait 1 second between notifications to avoid rate limits
-      //       await new Promise(resolve => setTimeout(resolve, 1000));
-      //     } catch (error) {
-      //       console.error("Failed to send late notification:", error);
-      //     }
-      //   }
-      // };
-      //
-      // // Run in background (fire and forget)
-      // if (lateStopsToNotify.length > 0) {
-      //   sendNotificationsSequentially();
-      // }
+      // Send late notifications
+      const sendNotificationsSequentially = async () => {
+        for (const lateStop of lateStopsToNotify) {
+          try {
+            await supabase.functions.invoke("send-late-notification", {
+              body: lateStop,
+            });
+            console.log("📧 Late notification sent for:", lateStop.loadNumber, lateStop.stopType);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            console.error("Failed to send late notification:", error);
+          }
+        }
+      };
+
+      if (lateStopsToNotify.length > 0) {
+        sendNotificationsSequentially();
+      }
 
       // Auto-mark arrivals for trucks within 1 mile (fire and forget)
       if (stopsToAutoArrive.length > 0) {
