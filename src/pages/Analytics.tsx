@@ -159,7 +159,7 @@ const Analytics = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays">("totalFreight");
+  const [sortBy, setSortBy] = useState<"totalFreight" | "ratePerMile" | "cut" | "cutPercent" | "avgDhMiles" | "avgWeeklyGrossPerDriver" | "turnover" | "emptyDays" | "totalMiles" | "orderCount" | "avgTrucks">("totalFreight");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
