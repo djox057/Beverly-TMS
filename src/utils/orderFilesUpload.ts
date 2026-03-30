@@ -10,20 +10,30 @@ const isConflictError = (error: any): boolean => {
 
 /**
  * Sanitizes a filename for Supabase Storage by:
- * - Replacing path separators (/ and \) with underscores
- * - Replacing characters that cause issues in storage: # % & { } < > * ? $ ! ' " : @ + ` | =
- * - Preserving hyphens, dots, spaces, parentheses, and brackets which are safe
+ * - Replacing spaces, hyphens, and path separators with underscores
+ * - Removing all characters except alphanumeric, underscores, dots, and parentheses
+ * - Collapsing consecutive underscores
  */
-const sanitizeFileName = (name: string): string => {
+export const sanitizeFileName = (name: string): string => {
   return name
-    // Replace path separators
-    .replace(/[\\/]/g, "_")
-    // Replace problematic special characters with underscores
-    .replace(/[#%&{}<>*?$!'":@+`|=]/g, "_")
+    // Replace path separators, spaces, hyphens with underscores
+    .replace(/[\\/\s\-]+/g, "_")
+    // Remove everything except alphanumeric, underscores, dots, parentheses
+    .replace(/[^a-zA-Z0-9_.()]/g, "")
     // Collapse multiple underscores into one
     .replace(/_+/g, "_")
-    // Remove leading/trailing underscores
-    .replace(/^_+|_+$/g, "");
+    // Collapse multiple dots (but keep single dots for extensions)
+    .replace(/\.{2,}/g, ".")
+    // Remove leading/trailing underscores or dots
+    .replace(/^[_.]+|[_.]+$/g, "");
+};
+
+const getExtension = (fileName: string): string => {
+  const lastDot = fileName.lastIndexOf(".");
+  if (lastDot > 0 && lastDot < fileName.length - 1) {
+    return fileName.slice(lastDot);
+  }
+  return "";
 };
 
 const addCopySuffix = (fileName: string, copyNumber: number): string => {
@@ -39,6 +49,7 @@ const addCopySuffix = (fileName: string, copyNumber: number): string => {
 /**
  * Uploads a file to the `order-files` bucket while preserving the original filename.
  * If the name already exists, appends " (2)", " (3)", ... before the extension.
+ * If all attempts fail due to non-conflict errors, falls back to a UUID-based filename.
  */
 export const uploadOrderFilePreserveName = async (params: {
   orderId: string;
@@ -50,6 +61,7 @@ export const uploadOrderFilePreserveName = async (params: {
 
   const originalName = sanitizeFileName(file.name);
 
+  // Try with sanitized original name (+ copy suffixes)
   for (let attempt = 1; attempt <= maxTries; attempt++) {
     const candidateName = addCopySuffix(originalName, attempt);
     const candidatePath = `${orderId}/${folder}/${candidateName}`;
@@ -61,8 +73,21 @@ export const uploadOrderFilePreserveName = async (params: {
     if (!error) return candidatePath;
     if (isConflictError(error)) continue;
 
-    throw error;
+    // Non-conflict error — break and try UUID fallback
+    console.warn("Upload failed with sanitized name, trying UUID fallback:", error.message);
+    break;
   }
 
-  throw new Error(`Unable to upload file after ${maxTries} attempts (name collisions)`);
+  // UUID fallback — guaranteed unique name
+  const ext = getExtension(file.name) || ".bin";
+  const uuidName = `${crypto.randomUUID()}${ext}`;
+  const fallbackPath = `${orderId}/${folder}/${uuidName}`;
+
+  const { error: fallbackError } = await supabase.storage
+    .from(ORDER_FILES_BUCKET)
+    .upload(fallbackPath, file, { upsert: false });
+
+  if (!fallbackError) return fallbackPath;
+
+  throw fallbackError;
 };

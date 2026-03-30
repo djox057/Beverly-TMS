@@ -833,7 +833,11 @@ const NewOrder = () => {
         console.log(`Processing file ${fileIndex + 1}/${pdfFiles.length}: ${pdfFile.name}`);
         
         const formData = new FormData();
-        formData.append("pdf", pdfFile);
+        // Sanitize filename to prevent edge function failures from special characters
+        const { sanitizeFileName } = await import("@/utils/orderFilesUpload");
+        const safeName = sanitizeFileName(pdfFile.name);
+        const safeFile = new File([pdfFile], safeName, { type: pdfFile.type });
+        formData.append("pdf", safeFile);
         
         const {
           data: { session },
