@@ -2795,7 +2795,8 @@ const Reports = () => {
 
               const travelTimeMs = (milesAway / 60) * 3600000;
               const etaDate = new Date(now.getTime() + travelTimeMs);
-              const isLate = etaDate > scheduledEnd;
+              const ninetyMinMs = 90 * 60 * 1000;
+              const isLate = etaDate.getTime() > scheduledEnd.getTime() + ninetyMinMs;
 
               if (!isLate) return;
 
@@ -2859,7 +2860,8 @@ const Reports = () => {
 
               const travelTimeMs = (milesAway / 60) * 3600000;
               const etaDate = new Date(now.getTime() + travelTimeMs);
-              const isLate = etaDate > scheduledEnd;
+              const ninetyMinMs = 90 * 60 * 1000;
+              const isLate = etaDate.getTime() > scheduledEnd.getTime() + ninetyMinMs;
 
               if (!isLate) return;
 
