@@ -2787,7 +2787,9 @@ const Analytics = () => {
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cutPercent")}>
                             Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
-                          <TableHead className="text-right">Avg Trucks</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgTrucks")}>
+                            Avg Trucks {sortBy === "avgTrucks" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
                             Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
