@@ -90,7 +90,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
@@ -2697,28 +2697,26 @@ const Reports = () => {
       // Collect new notified keys to batch update
       const newNotifiedKeys: string[] = [];
 
-      // Get current time
-      const now = new Date();
+      // Get current time as naive Chicago wall time (no TZ conversion)
+      const chicagoNow = toZonedTime(new Date(), "America/Chicago");
+      const now = chicagoNow;
+      const todayDateStr = `${chicagoNow.getFullYear()}-${String(chicagoNow.getMonth() + 1).padStart(2, "0")}-${String(chicagoNow.getDate()).padStart(2, "0")}`;
 
-      // Helper to parse datetime as Chicago time and convert to UTC for comparison
-      // Database stores times that represent Chicago local time (tagged incorrectly as UTC)
+      // Helper to parse datetime as naive Chicago wall time (no timezone conversion)
+      // Database stores times that represent Chicago local time
       const parseAsChicagoTime = (dateStr: string): Date => {
-        // Remove any timezone suffix - the datetime represents Chicago local time
         const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, "");
-
-        // Parse the date parts
         const [datePart, timePart] = cleanDate.includes("T") ? cleanDate.split("T") : cleanDate.split(" ");
-
         const [year, month, day] = datePart.split("-").map(Number);
         const [hours, minutes] = (timePart || "00:00").split(":").map(Number);
+        return new Date(year, month - 1, day, hours, minutes, 0);
+      };
 
-        // Build an ISO string representing the Chicago local time
-        // Format: YYYY-MM-DDTHH:mm:ss (no timezone suffix)
-        const isoString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
-
-        // fromZonedTime interprets the input as being in the specified timezone (Chicago)
-        // and returns the equivalent UTC Date
-        return fromZonedTime(isoString, "America/Chicago");
+      // Helper to check if a stop's date is today or in the future (Chicago time)
+      const isStopDateCurrentOrFuture = (dateStr: string): boolean => {
+        const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, "");
+        const datePart = cleanDate.includes("T") ? cleanDate.split("T")[0] : cleanDate.split(" ")[0];
+        return datePart >= todayDateStr;
       };
 
       // Iterate through all trucks
@@ -2781,6 +2779,7 @@ const Reports = () => {
 
               const endDatetime = stop.end_datetime || stop.datetime;
               if (!endDatetime) return;
+              if (!isStopDateCurrentOrFuture(endDatetime)) return;
 
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
@@ -2844,6 +2843,7 @@ const Reports = () => {
 
               const endDatetime = stop.end_datetime || stop.datetime;
               if (!endDatetime) return;
+              if (!isStopDateCurrentOrFuture(endDatetime)) return;
 
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
