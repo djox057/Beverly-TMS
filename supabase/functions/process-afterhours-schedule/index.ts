@@ -11,11 +11,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate CRON_SECRET for scheduled job authentication
   const cronSecret = Deno.env.get('CRON_SECRET');
   const authHeader = req.headers.get('Authorization');
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    console.error('Unauthorized request - invalid or missing CRON_SECRET');
+    console.error('Unauthorized request');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -26,145 +25,82 @@ serve(async (req) => {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Get current time in Chicago
-    const chicagoTime = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
-    const chicagoDate = new Date(chicagoTime);
-    const currentHour = chicagoDate.getHours();
-    const todayStr = chicagoDate.toISOString().split('T')[0];
-
-    console.log(`Processing afterhours schedule - Chicago time: ${chicagoTime}, hour: ${currentHour}, date: ${todayStr}`);
-
-    // Read action from POST body first, then fall back to query param
+    // Parse action from body or query param
     const url = new URL(req.url);
-    let bodyAction: string | null = null;
+    let action: string | null = null;
     try {
       const body = await req.json();
-      bodyAction = body?.action || null;
-    } catch {
-      // No JSON body or parse error — that's fine
-    }
-    const action = bodyAction || url.searchParams.get('action');
+      action = body?.action || null;
+    } catch { /* no body */ }
+    action = action || url.searchParams.get('action');
 
-    console.log(`Action source: body=${bodyAction}, queryParam=${url.searchParams.get('action')}, resolved=${action}`);
-
-    let scheduleAction: 'start' | 'end' | null = null;
-    
-    if (action === 'start' || action === 'end') {
-      scheduleAction = action;
-    } else {
-      // Auto-determine based on Chicago time with DST-safe ranges
-      if (currentHour >= 6 && currentHour <= 7) {
-        scheduleAction = 'start';
-      } else if (currentHour >= 17 && currentHour <= 18) {
-        scheduleAction = 'end';
-      }
-      console.log(`Auto-determined action from hour ${currentHour}: ${scheduleAction}`);
-    }
-
-    if (!scheduleAction) {
-      console.log('No action needed at this time');
+    if (action !== 'start' && action !== 'end') {
       return new Response(
-        JSON.stringify({ message: 'No action needed at this time', hour: currentHour }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing or invalid action. Must be "start" or "end".' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get scheduled users for today
+    // Get today's date in Chicago timezone (DST-safe)
+    const chicagoNow = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+    const d = new Date(chicagoNow);
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    console.log(`Action: ${action}, Chicago date: ${todayStr}`);
+
+    // Get scheduled user IDs for today
     const { data: scheduledUsers, error: fetchError } = await supabaseAdmin
       .from('afterhours_schedule')
       .select('user_id')
       .eq('scheduled_date', todayStr);
 
-    if (fetchError) {
-      console.error('Error fetching schedule:', fetchError);
-      throw fetchError;
-    }
+    if (fetchError) throw fetchError;
 
     if (!scheduledUsers || scheduledUsers.length === 0) {
       console.log('No users scheduled for today');
       return new Response(
-        JSON.stringify({ message: 'No users scheduled for today', date: todayStr }),
+        JSON.stringify({ message: 'No users scheduled', date: todayStr }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Found ${scheduledUsers.length} scheduled users for ${todayStr}`);
-
+    const fromRole = action === 'start' ? 'dispatch' : 'afterhours';
+    const toRole = action === 'start' ? 'afterhours' : 'dispatch';
     const results = [];
 
-    for (const scheduled of scheduledUsers) {
-      const userId = scheduled.user_id;
+    for (const { user_id } of scheduledUsers) {
+      if (!user_id) continue;
 
-      if (scheduleAction === 'start') {
-        // Change role from dispatch to afterhours via atomic UPDATE
-        const { error: updateErr, count } = await supabaseAdmin
-          .from('user_roles')
-          .update({ role: 'afterhours' }, { count: 'exact' })
-          .eq('user_id', userId)
-          .eq('role', 'dispatch');
+      const { error: updateErr, count } = await supabaseAdmin
+        .from('user_roles')
+        .update({ role: toRole }, { count: 'exact' })
+        .eq('user_id', user_id)
+        .eq('role', fromRole);
 
-        if (updateErr) {
-          console.error(`User ${userId}: Failed to update to afterhours:`, updateErr);
-          results.push({ userId, action: 'error - update to afterhours failed', error: updateErr.message });
-          continue;
-        }
-
-        if (count === 0) {
-          console.log(`User ${userId}: No dispatch role found, skipping`);
-          results.push({ userId, action: 'skipped - no dispatch role' });
-        } else {
-          console.log(`User ${userId}: Changed from dispatch to afterhours`);
-          results.push({ userId, action: 'dispatch -> afterhours' });
-        }
-      } else if (scheduleAction === 'end') {
-        // Change role from afterhours back to dispatch via atomic UPDATE
-        const { error: updateErr, count } = await supabaseAdmin
-          .from('user_roles')
-          .update({ role: 'dispatch' }, { count: 'exact' })
-          .eq('user_id', userId)
-          .eq('role', 'afterhours');
-
-        if (updateErr) {
-          console.error(`User ${userId}: Failed to update to dispatch:`, updateErr);
-          results.push({ userId, action: 'error - update to dispatch failed', error: updateErr.message });
-          continue;
-        }
-
-        if (count === 0) {
-          console.log(`User ${userId}: No afterhours role found, skipping`);
-          results.push({ userId, action: 'skipped - no afterhours role' });
-        } else {
-          console.log(`User ${userId}: Changed from afterhours to dispatch`);
-          results.push({ userId, action: 'afterhours -> dispatch' });
-        }
+      if (updateErr) {
+        console.error(`User ${user_id}: update failed:`, updateErr);
+        results.push({ user_id, status: 'error', error: updateErr.message });
+      } else if (count === 0) {
+        console.log(`User ${user_id}: no ${fromRole} role found, skipped`);
+        results.push({ user_id, status: 'skipped' });
+      } else {
+        console.log(`User ${user_id}: ${fromRole} → ${toRole}`);
+        results.push({ user_id, status: `${fromRole} → ${toRole}` });
       }
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        action: scheduleAction,
-        date: todayStr,
-        processedUsers: results.length,
-        results 
-      }),
+      JSON.stringify({ success: true, action, date: todayStr, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error('Error in process-afterhours-schedule:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
