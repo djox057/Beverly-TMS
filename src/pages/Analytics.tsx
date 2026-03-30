@@ -2793,7 +2793,9 @@ const Analytics = () => {
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgWeeklyGrossPerDriver")}>
                             Avg Wk Gross/Dr {sortBy === "avgWeeklyGrossPerDriver" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
-                          <TableHead className="text-right">Total Loads</TableHead>
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("orderCount")}>
+                            Total Loads {sortBy === "orderCount" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("turnover")}>
                             Turnover {sortBy === "turnover" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
