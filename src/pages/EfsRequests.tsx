@@ -83,9 +83,10 @@ const EFS_PURPOSES = [
 ];
 
 export default function EfsRequests() {
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
+  const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("supervisor") && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
