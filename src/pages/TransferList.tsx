@@ -62,11 +62,11 @@ interface TransferRow {
 type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished";
 
 const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }> = {
-  drug_test: { roles: ["safety", "admin"], label: "Safety / Admin" },
-  finished: { roles: ["safety", "admin"], label: "Safety / Admin" },
-  coming_office: { roles: ["dispatch", "admin"], label: "Dispatch / Admin" },
-  driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch / Admin" },
-  sign: { roles: ["maintenance", "admin"], label: "Maintenance / Admin" },
+  drug_test: { roles: ["safety", "admin"], label: "Safety" },
+  finished: { roles: ["safety", "admin"], label: "Safety" },
+  coming_office: { roles: ["dispatch", "admin"], label: "Dispatch" },
+  driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch" },
+  sign: { roles: ["yard", "maintenance", "admin"], label: "Yard / Maintenance" },
 };
 
 function useCanEditColumn(hasRole: (r: any) => boolean) {
