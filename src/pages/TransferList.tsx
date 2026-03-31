@@ -530,7 +530,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Drug Test Date - inline date picker */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineDateCell
                             value={row.drug_test_date}
                             rowId={row.id}
