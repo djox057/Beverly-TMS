@@ -6,7 +6,10 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
 import { format } from "date-fns";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Search } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +161,31 @@ const TransferList = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+
+  // Unique companies for dropdown
+  const uniqueCompanies = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.going_to_company) set.add(row.going_to_company); });
+    return Array.from(set).sort();
+  }, [enrichedRows]);
+
+  // Apply search + company filter
+  const displayRows = useMemo(() => {
+    let rows = filteredRows;
+    if (searchText) {
+      const s = searchText.toLowerCase();
+      rows = rows.filter((row) =>
+        (row.truck_number?.toLowerCase().includes(s)) ||
+        (row.driver_name?.toLowerCase().includes(s))
+      );
+    }
+    if (companyFilter !== "all") {
+      rows = rows.filter((row) => row.going_to_company === companyFilter);
+    }
+    return rows;
+  }, [filteredRows, searchText, companyFilter]);
 
   const toggleInformed = useMutation({
     mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
@@ -214,6 +242,29 @@ const TransferList = () => {
         </div>
       </div>
 
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search truck # or driver..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={companyFilter} onValueChange={setCompanyFilter}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="All Companies" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Companies</SelectItem>
+            {uniqueCompanies.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="border rounded-md">
         <Table>
           <TableHeader>
@@ -236,14 +287,14 @@ const TransferList = () => {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : filteredRows.length === 0 ? (
+            ) : displayRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   No transfers found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((row) => {
+              displayRows.map((row) => {
                 const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                 return (
                   <TableRow key={row.id} style={companyStyle}>
