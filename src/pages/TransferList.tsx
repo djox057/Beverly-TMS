@@ -31,6 +31,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
+import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
 
 interface TransferRow {
   id: string;
@@ -38,6 +39,7 @@ interface TransferRow {
   truck_id: string | null;
   going_to_company: string | null;
   drug_test_date: string | null;
+  drug_test_zip: string | null;
   coming_to_office: string | null;
   driver_informed: boolean;
   created_by: string | null;
@@ -45,6 +47,7 @@ interface TransferRow {
   updated_at: string;
   driver_name?: string;
   truck_number?: string;
+  dispatcher_name?: string;
 }
 
 const useTransferList = () => {
@@ -99,16 +102,41 @@ const TransferList = () => {
     return map;
   }, [trucks]);
 
-  // Enrich rows with names
-  const enrichedRows: TransferRow[] = useMemo(() => {
-    return transferRows.map((row: any) => ({
-      ...row,
-      driver_name: row.driver_id ? driverMap.get(row.driver_id)?.name || "Unknown" : "",
-      truck_number: row.truck_id ? truckMap.get(row.truck_id)?.truck_number || "Unknown" : "",
-    }));
-  }, [transferRows, driverMap, truckMap]);
+  // Fetch profiles for dispatcher names
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-for-transfer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 600000,
+  });
 
-  // Dispatcher filtering: only show rows where driver's dispatcher_id matches user
+  const profileMap = useMemo(() => {
+    const map = new Map<string, string>();
+    profiles.forEach((p: any) => map.set(p.user_id, p.full_name));
+    return map;
+  }, [profiles]);
+
+  // Enrich rows with names + dispatcher
+  const enrichedRows: TransferRow[] = useMemo(() => {
+    return transferRows.map((row: any) => {
+      const driver = row.driver_id ? driverMap.get(row.driver_id) : null;
+      const truck = row.truck_id ? truckMap.get(row.truck_id) : null;
+      const dispatcherId = driver?.dispatcher_id || truck?.dispatcher_id;
+      return {
+        ...row,
+        driver_name: driver?.name || "",
+        truck_number: truck?.truck_number || "",
+        dispatcher_name: dispatcherId ? profileMap.get(dispatcherId) || "" : "",
+      };
+    });
+  }, [transferRows, driverMap, truckMap, profileMap]);
+
+  // Dispatcher filtering
   const filteredRows = useMemo(() => {
     if (!isDispatchOnly) return enrichedRows;
     return enrichedRows.filter((row) => {
@@ -128,11 +156,9 @@ const TransferList = () => {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [enrichedRows]);
 
-  // Add row dialog
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Toggle driver_informed
   const toggleInformed = useMutation({
     mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
       const { error } = await supabase
@@ -145,7 +171,6 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  // Delete row
   const deleteRow = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("transfer_list" as any).delete().eq("id", id);
@@ -159,12 +184,13 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const colCount = canEdit ? 9 : 8;
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Transfer List</h1>
         <div className="flex items-center gap-4">
-          {/* Summary stats */}
           {companyCounts.length > 0 && (
             <Card className="min-w-[200px]">
               <CardHeader className="py-2 px-3">
@@ -192,10 +218,12 @@ const TransferList = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Driver Name</TableHead>
               <TableHead>Truck #</TableHead>
+              <TableHead>Driver Name</TableHead>
+              <TableHead>Dispatch</TableHead>
               <TableHead>Going To Company</TableHead>
               <TableHead>Drug Test Date</TableHead>
+              <TableHead>Drug Test Zip</TableHead>
               <TableHead>Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               {canEdit && <TableHead className="w-[50px]" />}
@@ -204,53 +232,59 @@ const TransferList = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   No transfers found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.driver_name}</TableCell>
-                  <TableCell>{row.truck_number}</TableCell>
-                  <TableCell>{row.going_to_company || "-"}</TableCell>
-                  <TableCell>
-                    {row.drug_test_date ? format(new Date(row.drug_test_date + "T00:00:00"), "MM/dd/yyyy") : "-"}
-                  </TableCell>
-                  <TableCell>{row.coming_to_office || "-"}</TableCell>
-                  <TableCell className="text-center">
-                    {canEdit || isDispatchOnly ? (
-                      <Checkbox
-                        checked={row.driver_informed}
-                        onCheckedChange={(checked) =>
-                          toggleInformed.mutate({ id: row.id, value: !!checked })
-                        }
-                      />
-                    ) : (
-                      <span>{row.driver_informed ? "Yes" : "No"}</span>
-                    )}
-                  </TableCell>
-                  {canEdit && (
+              filteredRows.map((row) => {
+                const companyStyle = getCompanyBackgroundColor(row.going_to_company);
+                return (
+                  <TableRow key={row.id} style={companyStyle}>
+                    <TableCell>{row.truck_number}</TableCell>
+                    <TableCell className="font-medium">{row.driver_name}</TableCell>
+                    <TableCell>{row.dispatcher_name || "-"}</TableCell>
+                    <TableCell>{row.going_to_company || "-"}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {row.drug_test_date ? format(new Date(row.drug_test_date + "T00:00:00"), "MM/dd/yyyy") : "-"}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
+                    <TableCell>{row.drug_test_zip || "-"}</TableCell>
+                    <TableCell>
+                      {row.coming_to_office ? format(new Date(row.coming_to_office + "T00:00:00"), "MM/dd/yyyy") : "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {canEdit || isDispatchOnly ? (
+                        <Checkbox
+                          checked={row.driver_informed}
+                          onCheckedChange={(checked) =>
+                            toggleInformed.mutate({ id: row.id, value: !!checked })
+                          }
+                        />
+                      ) : (
+                        <span>{row.driver_informed ? "Yes" : "No"}</span>
+                      )}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Add Transfer Dialog */}
       <AddTransferRowDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -260,7 +294,6 @@ const TransferList = () => {
         userId={user?.id}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -295,11 +328,11 @@ function AddTransferRowDialog({
   const [driverId, setDriverId] = useState<string | null>(null);
   const [goingToCompany, setGoingToCompany] = useState("");
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>();
-  const [comingToOffice, setComingToOffice] = useState("");
+  const [drugTestZip, setDrugTestZip] = useState("");
+  const [comingToOffice, setComingToOffice] = useState<Date | undefined>();
   const [truckSearch, setTruckSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
 
-  // Build truck→driver1 lookup
   const truckDriverMap = useMemo(() => {
     const m = new Map<string, string>();
     trucks.forEach((t: any) => { if (t.driver1_id) m.set(t.id, t.driver1_id); });
@@ -325,7 +358,8 @@ function AddTransferRowDialog({
   }, [driverTruckMap]);
 
   const reset = () => {
-    setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined); setComingToOffice("");
+    setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
+    setDrugTestZip(""); setComingToOffice(undefined);
     setTruckSearch(""); setDriverSearch("");
   };
 
@@ -336,7 +370,8 @@ function AddTransferRowDialog({
         truck_id: truckId,
         going_to_company: goingToCompany || null,
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
-        coming_to_office: comingToOffice || null,
+        drug_test_zip: drugTestZip || null,
+        coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
         created_by: userId,
       } as any);
       if (error) throw error;
@@ -350,7 +385,6 @@ function AddTransferRowDialog({
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  // Active drivers only
   const activeDrivers = useMemo(() =>
     (drivers || []).filter((d: any) => d.is_active !== false), [drivers]);
 
@@ -473,10 +507,26 @@ function AddTransferRowDialog({
             </Popover>
           </div>
 
-          {/* Coming To Office */}
+          {/* Drug Test Zip */}
+          <div>
+            <label className="text-sm font-medium">Drug Test Zip Code</label>
+            <Input value={drugTestZip} onChange={(e) => setDrugTestZip(e.target.value)} placeholder="Zip code..." />
+          </div>
+
+          {/* Coming To Office (date) */}
           <div>
             <label className="text-sm font-medium">Coming To Office</label>
-            <Input value={comingToOffice} onChange={(e) => setComingToOffice(e.target.value)} placeholder="Office name..." />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !comingToOffice && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {comingToOffice ? format(comingToOffice, "MM/dd/yyyy") : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={comingToOffice} onSelect={setComingToOffice} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <DialogFooter>
