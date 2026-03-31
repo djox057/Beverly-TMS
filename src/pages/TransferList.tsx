@@ -488,9 +488,9 @@ const TransferList = () => {
               <TableHead>Driver Name</TableHead>
               <TableHead>Dispatch</TableHead>
               <TableHead>Going To Company</TableHead>
-              <TableHead>Drug Test Date</TableHead>
-              <TableHead>Drug Test Zip</TableHead>
-              <TableHead>Coming To Office</TableHead>
+              <TableHead className="text-center">Drug Test Date</TableHead>
+              <TableHead className="text-center">Drug Test Zip</TableHead>
+              <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               <TableHead className="text-center">Sign</TableHead>
               <TableHead className="text-center">Finished</TableHead>
