@@ -391,7 +391,7 @@ const TransferList = () => {
                             <Checkbox
                               checked={row.finished}
                               onCheckedChange={(checked) =>
-                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked })
+                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked, row })
                               }
                             />
                           ) : (
