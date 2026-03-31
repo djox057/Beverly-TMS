@@ -1,0 +1,2 @@
+ALTER TABLE public.transfer_list ADD COLUMN IF NOT EXISTS sign BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.transfer_list ADD COLUMN IF NOT EXISTS finished BOOLEAN NOT NULL DEFAULT false;
