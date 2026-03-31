@@ -192,12 +192,12 @@ export default function EfsRequests() {
       try {
         const { data, error } = await supabase.functions.invoke("void-efs-request", {
           body: {
-            resendEmailId: request.resend_email_id || null,
+            requestId: request.id,
+            source: request.source,
             driverName: request.driver_name,
             truckNumber: request.truck_number || "",
             amount: request.amount,
             purpose: request.purpose,
-            companyName: request.company_name,
             requestedByName: request.requested_by,
           },
         });

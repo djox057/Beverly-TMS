@@ -7,12 +7,12 @@ const corsHeaders = {
 };
 
 interface VoidEfsRequest {
-  resendEmailId: string | null;
+  requestId: string;
+  source: 'efs' | 'cash_advance';
   driverName: string;
   truckNumber: string;
   amount: number;
   purpose: string;
-  companyName: string | null;
   requestedByName: string | null;
 }
 
@@ -44,7 +44,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const body: VoidEfsRequest = await req.json();
-    const { resendEmailId, driverName, truckNumber, amount, purpose, companyName, requestedByName } = body;
+    const { requestId, source, driverName, truckNumber, amount, purpose, requestedByName } = body;
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -54,11 +54,44 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Create service-role client to look up original record
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Look up the original record to get company_name and resend_email_id
+    let companyName: string | null = null;
+    let resendEmailId: string | null = null;
+
+    if (source === 'efs') {
+      const { data } = await supabaseAdmin
+        .from("efs_other_requests")
+        .select("company_name, resend_email_id")
+        .eq("id", requestId)
+        .single();
+      if (data) {
+        companyName = data.company_name;
+        resendEmailId = data.resend_email_id;
+      }
+    } else {
+      // cash_advance — join to drivers for company_name
+      const { data } = await supabaseAdmin
+        .from("driver_cash_advances")
+        .select("resend_email_id, drivers(company_name)")
+        .eq("id", requestId)
+        .single();
+      if (data) {
+        resendEmailId = data.resend_email_id;
+        companyName = (data.drivers as any)?.company_name || null;
+      }
+    }
+
+    console.log("Looked up record:", { requestId, source, companyName, resendEmailId });
+
     // Resolve caller email from JWT for BCC
     let callerEmail: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
@@ -69,11 +102,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log("Caller email resolved:", callerEmail);
-    console.log("Company name received:", JSON.stringify(companyName));
-
     const fromEmail = getEfsEmail(companyName);
-    console.log("Resolved fromEmail:", fromEmail);
+    console.log("Resolved fromEmail:", fromEmail, "from companyName:", companyName);
     const lastNamePart = getLastNamePart(requestedByName);
 
     const emailPayload: Record<string, any> = {
