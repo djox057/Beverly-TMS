@@ -181,8 +181,12 @@ const TransferList = () => {
     if (companyFilter !== "all") {
       rows = rows.filter((row) => row.going_to_company === companyFilter);
     }
+    if (dispatcherSearch) {
+      const ds = dispatcherSearch.toLowerCase();
+      rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter]);
+  }, [filteredRows, searchText, companyFilter, dispatcherSearch]);
 
   // Group rows by dispatcher
   const groupedRows = useMemo(() => {
