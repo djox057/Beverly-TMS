@@ -553,7 +553,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Coming To Office - inline date picker */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineDateCell
                             value={row.coming_to_office}
                             rowId={row.id}
