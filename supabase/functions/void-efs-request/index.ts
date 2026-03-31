@@ -45,13 +45,6 @@ const handler = async (req: Request): Promise<Response> => {
     const body: VoidEfsRequest = await req.json();
     const { resendEmailId, driverName, truckNumber, amount, purpose, companyName, requestedByName } = body;
 
-    if (!resendEmailId) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing resendEmailId" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       return new Response(
@@ -62,18 +55,22 @@ const handler = async (req: Request): Promise<Response> => {
 
     const fromEmail = getEfsEmail(companyName);
     const lastNamePart = getLastNamePart(requestedByName);
-    const messageId = `<${resendEmailId}@resend.dev>`;
 
-    const emailPayload = {
+    const emailPayload: Record<string, any> = {
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
       subject: `Re: EFS request by ${lastNamePart}`,
       text: "Please void this",
-      headers: {
+    };
+
+    // Add threading headers only when we have the original email ID
+    if (resendEmailId) {
+      const messageId = `<${resendEmailId}@resend.dev>`;
+      emailPayload.headers = {
         "In-Reply-To": messageId,
         "References": messageId,
-      },
-    };
+      };
+    }
 
     console.log("Sending void email:", { resendEmailId, fromEmail, lastNamePart });
 
