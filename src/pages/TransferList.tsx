@@ -541,7 +541,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Drug Test Zip - inline text */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineTextCell
                             value={row.drug_test_zip}
                             rowId={row.id}
