@@ -318,6 +318,17 @@ Purpose: Cash advance`;
 
     console.log("Email sent successfully:", emailResult);
 
+    // Store resend email ID for threading void replies
+    const resendEmailId = emailResult?.id || null;
+    if (resendEmailId && insertedAdvance?.id) {
+      const { error: updateError } = await supabase
+        .from("driver_cash_advances")
+        .update({ resend_email_id: resendEmailId })
+        .eq("id", insertedAdvance.id);
+      if (updateError) {
+        console.warn("Failed to store resend_email_id:", updateError);
+      }
+    }
 
     return new Response(
       JSON.stringify({
