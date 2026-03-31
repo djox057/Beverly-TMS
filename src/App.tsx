@@ -38,6 +38,7 @@ import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
 import Billboard from "./pages/Billboard";
+import TransferList from "./pages/TransferList";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -211,6 +212,11 @@ const AppContent = () => {
         <Route path="/billboard" element={
           <ProtectedRoute>
             <Billboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/transfer-list" element={
+          <ProtectedRoute>
+            <Layout><TransferList /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
