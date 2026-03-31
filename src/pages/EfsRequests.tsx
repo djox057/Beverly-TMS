@@ -152,6 +152,8 @@ export default function EfsRequests() {
         receipt_path: item.receipt_path,
         company_name: item.company_name,
         source: 'efs' as const,
+        resend_email_id: (item as any).resend_email_id || null,
+        driver_id: (item as any).driver_id || null,
       }));
 
       // Transform cash advances to match EfsRequest format
