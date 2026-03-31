@@ -488,9 +488,9 @@ const TransferList = () => {
               <TableHead>Driver Name</TableHead>
               <TableHead>Dispatch</TableHead>
               <TableHead>Going To Company</TableHead>
-              <TableHead>Drug Test Date</TableHead>
-              <TableHead>Drug Test Zip</TableHead>
-              <TableHead>Coming To Office</TableHead>
+              <TableHead className="text-center">Drug Test Date</TableHead>
+              <TableHead className="text-center">Drug Test Zip</TableHead>
+              <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               <TableHead className="text-center">Sign</TableHead>
               <TableHead className="text-center">Finished</TableHead>
@@ -530,7 +530,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Drug Test Date - inline date picker */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineDateCell
                             value={row.drug_test_date}
                             rowId={row.id}
@@ -541,7 +541,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Drug Test Zip - inline text */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineTextCell
                             value={row.drug_test_zip}
                             rowId={row.id}
@@ -553,7 +553,7 @@ const TransferList = () => {
                         </TableCell>
 
                         {/* Coming To Office - inline date picker */}
-                        <TableCell>
+                        <TableCell className="text-center">
                           <InlineDateCell
                             value={row.coming_to_office}
                             rowId={row.id}
