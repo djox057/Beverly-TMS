@@ -270,7 +270,7 @@ export const Sidebar = () => {
     
     // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
     if (hasRole('yard')) {
-      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals'];
+      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/transfer-list'];
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
