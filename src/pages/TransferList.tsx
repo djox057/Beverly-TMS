@@ -158,6 +158,31 @@ const TransferList = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+
+  // Unique companies for dropdown
+  const uniqueCompanies = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.going_to_company) set.add(row.going_to_company); });
+    return Array.from(set).sort();
+  }, [enrichedRows]);
+
+  // Apply search + company filter
+  const displayRows = useMemo(() => {
+    let rows = filteredRows;
+    if (searchText) {
+      const s = searchText.toLowerCase();
+      rows = rows.filter((row) =>
+        (row.truck_number?.toLowerCase().includes(s)) ||
+        (row.driver_name?.toLowerCase().includes(s))
+      );
+    }
+    if (companyFilter !== "all") {
+      rows = rows.filter((row) => row.going_to_company === companyFilter);
+    }
+    return rows;
+  }, [filteredRows, searchText, companyFilter]);
 
   const toggleInformed = useMutation({
     mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
