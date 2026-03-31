@@ -64,7 +64,9 @@ interface EfsRequest {
   quantity: number | null;
   receipt_path: string | null;
   company_name: string | null;
-  source: 'efs' | 'cash_advance'; // Track which table the record came from
+  source: 'efs' | 'cash_advance';
+  resend_email_id: string | null;
+  driver_id: string | null;
 }
 
 const PAGE_SIZE = 100;
