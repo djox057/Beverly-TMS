@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -6,7 +6,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
 import { format } from "date-fns";
-import { Plus, Trash2, Search, Pencil } from "lucide-react";
+import { Plus, Trash2, Search, Pencil, Lock } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -35,6 +35,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TransferRow {
   id: string;
@@ -55,6 +58,178 @@ interface TransferRow {
   dispatcher_name?: string;
 }
 
+// ─── Role permission helpers ───
+type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished";
+
+const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }> = {
+  drug_test: { roles: ["safety", "admin"], label: "Safety / Admin" },
+  finished: { roles: ["safety", "admin"], label: "Safety / Admin" },
+  coming_office: { roles: ["dispatch", "admin"], label: "Dispatch / Admin" },
+  driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch / Admin" },
+  sign: { roles: ["maintenance", "admin"], label: "Maintenance / Admin" },
+};
+
+function useCanEditColumn(hasRole: (r: any) => boolean) {
+  return useMemo(() => {
+    const result: Record<ColumnGroup, boolean> = {} as any;
+    for (const [key, { roles }] of Object.entries(COLUMN_PERMISSIONS)) {
+      result[key as ColumnGroup] = roles.some((r) => hasRole(r as any));
+    }
+    return result;
+  }, [hasRole]);
+}
+
+// ─── Locked cell indicator ───
+function LockedCell({ group, children }: { group: ColumnGroup; children: React.ReactNode }) {
+  const label = COLUMN_PERMISSIONS[group].label;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1 text-muted-foreground cursor-not-allowed">
+            {children}
+            <Lock className="h-3 w-3 opacity-50 shrink-0" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          Only <span className="font-semibold">{label}</span> can edit this
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// ─── Inline date cell ───
+function InlineDateCell({
+  value,
+  rowId,
+  field,
+  canEdit,
+  group,
+}: {
+  value: string | null;
+  rowId: string;
+  field: string;
+  canEdit: boolean;
+  group: ColumnGroup;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const date = value ? new Date(value + "T00:00:00") : undefined;
+  const display = date ? format(date, "MM/dd/yyyy") : "-";
+
+  const mutation = useMutation({
+    mutationFn: async (newDate: Date | undefined) => {
+      const formatted = newDate ? format(newDate, "yyyy-MM-dd") : null;
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ [field]: formatted } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (!canEdit) {
+    return <LockedCell group={group}><span>{display}</span></LockedCell>;
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
+          type="button"
+        >
+          {display}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => mutation.mutate(d)}
+          initialFocus
+          className="p-3 pointer-events-auto"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── Inline text cell ───
+function InlineTextCell({
+  value,
+  rowId,
+  field,
+  canEdit,
+  group,
+  placeholder,
+}: {
+  value: string | null;
+  rowId: string;
+  field: string;
+  canEdit: boolean;
+  group: ColumnGroup;
+  placeholder?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value || "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setText(value || ""); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = async () => {
+    setEditing(false);
+    if (text === (value || "")) return;
+    const { error } = await supabase
+      .from("transfer_list" as any)
+      .update({ [field]: text || null } as any)
+      .eq("id", rowId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setText(value || "");
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+    }
+  };
+
+  if (!canEdit) {
+    return <LockedCell group={group}><span>{value || "-"}</span></LockedCell>;
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(value || ""); setEditing(false); } }}
+        className="h-7 text-sm px-1"
+        placeholder={placeholder}
+      />
+    );
+  }
+
+  return (
+    <button
+      className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
+      type="button"
+      onClick={() => setEditing(true)}
+    >
+      {value || "-"}
+    </button>
+  );
+}
+
+// ─── Hook ───
 const useTransferList = () => {
   const queryClient = useQueryClient();
 
@@ -93,6 +268,7 @@ const TransferList = () => {
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const isDispatchOnly = hasRole("dispatch") && !canEdit;
+  const columnPerms = useCanEditColumn(hasRole);
 
   const driverMap = useMemo(() => {
     const map = new Map<string, any>();
@@ -188,7 +364,6 @@ const TransferList = () => {
     return rows;
   }, [filteredRows, searchText, companyFilter, dispatcherSearch]);
 
-  // Group rows by dispatcher
   const groupedRows = useMemo(() => {
     const groups = new Map<string, TransferRow[]>();
     displayRows.forEach((row) => {
@@ -196,7 +371,6 @@ const TransferList = () => {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(row);
     });
-    // Sort groups alphabetically, "Unassigned" last
     const entries = Array.from(groups.entries()).sort((a, b) => {
       if (a[0] === "Unassigned") return 1;
       if (b[0] === "Unassigned") return -1;
@@ -213,7 +387,6 @@ const TransferList = () => {
         .eq("id", id);
       if (error) throw error;
 
-      // When finishing, update driver's company to going_to_company
       if (field === "finished" && value && row?.driver_id && row?.going_to_company) {
         const targetCompany = companies.find((c: any) => c.name === row.going_to_company);
         if (targetCompany) {
@@ -245,7 +418,7 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const colCount = canEdit ? 12 : 11;
+  const colCount = canEdit ? 11 : 10;
 
   return (
     <div className="p-4 space-y-4">
@@ -355,15 +528,44 @@ const TransferList = () => {
                         <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
                           {row.going_to_company || "-"}
                         </TableCell>
+
+                        {/* Drug Test Date - inline date picker */}
                         <TableCell>
-                          {row.drug_test_date ? format(new Date(row.drug_test_date + "T00:00:00"), "MM/dd/yyyy") : "-"}
+                          <InlineDateCell
+                            value={row.drug_test_date}
+                            rowId={row.id}
+                            field="drug_test_date"
+                            canEdit={columnPerms.drug_test}
+                            group="drug_test"
+                          />
                         </TableCell>
-                        <TableCell>{row.drug_test_zip || "-"}</TableCell>
+
+                        {/* Drug Test Zip - inline text */}
                         <TableCell>
-                          {row.coming_to_office ? format(new Date(row.coming_to_office + "T00:00:00"), "MM/dd/yyyy") : "-"}
+                          <InlineTextCell
+                            value={row.drug_test_zip}
+                            rowId={row.id}
+                            field="drug_test_zip"
+                            canEdit={columnPerms.drug_test}
+                            group="drug_test"
+                            placeholder="Zip..."
+                          />
                         </TableCell>
+
+                        {/* Coming To Office - inline date picker */}
+                        <TableCell>
+                          <InlineDateCell
+                            value={row.coming_to_office}
+                            rowId={row.id}
+                            field="coming_to_office"
+                            canEdit={columnPerms.coming_office}
+                            group="coming_office"
+                          />
+                        </TableCell>
+
+                        {/* Driver Informed */}
                         <TableCell className="text-center">
-                          {canEdit || isDispatchOnly ? (
+                          {columnPerms.driver_informed ? (
                             <Checkbox
                               checked={row.driver_informed}
                               onCheckedChange={(checked) =>
@@ -371,11 +573,15 @@ const TransferList = () => {
                               }
                             />
                           ) : (
-                            <span>{row.driver_informed ? "Yes" : "No"}</span>
+                            <LockedCell group="driver_informed">
+                              <span>{row.driver_informed ? "Yes" : "No"}</span>
+                            </LockedCell>
                           )}
                         </TableCell>
+
+                        {/* Sign */}
                         <TableCell className="text-center">
-                          {canEdit || isDispatchOnly ? (
+                          {columnPerms.sign ? (
                             <Checkbox
                               checked={row.sign}
                               onCheckedChange={(checked) =>
@@ -383,11 +589,15 @@ const TransferList = () => {
                               }
                             />
                           ) : (
-                            <span>{row.sign ? "Yes" : "No"}</span>
+                            <LockedCell group="sign">
+                              <span>{row.sign ? "Yes" : "No"}</span>
+                            </LockedCell>
                           )}
                         </TableCell>
+
+                        {/* Finished */}
                         <TableCell className="text-center">
-                          {canEdit ? (
+                          {columnPerms.finished ? (
                             <Checkbox
                               checked={row.finished}
                               onCheckedChange={(checked) =>
@@ -395,9 +605,12 @@ const TransferList = () => {
                               }
                             />
                           ) : (
-                            <span>{row.finished ? "Yes" : "No"}</span>
+                            <LockedCell group="finished">
+                              <span>{row.finished ? "Yes" : "No"}</span>
+                            </LockedCell>
                           )}
                         </TableCell>
+
                         {canEdit && (
                           <TableCell>
                             <div className="flex items-center gap-1">
@@ -486,7 +699,6 @@ function TransferRowDialog({
   const [truckSearch, setTruckSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
 
-  // Reset when editData changes
   useEffect(() => {
     if (editData) {
       setTruckId(editData.truck_id);
