@@ -74,7 +74,7 @@ const navigation = [
   { name: "Problems", href: "/problems", icon: FileText, roles: ['supervisor', 'manager', 'admin'] },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
-  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch'] },
+  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours', 'yard'] },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management'] },
 ];
 
@@ -250,7 +250,7 @@ export const Sidebar = () => {
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Fleets, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
@@ -259,7 +259,7 @@ export const Sidebar = () => {
     
     // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Fleets, Reports, Yard Arrivals, Alerts, Maintenance and Repairs, Fuel Reports)
     if (hasRole('maintenance')) {
-      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/fleets', '/reports', '/yard-arrivals'];
+      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/fleets', '/reports', '/yard-arrivals', '/transfer-list'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
@@ -270,7 +270,7 @@ export const Sidebar = () => {
     
     // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
     if (hasRole('yard')) {
-      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals'];
+      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/transfer-list'];
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
