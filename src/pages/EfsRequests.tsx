@@ -159,7 +159,7 @@ export default function EfsRequests() {
       // Transform cash advances to match EfsRequest format
       const cashFormatted: EfsRequest[] = (cashData || []).map((item) => ({
         id: item.id,
-        driver_name: (item.drivers as { name: string } | null)?.name || "Unknown",
+        driver_name: (item.drivers as { name: string; company_name: string | null } | null)?.name || "Unknown",
         truck_number: item.truck_number,
         amount: item.amount,
         purpose: "Cash Advance",
@@ -169,8 +169,10 @@ export default function EfsRequests() {
         requested_by: item.requested_by ? (profilesMap[item.requested_by] || (isValidUUID(item.requested_by) ? null : item.requested_by)) : null,
         quantity: null,
         receipt_path: null,
-        company_name: null,
+        company_name: (item.drivers as { name: string; company_name: string | null } | null)?.company_name || null,
         source: 'cash_advance' as const,
+        resend_email_id: (item as any).resend_email_id || null,
+        driver_id: item.driver_id || null,
       }));
 
       // Combine and sort by date descending
