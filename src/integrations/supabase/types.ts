@@ -3560,6 +3560,60 @@ export type Database = {
         }
         Relationships: []
       }
+      transfer_list: {
+        Row: {
+          coming_to_office: string | null
+          created_at: string | null
+          created_by: string | null
+          driver_id: string | null
+          driver_informed: boolean
+          drug_test_date: string | null
+          going_to_company: string | null
+          id: string
+          truck_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          coming_to_office?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: string | null
+          driver_informed?: boolean
+          drug_test_date?: string | null
+          going_to_company?: string | null
+          id?: string
+          truck_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          coming_to_office?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          driver_id?: string | null
+          driver_informed?: boolean
+          drug_test_date?: string | null
+          going_to_company?: string | null
+          id?: string
+          truck_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_list_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_list_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips_paid_status: {
         Row: {
           created_at: string
