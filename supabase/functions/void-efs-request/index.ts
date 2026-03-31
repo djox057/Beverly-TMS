@@ -70,8 +70,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Caller email resolved:", callerEmail);
+    console.log("Company name received:", JSON.stringify(companyName));
 
     const fromEmail = getEfsEmail(companyName);
+    console.log("Resolved fromEmail:", fromEmail);
     const lastNamePart = getLastNamePart(requestedByName);
 
     const emailPayload: Record<string, any> = {
