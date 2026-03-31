@@ -160,6 +160,7 @@ const TransferList = () => {
   const [editRow, setEditRow] = useState<TransferRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [dispatcherSearch, setDispatcherSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
 
   const uniqueCompanies = useMemo(() => {
