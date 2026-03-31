@@ -285,6 +285,15 @@ const TransferList = () => {
             className="pl-9"
           />
         </div>
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search dispatcher..."
+            value={dispatcherSearch}
+            onChange={(e) => setDispatcherSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={companyFilter} onValueChange={setCompanyFilter}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="All Companies" />
