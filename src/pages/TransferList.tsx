@@ -6,7 +6,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
 import { format } from "date-fns";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Pencil } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -45,6 +45,8 @@ interface TransferRow {
   drug_test_zip: string | null;
   coming_to_office: string | null;
   driver_informed: boolean;
+  sign: boolean;
+  finished: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -82,7 +84,7 @@ const useTransferList = () => {
 };
 
 const TransferList = () => {
-  const { user, roles, hasRole } = useAuthContext();
+  const { user, hasRole } = useAuthContext();
   const { data: transferRows = [], isLoading } = useTransferList();
   const { data: trucks = [] } = useTrucks();
   const { data: drivers = [] } = useDrivers();
@@ -92,7 +94,6 @@ const TransferList = () => {
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const isDispatchOnly = hasRole("dispatch") && !canEdit;
 
-  // Build lookup maps
   const driverMap = useMemo(() => {
     const map = new Map<string, any>();
     (drivers || []).forEach((d: any) => map.set(d.id, d));
@@ -105,7 +106,6 @@ const TransferList = () => {
     return map;
   }, [trucks]);
 
-  // Fetch profiles for dispatcher names
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-for-transfer"],
     queryFn: async () => {
@@ -124,7 +124,6 @@ const TransferList = () => {
     return map;
   }, [profiles]);
 
-  // Enrich rows with names + dispatcher
   const enrichedRows: TransferRow[] = useMemo(() => {
     return transferRows.map((row: any) => {
       const driver = row.driver_id ? driverMap.get(row.driver_id) : null;
@@ -139,7 +138,6 @@ const TransferList = () => {
     });
   }, [transferRows, driverMap, truckMap, profileMap]);
 
-  // Dispatcher filtering
   const filteredRows = useMemo(() => {
     if (!isDispatchOnly) return enrichedRows;
     return enrichedRows.filter((row) => {
@@ -149,7 +147,6 @@ const TransferList = () => {
     });
   }, [enrichedRows, isDispatchOnly, driverMap, user?.id]);
 
-  // Summary stats
   const companyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     enrichedRows.forEach((row) => {
@@ -160,18 +157,17 @@ const TransferList = () => {
   }, [enrichedRows]);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editRow, setEditRow] = useState<TransferRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
 
-  // Unique companies for dropdown
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
     enrichedRows.forEach((row) => { if (row.going_to_company) set.add(row.going_to_company); });
     return Array.from(set).sort();
   }, [enrichedRows]);
 
-  // Apply search + company filter
   const displayRows = useMemo(() => {
     let rows = filteredRows;
     if (searchText) {
@@ -187,11 +183,28 @@ const TransferList = () => {
     return rows;
   }, [filteredRows, searchText, companyFilter]);
 
-  const toggleInformed = useMutation({
-    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+  // Group rows by dispatcher
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, TransferRow[]>();
+    displayRows.forEach((row) => {
+      const key = row.dispatcher_name || "Unassigned";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    });
+    // Sort groups alphabetically, "Unassigned" last
+    const entries = Array.from(groups.entries()).sort((a, b) => {
+      if (a[0] === "Unassigned") return 1;
+      if (b[0] === "Unassigned") return -1;
+      return a[0].localeCompare(b[0]);
+    });
+    return entries;
+  }, [displayRows]);
+
+  const toggleField = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
       const { error } = await supabase
         .from("transfer_list" as any)
-        .update({ driver_informed: value } as any)
+        .update({ [field]: value } as any)
         .eq("id", id);
       if (error) throw error;
     },
@@ -212,7 +225,7 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const colCount = canEdit ? 9 : 8;
+  const colCount = canEdit ? 12 : 11;
 
   return (
     <div className="p-4 space-y-4">
@@ -277,7 +290,9 @@ const TransferList = () => {
               <TableHead>Drug Test Zip</TableHead>
               <TableHead>Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
-              {canEdit && <TableHead className="w-[50px]" />}
+              <TableHead className="text-center">Sign</TableHead>
+              <TableHead className="text-center">Finished</TableHead>
+              {canEdit && <TableHead className="w-[80px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -287,56 +302,96 @@ const TransferList = () => {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : displayRows.length === 0 ? (
+            ) : groupedRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   No transfers found
                 </TableCell>
               </TableRow>
             ) : (
-              displayRows.map((row) => {
-                const companyStyle = getCompanyBackgroundColor(row.going_to_company);
-                return (
-                  <TableRow key={row.id} style={companyStyle}>
-                    <TableCell>{row.truck_number}</TableCell>
-                    <TableCell className="font-medium">{row.driver_name}</TableCell>
-                    <TableCell>{row.dispatcher_name || "-"}</TableCell>
-                    <TableCell>{row.going_to_company || "-"}</TableCell>
-                    <TableCell>
-                      {row.drug_test_date ? format(new Date(row.drug_test_date + "T00:00:00"), "MM/dd/yyyy") : "-"}
+              groupedRows.map(([dispatcherName, rows]) => (
+                <>
+                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50">
+                    <TableCell colSpan={colCount} className="font-semibold text-sm py-1.5">
+                      {dispatcherName} ({rows.length})
                     </TableCell>
-                    <TableCell>{row.drug_test_zip || "-"}</TableCell>
-                    <TableCell>
-                      {row.coming_to_office ? format(new Date(row.coming_to_office + "T00:00:00"), "MM/dd/yyyy") : "-"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {canEdit || isDispatchOnly ? (
-                        <Checkbox
-                          checked={row.driver_informed}
-                          onCheckedChange={(checked) =>
-                            toggleInformed.mutate({ id: row.id, value: !!checked })
-                          }
-                        />
-                      ) : (
-                        <span>{row.driver_informed ? "Yes" : "No"}</span>
-                      )}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    )}
                   </TableRow>
-                );
-              })
+                  {rows.map((row) => {
+                    const companyStyle = getCompanyBackgroundColor(row.going_to_company);
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.truck_number}</TableCell>
+                        <TableCell className="font-medium">{row.driver_name}</TableCell>
+                        <TableCell>{row.dispatcher_name || "-"}</TableCell>
+                        <TableCell style={row.finished ? { backgroundColor: "hsl(142, 71%, 85%)" } : companyStyle}>
+                          {row.going_to_company || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {row.drug_test_date ? format(new Date(row.drug_test_date + "T00:00:00"), "MM/dd/yyyy") : "-"}
+                        </TableCell>
+                        <TableCell>{row.drug_test_zip || "-"}</TableCell>
+                        <TableCell>
+                          {row.coming_to_office ? format(new Date(row.coming_to_office + "T00:00:00"), "MM/dd/yyyy") : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {canEdit || isDispatchOnly ? (
+                            <Checkbox
+                              checked={row.driver_informed}
+                              onCheckedChange={(checked) =>
+                                toggleField.mutate({ id: row.id, field: "driver_informed", value: !!checked })
+                              }
+                            />
+                          ) : (
+                            <span>{row.driver_informed ? "Yes" : "No"}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {canEdit || isDispatchOnly ? (
+                            <Checkbox
+                              checked={row.sign}
+                              onCheckedChange={(checked) =>
+                                toggleField.mutate({ id: row.id, field: "sign", value: !!checked })
+                              }
+                            />
+                          ) : (
+                            <span>{row.sign ? "Yes" : "No"}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {canEdit ? (
+                            <Checkbox
+                              checked={row.finished}
+                              onCheckedChange={(checked) =>
+                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked })
+                              }
+                            />
+                          ) : (
+                            <span>{row.finished ? "Yes" : "No"}</span>
+                          )}
+                        </TableCell>
+                        {canEdit && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => setEditRow(row)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </>
+              ))
             )}
           </TableBody>
         </Table>
       </div>
 
-      <AddTransferRowDialog
+      <TransferRowDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
         trucks={trucks || []}
@@ -344,6 +399,18 @@ const TransferList = () => {
         companies={companies || []}
         userId={user?.id}
       />
+
+      {editRow && (
+        <TransferRowDialog
+          open={!!editRow}
+          onClose={() => setEditRow(null)}
+          trucks={trucks || []}
+          drivers={drivers || []}
+          companies={companies || []}
+          userId={user?.id}
+          editData={editRow}
+        />
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
@@ -363,9 +430,9 @@ const TransferList = () => {
   );
 };
 
-// --- Add Transfer Row Dialog ---
-function AddTransferRowDialog({
-  open, onClose, trucks, drivers, companies, userId,
+// --- Add/Edit Transfer Row Dialog ---
+function TransferRowDialog({
+  open, onClose, trucks, drivers, companies, userId, editData,
 }: {
   open: boolean;
   onClose: () => void;
@@ -373,16 +440,34 @@ function AddTransferRowDialog({
   drivers: any[];
   companies: any[];
   userId?: string;
+  editData?: TransferRow;
 }) {
   const queryClient = useQueryClient();
-  const [truckId, setTruckId] = useState<string | null>(null);
-  const [driverId, setDriverId] = useState<string | null>(null);
-  const [goingToCompany, setGoingToCompany] = useState("");
-  const [drugTestDate, setDrugTestDate] = useState<Date | undefined>();
-  const [drugTestZip, setDrugTestZip] = useState("");
-  const [comingToOffice, setComingToOffice] = useState<Date | undefined>();
+  const isEdit = !!editData;
+  const [truckId, setTruckId] = useState<string | null>(editData?.truck_id || null);
+  const [driverId, setDriverId] = useState<string | null>(editData?.driver_id || null);
+  const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || "");
+  const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
+    editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
+  );
+  const [drugTestZip, setDrugTestZip] = useState(editData?.drug_test_zip || "");
+  const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
+    editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
+  );
   const [truckSearch, setTruckSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
+
+  // Reset when editData changes
+  useEffect(() => {
+    if (editData) {
+      setTruckId(editData.truck_id);
+      setDriverId(editData.driver_id);
+      setGoingToCompany(editData.going_to_company || "");
+      setDrugTestDate(editData.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined);
+      setDrugTestZip(editData.drug_test_zip || "");
+      setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
+    }
+  }, [editData]);
 
   const truckDriverMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -414,22 +499,34 @@ function AddTransferRowDialog({
     setTruckSearch(""); setDriverSearch("");
   };
 
-  const insertMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("transfer_list" as any).insert({
+      const payload = {
         driver_id: driverId,
         truck_id: truckId,
         going_to_company: goingToCompany || null,
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
         drug_test_zip: drugTestZip || null,
         coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
-        created_by: userId,
-      } as any);
-      if (error) throw error;
+      } as any;
+
+      if (isEdit && editData) {
+        const { error } = await supabase
+          .from("transfer_list" as any)
+          .update(payload)
+          .eq("id", editData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("transfer_list" as any).insert({
+          ...payload,
+          created_by: userId,
+        } as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
-      toast({ title: "Transfer added" });
+      toast({ title: isEdit ? "Transfer updated" : "Transfer added" });
       reset();
       onClose();
     },
@@ -458,10 +555,9 @@ function AddTransferRowDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Transfer</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Transfer" : "Add Transfer"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Truck Combobox */}
           <div>
             <label className="text-sm font-medium">Truck #</label>
             <Popover>
@@ -488,7 +584,6 @@ function AddTransferRowDialog({
             </Popover>
           </div>
 
-          {/* Driver Combobox */}
           <div>
             <label className="text-sm font-medium">Driver</label>
             <Popover>
@@ -515,7 +610,6 @@ function AddTransferRowDialog({
             </Popover>
           </div>
 
-          {/* Going To Company */}
           <div>
             <label className="text-sm font-medium">Going To Company</label>
             <Popover>
@@ -542,7 +636,6 @@ function AddTransferRowDialog({
             </Popover>
           </div>
 
-          {/* Drug Test Date */}
           <div>
             <label className="text-sm font-medium">Drug Test Date</label>
             <Popover>
@@ -558,13 +651,11 @@ function AddTransferRowDialog({
             </Popover>
           </div>
 
-          {/* Drug Test Zip */}
           <div>
             <label className="text-sm font-medium">Drug Test Zip Code</label>
             <Input value={drugTestZip} onChange={(e) => setDrugTestZip(e.target.value)} placeholder="Zip code..." />
           </div>
 
-          {/* Coming To Office (date) */}
           <div>
             <label className="text-sm font-medium">Coming To Office</label>
             <Popover>
@@ -582,8 +673,8 @@ function AddTransferRowDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-          <Button onClick={() => insertMutation.mutate()} disabled={insertMutation.isPending || (!truckId && !driverId)}>
-            {insertMutation.isPending ? "Adding..." : "Add"}
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || (!truckId && !driverId)}>
+            {saveMutation.isPending ? "Saving..." : isEdit ? "Save" : "Add"}
           </Button>
         </DialogFooter>
       </DialogContent>
