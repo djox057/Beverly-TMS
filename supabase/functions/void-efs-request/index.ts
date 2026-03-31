@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,12 +54,31 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Resolve caller email from JWT for BCC
+    let callerEmail: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData } = await supabaseAuth.auth.getUser();
+      if (userData?.user?.email) {
+        callerEmail = userData.user.email;
+      }
+    }
+
+    console.log("Caller email resolved:", callerEmail);
+
     const fromEmail = getEfsEmail(companyName);
     const lastNamePart = getLastNamePart(requestedByName);
 
     const emailPayload: Record<string, any> = {
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
+      ...(callerEmail ? { bcc: [callerEmail] } : {}),
+      reply_to: callerEmail ? [callerEmail, fromEmail] : [fromEmail],
       subject: `Re: EFS request by ${lastNamePart}`,
       text: "Please void this",
     };
@@ -72,7 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
       };
     }
 
-    console.log("Sending void email:", { resendEmailId, fromEmail, lastNamePart });
+    console.log("Sending void email:", { resendEmailId, fromEmail, lastNamePart, callerEmail });
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
