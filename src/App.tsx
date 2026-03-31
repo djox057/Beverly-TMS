@@ -38,6 +38,7 @@ import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
 import Billboard from "./pages/Billboard";
+import TransferList from "./pages/TransferList";
 
 const queryClient = new QueryClient({
   defaultOptions: {
