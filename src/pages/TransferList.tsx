@@ -287,14 +287,14 @@ const TransferList = () => {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : filteredRows.length === 0 ? (
+            ) : displayRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   No transfers found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((row) => {
+              displayRows.map((row) => {
                 const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                 return (
                   <TableRow key={row.id} style={companyStyle}>
