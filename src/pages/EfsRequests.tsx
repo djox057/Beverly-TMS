@@ -296,8 +296,8 @@ export default function EfsRequests() {
     setCurrentPage(1);
   };
 
-  const handleDelete = (id: string, source: 'efs' | 'cash_advance') => {
-    setDeleteItem({ id, source });
+  const handleDelete = (request: EfsRequest) => {
+    setDeleteItem(request);
   };
 
   const confirmDelete = () => {
