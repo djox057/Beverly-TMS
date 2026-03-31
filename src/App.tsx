@@ -214,6 +214,11 @@ const AppContent = () => {
             <Billboard />
           </ProtectedRoute>
         } />
+        <Route path="/transfer-list" element={
+          <ProtectedRoute>
+            <Layout><TransferList /></Layout>
+          </ProtectedRoute>
+        } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={
           <ProtectedRoute>
