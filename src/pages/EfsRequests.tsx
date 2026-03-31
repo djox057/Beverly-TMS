@@ -64,7 +64,9 @@ interface EfsRequest {
   quantity: number | null;
   receipt_path: string | null;
   company_name: string | null;
-  source: 'efs' | 'cash_advance'; // Track which table the record came from
+  source: 'efs' | 'cash_advance';
+  resend_email_id: string | null;
+  driver_id: string | null;
 }
 
 const PAGE_SIZE = 100;
@@ -92,7 +94,7 @@ export default function EfsRequests() {
   const [purposeFilter, setPurposeFilter] = useState("All");
   const [requestedByFilter, setRequestedByFilter] = useState("All");
   const [requestedByOpen, setRequestedByOpen] = useState(false);
-  const [deleteItem, setDeleteItem] = useState<{ id: string; source: 'efs' | 'cash_advance' } | null>(null);
+  const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests and cash advances
@@ -110,7 +112,7 @@ export default function EfsRequests() {
       // Fetch cash advances with driver name and requester profile
       const { data: cashData, error: cashError } = await supabase
         .from("driver_cash_advances")
-        .select("id, amount, requested_at, requested_by, truck_number, driver_id, drivers(name)")
+        .select("id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, drivers(name, company_name)")
         .order("requested_at", { ascending: false });
 
       if (cashError) throw cashError;
@@ -150,12 +152,14 @@ export default function EfsRequests() {
         receipt_path: item.receipt_path,
         company_name: item.company_name,
         source: 'efs' as const,
+        resend_email_id: (item as any).resend_email_id || null,
+        driver_id: (item as any).driver_id || null,
       }));
 
       // Transform cash advances to match EfsRequest format
       const cashFormatted: EfsRequest[] = (cashData || []).map((item) => ({
         id: item.id,
-        driver_name: (item.drivers as { name: string } | null)?.name || "Unknown",
+        driver_name: (item.drivers as { name: string; company_name: string | null } | null)?.name || "Unknown",
         truck_number: item.truck_number,
         amount: item.amount,
         purpose: "Cash Advance",
@@ -165,8 +169,10 @@ export default function EfsRequests() {
         requested_by: item.requested_by ? (profilesMap[item.requested_by] || (isValidUUID(item.requested_by) ? null : item.requested_by)) : null,
         quantity: null,
         receipt_path: null,
-        company_name: null,
+        company_name: (item.drivers as { name: string; company_name: string | null } | null)?.company_name || null,
         source: 'cash_advance' as const,
+        resend_email_id: (item as any).resend_email_id || null,
+        driver_id: item.driver_id || null,
       }));
 
       // Combine and sort by date descending
@@ -179,14 +185,41 @@ export default function EfsRequests() {
     staleTime: 30 * 1000,
   });
 
-  // Delete mutation (admin only)
+  // Delete mutation (admin only) — sends void email before deleting
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, source }: { id: string; source: 'efs' | 'cash_advance' }) => {
-      const tableName = source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
+    mutationFn: async (request: EfsRequest) => {
+      // Send void email if we have the resend email ID
+      if (request.resend_email_id) {
+        try {
+          const { data, error } = await supabase.functions.invoke("void-efs-request", {
+            body: {
+              resendEmailId: request.resend_email_id,
+              driverName: request.driver_name,
+              truckNumber: request.truck_number || "",
+              amount: request.amount,
+              purpose: request.purpose,
+              companyName: request.company_name,
+              requestedByName: request.requested_by,
+            },
+          });
+          if (error) {
+            console.warn("Void email failed:", error);
+            toast.warning("Void email could not be sent, but request will still be deleted");
+          } else if (data && !data.success) {
+            console.warn("Void email failed:", data.error);
+            toast.warning("Void email could not be sent, but request will still be deleted");
+          }
+        } catch (e) {
+          console.warn("Void email error:", e);
+        }
+      }
+
+      // Delete the record
+      const tableName = request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
       const { error } = await supabase
         .from(tableName)
         .delete()
-        .eq("id", id);
+        .eq("id", request.id);
 
       if (error) throw error;
     },
@@ -263,8 +296,8 @@ export default function EfsRequests() {
     setCurrentPage(1);
   };
 
-  const handleDelete = (id: string, source: 'efs' | 'cash_advance') => {
-    setDeleteItem({ id, source });
+  const handleDelete = (request: EfsRequest) => {
+    setDeleteItem(request);
   };
 
   const confirmDelete = () => {
@@ -492,7 +525,7 @@ export default function EfsRequests() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(request.id, request.source)}
+                        onClick={() => handleDelete(request)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

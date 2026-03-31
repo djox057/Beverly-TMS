@@ -1269,6 +1269,7 @@ export type Database = {
           id: string
           requested_at: string
           requested_by: string | null
+          resend_email_id: string | null
           truck_number: string | null
         }
         Insert: {
@@ -1278,6 +1279,7 @@ export type Database = {
           id?: string
           requested_at?: string
           requested_by?: string | null
+          resend_email_id?: string | null
           truck_number?: string | null
         }
         Update: {
@@ -1287,6 +1289,7 @@ export type Database = {
           id?: string
           requested_at?: string
           requested_by?: string | null
+          resend_email_id?: string | null
           truck_number?: string | null
         }
         Relationships: [
@@ -1975,6 +1978,7 @@ export type Database = {
           receipt_path: string | null
           requested_at: string
           requested_by: string | null
+          resend_email_id: string | null
           revised_rc_path: string | null
           state: string | null
           truck_number: string | null
@@ -1992,6 +1996,7 @@ export type Database = {
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          resend_email_id?: string | null
           revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null
@@ -2009,6 +2014,7 @@ export type Database = {
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          resend_email_id?: string | null
           revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null

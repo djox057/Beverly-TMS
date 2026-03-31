@@ -228,7 +228,8 @@ Location: ${city}, ${state}`;
 
     console.log("Email sent successfully:", emailResult);
 
-    // Save to database
+    // Save to database (include resend email ID for threading void replies)
+    const resendEmailId = emailResult?.id || null;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { error: dbError } = await supabase.from("efs_other_requests").insert({
       driver_id: driverId || null,
@@ -242,6 +243,7 @@ Location: ${city}, ${state}`;
       state: state || null,
       quantity: quantity || null,
       receipt_path: receiptPath || null,
+      resend_email_id: resendEmailId,
     });
 
     if (dbError) {
