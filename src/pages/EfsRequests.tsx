@@ -211,6 +211,11 @@ export default function EfsRequests() {
 
   // Filter requests
   const filteredRequests = efsRequests.filter((request) => {
+    // Dispatch-only users can only see their own requests
+    if (isDispatchOnly && request.requested_by !== profile?.full_name) {
+      return false;
+    }
+
     // Purpose filter
     if (purposeFilter !== "All" && request.purpose !== purposeFilter) {
       return false;
