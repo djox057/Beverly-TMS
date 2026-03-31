@@ -348,7 +348,7 @@ const TransferList = () => {
                   {rows.map((row) => {
                     const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                     return (
-                      <TableRow key={row.id}>
+                      <TableRow key={row.id} className="hover:bg-transparent">
                         <TableCell>{row.truck_number}</TableCell>
                         <TableCell className="font-medium">{row.driver_name}</TableCell>
                         <TableCell>{row.dispatcher_name || "-"}</TableCell>
