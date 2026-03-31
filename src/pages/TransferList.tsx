@@ -340,7 +340,7 @@ const TransferList = () => {
             ) : (
               groupedRows.map(([dispatcherName, rows]) => (
                 <>
-                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50">
+                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50 hover:bg-muted/50">
                     <TableCell colSpan={colCount} className="font-semibold text-sm py-1.5">
                       {dispatcherName} ({rows.length})
                     </TableCell>
