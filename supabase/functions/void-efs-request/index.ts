@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface VoidEfsRequest {
-  resendEmailId: string;
+  resendEmailId: string | null;
   driverName: string;
   truckNumber: string;
   amount: number;
