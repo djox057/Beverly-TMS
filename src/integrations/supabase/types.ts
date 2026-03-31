@@ -3569,8 +3569,10 @@ export type Database = {
           driver_informed: boolean
           drug_test_date: string | null
           drug_test_zip: string | null
+          finished: boolean
           going_to_company: string | null
           id: string
+          sign: boolean
           truck_id: string | null
           updated_at: string | null
         }
@@ -3582,8 +3584,10 @@ export type Database = {
           driver_informed?: boolean
           drug_test_date?: string | null
           drug_test_zip?: string | null
+          finished?: boolean
           going_to_company?: string | null
           id?: string
+          sign?: boolean
           truck_id?: string | null
           updated_at?: string | null
         }
@@ -3595,8 +3599,10 @@ export type Database = {
           driver_informed?: boolean
           drug_test_date?: string | null
           drug_test_zip?: string | null
+          finished?: boolean
           going_to_company?: string | null
           id?: string
+          sign?: boolean
           truck_id?: string | null
           updated_at?: string | null
         }
