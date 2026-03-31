@@ -206,14 +206,29 @@ const TransferList = () => {
   }, [displayRows]);
 
   const toggleField = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
+    mutationFn: async ({ id, field, value, row }: { id: string; field: string; value: boolean; row?: TransferRow }) => {
       const { error } = await supabase
         .from("transfer_list" as any)
         .update({ [field]: value } as any)
         .eq("id", id);
       if (error) throw error;
+
+      // When finishing, update driver's company to going_to_company
+      if (field === "finished" && value && row?.driver_id && row?.going_to_company) {
+        const targetCompany = companies.find((c: any) => c.name === row.going_to_company);
+        if (targetCompany) {
+          const { error: driverErr } = await supabase
+            .from("drivers")
+            .update({ company_id: targetCompany.id })
+            .eq("id", row.driver_id);
+          if (driverErr) throw driverErr;
+        }
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transfer_list"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
