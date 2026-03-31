@@ -160,6 +160,7 @@ const TransferList = () => {
   const [editRow, setEditRow] = useState<TransferRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [dispatcherSearch, setDispatcherSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
 
   const uniqueCompanies = useMemo(() => {
@@ -180,8 +181,12 @@ const TransferList = () => {
     if (companyFilter !== "all") {
       rows = rows.filter((row) => row.going_to_company === companyFilter);
     }
+    if (dispatcherSearch) {
+      const ds = dispatcherSearch.toLowerCase();
+      rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter]);
+  }, [filteredRows, searchText, companyFilter, dispatcherSearch]);
 
   // Group rows by dispatcher
   const groupedRows = useMemo(() => {
@@ -201,14 +206,29 @@ const TransferList = () => {
   }, [displayRows]);
 
   const toggleField = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
+    mutationFn: async ({ id, field, value, row }: { id: string; field: string; value: boolean; row?: TransferRow }) => {
       const { error } = await supabase
         .from("transfer_list" as any)
         .update({ [field]: value } as any)
         .eq("id", id);
       if (error) throw error;
+
+      // When finishing, update driver's company to going_to_company
+      if (field === "finished" && value && row?.driver_id && row?.going_to_company) {
+        const targetCompany = companies.find((c: any) => c.name === row.going_to_company);
+        if (targetCompany) {
+          const { error: driverErr } = await supabase
+            .from("drivers")
+            .update({ company_id: targetCompany.id })
+            .eq("id", row.driver_id);
+          if (driverErr) throw driverErr;
+        }
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transfer_list"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
@@ -265,6 +285,15 @@ const TransferList = () => {
             className="pl-9"
           />
         </div>
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search dispatcher..."
+            value={dispatcherSearch}
+            onChange={(e) => setDispatcherSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={companyFilter} onValueChange={setCompanyFilter}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="All Companies" />
@@ -311,7 +340,7 @@ const TransferList = () => {
             ) : (
               groupedRows.map(([dispatcherName, rows]) => (
                 <>
-                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50">
+                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50 hover:bg-muted/50">
                     <TableCell colSpan={colCount} className="font-semibold text-sm py-1.5">
                       {dispatcherName} ({rows.length})
                     </TableCell>
@@ -319,11 +348,11 @@ const TransferList = () => {
                   {rows.map((row) => {
                     const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                     return (
-                      <TableRow key={row.id}>
+                      <TableRow key={row.id} className="hover:bg-transparent">
                         <TableCell>{row.truck_number}</TableCell>
                         <TableCell className="font-medium">{row.driver_name}</TableCell>
                         <TableCell>{row.dispatcher_name || "-"}</TableCell>
-                        <TableCell style={row.finished ? { backgroundColor: "hsl(142, 71%, 85%)" } : companyStyle}>
+                        <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
                           {row.going_to_company || "-"}
                         </TableCell>
                         <TableCell>
@@ -362,7 +391,7 @@ const TransferList = () => {
                             <Checkbox
                               checked={row.finished}
                               onCheckedChange={(checked) =>
-                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked })
+                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked, row })
                               }
                             />
                           ) : (
