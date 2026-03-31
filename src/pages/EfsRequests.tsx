@@ -83,9 +83,10 @@ const EFS_PURPOSES = [
 ];
 
 export default function EfsRequests() {
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
+  const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("supervisor") && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
@@ -210,6 +211,11 @@ export default function EfsRequests() {
 
   // Filter requests
   const filteredRequests = efsRequests.filter((request) => {
+    // Dispatch-only users can only see their own requests
+    if (isDispatchOnly && request.requested_by !== profile?.full_name) {
+      return false;
+    }
+
     // Purpose filter
     if (purposeFilter !== "All" && request.purpose !== purposeFilter) {
       return false;
