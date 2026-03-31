@@ -94,7 +94,7 @@ export default function EfsRequests() {
   const [purposeFilter, setPurposeFilter] = useState("All");
   const [requestedByFilter, setRequestedByFilter] = useState("All");
   const [requestedByOpen, setRequestedByOpen] = useState(false);
-  const [deleteItem, setDeleteItem] = useState<{ id: string; source: 'efs' | 'cash_advance' } | null>(null);
+  const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests and cash advances
