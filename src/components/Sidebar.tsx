@@ -250,7 +250,7 @@ export const Sidebar = () => {
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Fleets, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
