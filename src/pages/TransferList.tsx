@@ -301,19 +301,90 @@ function SafetyAssignCell({
   );
 }
 
-// ─── Drug test result badge ───
-function DrugTestResultBadge({ result }: { result: string | null | undefined }) {
-  if (!result) return <span className="text-muted-foreground">-</span>;
-  const colorMap: Record<string, string> = {
-    negative: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-    positive: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  };
-  const cls = colorMap[result] || "bg-muted text-muted-foreground";
-  return (
-    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", cls)}>
-      {result}
+// ─── Drug test result cell (editable) ───
+const DRUG_TEST_OPTIONS = [
+  { value: "negative", label: "Negative", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  { value: "positive", label: "Positive", cls: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  { value: "pending", label: "Pending", cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+];
+
+function DrugTestResultCell({
+  result,
+  driverId,
+  canEdit,
+}: {
+  result: string | null | undefined;
+  driverId: string | null;
+  canEdit: boolean;
+}) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (newResult: string | null) => {
+      if (!driverId) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("driver_drug_tests")
+        .upsert(
+          { driver_id: driverId, result: newResult, tested_by: user?.id },
+          { onConflict: "driver_id" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["driver-drug-tests-transfer"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-drug-tests"] });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const current = DRUG_TEST_OPTIONS.find((o) => o.value === result);
+  const badge = current ? (
+    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", current.cls)}>
+      {current.label}
     </span>
+  ) : (
+    <span className="text-muted-foreground">-</span>
+  );
+
+  if (!canEdit || !driverId) {
+    return <LockedCell group="drug_test">{badge}</LockedCell>;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="bg-transparent border-none p-0 m-0 cursor-pointer" type="button">
+          {badge}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[160px] p-1" align="start">
+        <div className="flex flex-col gap-1">
+          {DRUG_TEST_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={cn(
+                "text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
+                result === opt.value && "font-bold"
+              )}
+              onClick={() => mutation.mutate(opt.value)}
+            >
+              <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", opt.cls)}>
+                {opt.label}
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            className="text-left px-2 py-1.5 rounded text-sm hover:bg-accent text-muted-foreground"
+            onClick={() => mutation.mutate(null)}
+          >
+            Clear
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
