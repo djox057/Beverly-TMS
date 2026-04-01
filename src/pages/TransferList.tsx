@@ -299,6 +299,33 @@ const TransferList = () => {
     staleTime: 600000,
   });
 
+  // Fetch safety/manager role users for safety assignment dropdown
+  const { data: safetyUsers = [] } = useQuery({
+    queryKey: ["safety-users-for-transfer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles" as any)
+        .select("user_id, role")
+        .in("role", ["safety", "manager", "admin"]);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 600000,
+  });
+
+  // Fetch drug test results
+  const { data: drugTests = [] } = useQuery({
+    queryKey: ["driver-drug-tests-transfer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("driver_drug_tests")
+        .select("driver_id, result");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 60000,
+  });
+
   const profileMap = useMemo(() => {
     const map = new Map<string, { name: string; office: string }>();
     profiles.forEach((p: any) => map.set(p.user_id, { name: p.full_name || "", office: p.office || "" }));
