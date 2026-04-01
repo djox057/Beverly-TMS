@@ -56,6 +56,7 @@ interface TransferRow {
   driver_name?: string;
   truck_number?: string;
   dispatcher_name?: string;
+  dispatcher_office?: string;
 }
 
 // ─── Role permission helpers ───
@@ -287,7 +288,7 @@ const TransferList = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name");
+        .select("user_id, full_name, office");
       if (error) throw error;
       return data || [];
     },
@@ -295,8 +296,8 @@ const TransferList = () => {
   });
 
   const profileMap = useMemo(() => {
-    const map = new Map<string, string>();
-    profiles.forEach((p: any) => map.set(p.user_id, p.full_name));
+    const map = new Map<string, { name: string; office: string }>();
+    profiles.forEach((p: any) => map.set(p.user_id, { name: p.full_name || "", office: p.office || "" }));
     return map;
   }, [profiles]);
 
@@ -305,11 +306,13 @@ const TransferList = () => {
       const driver = row.driver_id ? driverMap.get(row.driver_id) : null;
       const truck = row.truck_id ? truckMap.get(row.truck_id) : null;
       const dispatcherId = driver?.dispatcher_id || truck?.dispatcher_id;
+      const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
       return {
         ...row,
         driver_name: driver?.name || "",
         truck_number: truck?.truck_number || "",
-        dispatcher_name: dispatcherId ? profileMap.get(dispatcherId) || "" : "",
+        dispatcher_name: profile?.name || "",
+        dispatcher_office: profile?.office || "",
       };
     });
   }, [transferRows, driverMap, truckMap, profileMap]);
@@ -338,10 +341,17 @@ const TransferList = () => {
   const [searchText, setSearchText] = useState("");
   const [dispatcherSearch, setDispatcherSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
 
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
     enrichedRows.forEach((row) => { if (row.going_to_company) set.add(row.going_to_company); });
+    return Array.from(set).sort();
+  }, [enrichedRows]);
+
+  const uniqueOffices = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.dispatcher_office) set.add(row.dispatcher_office); });
     return Array.from(set).sort();
   }, [enrichedRows]);
 
@@ -357,26 +367,43 @@ const TransferList = () => {
     if (companyFilter !== "all") {
       rows = rows.filter((row) => row.going_to_company === companyFilter);
     }
+    if (officeFilter !== "all") {
+      rows = rows.filter((row) => (row.dispatcher_office || "") === officeFilter);
+    }
     if (dispatcherSearch) {
       const ds = dispatcherSearch.toLowerCase();
       rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
     }
     return rows;
-  }, [filteredRows, searchText, companyFilter, dispatcherSearch]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch]);
 
-  const groupedRows = useMemo(() => {
-    const groups = new Map<string, TransferRow[]>();
+  // Group by office, then by dispatcher within each office
+  const groupedByOffice = useMemo(() => {
+    const officeMap = new Map<string, Map<string, TransferRow[]>>();
     displayRows.forEach((row) => {
-      const key = row.dispatcher_name || "Unassigned";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(row);
+      const office = row.dispatcher_office || "No Office";
+      const dispatcher = row.dispatcher_name || "Unassigned";
+      if (!officeMap.has(office)) officeMap.set(office, new Map());
+      const dispMap = officeMap.get(office)!;
+      if (!dispMap.has(dispatcher)) dispMap.set(dispatcher, []);
+      dispMap.get(dispatcher)!.push(row);
     });
-    const entries = Array.from(groups.entries()).sort((a, b) => {
-      if (a[0] === "Unassigned") return 1;
-      if (b[0] === "Unassigned") return -1;
+    // Sort offices alphabetically, "No Office" last
+    const entries = Array.from(officeMap.entries()).sort((a, b) => {
+      if (a[0] === "No Office") return 1;
+      if (b[0] === "No Office") return -1;
       return a[0].localeCompare(b[0]);
     });
-    return entries;
+    // Sort dispatchers within each office, "Unassigned" last
+    return entries.map(([office, dispMap]) => {
+      const dispatchers = Array.from(dispMap.entries()).sort((a, b) => {
+        if (a[0] === "Unassigned") return 1;
+        if (b[0] === "Unassigned") return -1;
+        return a[0].localeCompare(b[0]);
+      });
+      const totalCount = dispatchers.reduce((sum, [, rows]) => sum + rows.length, 0);
+      return { office, totalCount, dispatchers };
+    });
   }, [displayRows]);
 
   const toggleField = useMutation({
@@ -478,6 +505,17 @@ const TransferList = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={officeFilter} onValueChange={setOfficeFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Offices" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Offices</SelectItem>
+            {uniqueOffices.map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border rounded-md">
@@ -504,128 +542,131 @@ const TransferList = () => {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : groupedRows.length === 0 ? (
+            ) : groupedByOffice.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
                   No transfers found
                 </TableCell>
               </TableRow>
             ) : (
-              groupedRows.map(([dispatcherName, rows]) => (
+              groupedByOffice.map(({ office, totalCount, dispatchers }) => (
                 <>
-                  <TableRow key={`group-${dispatcherName}`} className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell colSpan={colCount} className="font-semibold text-sm py-1.5">
-                      {dispatcherName} ({rows.length})
+                  <TableRow key={`office-${office}`} className="bg-primary/10 hover:bg-primary/10">
+                    <TableCell colSpan={colCount} className="font-bold text-sm py-2">
+                      {office} ({totalCount})
                     </TableCell>
                   </TableRow>
-                  {rows.map((row) => {
-                    const companyStyle = getCompanyBackgroundColor(row.going_to_company);
-                    return (
-                      <TableRow key={row.id} className="hover:bg-transparent">
-                        <TableCell>{row.truck_number}</TableCell>
-                        <TableCell className="font-medium">{row.driver_name}</TableCell>
-                        <TableCell>{row.dispatcher_name || "-"}</TableCell>
-                        <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
-                          {row.going_to_company || "-"}
+                  {dispatchers.map(([dispatcherName, rows]) => (
+                    <>
+                      <TableRow key={`group-${office}-${dispatcherName}`} className="bg-muted/50 hover:bg-muted/50">
+                        <TableCell colSpan={colCount} className="font-semibold text-sm py-1.5 pl-8">
+                          {dispatcherName} ({rows.length})
                         </TableCell>
-
-                        {/* Drug Test Date - inline date picker */}
-                        <TableCell className="text-center">
-                          <InlineDateCell
-                            value={row.drug_test_date}
-                            rowId={row.id}
-                            field="drug_test_date"
-                            canEdit={columnPerms.drug_test}
-                            group="drug_test"
-                          />
-                        </TableCell>
-
-                        {/* Drug Test Zip - inline text */}
-                        <TableCell className="text-center">
-                          <InlineTextCell
-                            value={row.drug_test_zip}
-                            rowId={row.id}
-                            field="drug_test_zip"
-                            canEdit={columnPerms.drug_test}
-                            group="drug_test"
-                            placeholder="Zip..."
-                          />
-                        </TableCell>
-
-                        {/* Coming To Office - inline date picker */}
-                        <TableCell className="text-center">
-                          <InlineDateCell
-                            value={row.coming_to_office}
-                            rowId={row.id}
-                            field="coming_to_office"
-                            canEdit={columnPerms.coming_office}
-                            group="coming_office"
-                          />
-                        </TableCell>
-
-                        {/* Driver Informed */}
-                        <TableCell className="text-center">
-                          {columnPerms.driver_informed ? (
-                            <Checkbox
-                              checked={row.driver_informed}
-                              onCheckedChange={(checked) =>
-                                toggleField.mutate({ id: row.id, field: "driver_informed", value: !!checked })
-                              }
-                            />
-                          ) : (
-                            <LockedCell group="driver_informed">
-                              <span>{row.driver_informed ? "Yes" : "No"}</span>
-                            </LockedCell>
-                          )}
-                        </TableCell>
-
-                        {/* Sign */}
-                        <TableCell className="text-center">
-                          {columnPerms.sign ? (
-                            <Checkbox
-                              checked={row.sign}
-                              onCheckedChange={(checked) =>
-                                toggleField.mutate({ id: row.id, field: "sign", value: !!checked })
-                              }
-                            />
-                          ) : (
-                            <LockedCell group="sign">
-                              <span>{row.sign ? "Yes" : "No"}</span>
-                            </LockedCell>
-                          )}
-                        </TableCell>
-
-                        {/* Finished */}
-                        <TableCell className="text-center">
-                          {columnPerms.finished ? (
-                            <Checkbox
-                              checked={row.finished}
-                              onCheckedChange={(checked) =>
-                                toggleField.mutate({ id: row.id, field: "finished", value: !!checked, row })
-                              }
-                            />
-                          ) : (
-                            <LockedCell group="finished">
-                              <span>{row.finished ? "Yes" : "No"}</span>
-                            </LockedCell>
-                          )}
-                        </TableCell>
-
-                        {canEdit && (
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => setEditRow(row)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
                       </TableRow>
-                    );
-                  })}
+                      {rows.map((row) => {
+                        const companyStyle = getCompanyBackgroundColor(row.going_to_company);
+                        return (
+                          <TableRow key={row.id} className="hover:bg-transparent">
+                            <TableCell>{row.truck_number}</TableCell>
+                            <TableCell className="font-medium">{row.driver_name}</TableCell>
+                            <TableCell>{row.dispatcher_name || "-"}</TableCell>
+                            <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
+                              {row.going_to_company || "-"}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <InlineDateCell
+                                value={row.drug_test_date}
+                                rowId={row.id}
+                                field="drug_test_date"
+                                canEdit={columnPerms.drug_test}
+                                group="drug_test"
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <InlineTextCell
+                                value={row.drug_test_zip}
+                                rowId={row.id}
+                                field="drug_test_zip"
+                                canEdit={columnPerms.drug_test}
+                                group="drug_test"
+                                placeholder="Zip..."
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <InlineDateCell
+                                value={row.coming_to_office}
+                                rowId={row.id}
+                                field="coming_to_office"
+                                canEdit={columnPerms.coming_office}
+                                group="coming_office"
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              {columnPerms.driver_informed ? (
+                                <Checkbox
+                                  checked={row.driver_informed}
+                                  onCheckedChange={(checked) =>
+                                    toggleField.mutate({ id: row.id, field: "driver_informed", value: !!checked })
+                                  }
+                                />
+                              ) : (
+                                <LockedCell group="driver_informed">
+                                  <span>{row.driver_informed ? "Yes" : "No"}</span>
+                                </LockedCell>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              {columnPerms.sign ? (
+                                <Checkbox
+                                  checked={row.sign}
+                                  onCheckedChange={(checked) =>
+                                    toggleField.mutate({ id: row.id, field: "sign", value: !!checked })
+                                  }
+                                />
+                              ) : (
+                                <LockedCell group="sign">
+                                  <span>{row.sign ? "Yes" : "No"}</span>
+                                </LockedCell>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              {columnPerms.finished ? (
+                                <Checkbox
+                                  checked={row.finished}
+                                  onCheckedChange={(checked) =>
+                                    toggleField.mutate({ id: row.id, field: "finished", value: !!checked, row })
+                                  }
+                                />
+                              ) : (
+                                <LockedCell group="finished">
+                                  <span>{row.finished ? "Yes" : "No"}</span>
+                                </LockedCell>
+                              )}
+                            </TableCell>
+
+                            {canEdit && (
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => setEditRow(row)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </>
+                  ))}
                 </>
               ))
             )}
