@@ -574,9 +574,11 @@ const TransferList = () => {
               <TableHead>Truck #</TableHead>
               <TableHead>Driver Name</TableHead>
               <TableHead>Dispatch</TableHead>
+              <TableHead>Safety</TableHead>
               <TableHead>Going To Company</TableHead>
               <TableHead className="text-center">Drug Test Date</TableHead>
               <TableHead className="text-center">Drug Test Zip</TableHead>
+              <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               <TableHead className="text-center">Sign</TableHead>
