@@ -909,6 +909,7 @@ const TransferList = () => {
         drivers={drivers || []}
         companies={companies || []}
         userId={user?.id}
+        safetyUsers={safetyUserList}
       />
 
       {editRow && (
@@ -920,6 +921,7 @@ const TransferList = () => {
           companies={companies || []}
           userId={user?.id}
           editData={editRow}
+          safetyUsers={safetyUserList}
         />
       )}
 
