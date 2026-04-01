@@ -1,114 +1,59 @@
 
 
-# Transfer List Page
+# Add Alert Icons to Reports Page
 
-## Overview
-New page at `/transfer-list` showing an Excel-style table of driver/truck transfers between companies. All authenticated users can view it. Admin, manager, and safety roles can add rows and edit all fields. **Dispatchers can see only rows for their own trucks/drivers and can toggle the "Driver Informed" column.**
+## Summary
+Add expiring document/date icons next to each truck and driver row in Reports, matching the yellow/red color system from the Alerts page. Each alert type gets a distinct icon with a tooltip showing days remaining.
 
-## Database
+## Complete Alert List & Suggested Icons
 
-### Migration: Create `transfer_list` table
-```sql
-CREATE TABLE public.transfer_list (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  driver_id uuid REFERENCES public.drivers(id) ON DELETE SET NULL,
-  truck_id uuid REFERENCES public.trucks(id) ON DELETE SET NULL,
-  going_to_company text,
-  drug_test_date date,
-  coming_to_office text,
-  driver_informed boolean NOT NULL DEFAULT false,
-  created_by uuid REFERENCES auth.users(id),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+### Truck Alerts (shown in truck number cell)
+| Alert | Icon | Color Logic |
+|---|---|---|
+| DOT Inspection | `dotInspectionIcon` (existing) | ≤30d = red, ≤60d = yellow |
+| Plate Expiration | `CreditCard` (lucide) | ≤30d = red, ≤60d = yellow |
+| Insurance Expiration | `ShieldCheck` (lucide) | ≤30d = red, ≤60d = yellow |
+| Oil Change | `wrenchIcon` (existing) | ≤7d = red, ≤30d = yellow |
+| Tires Swap | `CircleDot` (lucide) | ≤7d = red, ≤30d = yellow |
+| Maintenance Check | `Settings` (lucide) | ≤7d = red, ≤30d = yellow |
 
-ALTER TABLE public.transfer_list ENABLE ROW LEVEL SECURITY;
+### Driver Alerts (shown in driver name cell)
+| Alert | Icon | Color Logic |
+|---|---|---|
+| CDL Expiration | `IdCard` (lucide) | ≤30d = red, ≤60d = yellow |
+| MVR Date | `FileText` (lucide) | ≤30d = red, ≤60d = yellow |
+| Clearing House | `Building2` (lucide) | ≤30d = red, ≤60d = yellow |
+| Medical Card | `HeartPulse` (lucide) | ≤30d = red, ≤60d = yellow |
+| Random Drug Test | `Pill` (existing) | Already implemented |
 
--- All authenticated users can read
-CREATE POLICY "Authenticated users can view transfer_list"
-  ON public.transfer_list FOR SELECT TO authenticated
-  USING (true);
+## Implementation Steps
 
--- Admin/manager/safety can insert
-CREATE POLICY "Admin/manager/safety can insert transfer_list"
-  ON public.transfer_list FOR INSERT TO authenticated
-  WITH CHECK (public.has_any_role(ARRAY['admin'::app_role, 'manager'::app_role, 'safety'::app_role]));
+### 1. Pass missing alert fields through adapter (~2 files)
+**`src/hooks/useReportsDateWindowAdapter.ts`** and **`src/hooks/useReports.ts`**:
+- Add to the truck object mapping: `plate_expiration_date`, `insurance_expiration_date`
+- Add driver alert fields: `cdl_expiration_date`, `mvr_date`, `clearing_house`, `medical_card_expiration_date`
+- These fields already exist in the raw data (both queries use `select("*")`)
 
--- Admin/manager/safety can update all fields
-CREATE POLICY "Admin/manager/safety can update transfer_list"
-  ON public.transfer_list FOR UPDATE TO authenticated
-  USING (public.has_any_role(ARRAY['admin'::app_role, 'manager'::app_role, 'safety'::app_role]));
+### 2. Add helper functions for new alert types
+**`src/pages/Reports/helpers.ts`**:
+- Add `getPlateInsuranceIconStatus(truck)` — checks plate & insurance dates (≤30d red, ≤60d yellow)
+- Add `getDriverAlertIconStatus(truck)` — checks CDL, MVR, clearing house, medical card dates
 
--- Dispatchers can update only driver_informed (enforced via trigger below)
-CREATE POLICY "Dispatchers can update driver_informed"
-  ON public.transfer_list FOR UPDATE TO authenticated
-  USING (public.has_any_role(ARRAY['dispatch'::app_role]));
+### 3. Render icons in Reports truck rows
+**`src/pages/Reports.tsx`**:
+- Import new lucide icons (`CreditCard`, `ShieldCheck`, `IdCard`, `FileText`, `Building2`, `HeartPulse`, `CircleDot`, `Settings`)
+- In the truck number cell (next to existing DOT icon): add plate and insurance alert icons
+- In the driver name cell (next to existing wrench/pill icons): add CDL, MVR, clearing house, medical card icons
+- Each icon uses a tooltip showing "CDL: 15 days left" etc.
+- Yellow/red coloring matches the Alerts page thresholds
 
--- Admin/manager/safety can delete
-CREATE POLICY "Admin/manager/safety can delete transfer_list"
-  ON public.transfer_list FOR DELETE TO authenticated
-  USING (public.has_any_role(ARRAY['admin'::app_role, 'manager'::app_role, 'safety'::app_role]));
-
--- Trigger: restrict dispatchers to only changing driver_informed
-CREATE OR REPLACE FUNCTION public.restrict_dispatcher_transfer_list_updates()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
-DECLARE
-  user_roles app_role[];
-BEGIN
-  user_roles := public.auth_user_roles();
-  IF 'dispatch'::app_role = ANY(user_roles)
-     AND NOT user_roles && ARRAY['admin'::app_role, 'manager'::app_role, 'safety'::app_role]
-  THEN
-    NEW.driver_id := OLD.driver_id;
-    NEW.truck_id := OLD.truck_id;
-    NEW.going_to_company := OLD.going_to_company;
-    NEW.drug_test_date := OLD.drug_test_date;
-    NEW.coming_to_office := OLD.coming_to_office;
-    NEW.created_by := OLD.created_by;
-    NEW.created_at := OLD.created_at;
-    -- Only driver_informed is allowed to change
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER restrict_dispatcher_transfer_list_updates
-  BEFORE UPDATE ON public.transfer_list
-  FOR EACH ROW EXECUTE FUNCTION public.restrict_dispatcher_transfer_list_updates();
-
--- Updated_at trigger
-CREATE TRIGGER update_transfer_list_updated_at
-  BEFORE UPDATE ON public.transfer_list
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-```
-
-## Frontend
-
-### 1. `src/pages/TransferList.tsx` (new file)
-- Fetch all rows from `transfer_list` joined with `drivers(name)` and `trucks(truck_number, driver1_id)`
-- **Dispatcher filtering**: if user has only `dispatch` role, filter client-side to show only rows where the driver's `dispatcher_id` matches `user.id` (using drivers data from the existing `useDrivers` hook)
-- Excel-style table: Driver Name | Truck # | Going To Company | Drug Test Date | Coming To Office | Driver Informed (Yes/No checkbox)
-- **Add Row**: button visible only to admin/manager/safety; opens inline row or small dialog with:
-  - Truck combobox (auto-fills driver) and Driver combobox (auto-fills truck) using existing trucks/drivers data
-  - Going to company (text or combobox from `useCompanies`)
-  - Drug test date picker
-  - Coming to office text input
-- **Editing**:
-  - Admin/manager/safety: all fields editable inline
-  - Dispatch: only "Driver Informed" toggle is editable
-  - Other roles: read-only
-- **Summary widget**: top-right card showing count of trucks per destination company (grouped by `going_to_company`)
-- **Delete**: admin/manager/safety can delete rows (with confirmation)
-
-### 2. `src/components/Sidebar.tsx`
-- Add `{ name: "Transfer List", href: "/transfer-list", icon: Users }` to the navigation array (no role restriction)
-
-### 3. `src/App.tsx`
-- Add route: `/transfer-list` -> `<ProtectedRoute><Layout><TransferList /></Layout></ProtectedRoute>`
-- Import `TransferList` from `@/pages/TransferList`
+### 4. Extend maintenance icon to include tires & maintenance check individually
+Currently `getMaintenanceIconStatus` bundles oil/tires/maintenance into one wrench icon. Add separate icons for tires swap (`CircleDot`) and maintenance check (`Settings`) alongside the existing wrench.
 
 ## Technical Details
-- Auto-fill: when user selects a truck, look up `driver1_id` from trucks data and set driver. When user selects a driver, find the truck where `driver1_id` matches and set truck.
-- Dispatcher filtering uses `drivers` data to check `dispatcher_id === user.id` for each row's `driver_id`.
-- The BEFORE UPDATE trigger ensures dispatchers can only modify `driver_informed` even if they bypass the UI.
+- All date fields already exist in the Supabase `trucks` and `drivers` tables
+- Both hooks already fetch `select("*")` so no additional queries needed
+- Icons use lucide-react components with `className` for coloring (e.g., `text-red-500`, `text-yellow-500`)
+- Tooltips use existing `<Tooltip>` pattern already in Reports
+- Files modified: `useReportsDateWindowAdapter.ts`, `useReports.ts`, `Reports/helpers.ts`, `Reports.tsx`
 
