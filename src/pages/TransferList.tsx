@@ -53,10 +53,13 @@ interface TransferRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  safety_user_id: string | null;
   driver_name?: string;
   truck_number?: string;
   dispatcher_name?: string;
   dispatcher_office?: string;
+  safety_name?: string;
+  drug_test_result?: string | null;
 }
 
 // ─── Role permission helpers ───
