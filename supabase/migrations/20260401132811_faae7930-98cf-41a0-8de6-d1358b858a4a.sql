@@ -1,0 +1,1 @@
+ALTER TABLE public.transfer_list ADD COLUMN safety_user_id uuid REFERENCES auth.users(id) DEFAULT NULL;
