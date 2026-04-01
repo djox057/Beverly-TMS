@@ -20,7 +20,7 @@ export async function diagnoseLoadMiles(internalLoadNumber: number | string) {
       const { error: updateError } = await supabase
         .from('orders')
         .update({ loaded_miles: data.calculatedMiles })
-        .eq('internal_load_number', internalLoadNumber);
+        .eq('internal_load_number', String(internalLoadNumber));
       
       if (updateError) {
         console.error('❌ Error updating miles:', updateError);
