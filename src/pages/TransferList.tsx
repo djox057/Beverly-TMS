@@ -748,7 +748,7 @@ const TransferList = () => {
               <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
-              <TableHead className="text-center">Sign</TableHead>
+              <TableHead className="text-center">Signs</TableHead>
               <TableHead className="text-center">Finished</TableHead>
               {canEdit && <TableHead className="w-[80px]" />}
             </TableRow>
