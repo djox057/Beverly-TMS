@@ -332,21 +332,39 @@ const TransferList = () => {
     return map;
   }, [profiles]);
 
+  const safetyUserList = useMemo(() => {
+    const ids = new Set<string>();
+    safetyUsers.forEach((r: any) => ids.add(r.user_id));
+    return Array.from(ids).map((uid) => {
+      const p = profileMap.get(uid);
+      return { user_id: uid, name: p?.name || uid };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [safetyUsers, profileMap]);
+
+  const drugTestMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    drugTests.forEach((dt: any) => map.set(dt.driver_id, dt.result));
+    return map;
+  }, [drugTests]);
+
   const enrichedRows: TransferRow[] = useMemo(() => {
     return transferRows.map((row: any) => {
       const driver = row.driver_id ? driverMap.get(row.driver_id) : null;
       const truck = row.truck_id ? truckMap.get(row.truck_id) : null;
       const dispatcherId = driver?.dispatcher_id || truck?.dispatcher_id;
       const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
+      const safetyProfile = row.safety_user_id ? profileMap.get(row.safety_user_id) : null;
       return {
         ...row,
         driver_name: driver?.name || "",
         truck_number: truck?.truck_number || "",
         dispatcher_name: profile?.name || "",
         dispatcher_office: profile?.office || "",
+        safety_name: safetyProfile?.name || "",
+        drug_test_result: row.driver_id ? drugTestMap.get(row.driver_id) || null : null,
       };
     });
-  }, [transferRows, driverMap, truckMap, profileMap]);
+  }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
 
   const filteredRows = useMemo(() => {
     if (!isDispatchOnly) return enrichedRows;
