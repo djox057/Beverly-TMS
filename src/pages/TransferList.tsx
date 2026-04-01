@@ -56,6 +56,7 @@ interface TransferRow {
   driver_name?: string;
   truck_number?: string;
   dispatcher_name?: string;
+  dispatcher_office?: string;
 }
 
 // ─── Role permission helpers ───
