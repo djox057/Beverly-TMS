@@ -44,6 +44,14 @@ import {
   Fuel,
   Search,
   Download,
+  CreditCard,
+  ShieldCheck,
+  CircleDot,
+  Settings,
+  IdCard,
+  FileText,
+  Building2,
+  HeartPulse,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
