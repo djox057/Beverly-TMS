@@ -661,6 +661,10 @@ const TransferList = () => {
                             </TableCell>
 
                             <TableCell className="text-center">
+                              <DrugTestResultBadge result={row.drug_test_result} />
+                            </TableCell>
+
+                            <TableCell className="text-center">
                               <InlineDateCell
                                 value={row.coming_to_office}
                                 rowId={row.id}
