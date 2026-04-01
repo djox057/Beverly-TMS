@@ -815,7 +815,11 @@ const TransferList = () => {
                             </TableCell>
 
                             <TableCell className="text-center">
-                              <DrugTestResultBadge result={row.drug_test_result} />
+                              <DrugTestResultCell
+                                result={row.drug_test_result}
+                                driverId={row.driver_id}
+                                canEdit={columnPerms.drug_test}
+                              />
                             </TableCell>
 
                             <TableCell className="text-center">
