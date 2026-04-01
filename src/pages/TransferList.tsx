@@ -505,6 +505,17 @@ const TransferList = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={officeFilter} onValueChange={setOfficeFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Offices" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Offices</SelectItem>
+            {uniqueOffices.map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border rounded-md">
