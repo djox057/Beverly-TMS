@@ -945,7 +945,7 @@ const TransferList = () => {
 
 // --- Add/Edit Transfer Row Dialog ---
 function TransferRowDialog({
-  open, onClose, trucks, drivers, companies, userId, editData,
+  open, onClose, trucks, drivers, companies, userId, editData, safetyUsers,
 }: {
   open: boolean;
   onClose: () => void;
@@ -954,6 +954,7 @@ function TransferRowDialog({
   companies: any[];
   userId?: string;
   editData?: TransferRow;
+  safetyUsers: { user_id: string; name: string }[];
 }) {
   const queryClient = useQueryClient();
   const isEdit = !!editData;
@@ -964,11 +965,23 @@ function TransferRowDialog({
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
   );
   const [drugTestZip, setDrugTestZip] = useState(editData?.drug_test_zip || "");
+  const [drugTestResult, setDrugTestResult] = useState<string>(editData?.drug_test_result || "");
   const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
     editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
   );
+  const [safetyUserId, setSafetyUserId] = useState<string | null>(editData?.safety_user_id || null);
+  const [driverInformed, setDriverInformed] = useState(editData?.driver_informed || false);
+  const [sign, setSign] = useState(editData?.sign || false);
+  const [finished, setFinished] = useState(editData?.finished || false);
   const [truckSearch, setTruckSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
+
+  // Popover open states for auto-close
+  const [truckOpen, setTruckOpen] = useState(false);
+  const [driverOpen, setDriverOpen] = useState(false);
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [drugTestResultOpen, setDrugTestResultOpen] = useState(false);
 
   useEffect(() => {
     if (editData) {
@@ -977,7 +990,12 @@ function TransferRowDialog({
       setGoingToCompany(editData.going_to_company || "");
       setDrugTestDate(editData.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined);
       setDrugTestZip(editData.drug_test_zip || "");
+      setDrugTestResult(editData.drug_test_result || "");
       setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
+      setSafetyUserId(editData.safety_user_id || null);
+      setDriverInformed(editData.driver_informed || false);
+      setSign(editData.sign || false);
+      setFinished(editData.finished || false);
     }
   }, [editData]);
 
@@ -995,19 +1013,22 @@ function TransferRowDialog({
 
   const handleTruckSelect = useCallback((id: string) => {
     setTruckId(id);
+    setTruckOpen(false);
     const did = truckDriverMap.get(id);
     if (did) setDriverId(did);
   }, [truckDriverMap]);
 
   const handleDriverSelect = useCallback((id: string) => {
     setDriverId(id);
+    setDriverOpen(false);
     const tid = driverTruckMap.get(id);
     if (tid) setTruckId(tid);
   }, [driverTruckMap]);
 
   const reset = () => {
     setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
-    setDrugTestZip(""); setComingToOffice(undefined);
+    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined);
+    setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
   };
 
@@ -1020,6 +1041,10 @@ function TransferRowDialog({
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
         drug_test_zip: drugTestZip || null,
         coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
+        safety_user_id: safetyUserId || null,
+        driver_informed: driverInformed,
+        sign,
+        finished,
       } as any;
 
       if (isEdit && editData) {
@@ -1035,9 +1060,23 @@ function TransferRowDialog({
         } as any);
         if (error) throw error;
       }
+
+      // Save drug test result to driver_drug_tests if driver selected
+      if (driverId && drugTestResult) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase
+          .from("driver_drug_tests")
+          .upsert(
+            { driver_id: driverId, result: drugTestResult, tested_by: user?.id },
+            { onConflict: "driver_id" }
+          );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-drug-tests-transfer"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-drug-tests"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
       toast({ title: isEdit ? "Transfer updated" : "Transfer added" });
       reset();
       onClose();
@@ -1062,17 +1101,20 @@ function TransferRowDialog({
 
   const selectedTruckLabel = truckId ? trucks.find((t: any) => t.id === truckId)?.truck_number : null;
   const selectedDriverLabel = driverId ? drivers.find((d: any) => d.id === driverId)?.name : null;
+  const selectedSafetyLabel = safetyUserId ? safetyUsers.find((u) => u.user_id === safetyUserId)?.name : null;
+  const currentDrugOpt = DRUG_TEST_OPTIONS.find((o) => o.value === drugTestResult);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Transfer" : "Add Transfer"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Truck */}
           <div>
             <label className="text-sm font-medium">Truck #</label>
-            <Popover>
+            <Popover open={truckOpen} onOpenChange={setTruckOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start font-normal">
                   {selectedTruckLabel || "Select truck..."}
@@ -1096,9 +1138,10 @@ function TransferRowDialog({
             </Popover>
           </div>
 
+          {/* Driver */}
           <div>
             <label className="text-sm font-medium">Driver</label>
-            <Popover>
+            <Popover open={driverOpen} onOpenChange={setDriverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start font-normal">
                   {selectedDriverLabel || "Select driver..."}
@@ -1122,9 +1165,40 @@ function TransferRowDialog({
             </Popover>
           </div>
 
+          {/* Safety */}
+          <div>
+            <label className="text-sm font-medium">Safety Person</label>
+            <Popover open={safetyOpen} onOpenChange={setSafetyOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start font-normal">
+                  {selectedSafetyLabel || "Select safety user..."}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search safety user..." />
+                  <CommandList>
+                    <CommandEmpty>No users found</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem onSelect={() => { setSafetyUserId(null); setSafetyOpen(false); }}>
+                        <span className="text-muted-foreground">— None —</span>
+                      </CommandItem>
+                      {safetyUsers.map((u) => (
+                        <CommandItem key={u.user_id} value={u.name} onSelect={() => { setSafetyUserId(u.user_id); setSafetyOpen(false); }}>
+                          {u.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Going To Company */}
           <div>
             <label className="text-sm font-medium">Going To Company</label>
-            <Popover>
+            <Popover open={companyOpen} onOpenChange={setCompanyOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start font-normal">
                   {goingToCompany || "Select company..."}
@@ -1137,7 +1211,7 @@ function TransferRowDialog({
                     <CommandEmpty>No companies found</CommandEmpty>
                     <CommandGroup>
                       {(companies || []).map((c: any) => (
-                        <CommandItem key={c.id} value={c.name} onSelect={() => setGoingToCompany(c.name)}>
+                        <CommandItem key={c.id} value={c.name} onSelect={() => { setGoingToCompany(c.name); setCompanyOpen(false); }}>
                           {c.name}
                         </CommandItem>
                       ))}
@@ -1148,6 +1222,7 @@ function TransferRowDialog({
             </Popover>
           </div>
 
+          {/* Drug Test Date */}
           <div>
             <label className="text-sm font-medium">Drug Test Date</label>
             <Popover>
@@ -1163,11 +1238,50 @@ function TransferRowDialog({
             </Popover>
           </div>
 
+          {/* Drug Test Zip */}
           <div>
             <label className="text-sm font-medium">Drug Test Zip Code</label>
             <Input value={drugTestZip} onChange={(e) => setDrugTestZip(e.target.value)} placeholder="Zip code..." />
           </div>
 
+          {/* Drug Test Result */}
+          <div>
+            <label className="text-sm font-medium">Drug Test Result</label>
+            <Popover open={drugTestResultOpen} onOpenChange={setDrugTestResultOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start font-normal">
+                  {currentDrugOpt ? (
+                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", currentDrugOpt.cls)}>
+                      {currentDrugOpt.label}
+                    </span>
+                  ) : "Select result..."}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-1" align="start">
+                <div className="flex flex-col gap-1">
+                  {DRUG_TEST_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={cn("text-left px-2 py-1.5 rounded text-sm hover:bg-accent", drugTestResult === opt.value && "font-bold")}
+                      onClick={() => { setDrugTestResult(opt.value); setDrugTestResultOpen(false); }}
+                    >
+                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", opt.cls)}>{opt.label}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-left px-2 py-1.5 rounded text-sm hover:bg-accent text-muted-foreground"
+                    onClick={() => { setDrugTestResult(""); setDrugTestResultOpen(false); }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Coming To Office */}
           <div>
             <label className="text-sm font-medium">Coming To Office</label>
             <Popover>
@@ -1181,6 +1295,22 @@ function TransferRowDialog({
                 <Calendar mode="single" selected={comingToOffice} onSelect={setComingToOffice} initialFocus className="p-3 pointer-events-auto" />
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Checkboxes */}
+          <div className="flex items-center gap-6 pt-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={driverInformed} onCheckedChange={(c) => setDriverInformed(!!c)} />
+              Driver Informed
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={sign} onCheckedChange={(c) => setSign(!!c)} />
+              Sign
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={finished} onCheckedChange={(c) => setFinished(!!c)} />
+              Finished
+            </label>
           </div>
         </div>
         <DialogFooter>
