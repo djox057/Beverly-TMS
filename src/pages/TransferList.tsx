@@ -306,11 +306,13 @@ const TransferList = () => {
       const driver = row.driver_id ? driverMap.get(row.driver_id) : null;
       const truck = row.truck_id ? truckMap.get(row.truck_id) : null;
       const dispatcherId = driver?.dispatcher_id || truck?.dispatcher_id;
+      const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
       return {
         ...row,
         driver_name: driver?.name || "",
         truck_number: truck?.truck_number || "",
-        dispatcher_name: dispatcherId ? profileMap.get(dispatcherId) || "" : "",
+        dispatcher_name: profile?.name || "",
+        dispatcher_office: profile?.office || "",
       };
     });
   }, [transferRows, driverMap, truckMap, profileMap]);
