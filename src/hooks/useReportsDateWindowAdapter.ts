@@ -413,7 +413,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trailers');
       const { data, error } = await supabase
         .from("trailers")
-        .select("id, trailer_number, dot_inspection_date, vin, plate")
+        .select("id, trailer_number, dot_inspection_date, plate_expiration_date, insurance_expiration_date, vin, plate")
         .in("id", trailerIdsFromTrucks);
       console.timeEnd('[perf] adapter-trailers');
       if (error) throw error;
@@ -1427,7 +1427,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         }
       }
     }
-    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, vin: t.vin, plate: (t as any).plate }]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, plate_expiration_date: t.plate_expiration_date, insurance_expiration_date: t.insurance_expiration_date, vin: t.vin, plate: (t as any).plate }]));
     const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
     // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
@@ -1784,6 +1784,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         // Truck alert fields
         plate_expiration_date: truck?.plate_expiration_date || null,
         insurance_expiration_date: truck?.insurance_expiration_date || null,
+        // Trailer alert fields
+        trailer_plate_expiration_date: trailerInfo?.plate_expiration_date || null,
+        trailer_insurance_expiration_date: trailerInfo?.insurance_expiration_date || null,
         // Driver alert fields
         cdl_expiration_date: driver.cdl_expiration_date || null,
         mvr_date: driver.mvr_date || null,
@@ -2012,6 +2015,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
             plate_expiration_date: truck?.plate_expiration_date || null,
             insurance_expiration_date: truck?.insurance_expiration_date || null,
+            trailer_plate_expiration_date: trailerInfo?.plate_expiration_date || null,
+            trailer_insurance_expiration_date: trailerInfo?.insurance_expiration_date || null,
             cdl_expiration_date: null,
             mvr_date: null,
             clearing_house: null,

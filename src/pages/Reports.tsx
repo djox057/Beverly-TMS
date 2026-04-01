@@ -145,6 +145,8 @@ import {
   getMvrDateIconStatus,
   getClearingHouseIconStatus,
   getMedicalCardIconStatus,
+  collectTruckAlerts,
+  collectDriverAlerts,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
@@ -4017,94 +4019,70 @@ const Reports = () => {
                                                   </Popover>
                                                 )}
                                                 {(() => {
-                                                  const dotStatus = getDotInspectionIconStatus(truck);
-                                                  if (dotStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <img
-                                                            src={dotInspectionIcon}
-                                                            alt="DOT Inspection"
-                                                            className="h-4 w-4"
-                                                            style={{
-                                                              filter:
-                                                                dotStatus.color === "red"
+                                                  const truckAlerts = collectTruckAlerts(truck);
+                                                  if (truckAlerts.length === 0) return null;
+                                                  if (truckAlerts.length === 1) {
+                                                    const alert = truckAlerts[0];
+                                                    const IconMap: Record<string, any> = { CreditCard, ShieldCheck, CircleDot, Settings };
+                                                    if (alert.icon === 'dot') {
+                                                      return (
+                                                        <Tooltip>
+                                                          <TooltipTrigger asChild>
+                                                            <img
+                                                              src={dotInspectionIcon}
+                                                              alt="DOT Inspection"
+                                                              className="h-4 w-4"
+                                                              style={{
+                                                                filter: alert.color === "red"
                                                                   ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
                                                                   : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
-                                                            }}
-                                                          />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{dotStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const plateStatus = getPlateExpirationIconStatus(truck);
-                                                  if (plateStatus.show) {
+                                                              }}
+                                                            />
+                                                          </TooltipTrigger>
+                                                          <TooltipContent>
+                                                            <p className="text-xs">{alert.tooltip}</p>
+                                                          </TooltipContent>
+                                                        </Tooltip>
+                                                      );
+                                                    }
+                                                    const IconComp = IconMap[alert.icon];
+                                                    if (!IconComp) return null;
                                                     return (
                                                       <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                          <CreditCard className={`h-3.5 w-3.5 ${plateStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                          <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                          <p className="text-xs">{plateStatus.tooltip}</p>
+                                                          <p className="text-xs">{alert.tooltip}</p>
                                                         </TooltipContent>
                                                       </Tooltip>
                                                     );
                                                   }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const insuranceStatus = getInsuranceExpirationIconStatus(truck);
-                                                  if (insuranceStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <ShieldCheck className={`h-3.5 w-3.5 ${insuranceStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{insuranceStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const tiresStatus = getTiresSwapIconStatus(truck);
-                                                  if (tiresStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <CircleDot className={`h-3.5 w-3.5 ${tiresStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{tiresStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const maintCheckStatus = getMaintenanceCheckIconStatus(truck);
-                                                  if (maintCheckStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <Settings className={`h-3.5 w-3.5 ${maintCheckStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{maintCheckStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
+                                                  // 2+ alerts: show count badge with popover
+                                                  const hasRed = truckAlerts.some(a => a.color === 'red');
+                                                  return (
+                                                    <Popover>
+                                                      <PopoverTrigger asChild>
+                                                        <button
+                                                          className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer ${hasRed ? 'bg-red-500' : 'bg-yellow-500'}`}
+                                                          onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                          {truckAlerts.length}
+                                                        </button>
+                                                      </PopoverTrigger>
+                                                      <PopoverContent className="w-auto max-w-xs p-3">
+                                                        <p className="text-xs font-bold mb-2">Truck & Trailer Alerts</p>
+                                                        <div className="space-y-1">
+                                                          {truckAlerts.map((alert, i) => (
+                                                            <div key={i} className="flex items-center gap-2">
+                                                              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                                                              <span className="text-xs">{alert.tooltip}</span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      </PopoverContent>
+                                                    </Popover>
+                                                  );
                                                 })()}
                                               </div>
                                               {truck.companyName && (
@@ -4303,68 +4281,49 @@ const Reports = () => {
                                                   </Popover>
                                                 )}
                                                 {(() => {
-                                                  const cdlStatus = getCdlExpirationIconStatus(truck);
-                                                  if (cdlStatus.show) {
+                                                  const driverAlerts = collectDriverAlerts(truck);
+                                                  if (driverAlerts.length === 0) return null;
+                                                  if (driverAlerts.length === 1) {
+                                                    const alert = driverAlerts[0];
+                                                    const IconMap: Record<string, any> = { IdCard, FileText, Building2, HeartPulse };
+                                                    const IconComp = IconMap[alert.icon];
+                                                    if (!IconComp) return null;
                                                     return (
                                                       <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                          <IdCard className={`h-3.5 w-3.5 ${cdlStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                          <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                          <p className="text-xs">{cdlStatus.tooltip}</p>
+                                                          <p className="text-xs">{alert.tooltip}</p>
                                                         </TooltipContent>
                                                       </Tooltip>
                                                     );
                                                   }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const mvrStatus = getMvrDateIconStatus(truck);
-                                                  if (mvrStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <FileText className={`h-3.5 w-3.5 ${mvrStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{mvrStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const clearingStatus = getClearingHouseIconStatus(truck);
-                                                  if (clearingStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <Building2 className={`h-3.5 w-3.5 ${clearingStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{clearingStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {(() => {
-                                                  const medicalStatus = getMedicalCardIconStatus(truck);
-                                                  if (medicalStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <HeartPulse className={`h-3.5 w-3.5 ${medicalStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{medicalStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
+                                                  // 2+ alerts: show count badge with popover
+                                                  const hasRed = driverAlerts.some(a => a.color === 'red');
+                                                  return (
+                                                    <Popover>
+                                                      <PopoverTrigger asChild>
+                                                        <button
+                                                          className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer ${hasRed ? 'bg-red-500' : 'bg-yellow-500'}`}
+                                                          onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                          {driverAlerts.length}
+                                                        </button>
+                                                      </PopoverTrigger>
+                                                      <PopoverContent className="w-auto max-w-xs p-3">
+                                                        <p className="text-xs font-bold mb-2">Driver Alerts</p>
+                                                        <div className="space-y-1">
+                                                          {driverAlerts.map((alert, i) => (
+                                                            <div key={i} className="flex items-center gap-2">
+                                                              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                                                              <span className="text-xs">{alert.tooltip}</span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      </PopoverContent>
+                                                    </Popover>
+                                                  );
                                                 })()}
                                                 {(truck.driverPhone ||
                                                   truck.driverEmail ||
