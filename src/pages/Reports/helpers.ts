@@ -578,3 +578,73 @@ export const getNextStopInSequence = (
 
   return null;
 };
+
+// Generic helper to calculate days until a date and return alert status
+const getDateAlertStatus = (
+  dateStr: string | null | undefined,
+  redThresholdDays: number,
+  yellowThresholdDays: number
+): { show: boolean; color: 'red' | 'yellow' | null; daysLeft: number } => {
+  if (!dateStr) return { show: false, color: null, daysLeft: Infinity };
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const targetDate = new Date(dateStr);
+  targetDate.setHours(0, 0, 0, 0);
+  const daysLeft = Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft > yellowThresholdDays) return { show: false, color: null, daysLeft };
+  const color: 'red' | 'yellow' = daysLeft <= redThresholdDays ? 'red' : 'yellow';
+  return { show: true, color, daysLeft };
+};
+
+// Helper to get plate expiration alert status
+export const getPlateExpirationIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.plate_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Plate: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+// Helper to get insurance expiration alert status
+export const getInsuranceExpirationIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.insurance_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Insurance: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+// Helper to get tires swap alert status (separate from maintenance wrench)
+export const getTiresSwapIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.tires_swap_date, 7, 30);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Tires Swap: ${status.daysLeft <= 0 ? 'Overdue' : `${status.daysLeft} days left`}` };
+};
+
+// Helper to get maintenance check alert status (separate from wrench)
+export const getMaintenanceCheckIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.maintenance_check_date, 7, 30);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Maintenance Check: ${status.daysLeft <= 0 ? 'Overdue' : `${status.daysLeft} days left`}` };
+};
+
+// Driver alert icon helpers
+export const getCdlExpirationIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.cdl_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `CDL: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+export const getMvrDateIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.mvr_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `MVR: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+export const getClearingHouseIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.clearing_house, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Clearing House: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+export const getMedicalCardIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.medical_card_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Medical Card: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
