@@ -648,3 +648,66 @@ export const getMedicalCardIconStatus = (truck: any): { show: boolean; color: 'r
   if (!status.show) return { show: false, color: null, tooltip: '' };
   return { show: true, color: status.color, tooltip: `Medical Card: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
 };
+
+// Trailer alert icon helpers
+export const getTrailerPlateExpirationIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.trailer_plate_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Trailer Plate: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+export const getTrailerInsuranceExpirationIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
+  const status = getDateAlertStatus(truck.trailer_insurance_expiration_date, 30, 60);
+  if (!status.show) return { show: false, color: null, tooltip: '' };
+  return { show: true, color: status.color, tooltip: `Trailer Insurance: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
+};
+
+// Collect all truck cell alerts (DOT, plate, insurance, maintenance, tires, maintenance check, trailer alerts)
+export type AlertItem = { label: string; tooltip: string; color: 'red' | 'yellow'; icon: string };
+
+export const collectTruckAlerts = (truck: any): AlertItem[] => {
+  const alerts: AlertItem[] = [];
+  
+  const dotStatus = getDotInspectionIconStatus(truck);
+  if (dotStatus.show && dotStatus.color) alerts.push({ label: 'DOT Inspection', tooltip: dotStatus.tooltip, color: dotStatus.color, icon: 'dot' });
+  
+  const plateStatus = getPlateExpirationIconStatus(truck);
+  if (plateStatus.show && plateStatus.color) alerts.push({ label: 'Plate', tooltip: plateStatus.tooltip, color: plateStatus.color, icon: 'CreditCard' });
+  
+  const insuranceStatus = getInsuranceExpirationIconStatus(truck);
+  if (insuranceStatus.show && insuranceStatus.color) alerts.push({ label: 'Insurance', tooltip: insuranceStatus.tooltip, color: insuranceStatus.color, icon: 'ShieldCheck' });
+  
+  const tiresStatus = getTiresSwapIconStatus(truck);
+  if (tiresStatus.show && tiresStatus.color) alerts.push({ label: 'Tires Swap', tooltip: tiresStatus.tooltip, color: tiresStatus.color, icon: 'CircleDot' });
+  
+  const maintStatus = getMaintenanceCheckIconStatus(truck);
+  if (maintStatus.show && maintStatus.color) alerts.push({ label: 'Maintenance', tooltip: maintStatus.tooltip, color: maintStatus.color, icon: 'Settings' });
+  
+  // Trailer alerts
+  const trailerPlateStatus = getTrailerPlateExpirationIconStatus(truck);
+  if (trailerPlateStatus.show && trailerPlateStatus.color) alerts.push({ label: 'Trailer Plate', tooltip: trailerPlateStatus.tooltip, color: trailerPlateStatus.color, icon: 'CreditCard' });
+  
+  const trailerInsuranceStatus = getTrailerInsuranceExpirationIconStatus(truck);
+  if (trailerInsuranceStatus.show && trailerInsuranceStatus.color) alerts.push({ label: 'Trailer Insurance', tooltip: trailerInsuranceStatus.tooltip, color: trailerInsuranceStatus.color, icon: 'ShieldCheck' });
+  
+  return alerts;
+};
+
+// Collect all driver cell alerts (CDL, MVR, Clearing House, Medical Card)
+export const collectDriverAlerts = (truck: any): AlertItem[] => {
+  const alerts: AlertItem[] = [];
+  
+  const cdlStatus = getCdlExpirationIconStatus(truck);
+  if (cdlStatus.show && cdlStatus.color) alerts.push({ label: 'CDL', tooltip: cdlStatus.tooltip, color: cdlStatus.color, icon: 'IdCard' });
+  
+  const mvrStatus = getMvrDateIconStatus(truck);
+  if (mvrStatus.show && mvrStatus.color) alerts.push({ label: 'MVR', tooltip: mvrStatus.tooltip, color: mvrStatus.color, icon: 'FileText' });
+  
+  const clearingStatus = getClearingHouseIconStatus(truck);
+  if (clearingStatus.show && clearingStatus.color) alerts.push({ label: 'Clearing House', tooltip: clearingStatus.tooltip, color: clearingStatus.color, icon: 'Building2' });
+  
+  const medicalStatus = getMedicalCardIconStatus(truck);
+  if (medicalStatus.show && medicalStatus.color) alerts.push({ label: 'Medical Card', tooltip: medicalStatus.tooltip, color: medicalStatus.color, icon: 'HeartPulse' });
+  
+  return alerts;
+};
