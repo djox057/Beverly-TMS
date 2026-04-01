@@ -4042,6 +4042,70 @@ const Reports = () => {
                                                   }
                                                   return null;
                                                 })()}
+                                                {(() => {
+                                                  const plateStatus = getPlateExpirationIconStatus(truck);
+                                                  if (plateStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <CreditCard className={`h-3.5 w-3.5 ${plateStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{plateStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const insuranceStatus = getInsuranceExpirationIconStatus(truck);
+                                                  if (insuranceStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <ShieldCheck className={`h-3.5 w-3.5 ${insuranceStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{insuranceStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const tiresStatus = getTiresSwapIconStatus(truck);
+                                                  if (tiresStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <CircleDot className={`h-3.5 w-3.5 ${tiresStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{tiresStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const maintCheckStatus = getMaintenanceCheckIconStatus(truck);
+                                                  if (maintCheckStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <Settings className={`h-3.5 w-3.5 ${maintCheckStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{maintCheckStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
                                               </div>
                                               {truck.companyName && (
                                                 <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
