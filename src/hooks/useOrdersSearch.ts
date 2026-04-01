@@ -128,17 +128,12 @@ export function useOrdersSearch() {
       }
 
       // === STAGE 1: Flat order search (fast, index-friendly) ===
-      const isNumericTerm = /^\d+$/.test(term);
-      const numericValue = isNumericTerm ? parseInt(term, 10) : null;
-      const isValidInternalLoadNumber = numericValue !== null && numericValue <= 2147483647;
       const parsedInternalLoadNumber = parseInternalLoadNumber(term);
-      const hasValidInternalLoadNumber = parsedInternalLoadNumber !== null && parsedInternalLoadNumber <= 2147483647;
 
       let searchFilter: string;
-      if (isNumericTerm && isValidInternalLoadNumber) {
-        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.eq.${term}`;
-      } else if (hasValidInternalLoadNumber) {
-        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.eq.${parsedInternalLoadNumber}`;
+      if (parsedInternalLoadNumber !== null) {
+        // Search internal_load_number as text prefix (e.g. "7941" matches "7941-BF")
+        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.ilike.${parsedInternalLoadNumber}%`;
       } else {
         searchFilter = `broker_load_number.ilike.%${term}%`;
       }
