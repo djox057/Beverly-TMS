@@ -53,14 +53,17 @@ interface TransferRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  safety_user_id: string | null;
   driver_name?: string;
   truck_number?: string;
   dispatcher_name?: string;
   dispatcher_office?: string;
+  safety_name?: string;
+  drug_test_result?: string | null;
 }
 
 // ─── Role permission helpers ───
-type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished";
+type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished" | "safety_assign";
 
 const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }> = {
   drug_test: { roles: ["safety", "admin"], label: "Safety" },
@@ -68,6 +71,7 @@ const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }
   coming_office: { roles: ["dispatch", "admin"], label: "Dispatch" },
   driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch" },
   sign: { roles: ["yard", "maintenance", "admin"], label: "Yard / Maintenance" },
+  safety_assign: { roles: ["safety", "manager", "admin"], label: "Safety / Manager" },
 };
 
 function useCanEditColumn(hasRole: (r: any) => boolean) {
@@ -230,6 +234,89 @@ function InlineTextCell({
   );
 }
 
+// ─── Safety assign cell ───
+function SafetyAssignCell({
+  rowId,
+  currentUserId,
+  currentName,
+  safetyUsers,
+}: {
+  rowId: string;
+  currentUserId: string | null;
+  currentName: string;
+  safetyUsers: { user_id: string; name: string }[];
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async (userId: string | null) => {
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ safety_user_id: userId } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
+          type="button"
+        >
+          {currentName || "-"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search safety user..." />
+          <CommandList>
+            <CommandEmpty>No users found</CommandEmpty>
+            <CommandGroup>
+              <CommandItem onSelect={() => mutation.mutate(null)}>
+                <span className="text-muted-foreground">— Unassign —</span>
+              </CommandItem>
+              {safetyUsers.map((u) => (
+                <CommandItem
+                  key={u.user_id}
+                  value={u.name}
+                  onSelect={() => mutation.mutate(u.user_id)}
+                  className={cn(u.user_id === currentUserId && "font-bold")}
+                >
+                  {u.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── Drug test result badge ───
+function DrugTestResultBadge({ result }: { result: string | null | undefined }) {
+  if (!result) return <span className="text-muted-foreground">-</span>;
+  const colorMap: Record<string, string> = {
+    negative: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    positive: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  };
+  const cls = colorMap[result] || "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", cls)}>
+      {result}
+    </span>
+  );
+}
+
 // ─── Hook ───
 const useTransferList = () => {
   const queryClient = useQueryClient();
@@ -295,11 +382,53 @@ const TransferList = () => {
     staleTime: 600000,
   });
 
+  // Fetch safety/manager role users for safety assignment dropdown
+  const { data: safetyUsers = [] } = useQuery({
+    queryKey: ["safety-users-for-transfer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles" as any)
+        .select("user_id, role")
+        .in("role", ["safety", "manager", "admin"]);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 600000,
+  });
+
+  // Fetch drug test results
+  const { data: drugTests = [] } = useQuery({
+    queryKey: ["driver-drug-tests-transfer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("driver_drug_tests")
+        .select("driver_id, result");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 60000,
+  });
+
   const profileMap = useMemo(() => {
     const map = new Map<string, { name: string; office: string }>();
     profiles.forEach((p: any) => map.set(p.user_id, { name: p.full_name || "", office: p.office || "" }));
     return map;
   }, [profiles]);
+
+  const safetyUserList = useMemo(() => {
+    const ids = new Set<string>();
+    safetyUsers.forEach((r: any) => ids.add(r.user_id));
+    return Array.from(ids).map((uid) => {
+      const p = profileMap.get(uid);
+      return { user_id: uid, name: p?.name || uid };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [safetyUsers, profileMap]);
+
+  const drugTestMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    drugTests.forEach((dt: any) => map.set(dt.driver_id, dt.result));
+    return map;
+  }, [drugTests]);
 
   const enrichedRows: TransferRow[] = useMemo(() => {
     return transferRows.map((row: any) => {
@@ -307,15 +436,18 @@ const TransferList = () => {
       const truck = row.truck_id ? truckMap.get(row.truck_id) : null;
       const dispatcherId = driver?.dispatcher_id || truck?.dispatcher_id;
       const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
+      const safetyProfile = row.safety_user_id ? profileMap.get(row.safety_user_id) : null;
       return {
         ...row,
         driver_name: driver?.name || "",
         truck_number: truck?.truck_number || "",
         dispatcher_name: profile?.name || "",
         dispatcher_office: profile?.office || "",
+        safety_name: safetyProfile?.name || "",
+        drug_test_result: row.driver_id ? drugTestMap.get(row.driver_id) || null : null,
       };
     });
-  }, [transferRows, driverMap, truckMap, profileMap]);
+  }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
 
   const filteredRows = useMemo(() => {
     if (!isDispatchOnly) return enrichedRows;
@@ -445,7 +577,7 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const colCount = canEdit ? 11 : 10;
+  const colCount = canEdit ? 13 : 12;
 
   return (
     <div className="p-4 space-y-4">
@@ -525,9 +657,11 @@ const TransferList = () => {
               <TableHead>Truck #</TableHead>
               <TableHead>Driver Name</TableHead>
               <TableHead>Dispatch</TableHead>
+              <TableHead>Safety</TableHead>
               <TableHead>Going To Company</TableHead>
               <TableHead className="text-center">Drug Test Date</TableHead>
               <TableHead className="text-center">Drug Test Zip</TableHead>
+              <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               <TableHead className="text-center">Sign</TableHead>
@@ -570,6 +704,20 @@ const TransferList = () => {
                             <TableCell>{row.truck_number}</TableCell>
                             <TableCell className="font-medium">{row.driver_name}</TableCell>
                             <TableCell>{row.dispatcher_name || "-"}</TableCell>
+                            <TableCell>
+                              {columnPerms.safety_assign ? (
+                                <SafetyAssignCell
+                                  rowId={row.id}
+                                  currentUserId={row.safety_user_id}
+                                  currentName={row.safety_name || ""}
+                                  safetyUsers={safetyUserList}
+                                />
+                              ) : (
+                                <LockedCell group="safety_assign">
+                                  <span>{row.safety_name || "-"}</span>
+                                </LockedCell>
+                              )}
+                            </TableCell>
                             <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
                               {row.going_to_company || "-"}
                             </TableCell>
@@ -593,6 +741,10 @@ const TransferList = () => {
                                 group="drug_test"
                                 placeholder="Zip..."
                               />
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <DrugTestResultBadge result={row.drug_test_result} />
                             </TableCell>
 
                             <TableCell className="text-center">
