@@ -469,7 +469,7 @@ export function useAutoSwitchOffice({
         const { data: internalMatches, error: internalError } = await supabase
           .from("orders")
           .select("driver1_id, locked, canceled, pickup_datetime")
-          .eq("internal_load_number", internalNum)
+          .eq("internal_load_number", numericPart)
           .not("driver1_id", "is", null)
           .limit(10);
         

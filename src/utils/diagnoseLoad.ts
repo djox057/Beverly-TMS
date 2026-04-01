@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export async function diagnoseLoadMiles(internalLoadNumber: number) {
+export async function diagnoseLoadMiles(internalLoadNumber: number | string) {
   try {
     console.log('🔍 Diagnosing load miles for internal load:', internalLoadNumber);
     

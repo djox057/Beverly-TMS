@@ -5,7 +5,7 @@ export interface YardLoad {
   id: string;
   order_id: string | null;
   trailer_number: string | null;
-  internal_load_number: number | null;
+  internal_load_number: string | null;
   delivery_date: string | null;
   delivery_city: string | null;
   delivery_state: string | null;
