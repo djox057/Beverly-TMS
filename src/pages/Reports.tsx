@@ -3531,32 +3531,36 @@ const Reports = () => {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
-                  <Button
-                    variant={showTwoWeekNotice ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowTwoWeekNotice(!showTwoWeekNotice)}
-                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                  >
-                    <Ban className="h-3 w-3 sm:h-4 sm:w-4" />2 Week Notice
-                  </Button>
-                  <Button
-                    variant={showNewDrivers ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowNewDrivers(!showNewDrivers)}
-                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                  >
-                    <UserPlus className="h-3 w-3 sm:h-4 sm:w-4" />
-                    New drivers
-                  </Button>
-                  <Button
-                    variant={showProblems ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowProblems(!showProblems)}
-                    className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                  >
-                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                    Problems
-                  </Button>
+                  {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
+                    <>
+                      <Button
+                        variant={showTwoWeekNotice ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowTwoWeekNotice(!showTwoWeekNotice)}
+                        className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                      >
+                        <Ban className="h-3 w-3 sm:h-4 sm:w-4" />2 Week Notice
+                      </Button>
+                      <Button
+                        variant={showNewDrivers ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowNewDrivers(!showNewDrivers)}
+                        className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                      >
+                        <UserPlus className="h-3 w-3 sm:h-4 sm:w-4" />
+                        New drivers
+                      </Button>
+                      <Button
+                        variant={showProblems ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowProblems(!showProblems)}
+                        className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                      >
+                        <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                        Problems
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
