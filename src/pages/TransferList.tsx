@@ -389,7 +389,7 @@ const TransferList = () => {
       const { data, error } = await supabase
         .from("user_roles" as any)
         .select("user_id, role")
-        .in("role", ["safety", "manager", "admin"]);
+        .eq("role", "safety");
       if (error) throw error;
       return data || [];
     },
