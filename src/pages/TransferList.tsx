@@ -234,6 +234,89 @@ function InlineTextCell({
   );
 }
 
+// ─── Safety assign cell ───
+function SafetyAssignCell({
+  rowId,
+  currentUserId,
+  currentName,
+  safetyUsers,
+}: {
+  rowId: string;
+  currentUserId: string | null;
+  currentName: string;
+  safetyUsers: { user_id: string; name: string }[];
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: async (userId: string | null) => {
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ safety_user_id: userId } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
+          type="button"
+        >
+          {currentName || "-"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search safety user..." />
+          <CommandList>
+            <CommandEmpty>No users found</CommandEmpty>
+            <CommandGroup>
+              <CommandItem onSelect={() => mutation.mutate(null)}>
+                <span className="text-muted-foreground">— Unassign —</span>
+              </CommandItem>
+              {safetyUsers.map((u) => (
+                <CommandItem
+                  key={u.user_id}
+                  value={u.name}
+                  onSelect={() => mutation.mutate(u.user_id)}
+                  className={cn(u.user_id === currentUserId && "font-bold")}
+                >
+                  {u.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ─── Drug test result badge ───
+function DrugTestResultBadge({ result }: { result: string | null | undefined }) {
+  if (!result) return <span className="text-muted-foreground">-</span>;
+  const colorMap: Record<string, string> = {
+    negative: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    positive: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  };
+  const cls = colorMap[result] || "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", cls)}>
+      {result}
+    </span>
+  );
+}
+
 // ─── Hook ───
 const useTransferList = () => {
   const queryClient = useQueryClient();
