@@ -2015,6 +2015,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
             plate_expiration_date: truck?.plate_expiration_date || null,
             insurance_expiration_date: truck?.insurance_expiration_date || null,
+            trailer_plate_expiration_date: trailerInfo?.plate_expiration_date || null,
+            trailer_insurance_expiration_date: trailerInfo?.insurance_expiration_date || null,
             cdl_expiration_date: null,
             mvr_date: null,
             clearing_house: null,
