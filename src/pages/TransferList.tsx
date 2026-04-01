@@ -341,10 +341,17 @@ const TransferList = () => {
   const [searchText, setSearchText] = useState("");
   const [dispatcherSearch, setDispatcherSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
 
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
     enrichedRows.forEach((row) => { if (row.going_to_company) set.add(row.going_to_company); });
+    return Array.from(set).sort();
+  }, [enrichedRows]);
+
+  const uniqueOffices = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.dispatcher_office) set.add(row.dispatcher_office); });
     return Array.from(set).sort();
   }, [enrichedRows]);
 
@@ -360,26 +367,43 @@ const TransferList = () => {
     if (companyFilter !== "all") {
       rows = rows.filter((row) => row.going_to_company === companyFilter);
     }
+    if (officeFilter !== "all") {
+      rows = rows.filter((row) => (row.dispatcher_office || "") === officeFilter);
+    }
     if (dispatcherSearch) {
       const ds = dispatcherSearch.toLowerCase();
       rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
     }
     return rows;
-  }, [filteredRows, searchText, companyFilter, dispatcherSearch]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch]);
 
-  const groupedRows = useMemo(() => {
-    const groups = new Map<string, TransferRow[]>();
+  // Group by office, then by dispatcher within each office
+  const groupedByOffice = useMemo(() => {
+    const officeMap = new Map<string, Map<string, TransferRow[]>>();
     displayRows.forEach((row) => {
-      const key = row.dispatcher_name || "Unassigned";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(row);
+      const office = row.dispatcher_office || "No Office";
+      const dispatcher = row.dispatcher_name || "Unassigned";
+      if (!officeMap.has(office)) officeMap.set(office, new Map());
+      const dispMap = officeMap.get(office)!;
+      if (!dispMap.has(dispatcher)) dispMap.set(dispatcher, []);
+      dispMap.get(dispatcher)!.push(row);
     });
-    const entries = Array.from(groups.entries()).sort((a, b) => {
-      if (a[0] === "Unassigned") return 1;
-      if (b[0] === "Unassigned") return -1;
+    // Sort offices alphabetically, "No Office" last
+    const entries = Array.from(officeMap.entries()).sort((a, b) => {
+      if (a[0] === "No Office") return 1;
+      if (b[0] === "No Office") return -1;
       return a[0].localeCompare(b[0]);
     });
-    return entries;
+    // Sort dispatchers within each office, "Unassigned" last
+    return entries.map(([office, dispMap]) => {
+      const dispatchers = Array.from(dispMap.entries()).sort((a, b) => {
+        if (a[0] === "Unassigned") return 1;
+        if (b[0] === "Unassigned") return -1;
+        return a[0].localeCompare(b[0]);
+      });
+      const totalCount = dispatchers.reduce((sum, [, rows]) => sum + rows.length, 0);
+      return { office, totalCount, dispatchers };
+    });
   }, [displayRows]);
 
   const toggleField = useMutation({
