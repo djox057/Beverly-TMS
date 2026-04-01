@@ -129,6 +129,14 @@ import {
   isLateDeliveryTime,
   haversineDistanceMiles,
   getNextStopInSequence,
+  getPlateExpirationIconStatus,
+  getInsuranceExpirationIconStatus,
+  getTiresSwapIconStatus,
+  getMaintenanceCheckIconStatus,
+  getCdlExpirationIconStatus,
+  getMvrDateIconStatus,
+  getClearingHouseIconStatus,
+  getMedicalCardIconStatus,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
