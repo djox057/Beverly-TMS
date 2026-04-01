@@ -145,6 +145,8 @@ import {
   getMvrDateIconStatus,
   getClearingHouseIconStatus,
   getMedicalCardIconStatus,
+  collectTruckAlerts,
+  collectDriverAlerts,
 } from "./Reports/helpers";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
