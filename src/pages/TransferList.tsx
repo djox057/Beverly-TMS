@@ -621,6 +621,20 @@ const TransferList = () => {
                             <TableCell>{row.truck_number}</TableCell>
                             <TableCell className="font-medium">{row.driver_name}</TableCell>
                             <TableCell>{row.dispatcher_name || "-"}</TableCell>
+                            <TableCell>
+                              {columnPerms.safety_assign ? (
+                                <SafetyAssignCell
+                                  rowId={row.id}
+                                  currentUserId={row.safety_user_id}
+                                  currentName={row.safety_name || ""}
+                                  safetyUsers={safetyUserList}
+                                />
+                              ) : (
+                                <LockedCell group="safety_assign">
+                                  <span>{row.safety_name || "-"}</span>
+                                </LockedCell>
+                              )}
+                            </TableCell>
                             <TableCell style={row.finished ? { backgroundColor: "hsl(142, 50%, 35%)", color: "white" } : companyStyle}>
                               {row.going_to_company || "-"}
                             </TableCell>
