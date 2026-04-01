@@ -25,7 +25,7 @@ export interface YardLoadBolFile {
 
 export interface YardLoadOrder {
   id: string;
-  internalLoadNumber: number | null;
+  internalLoadNumber: string | null;
   trailerNumber: string | null;
   trailerId: string | null;
   deliveryDate: string | null;

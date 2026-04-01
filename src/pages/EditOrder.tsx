@@ -2416,20 +2416,8 @@ const EditOrder = () => {
         locked: isLocked,
       };
 
-      // If company changed (suffix would change), reassign internal_load_number atomically
-      const companyChanged = companyId && originalCompanyId && companyId !== originalCompanyId;
-      if (companyChanged) {
-        // RPC handles updating both company_id and internal_load_number atomically
-        const { data: rpcResult, error: rpcError } = await supabase
-          .rpc('reassign_internal_load_number', {
-            p_order_id: id,
-            p_new_company_id: companyId,
-          });
-        if (rpcError) throw rpcError;
-        // Don't include company_id in the regular update — RPC already set it
-        console.log(`🔄 Reassigned internal load number to ${rpcResult} for new company`);
-      } else if (companyId) {
-        // Company didn't change, just set it normally
+      // Internal load number is frozen at creation — never reassigned
+      if (companyId) {
         updateData.company_id = companyId;
       }
 

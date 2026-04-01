@@ -24,7 +24,7 @@ interface LumperMissingDataDialogProps {
 
 interface LumperOrder {
   id: string;
-  internal_load_number: number | null;
+  internal_load_number: string | null;
   broker_load_number: string | null;
   lumper: number;
 }

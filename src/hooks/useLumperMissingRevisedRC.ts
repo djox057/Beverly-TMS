@@ -9,7 +9,7 @@ export interface LumperMissingRevisedRC {
   driver2_id: string | null;
   driver2_name: string | null;
   truck_number: string | null;
-  internal_load_number: number | null;
+  internal_load_number: string | null;
   lumper: number;
   pickup_datetime: string | null;
   lumper_revised_rc_path: string | null;

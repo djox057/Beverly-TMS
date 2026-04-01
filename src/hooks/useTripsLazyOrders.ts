@@ -222,7 +222,7 @@ async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
 
   const [internalResult, brokerResult] = await Promise.all([
     parsedNumber !== null
-      ? supabase.from("orders").select("*").eq("internal_load_number", parsedNumber).limit(50)
+      ? supabase.from("orders").select("*").ilike("internal_load_number", `${parsedNumber}%`).limit(50)
       : Promise.resolve({ data: [] as any[], error: null }),
     supabase.from("orders").select("*").ilike("broker_load_number", `${searchLower}%`).limit(50),
   ]);

@@ -271,7 +271,8 @@ const NewOrder = () => {
   // Get company_id from selected driver1 (not from truck)
   const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
   const driverCompanyId = selectedDriver1?.company_id;
-  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(driverCompanyId);
+  const driverCompanyName = companies?.find((c) => c.id === driverCompanyId)?.name;
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(driverCompanyId, driverCompanyName);
 
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;

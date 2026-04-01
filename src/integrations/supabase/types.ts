@@ -2650,7 +2650,7 @@ export type Database = {
           extra_stop_driver: number | null
           freight_amount: number | null
           id: string
-          internal_load_number: number | null
+          internal_load_number: string | null
           invoiced: boolean | null
           invoiced_at: string | null
           is_partial: boolean | null
@@ -2759,7 +2759,7 @@ export type Database = {
           extra_stop_driver?: number | null
           freight_amount?: number | null
           id?: string
-          internal_load_number?: number | null
+          internal_load_number?: string | null
           invoiced?: boolean | null
           invoiced_at?: string | null
           is_partial?: boolean | null
@@ -2868,7 +2868,7 @@ export type Database = {
           extra_stop_driver?: number | null
           freight_amount?: number | null
           id?: string
-          internal_load_number?: number | null
+          internal_load_number?: string | null
           invoiced?: boolean | null
           invoiced_at?: string | null
           is_partial?: boolean | null
@@ -4265,10 +4265,6 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
-      }
-      reassign_internal_load_number: {
-        Args: { p_new_company_id: string; p_order_id: string }
-        Returns: number
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

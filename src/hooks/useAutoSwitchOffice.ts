@@ -460,16 +460,15 @@ export function useAutoSwitchOffice({
         pickupDate = brokerMatches[0]?.pickup_datetime ?? undefined;
       }
       
-      // Also search by internal_load_number (strip suffix if present)
+      // Also search by internal_load_number (text field, search by prefix)
       const numericPart = term.split("-")[0];
-      const internalNum = parseInt(numericPart, 10);
       
-      if (!isNaN(internalNum)) {
+      if (/^\d+$/.test(numericPart)) {
         // NO STATUS FILTERS - search ALL orders
         const { data: internalMatches, error: internalError } = await supabase
           .from("orders")
           .select("driver1_id, locked, canceled, pickup_datetime")
-          .eq("internal_load_number", internalNum)
+          .ilike("internal_load_number", `${numericPart}%`)
           .not("driver1_id", "is", null)
           .limit(10);
         
