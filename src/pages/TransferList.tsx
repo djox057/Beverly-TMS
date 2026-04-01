@@ -280,14 +280,14 @@ function SafetyAssignCell({
           <CommandList>
             <CommandEmpty>No users found</CommandEmpty>
             <CommandGroup>
-              <CommandItem onSelect={() => mutation.mutate(null)}>
+              <CommandItem onSelect={() => { mutation.mutate(null); setOpen(false); }}>
                 <span className="text-muted-foreground">— Unassign —</span>
               </CommandItem>
               {safetyUsers.map((u) => (
                 <CommandItem
                   key={u.user_id}
                   value={u.name}
-                  onSelect={() => mutation.mutate(u.user_id)}
+                  onSelect={() => { mutation.mutate(u.user_id); setOpen(false); }}
                   className={cn(u.user_id === currentUserId && "font-bold")}
                 >
                   {u.name}
