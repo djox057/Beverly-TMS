@@ -413,7 +413,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trailers');
       const { data, error } = await supabase
         .from("trailers")
-        .select("id, trailer_number, dot_inspection_date, vin, plate")
+        .select("id, trailer_number, dot_inspection_date, plate_expiration_date, insurance_expiration_date, vin, plate")
         .in("id", trailerIdsFromTrucks);
       console.timeEnd('[perf] adapter-trailers');
       if (error) throw error;
