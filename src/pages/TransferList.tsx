@@ -288,7 +288,7 @@ const TransferList = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name");
+        .select("user_id, full_name, office");
       if (error) throw error;
       return data || [];
     },
@@ -296,8 +296,8 @@ const TransferList = () => {
   });
 
   const profileMap = useMemo(() => {
-    const map = new Map<string, string>();
-    profiles.forEach((p: any) => map.set(p.user_id, p.full_name));
+    const map = new Map<string, { name: string; office: string }>();
+    profiles.forEach((p: any) => map.set(p.user_id, { name: p.full_name || "", office: p.office || "" }));
     return map;
   }, [profiles]);
 
