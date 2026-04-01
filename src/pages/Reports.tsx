@@ -4302,6 +4302,70 @@ const Reports = () => {
                                                     </PopoverContent>
                                                   </Popover>
                                                 )}
+                                                {(() => {
+                                                  const cdlStatus = getCdlExpirationIconStatus(truck);
+                                                  if (cdlStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <IdCard className={`h-3.5 w-3.5 ${cdlStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{cdlStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const mvrStatus = getMvrDateIconStatus(truck);
+                                                  if (mvrStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <FileText className={`h-3.5 w-3.5 ${mvrStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{mvrStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const clearingStatus = getClearingHouseIconStatus(truck);
+                                                  if (clearingStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <Building2 className={`h-3.5 w-3.5 ${clearingStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{clearingStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
+                                                {(() => {
+                                                  const medicalStatus = getMedicalCardIconStatus(truck);
+                                                  if (medicalStatus.show) {
+                                                    return (
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <HeartPulse className={`h-3.5 w-3.5 ${medicalStatus.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <p className="text-xs">{medicalStatus.tooltip}</p>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
                                                 {(truck.driverPhone ||
                                                   truck.driverEmail ||
                                                   truck.trailerNumber ||
