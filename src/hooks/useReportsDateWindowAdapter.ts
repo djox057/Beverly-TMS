@@ -1781,6 +1781,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         // DOT inspection dates (snake_case to match helper functions)
         dot_inspection_date: truck?.dot_inspection_date || null,
         trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
+        // Truck alert fields
+        plate_expiration_date: truck?.plate_expiration_date || null,
+        insurance_expiration_date: truck?.insurance_expiration_date || null,
+        // Driver alert fields
+        cdl_expiration_date: driver.cdl_expiration_date || null,
+        mvr_date: driver.mvr_date || null,
+        clearing_house: driver.clearing_house || null,
+        medical_card_expiration_date: driver.medical_card_expiration_date || null,
       });
     }
 
