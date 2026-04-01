@@ -244,6 +244,9 @@ export const useAuth = () => {
     // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
     if (roles.includes('safety') && requiredRole === 'dispatch') return true;
     
+    // Maintenance has access to dispatch functions (can change driver/truck/trailer assignments)
+    if (roles.includes('maintenance') && requiredRole === 'dispatch') return true;
+    
     // Check exact role match
     return roles.includes(requiredRole);
   };
