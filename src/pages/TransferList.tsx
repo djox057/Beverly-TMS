@@ -318,6 +318,7 @@ function DrugTestResultCell({
   canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async (newResult: string | null) => {
@@ -352,7 +353,7 @@ function DrugTestResultCell({
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="bg-transparent border-none p-0 m-0 cursor-pointer" type="button">
           {badge}
@@ -368,7 +369,7 @@ function DrugTestResultCell({
                 "text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
                 result === opt.value && "font-bold"
               )}
-              onClick={() => mutation.mutate(opt.value)}
+              onClick={() => { mutation.mutate(opt.value); setOpen(false); }}
             >
               <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", opt.cls)}>
                 {opt.label}
@@ -378,7 +379,7 @@ function DrugTestResultCell({
           <button
             type="button"
             className="text-left px-2 py-1.5 rounded text-sm hover:bg-accent text-muted-foreground"
-            onClick={() => mutation.mutate(null)}
+            onClick={() => { mutation.mutate(null); setOpen(false); }}
           >
             Clear
           </button>
