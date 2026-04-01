@@ -411,6 +411,15 @@ const useTransferList = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "transfer_list" }, () => {
         queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_drug_tests" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["driver-drug-tests-transfer"] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drivers" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trucks" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
