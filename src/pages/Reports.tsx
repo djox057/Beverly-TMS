@@ -3512,7 +3512,7 @@ const Reports = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
+              {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety") || hasRole("dispatch") || hasRole("afterhours")) && (
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
