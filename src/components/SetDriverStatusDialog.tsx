@@ -218,6 +218,7 @@ export function SetDriverStatusDialog({
                   options={recoveryDrivers.map(d => ({ value: d.id, label: d.name }))}
                   placeholder="Select recovery driver..."
                   emptyText="No recovery drivers found"
+                  modal={false}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Leave blank to assign later in Recovery tab
