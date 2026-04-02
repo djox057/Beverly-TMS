@@ -522,12 +522,46 @@ export default function YardArrivals() {
   // Open Set Driver Status dialog for a recovery action
   const handleOpenStatusDialog = async (action: YardAction) => {
     try {
-      // Fetch truck by driver1_id
-      const { data: truck } = await supabase
+      // Fetch truck using fallback strategy
+      let truck = null;
+
+      // 1. Try by current driver assignment
+      const { data: t1 } = await supabase
         .from("trucks")
         .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
         .eq("driver1_id", action.driver_id)
         .maybeSingle();
+      truck = t1;
+
+      // 2. Fallback: try by left_by_driver_id (driver was unassigned but truck remembers them)
+      if (!truck) {
+        const { data: t2 } = await supabase
+          .from("trucks")
+          .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+          .eq("left_by_driver_id", action.driver_id)
+          .eq("needs_recovery", true)
+          .maybeSingle();
+        truck = t2;
+      }
+
+      // 3. Fallback: try by truck_number from the yard action
+      if (!truck && action.truck_number) {
+        const { data: t3 } = await supabase
+          .from("trucks")
+          .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+          .eq("truck_number", action.truck_number.trim())
+          .maybeSingle();
+        truck = t3;
+      }
+
+      if (!truck) {
+        toast({
+          title: "Error",
+          description: "Could not find truck for this driver",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Fetch existing game over notes for this driver
       const { data: gameOverNotes } = await supabase
