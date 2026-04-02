@@ -31,6 +31,7 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  modal?: boolean;
 }
 
 export function Combobox({
@@ -42,13 +43,14 @@ export function Combobox({
   emptyText = "No results found.",
   className,
   disabled,
+  modal,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
   const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
