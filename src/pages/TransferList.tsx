@@ -45,7 +45,7 @@ interface TransferRow {
   truck_id: string | null;
   going_to_company: string | null;
   drug_test_date: string | null;
-  drug_test_zip: string | null;
+  
   coming_to_office: string | null;
   eta_time: string | null;
   driver_informed: boolean;
