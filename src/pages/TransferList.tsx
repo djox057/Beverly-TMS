@@ -578,6 +578,7 @@ const TransferList = () => {
   const [dispatcherSearch, setDispatcherSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
+  const [comingToOfficeFilter, setComingToOfficeFilter] = useState<string>("all");
 
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
@@ -589,6 +590,23 @@ const TransferList = () => {
     const set = new Set<string>();
     enrichedRows.forEach((row) => { if (row.dispatcher_office) set.add(row.dispatcher_office); });
     return Array.from(set).sort();
+  }, [enrichedRows]);
+
+  const uniqueComingToOfficeDates = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.coming_to_office) set.add(row.coming_to_office); });
+    const sorted = Array.from(set).sort();
+    const ordinalSuffix = (d: number) => {
+      if (d > 3 && d < 21) return "th";
+      switch (d % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+    };
+    return sorted.map((dateStr) => {
+      const dt = new Date(dateStr + "T00:00:00");
+      const day = dt.getDate();
+      const monthName = format(dt, "MMMM");
+      const dayName = format(dt, "EEEE");
+      return { value: dateStr, label: `${day}${ordinalSuffix(day)} ${monthName} ${dayName}` };
+    });
   }, [enrichedRows]);
 
   const displayRows = useMemo(() => {
@@ -610,8 +628,11 @@ const TransferList = () => {
       const ds = dispatcherSearch.toLowerCase();
       rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
     }
+    if (comingToOfficeFilter !== "all") {
+      rows = rows.filter((row) => row.coming_to_office === comingToOfficeFilter);
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter]);
 
   // Group by office, then by dispatcher within each office
   const groupedByOffice = useMemo(() => {
@@ -749,6 +770,17 @@ const TransferList = () => {
             <SelectItem value="all">All Offices</SelectItem>
             {uniqueOffices.map((o) => (
               <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={comingToOfficeFilter} onValueChange={setComingToOfficeFilter}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="All Coming To Office" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Coming To Office</SelectItem>
+            {uniqueComingToOfficeDates.map((d) => (
+              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
