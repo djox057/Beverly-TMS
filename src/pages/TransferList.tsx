@@ -1162,6 +1162,7 @@ function TransferRowDialog({
       setDrugTestZip(editData.drug_test_zip || "");
       setDrugTestResult(editData.drug_test_result || "");
       setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
+      setEtaTime(editData.eta_time || "");
       setSafetyUserId(editData.safety_user_id || null);
       setDriverInformed(editData.driver_informed || false);
       setSign(editData.sign || false);
