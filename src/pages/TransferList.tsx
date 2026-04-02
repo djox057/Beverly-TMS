@@ -773,6 +773,17 @@ const TransferList = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={comingToOfficeFilter} onValueChange={setComingToOfficeFilter}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="All Coming To Office" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Coming To Office</SelectItem>
+            {uniqueComingToOfficeDates.map((d) => (
+              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border rounded-md">
