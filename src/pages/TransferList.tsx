@@ -45,7 +45,7 @@ interface TransferRow {
   truck_id: string | null;
   going_to_company: string | null;
   drug_test_date: string | null;
-  drug_test_zip: string | null;
+  
   coming_to_office: string | null;
   eta_time: string | null;
   driver_informed: boolean;
@@ -888,7 +888,7 @@ const TransferList = () => {
               <TableHead>Safety</TableHead>
               <TableHead>Going To Company</TableHead>
               <TableHead className="text-center">Drug Test Date</TableHead>
-              <TableHead className="text-center">Drug Test Zip</TableHead>
+              
               <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">ETA Time</TableHead>
@@ -961,16 +961,6 @@ const TransferList = () => {
                               />
                             </TableCell>
 
-                            <TableCell className="text-center">
-                              <InlineTextCell
-                                value={row.drug_test_zip}
-                                rowId={row.id}
-                                field="drug_test_zip"
-                                canEdit={columnPerms.drug_test}
-                                group="drug_test"
-                                placeholder="Zip..."
-                              />
-                            </TableCell>
 
                             <TableCell className="text-center">
                               <DrugTestResultCell
@@ -1133,7 +1123,7 @@ function TransferRowDialog({
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
   );
-  const [drugTestZip, setDrugTestZip] = useState(editData?.drug_test_zip || "");
+  
   const [drugTestResult, setDrugTestResult] = useState<string>(editData?.drug_test_result || "");
   const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
     editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
@@ -1159,7 +1149,7 @@ function TransferRowDialog({
       setDriverId(editData.driver_id);
       setGoingToCompany(editData.going_to_company || "");
       setDrugTestDate(editData.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined);
-      setDrugTestZip(editData.drug_test_zip || "");
+      
       setDrugTestResult(editData.drug_test_result || "");
       setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
       setEtaTime(editData.eta_time || "");
@@ -1198,7 +1188,7 @@ function TransferRowDialog({
 
   const reset = () => {
     setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
-    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
+    setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
     setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
   };
@@ -1210,7 +1200,7 @@ function TransferRowDialog({
         truck_id: truckId,
         going_to_company: goingToCompany || null,
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
-        drug_test_zip: drugTestZip || null,
+        
         coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
         eta_time: etaTime || null,
         safety_user_id: safetyUserId || null,
@@ -1410,11 +1400,6 @@ function TransferRowDialog({
             </Popover>
           </div>
 
-          {/* Drug Test Zip */}
-          <div>
-            <label className="text-sm font-medium">Drug Test Zip Code</label>
-            <Input value={drugTestZip} onChange={(e) => setDrugTestZip(e.target.value)} placeholder="Zip code..." />
-          </div>
 
           {/* Drug Test Result */}
           <div>
