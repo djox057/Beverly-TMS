@@ -188,7 +188,97 @@ function InlineDateCell({
   );
 }
 
-// ─── Inline text cell ───
+// ─── Inline time cell (24h format, no timezone conversion) ───
+function InlineTimeCell({
+  value,
+  rowId,
+  field,
+  canEdit,
+  group,
+  disabledMessage,
+}: {
+  value: string | null;
+  rowId: string;
+  field: string;
+  canEdit: boolean;
+  group: ColumnGroup;
+  disabledMessage?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [timeValue, setTimeValue] = useState(value || "");
+  const display = value || "-";
+
+  useEffect(() => { setTimeValue(value || ""); }, [value]);
+
+  const mutation = useMutation({
+    mutationFn: async (newTime: string | null) => {
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ [field]: newTime } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (!canEdit) {
+    return <LockedCell group={group}><span>{display}</span></LockedCell>;
+  }
+
+  const handleClick = () => {
+    if (disabledMessage) {
+      toast({ title: "Cannot set ETA", description: disabledMessage, variant: "destructive" });
+      return;
+    }
+    setOpen(true);
+  };
+
+  const handleSave = () => {
+    mutation.mutate(timeValue || null);
+  };
+
+  const handleClear = () => {
+    mutation.mutate(null);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { if (!disabledMessage) setOpen(o); }} modal>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit",
+            disabledMessage && "opacity-50 cursor-not-allowed hover:no-underline"
+          )}
+          type="button"
+          onClick={handleClick}
+        >
+          {display}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start" onPointerDownOutside={(e) => e.preventDefault()}>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">ETA Time (24h)</label>
+          <Input
+            type="time"
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+            className="w-[140px]"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>Save</Button>
+            <Button size="sm" variant="outline" onClick={handleClear} disabled={mutation.isPending}>Clear</Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function InlineTextCell({
   value,
   rowId,
