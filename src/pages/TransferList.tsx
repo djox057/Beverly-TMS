@@ -992,6 +992,17 @@ const TransferList = () => {
                             </TableCell>
 
                             <TableCell className="text-center">
+                              <InlineTimeCell
+                                value={row.eta_time}
+                                rowId={row.id}
+                                field="eta_time"
+                                canEdit={columnPerms.eta_time}
+                                group="eta_time"
+                                disabledMessage={!row.coming_to_office ? "You must set the Coming to Office date before setting ETA time" : undefined}
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-center">
                               {columnPerms.driver_informed ? (
                                 <Checkbox
                                   checked={row.driver_informed}
