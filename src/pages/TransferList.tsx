@@ -47,6 +47,7 @@ interface TransferRow {
   drug_test_date: string | null;
   drug_test_zip: string | null;
   coming_to_office: string | null;
+  eta_time: string | null;
   driver_informed: boolean;
   sign: boolean;
   finished: boolean;
@@ -63,12 +64,13 @@ interface TransferRow {
 }
 
 // ─── Role permission helpers ───
-type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished" | "safety_assign";
+type ColumnGroup = "drug_test" | "coming_office" | "eta_time" | "driver_informed" | "sign" | "finished" | "safety_assign";
 
 const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }> = {
   drug_test: { roles: ["safety", "admin"], label: "Safety" },
   finished: { roles: ["safety", "admin"], label: "Safety" },
   coming_office: { roles: ["dispatch", "admin"], label: "Dispatch" },
+  eta_time: { roles: ["dispatch", "admin"], label: "Dispatch" },
   driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch" },
   sign: { roles: ["yard", "maintenance", "admin"], label: "Yard / Maintenance" },
   safety_assign: { roles: ["safety", "manager", "admin"], label: "Safety / Manager" },
@@ -186,7 +188,97 @@ function InlineDateCell({
   );
 }
 
-// ─── Inline text cell ───
+// ─── Inline time cell (24h format, no timezone conversion) ───
+function InlineTimeCell({
+  value,
+  rowId,
+  field,
+  canEdit,
+  group,
+  disabledMessage,
+}: {
+  value: string | null;
+  rowId: string;
+  field: string;
+  canEdit: boolean;
+  group: ColumnGroup;
+  disabledMessage?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [timeValue, setTimeValue] = useState(value || "");
+  const display = value || "-";
+
+  useEffect(() => { setTimeValue(value || ""); }, [value]);
+
+  const mutation = useMutation({
+    mutationFn: async (newTime: string | null) => {
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ [field]: newTime } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (!canEdit) {
+    return <LockedCell group={group}><span>{display}</span></LockedCell>;
+  }
+
+  const handleClick = () => {
+    if (disabledMessage) {
+      toast({ title: "Cannot set ETA", description: disabledMessage, variant: "destructive" });
+      return;
+    }
+    setOpen(true);
+  };
+
+  const handleSave = () => {
+    mutation.mutate(timeValue || null);
+  };
+
+  const handleClear = () => {
+    mutation.mutate(null);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { if (!disabledMessage) setOpen(o); }} modal>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit",
+            disabledMessage && "opacity-50 cursor-not-allowed hover:no-underline"
+          )}
+          type="button"
+          onClick={handleClick}
+        >
+          {display}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start" onPointerDownOutside={(e) => e.preventDefault()}>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">ETA Time (24h)</label>
+          <Input
+            type="time"
+            value={timeValue}
+            onChange={(e) => setTimeValue(e.target.value)}
+            className="w-[140px]"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>Save</Button>
+            <Button size="sm" variant="outline" onClick={handleClear} disabled={mutation.isPending}>Clear</Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function InlineTextCell({
   value,
   rowId,
@@ -702,7 +794,7 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const colCount = canEdit ? 13 : 12;
+  const colCount = canEdit ? 14 : 13;
 
   return (
     <div className="p-4 space-y-4">
@@ -799,6 +891,7 @@ const TransferList = () => {
               <TableHead className="text-center">Drug Test Zip</TableHead>
               <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
+              <TableHead className="text-center">ETA Time</TableHead>
               <TableHead className="text-center">Driver Informed</TableHead>
               <TableHead className="text-center">Signs</TableHead>
               <TableHead className="text-center">Finished</TableHead>
@@ -895,6 +988,17 @@ const TransferList = () => {
                                 canEdit={columnPerms.coming_office}
                                 group="coming_office"
                                 disabledMessage={!row.drug_test_date ? "You must set the Drug Test Date before setting Coming to Office date" : undefined}
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <InlineTimeCell
+                                value={row.eta_time}
+                                rowId={row.id}
+                                field="eta_time"
+                                canEdit={columnPerms.eta_time}
+                                group="eta_time"
+                                disabledMessage={!row.coming_to_office ? "You must set the Coming to Office date before setting ETA time" : undefined}
                               />
                             </TableCell>
 
@@ -1034,6 +1138,7 @@ function TransferRowDialog({
   const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
     editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
   );
+  const [etaTime, setEtaTime] = useState(editData?.eta_time || "");
   const [safetyUserId, setSafetyUserId] = useState<string | null>(editData?.safety_user_id || null);
   const [driverInformed, setDriverInformed] = useState(editData?.driver_informed || false);
   const [sign, setSign] = useState(editData?.sign || false);
@@ -1057,6 +1162,7 @@ function TransferRowDialog({
       setDrugTestZip(editData.drug_test_zip || "");
       setDrugTestResult(editData.drug_test_result || "");
       setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
+      setEtaTime(editData.eta_time || "");
       setSafetyUserId(editData.safety_user_id || null);
       setDriverInformed(editData.driver_informed || false);
       setSign(editData.sign || false);
@@ -1092,7 +1198,7 @@ function TransferRowDialog({
 
   const reset = () => {
     setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
-    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined);
+    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
     setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
   };
@@ -1106,6 +1212,7 @@ function TransferRowDialog({
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
         drug_test_zip: drugTestZip || null,
         coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
+        eta_time: etaTime || null,
         safety_user_id: safetyUserId || null,
         driver_informed: driverInformed,
         sign,
@@ -1360,6 +1467,17 @@ function TransferRowDialog({
                 <Calendar mode="single" selected={comingToOffice} onSelect={setComingToOffice} initialFocus className="p-3 pointer-events-auto" />
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* ETA Time */}
+          <div>
+            <label className="text-sm font-medium">ETA Time (24h, Chicago)</label>
+            <Input
+              type="time"
+              value={etaTime}
+              onChange={(e) => setEtaTime(e.target.value)}
+              placeholder="HH:MM"
+            />
           </div>
 
           {/* Checkboxes */}
