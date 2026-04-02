@@ -794,7 +794,7 @@ const TransferList = () => {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const colCount = canEdit ? 13 : 12;
+  const colCount = canEdit ? 14 : 13;
 
   return (
     <div className="p-4 space-y-4">
