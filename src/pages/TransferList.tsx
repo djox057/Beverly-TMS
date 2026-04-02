@@ -628,8 +628,11 @@ const TransferList = () => {
       const ds = dispatcherSearch.toLowerCase();
       rows = rows.filter((row) => (row.dispatcher_name || "").toLowerCase().includes(ds));
     }
+    if (comingToOfficeFilter !== "all") {
+      rows = rows.filter((row) => row.coming_to_office === comingToOfficeFilter);
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter]);
 
   // Group by office, then by dispatcher within each office
   const groupedByOffice = useMemo(() => {
