@@ -1469,6 +1469,17 @@ function TransferRowDialog({
             </Popover>
           </div>
 
+          {/* ETA Time */}
+          <div>
+            <label className="text-sm font-medium">ETA Time (24h, Chicago)</label>
+            <Input
+              type="time"
+              value={etaTime}
+              onChange={(e) => setEtaTime(e.target.value)}
+              placeholder="HH:MM"
+            />
+          </div>
+
           {/* Checkboxes */}
           <div className="flex items-center gap-6 pt-2">
             <label className="flex items-center gap-2 text-sm">
