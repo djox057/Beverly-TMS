@@ -1200,7 +1200,7 @@ function TransferRowDialog({
         truck_id: truckId,
         going_to_company: goingToCompany || null,
         drug_test_date: drugTestDate ? format(drugTestDate, "yyyy-MM-dd") : null,
-        drug_test_zip: drugTestZip || null,
+        
         coming_to_office: comingToOffice ? format(comingToOffice, "yyyy-MM-dd") : null,
         eta_time: etaTime || null,
         safety_user_id: safetyUserId || null,
