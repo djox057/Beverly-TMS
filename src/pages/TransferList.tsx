@@ -888,7 +888,7 @@ const TransferList = () => {
               <TableHead>Safety</TableHead>
               <TableHead>Going To Company</TableHead>
               <TableHead className="text-center">Drug Test Date</TableHead>
-              <TableHead className="text-center">Drug Test Zip</TableHead>
+              
               <TableHead className="text-center">Drug Test Result</TableHead>
               <TableHead className="text-center">Coming To Office</TableHead>
               <TableHead className="text-center">ETA Time</TableHead>
