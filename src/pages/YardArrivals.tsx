@@ -572,7 +572,7 @@ export default function YardArrivals() {
 
       // Check if a recovery driver is already assigned by checking if driver1_id differs from original
       // When needs_recovery is true and driver1_id is a recovery driver, left_by_driver_id has the original driver
-      const hasRecoveryDriverAssigned = truck?.needs_recovery && truck?.left_by_driver_id && truck?.driver1_id !== truck?.left_by_driver_id;
+      const hasRecoveryDriverAssigned = truck?.needs_recovery && truck?.left_by_driver_id && !!truck?.driver1_id && truck?.driver1_id !== truck?.left_by_driver_id;
 
       setStatusDialogData({
         truckId: truck?.id || "",
