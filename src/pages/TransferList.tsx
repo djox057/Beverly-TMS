@@ -1123,7 +1123,7 @@ function TransferRowDialog({
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
   );
-  const [drugTestZip, setDrugTestZip] = useState(editData?.drug_test_zip || "");
+  
   const [drugTestResult, setDrugTestResult] = useState<string>(editData?.drug_test_result || "");
   const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
     editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
