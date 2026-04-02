@@ -545,11 +545,11 @@ export default function YardArrivals() {
       }
 
       // 3. Fallback: try by truck_number from the yard action
-      if (!truck && action.truck_number) {
+      if (!truck && action.truck?.truck_number) {
         const { data: t3 } = await supabase
           .from("trucks")
           .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
-          .eq("truck_number", action.truck_number.trim())
+          .eq("truck_number", action.truck.truck_number.trim())
           .maybeSingle();
         truck = t3;
       }
