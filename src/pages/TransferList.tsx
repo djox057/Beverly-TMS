@@ -1198,7 +1198,7 @@ function TransferRowDialog({
 
   const reset = () => {
     setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
-    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined);
+    setDrugTestZip(""); setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
     setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
   };
