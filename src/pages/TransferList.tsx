@@ -1400,11 +1400,6 @@ function TransferRowDialog({
             </Popover>
           </div>
 
-          {/* Drug Test Zip */}
-          <div>
-            <label className="text-sm font-medium">Drug Test Zip Code</label>
-            <Input value={drugTestZip} onChange={(e) => setDrugTestZip(e.target.value)} placeholder="Zip code..." />
-          </div>
 
           {/* Drug Test Result */}
           <div>
