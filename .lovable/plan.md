@@ -2,36 +2,73 @@
 
 ## Problem
 
-The recovery driver Combobox dropdown inside the `SetDriverStatusDialog` doesn't work because of a known Radix UI issue: when a `Popover` (used by Combobox) is rendered inside a modal `Dialog`, the Popover's portaled dropdown content becomes non-interactive. The Dialog's modal behavior sets `inert` on elements outside its overlay, blocking clicks on the Combobox dropdown.
+When clicking "Set Status" for a recovery yard action, the dialog opens but nothing happens because the truck lookup in `handleOpenStatusDialog` queries `trucks.driver1_id = action.driver_id`. If the driver (Crystal Davis) is inactive and no longer assigned to any truck, this returns no results — `truckId` becomes `""` and all subsequent database operations silently fail.
 
 ## Fix
 
-**File: `src/components/SetDriverStatusDialog.tsx`**
+**File: `src/pages/YardArrivals.tsx` — `handleOpenStatusDialog` function (lines 523-559)**
 
-Add `modal={false}` to the Combobox's parent Popover. Since the Combobox is a shared component, the cleanest approach is to add an optional `modal` prop to the Combobox component that gets forwarded to the internal Popover.
+Update the truck lookup to use a fallback strategy:
 
-**File: `src/components/ui/combobox.tsx`**
+1. First try `driver1_id = action.driver_id` (current behavior, works for active drivers)
+2. If no truck found, try `left_by_driver_id = action.driver_id` (works for trucks already in recovery where the driver was unassigned)
+3. If still no truck found, try matching by `truck_number` from the yard action record
 
-1. Add a `modal?: boolean` prop to the Combobox interface
-2. Forward it to `<Popover modal={modal}>` (defaults to `undefined`, so existing usage is unaffected)
+This covers all scenarios:
+- Active driver still on truck
+- Inactive driver who left the truck (stored as `left_by_driver_id`)
+- Edge case where only the truck number is available
 
-**File: `src/components/SetDriverStatusDialog.tsx`**
-
-3. Pass `modal={false}` to both Combobox instances (initial step and awaiting_recovery step) — this tells the Popover not to use modal behavior, allowing clicks inside the Dialog
+Additionally, add a toast error if no truck can be found at all, so the user gets feedback instead of silent failure.
 
 ### Technical Detail
 
-The Combobox change is a single-prop addition:
-```tsx
-// combobox.tsx
-interface ComboboxProps {
-  // ... existing props
-  modal?: boolean;
+```typescript
+// Current (line 526-530):
+const { data: truck } = await supabase
+  .from("trucks")
+  .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+  .eq("driver1_id", action.driver_id)
+  .maybeSingle();
+
+// Updated — try multiple lookup strategies:
+let truck = null;
+
+// 1. Try by current driver assignment
+const { data: t1 } = await supabase
+  .from("trucks")
+  .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+  .eq("driver1_id", action.driver_id)
+  .maybeSingle();
+truck = t1;
+
+// 2. Fallback: try by left_by_driver_id (driver was unassigned but truck remembers them)
+if (!truck) {
+  const { data: t2 } = await supabase
+    .from("trucks")
+    .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+    .eq("left_by_driver_id", action.driver_id)
+    .eq("needs_recovery", true)
+    .maybeSingle();
+  truck = t2;
 }
 
-// In render:
-<Popover open={open} onOpenChange={setOpen} modal={modal}>
+// 3. Fallback: try by truck_number from the yard action
+if (!truck && action.truck_number) {
+  const { data: t3 } = await supabase
+    .from("trucks")
+    .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+    .eq("truck_number", action.truck_number.trim())
+    .maybeSingle();
+  truck = t3;
+}
+
+// Show error if no truck found
+if (!truck) {
+  toast({ title: "Error", description: "Could not find truck for this driver", variant: "destructive" });
+  return;
+}
 ```
 
-Then in `SetDriverStatusDialog.tsx`, both Combobox usages get `modal={false}`.
+No other files need changes. The dialog component and handlers already handle the data correctly once a valid `truckId` is provided.
 
