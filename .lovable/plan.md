@@ -2,66 +2,36 @@
 
 ## Problem
 
-When an order's truck/driver changes to one belonging to a different company, the `reassign_internal_load_number` RPC assigns a **new** internal load number from the new company's sequence. This caused order "52688977" to change from `7941-BF` to `12505-UE`.
+The recovery driver Combobox dropdown inside the `SetDriverStatusDialog` doesn't work because of a known Radix UI issue: when a `Popover` (used by Combobox) is rendered inside a modal `Dialog`, the Popover's portaled dropdown content becomes non-interactive. The Dialog's modal behavior sets `inert` on elements outside its overlay, blocking clicks on the Combobox dropdown.
 
-The user wants:
-1. **Internal load number should NEVER change** once an order is created
-2. **Change the column type to text** so the suffix (e.g., `-BF`, `-UE`) can be stored directly in the database
+## Fix
 
-## Current State
+**File: `src/components/SetDriverStatusDialog.tsx`**
 
-- `orders.internal_load_number` is `integer` — suffix is computed at display time via `formatInternalLoadNumber()`
-- `reassign_internal_load_number` RPC reassigns the number when company changes
-- `create_order_with_unique_load_number` RPC generates the number at creation time
-- ~13 files use `formatInternalLoadNumber()` for display
+Add `modal={false}` to the Combobox's parent Popover. Since the Combobox is a shared component, the cleanest approach is to add an optional `modal` prop to the Combobox component that gets forwarded to the internal Popover.
 
-## Plan
+**File: `src/components/ui/combobox.tsx`**
 
-### 1. Database Migration — Convert column to text and store suffix
+1. Add a `modal?: boolean` prop to the Combobox interface
+2. Forward it to `<Popover modal={modal}>` (defaults to `undefined`, so existing usage is unaffected)
 
-- `ALTER TABLE orders ALTER COLUMN internal_load_number TYPE text USING internal_load_number::text;`
-- Run a one-time UPDATE to stamp the suffix onto all existing rows based on their current `company_id` (join to `companies` table to get company name, apply suffix logic in SQL)
-- Update `create_order_with_unique_load_number` RPC to store the full suffixed value (e.g., `"7941-BF"`) at creation time, keeping the sequential numbering logic but appending the company suffix before inserting
-- **Drop** the `reassign_internal_load_number` RPC — it should never be called again
-- Update index on `internal_load_number` (already text-compatible)
+**File: `src/components/SetDriverStatusDialog.tsx`**
 
-### 2. Remove reassignment logic from EditOrder
+3. Pass `modal={false}` to both Combobox instances (initial step and awaiting_recovery step) — this tells the Popover not to use modal behavior, allowing clicks inside the Dialog
 
-- **`src/pages/EditOrder.tsx`**: Remove the `companyChanged` block (lines ~2419-2434) that calls `reassign_internal_load_number`. When company changes, just update `company_id` normally — internal load number stays frozen.
+### Technical Detail
 
-### 3. Simplify display — stop computing suffix at runtime
+The Combobox change is a single-prop addition:
+```tsx
+// combobox.tsx
+interface ComboboxProps {
+  // ... existing props
+  modal?: boolean;
+}
 
-- **`src/utils/formatInternalLoadNumber.ts`**: Simplify `formatInternalLoadNumber()` to just return the stored string value as-is (since the suffix is now baked in). Keep `parseInternalLoadNumber()` for any numeric extraction needs.
-- All ~13 consumer files continue calling `formatInternalLoadNumber()` but now it's a passthrough — no code changes needed in those files.
-
-### 4. Update creation flow
-
-- **`src/pages/NewOrder.tsx`** / **`src/hooks/useNextInternalLoadNumber.ts`**: The RPC already handles creation. The hook is used for preview display — update it to return the formatted string with suffix.
-- Update the `create_order_with_unique_load_number` RPC to compute and store the suffix (using the same company-name-to-suffix mapping, implemented in SQL).
-
-### 5. Fix the specific order
-
-- Run an UPDATE to set order "52688977" back to its correct internal load number value as text with the proper suffix.
-
-### Technical Details
-
-**SQL suffix mapping** (in the updated RPC):
-```sql
-CASE
-  WHEN company_name ILIKE '%bf prime united%' THEN 'BFU'
-  WHEN company_name ILIKE '%bf prime%' THEN 'BFP'
-  WHEN company_name ILIKE '%beverly freight%' THEN 'BF'
-  WHEN company_name ILIKE '%united enterprise%' THEN 'UE'
-  WHEN company_name ILIKE '%bg prime%' THEN 'BG'
-  WHEN company_name ILIKE '%ap silver%' THEN 'AP'
-  ELSE ''
-END
+// In render:
+<Popover open={open} onOpenChange={setOpen} modal={modal}>
 ```
 
-**Files modified**:
-- 1 new migration (alter column, backfill suffixes, update RPCs)
-- `src/pages/EditOrder.tsx` — remove reassignment logic
-- `src/utils/formatInternalLoadNumber.ts` — simplify to passthrough
-- `src/hooks/useNextInternalLoadNumber.ts` — minor type adjustment
-- `src/integrations/supabase/types.ts` — auto-updated after migration
+Then in `SetDriverStatusDialog.tsx`, both Combobox usages get `modal={false}`.
 
