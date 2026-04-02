@@ -1149,7 +1149,7 @@ function TransferRowDialog({
       setDriverId(editData.driver_id);
       setGoingToCompany(editData.going_to_company || "");
       setDrugTestDate(editData.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined);
-      setDrugTestZip(editData.drug_test_zip || "");
+      
       setDrugTestResult(editData.drug_test_result || "");
       setComingToOffice(editData.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined);
       setEtaTime(editData.eta_time || "");
