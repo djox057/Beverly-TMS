@@ -862,6 +862,7 @@ const TransferList = () => {
                                 field="coming_to_office"
                                 canEdit={columnPerms.coming_office}
                                 group="coming_office"
+                                disabledMessage={!row.drug_test_date ? "You must set the Drug Test Date before setting Coming to Office date" : undefined}
                               />
                             </TableCell>
 
