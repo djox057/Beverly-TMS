@@ -961,16 +961,6 @@ const TransferList = () => {
                               />
                             </TableCell>
 
-                            <TableCell className="text-center">
-                              <InlineTextCell
-                                value={row.drug_test_zip}
-                                rowId={row.id}
-                                field="drug_test_zip"
-                                canEdit={columnPerms.drug_test}
-                                group="drug_test"
-                                placeholder="Zip..."
-                              />
-                            </TableCell>
 
                             <TableCell className="text-center">
                               <DrugTestResultCell
