@@ -43,6 +43,7 @@ export function Combobox({
   emptyText = "No results found.",
   className,
   disabled,
+  modal,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
