@@ -592,6 +592,23 @@ const TransferList = () => {
     return Array.from(set).sort();
   }, [enrichedRows]);
 
+  const uniqueComingToOfficeDates = useMemo(() => {
+    const set = new Set<string>();
+    enrichedRows.forEach((row) => { if (row.coming_to_office) set.add(row.coming_to_office); });
+    const sorted = Array.from(set).sort();
+    const ordinalSuffix = (d: number) => {
+      if (d > 3 && d < 21) return "th";
+      switch (d % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+    };
+    return sorted.map((dateStr) => {
+      const dt = new Date(dateStr + "T00:00:00");
+      const day = dt.getDate();
+      const monthName = format(dt, "MMMM");
+      const dayName = format(dt, "EEEE");
+      return { value: dateStr, label: `${day}${ordinalSuffix(day)} ${monthName} ${dayName}` };
+    });
+  }, [enrichedRows]);
+
   const displayRows = useMemo(() => {
     let rows = filteredRows;
     if (searchText) {
