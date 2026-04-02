@@ -31,6 +31,7 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  modal?: boolean;
 }
 
 export function Combobox({
