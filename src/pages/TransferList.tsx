@@ -64,12 +64,13 @@ interface TransferRow {
 }
 
 // ─── Role permission helpers ───
-type ColumnGroup = "drug_test" | "coming_office" | "driver_informed" | "sign" | "finished" | "safety_assign";
+type ColumnGroup = "drug_test" | "coming_office" | "eta_time" | "driver_informed" | "sign" | "finished" | "safety_assign";
 
 const COLUMN_PERMISSIONS: Record<ColumnGroup, { roles: string[]; label: string }> = {
   drug_test: { roles: ["safety", "admin"], label: "Safety" },
   finished: { roles: ["safety", "admin"], label: "Safety" },
   coming_office: { roles: ["dispatch", "admin"], label: "Dispatch" },
+  eta_time: { roles: ["dispatch", "admin"], label: "Dispatch" },
   driver_informed: { roles: ["dispatch", "admin"], label: "Dispatch" },
   sign: { roles: ["yard", "maintenance", "admin"], label: "Yard / Maintenance" },
   safety_assign: { roles: ["safety", "manager", "admin"], label: "Safety / Manager" },
