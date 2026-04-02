@@ -139,12 +139,18 @@ function InlineDateCell({
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const handleSelect = useCallback((d: Date | undefined) => {
+    if (d) {
+      mutation.mutate(d);
+    }
+  }, [mutation]);
+
   if (!canEdit) {
     return <LockedCell group={group}><span>{display}</span></LockedCell>;
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <button
           className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
@@ -153,11 +159,11 @@ function InlineDateCell({
           {display}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align="start" onPointerDownOutside={(e) => e.preventDefault()}>
         <Calendar
           mode="single"
           selected={date}
-          onSelect={(d) => mutation.mutate(d)}
+          onSelect={handleSelect}
           initialFocus
           className="p-3 pointer-events-auto"
         />
