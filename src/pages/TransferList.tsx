@@ -111,12 +111,14 @@ function InlineDateCell({
   field,
   canEdit,
   group,
+  disabledMessage,
 }: {
   value: string | null;
   rowId: string;
   field: string;
   canEdit: boolean;
   group: ColumnGroup;
+  disabledMessage?: string;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -149,12 +151,24 @@ function InlineDateCell({
     return <LockedCell group={group}><span>{display}</span></LockedCell>;
   }
 
+  const handleClick = () => {
+    if (disabledMessage) {
+      toast({ title: "Cannot set date", description: disabledMessage, variant: "destructive" });
+      return;
+    }
+    setOpen(true);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={open} onOpenChange={(o) => { if (!disabledMessage) setOpen(o); }} modal>
       <PopoverTrigger asChild>
         <button
-          className="text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit"
+          className={cn(
+            "text-left w-full hover:underline cursor-pointer bg-transparent border-none p-0 m-0 font-inherit text-inherit",
+            disabledMessage && "opacity-50 cursor-not-allowed hover:no-underline"
+          )}
           type="button"
+          onClick={handleClick}
         >
           {display}
         </button>
