@@ -1138,6 +1138,7 @@ function TransferRowDialog({
   const [comingToOffice, setComingToOffice] = useState<Date | undefined>(
     editData?.coming_to_office ? new Date(editData.coming_to_office + "T00:00:00") : undefined
   );
+  const [etaTime, setEtaTime] = useState(editData?.eta_time || "");
   const [safetyUserId, setSafetyUserId] = useState<string | null>(editData?.safety_user_id || null);
   const [driverInformed, setDriverInformed] = useState(editData?.driver_informed || false);
   const [sign, setSign] = useState(editData?.sign || false);
