@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+
 import { transformOrders } from "@/utils/ordersTransform";
 
 // Flat column list - NO joins (matches edge function pattern)
@@ -128,15 +128,7 @@ export function useOrdersSearch() {
       }
 
       // === STAGE 1: Flat order search (fast, index-friendly) ===
-      const parsedInternalLoadNumber = parseInternalLoadNumber(term);
-
-      let searchFilter: string;
-      if (parsedInternalLoadNumber !== null) {
-        // Search internal_load_number as text prefix (e.g. "7941" matches "7941-BF")
-        searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.ilike.${parsedInternalLoadNumber}%`;
-      } else {
-        searchFilter = `broker_load_number.ilike.%${term}%`;
-      }
+      const searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
 
       let query = supabase
         .from("orders")
