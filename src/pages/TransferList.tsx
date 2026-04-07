@@ -724,8 +724,12 @@ const TransferList = () => {
     if (comingToOfficeFilter !== "all") {
       rows = rows.filter((row) => row.coming_to_office === comingToOfficeFilter);
     }
+    if (statusFilter !== "all") {
+      const isFinished = statusFilter === "transferred";
+      rows = rows.filter((row) => row.finished === isFinished);
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter, statusFilter]);
 
   // Group by office, then by dispatcher within each office
   const groupedByOffice = useMemo(() => {
