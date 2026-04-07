@@ -226,7 +226,7 @@ const Analytics = () => {
   const [lostDayDatesByUser, setLostDayDatesByUser] = useState<Record<string, string[]>>({});
   const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
-  const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
+  const [minGrossFilter, setMinGrossFilter] = useState<string>("");
 
   // Salary selection and payment states
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
@@ -1567,8 +1567,9 @@ const Analytics = () => {
     }
     return false;
   }).filter(stat => {
-    // Filter by 100k+ gross if enabled
-    if (showOver100kGross && stat.totalFreight < 100000) {
+    // Filter by minimum gross threshold
+    const minGross = parseFloat(minGrossFilter);
+    if (minGross > 0 && stat.totalFreight < minGross) {
       return false;
     }
     // Filter by supervisor
@@ -2649,9 +2650,16 @@ const Analytics = () => {
                           </Button>}
                         </>}
                       </div>
-                      <Button variant={showOver100kGross ? "default" : "outline"} size="sm" onClick={() => setShowOver100kGross(!showOver100kGross)}>
-                        100k+ Gross
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min Gross $</span>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 100000"
+                          value={minGrossFilter}
+                          onChange={(e) => setMinGrossFilter(e.target.value)}
+                          className="w-28 h-8 text-sm"
+                        />
+                      </div>
                     </div>}
                 </div>
               </CardHeader>
