@@ -671,6 +671,7 @@ const TransferList = () => {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [comingToOfficeFilter, setComingToOfficeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("in_process");
 
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
@@ -723,8 +724,12 @@ const TransferList = () => {
     if (comingToOfficeFilter !== "all") {
       rows = rows.filter((row) => row.coming_to_office === comingToOfficeFilter);
     }
+    if (statusFilter !== "all") {
+      const isFinished = statusFilter === "transferred";
+      rows = rows.filter((row) => row.finished === isFinished);
+    }
     return rows;
-  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter]);
+  }, [filteredRows, searchText, companyFilter, officeFilter, dispatcherSearch, comingToOfficeFilter, statusFilter]);
 
   // Group by office, then by dispatcher within each office
   const groupedByOffice = useMemo(() => {
@@ -874,6 +879,16 @@ const TransferList = () => {
             {uniqueComingToOfficeDates.map((d) => (
               <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="in_process">In Process</SelectItem>
+            <SelectItem value="transferred">Transferred</SelectItem>
           </SelectContent>
         </Select>
       </div>
