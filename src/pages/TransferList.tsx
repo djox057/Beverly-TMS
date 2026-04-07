@@ -881,6 +881,16 @@ const TransferList = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="in_process">In Process</SelectItem>
+            <SelectItem value="transferred">Transferred</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="border rounded-md">
