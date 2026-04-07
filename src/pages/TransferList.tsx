@@ -671,6 +671,7 @@ const TransferList = () => {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [comingToOfficeFilter, setComingToOfficeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("in_process");
 
   const uniqueCompanies = useMemo(() => {
     const set = new Set<string>();
