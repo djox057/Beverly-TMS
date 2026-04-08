@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument, StandardFonts } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -171,7 +171,6 @@ serve(async (req) => {
     
     // Load the PDF template
     const pdfDoc = await PDFDocument.load(templateBytes);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const form = pdfDoc.getForm();
     
     // Get all form fields to see what's available
@@ -199,12 +198,12 @@ serve(async (req) => {
         // Match pattern like "18:00 - 18:00" where both sides are the same
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
-          const appointmentText = sanitizeText(`${match[1]} APPOINTMENT`);
-          const redBoldAppearance = `1 0 0 rg\n/${boldFont.name} 8 Tf`;
-          field.setText(appointmentText);
-          field.acroField.setDefaultAppearance(redBoldAppearance);
-          field.acroField.getWidgets().forEach((widget) => widget.setDefaultAppearance(redBoldAppearance));
-          field.updateAppearances(boldFont);
+          field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
+          field.setFontSize(8);
+          field.acroField.getWidgets().forEach((widget: any) => {
+            const daString = `1 0 0 rg /Helv 8 Tf`;
+            widget.setDefaultAppearance(daString);
+          });
         } else {
           field.setText(sanitizeText(trimmed));
         }
@@ -574,8 +573,8 @@ serve(async (req) => {
       console.log('Attempting to fill with available fields...');
     }
 
-    // Flatten the form so custom appearance styling is preserved across PDF viewers
-    form.flatten();
+    // Don't flatten the form - keep it fillable/editable
+    // form.flatten();
 
     // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
