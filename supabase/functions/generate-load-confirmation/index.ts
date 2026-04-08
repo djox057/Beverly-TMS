@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -171,6 +171,7 @@ serve(async (req) => {
     
     // Load the PDF template
     const pdfDoc = await PDFDocument.load(templateBytes);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const form = pdfDoc.getForm();
     
     // Get all form fields to see what's available
@@ -199,10 +200,13 @@ serve(async (req) => {
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
           field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
+          field.updateAppearances(boldFont);
           field.acroField.getWidgets().forEach((widget: any) => {
-            const daString = `1 0 0 rg /HeBo 0 Tf`;
+            const fontKey = widget.ensureAP().normal().decodeContents().match(/\/(F\d+)/)?.[1] || 'F0';
+            const daString = `1 0 0 rg /${fontKey} 0 Tf`;
             widget.setDefaultAppearance(daString);
           });
+          field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
         }
