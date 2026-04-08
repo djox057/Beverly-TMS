@@ -21,10 +21,6 @@ interface PickupDeliveryStop {
 }
 
 interface ExtractedOrderData {
-  brokerLoadNumber?: string;
-  brokerName?: string;
-  brokerAddress?: string;
-  matchedBrokerId?: string;
   pickups?: PickupDeliveryStop[];
   deliveries?: PickupDeliveryStop[];
   pickupPuNumber?: string;
@@ -92,12 +88,7 @@ serve(async (req) => {
 
 ## CRITICAL FIELDS TO EXTRACT:
 
-### 1. BROKER INFO (TOP PRIORITY - check document header/letterhead):
-- brokerName: Company issuing the rate confirmation (NOT shipper/receiver)
-- brokerAddress: Broker's office address
-- DO NOT extract brokerLoadNumber - skip this field entirely
-
-### 2. PICKUP/DELIVERY LOCATIONS:
+### 1. PICKUP/DELIVERY LOCATIONS:
 Identify stops labeled "PU", "Pickup", "Origin" as PICKUPS.
 Identify stops labeled "SO", "Stop", "Delivery", "Destination" as DELIVERIES.
 
@@ -163,8 +154,6 @@ ${currentMonth >= 10 ? `- "01/15/25" or "01/15" in a document → output "${next
 
 For single pickup/delivery:
 {
-  "brokerName": "string",
-  "brokerAddress": "string",
   "pickups": [{
     "address": "string",
     "city": "string",
@@ -347,112 +336,7 @@ Return ONLY valid JSON. No markdown, no explanations.`;
       }
     }
 
-    // Try to match broker from database
-    if (extractedData.brokerName) {
-      try {
-        const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-        const { createClient } = await import("npm:@supabase/supabase-js@2.49.1");
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-        const normalizeText = (text: string): string => {
-          return text
-            .toUpperCase()
-            .replace(/[.,;:!?'"()\[\]{}]/g, " ")
-            .replace(/\b(INC|LLC|LTD|CO|COMPANY|CORP|CORPORATION|DBA|THE)\b/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-        };
-
-        const levenshtein = (a: string, b: string): number => {
-          if (a.length === 0) return b.length;
-          if (b.length === 0) return a.length;
-          const matrix = Array(b.length + 1)
-            .fill(null)
-            .map(() => Array(a.length + 1).fill(null));
-          for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
-          for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-          for (let j = 1; j <= b.length; j++) {
-            for (let i = 1; i <= a.length; i++) {
-              const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-              matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + cost);
-            }
-          }
-          return matrix[b.length][a.length];
-        };
-
-        const extractMC = (text: string): string | null => {
-          const match = text.match(/\bMC[#:\s-]*(\d+)/i);
-          return match ? match[1] : null;
-        };
-
-        // Fetch brokers
-        let allBrokers: any[] = [];
-        let page = 0;
-        const pageSize = 1000;
-
-        while (true) {
-          const { data, error } = await supabaseAdmin
-            .from("brokers")
-            .select("id, name, address, mc_number")
-            .order("name")
-            .range(page * pageSize, (page + 1) * pageSize - 1);
-
-          if (error || !data || data.length === 0) break;
-          allBrokers = [...allBrokers, ...data];
-          if (data.length < pageSize) break;
-          page++;
-        }
-
-        if (allBrokers.length > 0) {
-          const extractedMC = extractMC(extractedData.brokerName + " " + (extractedData.brokerAddress || ""));
-          const normalizedExtracted = normalizeText(extractedData.brokerName);
-
-          let bestMatch: any = null;
-          let bestScore = 0;
-
-          for (const broker of allBrokers) {
-            let score = 0;
-            const brokerMC = broker.mc_number || extractMC(broker.name + " " + (broker.address || ""));
-            const normalizedBroker = normalizeText(broker.name);
-
-            // MC number exact match = auto-match
-            if (extractedMC && brokerMC && extractedMC === brokerMC) {
-              score += 1000;
-            }
-
-            // Exact name match
-            if (normalizedExtracted === normalizedBroker) {
-              score += 60;
-            } else {
-              // Fuzzy match
-              const distance = levenshtein(normalizedExtracted, normalizedBroker);
-              const maxLen = Math.max(normalizedExtracted.length, normalizedBroker.length);
-              const similarity = maxLen > 0 ? ((maxLen - distance) / maxLen) * 100 : 0;
-              score += Math.round((similarity / 100) * 40);
-            }
-
-            if (score > bestScore) {
-              bestScore = score;
-              bestMatch = broker;
-            }
-          }
-
-          if (bestMatch && bestScore >= 70) {
-            extractedData.matchedBrokerId = bestMatch.id;
-            console.log(`Matched broker: ${bestMatch.name} (score: ${bestScore})`);
-          }
-        }
-      } catch (brokerError) {
-        console.error("Broker matching error:", brokerError);
-      }
-    }
-
     console.log("Extraction complete:", {
-      brokerName: extractedData.brokerName,
-      brokerLoadNumber: extractedData.brokerLoadNumber,
-      matchedBrokerId: extractedData.matchedBrokerId,
       pickups: extractedData.pickups?.length,
       deliveries: extractedData.deliveries?.length,
       freightAmount: extractedData.freightAmount,
