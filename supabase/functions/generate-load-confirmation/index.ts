@@ -4,8 +4,8 @@ import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface LoadConfirmationData {
@@ -88,69 +88,67 @@ interface LoadConfirmationData {
 
 // Sanitize text to remove characters that can't be encoded in WinAnsi (PDF standard encoding)
 function sanitizeText(text: string): string {
-  if (!text) return "";
+  if (!text) return '';
   // Replace common problematic characters and remove any non-ASCII characters
   return text
-    .replace(/[^\x00-\x7F]/g, "") // Remove all non-ASCII characters
+    .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII characters
     .replace(/\u2018|\u2019/g, "'") // Smart single quotes to regular
     .replace(/\u201C|\u201D/g, '"') // Smart double quotes to regular
-    .replace(/\u2013|\u2014/g, "-") // En/em dashes to hyphen
+    .replace(/\u2013|\u2014/g, '-') // En/em dashes to hyphen
     .trim();
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const data: LoadConfirmationData = await req.json();
-    console.log("Generating load confirmation with data:", data);
+    console.log('Generating load confirmation with data:', data);
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Auto-detect template type based on number of pickups and deliveries if not provided
     let templateType = data.templateType;
-
+    
     if (!templateType) {
       // Count pickups
       let pickupCount = 1; // First pickup is always present
       if (data.pickup2Address) pickupCount++;
       if (data.pickup3Address) pickupCount++;
-
+      
       // Count deliveries
       let deliveryCount = 1; // First delivery is always present
       if (data.delivery2Address) deliveryCount++;
       if (data.delivery3Address) deliveryCount++;
       if (data.delivery4Address) deliveryCount++;
       if (data.delivery5Address) deliveryCount++;
-
+      
       // Build template type string (e.g., "1p2d", "2p1d", "3p1d")
       templateType = `${pickupCount}p${deliveryCount}d`;
-      console.log(
-        `🎯 Auto-detected template type: ${templateType} (${pickupCount} pickups, ${deliveryCount} deliveries)`,
-      );
+      console.log(`🎯 Auto-detected template type: ${templateType} (${pickupCount} pickups, ${deliveryCount} deliveries)`);
     }
-
-    let bucketName = "order-files";
-    let templateFileName = "load-confirmation-template.pdf";
-
+    
+    let bucketName = 'order-files';
+    let templateFileName = 'load-confirmation-template.pdf';
+    
     // Map template types to their files
     const templateMap: { [key: string]: { bucket: string; file: string } } = {
-      "1p1d": { bucket: "order-files", file: "load-confirmation-template.pdf" },
-      "1p2d": { bucket: "Profilne", file: "load_sheet 1p2d (2).pdf" },
-      "1p3d": { bucket: "Profilne", file: "load_sheet 1p3d (1).pdf" },
-      "1p4d": { bucket: "Profilne", file: "load_sheet 1p4d_1.pdf" },
-      "1p5d": { bucket: "Profilne", file: "load_sheet 1p5d_1.pdf" },
-      "2p1d": { bucket: "Profilne", file: "load_sheet 2p1d (1).pdf" },
-      "2p2d": { bucket: "Profilne", file: "load_sheet 2p2d (1).pdf" },
-      "3p1d": { bucket: "Profilne", file: "load_sheet 3p1d (1).pdf" },
-      "3p3d": { bucket: "Profilne", file: "3p_3_d_sheet_1.pdf" },
+      '1p1d': { bucket: 'order-files', file: 'load-confirmation-template.pdf' },
+      '1p2d': { bucket: 'Profilne', file: 'load_sheet 1p2d (2).pdf' },
+      '1p3d': { bucket: 'Profilne', file: 'load_sheet 1p3d (1).pdf' },
+      '1p4d': { bucket: 'Profilne', file: 'load_sheet 1p4d_1.pdf' },
+      '1p5d': { bucket: 'Profilne', file: 'load_sheet 1p5d_1.pdf' },
+      '2p1d': { bucket: 'Profilne', file: 'load_sheet 2p1d (1).pdf' },
+      '2p2d': { bucket: 'Profilne', file: 'load_sheet 2p2d (1).pdf' },
+      '3p1d': { bucket: 'Profilne', file: 'load_sheet 3p1d (1).pdf' },
+      '3p3d': { bucket: 'Profilne', file: '3p_3_d_sheet_1.pdf' },
     };
-
+    
     if (templateMap[templateType]) {
       bucketName = templateMap[templateType].bucket;
       templateFileName = templateMap[templateType].file;
@@ -164,24 +162,21 @@ serve(async (req) => {
       .download(templateFileName);
 
     if (downloadError) {
-      console.error("Error loading template:", downloadError);
-      throw new Error("Failed to load template PDF");
+      console.error('Error loading template:', downloadError);
+      throw new Error('Failed to load template PDF');
     }
 
     // Convert blob to array buffer
     const templateBytes = await templateData.arrayBuffer();
-
+    
     // Load the PDF template
     const pdfDoc = await PDFDocument.load(templateBytes);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const form = pdfDoc.getForm();
-
+    
     // Get all form fields to see what's available
     const fields = form.getFields();
-    console.log(
-      "Available form fields:",
-      fields.map((f) => f.getName()),
-    );
+    console.log('Available form fields:', fields.map(f => f.getName()));
 
     // Helper function to safely set text field
     const setTextField = (fieldName: string, value: string | undefined) => {
@@ -206,7 +201,7 @@ serve(async (req) => {
         if (match && match[1] === match[2]) {
           field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
           // Set red color and bold font, then update appearances
-          field.setColor(rgb(255, 0, 0));
+          field.setColor(rgb(1, 0, 0));
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
@@ -219,230 +214,204 @@ serve(async (req) => {
     // Fill in the form fields based on template type
     try {
       // Fill common header fields (present in all templates)
-      setTextField("LOAD ORDER CONFIRAMTION", data.brokerLoadNumber);
-      setTextField("Driver", data.driverName);
-      setTextField("Truck", data.truckNumber);
-      setTextField("Trailer", data.trailerNumber);
-      setTextField("Phone", data.phoneNumber);
-      setTextField("Commodity", data.commodity);
-      setTextField("Weight", data.weight);
-      setTextField("Miles", data.miles);
-
+      setTextField('LOAD ORDER CONFIRAMTION', data.brokerLoadNumber);
+      setTextField('Driver', data.driverName);
+      setTextField('Truck', data.truckNumber);
+      setTextField('Trailer', data.trailerNumber);
+      setTextField('Phone', data.phoneNumber);
+      setTextField('Commodity', data.commodity);
+      setTextField('Weight', data.weight);
+      setTextField('Miles', data.miles);
+      
       // Format rate with 2 decimal places
-      let formattedRate = "";
+      let formattedRate = '';
       if (data.rate) {
-        const rateNum = parseFloat(data.rate.replace(/[^0-9.-]/g, ""));
+        const rateNum = parseFloat(data.rate.replace(/[^0-9.-]/g, ''));
         if (!isNaN(rateNum)) {
-          formattedRate = "$" + rateNum.toFixed(2);
+          formattedRate = '$' + rateNum.toFixed(2);
         } else {
-          formattedRate = "$" + sanitizeText(data.rate);
+          formattedRate = '$' + sanitizeText(data.rate);
         }
       }
-      setTextField("Rate", formattedRate);
+      setTextField('Rate', formattedRate);
 
       // Fill based on template type
-      if (templateType === "2p1d") {
+      if (templateType === '2p1d') {
         // Fill 2 Pickups + 1 Delivery template
-        console.log("Filling 2p1d template");
-
+        console.log('Filling 2p1d template');
+        
         // First Pickup
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
-        setTextField("PO_2", data.pickupPoNumber2);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
+        setTextField('PO_2', data.pickupPoNumber2);
 
         // Second Pickup
-        setTextField("Shipper_2", data.pickup2Shipper);
-        setTextField("Address_2", data.pickup2Address);
-        setTextField("City state zip_2", data.pickup2CityStateZip);
-        setTextField("Date_2", data.pickup2Date);
-        setTimeField("Time_2", data.pickup2Time);
-        setTextField("Delivery", data.pickup2PoNumber);
-        setTextField("PO_3", data.pickup2PoNumber2);
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTimeField('Time_2', data.pickup2Time);
+        setTextField('Delivery', data.pickup2PoNumber);
+        setTextField('PO_3', data.pickup2PoNumber2);
 
         // Delivery
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Address_3", data.deliveryAddress);
-        setTextField("City state zip_3", data.deliveryCityStateZip);
-        setTextField("Date_3", data.deliveryDate);
-        setTimeField("Time_3", data.deliveryTime);
-        setTextField("Delivery_2", data.deliveryPoNumber);
-        setTextField("PO_5", data.deliveryPoNumber2);
-      } else if (templateType === "1p2d") {
-        console.log("Filling 1p2d template");
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Address_3', data.deliveryAddress);
+        setTextField('City state zip_3', data.deliveryCityStateZip);
+        setTextField('Date_3', data.deliveryDate);
+        setTimeField('Time_3', data.deliveryTime);
+        setTextField('Delivery_2', data.deliveryPoNumber);
+        setTextField('PO_5', data.deliveryPoNumber2);
 
+      } else if (templateType === '1p2d') {
+        console.log('Filling 1p2d template');
+        
         // Pickup
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // First Delivery
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Shipper_2", data.deliveryReceiver);
-        setTextField("Address_2", data.deliveryAddress);
-        setTextField("City state zip_2", data.deliveryCityStateZip);
-        setTextField("Date_2", data.deliveryDate);
-        setTimeField("Time_2", data.deliveryTime);
-        setTextField("PO_2", data.deliveryPoNumber);
-        setTextField("Delivery", data.deliveryPoNumber);
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTimeField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
+        setTextField('Delivery', data.deliveryPoNumber);
 
         // Second Delivery
-        setTextField("Receiver_2", data.delivery2Receiver);
-        setTextField("Shipper_3", data.delivery2Receiver);
-        setTextField("Address_3", data.delivery2Address);
-        setTextField("City state zip_3", data.delivery2CityStateZip);
-        setTextField("Date_3", data.delivery2Date);
-        setTimeField("Time_3", data.delivery2Time);
-        setTextField("PO_3", data.delivery2PoNumber);
-        setTextField("Delivery_2", data.delivery2PoNumber);
-      } else if (templateType === "1p3d") {
-        console.log("Filling 1p3d template");
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTimeField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
+        setTextField('Delivery_2', data.delivery2PoNumber);
 
+      } else if (templateType === '1p3d') {
+        console.log('Filling 1p3d template');
+        
         // Pickup
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // Deliveries 1-3
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Shipper_2", data.deliveryReceiver);
-        setTextField("Address_2", data.deliveryAddress);
-        setTextField("City state zip_2", data.deliveryCityStateZip);
-        setTextField("Date_2", data.deliveryDate);
-        setTimeField("Time_2", data.deliveryTime);
-        setTextField("PO_2", data.deliveryPoNumber);
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTimeField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
 
-        setTextField("Receiver_2", data.delivery2Receiver);
-        setTextField("Shipper_3", data.delivery2Receiver);
-        setTextField("Address_3", data.delivery2Address);
-        setTextField("City state zip_3", data.delivery2CityStateZip);
-        setTextField("Date_3", data.delivery2Date);
-        setTimeField("Time_3", data.delivery2Time);
-        setTextField("PO_3", data.delivery2PoNumber);
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTimeField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
 
-        setTextField("Receiver_3", data.delivery3Receiver);
-        setTextField("Shipper_4", data.delivery3Receiver);
-        setTextField("Address_4", data.delivery3Address);
-        setTextField("City state zip_4", data.delivery3CityStateZip);
-        setTextField("Date_4", data.delivery3Date);
-        setTimeField("Time_4", data.delivery3Time);
-        setTextField("PO_4", data.delivery3PoNumber);
-      } else if (templateType === "1p4d") {
-        console.log("Filling 1p4d template");
+        setTextField('Receiver_3', data.delivery3Receiver);
+        setTextField('Shipper_4', data.delivery3Receiver);
+        setTextField('Address_4', data.delivery3Address);
+        setTextField('City state zip_4', data.delivery3CityStateZip);
+        setTextField('Date_4', data.delivery3Date);
+        setTimeField('Time_4', data.delivery3Time);
+        setTextField('PO_4', data.delivery3PoNumber);
 
+      } else if (templateType === '1p4d') {
+        console.log('Filling 1p4d template');
+        
         // Pickup
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // Deliveries 1-4
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Shipper_2", data.deliveryReceiver);
-        setTextField("Address_2", data.deliveryAddress);
-        setTextField("City state zip_2", data.deliveryCityStateZip);
-        setTextField("Date_2", data.deliveryDate);
-        setTimeField("Time_2", data.deliveryTime);
-        setTextField("PO_2", data.deliveryPoNumber);
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTimeField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
 
-        setTextField("Receiver_2", data.delivery2Receiver);
-        setTextField("Shipper_3", data.delivery2Receiver);
-        setTextField("Address_3", data.delivery2Address);
-        setTextField("City state zip_3", data.delivery2CityStateZip);
-        setTextField("Date_3", data.delivery2Date);
-        setTimeField("Time_3", data.delivery2Time);
-        setTextField("PO_3", data.delivery2PoNumber);
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTimeField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
 
-        setTextField("Receiver_3", data.delivery3Receiver);
-        setTextField("Shipper_4", data.delivery3Receiver);
-        setTextField("Address_4", data.delivery3Address);
-        setTextField("City state zip_4", data.delivery3CityStateZip);
-        setTextField("Date_4", data.delivery3Date);
-        setTimeField("Time_4", data.delivery3Time);
-        setTextField("PO_4", data.delivery3PoNumber);
+        setTextField('Receiver_3', data.delivery3Receiver);
+        setTextField('Shipper_4', data.delivery3Receiver);
+        setTextField('Address_4', data.delivery3Address);
+        setTextField('City state zip_4', data.delivery3CityStateZip);
+        setTextField('Date_4', data.delivery3Date);
+        setTimeField('Time_4', data.delivery3Time);
+        setTextField('PO_4', data.delivery3PoNumber);
 
-        setTextField("Receiver_4", data.delivery4Receiver);
-        setTextField("Shipper_5", data.delivery4Receiver);
-        setTextField("Address_5", data.delivery4Address);
-        setTextField("City state zip_5", data.delivery4CityStateZip);
-        setTextField("Date_5", data.delivery4Date);
-        setTimeField("Time_5", data.delivery4Time);
-        setTextField("PO_5", data.delivery4PoNumber);
-      } else if (templateType === "1p5d") {
-        console.log("Filling 1p5d template");
+        setTextField('Receiver_4', data.delivery4Receiver);
+        setTextField('Shipper_5', data.delivery4Receiver);
+        setTextField('Address_5', data.delivery4Address);
+        setTextField('City state zip_5', data.delivery4CityStateZip);
+        setTextField('Date_5', data.delivery4Date);
+        setTimeField('Time_5', data.delivery4Time);
+        setTextField('PO_5', data.delivery4PoNumber);
 
+      } else if (templateType === '1p5d') {
+        console.log('Filling 1p5d template');
+        
         // Pickup
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // Deliveries 1-5
         const deliveries = [
-          {
-            receiver: data.deliveryReceiver,
-            address: data.deliveryAddress,
-            cityStateZip: data.deliveryCityStateZip,
-            date: data.deliveryDate,
-            time: data.deliveryTime,
-            poNumber: data.deliveryPoNumber,
-          },
-          {
-            receiver: data.delivery2Receiver,
-            address: data.delivery2Address,
-            cityStateZip: data.delivery2CityStateZip,
-            date: data.delivery2Date,
-            time: data.delivery2Time,
-            poNumber: data.delivery2PoNumber,
-          },
-          {
-            receiver: data.delivery3Receiver,
-            address: data.delivery3Address,
-            cityStateZip: data.delivery3CityStateZip,
-            date: data.delivery3Date,
-            time: data.delivery3Time,
-            poNumber: data.delivery3PoNumber,
-          },
-          {
-            receiver: data.delivery4Receiver,
-            address: data.delivery4Address,
-            cityStateZip: data.delivery4CityStateZip,
-            date: data.delivery4Date,
-            time: data.delivery4Time,
-            poNumber: data.delivery4PoNumber,
-          },
-          {
-            receiver: data.delivery5Receiver,
-            address: data.delivery5Address,
-            cityStateZip: data.delivery5CityStateZip,
-            date: data.delivery5Date,
-            time: data.delivery5Time,
-            poNumber: data.delivery5PoNumber,
-          },
+          { receiver: data.deliveryReceiver, address: data.deliveryAddress, cityStateZip: data.deliveryCityStateZip, 
+            date: data.deliveryDate, time: data.deliveryTime, poNumber: data.deliveryPoNumber },
+          { receiver: data.delivery2Receiver, address: data.delivery2Address, cityStateZip: data.delivery2CityStateZip,
+            date: data.delivery2Date, time: data.delivery2Time, poNumber: data.delivery2PoNumber },
+          { receiver: data.delivery3Receiver, address: data.delivery3Address, cityStateZip: data.delivery3CityStateZip,
+            date: data.delivery3Date, time: data.delivery3Time, poNumber: data.delivery3PoNumber },
+          { receiver: data.delivery4Receiver, address: data.delivery4Address, cityStateZip: data.delivery4CityStateZip,
+            date: data.delivery4Date, time: data.delivery4Time, poNumber: data.delivery4PoNumber },
+          { receiver: data.delivery5Receiver, address: data.delivery5Address, cityStateZip: data.delivery5CityStateZip,
+            date: data.delivery5Date, time: data.delivery5Time, poNumber: data.delivery5PoNumber }
         ];
 
         deliveries.forEach((delivery, i) => {
-          const suffix = i === 0 ? "" : `_${i}`;
-          const shipperSuffix = i === 0 ? "_2" : `_${i + 1}`;
-
+          const suffix = i === 0 ? '' : `_${i}`;
+          const shipperSuffix = i === 0 ? '_2' : `_${i + 1}`;
+          
           setTextField(`Receiver${suffix}`, delivery.receiver);
           setTextField(`Shipper${shipperSuffix}`, delivery.receiver);
           setTextField(`Address${shipperSuffix}`, delivery.address);
@@ -451,151 +420,156 @@ serve(async (req) => {
           setTimeField(`Time${shipperSuffix}`, delivery.time);
           setTextField(`PO${shipperSuffix}`, delivery.poNumber);
         });
-      } else if (templateType === "2p2d") {
-        console.log("Filling 2p2d template");
 
+      } else if (templateType === '2p2d') {
+        console.log('Filling 2p2d template');
+        
         // Pickups
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        setTextField("Shipper_2", data.pickup2Shipper);
-        setTextField("Address_2", data.pickup2Address);
-        setTextField("City state zip_2", data.pickup2CityStateZip);
-        setTextField("Date_2", data.pickup2Date);
-        setTimeField("Time_2", data.pickup2Time);
-        setTextField("PO_2", data.pickup2PoNumber);
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTimeField('Time_2', data.pickup2Time);
+        setTextField('PO_2', data.pickup2PoNumber);
 
         // Deliveries
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Shipper_3", data.deliveryReceiver);
-        setTextField("Address_3", data.deliveryAddress);
-        setTextField("City state zip_3", data.deliveryCityStateZip);
-        setTextField("Date_3", data.deliveryDate);
-        setTimeField("Time_3", data.deliveryTime);
-        setTextField("PO_3", data.deliveryPoNumber);
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_3', data.deliveryReceiver);
+        setTextField('Address_3', data.deliveryAddress);
+        setTextField('City state zip_3', data.deliveryCityStateZip);
+        setTextField('Date_3', data.deliveryDate);
+        setTimeField('Time_3', data.deliveryTime);
+        setTextField('PO_3', data.deliveryPoNumber);
 
-        setTextField("Receiver_2", data.delivery2Receiver);
-        setTextField("Shipper_4", data.delivery2Receiver);
-        setTextField("Address_4", data.delivery2Address);
-        setTextField("City state zip_4", data.delivery2CityStateZip);
-        setTextField("Date_4", data.delivery2Date);
-        setTimeField("Time_4", data.delivery2Time);
-        setTextField("PO_4", data.delivery2PoNumber);
-      } else if (templateType === "3p1d") {
-        console.log("Filling 3p1d template");
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_4', data.delivery2Receiver);
+        setTextField('Address_4', data.delivery2Address);
+        setTextField('City state zip_4', data.delivery2CityStateZip);
+        setTextField('Date_4', data.delivery2Date);
+        setTimeField('Time_4', data.delivery2Time);
+        setTextField('PO_4', data.delivery2PoNumber);
 
+      } else if (templateType === '3p1d') {
+        console.log('Filling 3p1d template');
+        
         // Pickups
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        setTextField("Shipper_2", data.pickup2Shipper);
-        setTextField("Address_2", data.pickup2Address);
-        setTextField("City state zip_2", data.pickup2CityStateZip);
-        setTextField("Date_2", data.pickup2Date);
-        setTimeField("Time_2", data.pickup2Time);
-        setTextField("PO_2", data.pickup2PoNumber);
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTimeField('Time_2', data.pickup2Time);
+        setTextField('PO_2', data.pickup2PoNumber);
 
-        setTextField("Shipper_3", data.pickup3Shipper);
-        setTextField("Address_3", data.pickup3Address);
-        setTextField("City state zip_3", data.pickup3CityStateZip);
-        setTextField("Date_3", data.pickup3Date);
-        setTimeField("Time_3", data.pickup3Time);
-        setTextField("PO_3", data.pickup3PoNumber);
+        setTextField('Shipper_3', data.pickup3Shipper);
+        setTextField('Address_3', data.pickup3Address);
+        setTextField('City state zip_3', data.pickup3CityStateZip);
+        setTextField('Date_3', data.pickup3Date);
+        setTimeField('Time_3', data.pickup3Time);
+        setTextField('PO_3', data.pickup3PoNumber);
 
         // Delivery
-        setTextField("Receiver", data.deliveryReceiver);
-        setTextField("Shipper_4", data.deliveryReceiver);
-        setTextField("Address_4", data.deliveryAddress);
-        setTextField("City state zip_4", data.deliveryCityStateZip);
-        setTextField("Date_4", data.deliveryDate);
-        setTimeField("Time_4", data.deliveryTime);
-        setTextField("PO_4", data.deliveryPoNumber);
-      } else if (templateType === "3p3d") {
-        console.log("Filling 3p3d template");
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_4', data.deliveryReceiver);
+        setTextField('Address_4', data.deliveryAddress);
+        setTextField('City state zip_4', data.deliveryCityStateZip);
+        setTextField('Date_4', data.deliveryDate);
+        setTimeField('Time_4', data.deliveryTime);
+        setTextField('PO_4', data.deliveryPoNumber);
 
+      } else if (templateType === '3p3d') {
+        console.log('Filling 3p3d template');
+        
         // Pickups
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        setTextField("Receiver", data.pickup2Shipper);
-        setTextField("Address_2", data.pickup2Address);
-        setTextField("City state zip_2", data.pickup2CityStateZip);
-        setTextField("Date_2", data.pickup2Date);
-        setTimeField("Time_2", data.pickup2Time);
-        setTextField("Delivery", data.pickup2PoNumber);
-        setTextField("PO_2", data.pickup2PoNumber);
+        setTextField('Receiver', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTimeField('Time_2', data.pickup2Time);
+        setTextField('Delivery', data.pickup2PoNumber);
+        setTextField('PO_2', data.pickup2PoNumber);
 
-        setTextField("Receiver_2", data.pickup3Shipper);
-        setTextField("Address_3", data.pickup3Address);
-        setTextField("City state zip_3", data.pickup3CityStateZip);
-        setTextField("Date_3", data.pickup3Date);
-        setTimeField("Time_3", data.pickup3Time);
-        setTextField("Delivery_2", data.pickup3PoNumber);
-        setTextField("PO_3", data.pickup3PoNumber);
+        setTextField('Receiver_2', data.pickup3Shipper);
+        setTextField('Address_3', data.pickup3Address);
+        setTextField('City state zip_3', data.pickup3CityStateZip);
+        setTextField('Date_3', data.pickup3Date);
+        setTimeField('Time_3', data.pickup3Time);
+        setTextField('Delivery_2', data.pickup3PoNumber);
+        setTextField('PO_3', data.pickup3PoNumber);
 
         // Deliveries
-        setTextField("Receiver_3", data.deliveryReceiver);
-        setTextField("Address_4", data.deliveryAddress);
-        setTextField("City state zip_4", data.deliveryCityStateZip);
-        setTextField("Date_4", data.deliveryDate);
-        setTimeField("Time_4", data.deliveryTime);
-        setTextField("Delivery_3", data.deliveryPoNumber);
-        setTextField("PO_4", data.deliveryPoNumber);
+        setTextField('Receiver_3', data.deliveryReceiver);
+        setTextField('Address_4', data.deliveryAddress);
+        setTextField('City state zip_4', data.deliveryCityStateZip);
+        setTextField('Date_4', data.deliveryDate);
+        setTimeField('Time_4', data.deliveryTime);
+        setTextField('Delivery_3', data.deliveryPoNumber);
+        setTextField('PO_4', data.deliveryPoNumber);
 
-        setTextField("Receiver_4", data.delivery2Receiver);
-        setTextField("Address_5", data.delivery2Address);
-        setTextField("City state zip_5", data.delivery2CityStateZip);
-        setTextField("Date_5", data.delivery2Date);
-        setTimeField("Time_5", data.delivery2Time);
-        setTextField("Delivery_4", data.delivery2PoNumber);
-        setTextField("PO_5", data.delivery2PoNumber);
+        setTextField('Receiver_4', data.delivery2Receiver);
+        setTextField('Address_5', data.delivery2Address);
+        setTextField('City state zip_5', data.delivery2CityStateZip);
+        setTextField('Date_5', data.delivery2Date);
+        setTimeField('Time_5', data.delivery2Time);
+        setTextField('Delivery_4', data.delivery2PoNumber);
+        setTextField('PO_5', data.delivery2PoNumber);
 
-        setTextField("Receiver_5", data.delivery3Receiver);
-        setTextField("Address_6", data.delivery3Address);
-        setTextField("City state zip_6", data.delivery3CityStateZip);
-        setTextField("Date_6", data.delivery3Date);
-        setTimeField("Time_6", data.delivery3Time);
-        setTextField("Delivery_5", data.delivery3PoNumber);
-        setTextField("PO_6", data.delivery3PoNumber);
+        setTextField('Receiver_5', data.delivery3Receiver);
+        setTextField('Address_6', data.delivery3Address);
+        setTextField('City state zip_6', data.delivery3CityStateZip);
+        setTextField('Date_6', data.delivery3Date);
+        setTimeField('Time_6', data.delivery3Time);
+        setTextField('Delivery_5', data.delivery3PoNumber);
+        setTextField('PO_6', data.delivery3PoNumber);
+
       } else {
         // Fill 1 Pickup + 1 Delivery template (original 1p1d)
-        console.log("Filling 1p1d template");
+        console.log('Filling 1p1d template');
 
         // Pickup Info
-        setTextField("Shipper", data.pickupShipper);
-        setTextField("Address", data.pickupAddress);
-        setTextField("City state zip", data.pickupCityStateZip);
-        setTextField("Date", data.pickupDate);
-        setTimeField("Time", data.pickupTime);
-        setTextField("PU", data.pickupPuNumber);
-        setTextField("PO", data.pickupPoNumber);
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTimeField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // Delivery Info (second location - _2 suffix)
-        setTextField("Shipper_2", data.deliveryReceiver);
-        setTextField("Address_2", data.deliveryAddress);
-        setTextField("City state zip_2", data.deliveryCityStateZip);
-        setTextField("Date_2", data.deliveryDate);
-        setTimeField("Time_2", data.deliveryTime);
-        setTextField("PO_2", data.deliveryPoNumber);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTimeField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
       }
+
     } catch (fieldError) {
-      console.error("Error filling form fields:", fieldError);
-      console.log("Attempting to fill with available fields...");
+      console.error('Error filling form fields:', fieldError);
+      console.log('Attempting to fill with available fields...');
     }
 
     // Don't flatten the form - keep it fillable/editable
@@ -607,35 +581,39 @@ serve(async (req) => {
     // Extract state from city/state/zip format (e.g., "Saint Cloud, MN 56303" -> "MN")
     const extractState = (cityStateZip: string): string => {
       const match = cityStateZip.match(/,\s*([A-Z]{2})\s+\d{5}/);
-      return match ? match[1] : "";
+      return match ? match[1] : '';
     };
 
     const pickupState = extractState(data.pickupCityStateZip);
     const deliveryState = extractState(data.deliveryCityStateZip);
-
+    
     // Format today's date as m-d-y (using dashes instead of slashes for valid filename)
     const today = new Date();
     const todayFormatted = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
-
+    
     // Extract first name from driver name (e.g., "Jimmie Taylor" -> "Jimmie")
-    const driverFirstName = data.driverName.split(" ")[0];
-
+    const driverFirstName = data.driverName.split(' ')[0];
+    
     // Format: #3869 Samuel // 9-25-2025 // Load#2002255693 // MO - LA
     const filename = `#${data.truckNumber} ${driverFirstName} // ${todayFormatted} // Load#${data.brokerLoadNumber} // ${pickupState} - ${deliveryState}.pdf`;
 
     return new Response(pdfBytes as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
+
   } catch (error) {
-    console.error("Error generating load confirmation:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error('Error generating load confirmation:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });
