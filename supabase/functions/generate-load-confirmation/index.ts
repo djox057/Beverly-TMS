@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument, rgb, StandardFonts } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, StandardFonts } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -200,9 +200,10 @@ serve(async (req) => {
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
           const appointmentText = sanitizeText(`${match[1]} APPOINTMENT`);
+          const redBoldAppearance = `1 0 0 rg\n/${boldFont.name} 8 Tf`;
           field.setText(appointmentText);
-          field.setColor(rgb(1, 0, 0));
-          field.setFontSize(8);
+          field.acroField.setDefaultAppearance(redBoldAppearance);
+          field.acroField.getWidgets().forEach((widget) => widget.setDefaultAppearance(redBoldAppearance));
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
@@ -573,8 +574,8 @@ serve(async (req) => {
       console.log('Attempting to fill with available fields...');
     }
 
-    // Don't flatten the form - keep it fillable/editable
-    // form.flatten();
+    // Flatten the form so custom appearance styling is preserved across PDF viewers
+    form.flatten();
 
     // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
