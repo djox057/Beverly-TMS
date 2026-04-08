@@ -188,6 +188,21 @@ serve(async (req) => {
       }
     };
 
+    // Helper to format time: if start and end are the same (e.g. "18:00 - 18:00"), show "18:00 APPOINTMENT"
+    const formatTimeValue = (timeStr: string | undefined): string | undefined => {
+      if (!timeStr) return timeStr;
+      const parts = timeStr.split('-').map(p => p.trim());
+      if (parts.length === 2 && parts[0] === parts[1]) {
+        return `${parts[0]} APPOINTMENT`;
+      }
+      return timeStr;
+    };
+
+    // Wrapper to set time fields with appointment formatting
+    const setTimeField = (fieldName: string, value: string | undefined) => {
+      setTextField(fieldName, formatTimeValue(value));
+    };
+
     // Fill in the form fields based on template type
     try {
       // Fill common header fields (present in all templates)
