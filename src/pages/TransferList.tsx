@@ -548,7 +548,8 @@ const TransferList = () => {
   const queryClient = useQueryClient();
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
-  const isDispatchOnly = hasRole("dispatch") && !canEdit;
+  const { roles } = useAuthContext();
+  const isDispatchOnly = roles.includes("dispatch") && !canEdit;
   const columnPerms = useCanEditColumn(hasRole);
 
   const driverMap = useMemo(() => {
