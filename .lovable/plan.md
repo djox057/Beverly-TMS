@@ -1,36 +1,22 @@
 
 
-## Use Internal Load Number Suffix for Invoice Company Grouping
+## Add Anon SELECT Policies for drivers, trucks, trailers
 
-**Problem**: Invoicing currently uses `order.companyName` (driver's current company) for folder grouping, invoice suffix, and XLSX data. If a driver switches companies, old loads get invoiced under the wrong entity. The internal load number suffix (e.g., `-BF`, `-BFP`) is frozen at creation and is the reliable source of truth.
+**Problem**: An external application uses the anon key to read from `drivers`, `trucks`, and `trailers`. RLS is enabled but all existing SELECT policies only grant access to authenticated roles — the `anon` role has no SELECT access.
 
-### Changes
+### Change
 
-**1. `src/utils/formatInternalLoadNumber.ts`** — Add reverse mapping function:
+**One migration** adding three SELECT policies targeting the `anon` role:
 
-```typescript
-export function getCompanyNameFromSuffix(internalLoadNumber: string | null | undefined): string | null {
-  if (!internalLoadNumber) return null;
-  const parts = internalLoadNumber.split("-");
-  if (parts.length < 2) return null;
-  const suffix = parts[parts.length - 1].toUpperCase();
-  const map: Record<string, string> = {
-    "BF": "Beverly Freight Inc",
-    "BFP": "BF Prime LLC",
-    "BFU": "BF Prime United LLC",
-    "UE": "United Enterprise Solutions Inc",
-    "BG": "BG Prime Inc",
-    "AP": "AP Silver Trans LLC",
-  };
-  return map[suffix] || null;
-}
+```sql
+CREATE POLICY "Allow anon select" ON public.drivers FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon select" ON public.trucks FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon select" ON public.trailers FOR SELECT TO anon USING (true);
 ```
 
-**2. `src/utils/invoiceGenerator.ts`** — Replace `order.companyName` with suffix-derived company in three places:
+No code changes needed. No other tables affected.
 
-- **Line ~204-206 (folder grouping)**: Derive company from `getCompanyNameFromSuffix(order.internalLoadNumber)`, fallback to `order.companyName`
-- **Line ~240 (PDF header)**: Use `order.bookedByCompanyName || derivedCompany` instead of `order.bookedByCompanyName || companyName`
-- **Line ~537-540 (XLSX data)**: Use derived company for the `Invoice#` formatting
+### Security note
 
-This ensures the frozen suffix drives all company decisions in invoicing, not the driver's current company assignment.
+This exposes all rows in these three tables to anyone with the anon key. The anon key is already public (embedded in the frontend), so all driver, truck, and trailer data will be readable without authentication. This is acceptable only if none of these tables contain sensitive PII you want to protect. (Driver PII like SSN is stored in a separate `driver_sensitive_pii` table, which is not affected.)
 
