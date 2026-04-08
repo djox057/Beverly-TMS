@@ -200,9 +200,10 @@ serve(async (req) => {
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
           const appointmentText = sanitizeText(`${match[1]} APPOINTMENT`);
+          const redBoldAppearance = `1 0 0 rg\n/${boldFont.name} 8 Tf`;
           field.setText(appointmentText);
-          field.setColor(rgb(1, 0, 0));
-          field.setFontSize(8);
+          field.acroField.setDefaultAppearance(redBoldAppearance);
+          field.acroField.getWidgets().forEach((widget) => widget.setDefaultAppearance(redBoldAppearance));
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
