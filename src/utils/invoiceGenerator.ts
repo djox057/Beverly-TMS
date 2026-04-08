@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDateNoTimezone } from '@/lib/utils';
 import ExcelJS from 'exceljs';
-import { formatInternalLoadNumber } from '@/utils/formatInternalLoadNumber';
+import { formatInternalLoadNumber, getCompanyNameFromSuffix } from '@/utils/formatInternalLoadNumber';
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
@@ -202,12 +202,12 @@ export const generateInvoicePDF = async (
   // Group orders by driver's company only (one invoice per order, not per broker)
   // This ensures each load gets its own invoice PDF
   const companiesMap = orders.reduce((acc, order) => {
-    // Use driver's company (companyName) for folder organization
-    const driverCompany = order.companyName;
-    if (!acc[driverCompany]) {
-      acc[driverCompany] = [];
+    // Use suffix-derived company from internal load number (frozen at creation)
+    const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || order.companyName;
+    if (!acc[derivedCompany]) {
+      acc[derivedCompany] = [];
     }
-    acc[driverCompany].push(order);
+    acc[derivedCompany].push(order);
     return acc;
   }, {} as Record<string, Order[]>);
 
@@ -236,8 +236,9 @@ export const generateInvoicePDF = async (
     for (const order of companyOrders) {
       const doc = new jsPDF();
       
-      // Header - Use bookedByCompanyName for display, but companyName (driver's company) for invoice suffix
-      const displayCompanyName = order.bookedByCompanyName || companyName;
+      // Header - Use bookedByCompanyName for display, fallback to suffix-derived company
+      const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || companyName;
+      const displayCompanyName = order.bookedByCompanyName || derivedCompany;
       
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -533,11 +534,11 @@ export const generateInvoicePDF = async (
         companyFolder: sanitizedCompanyName
       });
 
-      // Add order data to company's XLSX data
-      const driverCompanyName = order.companyName;
+      // Add order data to company's XLSX data (use suffix-derived company)
+      const derivedCompanyForXlsx = getCompanyNameFromSuffix(order.internalLoadNumber) || order.companyName;
       xlsxDataByCompany[sanitizedCompanyName].push({
         'ClientNo': brokerMcMap.get(order.brokerName) || '',
-        'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, driverCompanyName),
+        'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, derivedCompanyForXlsx),
         'Debtor Debtor Name': order.brokerName,
         'Pono': order.brokerLoadNumber,
         'InvDate': currentDate,

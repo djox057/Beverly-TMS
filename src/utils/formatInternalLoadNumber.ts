@@ -47,6 +47,27 @@ export function getCompanySuffix(companyName: string | null | undefined): string
  * @param formattedNumber - String like "123-BFP" or "123"
  * @returns The numeric portion as a number, or null if invalid
  */
+/**
+ * Derives the legal company name from the suffix of an internal load number.
+ * e.g., "7941-BF" → "Beverly Freight Inc"
+ * Returns null if no suffix or unrecognized.
+ */
+export function getCompanyNameFromSuffix(internalLoadNumber: string | null | undefined): string | null {
+  if (!internalLoadNumber) return null;
+  const parts = internalLoadNumber.toString().split("-");
+  if (parts.length < 2) return null;
+  const suffix = parts[parts.length - 1].toUpperCase();
+  const map: Record<string, string> = {
+    "BF": "Beverly Freight Inc",
+    "BFP": "BF Prime LLC",
+    "BFU": "BF Prime United LLC",
+    "UE": "United Enterprise Solutions Inc",
+    "BG": "BG Prime Inc",
+    "AP": "AP Silver Trans LLC",
+  };
+  return map[suffix] || null;
+}
+
 export function parseInternalLoadNumber(formattedNumber: string | null | undefined): number | null {
   if (!formattedNumber) return null;
   
