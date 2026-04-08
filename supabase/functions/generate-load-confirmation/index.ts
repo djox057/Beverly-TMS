@@ -199,9 +199,8 @@ serve(async (req) => {
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
           field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
-          field.setFontSize(8);
           field.acroField.getWidgets().forEach((widget: any) => {
-            const daString = `1 0 0 rg /Helv 8 Tf`;
+            const daString = `1 0 0 rg /HeBo 0 Tf`;
             widget.setDefaultAppearance(daString);
           });
         } else {
