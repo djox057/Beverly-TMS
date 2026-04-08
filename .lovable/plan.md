@@ -1,22 +1,36 @@
 
 
-## Fix Orders Search Bar — Remove parseInt Flooding
+## Use Internal Load Number Suffix for Invoice Company Grouping
 
-**Problem**: `parseInternalLoadNumber` runs `parseInt` on the search term, so "7EL8601" becomes `7`, matching all orders with internal_load_number starting with "7".
-
-**Fix**: Search `internal_load_number` using the raw search term (substring match), not the parsed numeric value. Remove the `parseInternalLoadNumber` call entirely from search logic.
+**Problem**: Invoicing currently uses `order.companyName` (driver's current company) for folder grouping, invoice suffix, and XLSX data. If a driver switches companies, old loads get invoiced under the wrong entity. The internal load number suffix (e.g., `-BF`, `-BFP`) is frozen at creation and is the reliable source of truth.
 
 ### Changes
 
-**File: `src/hooks/useOrdersSearch.ts`**
-
-Replace the conditional search filter block (~lines 114-122) with a single, unconditional filter:
+**1. `src/utils/formatInternalLoadNumber.ts`** — Add reverse mapping function:
 
 ```typescript
-const searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
+export function getCompanyNameFromSuffix(internalLoadNumber: string | null | undefined): string | null {
+  if (!internalLoadNumber) return null;
+  const parts = internalLoadNumber.split("-");
+  if (parts.length < 2) return null;
+  const suffix = parts[parts.length - 1].toUpperCase();
+  const map: Record<string, string> = {
+    "BF": "Beverly Freight Inc",
+    "BFP": "BF Prime LLC",
+    "BFU": "BF Prime United LLC",
+    "UE": "United Enterprise Solutions Inc",
+    "BG": "BG Prime Inc",
+    "AP": "AP Silver Trans LLC",
+  };
+  return map[suffix] || null;
+}
 ```
 
-This removes the `parseInternalLoadNumber` call and the branching logic. Both fields get a simple substring match (`%term%`), so "7EL8601" only returns orders where either field actually contains "7EL8601".
+**2. `src/utils/invoiceGenerator.ts`** — Replace `order.companyName` with suffix-derived company in three places:
 
-Remove the `parseInternalLoadNumber` import as well.
+- **Line ~204-206 (folder grouping)**: Derive company from `getCompanyNameFromSuffix(order.internalLoadNumber)`, fallback to `order.companyName`
+- **Line ~240 (PDF header)**: Use `order.bookedByCompanyName || derivedCompany` instead of `order.bookedByCompanyName || companyName`
+- **Line ~537-540 (XLSX data)**: Use derived company for the `Invoice#` formatting
+
+This ensures the frozen suffix drives all company decisions in invoicing, not the driver's current company assignment.
 
