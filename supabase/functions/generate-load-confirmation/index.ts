@@ -574,8 +574,8 @@ serve(async (req) => {
       console.log('Attempting to fill with available fields...');
     }
 
-    // Don't flatten the form - keep it fillable/editable
-    // form.flatten();
+    // Flatten the form so custom appearance styling is preserved across PDF viewers
+    form.flatten();
 
     // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
