@@ -201,11 +201,8 @@ serve(async (req) => {
         if (match && match[1] === match[2]) {
           const appointmentText = sanitizeText(`${match[1]} APPOINTMENT`);
           field.setText(appointmentText);
-          // Set red color via default appearance string on each widget
-          field.acroField.getWidgets().forEach((widget) => {
-            const da = `/HeBo 8 Tf 1 0 0 rg`;
-            widget.setDefaultAppearance(da);
-          });
+          field.setColor(rgb(1, 0, 0));
+          field.setFontSize(8);
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
