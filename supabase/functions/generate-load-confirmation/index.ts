@@ -199,9 +199,13 @@ serve(async (req) => {
         // Match pattern like "18:00 - 18:00" where both sides are the same
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
-          field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
-          // Set red color and bold font, then update appearances
-          field.setColor(rgb(1, 0, 0));
+          const appointmentText = sanitizeText(`${match[1]} APPOINTMENT`);
+          field.setText(appointmentText);
+          // Set red color via default appearance string on each widget
+          field.acroField.getWidgets().forEach((widget) => {
+            const da = `/HeBo 8 Tf 1 0 0 rg`;
+            widget.setDefaultAppearance(da);
+          });
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
