@@ -409,7 +409,7 @@ serve(async (req) => {
           setTextField(`Address${shipperSuffix}`, delivery.address);
           setTextField(`City state zip${shipperSuffix}`, delivery.cityStateZip);
           setTextField(`Date${shipperSuffix}`, delivery.date);
-          setTextField(`Time${shipperSuffix}`, delivery.time);
+          setTimeField(`Time${shipperSuffix}`, delivery.time);
           setTextField(`PO${shipperSuffix}`, delivery.poNumber);
         });
 
