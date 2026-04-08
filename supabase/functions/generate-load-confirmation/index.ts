@@ -188,6 +188,21 @@ serve(async (req) => {
       }
     };
 
+    // Helper to format time: if start and end are the same (e.g. "18:00 - 18:00"), show "18:00 APPOINTMENT"
+    const formatTimeValue = (timeStr: string | undefined): string | undefined => {
+      if (!timeStr) return timeStr;
+      const parts = timeStr.split('-').map(p => p.trim());
+      if (parts.length === 2 && parts[0] === parts[1]) {
+        return `${parts[0]} APPOINTMENT`;
+      }
+      return timeStr;
+    };
+
+    // Wrapper to set time fields with appointment formatting
+    const setTimeField = (fieldName: string, value: string | undefined) => {
+      setTextField(fieldName, formatTimeValue(value));
+    };
+
     // Fill in the form fields based on template type
     try {
       // Fill common header fields (present in all templates)
@@ -222,7 +237,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
         setTextField('PO_2', data.pickupPoNumber2);
@@ -232,7 +247,7 @@ serve(async (req) => {
         setTextField('Address_2', data.pickup2Address);
         setTextField('City state zip_2', data.pickup2CityStateZip);
         setTextField('Date_2', data.pickup2Date);
-        setTextField('Time_2', data.pickup2Time);
+        setTimeField('Time_2', data.pickup2Time);
         setTextField('Delivery', data.pickup2PoNumber);
         setTextField('PO_3', data.pickup2PoNumber2);
 
@@ -241,7 +256,7 @@ serve(async (req) => {
         setTextField('Address_3', data.deliveryAddress);
         setTextField('City state zip_3', data.deliveryCityStateZip);
         setTextField('Date_3', data.deliveryDate);
-        setTextField('Time_3', data.deliveryTime);
+        setTimeField('Time_3', data.deliveryTime);
         setTextField('Delivery_2', data.deliveryPoNumber);
         setTextField('PO_5', data.deliveryPoNumber2);
 
@@ -253,7 +268,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -263,7 +278,7 @@ serve(async (req) => {
         setTextField('Address_2', data.deliveryAddress);
         setTextField('City state zip_2', data.deliveryCityStateZip);
         setTextField('Date_2', data.deliveryDate);
-        setTextField('Time_2', data.deliveryTime);
+        setTimeField('Time_2', data.deliveryTime);
         setTextField('PO_2', data.deliveryPoNumber);
         setTextField('Delivery', data.deliveryPoNumber);
 
@@ -273,7 +288,7 @@ serve(async (req) => {
         setTextField('Address_3', data.delivery2Address);
         setTextField('City state zip_3', data.delivery2CityStateZip);
         setTextField('Date_3', data.delivery2Date);
-        setTextField('Time_3', data.delivery2Time);
+        setTimeField('Time_3', data.delivery2Time);
         setTextField('PO_3', data.delivery2PoNumber);
         setTextField('Delivery_2', data.delivery2PoNumber);
 
@@ -285,7 +300,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -295,7 +310,7 @@ serve(async (req) => {
         setTextField('Address_2', data.deliveryAddress);
         setTextField('City state zip_2', data.deliveryCityStateZip);
         setTextField('Date_2', data.deliveryDate);
-        setTextField('Time_2', data.deliveryTime);
+        setTimeField('Time_2', data.deliveryTime);
         setTextField('PO_2', data.deliveryPoNumber);
 
         setTextField('Receiver_2', data.delivery2Receiver);
@@ -303,7 +318,7 @@ serve(async (req) => {
         setTextField('Address_3', data.delivery2Address);
         setTextField('City state zip_3', data.delivery2CityStateZip);
         setTextField('Date_3', data.delivery2Date);
-        setTextField('Time_3', data.delivery2Time);
+        setTimeField('Time_3', data.delivery2Time);
         setTextField('PO_3', data.delivery2PoNumber);
 
         setTextField('Receiver_3', data.delivery3Receiver);
@@ -311,7 +326,7 @@ serve(async (req) => {
         setTextField('Address_4', data.delivery3Address);
         setTextField('City state zip_4', data.delivery3CityStateZip);
         setTextField('Date_4', data.delivery3Date);
-        setTextField('Time_4', data.delivery3Time);
+        setTimeField('Time_4', data.delivery3Time);
         setTextField('PO_4', data.delivery3PoNumber);
 
       } else if (templateType === '1p4d') {
@@ -322,7 +337,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -332,7 +347,7 @@ serve(async (req) => {
         setTextField('Address_2', data.deliveryAddress);
         setTextField('City state zip_2', data.deliveryCityStateZip);
         setTextField('Date_2', data.deliveryDate);
-        setTextField('Time_2', data.deliveryTime);
+        setTimeField('Time_2', data.deliveryTime);
         setTextField('PO_2', data.deliveryPoNumber);
 
         setTextField('Receiver_2', data.delivery2Receiver);
@@ -340,7 +355,7 @@ serve(async (req) => {
         setTextField('Address_3', data.delivery2Address);
         setTextField('City state zip_3', data.delivery2CityStateZip);
         setTextField('Date_3', data.delivery2Date);
-        setTextField('Time_3', data.delivery2Time);
+        setTimeField('Time_3', data.delivery2Time);
         setTextField('PO_3', data.delivery2PoNumber);
 
         setTextField('Receiver_3', data.delivery3Receiver);
@@ -348,7 +363,7 @@ serve(async (req) => {
         setTextField('Address_4', data.delivery3Address);
         setTextField('City state zip_4', data.delivery3CityStateZip);
         setTextField('Date_4', data.delivery3Date);
-        setTextField('Time_4', data.delivery3Time);
+        setTimeField('Time_4', data.delivery3Time);
         setTextField('PO_4', data.delivery3PoNumber);
 
         setTextField('Receiver_4', data.delivery4Receiver);
@@ -356,7 +371,7 @@ serve(async (req) => {
         setTextField('Address_5', data.delivery4Address);
         setTextField('City state zip_5', data.delivery4CityStateZip);
         setTextField('Date_5', data.delivery4Date);
-        setTextField('Time_5', data.delivery4Time);
+        setTimeField('Time_5', data.delivery4Time);
         setTextField('PO_5', data.delivery4PoNumber);
 
       } else if (templateType === '1p5d') {
@@ -367,7 +382,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -394,7 +409,7 @@ serve(async (req) => {
           setTextField(`Address${shipperSuffix}`, delivery.address);
           setTextField(`City state zip${shipperSuffix}`, delivery.cityStateZip);
           setTextField(`Date${shipperSuffix}`, delivery.date);
-          setTextField(`Time${shipperSuffix}`, delivery.time);
+          setTimeField(`Time${shipperSuffix}`, delivery.time);
           setTextField(`PO${shipperSuffix}`, delivery.poNumber);
         });
 
@@ -406,7 +421,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -414,7 +429,7 @@ serve(async (req) => {
         setTextField('Address_2', data.pickup2Address);
         setTextField('City state zip_2', data.pickup2CityStateZip);
         setTextField('Date_2', data.pickup2Date);
-        setTextField('Time_2', data.pickup2Time);
+        setTimeField('Time_2', data.pickup2Time);
         setTextField('PO_2', data.pickup2PoNumber);
 
         // Deliveries
@@ -423,7 +438,7 @@ serve(async (req) => {
         setTextField('Address_3', data.deliveryAddress);
         setTextField('City state zip_3', data.deliveryCityStateZip);
         setTextField('Date_3', data.deliveryDate);
-        setTextField('Time_3', data.deliveryTime);
+        setTimeField('Time_3', data.deliveryTime);
         setTextField('PO_3', data.deliveryPoNumber);
 
         setTextField('Receiver_2', data.delivery2Receiver);
@@ -431,7 +446,7 @@ serve(async (req) => {
         setTextField('Address_4', data.delivery2Address);
         setTextField('City state zip_4', data.delivery2CityStateZip);
         setTextField('Date_4', data.delivery2Date);
-        setTextField('Time_4', data.delivery2Time);
+        setTimeField('Time_4', data.delivery2Time);
         setTextField('PO_4', data.delivery2PoNumber);
 
       } else if (templateType === '3p1d') {
@@ -442,7 +457,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -450,14 +465,14 @@ serve(async (req) => {
         setTextField('Address_2', data.pickup2Address);
         setTextField('City state zip_2', data.pickup2CityStateZip);
         setTextField('Date_2', data.pickup2Date);
-        setTextField('Time_2', data.pickup2Time);
+        setTimeField('Time_2', data.pickup2Time);
         setTextField('PO_2', data.pickup2PoNumber);
 
         setTextField('Shipper_3', data.pickup3Shipper);
         setTextField('Address_3', data.pickup3Address);
         setTextField('City state zip_3', data.pickup3CityStateZip);
         setTextField('Date_3', data.pickup3Date);
-        setTextField('Time_3', data.pickup3Time);
+        setTimeField('Time_3', data.pickup3Time);
         setTextField('PO_3', data.pickup3PoNumber);
 
         // Delivery
@@ -466,7 +481,7 @@ serve(async (req) => {
         setTextField('Address_4', data.deliveryAddress);
         setTextField('City state zip_4', data.deliveryCityStateZip);
         setTextField('Date_4', data.deliveryDate);
-        setTextField('Time_4', data.deliveryTime);
+        setTimeField('Time_4', data.deliveryTime);
         setTextField('PO_4', data.deliveryPoNumber);
 
       } else if (templateType === '3p3d') {
@@ -477,7 +492,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -485,7 +500,7 @@ serve(async (req) => {
         setTextField('Address_2', data.pickup2Address);
         setTextField('City state zip_2', data.pickup2CityStateZip);
         setTextField('Date_2', data.pickup2Date);
-        setTextField('Time_2', data.pickup2Time);
+        setTimeField('Time_2', data.pickup2Time);
         setTextField('Delivery', data.pickup2PoNumber);
         setTextField('PO_2', data.pickup2PoNumber);
 
@@ -493,7 +508,7 @@ serve(async (req) => {
         setTextField('Address_3', data.pickup3Address);
         setTextField('City state zip_3', data.pickup3CityStateZip);
         setTextField('Date_3', data.pickup3Date);
-        setTextField('Time_3', data.pickup3Time);
+        setTimeField('Time_3', data.pickup3Time);
         setTextField('Delivery_2', data.pickup3PoNumber);
         setTextField('PO_3', data.pickup3PoNumber);
 
@@ -502,7 +517,7 @@ serve(async (req) => {
         setTextField('Address_4', data.deliveryAddress);
         setTextField('City state zip_4', data.deliveryCityStateZip);
         setTextField('Date_4', data.deliveryDate);
-        setTextField('Time_4', data.deliveryTime);
+        setTimeField('Time_4', data.deliveryTime);
         setTextField('Delivery_3', data.deliveryPoNumber);
         setTextField('PO_4', data.deliveryPoNumber);
 
@@ -510,7 +525,7 @@ serve(async (req) => {
         setTextField('Address_5', data.delivery2Address);
         setTextField('City state zip_5', data.delivery2CityStateZip);
         setTextField('Date_5', data.delivery2Date);
-        setTextField('Time_5', data.delivery2Time);
+        setTimeField('Time_5', data.delivery2Time);
         setTextField('Delivery_4', data.delivery2PoNumber);
         setTextField('PO_5', data.delivery2PoNumber);
 
@@ -518,7 +533,7 @@ serve(async (req) => {
         setTextField('Address_6', data.delivery3Address);
         setTextField('City state zip_6', data.delivery3CityStateZip);
         setTextField('Date_6', data.delivery3Date);
-        setTextField('Time_6', data.delivery3Time);
+        setTimeField('Time_6', data.delivery3Time);
         setTextField('Delivery_5', data.delivery3PoNumber);
         setTextField('PO_6', data.delivery3PoNumber);
 
@@ -531,7 +546,7 @@ serve(async (req) => {
         setTextField('Address', data.pickupAddress);
         setTextField('City state zip', data.pickupCityStateZip);
         setTextField('Date', data.pickupDate);
-        setTextField('Time', data.pickupTime);
+        setTimeField('Time', data.pickupTime);
         setTextField('PU', data.pickupPuNumber);
         setTextField('PO', data.pickupPoNumber);
 
@@ -540,7 +555,7 @@ serve(async (req) => {
         setTextField('Address_2', data.deliveryAddress);
         setTextField('City state zip_2', data.deliveryCityStateZip);
         setTextField('Date_2', data.deliveryDate);
-        setTextField('Time_2', data.deliveryTime);
+        setTimeField('Time_2', data.deliveryTime);
         setTextField('PO_2', data.deliveryPoNumber);
       }
 
