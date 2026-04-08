@@ -200,12 +200,8 @@ serve(async (req) => {
         const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
         if (match && match[1] === match[2]) {
           field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
-          field.updateAppearances(boldFont);
-          field.acroField.getWidgets().forEach((widget: any) => {
-            const fontKey = widget.ensureAP().normal().decodeContents().match(/\/(F\d+)/)?.[1] || 'F0';
-            const daString = `1 0 0 rg /${fontKey} 0 Tf`;
-            widget.setDefaultAppearance(daString);
-          });
+          // Set red color and bold font, then update appearances
+          field.setColor(rgb(1, 0, 0));
           field.updateAppearances(boldFont);
         } else {
           field.setText(sanitizeText(trimmed));
