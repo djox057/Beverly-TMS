@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -185,6 +185,30 @@ serve(async (req) => {
         field.setText(sanitizeText(value));
       } catch (e) {
         console.log(`Field "${fieldName}" not found or error setting it`);
+      }
+    };
+
+    // Helper for time fields: if "HH:MM - HH:MM" where both times are the same,
+    // display "HH:MM APPOINTMENT" in red; otherwise keep as-is
+    const setTimeField = (fieldName: string, value: string | undefined) => {
+      if (!value) return;
+      try {
+        const field = form.getTextField(fieldName);
+        const trimmed = value.trim();
+        // Match pattern like "18:00 - 18:00" where both sides are the same
+        const match = trimmed.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+        if (match && match[1] === match[2]) {
+          field.setText(sanitizeText(`${match[1]} APPOINTMENT`));
+          field.setFontSize(8);
+          field.acroField.getWidgets().forEach((widget: any) => {
+            const daString = `1 0 0 rg /Helv 8 Tf`;
+            widget.setDefaultAppearance(daString);
+          });
+        } else {
+          field.setText(sanitizeText(trimmed));
+        }
+      } catch (e) {
+        console.log(`Field "${fieldName}" not found or error setting time`);
       }
     };
 
