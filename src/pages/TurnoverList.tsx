@@ -198,6 +198,7 @@ const TurnoverList = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[200px]">Dispatcher</TableHead>
+                    <TableHead className="w-[120px]">Office</TableHead>
                     <TableHead className="w-[100px] text-center">Turnovers</TableHead>
                     <TableHead>Explanation</TableHead>
                   </TableRow>
@@ -211,6 +212,9 @@ const TurnoverList = () => {
                       <TableRow key={item.dispatcherId} className="h-[72px]">
                         <TableCell className="font-medium align-top pt-4">
                           {item.dispatcherName}
+                        </TableCell>
+                        <TableCell className="align-top pt-4 text-muted-foreground">
+                          {item.office || "—"}
                         </TableCell>
                         <TableCell className="text-center align-top pt-4 font-semibold">
                           {item.turnoverCount}
