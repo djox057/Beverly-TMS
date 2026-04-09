@@ -372,12 +372,15 @@ export type Database = {
           change_type: string
           changed_at: string
           changed_by: string | null
+          changed_by_name_snapshot: string | null
           created_at: string
           dispatcher_id: string | null
+          dispatcher_name_snapshot: string | null
           driver1_id: string | null
           driver2_id: string | null
           id: string
           old_dispatcher_id: string | null
+          old_dispatcher_name_snapshot: string | null
           old_driver1_id: string | null
           old_driver2_id: string | null
           old_trailer_id: string | null
@@ -390,12 +393,15 @@ export type Database = {
           change_type: string
           changed_at?: string
           changed_by?: string | null
+          changed_by_name_snapshot?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dispatcher_name_snapshot?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
           old_dispatcher_id?: string | null
+          old_dispatcher_name_snapshot?: string | null
           old_driver1_id?: string | null
           old_driver2_id?: string | null
           old_trailer_id?: string | null
@@ -408,12 +414,15 @@ export type Database = {
           change_type?: string
           changed_at?: string
           changed_by?: string | null
+          changed_by_name_snapshot?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dispatcher_name_snapshot?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
           old_dispatcher_id?: string | null
+          old_dispatcher_name_snapshot?: string | null
           old_driver1_id?: string | null
           old_driver2_id?: string | null
           old_trailer_id?: string | null

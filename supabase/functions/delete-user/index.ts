@@ -127,6 +127,38 @@ Deno.serve(async (req) => {
       console.log('User roles deleted successfully')
     }
 
+    // Snapshot dispatcher/changed_by names into assignment_history before profile deletion
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', userId)
+      .single()
+
+    if (profile?.full_name) {
+      const snapshotOps = [
+        supabaseAdmin
+          .from('assignment_history')
+          .update({ dispatcher_name_snapshot: profile.full_name } as any)
+          .eq('dispatcher_id', userId),
+        supabaseAdmin
+          .from('assignment_history')
+          .update({ old_dispatcher_name_snapshot: profile.full_name } as any)
+          .eq('old_dispatcher_id', userId),
+        supabaseAdmin
+          .from('assignment_history')
+          .update({ changed_by_name_snapshot: profile.full_name } as any)
+          .eq('changed_by', userId),
+      ]
+
+      const results = await Promise.allSettled(snapshotOps)
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          console.error(`Snapshot op ${i} failed:`, r.reason)
+        }
+      })
+      console.log('Assignment history name snapshots saved')
+    }
+
     const { error: profileDeleteError } = await supabaseAdmin
       .from('profiles')
       .delete()
