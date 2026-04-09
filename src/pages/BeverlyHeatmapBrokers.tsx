@@ -91,9 +91,7 @@ export default function BeverlyHeatmapBrokers() {
         if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0, orderIds: [] });
         const entry = agg.get(o.broker_id)!;
         entry.freight += Number(o.freight_amount) || 0;
-        const miles = o.mileage != null
-          ? Number(o.mileage)
-          : (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+        const miles = Number(o.loaded_miles) || 0;
         entry.miles += miles;
         entry.count++;
         entry.orderIds.push(o.id);
@@ -247,8 +245,7 @@ export default function BeverlyHeatmapBrokers() {
   };
 
   const getMiles = (o: OrderDetail) => {
-    if (o.mileage != null) return Number(o.mileage);
-    return (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+    return Number(o.loaded_miles) || 0;
   };
 
   return (
