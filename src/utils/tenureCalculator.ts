@@ -197,6 +197,22 @@ export const calculateTenures = (
       currentTenure.entityName !== entity.name;
 
     if (entityChanged) {
+      // If first entry and oldEntity is set, synthesize an implied prior tenure
+      if (!currentTenure && (oldEntity.id || oldEntity.name)) {
+        tenures.push({
+          entityId: oldEntity.id,
+          entityName: oldEntity.name,
+          startDate: entryDate,
+          endDate: entryDate,
+          durationDays: 1,
+          endReason: entry.reason || null,
+          changedByName: entry.changed_by_name,
+          isGap: false,
+          oldEntityId: null,
+          oldEntityName: null,
+          historyEntryIds: [entry.id],
+        });
+      }
       // Close previous tenure
       if (currentTenure) {
         tenures.push({
