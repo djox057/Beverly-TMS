@@ -26,6 +26,7 @@ interface TerminatedDriver {
   name: string;
   termination_date: string;
   last_dispatcher_id: string;
+  last_dispatcher_name: string | null;
   notes: { note: string; created_at: string }[];
 }
 
