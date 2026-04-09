@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { 
+import {
+
   Truck, 
   FileText, 
   Users, 
@@ -24,7 +25,8 @@ import {
   Wrench,
   UserCircle,
   CreditCard,
-  MapPin
+  MapPin,
+  RefreshCw
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,7 @@ const navigation = [
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours', 'yard'] },
+  { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management'] },
 ];
 
