@@ -245,8 +245,7 @@ export default function BeverlyHeatmapBrokers() {
   };
 
   const getMiles = (o: OrderDetail) => {
-    if (o.mileage != null) return Number(o.mileage);
-    return (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+    return Number(o.loaded_miles) || 0;
   };
 
   return (
