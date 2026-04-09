@@ -63,7 +63,7 @@ const TurnoverList = () => {
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("user_id, role")
-        .in("role", ["dispatch", "afterhours"]);
+        .in("role", ["dispatch", "afterhours", "supervisor"]);
       if (!roleData) return [];
 
       const dispatcherIds = [...new Set(roleData.map((r) => r.user_id))];
