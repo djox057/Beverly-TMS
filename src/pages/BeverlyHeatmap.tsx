@@ -4,6 +4,7 @@ import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
+import BeverlyHeatmapBrokers from "./BeverlyHeatmapBrokers";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -572,6 +573,7 @@ export default function BeverlyHeatmap() {
         <TabsList>
           <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
+          <TabsTrigger value="brokers">Brokers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="heatmap">
@@ -782,6 +784,10 @@ export default function BeverlyHeatmap() {
 
         <TabsContent value="facilities">
           <BeverlyHeatmapFacilities />
+        </TabsContent>
+
+        <TabsContent value="brokers">
+          <BeverlyHeatmapBrokers />
         </TabsContent>
       </Tabs>
     </div>
