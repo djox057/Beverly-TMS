@@ -124,9 +124,11 @@ const TurnoverList = () => {
     const result: DispatcherTurnover[] = [];
     for (const [dispatcherId, drivers] of grouped) {
       const info = dispatcherMap.get(dispatcherId);
+      // Use last_dispatcher_name from drivers as fallback for deleted profiles
+      const fallbackName = drivers[0]?.last_dispatcher_name;
       result.push({
         dispatcherId,
-        dispatcherName: info?.name || "Unknown",
+        dispatcherName: info?.name || fallbackName || "Unknown",
         office: info?.office || null,
         turnoverCount: drivers.length,
         drivers,
