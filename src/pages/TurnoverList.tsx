@@ -99,6 +99,7 @@ const TurnoverList = () => {
         name: d.name,
         termination_date: d.termination_date,
         last_dispatcher_id: d.last_dispatcher_id,
+        last_dispatcher_name: d.last_dispatcher_name || null,
         notes: d.driver_termination_notes || [],
       })) as TerminatedDriver[];
     },
