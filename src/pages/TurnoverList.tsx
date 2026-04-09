@@ -1,16 +1,279 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+interface TerminatedDriver {
+  id: string;
+  name: string;
+  termination_date: string;
+  last_dispatcher_id: string;
+  notes: { note: string; created_at: string }[];
+}
+
+interface DispatcherTurnover {
+  dispatcherId: string;
+  dispatcherName: string;
+  office: string | null;
+  turnoverCount: number;
+  drivers: TerminatedDriver[];
+}
 
 const TurnoverList = () => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
+  const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
+
+  // Fetch offices
+  const { data: offices } = useQuery({
+    queryKey: ["turnover-offices"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("office")
+        .not("office", "is", null)
+        .neq("office", "Recovery");
+      const unique = [...new Set(data?.map((p) => p.office).filter(Boolean))] as string[];
+      return unique.sort();
+    },
+  });
+
+  // Fetch dispatchers (profiles with dispatch/afterhours roles)
+  const { data: dispatchers } = useQuery({
+    queryKey: ["turnover-dispatchers"],
+    queryFn: async () => {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["dispatch", "afterhours"]);
+      if (!roleData) return [];
+
+      const dispatcherIds = [...new Set(roleData.map((r) => r.user_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, office")
+        .in("user_id", dispatcherIds);
+      return profiles || [];
+    },
+  });
+
+  // Fetch terminated drivers with notes
+  const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : null;
+  const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : null;
+
+  const { data: terminatedDrivers, isLoading } = useQuery({
+    queryKey: ["turnover-drivers", startDate, endDate],
+    queryFn: async () => {
+      if (!startDate || !endDate) return [];
+
+      const { data } = await supabase
+        .from("drivers")
+        .select("id, name, termination_date, last_dispatcher_id, driver_termination_notes(note, created_at)")
+        .eq("is_active", false)
+        .not("last_dispatcher_id", "is", null)
+        .not("termination_date", "is", null)
+        .gte("termination_date", startDate)
+        .lte("termination_date", endDate);
+
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        termination_date: d.termination_date,
+        last_dispatcher_id: d.last_dispatcher_id,
+        notes: d.driver_termination_notes || [],
+      })) as TerminatedDriver[];
+    },
+    enabled: !!startDate && !!endDate,
+  });
+
+  // Group by dispatcher
+  const turnoverData = useMemo(() => {
+    if (!terminatedDrivers || !dispatchers) return [];
+
+    const dispatcherMap = new Map(
+      dispatchers.map((d) => [d.user_id, { name: d.full_name, office: d.office }])
+    );
+
+    const grouped = new Map<string, TerminatedDriver[]>();
+    for (const driver of terminatedDrivers) {
+      const existing = grouped.get(driver.last_dispatcher_id) || [];
+      existing.push(driver);
+      grouped.set(driver.last_dispatcher_id, existing);
+    }
+
+    const result: DispatcherTurnover[] = [];
+    for (const [dispatcherId, drivers] of grouped) {
+      const info = dispatcherMap.get(dispatcherId);
+      result.push({
+        dispatcherId,
+        dispatcherName: info?.name || "Unknown",
+        office: info?.office || null,
+        turnoverCount: drivers.length,
+        drivers,
+      });
+    }
+
+    // Filter by office
+    const filtered = selectedOffice
+      ? result.filter((d) => d.office === selectedOffice)
+      : result;
+
+    // Sort by turnover count descending
+    return filtered.sort((a, b) => b.turnoverCount - a.turnoverCount);
+  }, [terminatedDrivers, dispatchers, selectedOffice]);
+
+  const buildExplanation = (drivers: TerminatedDriver[]): string => {
+    return drivers
+      .map((d) => {
+        const noteText = d.notes.map((n) => n.note).join("; ");
+        return `${d.name}: ${noteText || "No note"}`;
+      })
+      .join(" | ");
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Turnover List</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Turnover list coming soon.</p>
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+              placeholder="Select date range"
+              className="w-auto min-w-[280px]"
+            />
+            <div className="flex gap-1">
+              <Button
+                variant={selectedOffice === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedOffice(null)}
+              >
+                All
+              </Button>
+              {offices?.map((office) => (
+                <Button
+                  key={office}
+                  variant={selectedOffice === office ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedOffice(office)}
+                >
+                  {office}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Table */}
+          {!startDate || !endDate ? (
+            <p className="text-muted-foreground">Select a date range to view turnovers.</p>
+          ) : isLoading ? (
+            <p className="text-muted-foreground">Loading...</p>
+          ) : turnoverData.length === 0 ? (
+            <p className="text-muted-foreground">No turnovers found for this period.</p>
+          ) : (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Dispatcher</TableHead>
+                    <TableHead className="w-[100px] text-center">Turnovers</TableHead>
+                    <TableHead>Explanation</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {turnoverData.map((item) => {
+                    const explanation = buildExplanation(item.drivers);
+                    const isTruncated = explanation.length > 120;
+
+                    return (
+                      <TableRow key={item.dispatcherId} className="h-[72px]">
+                        <TableCell className="font-medium align-top pt-4">
+                          {item.dispatcherName}
+                        </TableCell>
+                        <TableCell className="text-center align-top pt-4 font-semibold">
+                          {item.turnoverCount}
+                        </TableCell>
+                        <TableCell className="align-top pt-3">
+                          <div className="line-clamp-2 text-sm text-muted-foreground leading-snug">
+                            {isTruncated ? explanation.slice(0, 120) : explanation}
+                            {isTruncated && (
+                              <button
+                                className="text-primary ml-1 hover:underline font-medium"
+                                onClick={() => setDetailDispatcher(item)}
+                              >
+                                ...
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Detail dialog */}
+      <Dialog open={!!detailDispatcher} onOpenChange={() => setDetailDispatcher(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailDispatcher?.dispatcherName} — Turnovers ({detailDispatcher?.turnoverCount})
+            </DialogTitle>
+          </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Driver</TableHead>
+                <TableHead className="w-[120px]">Termination Date</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {detailDispatcher?.drivers.map((driver) => (
+                <TableRow key={driver.id}>
+                  <TableCell className="font-medium">{driver.name}</TableCell>
+                  <TableCell>
+                    {driver.termination_date
+                      ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy")
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {driver.notes.length > 0
+                      ? driver.notes.map((n) => n.note).join("; ")
+                      : "No termination notes"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
