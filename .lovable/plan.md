@@ -1,49 +1,46 @@
-## Fix: Dispatcher Tenure Not Showing for Drivers With Only a Removal Event
 
-### Problem
 
-Robert Madir's dispatcher history shows "No dispatcher history found" even though he was assigned to Alex (Andrej Sretenovic-Alex). 
+## Turnover List Page
 
-**Root cause**: The `assignment_history` table only has ONE dispatcher entry for Robert -- the event where Alex was REMOVED (dispatcher_id=null, old_dispatcher_id=Alex). There is no earlier record of Alex being initially assigned, because either:
+### Overview
+Build the Turnover List page as a dispatcher-focused table showing how many drivers became inactive under each dispatcher within a selected date range, with termination note explanations.
 
-- Alex was set before the assignment history trigger was added, or
-- The initial assignment predates the logging system.
+### Data Model
+- **Drivers table**: `is_active`, `termination_date`, `last_dispatcher_id`, `name`
+- **driver_termination_notes**: `driver_id`, `note`, `created_at`
+- **Profiles**: `user_id`, `full_name`, `office`
+- No new tables or migrations needed -- all data already exists.
 
-The `calculateTenures` function in `tenureCalculator.ts` processes entries oldest-first. When it encounters this single entry:
+### UI Layout
 
-- New entity = `dispatcher_id: null` (no dispatcher)
-- Old entity = `old_dispatcher_id: Alex`
+**Filters bar** (matching Analytics pattern):
+- Date range picker (DateRangePicker component)
+- Office toggle buttons (fetched from profiles, excluding "Recovery")
 
-Since `currentTenure` is null (first entry), nothing gets closed. Then the new entity is null, so no new tenure starts. Alex's entire tenure is silently dropped.
+**Table columns**:
+1. **Dispatcher Name** -- full name from profiles
+2. **Turnovers** -- count of inactive drivers whose `last_dispatcher_id` matches and `termination_date` falls within the date range
+3. **Explanation** -- 2 rows high per dispatcher; shows truncated termination notes of the drivers who quit. If text overflows, shows "..." which opens a dialog.
 
-### Fix
+**Row layout**: Each dispatcher row is visually 2 rows tall. The first sub-row has name + turnover count. The explanation cell spans both sub-rows, showing concatenated driver names + notes, truncated with "..." link.
 
-In `calculateTenures` (around line 189-240 in `tenureCalculator.ts`), when processing the **first entry** and `currentTenure` is null, check if `oldEntity` has a valid id/name. If so, synthesize an implied prior tenure that ran from an unknown start date up to this entry's date.
+**Dialog on "..." click**: Opens a dialog listing all terminated drivers for that dispatcher in the date range, with columns: Driver Name, Termination Date, Termination Note.
 
-Specifically, before opening a new tenure for the current entity, insert a completed tenure for the old entity:
+### Data Flow
+1. Fetch all profiles + user_roles to identify dispatchers (roles containing 'dispatch' or 'afterhours')
+2. Query `drivers` where `is_active = false`, `last_dispatcher_id IS NOT NULL`, `termination_date` within range
+3. For each terminated driver, fetch `driver_termination_notes`
+4. Group by `last_dispatcher_id`, count turnovers, collect notes
+5. Filter by selected offices using dispatcher profile office
+6. Sort by turnover count descending by default
 
-```
-// If this is the first entry and oldEntity is set, 
-// it implies a prior tenure we have no start record for
-if (!currentTenure && (oldEntity.id || oldEntity.name)) {
-  tenures.push({
-    entityId: oldEntity.id,
-    entityName: oldEntity.name,
-    startDate: entryDate,  // Best we can do — use same date
-    endDate: entryDate,
-    durationDays: 1,
-    endReason: entry.reason || null,
-    changedByName: entry.changed_by_name,
-    isGap: false,
-    oldEntityId: null,
-    oldEntityName: null,
-    historyEntryIds: [entry.id],
-  });
-}
-```
+### Files Changed
+- `src/pages/TurnoverList.tsx` -- complete rewrite with table, filters, dialog
 
-This applies to ALL tenure types (driver, truck, trailer, dispatcher), fixing the same class of bug everywhere -- any entity whose initial assignment predates the history system will now show up when a removal event exists.
+### Technical Details
+- Uses `useQuery` from tanstack for data fetching
+- Fetches terminated drivers with their termination notes in a single query using Supabase join: `drivers` + `driver_termination_notes`
+- Office filter buttons use same pattern as Analytics
+- Default sort: turnovers descending
+- Sortable columns: name (alpha), turnovers (numeric)
 
-### File Changed
-
-- `src/utils/tenureCalculator.ts` — Add implied prior tenure synthesis at lines ~199-200, inside the `entityChanged` block when `currentTenure` is null.
