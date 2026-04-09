@@ -87,7 +87,7 @@ const TurnoverList = () => {
 
       const { data } = await supabase
         .from("drivers")
-        .select("id, name, termination_date, last_dispatcher_id, driver_termination_notes(note, created_at)")
+        .select("id, name, termination_date, last_dispatcher_id, last_dispatcher_name, driver_termination_notes(note, created_at)")
         .eq("is_active", false)
         .not("last_dispatcher_id", "is", null)
         .not("termination_date", "is", null)
