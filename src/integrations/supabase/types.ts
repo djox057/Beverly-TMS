@@ -1828,6 +1828,7 @@ export type Database = {
           is_company_driver: boolean | null
           is_recovery: boolean | null
           last_dispatcher_id: string | null
+          last_dispatcher_name: string | null
           last_name: string | null
           license_number: string | null
           load_bars: number
@@ -1886,6 +1887,7 @@ export type Database = {
           is_company_driver?: boolean | null
           is_recovery?: boolean | null
           last_dispatcher_id?: string | null
+          last_dispatcher_name?: string | null
           last_name?: string | null
           license_number?: string | null
           load_bars?: number
@@ -1944,6 +1946,7 @@ export type Database = {
           is_company_driver?: boolean | null
           is_recovery?: boolean | null
           last_dispatcher_id?: string | null
+          last_dispatcher_name?: string | null
           last_name?: string | null
           license_number?: string | null
           load_bars?: number

@@ -26,6 +26,7 @@ interface TerminatedDriver {
   name: string;
   termination_date: string;
   last_dispatcher_id: string;
+  last_dispatcher_name: string | null;
   notes: { note: string; created_at: string }[];
 }
 
@@ -86,7 +87,7 @@ const TurnoverList = () => {
 
       const { data } = await supabase
         .from("drivers")
-        .select("id, name, termination_date, last_dispatcher_id, driver_termination_notes(note, created_at)")
+        .select("id, name, termination_date, last_dispatcher_id, last_dispatcher_name, driver_termination_notes(note, created_at)")
         .eq("is_active", false)
         .not("last_dispatcher_id", "is", null)
         .not("termination_date", "is", null)
@@ -98,6 +99,7 @@ const TurnoverList = () => {
         name: d.name,
         termination_date: d.termination_date,
         last_dispatcher_id: d.last_dispatcher_id,
+        last_dispatcher_name: d.last_dispatcher_name || null,
         notes: d.driver_termination_notes || [],
       })) as TerminatedDriver[];
     },
@@ -122,9 +124,11 @@ const TurnoverList = () => {
     const result: DispatcherTurnover[] = [];
     for (const [dispatcherId, drivers] of grouped) {
       const info = dispatcherMap.get(dispatcherId);
+      // Use last_dispatcher_name from drivers as fallback for deleted profiles
+      const fallbackName = drivers[0]?.last_dispatcher_name;
       result.push({
         dispatcherId,
-        dispatcherName: info?.name || "Unknown",
+        dispatcherName: info?.name || fallbackName || "Unknown",
         office: info?.office || null,
         turnoverCount: drivers.length,
         drivers,
