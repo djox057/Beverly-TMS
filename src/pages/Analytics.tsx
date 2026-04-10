@@ -4217,9 +4217,9 @@ const Analytics = () => {
           bonus5Percent={payrollPreviewData.bonus5Percent} 
           foodAllowance={payrollPreviewData.foodAllowance} 
           extraDays={payrollPreviewData.extraDays} 
-          lostDays={payrollPreviewData.lostDays} 
+          lostDays={isDispatchOnly ? 0 : payrollPreviewData.lostDays} 
           extraDayDates={payrollPreviewData.extraDayDates} 
-          lostDayDates={payrollPreviewData.lostDayDates} 
+          lostDayDates={isDispatchOnly ? [] : payrollPreviewData.lostDayDates} 
           extraDaysAmount={payrollPreviewData.extraDaysAmount} 
           dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus} 
           perDayRate={payrollPreviewData.perDayRate} 
