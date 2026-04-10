@@ -196,7 +196,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       setNewAdjustmentAmount("");
       setPdfUrl(null);
       loadPtoDays();
-      loadExistingAdjustments();
+      if (!previewOnly) {
+        loadExistingAdjustments();
+      }
     }
     return () => {
       if (pdfUrl) {
@@ -286,7 +288,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
-        adjustments,
+        adjustments: previewOnly ? [] : adjustments,
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,

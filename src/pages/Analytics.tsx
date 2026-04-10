@@ -3406,7 +3406,7 @@ const Analytics = () => {
                           <TableHead className="text-right">Extra</TableHead>
                         {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
                         {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableHead className="text-right">Food</TableHead>}
-                        <TableHead className="text-right">Additionals</TableHead>
+                        {!isDispatchOnly && <TableHead className="text-right">Additionals</TableHead>}
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSalarySort("salary")}>
                             Salary {salarySortBy === "salary" && (salarySortDir === "desc" ? "↓" : "↑")}
                           </TableHead>
@@ -3486,7 +3486,9 @@ const Analytics = () => {
                         // Calculate full total for salary and paid columns
                         const adj = payment?.additionals as any[] | null;
                         const adjustmentsTotal = adj ? adj.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0) : 0;
-                        const fullTotal = baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmount + adjustmentsTotal;
+                        const fullTotal = isDispatchOnly
+                          ? baseRate + extraDaysAmount - daysOffDeduction + foodAllowance
+                          : baseRate + extraDaysAmount - daysOffDeduction + foodAllowance + bonusAmount + adjustmentsTotal;
 
                         // Helper to render rank icon
                         const renderRankIcon = () => {
@@ -4031,7 +4033,7 @@ const Analytics = () => {
                                 {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableCell className="text-right">
                                   {hasFoodOffice(stat.office) ? "$70" : "$0"}
                                 </TableCell>}
-                                <TableCell className="text-right">
+                                {!isDispatchOnly && <TableCell className="text-right">
                                   {(() => {
                                     const adj = payment?.additionals as any[] | null;
                                     if (!adj || adj.length === 0) return <span className="text-muted-foreground">—</span>;
@@ -4055,7 +4057,7 @@ const Analytics = () => {
                                       </TooltipProvider>
                                     );
                                   })()}
-                                </TableCell>
+                                </TableCell>}
                                 <TableCell className="text-right">
                                   <span>
                                     $
@@ -4108,7 +4110,7 @@ const Analytics = () => {
                             {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableCell className="text-right font-bold">
                               ${dispatcherStats.reduce((sum, s) => sum + (hasFoodOffice(s.office) ? 70 : 0), 0)}
                             </TableCell>}
-                            <TableCell className="text-right font-bold">—</TableCell>
+                            {!isDispatchOnly && <TableCell className="text-right font-bold">—</TableCell>}
                             <TableCell className="text-right font-bold">—</TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               $
