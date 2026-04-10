@@ -144,7 +144,7 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   const col2Width = tableWidth / 2;
   const rowHeight = 10;
 
-  // Helper to draw a table row
+  // Helper to draw a table row with auto-wrapping for long text
   const drawRow = (
     text1: string, 
     text2: string, 
@@ -155,36 +155,51 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
     text2Bold: boolean = false,
     noBorders: boolean = false
   ) => {
+    // Measure text to determine if wrapping is needed
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const maxText1Width = col1Width - 6; // 3mm padding each side
+    const maxText2Width = col2Width - 6;
+    
+    const text1Lines = doc.splitTextToSize(text1, maxText1Width) as string[];
+    
+    doc.setFont("helvetica", text2Bold ? "bold" : "normal");
+    const text2Lines = doc.splitTextToSize(text2, maxText2Width) as string[];
+    
+    const maxLines = Math.max(text1Lines.length, text2Lines.length);
+    const lineHeight = 5; // mm per line of text
+    const currentRowHeight = Math.max(rowHeight, maxLines * lineHeight + 4); // 2mm padding top+bottom
+
     // Draw cell backgrounds
     if (bgColor1) {
       doc.setFillColor(bgColor1);
-      doc.rect(tableX, y, col1Width, rowHeight, "F");
+      doc.rect(tableX, y, col1Width, currentRowHeight, "F");
     }
     if (bgColor2) {
       doc.setFillColor(bgColor2);
-      doc.rect(tableX + col1Width, y, col2Width, rowHeight, "F");
+      doc.rect(tableX + col1Width, y, col2Width, currentRowHeight, "F");
     }
 
     // Draw borders
     if (!noBorders) {
       doc.setDrawColor("#000000");
       doc.setLineWidth(0.2);
-      doc.rect(tableX, y, col1Width, rowHeight);
-      doc.rect(tableX + col1Width, y, col2Width, rowHeight);
+      doc.rect(tableX, y, col1Width, currentRowHeight);
+      doc.rect(tableX + col1Width, y, col2Width, currentRowHeight);
     } else {
-      // Only draw border around second cell
       doc.setDrawColor("#000000");
       doc.setLineWidth(0.2);
-      doc.rect(tableX + col1Width, y, col2Width, rowHeight);
+      doc.rect(tableX + col1Width, y, col2Width, currentRowHeight);
     }
 
     // Draw text
     doc.setFontSize(12);
     doc.setTextColor(BLACK_COLOR);
     
+    const textYBase = y + (currentRowHeight - maxLines * lineHeight) / 2 + lineHeight - 0.5;
+    
     if (isHeader) {
       doc.setFont("helvetica", "normal");
-      // Underlined header text
       const text1Width = doc.getTextWidth(text1);
       const text2Width = doc.getTextWidth(text2);
       const text1X = tableX + col1Width / 2 - text1Width / 2;
@@ -196,30 +211,33 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
       doc.text(text2, text2X, y + 7);
       doc.line(text2X, y + 8, text2X + text2Width, y + 8);
     } else if (noBorders) {
-      // Check amount row - right aligned description
       doc.setFont("helvetica", "bold");
       const text1Width = doc.getTextWidth(text1);
-      doc.text(text1, tableX + col1Width - text1Width - 3, y + 7);
-      // Underline the "Check amount:" text
-      doc.line(tableX + col1Width - text1Width - 3, y + 8, tableX + col1Width - 3, y + 8);
+      doc.text(text1, tableX + col1Width - text1Width - 3, textYBase);
+      doc.line(tableX + col1Width - text1Width - 3, textYBase + 1, tableX + col1Width - 3, textYBase + 1);
       
       doc.setTextColor(text2Color);
       if (text2Bold) doc.setFont("helvetica", "bold");
       const text2Width = doc.getTextWidth(text2);
-      doc.text(text2, tableX + col1Width + col2Width / 2 - text2Width / 2, y + 7);
+      doc.text(text2, tableX + col1Width + col2Width / 2 - text2Width / 2, textYBase);
     } else {
+      // Multi-line centered text for col1
       doc.setFont("helvetica", "normal");
-      // Center text in cells
-      const text1Width = doc.getTextWidth(text1);
-      const text2Width = doc.getTextWidth(text2);
-      doc.text(text1, tableX + col1Width / 2 - text1Width / 2, y + 7);
+      for (let i = 0; i < text1Lines.length; i++) {
+        const lw = doc.getTextWidth(text1Lines[i]);
+        doc.text(text1Lines[i], tableX + col1Width / 2 - lw / 2, textYBase + i * lineHeight);
+      }
       
+      // Col2 text (usually single line, centered vertically)
       doc.setTextColor(text2Color);
       if (text2Bold) doc.setFont("helvetica", "bold");
-      doc.text(text2, tableX + col1Width + col2Width / 2 - text2Width / 2, y + 7);
+      for (let i = 0; i < text2Lines.length; i++) {
+        const lw = doc.getTextWidth(text2Lines[i]);
+        doc.text(text2Lines[i], tableX + col1Width + col2Width / 2 - lw / 2, textYBase + i * lineHeight);
+      }
     }
 
-    y += rowHeight;
+    y += currentRowHeight;
   };
 
   // Header row
