@@ -1,59 +1,32 @@
 
 
-## Fix: Preserve Dispatcher Names After User Deletion
+## Diagnosis
 
-### Problem
-When a user (dispatcher) is deleted, the `delete-user` edge function deletes their `profiles` row. The `get_assignment_history` database function resolves dispatcher names by joining `profiles` on `dispatcher_id` / `old_dispatcher_id`. After deletion, these joins return NULL, so the UI shows "Unknown".
+I tested all three functions and found the root causes:
 
-### Solution
-Before deleting the profile in the `delete-user` edge function, snapshot the dispatcher's name directly into the `assignment_history` rows. Add two new text columns to `assignment_history` to store denormalized names, and backfill them during deletion.
+1. **`process-afterhours-schedule` (role switching start + end)** -- returns **404 Not Found**. The function code exists in the repo but was **never deployed** to Supabase. This is why both the "start" and "end" cron jobs silently fail. The cron fires, pg_net sends the HTTP request, gets a 404 back, but pg_cron still reports "1 row" (it only cares that the SQL ran).
 
-**Step 1 — Migration: Add snapshot columns**
+2. **`send-afterhours-sms` (weekend SMS)** -- IS deployed (returns 401 when called without auth, not 404). The manual button works because it passes the user's JWT token. The cron job uses CRON_SECRET from vault. This function likely works fine via cron on scheduled days -- it checks `afterhours_schedule` and skips if no schedule exists for today.
 
-Add two nullable text columns to `assignment_history`:
-- `dispatcher_name_snapshot`
-- `old_dispatcher_name_snapshot`
+## Plan
 
-**Step 2 — Update `get_assignment_history` function**
+### Step 1: Deploy `process-afterhours-schedule`
+Deploy the existing edge function so the cron jobs can actually reach it. No code changes needed -- just deploy.
 
-Change the dispatcher name resolution to use `COALESCE`:
-```sql
-COALESCE(disp.full_name, ah.dispatcher_name_snapshot)::text AS dispatcher_name,
-COALESCE(old_disp.full_name, ah.old_dispatcher_name_snapshot)::text AS old_dispatcher_name
-```
+### Step 2: Verify cron schedules are correct
+Current schedules (all UTC):
+- **Job 33** (start): `0 12 * * 0,6` = Saturday & Sunday at 12:00 UTC = **7:00 AM Chicago (CDT)**
+- **Job 36** (end): `0 23 * * 0,6` = Saturday & Sunday at 23:00 UTC = **6:00 PM Chicago (CDT)**
+- **Job 32** (SMS): `0 13 * * *` = Every day at 13:00 UTC = **8:00 AM Chicago (CDT)**
 
-This way, if the profile still exists, use the live name. If deleted, fall back to the snapshot.
+These look correct for CDT. If you want different times, let me know.
 
-**Step 3 — Update `delete-user` edge function**
+### Step 3: Test the deployed function
+Call the function with curl to confirm it responds correctly after deployment.
 
-Before deleting the profile, snapshot the user's name into assignment_history:
-```typescript
-// Snapshot dispatcher name before profile deletion
-const { data: profile } = await supabaseAdmin
-  .from('profiles')
-  .select('full_name')
-  .eq('user_id', userId)
-  .single();
+### Step 4: Verify SMS cron auth
+Test `send-afterhours-sms` with the CRON_SECRET to confirm the vault-based auth works.
 
-if (profile?.full_name) {
-  await supabaseAdmin
-    .from('assignment_history')
-    .update({ dispatcher_name_snapshot: profile.full_name })
-    .eq('dispatcher_id', userId);
-
-  await supabaseAdmin
-    .from('assignment_history')
-    .update({ old_dispatcher_name_snapshot: profile.full_name })
-    .eq('old_dispatcher_id', userId);
-}
-```
-
-Also snapshot `changed_by` name:
-- Add `changed_by_name_snapshot` column
-- Update the function to `COALESCE(p.full_name, ah.changed_by_name_snapshot)`
-- Snapshot before deletion for `changed_by` references too
-
-### Files Changed
-1. **New migration** — Add `dispatcher_name_snapshot`, `old_dispatcher_name_snapshot`, `changed_by_name_snapshot` columns to `assignment_history`; update `get_assignment_history` function with COALESCE fallbacks
-2. **`supabase/functions/delete-user/index.ts`** — Add snapshot logic before profile deletion
+## Summary
+The fix is literally just deploying the function -- no code rewrites needed. The "over complicated" part you might be remembering is fine, the function logic is straightforward. It just wasn't deployed.
 
