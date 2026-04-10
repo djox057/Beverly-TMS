@@ -3514,7 +3514,7 @@ const Analytics = () => {
                                   </TableCell>}
                                 <TableCell className="font-medium">
                                   <div className="flex items-center gap-2">
-                                    {renderRankIcon()}
+                                    {!isDispatchOnly && renderRankIcon()}
                                     {stat.name}
                                     {/* Hide download button for dispatch-only users, but show send/preview for all */}
                                     {!isDispatchOnly && selectedMonth && selectedMonth !== "all" && <TooltipProvider>
@@ -4221,7 +4221,7 @@ const Analytics = () => {
           extraDayDates={payrollPreviewData.extraDayDates} 
           lostDayDates={payrollPreviewData.lostDayDates} 
           extraDaysAmount={payrollPreviewData.extraDaysAmount} 
-          dispatcherBonus={payrollPreviewData.dispatcherBonus} 
+          dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus} 
           perDayRate={payrollPreviewData.perDayRate} 
           previewOnly={isDispatchOnly}
           isDeletedUser={payrollPreviewData.isDeletedUser}
