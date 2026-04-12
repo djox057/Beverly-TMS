@@ -24,24 +24,18 @@ serve(async (req) => {
   } else if (authHeader?.startsWith('Bearer ')) {
     // Try JWT auth for admin/manager users
     try {
-      const tempClient = createClient(
+      const adminClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } }
       );
       const token = authHeader.replace('Bearer ', '');
-      const { data: claimsData, error: claimsErr } = await tempClient.auth.getClaims(token);
-      if (!claimsErr && claimsData?.claims?.sub) {
-        const userId = claimsData.claims.sub;
-        const adminClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-          { auth: { autoRefreshToken: false, persistSession: false } }
-        );
+      const { data: { user }, error: userErr } = await adminClient.auth.getUser(token);
+      if (!userErr && user?.id) {
         const { data: roles } = await adminClient
           .from('user_roles')
           .select('role')
-          .eq('user_id', userId);
+          .eq('user_id', user.id);
         const userRoles = (roles || []).map((r: any) => r.role);
         if (userRoles.includes('admin') || userRoles.includes('manager')) {
           authMethod = 'user_jwt';
