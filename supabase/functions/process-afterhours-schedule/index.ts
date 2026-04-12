@@ -13,6 +13,9 @@ serve(async (req) => {
 
   // Auth: accept CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY, or admin/manager JWT
   const authHeader = req.headers.get('Authorization');
+  console.log(`Auth header present: ${!!authHeader}, starts with Bearer: ${authHeader?.startsWith('Bearer ')}`);
+  const apiKey = req.headers.get('apikey');
+  console.log(`apikey header present: ${!!apiKey}`);
   const cronSecret = Deno.env.get('CRON_SECRET');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   let authMethod = 'none';
