@@ -11,8 +11,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Auth: accept CRON_SECRET or SUPABASE_SERVICE_ROLE_KEY (like cleanup-yard-arrivals)
+  // Auth: accept CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY, or admin/manager JWT
   const authHeader = req.headers.get('Authorization');
+  console.log(`Auth header present: ${!!authHeader}, starts with Bearer: ${authHeader?.startsWith('Bearer ')}`);
+  const apiKey = req.headers.get('apikey');
+  console.log(`apikey header present: ${!!apiKey}`);
   const cronSecret = Deno.env.get('CRON_SECRET');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   let authMethod = 'none';
@@ -21,6 +24,29 @@ serve(async (req) => {
     authMethod = 'cron_secret';
   } else if (serviceRoleKey && authHeader?.includes(serviceRoleKey)) {
     authMethod = 'service_role';
+  } else if (authHeader?.startsWith('Bearer ')) {
+    // Try JWT auth for admin/manager users
+    try {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: userErr } = await adminClient.auth.getUser(token);
+      if (!userErr && user?.id) {
+        const { data: roles } = await adminClient
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id);
+        const userRoles = (roles || []).map((r: any) => r.role);
+        if (userRoles.includes('admin') || userRoles.includes('manager')) {
+          authMethod = 'user_jwt';
+        }
+      }
+    } catch (e) {
+      console.error('JWT auth check failed:', e);
+    }
   }
 
   if (authMethod === 'none') {
