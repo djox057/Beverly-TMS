@@ -11,15 +11,27 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const cronSecret = Deno.env.get('CRON_SECRET');
+  // Auth: accept CRON_SECRET or SUPABASE_SERVICE_ROLE_KEY (like cleanup-yard-arrivals)
   const authHeader = req.headers.get('Authorization');
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    console.error('Unauthorized request');
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  let authMethod = 'none';
+
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    authMethod = 'cron_secret';
+  } else if (serviceRoleKey && authHeader?.includes(serviceRoleKey)) {
+    authMethod = 'service_role';
+  }
+
+  if (authMethod === 'none') {
+    console.error('Unauthorized request - no valid auth method matched');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  console.log(`Auth method: ${authMethod}`);
 
   try {
     const supabaseAdmin = createClient(
@@ -49,7 +61,7 @@ serve(async (req) => {
     const d = new Date(chicagoNow);
     const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    console.log(`Action: ${action}, Chicago date: ${todayStr}`);
+    console.log(`Action: ${action}, Chicago date: ${todayStr}, auth: ${authMethod}`);
 
     // Get scheduled user IDs for today
     const { data: scheduledUsers, error: fetchError } = await supabaseAdmin
@@ -58,6 +70,8 @@ serve(async (req) => {
       .eq('scheduled_date', todayStr);
 
     if (fetchError) throw fetchError;
+
+    console.log(`Scheduled users found: ${scheduledUsers?.length ?? 0}`);
 
     if (!scheduledUsers || scheduledUsers.length === 0) {
       console.log('No users scheduled for today');
@@ -92,8 +106,10 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Results: ${results.filter(r => r.status.includes('→')).length} switched, ${results.filter(r => r.status === 'skipped').length} skipped, ${results.filter(r => r.status === 'error').length} errors`);
+
     return new Response(
-      JSON.stringify({ success: true, action, date: todayStr, results }),
+      JSON.stringify({ success: true, action, date: todayStr, authMethod, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
