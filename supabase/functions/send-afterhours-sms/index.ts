@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -12,14 +11,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Accept either CRON_SECRET or authenticated admin/manager user
+  // Auth: accept CRON_SECRET, SERVICE_ROLE_KEY, or authenticated admin/manager JWT
   const cronSecret = Deno.env.get('CRON_SECRET');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const authHeader = req.headers.get('Authorization');
-  let authorized = false;
+  let authMethod = 'none';
   let targetDate: string | null = null;
 
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    authorized = true;
+    authMethod = 'cron_secret';
+  } else if (serviceRoleKey && authHeader?.includes(serviceRoleKey)) {
+    authMethod = 'service_role';
   } else if (authHeader?.startsWith('Bearer ')) {
     // Check if it's an authenticated user with admin/manager role
     const userClient = createClient(
@@ -31,7 +33,7 @@ serve(async (req) => {
     if (!userErr && user?.id) {
       const adminClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        serviceRoleKey ?? '',
         { auth: { autoRefreshToken: false, persistSession: false } }
       );
       const { data: roles } = await adminClient
@@ -39,18 +41,20 @@ serve(async (req) => {
         .select('role')
         .eq('user_id', user.id);
       if (roles?.some(r => r.role === 'admin' || r.role === 'manager')) {
-        authorized = true;
+        authMethod = 'user_jwt';
       }
     }
   }
 
-  if (!authorized) {
+  if (authMethod === 'none') {
     console.error('Unauthorized request');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  console.log(`Auth method: ${authMethod}`);
 
   // Check for target_date in request body (for manual invocation)
   try {
@@ -60,11 +64,10 @@ serve(async (req) => {
     }
   } catch {}
 
-
   try {
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      serviceRoleKey ?? '',
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
@@ -78,7 +81,7 @@ serve(async (req) => {
       todayStr = chicagoDate.toISOString().split('T')[0];
     }
 
-    console.log(`send-afterhours-sms: Chicago date=${todayStr}`);
+    console.log(`send-afterhours-sms: Chicago date=${todayStr}, auth=${authMethod}`);
 
     // Check if today is a scheduled afterhours day
     const { data: schedule, error: schedErr } = await supabaseAdmin
@@ -102,6 +105,9 @@ serve(async (req) => {
       .eq('scheduled_date', todayStr);
 
     if (assignErr) throw assignErr;
+
+    console.log(`Assignments found: ${assignments?.length ?? 0}`);
+
     if (!assignments || assignments.length === 0) {
       console.log('No assignments for today');
       return new Response(JSON.stringify({ message: 'No assignments', date: todayStr }), {
@@ -180,7 +186,6 @@ serve(async (req) => {
 
         const err = await smsResponse.text();
         if (err.includes('CMN-301') && attempt < retries - 1) {
-          // Rate limited — wait longer before retry
           const backoff = (attempt + 1) * 3000;
           console.log(`Rate limited for ${driverName}, retrying in ${backoff}ms (attempt ${attempt + 1}/${retries})`);
           await delay(backoff);
@@ -211,7 +216,7 @@ serve(async (req) => {
         continue;
       }
 
-      // Extract nickname (part after hyphen in last word, e.g. "Stefan Nesovanovic-Peter" → "Peter")
+      // Extract nickname (part after hyphen in last word)
       const nameParts = dispatcher.full_name.trim().split(/\s+/);
       const lastWord = nameParts[nameParts.length - 1];
       const lastName = lastWord.includes('-') ? lastWord.split('-').pop()! : lastWord;
@@ -227,13 +232,15 @@ serve(async (req) => {
       const result = await sendSmsWithRetry(toNumber, message, driver.name);
       results.push(result);
 
-      // Wait 1.5s between messages to stay under RingCentral rate limit
+      // Wait 1.5s between messages
       if (results.length < assignments.length) {
         await delay(1500);
       }
     }
 
-    return new Response(JSON.stringify({ success: true, date: todayStr, results }), {
+    console.log(`SMS results: ${results.filter(r => r.status === 'sent').length} sent, ${results.filter(r => r.status === 'skipped').length} skipped, ${results.filter(r => r.status === 'failed').length} failed`);
+
+    return new Response(JSON.stringify({ success: true, date: todayStr, authMethod, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
