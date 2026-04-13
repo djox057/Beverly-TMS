@@ -227,8 +227,20 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
+
+    if (field === "dot") {
+      return (
+        <Checkbox
+          checked={row.dot}
+          disabled={!canEdit}
+          onCheckedChange={(checked) => {
+            updateMutation.mutate({ id: row.id, field: "dot", value: !!checked });
+          }}
+        />
+      );
+    }
 
     if (isEditing) {
       if (field === "maintenance_check") {
