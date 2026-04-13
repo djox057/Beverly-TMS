@@ -42,6 +42,7 @@ interface InspectionRow {
   maintenance_check: string | null;
   reason: string | null;
   inspection_level: number | null;
+  dot: boolean;
   created_by: string | null;
   created_at: string;
   truck_number?: string;
