@@ -534,9 +534,16 @@ const RoadsideInspection = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="form-dot" checked={formDot} onCheckedChange={(c) => setFormDot(!!c)} />
-              <label htmlFor="form-dot" className="text-sm font-medium cursor-pointer">DOT</label>
+            <div>
+              <label className="text-sm font-medium">Location</label>
+              <Select value={formLocation || "none"} onValueChange={setFormLocation}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="At Yard">At Yard</SelectItem>
+                  <SelectItem value="On road">On road</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
