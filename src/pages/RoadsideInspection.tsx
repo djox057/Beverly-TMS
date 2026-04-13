@@ -51,7 +51,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "reason" | "inspection_level" | "location" | "roadside_inspection_date";
+type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "reason" | "inspection_level" | "roadside_inspection_date";
 type EditingCell = { id: string; field: EditingField } | null;
 
 const RoadsideInspection = () => {
@@ -79,7 +79,7 @@ const RoadsideInspection = () => {
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
   const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
-  const [formLocation, setFormLocation] = useState<string>("");
+  
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
@@ -149,7 +149,7 @@ const RoadsideInspection = () => {
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
-        location: formLocation && formLocation !== "none" ? formLocation : null,
+        location: null,
         created_by: user?.id || null,
       });
       if (error) throw error;
@@ -197,7 +197,7 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    setFormLocation("");
+    
   }, []);
 
   const handleTruckChange = (truckId: string) => {
@@ -225,8 +225,6 @@ const RoadsideInspection = () => {
       setEditValue(row.reason || "");
     } else if (field === "inspection_level") {
       setEditValue(row.inspection_level != null ? String(row.inspection_level) : "none");
-    } else if (field === "location") {
-      setEditValue(row.location || "none");
     }
   };
 
@@ -249,8 +247,6 @@ const RoadsideInspection = () => {
       value = v || null;
     } else if (field === "inspection_level") {
       value = editValue && editValue !== "none" ? parseInt(editValue) : null;
-    } else if (field === "location") {
-      value = editValue && editValue !== "none" ? editValue : null;
     }
     updateMutation.mutate({ id, field, value, clearField });
     setEditingCell(null);
@@ -263,36 +259,6 @@ const RoadsideInspection = () => {
 
   const renderEditableCell = (row: typeof filtered[0], field: EditingField) => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
-
-    if (field === "location") {
-      if (isEditing) {
-        return (
-          <Select value={editValue || "none"} onValueChange={(v) => {
-            const saveValue = v && v !== "none" ? v : null;
-            updateMutation.mutate({ id: row.id, field: "location", value: saveValue });
-            setEditingCell(null);
-          }}>
-            <SelectTrigger className="h-8 text-xs w-[110px]" autoFocus>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent onCloseAutoFocus={() => setEditingCell(null)}>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="At Yard">At Yard</SelectItem>
-              <SelectItem value="On road">On road</SelectItem>
-            </SelectContent>
-          </Select>
-        );
-      }
-      const display = row.location || "—";
-      if (canEdit) {
-        return (
-          <span className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => startEditing(row, field)}>
-            {display}
-          </span>
-        );
-      }
-      return display;
-    }
 
     if (isEditing) {
       if (field === "maintenance_check_yard" || field === "maintenance_check_road" || field === "roadside_inspection_date") {
@@ -406,19 +372,18 @@ const RoadsideInspection = () => {
             <p className="text-muted-foreground">No inspections found.</p>
           ) : (
             <div className="border rounded-md">
-              <Table>
+              <Table style={{ tableLayout: "fixed", width: "100%" }}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Truck#</TableHead>
-                    <TableHead className="w-[160px]">Driver Name</TableHead>
-                    <TableHead className="w-[160px]">Dispatch</TableHead>
-                    <TableHead className="w-[130px]">Maint. Safety Check Yard</TableHead>
-                    <TableHead className="w-[130px]">Maint. Safety Check Road</TableHead>
-                    <TableHead>Maintenance Note</TableHead>
-                    <TableHead className="w-[140px]">Roadside Inspection</TableHead>
-                    <TableHead className="w-[100px] text-center">Level</TableHead>
-                    <TableHead className="w-[100px] text-center">Location</TableHead>
-                    {hasRole("admin") && <TableHead className="w-[60px]" />}
+                    <TableHead style={{ width: 90 }}>Truck#</TableHead>
+                    <TableHead style={{ width: 160 }}>Driver Name</TableHead>
+                    <TableHead style={{ width: 140 }}>Dispatch</TableHead>
+                    <TableHead style={{ width: 150 }}>Maint. Safety Check Yard</TableHead>
+                    <TableHead style={{ width: 150 }}>Maint. Safety Check Road</TableHead>
+                    <TableHead style={{ width: 200 }}>Maintenance Note</TableHead>
+                    <TableHead style={{ width: 150 }}>Roadside Inspection</TableHead>
+                    <TableHead style={{ width: 70 }} className="text-center">Level</TableHead>
+                    {hasRole("admin") && <TableHead style={{ width: 50 }} />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -432,7 +397,7 @@ const RoadsideInspection = () => {
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell>{renderEditableCell(row, "roadside_inspection_date")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
-                      <TableCell className="text-center">{renderEditableCell(row, "location")}</TableCell>
+                      
                       {hasRole("admin") && (
                         <TableCell>
                           <Button
@@ -570,17 +535,6 @@ const RoadsideInspection = () => {
                   <SelectItem value="1">1</SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="3">3</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Location</label>
-              <Select value={formLocation || "none"} onValueChange={setFormLocation}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="At Yard">At Yard</SelectItem>
-                  <SelectItem value="On road">On road</SelectItem>
                 </SelectContent>
               </Select>
             </div>
