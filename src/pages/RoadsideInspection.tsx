@@ -264,36 +264,6 @@ const RoadsideInspection = () => {
   const renderEditableCell = (row: typeof filtered[0], field: EditingField) => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
-    if (field === "location") {
-      if (isEditing) {
-        return (
-          <Select value={editValue || "none"} onValueChange={(v) => {
-            const saveValue = v && v !== "none" ? v : null;
-            updateMutation.mutate({ id: row.id, field: "location", value: saveValue });
-            setEditingCell(null);
-          }}>
-            <SelectTrigger className="h-8 text-xs w-[110px]" autoFocus>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent onCloseAutoFocus={() => setEditingCell(null)}>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="At Yard">At Yard</SelectItem>
-              <SelectItem value="On road">On road</SelectItem>
-            </SelectContent>
-          </Select>
-        );
-      }
-      const display = row.location || "—";
-      if (canEdit) {
-        return (
-          <span className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => startEditing(row, field)}>
-            {display}
-          </span>
-        );
-      }
-      return display;
-    }
-
     if (isEditing) {
       if (field === "maintenance_check_yard" || field === "maintenance_check_road" || field === "roadside_inspection_date") {
         return (
