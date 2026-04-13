@@ -217,7 +217,7 @@ const RoadsideInspection = () => {
     if (!editingCell) return;
     const { id, field } = editingCell;
     let value: any;
-    if (field === "maintenance_check") {
+    if (field === "maintenance_check" || field === "roadside_inspection_date") {
       value = editDate ? format(editDate, "yyyy-MM-dd") : null;
     } else if (field === "reason") {
       const v = editReasonRef.current?.value ?? editValue;
