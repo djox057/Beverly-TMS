@@ -6,6 +6,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { format } from "date-fns";
 import { Plus, Trash2, Search, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
