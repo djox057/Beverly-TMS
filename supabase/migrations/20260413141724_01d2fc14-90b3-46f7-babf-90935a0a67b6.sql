@@ -1,0 +1,1 @@
+ALTER TABLE public.roadside_inspections ADD COLUMN roadside_inspection_date date;
