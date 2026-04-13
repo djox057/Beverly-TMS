@@ -43,11 +43,12 @@ interface InspectionRow {
   inspection_level: number | null;
   created_by: string | null;
   created_at: string;
-  // enriched
   truck_number?: string;
   driver_name?: string;
   dispatcher_name?: string;
 }
+
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
@@ -59,6 +60,12 @@ const RoadsideInspection = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [truckPopoverOpen, setTruckPopoverOpen] = useState(false);
   const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
+  const [editingCell, setEditingCell] = useState<EditingCell>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const [editDate, setEditDate] = useState<Date | undefined>();
+  const editReasonRef = useRef<HTMLTextAreaElement>(null);
+
+  const canEdit = hasRole("admin") || hasRole("safety") || hasRole("maintenance");
 
   // Add form state
   const [formTruckId, setFormTruckId] = useState("");
@@ -150,6 +157,17 @@ const RoadsideInspection = () => {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
+      const { error } = await supabase.from("roadside_inspections").update({ [field]: value }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roadside-inspections"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const resetForm = useCallback(() => {
     setFormTruckId("");
     setFormDriverId("");
@@ -158,24 +176,140 @@ const RoadsideInspection = () => {
     setFormLevel("");
   }, []);
 
-  // Auto-fill driver when truck selected
   const handleTruckChange = (truckId: string) => {
     setFormTruckId(truckId);
     const truck = trucks?.find((t: any) => t.id === truckId);
     if (truck?.driver1_id) setFormDriverId(truck.driver1_id);
   };
 
+  const startEditing = (row: InspectionRow, field: EditingCell extends null ? never : NonNullable<EditingCell>["field"]) => {
+    if (!canEdit) return;
+    setEditingCell({ id: row.id, field });
+    if (field === "maintenance_check") {
+      setEditDate(row.maintenance_check ? new Date(row.maintenance_check + "T00:00:00") : undefined);
+    } else if (field === "reason") {
+      setEditValue(row.reason || "");
+    } else if (field === "inspection_level") {
+      setEditValue(row.inspection_level != null ? String(row.inspection_level) : "none");
+    }
+  };
+
+  const saveInlineEdit = () => {
+    if (!editingCell) return;
+    const { id, field } = editingCell;
+    let value: any;
+    if (field === "maintenance_check") {
+      value = editDate ? format(editDate, "yyyy-MM-dd") : null;
+    } else if (field === "reason") {
+      const v = editReasonRef.current?.value ?? editValue;
+      value = v || null;
+    } else if (field === "inspection_level") {
+      value = editValue && editValue !== "none" ? parseInt(editValue) : null;
+    }
+    updateMutation.mutate({ id, field, value });
+    setEditingCell(null);
+  };
+
+  const cancelEdit = () => setEditingCell(null);
+
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
+
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level") => {
+    const isEditing = editingCell?.id === row.id && editingCell?.field === field;
+
+    if (isEditing) {
+      if (field === "maintenance_check") {
+        return (
+          <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal h-8 text-xs", !editDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {editDate ? format(editDate, "MM/dd/yyyy") : "Pick date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
+              <div className="flex justify-end gap-1 p-2 border-t">
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditDate(undefined); }}>Clear</Button>
+                <Button size="sm" className="h-7 text-xs" onClick={saveInlineEdit}>Save</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      }
+      if (field === "reason") {
+        return (
+          <div className="flex flex-col gap-1">
+            <Textarea
+              ref={editReasonRef}
+              defaultValue={editValue}
+              rows={2}
+              className="text-xs min-h-[50px]"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancelEdit();
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveInlineEdit(); }
+              }}
+            />
+            <div className="flex gap-1 justify-end">
+              <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={cancelEdit}>Cancel</Button>
+              <Button size="sm" className="h-6 text-xs px-2" onClick={saveInlineEdit}>Save</Button>
+            </div>
+          </div>
+        );
+      }
+      if (field === "inspection_level") {
+        return (
+          <Select value={editValue} onValueChange={(v) => { setEditValue(v); }}>
+            <SelectTrigger className="h-8 text-xs w-[70px]" autoFocus>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent onCloseAutoFocus={() => saveInlineEdit()}>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="1">1</SelectItem>
+              <SelectItem value="2">2</SelectItem>
+              <SelectItem value="3">3</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      }
+    }
+
+    // Display mode
+    let display: string;
+    if (field === "maintenance_check") {
+      display = row.maintenance_check ? format(new Date(row.maintenance_check + "T00:00:00"), "MM/dd/yyyy") : "—";
+    } else if (field === "reason") {
+      display = row.reason || "—";
+    } else {
+      display = row.inspection_level != null ? String(row.inspection_level) : "—";
+    }
+
+    if (canEdit) {
+      return (
+        <span
+          className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors"
+          onClick={() => startEditing(row, field)}
+        >
+          {display}
+        </span>
+      );
+    }
+
+    return display;
+  };
 
   return (
     <div className="p-6 space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>Roadside Inspection</CardTitle>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="mb-4">
@@ -213,15 +347,9 @@ const RoadsideInspection = () => {
                       <TableCell className="font-medium">{row.truck_number}</TableCell>
                       <TableCell>{row.driver_name}</TableCell>
                       <TableCell className="text-muted-foreground">{row.dispatcher_name}</TableCell>
-                      <TableCell>
-                        {row.maintenance_check
-                          ? format(new Date(row.maintenance_check + "T00:00:00"), "MM/dd/yyyy")
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">{row.reason || "—"}</TableCell>
-                      <TableCell className="text-center font-semibold">
-                        {row.inspection_level ?? "—"}
-                      </TableCell>
+                      <TableCell>{renderEditableCell(row, "maintenance_check")}</TableCell>
+                      <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
+                      <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
                       {hasRole("admin") && (
                         <TableCell>
                           <Button
