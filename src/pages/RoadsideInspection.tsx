@@ -88,7 +88,6 @@ const RoadsideInspection = () => {
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
   const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
-  const [formEtaDate, setFormEtaDate] = useState<Date | undefined>();
   const [formEtaTime, setFormEtaTime] = useState<string>("");
   
   const reasonRef = useRef<HTMLTextAreaElement>(null);
@@ -151,15 +150,7 @@ const RoadsideInspection = () => {
       const reason = reasonRef.current?.value || formReason;
       const driverId = formDriverId || null;
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
-      const etaValue = formEtaDate && formEtaTime
-        ? (() => {
-            const pad = (n: number) => String(n).padStart(2, "0");
-            const yr = formEtaDate.getFullYear();
-            const mo = pad(formEtaDate.getMonth() + 1);
-            const dy = pad(formEtaDate.getDate());
-            return `${yr}-${mo}-${dy}T${formEtaTime}:00`;
-          })()
-        : null;
+      const etaValue = formEtaTime ? `${formEtaTime}:00` : null;
       const { error } = await supabase.from("roadside_inspections").insert({
         truck_id: formTruckId || null,
         driver_id: driverId,
@@ -292,15 +283,14 @@ const RoadsideInspection = () => {
       setEditDate(row.maintenance_check_road ? new Date(row.maintenance_check_road + "T00:00:00") : undefined);
     } else if (field === "eta_datetime") {
       if (row.eta_datetime) {
-        // Parse the stored string directly without timezone conversion
+        // Parse stored time string (HH:MM:SS or HH:MM or full datetime)
         const raw = row.eta_datetime.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
-        const [datePart, timePart] = raw.includes('T') ? raw.split('T') : raw.split(' ');
-        const [yr, mo, dy] = datePart.split('-').map(Number);
+        let timePart = raw;
+        if (raw.includes('T')) timePart = raw.split('T')[1];
+        else if (raw.includes(' ')) timePart = raw.split(' ')[1];
         const [hh, mm] = (timePart || '00:00').split(':').map(Number);
-        setEditDate(new Date(yr, mo - 1, dy));
         setEditTime(`${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
       } else {
-        setEditDate(undefined);
         setEditTime("");
       }
     } else if (field === "roadside_inspection_date") {
@@ -325,12 +315,8 @@ const RoadsideInspection = () => {
         clearField = field === "maintenance_check_yard" ? "maintenance_check_road" : "maintenance_check_yard";
       }
     } else if (field === "eta_datetime") {
-      if (editDate && editTime) {
-        const pad = (n: number) => String(n).padStart(2, "0");
-        const yr = editDate.getFullYear();
-        const mo = pad(editDate.getMonth() + 1);
-        const dy = pad(editDate.getDate());
-        value = `${yr}-${mo}-${dy}T${editTime}:00`;
+      if (editTime) {
+        value = `${editTime}:00`;
       } else {
         value = null;
       }
@@ -357,37 +343,23 @@ const RoadsideInspection = () => {
     if (isEditing) {
       if (field === "eta_datetime") {
         return (
-          <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal h-8 text-xs", !editDate && "text-muted-foreground")}>
-                <CalendarIcon className="mr-1 h-3 w-3" />
-                {editDate && editTime ? `${format(editDate, "MM/dd/yyyy")} ${editTime}` : "Pick date/time"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
-              <div className="px-3 pb-2">
-                <label className="text-xs font-medium">Time (24h)</label>
-                <Input
-                  placeholder="HH:MM"
-                  value={editTime}
-                  onChange={(e) => {
-                    let v = e.target.value.replace(/[^\d:]/g, '');
-                    // Auto-insert colon after 2 digits
-                    if (v.length === 2 && !v.includes(':')) v += ':';
-                    if (v.length > 5) v = v.slice(0, 5);
-                    setEditTime(v);
-                  }}
-                  className="h-8 text-xs font-mono"
-                  maxLength={5}
-                />
-              </div>
-              <div className="flex justify-end gap-1 p-2 border-t">
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditDate(undefined); setEditTime(""); }}>Clear</Button>
-                <Button size="sm" className="h-7 text-xs" onClick={saveInlineEdit}>Save</Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="flex items-center gap-1">
+            <Input
+              autoFocus
+              placeholder="HH:MM"
+              value={editTime}
+              onChange={(e) => {
+                let v = e.target.value.replace(/[^\d:]/g, '');
+                if (v.length === 2 && !v.includes(':')) v += ':';
+                if (v.length > 5) v = v.slice(0, 5);
+                setEditTime(v);
+              }}
+              className="h-8 text-xs font-mono w-20"
+              maxLength={5}
+              onKeyDown={(e) => { if (e.key === "Enter") saveInlineEdit(); if (e.key === "Escape") cancelEdit(); }}
+              onBlur={saveInlineEdit}
+            />
+          </div>
         );
       }
       if (field === "maintenance_check_yard" || field === "maintenance_check_road" || field === "roadside_inspection_date") {
@@ -511,12 +483,12 @@ const RoadsideInspection = () => {
       );
     } else if (field === "eta_datetime") {
       if (row.eta_datetime) {
-        // Parse stored string directly, no timezone conversion
         const raw = row.eta_datetime.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
-        const [datePart, timePart] = raw.includes('T') ? raw.split('T') : raw.split(' ');
-        const [yr, mo, dy] = datePart.split('-').map(Number);
+        let timePart = raw;
+        if (raw.includes('T')) timePart = raw.split('T')[1];
+        else if (raw.includes(' ')) timePart = raw.split(' ')[1];
         const [hh, mm] = (timePart || '00:00').split(':').map(Number);
-        display = `${String(mo).padStart(2, "0")}/${String(dy).padStart(2, "0")}/${yr} ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        display = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
       } else {
         display = "—";
       }
@@ -717,32 +689,19 @@ const RoadsideInspection = () => {
               </Popover>
             </div>
             <div>
-              <label className="text-sm font-medium">ETA (Chicago Time)</label>
-              <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !formEtaDate && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formEtaDate ? format(formEtaDate, "MM/dd/yyyy") : "Date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={formEtaDate} onSelect={setFormEtaDate} className="p-3 pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
-                <Input
-                  placeholder="HH:MM"
-                  value={formEtaTime}
-                  onChange={(e) => {
-                    let v = e.target.value.replace(/[^\d:]/g, '');
-                    if (v.length === 2 && !v.includes(':')) v += ':';
-                    if (v.length > 5) v = v.slice(0, 5);
-                    setFormEtaTime(v);
-                  }}
-                  className="w-[120px] font-mono"
-                  maxLength={5}
-                />
-              </div>
+              <label className="text-sm font-medium">ETA (24h time)</label>
+              <Input
+                placeholder="HH:MM"
+                value={formEtaTime}
+                onChange={(e) => {
+                  let v = e.target.value.replace(/[^\d:]/g, '');
+                  if (v.length === 2 && !v.includes(':')) v += ':';
+                  if (v.length > 5) v = v.slice(0, 5);
+                  setFormEtaTime(v);
+                }}
+                className="font-mono"
+                maxLength={5}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Maintenance Note</label>
