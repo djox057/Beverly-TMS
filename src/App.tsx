@@ -40,6 +40,7 @@ import Problems from "./pages/Problems";
 import Billboard from "./pages/Billboard";
 import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
+import RoadsideInspection from "./pages/RoadsideInspection";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -223,6 +224,11 @@ const AppContent = () => {
         <Route path="/turnover-list" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><TurnoverList /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/roadside-inspection" element={
+          <ProtectedRoute>
+            <Layout><RoadsideInspection /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
