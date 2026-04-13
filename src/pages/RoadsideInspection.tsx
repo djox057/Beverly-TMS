@@ -228,12 +228,26 @@ const RoadsideInspection = () => {
   };
 
   const startEditing = (row: InspectionRow, field: EditingField) => {
-    if (!canEdit) return;
+    if (field === "eta_datetime") {
+      if (!canEditEta) return;
+    } else {
+      if (!canEdit) return;
+    }
     setEditingCell({ id: row.id, field });
     if (field === "maintenance_check_yard") {
       setEditDate(row.maintenance_check_yard ? new Date(row.maintenance_check_yard + "T00:00:00") : undefined);
     } else if (field === "maintenance_check_road") {
       setEditDate(row.maintenance_check_road ? new Date(row.maintenance_check_road + "T00:00:00") : undefined);
+    } else if (field === "eta_datetime") {
+      if (row.eta_datetime) {
+        const d = new Date(row.eta_datetime);
+        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+        setEditDate(chicago);
+        setEditTime(`${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`);
+      } else {
+        setEditDate(undefined);
+        setEditTime("");
+      }
     } else if (field === "roadside_inspection_date") {
       setEditDate(row.roadside_inspection_date ? new Date(row.roadside_inspection_date + "T00:00:00") : undefined);
     } else if (field === "reason") {
