@@ -43,7 +43,7 @@ interface InspectionRow {
   reason: string | null;
   inspection_level: number | null;
   roadside_inspection_date: string | null;
-  dot: boolean;
+  location: string | null;
   created_by: string | null;
   created_at: string;
   truck_number?: string;
@@ -51,7 +51,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date" } | null;
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "location" | "roadside_inspection_date" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
