@@ -42,6 +42,7 @@ interface InspectionRow {
   maintenance_check: string | null;
   reason: string | null;
   inspection_level: number | null;
+  roadside_inspection_date: string | null;
   dot: boolean;
   created_by: string | null;
   created_at: string;
@@ -50,7 +51,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" } | null;
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
@@ -75,6 +76,7 @@ const RoadsideInspection = () => {
   const [formMaintenanceCheck, setFormMaintenanceCheck] = useState<Date | undefined>();
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
+  const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
   const [formDot, setFormDot] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
@@ -135,6 +137,7 @@ const RoadsideInspection = () => {
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
+        roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
         dot: formDot,
         created_by: user?.id || null,
       });
@@ -179,6 +182,7 @@ const RoadsideInspection = () => {
     setFormMaintenanceCheck(undefined);
     setFormReason("");
     setFormLevel("");
+    setFormRoadsideDate(undefined);
     setFormDot(false);
   }, []);
 
@@ -200,6 +204,8 @@ const RoadsideInspection = () => {
     setEditingCell({ id: row.id, field });
     if (field === "maintenance_check") {
       setEditDate(row.maintenance_check ? new Date(row.maintenance_check + "T00:00:00") : undefined);
+    } else if (field === "roadside_inspection_date") {
+      setEditDate(row.roadside_inspection_date ? new Date(row.roadside_inspection_date + "T00:00:00") : undefined);
     } else if (field === "reason") {
       setEditValue(row.reason || "");
     } else if (field === "inspection_level") {
@@ -211,7 +217,7 @@ const RoadsideInspection = () => {
     if (!editingCell) return;
     const { id, field } = editingCell;
     let value: any;
-    if (field === "maintenance_check") {
+    if (field === "maintenance_check" || field === "roadside_inspection_date") {
       value = editDate ? format(editDate, "yyyy-MM-dd") : null;
     } else if (field === "reason") {
       const v = editReasonRef.current?.value ?? editValue;
@@ -228,7 +234,7 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
     if (field === "dot") {
@@ -244,7 +250,7 @@ const RoadsideInspection = () => {
     }
 
     if (isEditing) {
-      if (field === "maintenance_check") {
+      if (field === "maintenance_check" || field === "roadside_inspection_date") {
         return (
           <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
             <PopoverTrigger asChild>
@@ -305,6 +311,8 @@ const RoadsideInspection = () => {
     let display: string;
     if (field === "maintenance_check") {
       display = row.maintenance_check ? format(new Date(row.maintenance_check + "T00:00:00"), "MM/dd/yyyy") : "—";
+    } else if (field === "roadside_inspection_date") {
+      display = row.roadside_inspection_date ? format(new Date(row.roadside_inspection_date + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "reason") {
       display = row.reason || "—";
     } else {
@@ -361,7 +369,8 @@ const RoadsideInspection = () => {
                     <TableHead className="w-[160px]">Driver Name</TableHead>
                     <TableHead className="w-[160px]">Dispatch</TableHead>
                     <TableHead className="w-[130px]">Maintenance Check</TableHead>
-                    <TableHead>Reason</TableHead>
+                    <TableHead>Maintenance Note</TableHead>
+                    <TableHead className="w-[140px]">Roadside Inspection</TableHead>
                     <TableHead className="w-[100px] text-center">Level</TableHead>
                     <TableHead className="w-[60px] text-center">DOT</TableHead>
                     {hasRole("admin") && <TableHead className="w-[60px]" />}
@@ -375,6 +384,7 @@ const RoadsideInspection = () => {
                       <TableCell className="text-muted-foreground">{row.dispatcher_name}</TableCell>
                       <TableCell>{renderEditableCell(row, "maintenance_check")}</TableCell>
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
+                      <TableCell>{renderEditableCell(row, "roadside_inspection_date")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
                       <TableCell className="text-center">{renderEditableCell(row, "dot")}</TableCell>
                       {hasRole("admin") && (
@@ -474,8 +484,22 @@ const RoadsideInspection = () => {
               </Popover>
             </div>
             <div>
-              <label className="text-sm font-medium">Reason</label>
-              <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter reason..." rows={3} />
+              <label className="text-sm font-medium">Maintenance Note</label>
+              <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter note..." rows={3} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Roadside Inspection Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formRoadsideDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formRoadsideDate ? format(formRoadsideDate, "MM/dd/yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={formRoadsideDate} onSelect={setFormRoadsideDate} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <label className="text-sm font-medium">Inspection Level</label>

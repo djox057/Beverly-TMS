@@ -3429,6 +3429,7 @@ export type Database = {
           inspection_level: number | null
           maintenance_check: string | null
           reason: string | null
+          roadside_inspection_date: string | null
           truck_id: string | null
           updated_at: string
         }
@@ -3442,6 +3443,7 @@ export type Database = {
           inspection_level?: number | null
           maintenance_check?: string | null
           reason?: string | null
+          roadside_inspection_date?: string | null
           truck_id?: string | null
           updated_at?: string
         }
@@ -3455,6 +3457,7 @@ export type Database = {
           inspection_level?: number | null
           maintenance_check?: string | null
           reason?: string | null
+          roadside_inspection_date?: string | null
           truck_id?: string | null
           updated_at?: string
         }
