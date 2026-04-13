@@ -3423,10 +3423,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           dispatcher_id: string | null
-          dot: boolean
           driver_id: string | null
           id: string
           inspection_level: number | null
+          location: string | null
           maintenance_check: string | null
           reason: string | null
           roadside_inspection_date: string | null
@@ -3437,10 +3437,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dispatcher_id?: string | null
-          dot?: boolean
           driver_id?: string | null
           id?: string
           inspection_level?: number | null
+          location?: string | null
           maintenance_check?: string | null
           reason?: string | null
           roadside_inspection_date?: string | null
@@ -3451,10 +3451,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dispatcher_id?: string | null
-          dot?: boolean
           driver_id?: string | null
           id?: string
           inspection_level?: number | null
+          location?: string | null
           maintenance_check?: string | null
           reason?: string | null
           roadside_inspection_date?: string | null
