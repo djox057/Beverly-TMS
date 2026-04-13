@@ -178,12 +178,20 @@ const RoadsideInspection = () => {
     setFormMaintenanceCheck(undefined);
     setFormReason("");
     setFormLevel("");
+    setFormDot(false);
   }, []);
 
   const handleTruckChange = (truckId: string) => {
     setFormTruckId(truckId);
     const truck = trucks?.find((t: any) => t.id === truckId);
     if (truck?.driver1_id) setFormDriverId(truck.driver1_id);
+  };
+
+  const handleDriverChange = (driverId: string) => {
+    setFormDriverId(driverId);
+    // Find the truck this driver is assigned to
+    const truck = trucks?.find((t: any) => t.driver1_id === driverId || t.driver2_id === driverId);
+    if (truck) setFormTruckId(truck.id);
   };
 
   const startEditing = (row: InspectionRow, field: EditingCell extends null ? never : NonNullable<EditingCell>["field"]) => {
