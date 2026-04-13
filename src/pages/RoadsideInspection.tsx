@@ -71,6 +71,7 @@ const RoadsideInspection = () => {
   const editReasonRef = useRef<HTMLTextAreaElement>(null);
 
   const canEdit = hasRole("admin") || hasRole("safety") || hasRole("maintenance");
+  const canEditEta = hasRole("admin") || hasRole("dispatch");
 
   // Add form state
   const [formTruckId, setFormTruckId] = useState("");
