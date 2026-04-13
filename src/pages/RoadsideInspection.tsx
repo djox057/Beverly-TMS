@@ -50,7 +50,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" } | null;
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
