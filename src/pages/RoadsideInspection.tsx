@@ -166,22 +166,22 @@ const RoadsideInspection = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>Roadside Inspection</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative w-[280px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-8 w-[220px]"
+                className="pl-8"
               />
             </div>
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add
-            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
           {isLoading ? (
             <p className="text-muted-foreground">Loading...</p>
           ) : filtered.length === 0 ? (
