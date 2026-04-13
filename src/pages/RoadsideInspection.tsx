@@ -145,12 +145,21 @@ const RoadsideInspection = () => {
       const reason = reasonRef.current?.value || formReason;
       const driverId = formDriverId || null;
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
+      const etaValue = formEtaDate && formEtaTime
+        ? (() => {
+            const [h, m] = formEtaTime.split(":").map(Number);
+            const d = new Date(formEtaDate);
+            d.setHours(h, m, 0, 0);
+            return d.toLocaleString("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/(\d+)\/(\d+)\/(\d+),\s/, "$3-$1-$2T") + "-06:00";
+          })()
+        : null;
       const { error } = await supabase.from("roadside_inspections").insert({
         truck_id: formTruckId || null,
         driver_id: driverId,
         dispatcher_id: dispatcherId,
         maintenance_check_yard: formMaintenanceCheckYard ? format(formMaintenanceCheckYard, "yyyy-MM-dd") : null,
         maintenance_check_road: formMaintenanceCheckRoad ? format(formMaintenanceCheckRoad, "yyyy-MM-dd") : null,
+        eta_datetime: etaValue,
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
