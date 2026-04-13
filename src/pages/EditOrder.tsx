@@ -2416,10 +2416,7 @@ const EditOrder = () => {
         locked: isLocked,
       };
 
-      // Internal load number is frozen at creation — never reassigned
-      if (companyId) {
-        updateData.company_id = companyId;
-      }
+      // company_id is frozen at creation — never update it (changing it causes duplicate internal load numbers)
 
       const { error: orderError } = await supabase.from("orders").update(updateData).eq("id", id);
       if (orderError) throw orderError;
