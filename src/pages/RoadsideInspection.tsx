@@ -137,6 +137,7 @@ const RoadsideInspection = () => {
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
+        roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
         dot: formDot,
         created_by: user?.id || null,
       });
