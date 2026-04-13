@@ -614,7 +614,18 @@ const RoadsideInspection = () => {
                     <Calendar mode="single" selected={formEtaDate} onSelect={setFormEtaDate} className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
-                <Input type="time" value={formEtaTime} onChange={(e) => setFormEtaTime(e.target.value)} className="w-[120px]" placeholder="HH:MM" />
+                <Input
+                  placeholder="HH:MM"
+                  value={formEtaTime}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/[^\d:]/g, '');
+                    if (v.length === 2 && !v.includes(':')) v += ':';
+                    if (v.length > 5) v = v.slice(0, 5);
+                    setFormEtaTime(v);
+                  }}
+                  className="w-[120px] font-mono"
+                  maxLength={5}
+                />
               </div>
             </div>
             <div>
