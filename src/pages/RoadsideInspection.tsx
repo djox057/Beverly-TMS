@@ -452,6 +452,7 @@ const RoadsideInspection = () => {
                     <TableHead style={{ width: 140 }}>Dispatch</TableHead>
                     <TableHead style={{ width: 150 }}>Maint. Safety Check Yard</TableHead>
                     <TableHead style={{ width: 150 }}>Maint. Safety Check Road</TableHead>
+                    <TableHead style={{ width: 150 }}>ETA</TableHead>
                     <TableHead style={{ width: 200 }}>Maintenance Note</TableHead>
                     <TableHead style={{ width: 150 }}>Roadside Inspection</TableHead>
                     <TableHead style={{ width: 70 }} className="text-center">Level</TableHead>
