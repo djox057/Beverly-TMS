@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { format } from "date-fns";
-import { Plus, Trash2, Search, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, Search, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,9 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -54,6 +57,8 @@ const RoadsideInspection = () => {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [truckPopoverOpen, setTruckPopoverOpen] = useState(false);
+  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
 
   // Add form state
   const [formTruckId, setFormTruckId] = useState("");
@@ -61,6 +66,7 @@ const RoadsideInspection = () => {
   const [formMaintenanceCheck, setFormMaintenanceCheck] = useState<Date | undefined>();
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
     queryKey: ["roadside-profiles"],
@@ -108,6 +114,7 @@ const RoadsideInspection = () => {
 
   const addMutation = useMutation({
     mutationFn: async () => {
+      const reason = reasonRef.current?.value || formReason;
       const driverId = formDriverId || null;
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
       const { error } = await supabase.from("roadside_inspections").insert({
@@ -115,7 +122,7 @@ const RoadsideInspection = () => {
         driver_id: driverId,
         dispatcher_id: dispatcherId,
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
-        reason: formReason || null,
+        reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         created_by: user?.id || null,
       });
@@ -245,25 +252,57 @@ const RoadsideInspection = () => {
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium">Truck</label>
-              <Select value={formTruckId} onValueChange={handleTruckChange}>
-                <SelectTrigger><SelectValue placeholder="Select truck" /></SelectTrigger>
-                <SelectContent>
-                  {activeTrucks.map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.truck_number}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={truckPopoverOpen} onOpenChange={setTruckPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {formTruckId ? activeTrucks.find((t: any) => t.id === formTruckId)?.truck_number || "Select truck" : "Select truck"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search truck..." />
+                    <CommandList>
+                      <CommandEmpty>No truck found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeTrucks.map((t: any) => (
+                          <CommandItem key={t.id} value={t.truck_number} onSelect={() => { handleTruckChange(t.id); setTruckPopoverOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", formTruckId === t.id ? "opacity-100" : "opacity-0")} />
+                            {t.truck_number}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <label className="text-sm font-medium">Driver</label>
-              <Select value={formDriverId} onValueChange={setFormDriverId}>
-                <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
-                <SelectContent>
-                  {activeDrivers.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={driverPopoverOpen} onOpenChange={setDriverPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {formDriverId ? activeDrivers.find((d: any) => d.id === formDriverId)?.name || "Select driver" : "Select driver"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search driver..." />
+                    <CommandList>
+                      <CommandEmpty>No driver found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeDrivers.map((d: any) => (
+                          <CommandItem key={d.id} value={d.name} onSelect={() => { setFormDriverId(d.id); setDriverPopoverOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", formDriverId === d.id ? "opacity-100" : "opacity-0")} />
+                            {d.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <label className="text-sm font-medium">Maintenance Check Date</label>
@@ -281,7 +320,7 @@ const RoadsideInspection = () => {
             </div>
             <div>
               <label className="text-sm font-medium">Reason</label>
-              <Textarea value={formReason} onChange={e => setFormReason(e.target.value)} placeholder="Enter reason..." rows={3} />
+              <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter reason..." rows={3} />
             </div>
             <div>
               <label className="text-sm font-medium">Inspection Level</label>
