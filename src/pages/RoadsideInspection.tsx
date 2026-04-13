@@ -488,6 +488,10 @@ const RoadsideInspection = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="form-dot" checked={formDot} onCheckedChange={(c) => setFormDot(!!c)} />
+              <label htmlFor="form-dot" className="text-sm font-medium cursor-pointer">DOT</label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { resetForm(); setAddOpen(false); }}>Cancel</Button>
