@@ -583,6 +583,23 @@ const RoadsideInspection = () => {
               </Popover>
             </div>
             <div>
+              <label className="text-sm font-medium">ETA (Chicago Time)</label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !formEtaDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formEtaDate ? format(formEtaDate, "MM/dd/yyyy") : "Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={formEtaDate} onSelect={setFormEtaDate} className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <Input type="time" value={formEtaTime} onChange={(e) => setFormEtaTime(e.target.value)} className="w-[120px]" placeholder="HH:MM" />
+              </div>
+            </div>
+            <div>
               <label className="text-sm font-medium">Maintenance Note</label>
               <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter note..." rows={3} />
             </div>
