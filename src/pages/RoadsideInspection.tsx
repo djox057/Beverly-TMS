@@ -183,7 +183,7 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    setFormDot(false);
+    setFormLocation("");
   }, []);
 
   const handleTruckChange = (truckId: string) => {
