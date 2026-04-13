@@ -247,7 +247,7 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    setFormEtaDate(undefined);
+    setFormEtaTime("");
     setFormEtaTime("");
   }, []);
 
