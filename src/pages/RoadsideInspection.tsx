@@ -372,19 +372,18 @@ const RoadsideInspection = () => {
             <p className="text-muted-foreground">No inspections found.</p>
           ) : (
             <div className="border rounded-md">
-              <Table>
+              <Table style={{ tableLayout: "fixed", width: "100%" }}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Truck#</TableHead>
-                    <TableHead className="w-[160px]">Driver Name</TableHead>
-                    <TableHead className="w-[160px]">Dispatch</TableHead>
-                    <TableHead className="w-[130px]">Maint. Safety Check Yard</TableHead>
-                    <TableHead className="w-[130px]">Maint. Safety Check Road</TableHead>
-                    <TableHead>Maintenance Note</TableHead>
-                    <TableHead className="w-[140px]">Roadside Inspection</TableHead>
-                    <TableHead className="w-[100px] text-center">Level</TableHead>
-                    
-                    {hasRole("admin") && <TableHead className="w-[60px]" />}
+                    <TableHead style={{ width: 90 }}>Truck#</TableHead>
+                    <TableHead style={{ width: 160 }}>Driver Name</TableHead>
+                    <TableHead style={{ width: 140 }}>Dispatch</TableHead>
+                    <TableHead style={{ width: 150 }}>Maint. Safety Check Yard</TableHead>
+                    <TableHead style={{ width: 150 }}>Maint. Safety Check Road</TableHead>
+                    <TableHead style={{ width: 200 }}>Maintenance Note</TableHead>
+                    <TableHead style={{ width: 150 }}>Roadside Inspection</TableHead>
+                    <TableHead style={{ width: 70 }} className="text-center">Level</TableHead>
+                    {hasRole("admin") && <TableHead style={{ width: 50 }} />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
