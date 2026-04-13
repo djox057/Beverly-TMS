@@ -316,7 +316,7 @@ const RoadsideInspection = () => {
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
               <div className="px-3 pb-2">
-                <label className="text-xs font-medium">Time (24h Chicago)</label>
+                <label className="text-xs font-medium">Time (24h)</label>
                 <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-xs" />
               </div>
               <div className="flex justify-end gap-1 p-2 border-t">
