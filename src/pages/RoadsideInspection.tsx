@@ -237,6 +237,13 @@ const RoadsideInspection = () => {
   const startEditing = (row: InspectionRow, field: EditingField) => {
     if (field === "eta_datetime") {
       if (!canEditEta) return;
+    } else if (field === "maintenance_check_yard" || field === "maintenance_check_road") {
+      if (!canEditChecks) return;
+    } else if (field === "reason") {
+      // Check if the relevant check date is approved before allowing edit
+      const hasApprovedCheck = (row.maintenance_check_yard && row.yard_check_approved) || (row.maintenance_check_road && row.road_check_approved);
+      if (!hasApprovedCheck) return;
+      if (!canEdit) return;
     } else {
       if (!canEdit) return;
     }
