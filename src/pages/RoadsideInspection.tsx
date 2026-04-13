@@ -225,8 +225,6 @@ const RoadsideInspection = () => {
       setEditValue(row.reason || "");
     } else if (field === "inspection_level") {
       setEditValue(row.inspection_level != null ? String(row.inspection_level) : "none");
-    } else if (field === "location") {
-      setEditValue(row.location || "none");
     }
   };
 
