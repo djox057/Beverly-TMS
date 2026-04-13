@@ -467,6 +467,7 @@ const RoadsideInspection = () => {
                       <TableCell className="text-muted-foreground">{row.dispatcher_name}</TableCell>
                       <TableCell>{renderEditableCell(row, "maintenance_check_yard")}</TableCell>
                       <TableCell>{renderEditableCell(row, "maintenance_check_road")}</TableCell>
+                      <TableCell>{renderEditableCell(row, "eta_datetime")}</TableCell>
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell>{renderEditableCell(row, "roadside_inspection_date")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
