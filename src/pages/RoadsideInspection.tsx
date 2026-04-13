@@ -269,6 +269,17 @@ const RoadsideInspection = () => {
       if (value) {
         clearField = field === "maintenance_check_yard" ? "maintenance_check_road" : "maintenance_check_yard";
       }
+    } else if (field === "eta_datetime") {
+      if (editDate && editTime) {
+        const [h, m] = editTime.split(":").map(Number);
+        const d = new Date(editDate);
+        d.setHours(h, m, 0, 0);
+        // Build Chicago time ISO string
+        const pad = (n: number) => String(n).padStart(2, "0");
+        value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(h)}:${pad(m)}:00-06:00`;
+      } else {
+        value = null;
+      }
     } else if (field === "roadside_inspection_date") {
       value = editDate ? format(editDate, "yyyy-MM-dd") : null;
     } else if (field === "reason") {
