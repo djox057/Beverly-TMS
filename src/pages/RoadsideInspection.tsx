@@ -148,9 +148,20 @@ const RoadsideInspection = () => {
       const etaValue = formEtaDate && formEtaTime
         ? (() => {
             const [h, m] = formEtaTime.split(":").map(Number);
-            const d = new Date(formEtaDate);
-            d.setHours(h, m, 0, 0);
-            return d.toLocaleString("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/(\d+)\/(\d+)\/(\d+),\s/, "$3-$1-$2T") + "-06:00";
+            const pad = (n: number) => String(n).padStart(2, "0");
+            const yr = formEtaDate.getFullYear();
+            const mo = pad(formEtaDate.getMonth() + 1);
+            const dy = pad(formEtaDate.getDate());
+            // Create a temp Date in Chicago to find the correct UTC offset
+            const probe = new Date(`${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00`);
+            const chicagoStr = probe.toLocaleString("en-US", { timeZone: "America/Chicago", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+            const cDate = new Date(chicagoStr); const uDate = new Date(utcStr);
+            const offsetMin = (uDate.getTime() - cDate.getTime()) / 60000;
+            const sign = offsetMin <= 0 ? "-" : "+";
+            const absH = pad(Math.floor(Math.abs(offsetMin) / 60));
+            const absM = pad(Math.abs(offsetMin) % 60);
+            return `${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00${sign}${absH}:${absM}`;
           })()
         : null;
       const { error } = await supabase.from("roadside_inspections").insert({
@@ -272,11 +283,20 @@ const RoadsideInspection = () => {
     } else if (field === "eta_datetime") {
       if (editDate && editTime) {
         const [h, m] = editTime.split(":").map(Number);
-        const d = new Date(editDate);
-        d.setHours(h, m, 0, 0);
-        // Build Chicago time ISO string
         const pad = (n: number) => String(n).padStart(2, "0");
-        value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(h)}:${pad(m)}:00-06:00`;
+        const yr = editDate.getFullYear();
+        const mo = pad(editDate.getMonth() + 1);
+        const dy = pad(editDate.getDate());
+        // Compute correct Chicago UTC offset dynamically (handles CST/CDT)
+        const probe = new Date(`${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00`);
+        const chicagoStr = probe.toLocaleString("en-US", { timeZone: "America/Chicago", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const cDate = new Date(chicagoStr); const uDate = new Date(utcStr);
+        const offsetMin = (uDate.getTime() - cDate.getTime()) / 60000;
+        const sign = offsetMin <= 0 ? "-" : "+";
+        const absH = pad(Math.floor(Math.abs(offsetMin) / 60));
+        const absM = pad(Math.abs(offsetMin) % 60);
+        value = `${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00${sign}${absH}:${absM}`;
       } else {
         value = null;
       }
