@@ -200,12 +200,50 @@ const RoadsideInspection = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, field, value, clearField }: { id: string; field: string; value: any; clearField?: string }) => {
       const updateData: any = { [field]: value };
-      if (clearField) updateData[clearField] = null;
+      if (clearField) {
+        updateData[clearField] = null;
+        // When clearing a check field, also reset its approval
+        if (clearField === "maintenance_check_yard") {
+          updateData.yard_check_approved = false;
+          updateData.yard_check_approved_by = null;
+        } else if (clearField === "maintenance_check_road") {
+          updateData.road_check_approved = false;
+          updateData.road_check_approved_by = null;
+        }
+      }
+      // When changing a check date, reset its approval
+      if (field === "maintenance_check_yard") {
+        updateData.yard_check_approved = false;
+        updateData.yard_check_approved_by = null;
+      } else if (field === "maintenance_check_road") {
+        updateData.road_check_approved = false;
+        updateData.road_check_approved_by = null;
+      }
       const { error } = await supabase.from("roadside_inspections").update(updateData).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roadside-inspections"] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async ({ id, field }: { id: string; field: "yard" | "road" }) => {
+      const updateData: any = {};
+      if (field === "yard") {
+        updateData.yard_check_approved = true;
+        updateData.yard_check_approved_by = user?.id || null;
+      } else {
+        updateData.road_check_approved = true;
+        updateData.road_check_approved_by = user?.id || null;
+      }
+      const { error } = await supabase.from("roadside_inspections").update(updateData).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roadside-inspections"] });
+      toast({ title: "Check approved" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
