@@ -211,7 +211,8 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    
+    setFormEtaDate(undefined);
+    setFormEtaTime("");
   }, []);
 
   const handleTruckChange = (truckId: string) => {
