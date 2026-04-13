@@ -539,17 +539,6 @@ const RoadsideInspection = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-sm font-medium">Location</label>
-              <Select value={formLocation || "none"} onValueChange={setFormLocation}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="At Yard">At Yard</SelectItem>
-                  <SelectItem value="On road">On road</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { resetForm(); setAddOpen(false); }}>Cancel</Button>
