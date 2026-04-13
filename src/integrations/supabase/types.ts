@@ -3427,7 +3427,8 @@ export type Database = {
           id: string
           inspection_level: number | null
           location: string | null
-          maintenance_check: string | null
+          maintenance_check_road: string | null
+          maintenance_check_yard: string | null
           reason: string | null
           roadside_inspection_date: string | null
           truck_id: string | null
@@ -3441,7 +3442,8 @@ export type Database = {
           id?: string
           inspection_level?: number | null
           location?: string | null
-          maintenance_check?: string | null
+          maintenance_check_road?: string | null
+          maintenance_check_yard?: string | null
           reason?: string | null
           roadside_inspection_date?: string | null
           truck_id?: string | null
@@ -3455,7 +3457,8 @@ export type Database = {
           id?: string
           inspection_level?: number | null
           location?: string | null
-          maintenance_check?: string | null
+          maintenance_check_road?: string | null
+          maintenance_check_yard?: string | null
           reason?: string | null
           roadside_inspection_date?: string | null
           truck_id?: string | null
