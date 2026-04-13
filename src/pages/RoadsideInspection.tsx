@@ -247,8 +247,6 @@ const RoadsideInspection = () => {
       value = v || null;
     } else if (field === "inspection_level") {
       value = editValue && editValue !== "none" ? parseInt(editValue) : null;
-    } else if (field === "location") {
-      value = editValue && editValue !== "none" ? editValue : null;
     }
     updateMutation.mutate({ id, field, value, clearField });
     setEditingCell(null);
