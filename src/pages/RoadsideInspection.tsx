@@ -244,11 +244,15 @@ const RoadsideInspection = () => {
     if (field === "location") {
       if (isEditing) {
         return (
-          <Select value={editValue || "none"} onValueChange={(v) => { setEditValue(v); }}>
+          <Select value={editValue || "none"} onValueChange={(v) => {
+            const saveValue = v && v !== "none" ? v : null;
+            updateMutation.mutate({ id: row.id, field: "location", value: saveValue });
+            setEditingCell(null);
+          }}>
             <SelectTrigger className="h-8 text-xs w-[110px]" autoFocus>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent onCloseAutoFocus={() => saveInlineEdit()}>
+            <SelectContent onCloseAutoFocus={() => setEditingCell(null)}>
               <SelectItem value="none">None</SelectItem>
               <SelectItem value="At Yard">At Yard</SelectItem>
               <SelectItem value="On road">On road</SelectItem>
