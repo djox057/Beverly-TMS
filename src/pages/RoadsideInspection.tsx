@@ -375,6 +375,7 @@ const RoadsideInspection = () => {
                       <TableCell>{renderEditableCell(row, "maintenance_check")}</TableCell>
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
+                      <TableCell className="text-center">{renderEditableCell(row, "dot")}</TableCell>
                       {hasRole("admin") && (
                         <TableCell>
                           <Button
