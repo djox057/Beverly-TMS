@@ -362,6 +362,7 @@ const RoadsideInspection = () => {
                     <TableHead className="w-[130px]">Maintenance Check</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead className="w-[100px] text-center">Level</TableHead>
+                    <TableHead className="w-[60px] text-center">DOT</TableHead>
                     {hasRole("admin") && <TableHead className="w-[60px]" />}
                   </TableRow>
                 </TableHeader>
