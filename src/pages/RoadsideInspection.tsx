@@ -68,6 +68,7 @@ const RoadsideInspection = () => {
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [editDate, setEditDate] = useState<Date | undefined>();
+  const [editTime, setEditTime] = useState<string>("");
   const editReasonRef = useRef<HTMLTextAreaElement>(null);
 
   const canEdit = hasRole("admin") || hasRole("safety") || hasRole("maintenance");
