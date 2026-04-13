@@ -1,0 +1,1 @@
+ALTER TABLE public.roadside_inspections ADD COLUMN dot boolean NOT NULL DEFAULT false;

@@ -6,6 +6,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { format } from "date-fns";
 import { Plus, Trash2, Search, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ interface InspectionRow {
   maintenance_check: string | null;
   reason: string | null;
   inspection_level: number | null;
+  dot: boolean;
   created_by: string | null;
   created_at: string;
   truck_number?: string;
@@ -48,7 +50,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" } | null;
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
@@ -73,6 +75,7 @@ const RoadsideInspection = () => {
   const [formMaintenanceCheck, setFormMaintenanceCheck] = useState<Date | undefined>();
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
+  const [formDot, setFormDot] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
@@ -131,6 +134,7 @@ const RoadsideInspection = () => {
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
+        dot: formDot,
         created_by: user?.id || null,
       });
       if (error) throw error;
@@ -174,12 +178,20 @@ const RoadsideInspection = () => {
     setFormMaintenanceCheck(undefined);
     setFormReason("");
     setFormLevel("");
+    setFormDot(false);
   }, []);
 
   const handleTruckChange = (truckId: string) => {
     setFormTruckId(truckId);
     const truck = trucks?.find((t: any) => t.id === truckId);
     if (truck?.driver1_id) setFormDriverId(truck.driver1_id);
+  };
+
+  const handleDriverChange = (driverId: string) => {
+    setFormDriverId(driverId);
+    // Find the truck this driver is assigned to
+    const truck = trucks?.find((t: any) => t.driver1_id === driverId || t.driver2_id === driverId);
+    if (truck) setFormTruckId(truck.id);
   };
 
   const startEditing = (row: InspectionRow, field: EditingCell extends null ? never : NonNullable<EditingCell>["field"]) => {
@@ -215,8 +227,20 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
+
+    if (field === "dot") {
+      return (
+        <Checkbox
+          checked={row.dot}
+          disabled={!canEdit}
+          onCheckedChange={(checked) => {
+            updateMutation.mutate({ id: row.id, field: "dot", value: !!checked });
+          }}
+        />
+      );
+    }
 
     if (isEditing) {
       if (field === "maintenance_check") {
@@ -338,6 +362,7 @@ const RoadsideInspection = () => {
                     <TableHead className="w-[130px]">Maintenance Check</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead className="w-[100px] text-center">Level</TableHead>
+                    <TableHead className="w-[60px] text-center">DOT</TableHead>
                     {hasRole("admin") && <TableHead className="w-[60px]" />}
                   </TableRow>
                 </TableHeader>
@@ -350,6 +375,7 @@ const RoadsideInspection = () => {
                       <TableCell>{renderEditableCell(row, "maintenance_check")}</TableCell>
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
+                      <TableCell className="text-center">{renderEditableCell(row, "dot")}</TableCell>
                       {hasRole("admin") && (
                         <TableCell>
                           <Button
@@ -421,7 +447,7 @@ const RoadsideInspection = () => {
                       <CommandEmpty>No driver found.</CommandEmpty>
                       <CommandGroup>
                         {activeDrivers.map((d: any) => (
-                          <CommandItem key={d.id} value={d.name} onSelect={() => { setFormDriverId(d.id); setDriverPopoverOpen(false); }}>
+                          <CommandItem key={d.id} value={d.name} onSelect={() => { handleDriverChange(d.id); setDriverPopoverOpen(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", formDriverId === d.id ? "opacity-100" : "opacity-0")} />
                             {d.name}
                           </CommandItem>
@@ -461,6 +487,10 @@ const RoadsideInspection = () => {
                   <SelectItem value="3">3</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="form-dot" checked={formDot} onCheckedChange={(c) => setFormDot(!!c)} />
+              <label htmlFor="form-dot" className="text-sm font-medium cursor-pointer">DOT</label>
             </div>
           </div>
           <DialogFooter>
