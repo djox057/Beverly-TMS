@@ -182,6 +182,7 @@ const RoadsideInspection = () => {
     setFormMaintenanceCheck(undefined);
     setFormReason("");
     setFormLevel("");
+    setFormRoadsideDate(undefined);
     setFormDot(false);
   }, []);
 
