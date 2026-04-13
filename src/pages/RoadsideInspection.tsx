@@ -234,7 +234,7 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "location" | "roadside_inspection_date") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
     if (field === "location") {
