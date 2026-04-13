@@ -92,7 +92,8 @@ const RoadsideInspection = () => {
       const { data } = await supabase
         .from("roadside_inspections")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true });
       return (data || []) as InspectionRow[];
     },
   });
