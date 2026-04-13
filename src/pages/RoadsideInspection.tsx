@@ -204,6 +204,8 @@ const RoadsideInspection = () => {
     setEditingCell({ id: row.id, field });
     if (field === "maintenance_check") {
       setEditDate(row.maintenance_check ? new Date(row.maintenance_check + "T00:00:00") : undefined);
+    } else if (field === "roadside_inspection_date") {
+      setEditDate(row.roadside_inspection_date ? new Date(row.roadside_inspection_date + "T00:00:00") : undefined);
     } else if (field === "reason") {
       setEditValue(row.reason || "");
     } else if (field === "inspection_level") {
