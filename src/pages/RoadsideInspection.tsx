@@ -40,6 +40,7 @@ interface InspectionRow {
   dispatcher_id: string | null;
   maintenance_check_yard: string | null;
   maintenance_check_road: string | null;
+  eta_datetime: string | null;
   reason: string | null;
   inspection_level: number | null;
   roadside_inspection_date: string | null;
@@ -51,7 +52,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "reason" | "inspection_level" | "roadside_inspection_date";
+type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "eta_datetime" | "reason" | "inspection_level" | "roadside_inspection_date";
 type EditingCell = { id: string; field: EditingField } | null;
 
 const RoadsideInspection = () => {
@@ -67,9 +68,11 @@ const RoadsideInspection = () => {
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [editDate, setEditDate] = useState<Date | undefined>();
+  const [editTime, setEditTime] = useState<string>("");
   const editReasonRef = useRef<HTMLTextAreaElement>(null);
 
   const canEdit = hasRole("admin") || hasRole("safety") || hasRole("maintenance");
+  const canEditEta = hasRole("admin") || hasRole("dispatch");
 
   // Add form state
   const [formTruckId, setFormTruckId] = useState("");
@@ -79,6 +82,8 @@ const RoadsideInspection = () => {
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
   const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
+  const [formEtaDate, setFormEtaDate] = useState<Date | undefined>();
+  const [formEtaTime, setFormEtaTime] = useState<string>("");
   
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
@@ -140,12 +145,21 @@ const RoadsideInspection = () => {
       const reason = reasonRef.current?.value || formReason;
       const driverId = formDriverId || null;
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
+      const etaValue = formEtaDate && formEtaTime
+        ? (() => {
+            const [h, m] = formEtaTime.split(":").map(Number);
+            const d = new Date(formEtaDate);
+            d.setHours(h, m, 0, 0);
+            return d.toLocaleString("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/(\d+)\/(\d+)\/(\d+),\s/, "$3-$1-$2T") + "-06:00";
+          })()
+        : null;
       const { error } = await supabase.from("roadside_inspections").insert({
         truck_id: formTruckId || null,
         driver_id: driverId,
         dispatcher_id: dispatcherId,
         maintenance_check_yard: formMaintenanceCheckYard ? format(formMaintenanceCheckYard, "yyyy-MM-dd") : null,
         maintenance_check_road: formMaintenanceCheckRoad ? format(formMaintenanceCheckRoad, "yyyy-MM-dd") : null,
+        eta_datetime: etaValue,
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
@@ -197,7 +211,8 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    
+    setFormEtaDate(undefined);
+    setFormEtaTime("");
   }, []);
 
   const handleTruckChange = (truckId: string) => {
@@ -213,12 +228,26 @@ const RoadsideInspection = () => {
   };
 
   const startEditing = (row: InspectionRow, field: EditingField) => {
-    if (!canEdit) return;
+    if (field === "eta_datetime") {
+      if (!canEditEta) return;
+    } else {
+      if (!canEdit) return;
+    }
     setEditingCell({ id: row.id, field });
     if (field === "maintenance_check_yard") {
       setEditDate(row.maintenance_check_yard ? new Date(row.maintenance_check_yard + "T00:00:00") : undefined);
     } else if (field === "maintenance_check_road") {
       setEditDate(row.maintenance_check_road ? new Date(row.maintenance_check_road + "T00:00:00") : undefined);
+    } else if (field === "eta_datetime") {
+      if (row.eta_datetime) {
+        const d = new Date(row.eta_datetime);
+        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+        setEditDate(chicago);
+        setEditTime(`${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`);
+      } else {
+        setEditDate(undefined);
+        setEditTime("");
+      }
     } else if (field === "roadside_inspection_date") {
       setEditDate(row.roadside_inspection_date ? new Date(row.roadside_inspection_date + "T00:00:00") : undefined);
     } else if (field === "reason") {
@@ -239,6 +268,17 @@ const RoadsideInspection = () => {
       // If setting one, clear the other
       if (value) {
         clearField = field === "maintenance_check_yard" ? "maintenance_check_road" : "maintenance_check_yard";
+      }
+    } else if (field === "eta_datetime") {
+      if (editDate && editTime) {
+        const [h, m] = editTime.split(":").map(Number);
+        const d = new Date(editDate);
+        d.setHours(h, m, 0, 0);
+        // Build Chicago time ISO string
+        const pad = (n: number) => String(n).padStart(2, "0");
+        value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(h)}:${pad(m)}:00-06:00`;
+      } else {
+        value = null;
       }
     } else if (field === "roadside_inspection_date") {
       value = editDate ? format(editDate, "yyyy-MM-dd") : null;
@@ -261,6 +301,29 @@ const RoadsideInspection = () => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
     if (isEditing) {
+      if (field === "eta_datetime") {
+        return (
+          <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal h-8 text-xs", !editDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {editDate && editTime ? `${format(editDate, "MM/dd/yyyy")} ${editTime}` : "Pick date/time"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
+              <div className="px-3 pb-2">
+                <label className="text-xs font-medium">Time (24h Chicago)</label>
+                <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="flex justify-end gap-1 p-2 border-t">
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditDate(undefined); setEditTime(""); }}>Clear</Button>
+                <Button size="sm" className="h-7 text-xs" onClick={saveInlineEdit}>Save</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      }
       if (field === "maintenance_check_yard" || field === "maintenance_check_road" || field === "roadside_inspection_date") {
         return (
           <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
@@ -324,6 +387,14 @@ const RoadsideInspection = () => {
       display = row.maintenance_check_yard ? format(new Date(row.maintenance_check_yard + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "maintenance_check_road") {
       display = row.maintenance_check_road ? format(new Date(row.maintenance_check_road + "T00:00:00"), "MM/dd/yyyy") : "—";
+    } else if (field === "eta_datetime") {
+      if (row.eta_datetime) {
+        const d = new Date(row.eta_datetime);
+        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+        display = `${format(chicago, "MM/dd/yyyy")} ${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`;
+      } else {
+        display = "—";
+      }
     } else if (field === "roadside_inspection_date") {
       display = row.roadside_inspection_date ? format(new Date(row.roadside_inspection_date + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "reason") {
@@ -332,7 +403,8 @@ const RoadsideInspection = () => {
       display = row.inspection_level != null ? String(row.inspection_level) : "—";
     }
 
-    if (canEdit) {
+    const editable = field === "eta_datetime" ? canEditEta : canEdit;
+    if (editable) {
       return (
         <span className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => startEditing(row, field)}>
           {display}
@@ -380,6 +452,7 @@ const RoadsideInspection = () => {
                     <TableHead style={{ width: 140 }}>Dispatch</TableHead>
                     <TableHead style={{ width: 150 }}>Maint. Safety Check Yard</TableHead>
                     <TableHead style={{ width: 150 }}>Maint. Safety Check Road</TableHead>
+                    <TableHead style={{ width: 150 }}>ETA</TableHead>
                     <TableHead style={{ width: 200 }}>Maintenance Note</TableHead>
                     <TableHead style={{ width: 150 }}>Roadside Inspection</TableHead>
                     <TableHead style={{ width: 70 }} className="text-center">Level</TableHead>
@@ -394,6 +467,7 @@ const RoadsideInspection = () => {
                       <TableCell className="text-muted-foreground">{row.dispatcher_name}</TableCell>
                       <TableCell>{renderEditableCell(row, "maintenance_check_yard")}</TableCell>
                       <TableCell>{renderEditableCell(row, "maintenance_check_road")}</TableCell>
+                      <TableCell>{renderEditableCell(row, "eta_datetime")}</TableCell>
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell>{renderEditableCell(row, "roadside_inspection_date")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
@@ -507,6 +581,23 @@ const RoadsideInspection = () => {
                   <Calendar mode="single" selected={formMaintenanceCheckRoad} onSelect={(d) => { setFormMaintenanceCheckRoad(d); if (d) setFormMaintenanceCheckYard(undefined); }} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
+            </div>
+            <div>
+              <label className="text-sm font-medium">ETA (Chicago Time)</label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("flex-1 justify-start text-left font-normal", !formEtaDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formEtaDate ? format(formEtaDate, "MM/dd/yyyy") : "Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={formEtaDate} onSelect={setFormEtaDate} className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+                <Input type="time" value={formEtaTime} onChange={(e) => setFormEtaTime(e.target.value)} className="w-[120px]" placeholder="HH:MM" />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Maintenance Note</label>
