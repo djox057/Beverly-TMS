@@ -40,6 +40,10 @@ interface InspectionRow {
   dispatcher_id: string | null;
   maintenance_check_yard: string | null;
   maintenance_check_road: string | null;
+  yard_check_approved: boolean;
+  road_check_approved: boolean;
+  yard_check_approved_by: string | null;
+  road_check_approved_by: string | null;
   eta_datetime: string | null;
   reason: string | null;
   inspection_level: number | null;
