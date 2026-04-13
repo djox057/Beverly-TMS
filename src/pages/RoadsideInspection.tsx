@@ -116,7 +116,7 @@ const RoadsideInspection = () => {
         dispatcher_id: dispatcherId,
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
         reason: formReason || null,
-        inspection_level: formLevel ? parseInt(formLevel) : null,
+        inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         created_by: user?.id || null,
       });
       if (error) throw error;
