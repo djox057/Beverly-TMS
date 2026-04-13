@@ -6,7 +6,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { format } from "date-fns";
 import { Plus, Trash2, Search, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+// Checkbox import removed - DOT replaced by Location
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,7 @@ interface InspectionRow {
   reason: string | null;
   inspection_level: number | null;
   roadside_inspection_date: string | null;
-  dot: boolean;
+  location: string | null;
   created_by: string | null;
   created_at: string;
   truck_number?: string;
@@ -51,7 +51,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date" } | null;
+type EditingCell = { id: string; field: "maintenance_check" | "reason" | "inspection_level" | "location" | "roadside_inspection_date" } | null;
 
 const RoadsideInspection = () => {
   const { user, hasRole } = useAuthContext();
@@ -77,7 +77,7 @@ const RoadsideInspection = () => {
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
   const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
-  const [formDot, setFormDot] = useState(false);
+  const [formLocation, setFormLocation] = useState<string>("");
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
@@ -138,7 +138,7 @@ const RoadsideInspection = () => {
         reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         roadside_inspection_date: formRoadsideDate ? format(formRoadsideDate, "yyyy-MM-dd") : null,
-        dot: formDot,
+        location: formLocation && formLocation !== "none" ? formLocation : null,
         created_by: user?.id || null,
       });
       if (error) throw error;
@@ -183,7 +183,7 @@ const RoadsideInspection = () => {
     setFormReason("");
     setFormLevel("");
     setFormRoadsideDate(undefined);
-    setFormDot(false);
+    setFormLocation("");
   }, []);
 
   const handleTruckChange = (truckId: string) => {
@@ -210,6 +210,8 @@ const RoadsideInspection = () => {
       setEditValue(row.reason || "");
     } else if (field === "inspection_level") {
       setEditValue(row.inspection_level != null ? String(row.inspection_level) : "none");
+    } else if (field === "location") {
+      setEditValue(row.location || "none");
     }
   };
 
@@ -224,6 +226,8 @@ const RoadsideInspection = () => {
       value = v || null;
     } else if (field === "inspection_level") {
       value = editValue && editValue !== "none" ? parseInt(editValue) : null;
+    } else if (field === "location") {
+      value = editValue && editValue !== "none" ? editValue : null;
     }
     updateMutation.mutate({ id, field, value });
     setEditingCell(null);
@@ -234,19 +238,36 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "location" | "roadside_inspection_date") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
-    if (field === "dot") {
-      return (
-        <Checkbox
-          checked={row.dot}
-          disabled={!canEdit}
-          onCheckedChange={(checked) => {
-            updateMutation.mutate({ id: row.id, field: "dot", value: !!checked });
-          }}
-        />
-      );
+    if (field === "location") {
+      if (isEditing) {
+        return (
+          <Select value={editValue || "none"} onValueChange={(v) => { setEditValue(v); }}>
+            <SelectTrigger className="h-8 text-xs w-[110px]" autoFocus>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent onCloseAutoFocus={() => saveInlineEdit()}>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="At Yard">At Yard</SelectItem>
+              <SelectItem value="On road">On road</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      }
+      const display = row.location || "—";
+      if (canEdit) {
+        return (
+          <span
+            className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors"
+            onClick={() => startEditing(row, field)}
+          >
+            {display}
+          </span>
+        );
+      }
+      return display;
     }
 
     if (isEditing) {
@@ -372,7 +393,7 @@ const RoadsideInspection = () => {
                     <TableHead>Maintenance Note</TableHead>
                     <TableHead className="w-[140px]">Roadside Inspection</TableHead>
                     <TableHead className="w-[100px] text-center">Level</TableHead>
-                    <TableHead className="w-[60px] text-center">DOT</TableHead>
+                    <TableHead className="w-[100px] text-center">Location</TableHead>
                     {hasRole("admin") && <TableHead className="w-[60px]" />}
                   </TableRow>
                 </TableHeader>
@@ -386,7 +407,7 @@ const RoadsideInspection = () => {
                       <TableCell className="text-sm">{renderEditableCell(row, "reason")}</TableCell>
                       <TableCell>{renderEditableCell(row, "roadside_inspection_date")}</TableCell>
                       <TableCell className="text-center font-semibold">{renderEditableCell(row, "inspection_level")}</TableCell>
-                      <TableCell className="text-center">{renderEditableCell(row, "dot")}</TableCell>
+                      <TableCell className="text-center">{renderEditableCell(row, "location")}</TableCell>
                       {hasRole("admin") && (
                         <TableCell>
                           <Button
@@ -513,9 +534,16 @@ const RoadsideInspection = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="form-dot" checked={formDot} onCheckedChange={(c) => setFormDot(!!c)} />
-              <label htmlFor="form-dot" className="text-sm font-medium cursor-pointer">DOT</label>
+            <div>
+              <label className="text-sm font-medium">Location</label>
+              <Select value={formLocation || "none"} onValueChange={setFormLocation}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="At Yard">At Yard</SelectItem>
+                  <SelectItem value="On road">On road</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
