@@ -3418,6 +3418,60 @@ export type Database = {
           },
         ]
       }
+      roadside_inspections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dispatcher_id: string | null
+          driver_id: string | null
+          id: string
+          inspection_level: number | null
+          maintenance_check: string | null
+          reason: string | null
+          truck_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id?: string | null
+          driver_id?: string | null
+          id?: string
+          inspection_level?: number | null
+          maintenance_check?: string | null
+          reason?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dispatcher_id?: string | null
+          driver_id?: string | null
+          id?: string
+          inspection_level?: number | null
+          maintenance_check?: string | null
+          reason?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_inspections_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadside_inspections_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       samsara_locations_cache: {
         Row: {
           fetch_started_at: string | null
