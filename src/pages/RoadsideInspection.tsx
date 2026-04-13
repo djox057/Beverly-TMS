@@ -317,7 +317,19 @@ const RoadsideInspection = () => {
               <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
               <div className="px-3 pb-2">
                 <label className="text-xs font-medium">Time (24h)</label>
-                <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-xs" />
+                <Input
+                  placeholder="HH:MM"
+                  value={editTime}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/[^\d:]/g, '');
+                    // Auto-insert colon after 2 digits
+                    if (v.length === 2 && !v.includes(':')) v += ':';
+                    if (v.length > 5) v = v.slice(0, 5);
+                    setEditTime(v);
+                  }}
+                  className="h-8 text-xs font-mono"
+                  maxLength={5}
+                />
               </div>
               <div className="flex justify-end gap-1 p-2 border-t">
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditDate(undefined); setEditTime(""); }}>Clear</Button>
