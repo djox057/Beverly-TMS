@@ -387,6 +387,14 @@ const RoadsideInspection = () => {
       display = row.maintenance_check_yard ? format(new Date(row.maintenance_check_yard + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "maintenance_check_road") {
       display = row.maintenance_check_road ? format(new Date(row.maintenance_check_road + "T00:00:00"), "MM/dd/yyyy") : "—";
+    } else if (field === "eta_datetime") {
+      if (row.eta_datetime) {
+        const d = new Date(row.eta_datetime);
+        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+        display = `${format(chicago, "MM/dd/yyyy")} ${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`;
+      } else {
+        display = "—";
+      }
     } else if (field === "roadside_inspection_date") {
       display = row.roadside_inspection_date ? format(new Date(row.roadside_inspection_date + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "reason") {
@@ -395,7 +403,8 @@ const RoadsideInspection = () => {
       display = row.inspection_level != null ? String(row.inspection_level) : "—";
     }
 
-    if (canEdit) {
+    const editable = field === "eta_datetime" ? canEditEta : canEdit;
+    if (editable) {
       return (
         <span className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => startEditing(row, field)}>
           {display}
