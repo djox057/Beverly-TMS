@@ -3424,6 +3424,7 @@ export type Database = {
           created_by: string | null
           dispatcher_id: string | null
           driver_id: string | null
+          eta_datetime: string | null
           id: string
           inspection_level: number | null
           location: string | null
@@ -3439,6 +3440,7 @@ export type Database = {
           created_by?: string | null
           dispatcher_id?: string | null
           driver_id?: string | null
+          eta_datetime?: string | null
           id?: string
           inspection_level?: number | null
           location?: string | null
@@ -3454,6 +3456,7 @@ export type Database = {
           created_by?: string | null
           dispatcher_id?: string | null
           driver_id?: string | null
+          eta_datetime?: string | null
           id?: string
           inspection_level?: number | null
           location?: string | null
