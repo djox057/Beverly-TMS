@@ -234,7 +234,7 @@ const RoadsideInspection = () => {
   const activeTrucks = useMemo(() => (trucks || []).filter((t: any) => t.status !== "inactive").sort((a: any, b: any) => (a.truck_number || "").localeCompare(b.truck_number || "", undefined, { numeric: true })), [trucks]);
   const activeDrivers = useMemo(() => (drivers || []).filter((d: any) => d.is_active).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")), [drivers]);
 
-  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot") => {
+  const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
     if (field === "dot") {
@@ -250,7 +250,7 @@ const RoadsideInspection = () => {
     }
 
     if (isEditing) {
-      if (field === "maintenance_check") {
+      if (field === "maintenance_check" || field === "roadside_inspection_date") {
         return (
           <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
             <PopoverTrigger asChild>
@@ -311,6 +311,8 @@ const RoadsideInspection = () => {
     let display: string;
     if (field === "maintenance_check") {
       display = row.maintenance_check ? format(new Date(row.maintenance_check + "T00:00:00"), "MM/dd/yyyy") : "—";
+    } else if (field === "roadside_inspection_date") {
+      display = row.roadside_inspection_date ? format(new Date(row.roadside_inspection_date + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "reason") {
       display = row.reason || "—";
     } else {
