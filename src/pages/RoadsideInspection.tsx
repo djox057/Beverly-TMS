@@ -105,14 +105,22 @@ const RoadsideInspection = () => {
   const driverMap = useMemo(() => new Map(drivers?.map((d: any) => [d.id, d.name]) || []), [drivers]);
   const driverDispatcherMap = useMemo(() => new Map(drivers?.map((d: any) => [d.id, d.dispatcher_id]) || []), [drivers]);
 
+  const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("safety") && !hasRole("maintenance") && !hasRole("manager") && !hasRole("supervisor");
+
   const enriched = useMemo(() => {
-    return (inspections || []).map(row => ({
+    const rows = (inspections || []).map(row => ({
       ...row,
       truck_number: row.truck_id ? truckMap.get(row.truck_id) || "—" : "—",
       driver_name: row.driver_id ? driverMap.get(row.driver_id) || "—" : "—",
       dispatcher_name: row.dispatcher_id ? profileMap.get(row.dispatcher_id) || "—" : "—",
     }));
-  }, [inspections, truckMap, driverMap, profileMap]);
+    if (isDispatchOnly && user?.id) {
+      const myDriverIds = new Set(drivers?.filter((d: any) => d.dispatcher_id === user.id).map((d: any) => d.id) || []);
+      const myTruckIds = new Set(trucks?.filter((t: any) => myDriverIds.has(t.driver1_id) || myDriverIds.has(t.driver2_id)).map((t: any) => t.id) || []);
+      return rows.filter(r => (r.driver_id && myDriverIds.has(r.driver_id)) || (r.truck_id && myTruckIds.has(r.truck_id)));
+    }
+    return rows;
+  }, [inspections, truckMap, driverMap, profileMap, isDispatchOnly, user?.id, drivers, trucks]);
 
   const filtered = useMemo(() => {
     if (!search) return enriched;
