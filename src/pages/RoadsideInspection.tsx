@@ -237,16 +237,33 @@ const RoadsideInspection = () => {
   const renderEditableCell = (row: typeof filtered[0], field: "maintenance_check" | "reason" | "inspection_level" | "dot" | "roadside_inspection_date") => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
-    if (field === "dot") {
-      return (
-        <Checkbox
-          checked={row.dot}
-          disabled={!canEdit}
-          onCheckedChange={(checked) => {
-            updateMutation.mutate({ id: row.id, field: "dot", value: !!checked });
-          }}
-        />
-      );
+    if (field === "location") {
+      if (isEditing) {
+        return (
+          <Select value={editValue || "none"} onValueChange={(v) => { setEditValue(v); }}>
+            <SelectTrigger className="h-8 text-xs w-[110px]" autoFocus>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent onCloseAutoFocus={() => saveInlineEdit()}>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="At Yard">At Yard</SelectItem>
+              <SelectItem value="On road">On road</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      }
+      const display = row.location || "—";
+      if (canEdit) {
+        return (
+          <span
+            className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors"
+            onClick={() => startEditing(row, field)}
+          >
+            {display}
+          </span>
+        );
+      }
+      return display;
     }
 
     if (isEditing) {
