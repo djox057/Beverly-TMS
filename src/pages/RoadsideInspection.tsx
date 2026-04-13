@@ -451,8 +451,64 @@ const RoadsideInspection = () => {
     let display: string;
     if (field === "maintenance_check_yard") {
       display = row.maintenance_check_yard ? format(new Date(row.maintenance_check_yard + "T00:00:00"), "MM/dd/yyyy") : "—";
+      const isApproved = row.yard_check_approved;
+      return (
+        <div className="flex items-center gap-1">
+          <span
+            className={cn(
+              isApproved && row.maintenance_check_yard ? "text-green-600 font-medium" : "",
+              canEditChecks ? "cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" : ""
+            )}
+            onClick={canEditChecks ? () => startEditing(row, field) : undefined}
+          >
+            {display}
+          </span>
+          {canApproveChecks && row.maintenance_check_yard && !isApproved && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-green-600"
+              onClick={() => approveMutation.mutate({ id: row.id, field: "yard" })}
+              title="Approve check"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          )}
+          {isApproved && row.maintenance_check_yard && (
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          )}
+        </div>
+      );
     } else if (field === "maintenance_check_road") {
       display = row.maintenance_check_road ? format(new Date(row.maintenance_check_road + "T00:00:00"), "MM/dd/yyyy") : "—";
+      const isApproved = row.road_check_approved;
+      return (
+        <div className="flex items-center gap-1">
+          <span
+            className={cn(
+              isApproved && row.maintenance_check_road ? "text-green-600 font-medium" : "",
+              canEditChecks ? "cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" : ""
+            )}
+            onClick={canEditChecks ? () => startEditing(row, field) : undefined}
+          >
+            {display}
+          </span>
+          {canApproveChecks && row.maintenance_check_road && !isApproved && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-green-600"
+              onClick={() => approveMutation.mutate({ id: row.id, field: "road" })}
+              title="Approve check"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          )}
+          {isApproved && row.maintenance_check_road && (
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          )}
+        </div>
+      );
     } else if (field === "eta_datetime") {
       if (row.eta_datetime) {
         // Parse stored string directly, no timezone conversion
@@ -468,11 +524,20 @@ const RoadsideInspection = () => {
       display = row.roadside_inspection_date ? format(new Date(row.roadside_inspection_date + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "reason") {
       display = row.reason || "—";
+      const hasApprovedCheck = (row.maintenance_check_yard && row.yard_check_approved) || (row.maintenance_check_road && row.road_check_approved);
+      if (!hasApprovedCheck) {
+        return (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            <span className="text-xs italic">Awaiting maintenance approval</span>
+          </div>
+        );
+      }
     } else {
       display = row.inspection_level != null ? String(row.inspection_level) : "—";
     }
 
-    const editable = field === "eta_datetime" ? canEditEta : canEdit;
+    const editable = field === "eta_datetime" ? canEditEta : field === "reason" ? canEdit : canEdit;
     if (editable) {
       return (
         <span className="cursor-pointer hover:bg-muted/80 rounded px-1 py-0.5 -mx-1 transition-colors" onClick={() => startEditing(row, field)}>
