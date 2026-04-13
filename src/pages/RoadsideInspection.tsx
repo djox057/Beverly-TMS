@@ -301,6 +301,29 @@ const RoadsideInspection = () => {
     const isEditing = editingCell?.id === row.id && editingCell?.field === field;
 
     if (isEditing) {
+      if (field === "eta_datetime") {
+        return (
+          <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal h-8 text-xs", !editDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {editDate && editTime ? `${format(editDate, "MM/dd/yyyy")} ${editTime}` : "Pick date/time"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
+              <div className="px-3 pb-2">
+                <label className="text-xs font-medium">Time (24h Chicago)</label>
+                <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-xs" />
+              </div>
+              <div className="flex justify-end gap-1 p-2 border-t">
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setEditDate(undefined); setEditTime(""); }}>Clear</Button>
+                <Button size="sm" className="h-7 text-xs" onClick={saveInlineEdit}>Save</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      }
       if (field === "maintenance_check_yard" || field === "maintenance_check_road" || field === "roadside_inspection_date") {
         return (
           <Popover defaultOpen onOpenChange={(open) => { if (!open) saveInlineEdit(); }}>
