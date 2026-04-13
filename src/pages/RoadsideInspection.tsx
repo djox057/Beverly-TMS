@@ -114,6 +114,7 @@ const RoadsideInspection = () => {
 
   const addMutation = useMutation({
     mutationFn: async () => {
+      const reason = reasonRef.current?.value || formReason;
       const driverId = formDriverId || null;
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
       const { error } = await supabase.from("roadside_inspections").insert({
@@ -121,7 +122,7 @@ const RoadsideInspection = () => {
         driver_id: driverId,
         dispatcher_id: dispatcherId,
         maintenance_check: formMaintenanceCheck ? format(formMaintenanceCheck, "yyyy-MM-dd") : null,
-        reason: formReason || null,
+        reason: reason || null,
         inspection_level: formLevel && formLevel !== "none" ? parseInt(formLevel) : null,
         created_by: user?.id || null,
       });
