@@ -484,8 +484,22 @@ const RoadsideInspection = () => {
               </Popover>
             </div>
             <div>
-              <label className="text-sm font-medium">Reason</label>
-              <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter reason..." rows={3} />
+              <label className="text-sm font-medium">Maintenance Note</label>
+              <Textarea ref={reasonRef} defaultValue={formReason} placeholder="Enter note..." rows={3} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Roadside Inspection Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formRoadsideDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formRoadsideDate ? format(formRoadsideDate, "MM/dd/yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={formRoadsideDate} onSelect={setFormRoadsideDate} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <label className="text-sm font-medium">Inspection Level</label>
