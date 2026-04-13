@@ -147,21 +147,11 @@ const RoadsideInspection = () => {
       const dispatcherId = driverId ? driverDispatcherMap.get(driverId) || null : null;
       const etaValue = formEtaDate && formEtaTime
         ? (() => {
-            const [h, m] = formEtaTime.split(":").map(Number);
             const pad = (n: number) => String(n).padStart(2, "0");
             const yr = formEtaDate.getFullYear();
             const mo = pad(formEtaDate.getMonth() + 1);
             const dy = pad(formEtaDate.getDate());
-            // Create a temp Date in Chicago to find the correct UTC offset
-            const probe = new Date(`${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00`);
-            const chicagoStr = probe.toLocaleString("en-US", { timeZone: "America/Chicago", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-            const cDate = new Date(chicagoStr); const uDate = new Date(utcStr);
-            const offsetMin = (uDate.getTime() - cDate.getTime()) / 60000;
-            const sign = offsetMin <= 0 ? "-" : "+";
-            const absH = pad(Math.floor(Math.abs(offsetMin) / 60));
-            const absM = pad(Math.abs(offsetMin) % 60);
-            return `${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00${sign}${absH}:${absM}`;
+            return `${yr}-${mo}-${dy}T${formEtaTime}:00`;
           })()
         : null;
       const { error } = await supabase.from("roadside_inspections").insert({
@@ -251,10 +241,13 @@ const RoadsideInspection = () => {
       setEditDate(row.maintenance_check_road ? new Date(row.maintenance_check_road + "T00:00:00") : undefined);
     } else if (field === "eta_datetime") {
       if (row.eta_datetime) {
-        const d = new Date(row.eta_datetime);
-        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
-        setEditDate(chicago);
-        setEditTime(`${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`);
+        // Parse the stored string directly without timezone conversion
+        const raw = row.eta_datetime.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
+        const [datePart, timePart] = raw.includes('T') ? raw.split('T') : raw.split(' ');
+        const [yr, mo, dy] = datePart.split('-').map(Number);
+        const [hh, mm] = (timePart || '00:00').split(':').map(Number);
+        setEditDate(new Date(yr, mo - 1, dy));
+        setEditTime(`${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
       } else {
         setEditDate(undefined);
         setEditTime("");
@@ -282,21 +275,11 @@ const RoadsideInspection = () => {
       }
     } else if (field === "eta_datetime") {
       if (editDate && editTime) {
-        const [h, m] = editTime.split(":").map(Number);
         const pad = (n: number) => String(n).padStart(2, "0");
         const yr = editDate.getFullYear();
         const mo = pad(editDate.getMonth() + 1);
         const dy = pad(editDate.getDate());
-        // Compute correct Chicago UTC offset dynamically (handles CST/CDT)
-        const probe = new Date(`${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00`);
-        const chicagoStr = probe.toLocaleString("en-US", { timeZone: "America/Chicago", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        const utcStr = probe.toLocaleString("en-US", { timeZone: "UTC", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        const cDate = new Date(chicagoStr); const uDate = new Date(utcStr);
-        const offsetMin = (uDate.getTime() - cDate.getTime()) / 60000;
-        const sign = offsetMin <= 0 ? "-" : "+";
-        const absH = pad(Math.floor(Math.abs(offsetMin) / 60));
-        const absM = pad(Math.abs(offsetMin) % 60);
-        value = `${yr}-${mo}-${dy}T${pad(h)}:${pad(m)}:00${sign}${absH}:${absM}`;
+        value = `${yr}-${mo}-${dy}T${editTime}:00`;
       } else {
         value = null;
       }
@@ -333,7 +316,7 @@ const RoadsideInspection = () => {
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar mode="single" selected={editDate} onSelect={(d) => { setEditDate(d); }} className="p-3 pointer-events-auto" />
               <div className="px-3 pb-2">
-                <label className="text-xs font-medium">Time (24h Chicago)</label>
+                <label className="text-xs font-medium">Time (24h)</label>
                 <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-xs" />
               </div>
               <div className="flex justify-end gap-1 p-2 border-t">
@@ -409,9 +392,12 @@ const RoadsideInspection = () => {
       display = row.maintenance_check_road ? format(new Date(row.maintenance_check_road + "T00:00:00"), "MM/dd/yyyy") : "—";
     } else if (field === "eta_datetime") {
       if (row.eta_datetime) {
-        const d = new Date(row.eta_datetime);
-        const chicago = new Date(d.toLocaleString("en-US", { timeZone: "America/Chicago" }));
-        display = `${format(chicago, "MM/dd/yyyy")} ${String(chicago.getHours()).padStart(2, "0")}:${String(chicago.getMinutes()).padStart(2, "0")}`;
+        // Parse stored string directly, no timezone conversion
+        const raw = row.eta_datetime.replace(/Z$|[+-]\d{2}:\d{2}$/, '');
+        const [datePart, timePart] = raw.includes('T') ? raw.split('T') : raw.split(' ');
+        const [yr, mo, dy] = datePart.split('-').map(Number);
+        const [hh, mm] = (timePart || '00:00').split(':').map(Number);
+        display = `${String(mo).padStart(2, "0")}/${String(dy).padStart(2, "0")}/${yr} ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
       } else {
         display = "—";
       }
