@@ -57,6 +57,8 @@ const RoadsideInspection = () => {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [truckPopoverOpen, setTruckPopoverOpen] = useState(false);
+  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
 
   // Add form state
   const [formTruckId, setFormTruckId] = useState("");
@@ -64,6 +66,7 @@ const RoadsideInspection = () => {
   const [formMaintenanceCheck, setFormMaintenanceCheck] = useState<Date | undefined>();
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
     queryKey: ["roadside-profiles"],
