@@ -447,7 +447,7 @@ const RoadsideInspection = () => {
                       <CommandEmpty>No driver found.</CommandEmpty>
                       <CommandGroup>
                         {activeDrivers.map((d: any) => (
-                          <CommandItem key={d.id} value={d.name} onSelect={() => { setFormDriverId(d.id); setDriverPopoverOpen(false); }}>
+                          <CommandItem key={d.id} value={d.name} onSelect={() => { handleDriverChange(d.id); setDriverPopoverOpen(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", formDriverId === d.id ? "opacity-100" : "opacity-0")} />
                             {d.name}
                           </CommandItem>
