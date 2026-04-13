@@ -40,6 +40,7 @@ interface InspectionRow {
   dispatcher_id: string | null;
   maintenance_check_yard: string | null;
   maintenance_check_road: string | null;
+  eta_datetime: string | null;
   reason: string | null;
   inspection_level: number | null;
   roadside_inspection_date: string | null;
@@ -51,7 +52,7 @@ interface InspectionRow {
   dispatcher_name?: string;
 }
 
-type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "reason" | "inspection_level" | "roadside_inspection_date";
+type EditingField = "maintenance_check_yard" | "maintenance_check_road" | "eta_datetime" | "reason" | "inspection_level" | "roadside_inspection_date";
 type EditingCell = { id: string; field: EditingField } | null;
 
 const RoadsideInspection = () => {
