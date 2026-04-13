@@ -76,6 +76,7 @@ const RoadsideInspection = () => {
   const [formMaintenanceCheck, setFormMaintenanceCheck] = useState<Date | undefined>();
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
+  const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
   const [formDot, setFormDot] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
