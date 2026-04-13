@@ -77,7 +77,7 @@ const RoadsideInspection = () => {
   const [formReason, setFormReason] = useState("");
   const [formLevel, setFormLevel] = useState<string>("");
   const [formRoadsideDate, setFormRoadsideDate] = useState<Date | undefined>();
-  const [formDot, setFormDot] = useState(false);
+  const [formLocation, setFormLocation] = useState<string>("");
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: profiles } = useQuery({
