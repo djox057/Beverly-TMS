@@ -3431,9 +3431,13 @@ export type Database = {
           maintenance_check_road: string | null
           maintenance_check_yard: string | null
           reason: string | null
+          road_check_approved: boolean
+          road_check_approved_by: string | null
           roadside_inspection_date: string | null
           truck_id: string | null
           updated_at: string
+          yard_check_approved: boolean
+          yard_check_approved_by: string | null
         }
         Insert: {
           created_at?: string
@@ -3447,9 +3451,13 @@ export type Database = {
           maintenance_check_road?: string | null
           maintenance_check_yard?: string | null
           reason?: string | null
+          road_check_approved?: boolean
+          road_check_approved_by?: string | null
           roadside_inspection_date?: string | null
           truck_id?: string | null
           updated_at?: string
+          yard_check_approved?: boolean
+          yard_check_approved_by?: string | null
         }
         Update: {
           created_at?: string
@@ -3463,9 +3471,13 @@ export type Database = {
           maintenance_check_road?: string | null
           maintenance_check_yard?: string | null
           reason?: string | null
+          road_check_approved?: boolean
+          road_check_approved_by?: string | null
           roadside_inspection_date?: string | null
           truck_id?: string | null
           updated_at?: string
+          yard_check_approved?: boolean
+          yard_check_approved_by?: string | null
         }
         Relationships: [
           {
