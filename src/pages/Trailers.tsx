@@ -663,7 +663,7 @@ const Trailers = () => {
         </CardHeader>
         <CardContent>
           <div className="flex-1">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-center w-[100px]">Trailer #</TableHead>

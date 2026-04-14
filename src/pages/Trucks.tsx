@@ -960,7 +960,7 @@ const Trucks = () => {
         </CardHeader>
         <CardContent className="flex flex-col">
           <div className="flex-1">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-center w-[70px]">Truck #</TableHead>
