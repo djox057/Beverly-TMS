@@ -299,6 +299,9 @@ export default function BeverlyHeatmapBrokers() {
                 <TableHead className="min-w-[120px] cursor-pointer select-none" onClick={() => handleSort("broker_mc")}>
                   <span className="inline-flex items-center">Broker MC <SortIcon columnKey="broker_mc" /></span>
                 </TableHead>
+                <TableHead className="text-right min-w-[110px] cursor-pointer select-none" onClick={() => handleSort("total_freight")}>
+                  <span className="inline-flex items-center justify-end w-full">Total Freight <SortIcon columnKey="total_freight" /></span>
+                </TableHead>
                 <TableHead className="text-right min-w-[100px] cursor-pointer select-none" onClick={() => handleSort("avg_freight")}>
                   <span className="inline-flex items-center justify-end w-full">Avg Freight <SortIcon columnKey="avg_freight" /></span>
                 </TableHead>
