@@ -17,6 +17,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,6 +130,9 @@ export default function Alerts() {
   const [trailersSearch, setTrailersSearch] = useState("");
   const [driversSearch, setDriversSearch] = useState("");
   
+  // "Is Assigned" toggle
+  const [isAssignedFilter, setIsAssignedFilter] = useState(false);
+
   // Column filters
   type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
@@ -136,6 +140,21 @@ export default function Alerts() {
   const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
   const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
+
+  // Build sets for "is assigned" filtering
+  const assignedTruckIds = new Set<string>();
+  const assignedTrailerIds = new Set<string>();
+  const assignedDriverIds = new Set<string>();
+  if (allTrucks) {
+    for (const t of allTrucks) {
+      if (t.driver1_id) {
+        assignedTruckIds.add(t.id);
+        assignedDriverIds.add(t.driver1_id);
+      }
+      if (t.driver2_id) assignedDriverIds.add(t.driver2_id);
+      if (t.trailer_id) assignedTrailerIds.add(t.trailer_id);
+    }
+  }
 
   // Helper to check if a date is expiring (within 60 days)
   const isExpiring = (date: string | null) => {
@@ -168,6 +187,7 @@ export default function Alerts() {
 
   // Filter data based on search and column filter
   const filteredTrucks = trucks.filter((truck) => {
+    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
     const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
       truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase());
     
@@ -186,6 +206,7 @@ export default function Alerts() {
   });
 
   const filteredTrailers = trailers.filter((trailer) => {
+    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
     const searchLower = trailersSearch.toLowerCase();
     const truckNum = truckByTrailerId.get(trailer.id) || "";
     const matchesSearch = trailer.trailer_number?.toLowerCase().includes(searchLower) ||
@@ -203,6 +224,7 @@ export default function Alerts() {
   });
 
   const filteredDrivers = drivers.filter((driver) => {
+    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
     // First apply search filter
     const searchLower = driversSearch.toLowerCase();
     const truckNum = truckByDriverId.get(driver.id) || "";
@@ -513,14 +535,26 @@ export default function Alerts() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Items Expiring Within 60 Days</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={`Search ${activeTab}...`}
-                value={getCurrentSearch()}
-                onChange={(e) => setCurrentSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is-assigned"
+                  checked={isAssignedFilter}
+                  onCheckedChange={(checked) => setIsAssignedFilter(checked === true)}
+                />
+                <label htmlFor="is-assigned" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                  Is Assigned
+                </label>
+              </div>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={`Search ${activeTab}...`}
+                  value={getCurrentSearch()}
+                  onChange={(e) => setCurrentSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
