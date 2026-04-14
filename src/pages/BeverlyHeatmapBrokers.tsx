@@ -26,6 +26,7 @@ interface BrokerRow {
   broker_id: string;
   broker_name: string;
   broker_mc: string;
+  total_freight: number;
   avg_freight: number;
   avg_miles: number;
   rpm: number;
@@ -43,7 +44,7 @@ interface OrderDetail {
   pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[];
 }
 
-type SortKey = "broker_name" | "broker_mc" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
+type SortKey = "broker_name" | "broker_mc" | "total_freight" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
 
 export default function BeverlyHeatmapBrokers() {
   const [search, setSearch] = useState("");
@@ -121,6 +122,7 @@ export default function BeverlyHeatmapBrokers() {
           broker_id: brokerId,
           broker_name: info?.name || "Unknown",
           broker_mc: info?.mc || "",
+          total_freight: stats.freight,
           avg_freight: stats.count > 0 ? stats.freight / stats.count : 0,
           avg_miles: stats.count > 0 ? stats.miles / stats.count : 0,
           rpm: stats.miles > 0 ? stats.freight / stats.miles : 0,
@@ -297,6 +299,9 @@ export default function BeverlyHeatmapBrokers() {
                 <TableHead className="min-w-[120px] cursor-pointer select-none" onClick={() => handleSort("broker_mc")}>
                   <span className="inline-flex items-center">Broker MC <SortIcon columnKey="broker_mc" /></span>
                 </TableHead>
+                <TableHead className="text-right min-w-[110px] cursor-pointer select-none" onClick={() => handleSort("total_freight")}>
+                  <span className="inline-flex items-center justify-end w-full">Total Freight <SortIcon columnKey="total_freight" /></span>
+                </TableHead>
                 <TableHead className="text-right min-w-[100px] cursor-pointer select-none" onClick={() => handleSort("avg_freight")}>
                   <span className="inline-flex items-center justify-end w-full">Avg Freight <SortIcon columnKey="avg_freight" /></span>
                 </TableHead>
@@ -316,6 +321,7 @@ export default function BeverlyHeatmapBrokers() {
                 <TableRow key={b.broker_id} className="hover:bg-transparent">
                   <TableCell className="font-medium text-sm">{b.broker_name}</TableCell>
                   <TableCell className="text-sm font-mono">{b.broker_mc || "—"}</TableCell>
+                  <TableCell className="text-right text-sm font-mono">{formatCurrency(b.total_freight)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatCurrency(b.avg_freight)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatMiles(b.avg_miles)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatRpm(b.rpm)}</TableCell>
