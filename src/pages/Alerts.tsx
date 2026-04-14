@@ -187,6 +187,7 @@ export default function Alerts() {
 
   // Filter data based on search and column filter
   const filteredTrucks = trucks.filter((truck) => {
+    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
     const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
       truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase());
     
@@ -205,6 +206,7 @@ export default function Alerts() {
   });
 
   const filteredTrailers = trailers.filter((trailer) => {
+    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
     const searchLower = trailersSearch.toLowerCase();
     const truckNum = truckByTrailerId.get(trailer.id) || "";
     const matchesSearch = trailer.trailer_number?.toLowerCase().includes(searchLower) ||
@@ -222,6 +224,7 @@ export default function Alerts() {
   });
 
   const filteredDrivers = drivers.filter((driver) => {
+    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
     // First apply search filter
     const searchLower = driversSearch.toLowerCase();
     const truckNum = truckByDriverId.get(driver.id) || "";
