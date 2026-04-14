@@ -44,7 +44,7 @@ interface OrderDetail {
   pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[];
 }
 
-type SortKey = "broker_name" | "broker_mc" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
+type SortKey = "broker_name" | "broker_mc" | "total_freight" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
 
 export default function BeverlyHeatmapBrokers() {
   const [search, setSearch] = useState("");
