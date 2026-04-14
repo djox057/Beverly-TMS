@@ -535,14 +535,26 @@ export default function Alerts() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Items Expiring Within 60 Days</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={`Search ${activeTab}...`}
-                value={getCurrentSearch()}
-                onChange={(e) => setCurrentSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="is-assigned"
+                  checked={isAssignedFilter}
+                  onCheckedChange={(checked) => setIsAssignedFilter(checked === true)}
+                />
+                <label htmlFor="is-assigned" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                  Is Assigned
+                </label>
+              </div>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={`Search ${activeTab}...`}
+                  value={getCurrentSearch()}
+                  onChange={(e) => setCurrentSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
