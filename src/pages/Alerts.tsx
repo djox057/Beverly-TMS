@@ -591,44 +591,44 @@ export default function Alerts() {
               ) : trucks.length === 0 ? (
                 <p className="text-muted-foreground">No trucks with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Company</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[130px]">Company</TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "dot" ? "all" : "dot")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         DOT Inspection {truckColumnFilter === "dot" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Plate Expiration {truckColumnFilter === "plate" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "insurance" ? "all" : "insurance")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Oil Change {truckColumnFilter === "oil_change" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Tires Swap {truckColumnFilter === "tires_swap" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_check" ? "all" : "maintenance_check")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[160px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}
                       </TableHead>
@@ -742,27 +742,27 @@ export default function Alerts() {
               ) : trailers.length === 0 ? (
                 <p className="text-muted-foreground">No trailers with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Trailer #</TableHead>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead className="w-[100px]">Trailer #</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[100px]">Type</TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         DOT Inspection {trailerColumnFilter === "dot" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Plate Expiration {trailerColumnFilter === "plate" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}
                       </TableHead>
@@ -862,38 +862,38 @@ export default function Alerts() {
               ) : drivers.length === 0 ? (
                 <p className="text-muted-foreground">No drivers with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Driver Name</TableHead>
-                      <TableHead>Truck #</TableHead>
+                      <TableHead className="w-[160px]">Driver Name</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         CDL Expiration {driverColumnFilter === "cdl" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         MVR Date {driverColumnFilter === "mvr" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Clearing House {driverColumnFilter === "clearing_house" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Medical Card Exp {driverColumnFilter === "medical" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Random Drug Test {driverColumnFilter === "drug_test" && "✓"}
                       </TableHead>
