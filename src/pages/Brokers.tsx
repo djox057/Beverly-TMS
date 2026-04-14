@@ -349,14 +349,14 @@ const Brokers = () => {
         </CardHeader>
         <CardContent className="flex flex-col flex-1">
           <div className="flex-1">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Company Name</TableHead>
-                  <TableHead>MC Number</TableHead>
-                  <TableHead>Credit Status</TableHead>
-                  <TableHead>Address</TableHead>
-                  {!isDispatchOnly && <TableHead>Actions</TableHead>}
+                  <TableHead className="w-[220px]">Company Name</TableHead>
+                  <TableHead className="w-[130px]">MC Number</TableHead>
+                  <TableHead className="w-[160px]">Credit Status</TableHead>
+                  <TableHead className="w-[300px]">Address</TableHead>
+                  {!isDispatchOnly && <TableHead className="w-[120px]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody className="h-full">

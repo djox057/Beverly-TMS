@@ -123,30 +123,30 @@ export default function BeverlyHeatmapFacilities() {
         <div className="flex items-center justify-center py-12 text-muted-foreground">No facilities found.</div>
       ) : (
         <div className="overflow-x-auto border rounded-lg">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead
-                  className="min-w-[180px] cursor-pointer select-none"
+                  className="w-[180px] cursor-pointer select-none"
                   onClick={() => handleSort("company_name")}
                 >
                   <span className="inline-flex items-center">
                     Company <SortIcon columnKey="company_name" />
                   </span>
                 </TableHead>
-                <TableHead className="min-w-[200px]">Address</TableHead>
+                <TableHead className="w-[220px]">Address</TableHead>
                 <TableHead
-                  className="min-w-[120px] cursor-pointer select-none"
+                  className="w-[130px] cursor-pointer select-none"
                   onClick={() => handleSort("city")}
                 >
                   <span className="inline-flex items-center">
                     City <SortIcon columnKey="city" />
                   </span>
                 </TableHead>
-                <TableHead className="min-w-[60px]">State</TableHead>
-                <TableHead className="min-w-[80px]">Zip</TableHead>
+                <TableHead className="w-[60px]">State</TableHead>
+                <TableHead className="w-[80px]">Zip</TableHead>
                 <TableHead
-                  className="text-center min-w-[80px] cursor-pointer select-none"
+                  className="text-center w-[90px] cursor-pointer select-none"
                   onClick={() => handleSort("pickup_count")}
                 >
                   <span className="inline-flex items-center justify-center w-full">
@@ -154,7 +154,7 @@ export default function BeverlyHeatmapFacilities() {
                   </span>
                 </TableHead>
                 <TableHead
-                  className="text-center min-w-[90px] cursor-pointer select-none"
+                  className="text-center w-[100px] cursor-pointer select-none"
                   onClick={() => handleSort("delivery_count")}
                 >
                   <span className="inline-flex items-center justify-center w-full">
@@ -162,7 +162,7 @@ export default function BeverlyHeatmapFacilities() {
                   </span>
                 </TableHead>
                 <TableHead
-                  className="text-center min-w-[70px] cursor-pointer select-none"
+                  className="text-center w-[80px] cursor-pointer select-none"
                   onClick={() => handleSort("total_visits")}
                 >
                   <span className="inline-flex items-center justify-center w-full">
