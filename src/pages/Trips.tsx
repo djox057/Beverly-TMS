@@ -5606,7 +5606,7 @@ const Trips = () => {
                                     if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
                                     if (otherChargesDriver !== 0) {
                                       const reason = String((order as any).otherChargesReason || "").trim();
-                                      driverItems.push({ label: reason || "Other Charges", value: otherChargesDriver });
+                                      driverItems.push({ label: reason || "Other Charges", value: -otherChargesDriver });
                                     }
                                     if (otherAdditionalsDriver !== 0) {
                                       const reason = String((order as any).otherAdditionalsReason || "").trim();

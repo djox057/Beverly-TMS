@@ -1555,7 +1555,7 @@ const Orders = () => {
                             const reason = String((order as any).otherChargesReason || "").trim();
                             driverItems.push({
                               label: reason || "Other Charges",
-                              value: otherChargesDriver
+                              value: -otherChargesDriver
                             });
                           }
                           if (otherAdditionalsDriver !== 0) {
