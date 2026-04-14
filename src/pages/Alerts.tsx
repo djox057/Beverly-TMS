@@ -155,6 +155,17 @@ export default function Alerts() {
     return daysUntil <= 30;
   };
 
+  // Build lookup maps for truck numbers
+  const truckByTrailerId = new Map<string, string>();
+  const truckByDriverId = new Map<string, string>();
+  if (allTrucks) {
+    for (const t of allTrucks) {
+      if (t.trailer_id) truckByTrailerId.set(t.trailer_id, t.truck_number);
+      if (t.driver1_id) truckByDriverId.set(t.driver1_id, t.truck_number);
+      if (t.driver2_id) truckByDriverId.set(t.driver2_id, t.truck_number);
+    }
+  }
+
   // Filter data based on search and column filter
   const filteredTrucks = trucks.filter((truck) => {
     const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
@@ -175,7 +186,10 @@ export default function Alerts() {
   });
 
   const filteredTrailers = trailers.filter((trailer) => {
-    const matchesSearch = trailer.trailer_number?.toLowerCase().includes(trailersSearch.toLowerCase());
+    const searchLower = trailersSearch.toLowerCase();
+    const truckNum = truckByTrailerId.get(trailer.id) || "";
+    const matchesSearch = trailer.trailer_number?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower);
     
     if (!matchesSearch) return false;
     if (trailerColumnFilter === "all") return true;
@@ -190,8 +204,11 @@ export default function Alerts() {
 
   const filteredDrivers = drivers.filter((driver) => {
     // First apply search filter
-    const matchesSearch = driver.name?.toLowerCase().includes(driversSearch.toLowerCase()) ||
-      driver.company_name?.toLowerCase().includes(driversSearch.toLowerCase());
+    const searchLower = driversSearch.toLowerCase();
+    const truckNum = truckByDriverId.get(driver.id) || "";
+    const matchesSearch = driver.name?.toLowerCase().includes(searchLower) ||
+      driver.company_name?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower);
     
     if (!matchesSearch) return false;
     
@@ -695,6 +712,7 @@ export default function Alerts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Trailer #</TableHead>
+                      <TableHead>Truck #</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
@@ -727,6 +745,7 @@ export default function Alerts() {
                              {trailer.trailer_number}
                            </button>
                          </TableCell>
+                         <TableCell>{truckByTrailerId.get(trailer.id) || "—"}</TableCell>
                          <TableCell>{trailer.trailer_type || "N/A"}</TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
@@ -813,6 +832,7 @@ export default function Alerts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Driver Name</TableHead>
+                      <TableHead>Truck #</TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
                         className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
@@ -853,12 +873,13 @@ export default function Alerts() {
                              onClick={() => openEditDriverDialog(driver.id)}
                              className="text-primary hover:underline cursor-pointer"
                            >
-                             {driver.name}
-                           </button>
-                         </TableCell>
-                         <TableCell>
-                           <div className="flex items-center gap-2">
-                             {formatDate(driver.cdl_expiration_date)}
+                            {driver.name}
+                            </button>
+                          </TableCell>
+                          <TableCell>{truckByDriverId.get(driver.id) || "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {formatDate(driver.cdl_expiration_date)}
                              {driver.cdl_expiration_date && (
                                <Badge variant={getExpirationStatus(driver.cdl_expiration_date).variant}>
                                  {getExpirationStatus(driver.cdl_expiration_date).label}
