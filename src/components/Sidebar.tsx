@@ -85,7 +85,7 @@ const navigation = [
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
   const { individualMode, setIndividualMode, canUseIndividualMode } = useIndividualMode();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
@@ -306,6 +306,9 @@ export const Sidebar = () => {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.href}
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
                       className={({ isActive }) =>
                         cn(
                           "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
