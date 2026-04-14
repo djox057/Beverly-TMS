@@ -26,6 +26,7 @@ interface BrokerRow {
   broker_id: string;
   broker_name: string;
   broker_mc: string;
+  total_freight: number;
   avg_freight: number;
   avg_miles: number;
   rpm: number;
