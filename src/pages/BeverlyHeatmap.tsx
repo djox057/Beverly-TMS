@@ -658,11 +658,11 @@ export default function BeverlyHeatmap() {
             </div>
           ) : (
             <div className="overflow-x-auto border rounded-lg">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead
-                      className="sticky left-0 z-10 bg-card min-w-[200px] cursor-pointer select-none"
+                      className="sticky left-0 z-10 bg-card w-[200px] cursor-pointer select-none"
                       onClick={() => handleSort("city")}
                     >
                       <span className="inline-flex items-center">
@@ -670,17 +670,17 @@ export default function BeverlyHeatmap() {
                       </span>
                     </TableHead>
                     <TableHead
-                      className="text-center min-w-[60px] cursor-pointer select-none"
+                      className="text-center w-[70px] cursor-pointer select-none"
                       onClick={() => handleSort("total")}
                     >
                       <span className="inline-flex items-center justify-center w-full">
                         Total <SortIcon columnKey="total" />
                       </span>
                     </TableHead>
-                    <TableHead className="text-right min-w-[90px]">Avg Freight</TableHead>
-                    <TableHead className="text-right min-w-[70px]">Avg Miles</TableHead>
+                    <TableHead className="text-right w-[100px]">Avg Freight</TableHead>
+                    <TableHead className="text-right w-[90px]">Avg Miles</TableHead>
                     <TableHead
-                      className="text-right min-w-[60px] cursor-pointer select-none"
+                      className="text-right w-[70px] cursor-pointer select-none"
                       onClick={() => handleSort("rpm")}
                     >
                       <span className="inline-flex items-center justify-end w-full">
@@ -752,13 +752,13 @@ export default function BeverlyHeatmap() {
             </div>
           ) : (
             <div className="overflow-x-auto border rounded-lg">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="min-w-[120px]">Broker Load #</TableHead>
-                    <TableHead className="min-w-[250px]">Lane</TableHead>
-                    <TableHead className="text-right min-w-[90px]">Freight</TableHead>
-                    <TableHead className="text-right min-w-[70px]">Miles</TableHead>
+                    <TableHead className="w-[130px]">Broker Load #</TableHead>
+                    <TableHead className="w-[300px]">Lane</TableHead>
+                    <TableHead className="text-right w-[100px]">Freight</TableHead>
+                    <TableHead className="text-right w-[80px]">Miles</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

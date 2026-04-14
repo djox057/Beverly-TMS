@@ -290,28 +290,28 @@ export default function BeverlyHeatmapBrokers() {
         <div className="flex items-center justify-center py-12 text-muted-foreground">No brokers found.</div>
       ) : (
         <div className="overflow-x-auto border rounded-lg">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="min-w-[200px] cursor-pointer select-none" onClick={() => handleSort("broker_name")}>
+                <TableHead className="w-[200px] cursor-pointer select-none" onClick={() => handleSort("broker_name")}>
                   <span className="inline-flex items-center">Broker Name <SortIcon columnKey="broker_name" /></span>
                 </TableHead>
-                <TableHead className="min-w-[120px] cursor-pointer select-none" onClick={() => handleSort("broker_mc")}>
+                <TableHead className="w-[120px] cursor-pointer select-none" onClick={() => handleSort("broker_mc")}>
                   <span className="inline-flex items-center">Broker MC <SortIcon columnKey="broker_mc" /></span>
                 </TableHead>
-                <TableHead className="text-right min-w-[110px] cursor-pointer select-none" onClick={() => handleSort("total_freight")}>
+                <TableHead className="text-right w-[120px] cursor-pointer select-none" onClick={() => handleSort("total_freight")}>
                   <span className="inline-flex items-center justify-end w-full">Total Freight <SortIcon columnKey="total_freight" /></span>
                 </TableHead>
-                <TableHead className="text-right min-w-[100px] cursor-pointer select-none" onClick={() => handleSort("avg_freight")}>
+                <TableHead className="text-right w-[110px] cursor-pointer select-none" onClick={() => handleSort("avg_freight")}>
                   <span className="inline-flex items-center justify-end w-full">Avg Freight <SortIcon columnKey="avg_freight" /></span>
                 </TableHead>
-                <TableHead className="text-right min-w-[90px] cursor-pointer select-none" onClick={() => handleSort("avg_miles")}>
+                <TableHead className="text-right w-[100px] cursor-pointer select-none" onClick={() => handleSort("avg_miles")}>
                   <span className="inline-flex items-center justify-end w-full">Avg Miles <SortIcon columnKey="avg_miles" /></span>
                 </TableHead>
-                <TableHead className="text-right min-w-[70px] cursor-pointer select-none" onClick={() => handleSort("rpm")}>
+                <TableHead className="text-right w-[80px] cursor-pointer select-none" onClick={() => handleSort("rpm")}>
                   <span className="inline-flex items-center justify-end w-full">RPM <SortIcon columnKey="rpm" /></span>
                 </TableHead>
-                <TableHead className="text-center min-w-[70px] cursor-pointer select-none" onClick={() => handleSort("order_count")}>
+                <TableHead className="text-center w-[80px] cursor-pointer select-none" onClick={() => handleSort("order_count")}>
                   <span className="inline-flex items-center justify-center w-full">Orders <SortIcon columnKey="order_count" /></span>
                 </TableHead>
               </TableRow>
@@ -356,14 +356,14 @@ export default function BeverlyHeatmapBrokers() {
             <div className="flex items-center justify-center py-8 text-muted-foreground">No orders found.</div>
           ) : (
             <div className="overflow-x-auto border rounded-lg">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="min-w-[120px]">Broker Load #</TableHead>
-                    <TableHead className="min-w-[250px]">Lane</TableHead>
-                    <TableHead className="text-right min-w-[90px]">Freight</TableHead>
-                    <TableHead className="text-right min-w-[70px]">Miles</TableHead>
-                    <TableHead className="text-right min-w-[60px]">RPM</TableHead>
+                    <TableHead className="w-[130px]">Broker Load #</TableHead>
+                    <TableHead className="w-[280px]">Lane</TableHead>
+                    <TableHead className="text-right w-[100px]">Freight</TableHead>
+                    <TableHead className="text-right w-[80px]">Miles</TableHead>
+                    <TableHead className="text-right w-[70px]">RPM</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
