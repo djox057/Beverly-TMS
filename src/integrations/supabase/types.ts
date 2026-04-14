@@ -3665,6 +3665,7 @@ export type Database = {
           id: string
           safety_user_id: string | null
           sign: boolean
+          transfer_type: string
           truck_id: string | null
           updated_at: string | null
         }
@@ -3682,6 +3683,7 @@ export type Database = {
           id?: string
           safety_user_id?: string | null
           sign?: boolean
+          transfer_type?: string
           truck_id?: string | null
           updated_at?: string | null
         }
@@ -3699,6 +3701,7 @@ export type Database = {
           id?: string
           safety_user_id?: string | null
           sign?: boolean
+          transfer_type?: string
           truck_id?: string | null
           updated_at?: string | null
         }
