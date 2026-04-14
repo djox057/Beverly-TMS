@@ -321,6 +321,7 @@ export default function BeverlyHeatmapBrokers() {
                 <TableRow key={b.broker_id} className="hover:bg-transparent">
                   <TableCell className="font-medium text-sm">{b.broker_name}</TableCell>
                   <TableCell className="text-sm font-mono">{b.broker_mc || "—"}</TableCell>
+                  <TableCell className="text-right text-sm font-mono">{formatCurrency(b.total_freight)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatCurrency(b.avg_freight)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatMiles(b.avg_miles)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{formatRpm(b.rpm)}</TableCell>
