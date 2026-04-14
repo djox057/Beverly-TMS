@@ -591,44 +591,44 @@ export default function Alerts() {
               ) : trucks.length === 0 ? (
                 <p className="text-muted-foreground">No trucks with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Company</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[130px]">Company</TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "dot" ? "all" : "dot")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         DOT Inspection {truckColumnFilter === "dot" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Plate Expiration {truckColumnFilter === "plate" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "insurance" ? "all" : "insurance")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Oil Change {truckColumnFilter === "oil_change" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Tires Swap {truckColumnFilter === "tires_swap" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_check" ? "all" : "maintenance_check")}
-                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[160px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}
                       </TableHead>
