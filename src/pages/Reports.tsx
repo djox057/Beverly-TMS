@@ -904,7 +904,8 @@ const Reports = () => {
       toNum(order.late_fee_driver) -
       toNum(order.no_tracking_fee_driver) -
       toNum(order.wrong_address_fee_driver) +
-      toNum(order.other_charges_driver);
+      toNum(order.other_charges_driver) +
+      toNum(order.other_additionals_driver);
 
     return {
       orderId: order.id,

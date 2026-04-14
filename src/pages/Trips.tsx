@@ -1738,14 +1738,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -1798,6 +1790,14 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });

@@ -293,7 +293,7 @@ async function aggregateOrders(
         toNum(order.driver_price) + toNum(order.detention_driver) + toNum(order.layover_driver) +
         toNum(order.tonu_driver) + toNum(order.extra_stop_driver) + toNum(order.lumper_driver) -
         toNum(order.late_fee_driver) - toNum(order.no_tracking_fee_driver) -
-        toNum(order.wrong_address_fee_driver) + toNum(order.other_charges_driver) +
+        toNum(order.wrong_address_fee_driver) - toNum(order.other_charges_driver) +
         toNum(order.other_additionals_driver);
 
       const miles = toNum(order.loaded_miles) + toNum(order.dh_miles) + toNum(order.additional_miles);
