@@ -1738,14 +1738,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -1798,6 +1790,14 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });
@@ -2118,15 +2118,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            internalLoadNumber: order.internalLoadNumber || "",
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -2185,6 +2176,15 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });
@@ -2546,15 +2546,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            internalLoadNumber: order.internalLoadNumber || "",
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -2613,6 +2604,15 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });
@@ -2939,15 +2939,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            internalLoadNumber: order.internalLoadNumber || "",
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -3006,6 +2997,15 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });
@@ -3419,6 +3419,15 @@ const Trips = () => {
             amount: wrongAddressFee
           });
         }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
+          });
+        }
       });
 
       // Write negative additionals after fixed deductions (rows 31-33)
@@ -3532,14 +3541,6 @@ const Trips = () => {
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: lumper
-          });
-        }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -3720,8 +3721,6 @@ const Trips = () => {
         if (extraStop > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Extra Stop", deliveryDate: formatDateDisplay(order.deliveryDate), amount: extraStop });
         const lumper = Number(order.lumperDriver) || 0;
         if (lumper > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Lumper", deliveryDate: formatDateDisplay(order.deliveryDate), amount: lumper });
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Other Charges", deliveryDate: formatDateDisplay(order.deliveryDate), amount: otherCharges });
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: (order as any).otherAdditionalsReason || "Other Additionals", deliveryDate: formatDateDisplay(order.deliveryDate), amount: otherAdditionals });
       });
@@ -3746,6 +3745,8 @@ const Trips = () => {
         if (noTrackingFee > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: "No Tracking Fee", deliveryDate: formatDateDisplay(order.deliveryDate), amount: noTrackingFee });
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
         if (wrongAddressFee > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Wrong Address Fee", deliveryDate: formatDateDisplay(order.deliveryDate), amount: wrongAddressFee });
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: (order as any).otherChargesReason || "Other Charges", deliveryDate: formatDateDisplay(order.deliveryDate), amount: otherCharges });
       });
 
       // Fixed deductions (rows 25-33)
@@ -4046,15 +4047,6 @@ const Trips = () => {
             amount: lumper
           });
         }
-        const otherCharges = Number(order.otherChargesDriver) || 0;
-        if (otherCharges > 0) {
-          credits.push({
-            internalLoadNumber: order.internalLoadNumber || "",
-            type: "Other Charges",
-            deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
-          });
-        }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
         if (otherAdditionals > 0) {
           credits.push({
@@ -4113,6 +4105,15 @@ const Trips = () => {
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
             amount: wrongAddressFee
+          });
+        }
+        const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
+        if (otherCharges > 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges
           });
         }
       });
