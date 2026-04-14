@@ -807,10 +807,6 @@ const TransferList = () => {
 
   const colCount = canEdit ? 14 : 13;
 
-  const TAB_LABELS: Record<string, string> = {
-    bf_prime_united: "BF Prime United Transfer",
-    ues: "UES Transfer",
-  };
 
   return (
     <div className="p-4 space-y-4">
