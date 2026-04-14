@@ -2282,7 +2282,7 @@ const Drivers = () => {
         </CardHeader>
         <CardContent>
           <div className="flex-1">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">Name</TableHead>
