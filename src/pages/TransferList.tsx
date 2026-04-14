@@ -1102,6 +1102,7 @@ const TransferList = () => {
         companies={companies || []}
         userId={user?.id}
         safetyUsers={safetyUserList}
+        transferType={activeTab}
       />
 
       {editRow && (
@@ -1114,6 +1115,7 @@ const TransferList = () => {
           userId={user?.id}
           editData={editRow}
           safetyUsers={safetyUserList}
+          transferType={activeTab}
         />
       )}
 
