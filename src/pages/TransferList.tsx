@@ -649,13 +649,16 @@ const TransferList = () => {
   }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
 
   const filteredRows = useMemo(() => {
-    if (!isDispatchOnly) return enrichedRows;
-    return enrichedRows.filter((row) => {
-      if (!row.driver_id) return false;
-      const driver = driverMap.get(row.driver_id);
-      return driver?.dispatcher_id === user?.id;
-    });
-  }, [enrichedRows, isDispatchOnly, driverMap, user?.id]);
+    let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime_united') === activeTab);
+    if (isDispatchOnly) {
+      rows = rows.filter((row) => {
+        if (!row.driver_id) return false;
+        const driver = driverMap.get(row.driver_id);
+        return driver?.dispatcher_id === user?.id;
+      });
+    }
+    return rows;
+  }, [enrichedRows, activeTab, isDispatchOnly, driverMap, user?.id]);
 
   const companyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
