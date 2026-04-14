@@ -862,38 +862,38 @@ export default function Alerts() {
               ) : drivers.length === 0 ? (
                 <p className="text-muted-foreground">No drivers with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Driver Name</TableHead>
-                      <TableHead>Truck #</TableHead>
+                      <TableHead className="w-[160px]">Driver Name</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         CDL Expiration {driverColumnFilter === "cdl" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         MVR Date {driverColumnFilter === "mvr" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Clearing House {driverColumnFilter === "clearing_house" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Medical Card Exp {driverColumnFilter === "medical" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
-                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Random Drug Test {driverColumnFilter === "drug_test" && "✓"}
                       </TableHead>
