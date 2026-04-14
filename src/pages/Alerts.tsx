@@ -742,27 +742,27 @@ export default function Alerts() {
               ) : trailers.length === 0 ? (
                 <p className="text-muted-foreground">No trailers with expiring documents.</p>
               ) : (
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Trailer #</TableHead>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead className="w-[100px]">Trailer #</TableHead>
+                      <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[100px]">Type</TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         DOT Inspection {trailerColumnFilter === "dot" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Plate Expiration {trailerColumnFilter === "plate" && "✓"}
                       </TableHead>
                       <TableHead 
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
-                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                        className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}
                       </TableHead>
