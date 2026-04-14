@@ -35,6 +35,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -546,6 +547,7 @@ const TransferList = () => {
   const { data: drivers = [] } = useDrivers();
   const { data: companies = [] } = useCompanies();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<string>("bf_prime_united");
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
@@ -647,22 +649,25 @@ const TransferList = () => {
   }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
 
   const filteredRows = useMemo(() => {
-    if (!isDispatchOnly) return enrichedRows;
-    return enrichedRows.filter((row) => {
-      if (!row.driver_id) return false;
-      const driver = driverMap.get(row.driver_id);
-      return driver?.dispatcher_id === user?.id;
-    });
-  }, [enrichedRows, isDispatchOnly, driverMap, user?.id]);
+    let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime_united') === activeTab);
+    if (isDispatchOnly) {
+      rows = rows.filter((row) => {
+        if (!row.driver_id) return false;
+        const driver = driverMap.get(row.driver_id);
+        return driver?.dispatcher_id === user?.id;
+      });
+    }
+    return rows;
+  }, [enrichedRows, activeTab, isDispatchOnly, driverMap, user?.id]);
 
   const companyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    enrichedRows.forEach((row) => {
+    filteredRows.forEach((row) => {
       const company = row.going_to_company || "Unspecified";
       counts[company] = (counts[company] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [enrichedRows]);
+  }, [filteredRows]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [editRow, setEditRow] = useState<TransferRow | null>(null);
@@ -802,6 +807,7 @@ const TransferList = () => {
 
   const colCount = canEdit ? 14 : 13;
 
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -829,6 +835,13 @@ const TransferList = () => {
           )}
         </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="bf_prime_united">BF Prime United Transfer</TabsTrigger>
+          <TabsTrigger value="ues">UES Transfer</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
@@ -1085,6 +1098,7 @@ const TransferList = () => {
         companies={companies || []}
         userId={user?.id}
         safetyUsers={safetyUserList}
+        transferType={activeTab}
       />
 
       {editRow && (
@@ -1097,6 +1111,7 @@ const TransferList = () => {
           userId={user?.id}
           editData={editRow}
           safetyUsers={safetyUserList}
+          transferType={activeTab}
         />
       )}
 
@@ -1120,7 +1135,7 @@ const TransferList = () => {
 
 // --- Add/Edit Transfer Row Dialog ---
 function TransferRowDialog({
-  open, onClose, trucks, drivers, companies, userId, editData, safetyUsers,
+  open, onClose, trucks, drivers, companies, userId, editData, safetyUsers, transferType,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1130,6 +1145,7 @@ function TransferRowDialog({
   userId?: string;
   editData?: TransferRow;
   safetyUsers: { user_id: string; name: string }[];
+  transferType?: string;
 }) {
   const queryClient = useQueryClient();
   const isEdit = !!editData;
@@ -1235,6 +1251,7 @@ function TransferRowDialog({
         const { error } = await supabase.from("transfer_list" as any).insert({
           ...payload,
           created_by: userId,
+          transfer_type: transferType || 'bf_prime_united',
         } as any);
         if (error) throw error;
       }
