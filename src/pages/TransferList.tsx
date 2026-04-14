@@ -807,6 +807,11 @@ const TransferList = () => {
 
   const colCount = canEdit ? 14 : 13;
 
+  const TAB_LABELS: Record<string, string> = {
+    bf_prime_united: "BF Prime United Transfer",
+    ues: "UES Transfer",
+  };
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -834,6 +839,13 @@ const TransferList = () => {
           )}
         </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="bf_prime_united">BF Prime United Transfer</TabsTrigger>
+          <TabsTrigger value="ues">UES Transfer</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
