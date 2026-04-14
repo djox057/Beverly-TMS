@@ -1139,7 +1139,7 @@ const TransferList = () => {
 
 // --- Add/Edit Transfer Row Dialog ---
 function TransferRowDialog({
-  open, onClose, trucks, drivers, companies, userId, editData, safetyUsers,
+  open, onClose, trucks, drivers, companies, userId, editData, safetyUsers, transferType,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1149,6 +1149,7 @@ function TransferRowDialog({
   userId?: string;
   editData?: TransferRow;
   safetyUsers: { user_id: string; name: string }[];
+  transferType?: string;
 }) {
   const queryClient = useQueryClient();
   const isEdit = !!editData;
