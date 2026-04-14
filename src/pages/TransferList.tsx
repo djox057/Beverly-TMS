@@ -1255,6 +1255,7 @@ function TransferRowDialog({
         const { error } = await supabase.from("transfer_list" as any).insert({
           ...payload,
           created_by: userId,
+          transfer_type: transferType || 'bf_prime_united',
         } as any);
         if (error) throw error;
       }
