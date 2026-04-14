@@ -77,7 +77,7 @@ const RoadsideInspection = () => {
 
   const canEdit = hasRole("admin") || hasRole("safety") || hasRole("maintenance");
   const canEditEta = hasRole("admin") || hasRole("dispatch");
-  const canEditChecks = hasRole("admin") || hasRole("safety") || hasRole("maintenance") || hasRole("dispatch");
+  const canEditChecks = hasRole("admin") || hasRole("dispatch");
   const canApproveChecks = hasRole("admin") || hasRole("maintenance");
 
   // Add form state
