@@ -122,6 +122,7 @@ export default function BeverlyHeatmapBrokers() {
           broker_id: brokerId,
           broker_name: info?.name || "Unknown",
           broker_mc: info?.mc || "",
+          total_freight: stats.freight,
           avg_freight: stats.count > 0 ? stats.freight / stats.count : 0,
           avg_miles: stats.count > 0 ? stats.miles / stats.count : 0,
           rpm: stats.miles > 0 ? stats.freight / stats.miles : 0,
