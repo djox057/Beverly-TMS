@@ -662,12 +662,12 @@ const TransferList = () => {
 
   const companyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    enrichedRows.forEach((row) => {
+    filteredRows.forEach((row) => {
       const company = row.going_to_company || "Unspecified";
       counts[company] = (counts[company] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [enrichedRows]);
+  }, [filteredRows]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [editRow, setEditRow] = useState<TransferRow | null>(null);
