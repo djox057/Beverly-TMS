@@ -85,7 +85,7 @@ const navigation = [
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
   const { individualMode, setIndividualMode, canUseIndividualMode } = useIndividualMode();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
