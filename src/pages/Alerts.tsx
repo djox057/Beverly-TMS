@@ -151,30 +151,6 @@ export default function Alerts() {
     },
   });
 
-  // Fetch file counts for temporary plates
-  const { data: tempPlateFiles = {} } = useQuery({
-    queryKey: ['temporary-plate-files'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .storage
-        .from('temporary-plate-files')
-        .list('', { limit: 1000 });
-      if (error) return {};
-      // Group by folder (plate id)
-      const fileMap: Record<string, number> = {};
-      for (const file of data || []) {
-        // Files are stored as plateId/filename
-        // list root returns folders
-        if (file.id) {
-          // It's a folder-like entry, we need to list inside
-        }
-      }
-      // Instead, list per plate
-      return {};
-    },
-    enabled: false, // We'll use a different approach
-  });
-
   // Fetch files per plate
   const { data: tempPlateFileMap = {} } = useQuery({
     queryKey: ['temporary-plate-file-map', temporaryPlates.map(p => p.id).join(',')],
