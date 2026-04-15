@@ -17,6 +17,16 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -137,6 +147,7 @@ export default function Alerts() {
   const [isAddTempPlateDialogOpen, setIsAddTempPlateDialogOpen] = useState(false);
   const [tempPlateTruckId, setTempPlateTruckId] = useState("");
   const [isAddingTempPlate, setIsAddingTempPlate] = useState(false);
+  const [deleteTempPlateId, setDeleteTempPlateId] = useState<string | null>(null);
 
   // Temporary plates query
   const { data: temporaryPlates = [], isLoading: tempPlatesLoading } = useQuery({
@@ -1174,14 +1185,16 @@ export default function Alerts() {
                             </div>
                           </TableCell>
                           <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive/80"
-                              onClick={() => handleDeleteTemporaryPlate(plate.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {(hasRole('admin') || hasRole('manager') || hasRole('safety')) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive/80"
+                                onClick={() => setDeleteTempPlateId(plate.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -1385,6 +1398,32 @@ export default function Alerts() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Temporary Plate Confirmation */}
+      <AlertDialog open={!!deleteTempPlateId} onOpenChange={(open) => { if (!open) setDeleteTempPlateId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Temporary Plate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this truck from the temporary plates list? All uploaded photos will also be deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTempPlateId) {
+                  handleDeleteTemporaryPlate(deleteTempPlateId);
+                  setDeleteTempPlateId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
