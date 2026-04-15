@@ -147,6 +147,7 @@ export default function Alerts() {
   const [isAddTempPlateDialogOpen, setIsAddTempPlateDialogOpen] = useState(false);
   const [tempPlateTruckId, setTempPlateTruckId] = useState("");
   const [isAddingTempPlate, setIsAddingTempPlate] = useState(false);
+  const [deleteTempPlateId, setDeleteTempPlateId] = useState<string | null>(null);
 
   // Temporary plates query
   const { data: temporaryPlates = [], isLoading: tempPlatesLoading } = useQuery({
