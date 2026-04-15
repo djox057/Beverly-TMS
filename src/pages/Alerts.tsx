@@ -1380,6 +1380,36 @@ export default function Alerts() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Temporary Plate Dialog */}
+      <Dialog open={isAddTempPlateDialogOpen} onOpenChange={setIsAddTempPlateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Truck to Temporary Plates</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Truck</Label>
+              <Combobox
+                items={(allTrucks || [])
+                  .filter(t => !temporaryPlates.some(p => p.truck_id === t.id))
+                  .map(t => ({ value: t.id, label: t.truck_number }))}
+                value={tempPlateTruckId}
+                onValueChange={setTempPlateTruckId}
+                placeholder="Search truck..."
+                searchPlaceholder="Search truck number..."
+                emptyText="No trucks found"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddTempPlateDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddTemporaryPlate} disabled={!tempPlateTruckId || isAddingTempPlate}>
+                {isAddingTempPlate ? "Adding..." : "Add"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
