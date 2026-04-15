@@ -4369,15 +4369,16 @@ const Reports = () => {
 
                                                   return (
                                                     <>
-                                                      {visible.map(renderSingleIcon)}
-                                                      {overflow.length > 0 && (
+                                                      {icons.length <= MAX_VISIBLE
+                                                        ? visible.map(renderSingleIcon)
+                                                        : (
                                                         <Popover>
                                                           <PopoverTrigger asChild>
                                                             <button
                                                               className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer bg-amber-500"
                                                               onClick={(e) => e.stopPropagation()}
                                                             >
-                                                              +{overflow.length}
+                                                              +{icons.length}
                                                             </button>
                                                           </PopoverTrigger>
                                                           <PopoverContent className="w-auto max-w-xs p-3">
