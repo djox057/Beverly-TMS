@@ -52,6 +52,7 @@ import {
   FileText,
   Building2,
   HeartPulse,
+  FileWarning,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -85,6 +86,7 @@ import strapIcon from "@/assets/strap.png";
 import loadBarIcon from "@/assets/load_bar.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
+import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
