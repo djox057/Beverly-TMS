@@ -352,7 +352,29 @@ const Reports = () => {
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
   const { driverAfterhoursMap, isWeekendWindow } = useAfterhoursDriverMap();
 
-  // Helper to get driver cell styling (combines drug test and game over styling)
+  // Temporary plates query
+  const { data: temporaryPlates } = useQuery({
+    queryKey: ["temporary-plates-list"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("temporary_plates")
+        .select("id, truck_id");
+      return data || [];
+    },
+  });
+  const temporaryPlatesByTruckId = useMemo(() => {
+    const map = new Map<string, string>();
+    (temporaryPlates || []).forEach((tp: any) => map.set(tp.truck_id, tp.id));
+    return map;
+  }, [temporaryPlates]);
+
+  // Temporary plate upload dialog state
+  const [tempPlateDialog, setTempPlateDialog] = useState<{
+    truckId: string;
+    truckNumber: string;
+    temporaryPlateId: string;
+  } | null>(null);
+
   const getDriverCellStyle = useCallback(
     (truck: any) => {
       // Check for game over first - it takes priority
