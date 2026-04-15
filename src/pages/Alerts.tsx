@@ -16,7 +16,7 @@ import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/ho
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
