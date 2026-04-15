@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2 } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -33,7 +33,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
@@ -132,6 +132,42 @@ export default function Alerts() {
   
   // "Is Assigned" toggle
   const [isAssignedFilter, setIsAssignedFilter] = useState(false);
+
+  // Temporary plates state
+  const [isAddTempPlateDialogOpen, setIsAddTempPlateDialogOpen] = useState(false);
+  const [tempPlateTruckId, setTempPlateTruckId] = useState("");
+  const [isAddingTempPlate, setIsAddingTempPlate] = useState(false);
+
+  // Temporary plates query
+  const { data: temporaryPlates = [], isLoading: tempPlatesLoading } = useQuery({
+    queryKey: ['temporary-plates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('temporary_plates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch files per plate
+  const { data: tempPlateFileMap = {} } = useQuery({
+    queryKey: ['temporary-plate-file-map', temporaryPlates.map(p => p.id).join(',')],
+    queryFn: async () => {
+      const map: Record<string, string[]> = {};
+      for (const plate of temporaryPlates) {
+        const { data } = await supabase.storage
+          .from('temporary-plate-files')
+          .list(plate.id, { limit: 100 });
+        if (data && data.length > 0) {
+          map[plate.id] = data.map(f => f.name);
+        }
+      }
+      return map;
+    },
+    enabled: temporaryPlates.length > 0,
+  });
 
   // Column filters
   type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
@@ -451,6 +487,71 @@ export default function Alerts() {
     }
   };
 
+  // Temporary plates handlers
+  const handleAddTemporaryPlate = async () => {
+    if (!tempPlateTruckId) return;
+    setIsAddingTempPlate(true);
+    try {
+      const { error } = await supabase
+        .from('temporary_plates')
+        .insert({ truck_id: tempPlateTruckId, added_by: (await supabase.auth.getUser()).data.user?.id });
+      if (error) throw error;
+      toast({ title: "Success", description: "Truck added to temporary plates list" });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plates'] });
+      setIsAddTempPlateDialogOpen(false);
+      setTempPlateTruckId("");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsAddingTempPlate(false);
+    }
+  };
+
+  const handleDeleteTemporaryPlate = async (plateId: string) => {
+    try {
+      const { data: files } = await supabase.storage.from('temporary-plate-files').list(plateId);
+      if (files && files.length > 0) {
+        await supabase.storage.from('temporary-plate-files').remove(files.map(f => `${plateId}/${f.name}`));
+      }
+      const { error } = await supabase.from('temporary_plates').delete().eq('id', plateId);
+      if (error) throw error;
+      toast({ title: "Success", description: "Removed from temporary plates" });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plates'] });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleUploadTempPlateFile = async (plateId: string, file: File) => {
+    const sanitizedName = file.name.replace(/[\s\-]/g, '_');
+    const filePath = `${plateId}/${sanitizedName}`;
+    const { error } = await supabase.storage.from('temporary-plate-files').upload(filePath, file);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Success", description: "Picture uploaded" });
+    queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+  };
+
+  const handleDeleteTempPlateFile = async (plateId: string, fileName: string) => {
+    const { error } = await supabase.storage.from('temporary-plate-files').remove([`${plateId}/${fileName}`]);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Success", description: "Picture deleted" });
+    queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+  };
+
+  const tempPlateTruckMap = new Map<string, any>();
+  if (allTrucks) {
+    for (const t of allTrucks) {
+      tempPlateTruckMap.set(t.id, t);
+    }
+  }
+
   const renderPaginationItems = (currentPage: number, totalPages: number, setPage: (page: number) => void) => {
     const items = [];
     const maxVisiblePages = 5;
@@ -560,7 +661,7 @@ export default function Alerts() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="trucks" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="trucks" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Trucks ({filteredTrucks.length}{trucksSearch ? ` of ${trucks.length}` : ''})
@@ -572,6 +673,10 @@ export default function Alerts() {
               <TabsTrigger value="drivers" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Drivers ({filteredDrivers.length}{driversSearch ? ` of ${drivers.length}` : ''})
+              </TabsTrigger>
+              <TabsTrigger value="temp_plates" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Temp Plates ({temporaryPlates.length})
               </TabsTrigger>
             </TabsList>
 
@@ -989,6 +1094,102 @@ export default function Alerts() {
                  </div>
                )}
             </TabsContent>
+
+            <TabsContent value="temp_plates" className="mt-6">
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setIsAddTempPlateDialogOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {tempPlatesLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded">
+                      <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : temporaryPlates.length === 0 ? (
+                <p className="text-muted-foreground">No trucks with temporary plates.</p>
+              ) : (
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Truck #</TableHead>
+                      <TableHead className="w-[200px]">Driver Name</TableHead>
+                      <TableHead className="w-[180px]">Dispatcher</TableHead>
+                      <TableHead className="w-[300px]">Pictures</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {temporaryPlates.map((plate) => {
+                      const truck = tempPlateTruckMap.get(plate.truck_id);
+                      const hasFiles = (tempPlateFileMap[plate.id]?.length || 0) > 0;
+                      return (
+                        <TableRow key={plate.id} className="h-[48px]" style={{ height: '48px' }}>
+                          <TableCell className={`font-medium ${hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}`}>
+                            {truck?.truck_number || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            {truck?.driver1?.name || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            {truck?.dispatcher?.full_name || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {(tempPlateFileMap[plate.id] || []).map((fileName) => (
+                                <div key={fileName} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded">
+                                  <span className="truncate max-w-[120px]">{fileName}</span>
+                                  <button
+                                    onClick={() => handleDeleteTempPlateFile(plate.id, fileName)}
+                                    className="text-destructive hover:text-destructive/80"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.accept = 'image/*';
+                                  input.onchange = (e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                    if (file) handleUploadTempPlateFile(plate.id, file);
+                                  };
+                                  input.click();
+                                }}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Upload
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive/80"
+                              onClick={() => handleDeleteTemporaryPlate(plate.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -1152,6 +1353,36 @@ export default function Alerts() {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Temporary Plate Dialog */}
+      <Dialog open={isAddTempPlateDialogOpen} onOpenChange={setIsAddTempPlateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Truck to Temporary Plates</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Truck</Label>
+              <Combobox
+                options={(allTrucks || [])
+                  .filter(t => !temporaryPlates.some(p => p.truck_id === t.id))
+                  .map(t => ({ value: t.id, label: t.truck_number }))}
+                value={tempPlateTruckId}
+                onValueChange={setTempPlateTruckId}
+                placeholder="Search truck..."
+                searchPlaceholder="Search truck number..."
+                emptyText="No trucks found"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddTempPlateDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddTemporaryPlate} disabled={!tempPlateTruckId || isAddingTempPlate}>
+                {isAddingTempPlate ? "Adding..." : "Add"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
