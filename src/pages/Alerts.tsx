@@ -1185,14 +1185,16 @@ export default function Alerts() {
                             </div>
                           </TableCell>
                           <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive/80"
-                              onClick={() => handleDeleteTemporaryPlate(plate.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {(hasRole('admin') || hasRole('manager') || hasRole('safety')) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive/80"
+                                onClick={() => setDeleteTempPlateId(plate.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
