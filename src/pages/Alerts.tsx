@@ -1391,7 +1391,7 @@ export default function Alerts() {
             <div>
               <Label>Select Truck</Label>
               <Combobox
-                items={(allTrucks || [])
+                options={(allTrucks || [])
                   .filter(t => !temporaryPlates.some(p => p.truck_id === t.id))
                   .map(t => ({ value: t.id, label: t.truck_number }))}
                 value={tempPlateTruckId}
