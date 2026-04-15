@@ -650,6 +650,12 @@ const TransferList = () => {
 
   const filteredRows = useMemo(() => {
     let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime_united') === activeTab);
+    // Hide rows where the driver is done (inactive)
+    rows = rows.filter((row) => {
+      if (!row.driver_id) return true;
+      const driver = driverMap.get(row.driver_id);
+      return driver?.is_active !== false;
+    });
     if (isDispatchOnly) {
       rows = rows.filter((row) => {
         if (!row.driver_id) return false;
