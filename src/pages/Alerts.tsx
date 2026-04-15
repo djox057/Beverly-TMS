@@ -11,12 +11,12 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2 } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
