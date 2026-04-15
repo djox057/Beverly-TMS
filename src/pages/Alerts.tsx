@@ -133,6 +133,67 @@ export default function Alerts() {
   // "Is Assigned" toggle
   const [isAssignedFilter, setIsAssignedFilter] = useState(false);
 
+  // Temporary plates state
+  const [isAddTempPlateDialogOpen, setIsAddTempPlateDialogOpen] = useState(false);
+  const [tempPlateTruckId, setTempPlateTruckId] = useState("");
+  const [isAddingTempPlate, setIsAddingTempPlate] = useState(false);
+  const tempPlateFileRef = useRef<HTMLInputElement>(null);
+
+  // Temporary plates query
+  const { data: temporaryPlates = [], isLoading: tempPlatesLoading } = useQuery({
+    queryKey: ['temporary-plates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('temporary_plates')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch file counts for temporary plates
+  const { data: tempPlateFiles = {} } = useQuery({
+    queryKey: ['temporary-plate-files'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .storage
+        .from('temporary-plate-files')
+        .list('', { limit: 1000 });
+      if (error) return {};
+      // Group by folder (plate id)
+      const fileMap: Record<string, number> = {};
+      for (const file of data || []) {
+        // Files are stored as plateId/filename
+        // list root returns folders
+        if (file.id) {
+          // It's a folder-like entry, we need to list inside
+        }
+      }
+      // Instead, list per plate
+      return {};
+    },
+    enabled: false, // We'll use a different approach
+  });
+
+  // Fetch files per plate
+  const { data: tempPlateFileMap = {} } = useQuery({
+    queryKey: ['temporary-plate-file-map', temporaryPlates.map(p => p.id).join(',')],
+    queryFn: async () => {
+      const map: Record<string, string[]> = {};
+      for (const plate of temporaryPlates) {
+        const { data } = await supabase.storage
+          .from('temporary-plate-files')
+          .list(plate.id, { limit: 100 });
+        if (data && data.length > 0) {
+          map[plate.id] = data.map(f => f.name);
+        }
+      }
+      return map;
+    },
+    enabled: temporaryPlates.length > 0,
+  });
+
   // Column filters
   type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
