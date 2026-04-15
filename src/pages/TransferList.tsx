@@ -842,7 +842,10 @@ const TransferList = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(tab) => {
+          setActiveTab(tab);
+          setCompanyFilter(tab === "ues" ? "Beverly Freight Inc" : "all");
+        }}>
         <TabsList>
           <TabsTrigger value="bf_prime_united">BF Prime United Transfer</TabsTrigger>
           <TabsTrigger value="ues">UES Transfer</TabsTrigger>
