@@ -680,7 +680,7 @@ const TransferList = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [dispatcherSearch, setDispatcherSearch] = useState("");
-  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("Beverly Freight Inc");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [comingToOfficeFilter, setComingToOfficeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
