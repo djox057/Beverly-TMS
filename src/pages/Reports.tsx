@@ -7152,7 +7152,16 @@ const Reports = () => {
         driverName={lumperMissingDataDialog?.driverName || ""}
       />
 
-      {/* Driver Problem Dialog */}
+      {/* Temporary Plate Upload Dialog */}
+      <TemporaryPlateUploadDialog
+        open={!!tempPlateDialog}
+        onOpenChange={(open) => !open && setTempPlateDialog(null)}
+        truckId={tempPlateDialog?.truckId || ""}
+        truckNumber={tempPlateDialog?.truckNumber || ""}
+        temporaryPlateId={tempPlateDialog?.temporaryPlateId || ""}
+      />
+
+
       <DriverProblemDialog
         open={!!problemDialog}
         onOpenChange={(open) => !open && setProblemDialog(null)}
