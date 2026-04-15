@@ -512,6 +512,71 @@ export default function Alerts() {
     }
   };
 
+  // Temporary plates handlers
+  const handleAddTemporaryPlate = async () => {
+    if (!tempPlateTruckId) return;
+    setIsAddingTempPlate(true);
+    try {
+      const { error } = await supabase
+        .from('temporary_plates')
+        .insert({ truck_id: tempPlateTruckId, added_by: (await supabase.auth.getUser()).data.user?.id });
+      if (error) throw error;
+      toast({ title: "Success", description: "Truck added to temporary plates list" });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plates'] });
+      setIsAddTempPlateDialogOpen(false);
+      setTempPlateTruckId("");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsAddingTempPlate(false);
+    }
+  };
+
+  const handleDeleteTemporaryPlate = async (plateId: string) => {
+    try {
+      const { data: files } = await supabase.storage.from('temporary-plate-files').list(plateId);
+      if (files && files.length > 0) {
+        await supabase.storage.from('temporary-plate-files').remove(files.map(f => `${plateId}/${f.name}`));
+      }
+      const { error } = await supabase.from('temporary_plates').delete().eq('id', plateId);
+      if (error) throw error;
+      toast({ title: "Success", description: "Removed from temporary plates" });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plates'] });
+      queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleUploadTempPlateFile = async (plateId: string, file: File) => {
+    const sanitizedName = file.name.replace(/[\s\-]/g, '_');
+    const filePath = `${plateId}/${sanitizedName}`;
+    const { error } = await supabase.storage.from('temporary-plate-files').upload(filePath, file);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Success", description: "Picture uploaded" });
+    queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+  };
+
+  const handleDeleteTempPlateFile = async (plateId: string, fileName: string) => {
+    const { error } = await supabase.storage.from('temporary-plate-files').remove([`${plateId}/${fileName}`]);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Success", description: "Picture deleted" });
+    queryClient.invalidateQueries({ queryKey: ['temporary-plate-file-map'] });
+  };
+
+  const tempPlateTruckMap = new Map<string, any>();
+  if (allTrucks) {
+    for (const t of allTrucks) {
+      tempPlateTruckMap.set(t.id, t);
+    }
+  }
+
   const renderPaginationItems = (currentPage: number, totalPages: number, setPage: (page: number) => void) => {
     const items = [];
     const maxVisiblePages = 5;
