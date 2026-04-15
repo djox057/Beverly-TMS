@@ -1119,6 +1119,102 @@ export default function Alerts() {
                  </div>
                )}
             </TabsContent>
+
+            <TabsContent value="temp_plates" className="mt-6">
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setIsAddTempPlateDialogOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {tempPlatesLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded">
+                      <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : temporaryPlates.length === 0 ? (
+                <p className="text-muted-foreground">No trucks with temporary plates.</p>
+              ) : (
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Truck #</TableHead>
+                      <TableHead className="w-[200px]">Driver Name</TableHead>
+                      <TableHead className="w-[180px]">Dispatcher</TableHead>
+                      <TableHead className="w-[300px]">Pictures</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {temporaryPlates.map((plate) => {
+                      const truck = tempPlateTruckMap.get(plate.truck_id);
+                      const hasFiles = (tempPlateFileMap[plate.id]?.length || 0) > 0;
+                      return (
+                        <TableRow key={plate.id} className="h-[48px]" style={{ height: '48px' }}>
+                          <TableCell className={`font-medium ${hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}`}>
+                            {truck?.truck_number || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            {truck?.driver1?.name || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            {truck?.dispatcher?.full_name || '—'}
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {(tempPlateFileMap[plate.id] || []).map((fileName) => (
+                                <div key={fileName} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded">
+                                  <span className="truncate max-w-[120px]">{fileName}</span>
+                                  <button
+                                    onClick={() => handleDeleteTempPlateFile(plate.id, fileName)}
+                                    className="text-destructive hover:text-destructive/80"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.accept = 'image/*';
+                                  input.onchange = (e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                    if (file) handleUploadTempPlateFile(plate.id, file);
+                                  };
+                                  input.click();
+                                }}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Upload
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive/80"
+                              onClick={() => handleDeleteTemporaryPlate(plate.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
