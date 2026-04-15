@@ -686,7 +686,7 @@ export default function Alerts() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="trucks" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="trucks" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Trucks ({filteredTrucks.length}{trucksSearch ? ` of ${trucks.length}` : ''})
@@ -698,6 +698,10 @@ export default function Alerts() {
               <TabsTrigger value="drivers" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Drivers ({filteredDrivers.length}{driversSearch ? ` of ${drivers.length}` : ''})
+              </TabsTrigger>
+              <TabsTrigger value="temp_plates" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Temp Plates ({temporaryPlates.length})
               </TabsTrigger>
             </TabsList>
 
