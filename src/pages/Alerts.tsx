@@ -1398,6 +1398,32 @@ export default function Alerts() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Temporary Plate Confirmation */}
+      <AlertDialog open={!!deleteTempPlateId} onOpenChange={(open) => { if (!open) setDeleteTempPlateId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Temporary Plate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this truck from the temporary plates list? All uploaded photos will also be deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTempPlateId) {
+                  handleDeleteTemporaryPlate(deleteTempPlateId);
+                  setDeleteTempPlateId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
