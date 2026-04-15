@@ -96,7 +96,7 @@ import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback, startTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
