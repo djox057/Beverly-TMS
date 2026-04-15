@@ -4219,142 +4219,191 @@ const Reports = () => {
                                                   )}
                                                 <span>{truck.driver}</span>
                                                 {(() => {
+                                                  // Collect all driver-row icons into a unified list
+                                                  type DriverIcon = {
+                                                    key: string;
+                                                    label: string;
+                                                    tooltip: string;
+                                                    color: 'red' | 'yellow' | 'amber';
+                                                    renderIcon: () => React.ReactNode;
+                                                    onClick?: (e: React.MouseEvent) => void;
+                                                  };
+                                                  const icons: DriverIcon[] = [];
+
+                                                  // 1. Maintenance / Oil Change
                                                   const maintenanceStatus = getMaintenanceIconStatus(truck);
                                                   if (maintenanceStatus.show) {
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <img
-                                                            src={wrenchIcon}
-                                                            alt="Maintenance"
-                                                            className="h-3.5 w-3.5"
-                                                            style={{
-                                                              filter:
-                                                                maintenanceStatus.color === "red"
-                                                                  ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
-                                                                  : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
-                                                            }}
-                                                          />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{maintenanceStatus.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
-                                                  }
-                                                  return null;
-                                                })()}
-                                                {hasLumperMissingRC(truck.driverId) && (
-                                                  <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <button
-                                                        className="inline-flex"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setLumperMissingDataDialog({
-                                                            driverId: truck.driverId!,
-                                                            driverName: truck.driver || "Unknown",
-                                                          });
-                                                        }}
-                                                      >
+                                                    icons.push({
+                                                      key: 'maintenance',
+                                                      label: 'Oil Change',
+                                                      tooltip: maintenanceStatus.tooltip,
+                                                      color: maintenanceStatus.color === 'red' ? 'red' : 'yellow',
+                                                      renderIcon: () => (
                                                         <img
-                                                          src={lumperReceiptIcon}
-                                                          alt="Lumper Receipt"
-                                                          className="h-4 w-4 cursor-pointer"
+                                                          src={wrenchIcon}
+                                                          alt="Maintenance"
+                                                          className="h-3.5 w-3.5"
+                                                          style={{
+                                                            filter: maintenanceStatus.color === "red"
+                                                              ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
+                                                              : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                          }}
                                                         />
-                                                      </button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                      <p className="text-xs">Lumper - Missing Receipt</p>
-                                                    </TooltipContent>
-                                                  </Tooltip>
-                                                )}
-                                                {hasEfsMissingData(truck.driverId) && (
-                                                  <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <button
-                                                        className="inline-flex"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setEfsMissingDataDialog({
-                                                            driverId: truck.driverId!,
-                                                            driverName: truck.driver || "Unknown",
-                                                          });
-                                                        }}
-                                                      >
-                                                        <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
-                                                      </button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                      <p className="text-xs">EFS Fuel - Missing Data</p>
-                                                    </TooltipContent>
-                                                  </Tooltip>
-                                                )}
-                                                {truck.randomDrugTestDate && (
-                                                  <Popover>
-                                                    <PopoverTrigger asChild>
-                                                      <button
-                                                        className="inline-flex"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                      >
-                                                        <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
-                                                      </button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-2">
-                                                      <p className="text-xs font-medium">Random Drug Test</p>
-                                                      <p className="text-xs">
-                                                        Date:{" "}
-                                                        {format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}
-                                                      </p>
-                                                    </PopoverContent>
-                                                  </Popover>
-                                                )}
-                                                {(() => {
-                                                  const driverAlerts = collectDriverAlerts(truck);
-                                                  if (driverAlerts.length === 0) return null;
-                                                  if (driverAlerts.length === 1) {
-                                                    const alert = driverAlerts[0];
-                                                    const IconMap: Record<string, any> = { IdCard, FileText, Building2, HeartPulse };
-                                                    const IconComp = IconMap[alert.icon];
-                                                    if (!IconComp) return null;
-                                                    return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          <p className="text-xs">{alert.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    );
+                                                      ),
+                                                    });
                                                   }
-                                                  // 2+ alerts: show count badge with popover
-                                                  const hasRed = driverAlerts.some(a => a.color === 'red');
-                                                  return (
-                                                    <Popover>
-                                                      <PopoverTrigger asChild>
+
+                                                  // 2. Lumper missing RC
+                                                  if (hasLumperMissingRC(truck.driverId)) {
+                                                    icons.push({
+                                                      key: 'lumper',
+                                                      label: 'Lumper - Missing Receipt',
+                                                      tooltip: 'Lumper - Missing Receipt',
+                                                      color: 'amber',
+                                                      renderIcon: () => (
+                                                        <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
+                                                      ),
+                                                      onClick: (e) => {
+                                                        e.stopPropagation();
+                                                        setLumperMissingDataDialog({
+                                                          driverId: truck.driverId!,
+                                                          driverName: truck.driver || "Unknown",
+                                                        });
+                                                      },
+                                                    });
+                                                  }
+
+                                                  // 3. EFS fuel missing
+                                                  if (hasEfsMissingData(truck.driverId)) {
+                                                    icons.push({
+                                                      key: 'efs',
+                                                      label: 'EFS Fuel - Missing Data',
+                                                      tooltip: 'EFS Fuel - Missing Data',
+                                                      color: 'amber',
+                                                      renderIcon: () => (
+                                                        <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
+                                                      ),
+                                                      onClick: (e) => {
+                                                        e.stopPropagation();
+                                                        setEfsMissingDataDialog({
+                                                          driverId: truck.driverId!,
+                                                          driverName: truck.driver || "Unknown",
+                                                        });
+                                                      },
+                                                    });
+                                                  }
+
+                                                  // 4. Random drug test
+                                                  if (truck.randomDrugTestDate) {
+                                                    icons.push({
+                                                      key: 'drugtest',
+                                                      label: 'Random Drug Test',
+                                                      tooltip: `Random Drug Test: ${format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}`,
+                                                      color: 'amber',
+                                                      renderIcon: () => (
+                                                        <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
+                                                      ),
+                                                    });
+                                                  }
+
+                                                  // 5. Temporary plate
+                                                  const tempPlateId = temporaryPlatesByTruckId.get(truck.id);
+                                                  if (tempPlateId) {
+                                                    icons.push({
+                                                      key: 'tempplate',
+                                                      label: 'Temporary Plate',
+                                                      tooltip: 'Temporary Plate - Click to upload photos',
+                                                      color: 'amber',
+                                                      renderIcon: () => (
+                                                        <FileWarning className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
+                                                      ),
+                                                      onClick: (e) => {
+                                                        e.stopPropagation();
+                                                        setTempPlateDialog({
+                                                          truckId: truck.id,
+                                                          truckNumber: truck.truckNumber || "",
+                                                          temporaryPlateId: tempPlateId,
+                                                        });
+                                                      },
+                                                    });
+                                                  }
+
+                                                  // 6. Driver document alerts (CDL, MVR, Clearing House, Medical Card)
+                                                  const driverAlerts = collectDriverAlerts(truck);
+                                                  const IconMap: Record<string, any> = { IdCard, FileText, Building2, HeartPulse };
+                                                  driverAlerts.forEach((alert) => {
+                                                    icons.push({
+                                                      key: `alert-${alert.label}`,
+                                                      label: alert.label,
+                                                      tooltip: alert.tooltip,
+                                                      color: alert.color,
+                                                      renderIcon: () => {
+                                                        const IconComp = IconMap[alert.icon];
+                                                        if (!IconComp) return null;
+                                                        return <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />;
+                                                      },
+                                                    });
+                                                  });
+
+                                                  if (icons.length === 0) return null;
+
+                                                  const MAX_VISIBLE = 2;
+                                                  const visible = icons.slice(0, MAX_VISIBLE);
+                                                  const overflow = icons.slice(MAX_VISIBLE);
+
+                                                  const renderSingleIcon = (icon: DriverIcon) => (
+                                                    <Tooltip key={icon.key}>
+                                                      <TooltipTrigger asChild>
                                                         <button
-                                                          className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer ${hasRed ? 'bg-red-500' : 'bg-yellow-500'}`}
-                                                          onClick={(e) => e.stopPropagation()}
+                                                          className="inline-flex"
+                                                          onClick={icon.onClick || ((e) => e.stopPropagation())}
                                                         >
-                                                          {driverAlerts.length}
+                                                          {icon.renderIcon()}
                                                         </button>
-                                                      </PopoverTrigger>
-                                                      <PopoverContent className="w-auto max-w-xs p-3">
-                                                        <p className="text-xs font-bold mb-2">Driver Alerts</p>
-                                                        <div className="space-y-1">
-                                                          {driverAlerts.map((alert, i) => (
-                                                            <div key={i} className="flex items-center gap-2">
-                                                              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                                                              <span className="text-xs">{alert.tooltip}</span>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent>
+                                                        <p className="text-xs">{icon.tooltip}</p>
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                  );
+
+                                                  return (
+                                                    <>
+                                                      {visible.map(renderSingleIcon)}
+                                                      {overflow.length > 0 && (
+                                                        <Popover>
+                                                          <PopoverTrigger asChild>
+                                                            <button
+                                                              className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer bg-amber-500"
+                                                              onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                              +{overflow.length}
+                                                            </button>
+                                                          </PopoverTrigger>
+                                                          <PopoverContent className="w-auto max-w-xs p-3">
+                                                            <p className="text-xs font-bold mb-2">Driver Alerts ({icons.length})</p>
+                                                            <div className="space-y-1.5">
+                                                              {icons.map((icon) => (
+                                                                <button
+                                                                  key={icon.key}
+                                                                  className="flex items-center gap-2 w-full text-left hover:bg-muted rounded px-1 py-0.5 transition-colors"
+                                                                  onClick={(e) => {
+                                                                    if (icon.onClick) icon.onClick(e);
+                                                                    else e.stopPropagation();
+                                                                  }}
+                                                                >
+                                                                  <span className="flex-shrink-0">{icon.renderIcon()}</span>
+                                                                  <span className="text-xs cursor-pointer">{icon.label}</span>
+                                                                </button>
+                                                              ))}
                                                             </div>
-                                                          ))}
-                                                        </div>
-                                                      </PopoverContent>
-                                                    </Popover>
+                                                          </PopoverContent>
+                                                        </Popover>
+                                                      )}
+                                                    </>
                                                   );
                                                 })()}
-                                                {(truck.driverPhone ||
+                                                 {(truck.driverPhone ||
                                                   truck.driverEmail ||
                                                   truck.trailerNumber ||
                                                   truck.driver2Name) && (
