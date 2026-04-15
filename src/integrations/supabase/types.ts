@@ -3520,6 +3520,38 @@ export type Database = {
         }
         Relationships: []
       }
+      temporary_plates: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "temporary_plates_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trailer_files: {
         Row: {
           content_type: string | null
