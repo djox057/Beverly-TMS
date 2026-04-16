@@ -965,6 +965,8 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
+      bolForceComplete: order.bol_force_complete === true,
+      podForceComplete: order.pod_force_complete === true,
     };
   }, []);
 
@@ -1587,6 +1589,11 @@ const Reports = () => {
         [];
       const bolCount = order.order_files?.filter((file: any) => file.file_category === "BOL").length || 0;
 
+      // If BOL is force-completed, treat all pickups as green
+      if (order.bol_force_complete) {
+        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      }
+
       if (pickupStops.length > 1 && stop) {
         const stopIndex = pickupStops.findIndex((s: any) => s.id === stop.id);
         if (bolCount > stopIndex) {
@@ -1628,6 +1635,11 @@ const Reports = () => {
 
       // Count POD files
       const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
+
+      // If POD is force-completed, treat all deliveries as green
+      if (order.pod_force_complete) {
+        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      }
 
       // If there are multiple delivery stops and we have a specific stop
       if (deliveryStops.length > 1 && stop) {
