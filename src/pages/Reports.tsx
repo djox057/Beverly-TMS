@@ -1663,91 +1663,8 @@ const Reports = () => {
       }
     };
 
-    // Helper to get pickup cell color based on status and previous load
-    const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean, stop?: any) => {
-      if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
-
-      // Check if this is a recovery load first - purple background
-      if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
-
-      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-      const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
-      const isLate = latePickups.has(order.id);
-
-      // For multi-pickup loads: BOL should only turn the corresponding pickup green
-      const pickupStops =
-        order.pickupStops ||
-        order.pickup_drops
-          ?.filter((pd: any) => pd.type === "pickup")
-          .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
-        [];
-      const bolCount = order.order_files?.filter((file: any) => file.file_category === "BOL").length || 0;
-
-      if (pickupStops.length > 1 && stop) {
-        const stopIndex = pickupStops.findIndex((s: any) => s.id === stop.id);
-        if (bolCount > stopIndex) {
-          return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-        }
-      } else {
-        if (hasBOL || hasPOD)
-          return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-      }
-
-      // Arrived at pickup overrides late status - if arrived, show blue not orange
-      if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
-      // Only show late (orange) if NOT arrived
-      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
-      if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
-      return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
-    };
-
-    // Helper to get delivery cell color based on status
-    const getDeliveryCellColor = (order: any, stop?: any) => {
-      if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
-
-      // Check if this is a recovery load first - purple background
-      if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
-
-      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-      const hasArrived = stop?.arrived_at;
-      const isLate = lateDeliveries.has(order.id);
-
-      // For multi-drop loads: POD should only turn the corresponding delivery dark green
-      // Get all delivery stops sorted by sequence_number
-      const deliveryStops =
-        order.deliveryStops ||
-        order.pickup_drops
-          ?.filter((pd: any) => pd.type === "delivery")
-          .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
-        [];
-
-      // Count POD files
-      const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
-
-      // If there are multiple delivery stops and we have a specific stop
-      if (deliveryStops.length > 1 && stop) {
-        // Find the index of this stop
-        const stopIndex = deliveryStops.findIndex((s: any) => s.id === stop.id);
-
-        // Only turn dark green if we have enough PODs for this delivery (1 POD per delivery in sequence)
-        if (podCount > stopIndex) {
-          return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-        }
-      } else {
-        // Single delivery or no specific stop - use original logic
-        if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-      }
-
-      // Arrived at delivery overrides late status - if arrived, show blue not orange
-      if (hasBOL && hasArrived)
-        return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
-      // Only show late (orange) if NOT arrived
-      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
-      if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
-      return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
-    };
+    // Pickup/delivery cell colors use the imported helpers from helpers.ts
+    // which handle force-complete via synthetic files in order_files.
 
     // Helper function to get lost day note for a specific date
     // NOTE: Some code paths (legacy vs date-window adapter) may provide notes under
@@ -2316,7 +2233,7 @@ const Reports = () => {
 
                       // Render a separate cell for each delivery stop
                       return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop);
+                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
                         const totalCellsOnDay =
                           allDeliveryOrders.reduce(
                             (sum, o) =>
@@ -2375,7 +2292,7 @@ const Reports = () => {
 
                       // Render a separate cell for each delivery stop
                       return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop);
+                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
                         const totalCellsOnDay =
                           allDeliveryOrders.reduce(
                             (sum, o) =>
@@ -2506,7 +2423,7 @@ const Reports = () => {
 
                           // Render a separate cell for each pickup stop
                           return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, stop);
+                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
                             const totalCellsOnDay =
                               allPickupOrders.reduce(
                                 (sum, o) =>
@@ -2568,7 +2485,7 @@ const Reports = () => {
 
                           // Render a separate cell for each pickup stop
                           return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, stop);
+                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
                             const totalCellsOnDay =
                               allPickupOrders.reduce(
                                 (sum, o) =>

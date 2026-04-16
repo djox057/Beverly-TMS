@@ -1404,11 +1404,26 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Wait for order_files only on initial load - during navigation keep previous data
     if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
 
-    // Enrich orders with order_files before processing
-    const orders = dateWindowHook.orders.map((order) => ({
-      ...order,
-      order_files: orderFilesMap.get(order.id) || [],
-    }));
+    // Enrich orders with order_files before processing (inject synthetic files for force-complete)
+    const orders = dateWindowHook.orders.map((order) => {
+      const files = [...(orderFilesMap.get(order.id) || [])];
+      const pickupDrops = order.pickup_drops || [];
+      if (order.bol_force_complete) {
+        const pickupCount = pickupDrops.filter((pd: any) => pd.type === "pickup").length || 1;
+        const existingBolCount = files.filter((f) => f.file_category === "BOL").length;
+        for (let i = existingBolCount; i < pickupCount; i++) {
+          files.push({ id: `synthetic-bol-${order.id}-${i}`, order_id: order.id, file_category: "BOL", file_name: "force-complete", file_path: "" });
+        }
+      }
+      if (order.pod_force_complete) {
+        const deliveryCount = pickupDrops.filter((pd: any) => pd.type === "delivery").length || 1;
+        const existingPodCount = files.filter((f) => f.file_category === "POD").length;
+        for (let i = existingPodCount; i < deliveryCount; i++) {
+          files.push({ id: `synthetic-pod-${order.id}-${i}`, order_id: order.id, file_category: "POD", file_name: "force-complete", file_path: "" });
+        }
+      }
+      return { ...order, order_files: files };
+    });
     const driverIds = dateWindowHook.driverIds;
 
     // Build lookup maps
@@ -1496,10 +1511,22 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Add last loads for drivers with no orders in the date window
     if (lastLoadsData?.orders) {
       for (const lastOrder of lastLoadsData.orders) {
-        // Enrich with order_files
+        // Enrich with order_files + synthetic files for force-complete
+        const lastFiles = [...(orderFilesMap.get(lastOrder.id) || [])];
+        const lastPD = lastOrder.pickup_drops || [];
+        if (lastOrder.bol_force_complete) {
+          const pc = lastPD.filter((pd: any) => pd.type === "pickup").length || 1;
+          const ec = lastFiles.filter((f) => f.file_category === "BOL").length;
+          for (let i = ec; i < pc; i++) lastFiles.push({ id: `synthetic-bol-${lastOrder.id}-${i}`, order_id: lastOrder.id, file_category: "BOL", file_name: "force-complete", file_path: "" });
+        }
+        if (lastOrder.pod_force_complete) {
+          const dc = lastPD.filter((pd: any) => pd.type === "delivery").length || 1;
+          const ec = lastFiles.filter((f) => f.file_category === "POD").length;
+          for (let i = ec; i < dc; i++) lastFiles.push({ id: `synthetic-pod-${lastOrder.id}-${i}`, order_id: lastOrder.id, file_category: "POD", file_name: "force-complete", file_path: "" });
+        }
         const enrichedOrder = {
           ...lastOrder,
-          order_files: orderFilesMap.get(lastOrder.id) || [],
+          order_files: lastFiles,
         };
         
         // Add to driver1 if they have no orders yet
