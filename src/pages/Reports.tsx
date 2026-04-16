@@ -7321,6 +7321,32 @@ const Reports = () => {
         }}
         driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
       />
+
+      {/* Force Complete Confirmation Dialog */}
+      <AlertDialog open={!!forceCompleteConfirm} onOpenChange={(open) => !open && setForceCompleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force Complete {forceCompleteConfirm?.type}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark all {forceCompleteConfirm?.type === "BOL" ? "BOL" : "POD"} as complete?
+              {forceCompleteConfirm?.type === "POD" && " This will also mark the order as delivered."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (forceCompleteConfirm) {
+                  handleForceComplete(forceCompleteConfirm.type, forceCompleteConfirm.orderId);
+                  setForceCompleteConfirm(null);
+                }
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
