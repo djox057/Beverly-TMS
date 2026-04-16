@@ -2,14 +2,13 @@ import { format, isSameDay, addDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
-// Force-complete aware helpers: check both file existence AND force_complete flags
+// Helpers to check BOL/POD presence — synthetic files are injected by ordersTransform
+// when force_complete flags are true, so we only need to check order_files here.
 export const orderHasBOL = (order: any): boolean => {
-  if (order.bol_force_complete || order.bolForceComplete) return true;
   return order.order_files?.some((file: any) => file.file_category === "BOL") ?? false;
 };
 
 export const orderHasPOD = (order: any): boolean => {
-  if (order.pod_force_complete || order.podForceComplete) return true;
   return order.order_files?.some((file: any) => file.file_category === "POD") ?? false;
 };
 
