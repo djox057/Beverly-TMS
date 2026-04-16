@@ -100,8 +100,6 @@ export function transformOrders(allOrders: any[]) {
       // Handle paid boolean - convert string "true"/"false" to actual boolean
       paid: order.paid === true || order.paid === "true" || order.paid === 1,
       isRecovery: order.is_recovery === true || order.is_recovery === "true" || order.is_recovery === 1,
-      bolForceComplete: order.bol_force_complete === true || order.bol_force_complete === "true",
-      podForceComplete: order.pod_force_complete === true || order.pod_force_complete === "true",
 
       // Truck and equipment - use enriched objects, fallback to deleted_* fields for archived orders
       // Handle "null" strings from CSV export

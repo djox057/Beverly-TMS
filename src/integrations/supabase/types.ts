@@ -2634,7 +2634,6 @@ export type Database = {
       orders: {
         Row: {
           additional_miles: number | null
-          bol_force_complete: boolean
           bol_location: string | null
           booked_by: string
           booked_by_company_id: string
@@ -2726,7 +2725,6 @@ export type Database = {
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           po_number: string | null
-          pod_force_complete: boolean
           pu_number: string | null
           recovery_date: string | null
           recovery_driver_price: number | null
@@ -2745,7 +2743,6 @@ export type Database = {
         }
         Insert: {
           additional_miles?: number | null
-          bol_force_complete?: boolean
           bol_location?: string | null
           booked_by: string
           booked_by_company_id: string
@@ -2837,7 +2834,6 @@ export type Database = {
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
-          pod_force_complete?: boolean
           pu_number?: string | null
           recovery_date?: string | null
           recovery_driver_price?: number | null
@@ -2856,7 +2852,6 @@ export type Database = {
         }
         Update: {
           additional_miles?: number | null
-          bol_force_complete?: boolean
           bol_location?: string | null
           booked_by?: string
           booked_by_company_id?: string
@@ -2948,7 +2943,6 @@ export type Database = {
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
-          pod_force_complete?: boolean
           pu_number?: string | null
           recovery_date?: string | null
           recovery_driver_price?: number | null

@@ -5,16 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
@@ -614,8 +604,6 @@ const Reports = () => {
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
-    bolForceComplete: boolean;
-    podForceComplete: boolean;
   } | null>(null);
 
   // Additional files popover state
@@ -704,7 +692,6 @@ const Reports = () => {
   }, [proximityAddress, groupedReports]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
-  const [forceCompleteDialog, setForceCompleteDialog] = useState<{ open: boolean; type: "BOL" | "POD" }>({ open: false, type: "BOL" });
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
@@ -813,7 +800,7 @@ const Reports = () => {
 
       // Check if this order has BOL but no POD (incomplete delivery)
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete || order.podForceComplete;
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
 
       return hasBOL && !hasPOD;
     });
@@ -900,9 +887,6 @@ const Reports = () => {
     const order = truck.allOrders?.find((o: any) => o.id === orderId);
     if (!order) return null;
 
-    const bolForceComplete = order.bol_force_complete === true || order.bolForceComplete === true;
-    const podForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-
     // Build driver names from driver1Name and driver2Name
     let driverNames = truck.driver1Name || "";
     if (truck.driver2Name) {
@@ -971,153 +955,10 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
-      bolForceComplete,
-      podForceComplete,
     };
   }, []);
-  // Force complete handler for BOL/POD on multi-stop orders
-  const handleForceComplete = async (type: "BOL" | "POD") => {
-    if (!zoomedLoad) return;
-    const orderId = zoomedLoad.orderId;
-    const field = type === "BOL" ? "bol_force_complete" : "pod_force_complete";
 
-    const updateData: any = { [field]: true };
-    // For POD force complete, also set status to delivered
-    if (type === "POD") {
-      updateData.status = "delivered";
-    }
-
-    const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
-    if (error) {
-      toast({ title: "Error", description: `Failed to mark ${type} as complete`, variant: "destructive" });
-      return;
-    }
-
-    // For POD: also set checked_out_at on delivery stops that don't have it
-    if (type === "POD" && zoomedLoad.allDeliveryStops?.length > 0) {
-      const stopsWithoutCheckout = zoomedLoad.allDeliveryStops.filter((s: any) => !s.checked_out_at);
-      if (stopsWithoutCheckout.length > 0) {
-        await Promise.all(
-          stopsWithoutCheckout.map((s: any) =>
-            supabase.from("pickup_drops").update({ checked_out_at: new Date().toISOString() }).eq("id", s.id)
-          )
-        );
-      }
-    }
-
-    const nowIso = new Date().toISOString();
-    const isBol = type === "BOL";
-    const forceField = isBol ? "bol_force_complete" : "pod_force_complete";
-    const forceFieldCamel = isBol ? "bolForceComplete" : "podForceComplete";
-
-    const updateReportsData = (old: any) => {
-      if (!old) return old;
-
-      return old.map((group: any) => ({
-        ...group,
-        trucks: group.trucks.map((truck: any) => {
-          const allOrders = truck.allOrders?.map((order: any) => {
-            if (order.id !== orderId) return order;
-
-            const nextDeliveryStops = !isBol
-              ? (order.deliveryStops || []).map((stop: any) => ({
-                  ...stop,
-                  checked_out_at: stop.checked_out_at || nowIso,
-                }))
-              : order.deliveryStops;
-
-            const nextPickupDrops = !isBol
-              ? (order.pickup_drops || []).map((stop: any) =>
-                  stop.type === "delivery" || stop.type === "drop"
-                    ? { ...stop, checked_out_at: stop.checked_out_at || nowIso }
-                    : stop,
-                )
-              : order.pickup_drops;
-
-            const nextOrder = {
-              ...order,
-              [forceField]: true,
-              [forceFieldCamel]: true,
-              ...(isBol ? {} : { status: "delivered" }),
-              ...(nextDeliveryStops ? { deliveryStops: nextDeliveryStops } : {}),
-              ...(nextPickupDrops ? { pickup_drops: nextPickupDrops } : {}),
-            };
-
-            const nextHasBOL = nextOrder.order_files?.some((file: any) => file.file_category === "BOL") || nextOrder.bol_force_complete || nextOrder.bolForceComplete;
-            const nextHasPOD = nextOrder.order_files?.some((file: any) => file.file_category === "POD") || nextOrder.pod_force_complete || nextOrder.podForceComplete;
-
-            return {
-              ...nextOrder,
-              isActive: !nextHasPOD && (nextOrder.status === "pending" || nextOrder.status === "in_transit"),
-              isRecentCompleted: nextHasPOD || nextOrder.status === "delivered",
-              documentStatus: nextHasPOD ? "complete" : nextHasBOL ? "partial" : order.documentStatus,
-              documentColors:
-                order.documentColors && typeof order.documentColors === "object"
-                  ? { ...order.documentColors, pod: nextHasPOD, bol: nextHasBOL }
-                  : order.documentColors,
-              loadDetails: order.loadDetails
-                ? {
-                    ...order.loadDetails,
-                    documents: Array.isArray(order.loadDetails.documents)
-                      ? Array.from(
-                          new Map(
-                            [
-                              ...order.loadDetails.documents,
-                              { category: type },
-                            ].map((doc: any) => [doc.category, doc]),
-                          ).values(),
-                        )
-                      : order.loadDetails.documents,
-                  }
-                : order.loadDetails,
-            };
-          });
-
-          return {
-            ...truck,
-            ...(truck.currentOrder?.id === orderId
-              ? {
-                  currentOrder: allOrders?.find((order: any) => order.id === orderId) || truck.currentOrder,
-                }
-              : {}),
-            ...(truck.currentOrderId === orderId ? { currentOrderId: orderId } : {}),
-            allOrders,
-          };
-        }),
-      }));
-    };
-
-    queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateReportsData);
-    queryClient.setQueryData(["reports", "full"], updateReportsData);
-
-    // Optimistically update zoomedLoad
-    setZoomedLoad((prev: any) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        [forceFieldCamel]: true,
-        ...(!isBol
-          ? {
-              allDeliveryStops: (prev.allDeliveryStops || []).map((stop: any) => ({
-                ...stop,
-                checked_out_at: stop.checked_out_at || nowIso,
-              })),
-            }
-          : {}),
-        documents: type === "POD" 
-          ? [...new Set([...prev.documents, "POD"])]
-          : [...new Set([...prev.documents, "BOL"])],
-      };
-    });
-
-    // Invalidate non-reports caches
-    queryClient.invalidateQueries({ queryKey: ["orders"] });
-
-    toast({ title: "Success", description: `All ${type === "BOL" ? "pickup" : "delivery"} stops marked as ${type} complete` });
-    setForceCompleteDialog({ open: false, type: "BOL" });
-  };
-
-
+  // File upload handlers
   const handleDocumentClick = (docType: string, isChecked: boolean) => {
     if (!isChecked) {
       setUploadDocType(docType);
@@ -1736,11 +1577,6 @@ const Reports = () => {
         [];
       const bolCount = order.order_files?.filter((file: any) => file.file_category === "BOL").length || 0;
 
-      // If BOL is force-completed, treat all pickups as green
-      if (order.bol_force_complete || order.bolForceComplete) {
-        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-      }
-
       if (pickupStops.length > 1 && stop) {
         const stopIndex = pickupStops.findIndex((s: any) => s.id === stop.id);
         if (bolCount > stopIndex) {
@@ -1782,11 +1618,6 @@ const Reports = () => {
 
       // Count POD files
       const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
-
-      // If POD is force-completed, treat all deliveries as green
-      if (order.pod_force_complete || order.podForceComplete) {
-        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-      }
 
       // If there are multiple delivery stops and we have a specific stop
       if (deliveryStops.length > 1 && stop) {
@@ -6601,45 +6432,7 @@ const Reports = () => {
                   );
                 })}
 
-                {/* Force Complete buttons for multi-stop BOL/POD */}
-                {(() => {
-                  const pickupStops = zoomedLoad?.allPickupStops || [];
-                  const deliveryStops = zoomedLoad?.allDeliveryStops || [];
-                  const bolCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "BOL").length || 0;
-                  const podCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "POD").length || 0;
-                  const bolForceComplete = zoomedLoad?.bolForceComplete === true;
-                  const podForceComplete = zoomedLoad?.podForceComplete === true;
-                  const showBolComplete = pickupStops.length > bolCount && !bolForceComplete;
-                  const showPodComplete = deliveryStops.length > podCount && !podForceComplete;
-
-                  return (
-                    <>
-                      {showBolComplete && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs border-green-500/50 text-green-600 hover:bg-green-500/10"
-                          onClick={() => setForceCompleteDialog({ open: true, type: "BOL" })}
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          BOL Complete
-                        </Button>
-                      )}
-                      {showPodComplete && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs border-green-500/50 text-green-600 hover:bg-green-500/10"
-                          onClick={() => setForceCompleteDialog({ open: true, type: "POD" })}
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          POD Complete
-                        </Button>
-                      )}
-                    </>
-                  );
-                })()}
-
+                {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
                   <Button
                     variant="outline"
@@ -7398,25 +7191,6 @@ const Reports = () => {
         }}
         driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
       />
-
-      {/* Force Complete Confirmation Dialog */}
-      <AlertDialog open={forceCompleteDialog.open} onOpenChange={(open) => { if (!open) setForceCompleteDialog({ open: false, type: "BOL" }); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Mark all {forceCompleteDialog.type} as complete?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to mark all {forceCompleteDialog.type === "BOL" ? "pickup" : "delivery"} stops as {forceCompleteDialog.type} complete? This will treat all {forceCompleteDialog.type === "BOL" ? "pickup" : "delivery"} stops as having documents uploaded.
-              {forceCompleteDialog.type === "POD" && " The order status will also be set to delivered."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleForceComplete(forceCompleteDialog.type)}>
-              Complete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };
