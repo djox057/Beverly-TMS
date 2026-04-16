@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
 import BeverlyHeatmapBrokers from "./BeverlyHeatmapBrokers";
+import BeverlyHeatmapLane from "./BeverlyHeatmapLane";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -574,6 +575,7 @@ export default function BeverlyHeatmap() {
           <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="brokers">Brokers</TabsTrigger>
+          <TabsTrigger value="lane">Lane</TabsTrigger>
         </TabsList>
 
         <TabsContent value="heatmap">
