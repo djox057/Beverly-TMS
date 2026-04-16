@@ -7301,6 +7301,25 @@ const Reports = () => {
         }}
         driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
       />
+
+      {/* Force Complete Confirmation Dialog */}
+      <AlertDialog open={forceCompleteDialog.open} onOpenChange={(open) => { if (!open) setForceCompleteDialog({ open: false, type: "BOL" }); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark all {forceCompleteDialog.type} as complete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark all {forceCompleteDialog.type === "BOL" ? "pickup" : "delivery"} stops as {forceCompleteDialog.type} complete? This will treat all {forceCompleteDialog.type === "BOL" ? "pickup" : "delivery"} stops as having documents uploaded.
+              {forceCompleteDialog.type === "POD" && " The order status will also be set to delivered."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleForceComplete(forceCompleteDialog.type)}>
+              Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
