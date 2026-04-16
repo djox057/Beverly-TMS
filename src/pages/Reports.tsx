@@ -987,7 +987,7 @@ const Reports = () => {
       }
 
       // Optimistic update: update zoomedLoad state
-      setZoomedLoad((prev) => {
+      setZoomedLoad((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
