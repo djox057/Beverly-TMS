@@ -813,7 +813,7 @@ const Reports = () => {
 
       // Check if this order has BOL but no POD (incomplete delivery)
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete;
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete || order.podForceComplete;
 
       return hasBOL && !hasPOD;
     });
@@ -1642,7 +1642,7 @@ const Reports = () => {
       const bolCount = order.order_files?.filter((file: any) => file.file_category === "BOL").length || 0;
 
       // If BOL is force-completed, treat all pickups as green
-      if (order.bol_force_complete) {
+      if (order.bol_force_complete || order.bolForceComplete) {
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       }
 
@@ -1689,7 +1689,7 @@ const Reports = () => {
       const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
 
       // If POD is force-completed, treat all deliveries as green
-      if (order.pod_force_complete) {
+      if (order.pod_force_complete || order.podForceComplete) {
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       }
 
@@ -6512,8 +6512,8 @@ const Reports = () => {
                   const deliveryStops = zoomedLoad?.allDeliveryStops || [];
                   const bolCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "BOL").length || 0;
                   const podCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "POD").length || 0;
-                  const showBolComplete = pickupStops.length > 1 && bolCount > 0 && bolCount < pickupStops.length && !zoomedLoad?.bolForceComplete;
-                  const showPodComplete = deliveryStops.length > 1 && podCount > 0 && podCount < deliveryStops.length && !zoomedLoad?.podForceComplete;
+                   const showBolComplete = pickupStops.length > 1 && bolCount < pickupStops.length && !zoomedLoad?.bolForceComplete;
+                   const showPodComplete = deliveryStops.length > 1 && podCount < deliveryStops.length && !zoomedLoad?.podForceComplete;
 
                   return (
                     <>
