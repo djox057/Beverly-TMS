@@ -71,12 +71,24 @@ import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDial
 import { EditTransferDialog, EditTransferData } from "@/components/EditTransferDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
-import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes, combineNotes, appendUserNote } from "@/utils/orderChangeTracker";
+import {
+  OrderSnapshot,
+  generateChangeMessages,
+  appendChangesToNotes,
+  parseNotes,
+  combineNotes,
+  appendUserNote,
+} from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
-import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipients, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
+import {
+  MilesChangeReasonDialog,
+  checkMilesChange,
+  getMilesChangeSmsRecipients,
+  buildMilesChangeSmsMessage,
+} from "@/components/MilesChangeReasonDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -225,12 +237,12 @@ const EditOrder = () => {
   const [userNotes, setUserNotes] = useState("");
   const [systemNotes, setSystemNotes] = useState("");
   const [bookedBy, setBookedBy] = useState("");
-  
+
   // Change note dialog state
   const [showChangeNoteDialog, setShowChangeNoteDialog] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<string[]>([]);
   const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null);
-  
+
   // Queued submit state: triggers a re-render so performSave sees updated additionals state
   const [queuedSubmit, setQueuedSubmit] = useState<{ changeNote?: string } | null>(null);
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
@@ -262,7 +274,7 @@ const EditOrder = () => {
   // Track original delivery date and date change notes for audit trail
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
   const [dateChangeNotes, setDateChangeNotes] = useState("");
-  
+
   // Track original order snapshot for change tracking
   const [originalSnapshot, setOriginalSnapshot] = useState<OrderSnapshot | null>(null);
 
@@ -319,9 +331,7 @@ const EditOrder = () => {
 
   const openEnhanceDialog = async (file: { file_path: string; file_name: string; file_category: string }) => {
     try {
-      const { data, error } = await supabase.storage
-        .from("order-files")
-        .createSignedUrl(file.file_path, 3600);
+      const { data, error } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600);
 
       if (error) {
         toast({
@@ -484,17 +494,18 @@ const EditOrder = () => {
   // This effect runs in a new render where the additionals state is updated
   useEffect(() => {
     if (!queuedSubmit) return;
-    
+
     const { changeNote } = queuedSubmit;
     setQueuedSubmit(null); // Clear immediately to prevent loops
-    
+
     // Now run the actual submit logic with updated state
     const runQueuedSubmit = async () => {
       // Check if revised RC is required (additionals added except lumper)
       if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
         toast({
           title: "Revised Rate Confirmation Required",
-          description: "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
+          description:
+            "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
           variant: "destructive",
         });
         return;
@@ -511,7 +522,7 @@ const EditOrder = () => {
 
       // Detect changes
       const changes = detectChanges();
-      
+
       // If there are changes, show dialog to require user note
       if (changes.length > 0) {
         setPendingChanges(changes);
@@ -523,7 +534,7 @@ const EditOrder = () => {
       setIsSubmitting(true);
       await performSave();
     };
-    
+
     runQueuedSubmit();
   }, [queuedSubmit]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -614,9 +625,7 @@ const EditOrder = () => {
         setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
         setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
         setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
-        setNoTrackingFee(
-          (orderData as any).no_tracking_fee > 0 ? (orderData as any).no_tracking_fee.toString() : "",
-        );
+        setNoTrackingFee((orderData as any).no_tracking_fee > 0 ? (orderData as any).no_tracking_fee.toString() : "");
         setNoTrackingFeeDriver(
           (orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "",
         );
@@ -626,9 +635,7 @@ const EditOrder = () => {
         setWrongAddressFeeDriver(
           (orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "",
         );
-        setOtherCharges(
-          (orderData as any).other_charges > 0 ? (orderData as any).other_charges.toString() : "",
-        );
+        setOtherCharges((orderData as any).other_charges > 0 ? (orderData as any).other_charges.toString() : "");
         setOtherChargesDriver(
           (orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "",
         );
@@ -664,7 +671,7 @@ const EditOrder = () => {
           // Parse JSON strings to arrays
           const parseBrokersArray = (data: any) => {
             if (!data) return [];
-            if (typeof data === 'string') {
+            if (typeof data === "string") {
               try {
                 return JSON.parse(data);
               } catch {
@@ -699,7 +706,8 @@ const EditOrder = () => {
           ((orderData as any).other_charges && parseFloat((orderData as any).other_charges) > 0) ||
           ((orderData as any).other_charges_driver && parseFloat((orderData as any).other_charges_driver) > 0) ||
           ((orderData as any).other_additionals && parseFloat((orderData as any).other_additionals) > 0) ||
-          ((orderData as any).other_additionals_driver && parseFloat((orderData as any).other_additionals_driver) > 0) ||
+          ((orderData as any).other_additionals_driver &&
+            parseFloat((orderData as any).other_additionals_driver) > 0) ||
           ((orderData as any).additional_miles && parseInt((orderData as any).additional_miles) > 0) ||
           ((orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0);
         setShowAdditionalFields(hasAdditionalValues);
@@ -749,15 +757,17 @@ const EditOrder = () => {
         // Load order transfers from database
         const { data: transfersData } = await supabase
           .from("order_transfers")
-          .select(`
+          .select(
+            `
             *,
             driver1:drivers!order_transfers_driver1_id_fkey(id, name),
             truck:trucks!order_transfers_truck_id_fkey(id, truck_number),
             trailer:trailers!order_transfers_trailer_id_fkey(id, trailer_number)
-          `)
+          `,
+          )
           .eq("order_id", id)
           .order("sequence_number", { ascending: true });
-        
+
         if (transfersData && transfersData.length > 0) {
           setOrderTransfers(transfersData);
         }
@@ -859,10 +869,10 @@ const EditOrder = () => {
         if (orderData.order_files) {
           setExistingFiles(orderData.order_files);
         }
-        
+
         // Capture original snapshot for change tracking
-        const firstPickupDrop = orderData.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-        const firstDeliveryDrop = orderData.pickup_drops?.find((pd: any) => pd.type === 'delivery');
+        const firstPickupDrop = orderData.pickup_drops?.find((pd: any) => pd.type === "pickup");
+        const firstDeliveryDrop = orderData.pickup_drops?.find((pd: any) => pd.type === "delivery");
         setOriginalSnapshot({
           freightAmount: orderData.freight_amount,
           driverPrice: orderData.driver_price,
@@ -906,7 +916,7 @@ const EditOrder = () => {
           pickupDatetime: orderData.pickup_datetime,
           deliveryDatetime: orderData.delivery_datetime,
         });
-        
+
         console.log("Data loading completed successfully");
       }
     } catch (error) {
@@ -1045,13 +1055,13 @@ const EditOrder = () => {
   // Auto-calculate original driver rate in yard dialog based on cents_per_mile
   useEffect(() => {
     if (!yardDialogOpen || !driver1 || !yardOriginalMiles) return;
-    
-    const originalDriver = drivers?.find(d => d.id === driver1);
+
+    const originalDriver = drivers?.find((d) => d.id === driver1);
     if (!originalDriver?.is_company_driver || !originalDriver?.cents_per_mile) return;
-    
+
     const miles = parseFloat(yardOriginalMiles) || 0;
     if (miles <= 0) return;
-    
+
     const calculatedPrice = miles * (originalDriver.cents_per_mile / 100);
     setOriginalDriverPrice(calculatedPrice.toFixed(2));
   }, [yardDialogOpen, driver1, yardOriginalMiles, drivers]);
@@ -1213,7 +1223,7 @@ const EditOrder = () => {
             if (!response.ok) {
               throw new Error(responseData.error || "Failed to send email");
             }
-            
+
             // Log the email to driver_email_log table
             if (id && selectedDriver.id) {
               console.log("📝 Logging email to driver_email_log:", {
@@ -1221,16 +1231,14 @@ const EditOrder = () => {
                 driver_id: selectedDriver.id,
                 sent_by: session?.user?.id,
               });
-              
-              const { error: logError } = await supabase
-                .from('driver_email_log')
-                .insert({
-                  order_id: id,
-                  driver_id: selectedDriver.id,
-                  email_type: 'load_confirmation',
-                  sent_by: session?.user?.id,
-                });
-              
+
+              const { error: logError } = await supabase.from("driver_email_log").insert({
+                order_id: id,
+                driver_id: selectedDriver.id,
+                email_type: "load_confirmation",
+                sent_by: session?.user?.id,
+              });
+
               if (logError) {
                 console.error("❌ Error logging email:", logError);
               } else {
@@ -1242,11 +1250,11 @@ const EditOrder = () => {
                 driverId: selectedDriver.id,
               });
             }
-            
+
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
+              description: `File sent to ${selectedDriver.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ""}`,
             });
             resolve(true);
           } catch (err) {
@@ -1540,11 +1548,11 @@ const EditOrder = () => {
         if (files && files.length > 0) {
           if (fileType === "email") {
             const selected = Array.from(files);
-            const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map(f => f.name) : []);
+            const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map((f) => f.name) : []);
             const rcExistingNames = new Set(
-              existingFiles.filter(f => f.file_category === 'RC').map(f => f.file_name)
+              existingFiles.filter((f) => f.file_category === "RC").map((f) => f.file_name),
             );
-            const filtered = selected.filter(f => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name));
+            const filtered = selected.filter((f) => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name));
             if (filtered.length < selected.length) {
               toast({
                 title: "Duplicate file skipped",
@@ -1607,7 +1615,7 @@ const EditOrder = () => {
     ...(trailers?.map((trailer) => ({
       value: trailer.id,
       label: trailer.trailer_number,
-    })) || [])
+    })) || []),
   ];
   const driverOptions =
     drivers?.map((driver) => ({
@@ -1620,8 +1628,8 @@ const EditOrder = () => {
       const isManualOriginal = data.manualOriginalDriver || data.manualOriginalTruck;
 
       // Get driver and truck names for the note
-      const recoveryDriver = drivers?.find(d => d.id === data.recoveryDriverId);
-      const recoveryTruck = trucks?.find(t => t.id === data.recoveryTruckId);
+      const recoveryDriver = drivers?.find((d) => d.id === data.recoveryDriverId);
+      const recoveryTruck = trucks?.find((t) => t.id === data.recoveryTruckId);
 
       // Build transfer note to add to order notes
       const transferDate = new Date(data.transferDatetime);
@@ -1695,9 +1703,9 @@ const EditOrder = () => {
         {
           order_id: id,
           sequence_number: 0,
-          driver1_id: isManualOriginal ? null : (driver1 || null),
-          truck_id: isManualOriginal ? null : (truck || null),
-          trailer_id: isManualOriginal ? null : (trailerId || null),
+          driver1_id: isManualOriginal ? null : driver1 || null,
+          truck_id: isManualOriginal ? null : truck || null,
+          trailer_id: isManualOriginal ? null : trailerId || null,
           miles: data.originalMiles,
           driver_price: data.originalDriverRate,
           transfer_date: data.recoveryDate,
@@ -1712,7 +1720,7 @@ const EditOrder = () => {
           sequence_number: 1,
           driver1_id: data.recoveryDriverId,
           truck_id: data.recoveryTruckId,
-          trailer_id: data.swapTrailers ? trailerId : (data.recoveryTrailerId || null),
+          trailer_id: data.swapTrailers ? trailerId : data.recoveryTrailerId || null,
           miles: data.recoveryMiles,
           driver_price: data.recoveryDriverRate,
           transfer_date: data.recoveryDate,
@@ -1724,9 +1732,7 @@ const EditOrder = () => {
         },
       ];
 
-      const { error: transferError } = await supabase
-        .from("order_transfers")
-        .insert(transferRecords);
+      const { error: transferError } = await supabase.from("order_transfers").insert(transferRecords);
 
       if (transferError) {
         console.error("Error inserting transfer records:", transferError);
@@ -1789,11 +1795,11 @@ const EditOrder = () => {
     try {
       // Get the last transfer to use as "previous"
       const lastTransfer = orderTransfers[orderTransfers.length - 1];
-      
+
       // Get driver name for the note
-      const newDriver = drivers?.find(d => d.id === data.newDriverId);
-      const newTruck = trucks?.find(t => t.id === data.newTruckId);
-      
+      const newDriver = drivers?.find((d) => d.id === data.newDriverId);
+      const newTruck = trucks?.find((t) => t.id === data.newTruckId);
+
       // Insert new transfer record
       const { error } = await supabase.from("order_transfers").insert({
         order_id: id,
@@ -1886,30 +1892,27 @@ const EditOrder = () => {
         if (data.driverId) {
           updateData.original_driver1_id = data.driverId;
           // Store the driver name as well for deleted_driver1_name backup
-          const driver = drivers?.find(d => d.id === data.driverId);
+          const driver = drivers?.find((d) => d.id === data.driverId);
           if (driver) {
             setOriginalDriverName(driver.name || "");
           }
         }
         if (data.truckId) {
           updateData.original_truck_id = data.truckId;
-          const truckObj = trucks?.find(t => t.id === data.truckId);
+          const truckObj = trucks?.find((t) => t.id === data.truckId);
           if (truckObj) {
             setOriginalTruckNumber(truckObj.truck_number || "");
           }
         }
         if (data.trailerId) {
           updateData.original_trailer_id = data.trailerId;
-          const trailerObj = trailers?.find(t => t.id === data.trailerId);
+          const trailerObj = trailers?.find((t) => t.id === data.trailerId);
           if (trailerObj) {
             setOriginalTrailerNumber(trailerObj.trailer_number || "");
           }
         }
 
-        const { error } = await supabase
-          .from("orders")
-          .update(updateData)
-          .eq("id", id);
+        const { error } = await supabase.from("orders").update(updateData).eq("id", id);
 
         if (error) throw error;
 
@@ -1934,16 +1937,13 @@ const EditOrder = () => {
         if (data.trailerId) {
           updateData.trailer_id = data.trailerId;
           setTrailerId(data.trailerId);
-          const trailerObj = trailers?.find(t => t.id === data.trailerId);
+          const trailerObj = trailers?.find((t) => t.id === data.trailerId);
           if (trailerObj) {
             setTrailer(trailerObj.trailer_number || "");
           }
         }
 
-        const { error } = await supabase
-          .from("orders")
-          .update(updateData)
-          .eq("id", id);
+        const { error } = await supabase.from("orders").update(updateData).eq("id", id);
 
         if (error) throw error;
 
@@ -1966,10 +1966,7 @@ const EditOrder = () => {
         if (data.miles !== undefined) updateData.miles = data.miles;
         if (data.driverPrice !== undefined) updateData.driver_price = data.driverPrice;
 
-        const { error } = await supabase
-          .from("order_transfers")
-          .update(updateData)
-          .eq("id", data.id);
+        const { error } = await supabase.from("order_transfers").update(updateData).eq("id", data.id);
 
         if (error) throw error;
       }
@@ -2062,10 +2059,7 @@ const EditOrder = () => {
 
         if (yardRevertError) throw yardRevertError;
 
-        const { error: transfersDeleteError } = await supabase
-          .from("order_transfers")
-          .delete()
-          .eq("order_id", id);
+        const { error: transfersDeleteError } = await supabase.from("order_transfers").delete().eq("order_id", id);
 
         if (transfersDeleteError) throw transfersDeleteError;
 
@@ -2106,10 +2100,7 @@ const EditOrder = () => {
       if (orderError) throw orderError;
 
       // Delete order_transfers records for this order
-      const { error: transfersDeleteError } = await supabase
-        .from("order_transfers")
-        .delete()
-        .eq("order_id", id);
+      const { error: transfersDeleteError } = await supabase.from("order_transfers").delete().eq("order_id", id);
 
       if (transfersDeleteError) throw transfersDeleteError;
 
@@ -2127,14 +2118,20 @@ const EditOrder = () => {
           supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", recoveryHistory.original_trailer_id),
           supabase.from("trucks").update({ trailer_id: null }).eq("trailer_id", recoveryHistory.recovery_trailer_id),
         ]);
-        if (c1.error || c2.error || c3.error || c4.error) throw (c1.error || c2.error || c3.error || c4.error);
+        if (c1.error || c2.error || c3.error || c4.error) throw c1.error || c2.error || c3.error || c4.error;
 
         // Stage 2: Assign correct trailers back
         const [r1, r2] = await Promise.all([
-          supabase.from("trucks").update({ trailer_id: recoveryHistory.original_trailer_id }).eq("id", recoveryHistory.original_truck_id),
-          supabase.from("trucks").update({ trailer_id: recoveryHistory.recovery_trailer_id }).eq("id", recoveryHistory.recovery_truck_id),
+          supabase
+            .from("trucks")
+            .update({ trailer_id: recoveryHistory.original_trailer_id })
+            .eq("id", recoveryHistory.original_truck_id),
+          supabase
+            .from("trucks")
+            .update({ trailer_id: recoveryHistory.recovery_trailer_id })
+            .eq("id", recoveryHistory.recovery_truck_id),
         ]);
-        if (r1.error || r2.error) throw (r1.error || r2.error);
+        if (r1.error || r2.error) throw r1.error || r2.error;
 
         // Hard refetch ensures UI shows final DB state
         await queryClient.refetchQueries({ queryKey: ["trucks", "v2"] });
@@ -2216,47 +2213,77 @@ const EditOrder = () => {
       deliveryAddress: firstDelivery?.address,
       deliveryCity: firstDelivery?.city,
       deliveryState: firstDelivery?.state,
-      pickupDatetime: firstPickup?.dateRange?.from && firstPickup?.startTime
-        ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
-        : null,
-      deliveryDatetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime
-        ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
-        : null,
+      pickupDatetime:
+        firstPickup?.dateRange?.from && firstPickup?.startTime
+          ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
+          : null,
+      deliveryDatetime:
+        firstDelivery?.dateRange?.from && firstDelivery?.startTime
+          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
+          : null,
     };
   }, [
-    freightAmount, driverPrice, detention, detentionDriver, layover, layoverDriver,
-    extraStop, lateFee, lateFeeDriver, tonu, tonuDriver, lumper, otherCharges,
-    otherChargesDriver, noTrackingFee, noTrackingFeeDriver, wrongAddressFee,
-    wrongAddressFeeDriver, escortFee, loadedMiles, dhMiles, brokerLoadNumber,
-    truck, driver1, driver2, trailerId, broker, bookedByCompany, commodity,
-    weight, referenceNumber, poNumber, puNumber, pickupsDrops
+    freightAmount,
+    driverPrice,
+    detention,
+    detentionDriver,
+    layover,
+    layoverDriver,
+    extraStop,
+    lateFee,
+    lateFeeDriver,
+    tonu,
+    tonuDriver,
+    lumper,
+    otherCharges,
+    otherChargesDriver,
+    noTrackingFee,
+    noTrackingFeeDriver,
+    wrongAddressFee,
+    wrongAddressFeeDriver,
+    escortFee,
+    loadedMiles,
+    dhMiles,
+    brokerLoadNumber,
+    truck,
+    driver1,
+    driver2,
+    trailerId,
+    broker,
+    bookedByCompany,
+    commodity,
+    weight,
+    referenceNumber,
+    poNumber,
+    puNumber,
+    pickupsDrops,
   ]);
 
   // Check for changes and show dialog if needed
   const detectChanges = useCallback((): string[] => {
     if (!originalSnapshot) return [];
-    
+
     const currentSnapshot = buildCurrentSnapshot();
     const lookupMaps = {
-      trucks: new Map(trucks?.map(t => [t.id, t.truck_number]) || []),
-      drivers: new Map(drivers?.map(d => [d.id, d.name || '']) || []),
-      trailers: new Map(trailers?.map(t => [t.id, t.trailer_number]) || []),
-      brokers: new Map(brokers?.map(b => [b.id, b.name]) || []),
-      companies: new Map(companies?.map(c => [c.id, c.name]) || []),
+      trucks: new Map(trucks?.map((t) => [t.id, t.truck_number]) || []),
+      drivers: new Map(drivers?.map((d) => [d.id, d.name || ""]) || []),
+      trailers: new Map(trailers?.map((t) => [t.id, t.trailer_number]) || []),
+      brokers: new Map(brokers?.map((b) => [b.id, b.name]) || []),
+      companies: new Map(companies?.map((c) => [c.id, c.name]) || []),
     };
-    
+
     return generateChangeMessages(
       originalSnapshot,
       currentSnapshot,
       lookupMaps,
-      profile?.full_name || profile?.email || 'Unknown'
+      profile?.full_name || profile?.email || "Unknown",
     );
   }, [originalSnapshot, buildCurrentSnapshot, trucks, drivers, trailers, brokers, companies, profile]);
 
   // Navigate back to the referring page
   const navigateBack = useCallback(() => {
     const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
-    
+
     if (returnToReports) {
       localStorage.removeItem("returnToReports");
       navigate("/reports");
@@ -2302,14 +2329,10 @@ const EditOrder = () => {
           originalDeliveryDate.getMonth(),
           originalDeliveryDate.getDate(),
         );
-        
+
         // Parse the new datetime string WITHOUT timezone conversion (same as how we loaded originalDeliveryDate)
         const parsedNewDate = parseSimpleDateTime(newDeliveryDatetime);
-        const newDateOnlyNormalized = new Date(
-          parsedNewDate.year,
-          parsedNewDate.month - 1,
-          parsedNewDate.day,
-        );
+        const newDateOnlyNormalized = new Date(parsedNewDate.year, parsedNewDate.month - 1, parsedNewDate.day);
 
         // Only add note if the dates are different (ignoring time)
         if (originalDateOnly.getTime() !== newDateOnlyNormalized.getTime()) {
@@ -2334,21 +2357,17 @@ const EditOrder = () => {
       // Build the final notes
       let finalUserNotes = userNotes;
       let finalSystemNotes = systemNotes;
-      
+
       // If there's a change note, append it to user notes
       if (changeNote) {
-        finalUserNotes = appendUserNote(
-          userNotes,
-          changeNote,
-          profile?.full_name || profile?.email || 'Unknown'
-        );
+        finalUserNotes = appendUserNote(userNotes, changeNote, profile?.full_name || profile?.email || "Unknown");
       }
-      
+
       // If there are system changes, append them to system notes
       if (originalSnapshot && pendingChanges.length > 0) {
         finalSystemNotes = appendChangesToNotes(systemNotes, pendingChanges);
       }
-      
+
       // Combine notes for storage
       const updatedNotes = combineNotes(finalUserNotes, finalSystemNotes);
 
@@ -2454,7 +2473,11 @@ const EditOrder = () => {
           const { error: dbErr } = await supabase.from("order_files").delete().eq("id", file.id);
           if (dbErr) {
             console.error(`DB delete failed for order_files id=${file.id}:`, dbErr);
-            toast({ title: "Error", description: `Failed to delete file record for ${file.file_name}. Please try again.`, variant: "destructive" });
+            toast({
+              title: "Error",
+              description: `Failed to delete file record for ${file.file_name}. Please try again.`,
+              variant: "destructive",
+            });
           }
         }
         // Update local state to remove deleted RC files
@@ -2513,7 +2536,11 @@ const EditOrder = () => {
           const { error: dbErr } = await supabase.from("order_files").delete().eq("id", file.id);
           if (dbErr) {
             console.error(`DB delete failed for order_files id=${file.id}:`, dbErr);
-            toast({ title: "Error", description: `Failed to delete file record for ${file.file_name}. Please try again.`, variant: "destructive" });
+            toast({
+              title: "Error",
+              description: `Failed to delete file record for ${file.file_name}. Please try again.`,
+              variant: "destructive",
+            });
           }
         }
 
@@ -2555,11 +2582,9 @@ const EditOrder = () => {
               // Geocode if coordinates are missing
               let latitude = item.latitude || null;
               let longitude = item.longitude || null;
-              
+
               if (!latitude || !longitude) {
-                const fullAddress = [item.address, item.city, item.state, item.zipCode]
-                  .filter(Boolean)
-                  .join(', ');
+                const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
                 const coords = await geocodeAddress(fullAddress);
                 if (coords) {
                   latitude = coords.lat;
@@ -2589,7 +2614,7 @@ const EditOrder = () => {
                 latitude,
                 longitude,
               };
-            })
+            }),
         );
 
         // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
@@ -2662,13 +2687,10 @@ const EditOrder = () => {
               const delivery = deliveries[startIndex + i];
               await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
             }
-            
+
             // Auto-set status to "delivered" when all deliveries have PODs
             if (totalPodCount >= deliveries.length) {
-              await supabase
-                .from("orders")
-                .update({ status: "delivered" })
-                .eq("id", id);
+              await supabase.from("orders").update({ status: "delivered" }).eq("id", id);
             }
           }
         }
@@ -2705,14 +2727,14 @@ const EditOrder = () => {
   // Check if any additionals (except lumper) have been added compared to original values
   const hasNewAdditionalsRequiringRC = useCallback((): boolean => {
     if (!originalSnapshot) return false;
-    
+
     // Check each additional field (except lumper) - only require RC if value was added/increased
     const checkField = (current: string, original: number | null | undefined): boolean => {
       const currentVal = current ? parseFloat(current) : 0;
       const originalVal = original || 0;
       return currentVal > originalVal;
     };
-    
+
     return (
       checkField(detention, originalSnapshot.detention) ||
       checkField(layover, originalSnapshot.layover) ||
@@ -2725,7 +2747,19 @@ const EditOrder = () => {
       (parseFloat(otherAdditionals) || 0) > 0 || // otherAdditionals - just check if there's a value
       checkField(escortFee, originalSnapshot.escortFee)
     );
-  }, [originalSnapshot, detention, layover, extraStop, lateFee, tonu, noTrackingFee, wrongAddressFee, otherCharges, otherAdditionals, escortFee]);
+  }, [
+    originalSnapshot,
+    detention,
+    layover,
+    extraStop,
+    lateFee,
+    tonu,
+    noTrackingFee,
+    wrongAddressFee,
+    otherCharges,
+    otherAdditionals,
+    escortFee,
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2738,7 +2772,7 @@ const EditOrder = () => {
 
     // Auto-add pending additional charges if user filled in values but didn't click Add
     const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-    
+
     if (didAutoAddAdditional) {
       // If we auto-added an additional, queue the submit for the next render
       // so that performSave reads the updated state values
@@ -2751,7 +2785,8 @@ const EditOrder = () => {
     if (hasNewAdditionalsRequiringRC() && (!rcFiles || rcFiles.length === 0)) {
       toast({
         title: "Revised Rate Confirmation Required",
-        description: "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
+        description:
+          "Please upload a Revised Rate Confirmation when adding additional charges (detention, layover, extra stop, late fee, TONU, etc.)",
         variant: "destructive",
       });
       return;
@@ -2779,7 +2814,7 @@ const EditOrder = () => {
 
     // Detect changes
     const changes = detectChanges();
-    
+
     // If there are changes, show dialog to require user note
     if (changes.length > 0) {
       setPendingChanges(changes);
@@ -2798,7 +2833,7 @@ const EditOrder = () => {
 
     // Auto-add pending additional charges if user filled in values but didn't click Add
     const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-    
+
     if (didAutoAddAdditional) {
       // If we auto-added an additional, queue the submit for the next render
       // so that performSave reads the updated state values
@@ -2818,16 +2853,20 @@ const EditOrder = () => {
 
     try {
       // Get first pickup and last delivery coordinates for mile calculation
-      const pickupsList = pickupsDrops.filter(pd => pd.type === 'pickup');
-      const deliveriesList = pickupsDrops.filter(pd => pd.type === 'delivery');
+      const pickupsList = pickupsDrops.filter((pd) => pd.type === "pickup");
+      const deliveriesList = pickupsDrops.filter((pd) => pd.type === "delivery");
       const firstPickup = pickupsList[0];
       const lastDelivery = deliveriesList[deliveriesList.length - 1];
-      
-      console.log("Left at yard - Current state:", { 
-        driver1, driver2, truck, trailerId, trailer,
+
+      console.log("Left at yard - Current state:", {
+        driver1,
+        driver2,
+        truck,
+        trailerId,
+        trailer,
         driversCount: drivers?.length,
         trucksCount: trucks?.length,
-        pickupsDrops: pickupsDrops.length 
+        pickupsDrops: pickupsDrops.length,
       });
 
       // Use user-entered miles or fall back to 0
@@ -2835,12 +2874,12 @@ const EditOrder = () => {
       const recoveryMilesCalc = yardRecoveryMiles ? Number(yardRecoveryMiles) : 0;
 
       // Calculate original driver price proportionally if not manually entered
-      const totalMiles = (originalMilesCalc + recoveryMilesCalc) || Number(loadedMiles) || 1;
-      const originalDriverPriceCalc = originalDriverPrice 
+      const totalMiles = originalMilesCalc + recoveryMilesCalc || Number(loadedMiles) || 1;
+      const originalDriverPriceCalc = originalDriverPrice
         ? Number(originalDriverPrice)
-        : (originalMilesCalc > 0 
-            ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
-            : 0);
+        : originalMilesCalc > 0
+          ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
+          : 0;
 
       // Get current persisted assignment IDs (most reliable)
       const { data: currentOrder, error: currentOrderError } = await supabase
@@ -2855,7 +2894,8 @@ const EditOrder = () => {
       const currentDriver1 = drivers?.find((d) => d.id === driver1) || drivers?.find((d) => d.name === driver1);
       const currentDriver2 = drivers?.find((d) => d.id === driver2) || drivers?.find((d) => d.name === driver2);
       const currentTruck = trucks?.find((t) => t.id === truck) || trucks?.find((t) => t.truck_number === truck);
-      const currentTrailer = trailers?.find((t) => t.id === trailerId) || trailers?.find((t) => t.trailer_number === trailer);
+      const currentTrailer =
+        trailers?.find((t) => t.id === trailerId) || trailers?.find((t) => t.trailer_number === trailer);
 
       const originalDriver1Id = currentOrder?.driver1_id || currentDriver1?.id || null;
       const originalDriver2Id = currentOrder?.driver2_id || currentDriver2?.id || null;
@@ -2877,12 +2917,8 @@ const EditOrder = () => {
       // Append yard reason to user notes
       const timestamp = new Date().toLocaleString();
       const yardNoteEntry = `[${timestamp}] Left at Yard: ${yardReason.trim()}`;
-      const updatedUserNotes = userNotes 
-        ? `${userNotes}\n${yardNoteEntry}`
-        : yardNoteEntry;
-      const fullNotes = systemNotes 
-        ? `${updatedUserNotes}\n---\n${systemNotes}` 
-        : updatedUserNotes;
+      const updatedUserNotes = userNotes ? `${userNotes}\n${yardNoteEntry}` : yardNoteEntry;
+      const fullNotes = systemNotes ? `${updatedUserNotes}\n---\n${systemNotes}` : updatedUserNotes;
 
       // === ALREADY A TRANSFER LOAD - preserve original_* fields ===
       if (currentOrder?.is_recovery) {
@@ -2900,7 +2936,8 @@ const EditOrder = () => {
 
         if (lastTransfer) {
           // Update last transfer with handoff location (where they left it at yard)
-          await supabase.from("order_transfers")
+          await supabase
+            .from("order_transfers")
             .update({
               transfer_city: "Lynwood",
               transfer_state: "IL",
@@ -2923,10 +2960,7 @@ const EditOrder = () => {
           reTransferUpdate.bol_location = yardBolLocation.trim();
         }
 
-        const { error } = await supabase
-          .from("orders")
-          .update(reTransferUpdate)
-          .eq("id", id);
+        const { error } = await supabase.from("orders").update(reTransferUpdate).eq("id", id);
 
         if (error) throw error;
 
@@ -2974,13 +3008,10 @@ const EditOrder = () => {
       if (yardBolLocation.trim()) {
         fullUpdateData.bol_location = yardBolLocation.trim();
       }
-      
+
       console.log("Updating order with:", fullUpdateData);
 
-      const { error } = await supabase
-        .from("orders")
-        .update(fullUpdateData)
-        .eq("id", id);
+      const { error } = await supabase.from("orders").update(fullUpdateData).eq("id", id);
 
       if (error) throw error;
 
@@ -3031,11 +3062,7 @@ const EditOrder = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={navigateBack}
-              >
+              <Button variant="outline" size="sm" onClick={navigateBack}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {returnToReports
                   ? "Back to Reports"
@@ -3057,7 +3084,7 @@ const EditOrder = () => {
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
               <div className="text-lg font-medium flex items-center gap-2 justify-end">
-                {formatInternalLoadNumber(internalLoadNumber, drivers?.find(d => d.id === driver1)?.company?.name)}
+                {formatInternalLoadNumber(internalLoadNumber, drivers?.find((d) => d.id === driver1)?.company?.name)}
                 {isPartial && (
                   <TooltipProvider>
                     <Tooltip>
@@ -3122,50 +3149,40 @@ const EditOrder = () => {
                     {partialBrokerLoadNumbers.filter(Boolean).length} Partials
                   </Badge>
                 </div>
-                
-                <div className={cn(
-                  "grid gap-4",
-                  partialBrokerLoadNumbers.length === 2 ? "grid-cols-1 md:grid-cols-2" : 
-                  partialBrokerLoadNumbers.length === 3 ? "grid-cols-1 md:grid-cols-3" :
-                  "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-                )}>
+
+                <div
+                  className={cn(
+                    "grid gap-4",
+                    partialBrokerLoadNumbers.length === 2
+                      ? "grid-cols-1 md:grid-cols-2"
+                      : partialBrokerLoadNumbers.length === 3
+                        ? "grid-cols-1 md:grid-cols-3"
+                        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+                  )}
+                >
                   {partialBrokerLoadNumbers.map((loadNum, index) => {
                     const company = companies?.find((c) => c.id === partialBookedByCompanies[index]);
                     const brokerData = brokers?.find((b) => b.id === partialBrokers[index]);
-                    
+
                     return (
                       <Card key={index} className="border-2 border-blue-200">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-sm text-blue-700">
-                            Partial {index + 1}
-                          </CardTitle>
+                          <CardTitle className="text-sm text-blue-700">Partial {index + 1}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Broker Load #</Label>
-                            <Input
-                              value={loadNum || ""}
-                              disabled
-                              className="bg-muted"
-                            />
+                            <Input value={loadNum || ""} disabled className="bg-muted" />
                           </div>
-                          
+
                           <div className="space-y-1">
                             <Label className="text-xs">Company</Label>
-                            <Input
-                              value={company?.name || ""}
-                              disabled
-                              className="bg-muted"
-                            />
+                            <Input value={company?.name || ""} disabled className="bg-muted" />
                           </div>
-                          
+
                           <div className="space-y-1">
                             <Label className="text-xs">Broker</Label>
-                            <Input
-                              value={brokerData?.name || ""}
-                              disabled
-                              className="bg-muted"
-                            />
+                            <Input value={brokerData?.name || ""} disabled className="bg-muted" />
                           </div>
                         </CardContent>
                       </Card>
@@ -3447,13 +3464,13 @@ const EditOrder = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="driver-price">Driver Rate (Base)</Label>
+                <Label htmlFor="driver-price">Stop Amt (Base)</Label>
                 <Input
                   id="driver-price"
                   type="number"
                   step="0.01"
                   min="0"
-                  placeholder="Driver Rate"
+                  placeholder="Stop Amt"
                   value={driverPrice}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setDriverPrice)}
@@ -3613,8 +3630,9 @@ const EditOrder = () => {
                 />
                 {parseInt(additionalMiles) > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Total Mileage: {(parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0)} mi
-                    (+ {additionalMiles} additional)
+                    Total Mileage:{" "}
+                    {(parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0)} mi (+{" "}
+                    {additionalMiles} additional)
                   </p>
                 )}
               </div>
@@ -3640,13 +3658,13 @@ const EditOrder = () => {
                   <Combobox
                     options={[
                       // Include current bookedBy value if it's not in profiles (deleted user)
-                      ...(bookedBy && !profiles.find(p => p.full_name === bookedBy) 
-                        ? [{ value: bookedBy, label: `${bookedBy} (deleted)` }] 
+                      ...(bookedBy && !profiles.find((p) => p.full_name === bookedBy)
+                        ? [{ value: bookedBy, label: `${bookedBy} (deleted)` }]
                         : []),
                       ...profiles.map((p) => ({
                         value: p.full_name,
                         label: p.full_name,
-                      }))
+                      })),
                     ]}
                     value={bookedBy}
                     onValueChange={setBookedBy}
@@ -3686,9 +3704,7 @@ const EditOrder = () => {
                     <div className="h-px flex-1 bg-border" />
                   </div>
                   <div className="rounded-md border bg-muted/30 p-3 max-h-[200px] overflow-y-auto">
-                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">
-                      {systemNotes}
-                    </pre>
+                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">{systemNotes}</pre>
                   </div>
                 </div>
               )}
@@ -3711,15 +3727,15 @@ const EditOrder = () => {
                   )}
                 </div>
 
-{/* Show transfers - combine legacy and order_transfers data */}
+                {/* Show transfers - combine legacy and order_transfers data */}
                 {(() => {
                   // Check if we have sequence 0 (original) in order_transfers
-                  const hasOriginalInTable = orderTransfers.some(t => t.sequence_number === 0);
-                  // Check if we have sequence 1 (first transfer) in order_transfers  
-                  const hasTransfer1InTable = orderTransfers.some(t => t.sequence_number === 1);
+                  const hasOriginalInTable = orderTransfers.some((t) => t.sequence_number === 0);
+                  // Check if we have sequence 1 (first transfer) in order_transfers
+                  const hasTransfer1InTable = orderTransfers.some((t) => t.sequence_number === 1);
                   // Get additional transfers (sequence >= 2) from order_transfers
-                  const additionalTransfers = orderTransfers.filter(t => t.sequence_number >= 2);
-                  
+                  const additionalTransfers = orderTransfers.filter((t) => t.sequence_number >= 2);
+
                   // If we have all data in order_transfers, show only from table
                   if (hasOriginalInTable && hasTransfer1InTable) {
                     return (
@@ -3784,27 +3800,25 @@ const EditOrder = () => {
                                 <span className="font-medium">{transfer.miles || "0"}</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">Driver Rate:</span>{" "}
-                                <span className="font-medium">${parseFloat(transfer.driver_price || "0").toFixed(2)}</span>
+                                <span className="text-muted-foreground">Stop Amt:</span>{" "}
+                                <span className="font-medium">
+                                  ${parseFloat(transfer.driver_price || "0").toFixed(2)}
+                                </span>
                               </div>
                               {/* Locations */}
                               {(() => {
                                 const seq = transfer.sequence_number || 0;
-                                const prev = orderTransfers.find(
-                                  (t) => (t.sequence_number || 0) === seq - 1
-                                );
-                                const hasNext = orderTransfers.some(
-                                  (t) => (t.sequence_number || 0) === seq + 1
-                                );
+                                const prev = orderTransfers.find((t) => (t.sequence_number || 0) === seq - 1);
+                                const hasNext = orderTransfers.some((t) => (t.sequence_number || 0) === seq + 1);
 
                                 // Pickup location for Transfer #N is the previous segment's handoff (seq N-1).
                                 // Legacy fallback (missing previous): use this transfer's own location.
                                 const pickupSource =
                                   seq === 0
                                     ? null
-                                    : (prev?.transfer_city || prev?.transfer_state)
+                                    : prev?.transfer_city || prev?.transfer_state
                                       ? prev
-                                      : (transfer.transfer_city || transfer.transfer_state)
+                                      : transfer.transfer_city || transfer.transfer_state
                                         ? transfer
                                         : null;
 
@@ -3828,16 +3842,30 @@ const EditOrder = () => {
                                           <div className="text-muted-foreground text-xs">
                                             {(() => {
                                               const parsed = parseSimpleDateTime(transfer.transfer_datetime);
-                                              const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-                                              return date.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+                                              const date = new Date(
+                                                parsed.year,
+                                                parsed.month - 1,
+                                                parsed.day,
+                                                parsed.hours,
+                                                parsed.minutes,
+                                              );
+                                              return date.toLocaleString("en-US", {
+                                                month: "numeric",
+                                                day: "numeric",
+                                                year: "numeric",
+                                                hour: "numeric",
+                                                minute: "2-digit",
+                                                second: "2-digit",
+                                                hour12: true,
+                                              });
                                             })()}
                                           </div>
                                         )}
                                       </div>
                                     )}
 
-                                    {shouldShowHandoff && (
-                                      (transfer.transfer_city || transfer.transfer_state) ? (
+                                    {shouldShowHandoff &&
+                                      (transfer.transfer_city || transfer.transfer_state ? (
                                         <div className="pt-2 border-t mt-2">
                                           <div className="flex items-center gap-1 text-muted-foreground mb-1">
                                             <MapPin className="h-3 w-3" />
@@ -3850,8 +3878,22 @@ const EditOrder = () => {
                                             <div className="text-muted-foreground text-xs">
                                               {(() => {
                                                 const parsed = parseSimpleDateTime(transfer.transfer_datetime);
-                                                const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-                                                return date.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+                                                const date = new Date(
+                                                  parsed.year,
+                                                  parsed.month - 1,
+                                                  parsed.day,
+                                                  parsed.hours,
+                                                  parsed.minutes,
+                                                );
+                                                return date.toLocaleString("en-US", {
+                                                  month: "numeric",
+                                                  day: "numeric",
+                                                  year: "numeric",
+                                                  hour: "numeric",
+                                                  minute: "2-digit",
+                                                  second: "2-digit",
+                                                  hour12: true,
+                                                });
                                               })()}
                                             </div>
                                           )}
@@ -3863,8 +3905,7 @@ const EditOrder = () => {
                                             <span className="text-xs">No location set - click edit to add</span>
                                           </div>
                                         </div>
-                                      )
-                                    )}
+                                      ))}
                                   </>
                                 );
                               })()}
@@ -3874,7 +3915,7 @@ const EditOrder = () => {
                       </div>
                     );
                   }
-                  
+
                   // Otherwise, show legacy Original/Transfer #1 plus any additional from order_transfers
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -3931,7 +3972,7 @@ const EditOrder = () => {
                             <span className="font-medium">{originalMiles || "0"}</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                            <span className="text-muted-foreground">Stop Amt:</span>{" "}
                             <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
                           </div>
                         </div>
@@ -3979,7 +4020,9 @@ const EditOrder = () => {
                           </div>
                           <div>
                             <span className="text-muted-foreground">Truck:</span>{" "}
-                            <span className="font-medium">{trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}</span>
+                            <span className="font-medium">
+                              {trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}
+                            </span>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Trailer:</span>{" "}
@@ -3990,7 +4033,7 @@ const EditOrder = () => {
                             <span className="font-medium">{recoveryMiles || "0"}</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                            <span className="text-muted-foreground">Stop Amt:</span>{" "}
                             <span className="font-medium">${parseFloat(recoveryDriverPrice || "0").toFixed(2)}</span>
                           </div>
                         </div>
@@ -4024,8 +4067,10 @@ const EditOrder = () => {
                               <span className="font-medium">{transfer.miles || "0"}</span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Driver Rate:</span>{" "}
-                              <span className="font-medium">${parseFloat(transfer.driver_price || "0").toFixed(2)}</span>
+                              <span className="text-muted-foreground">Stop Amt:</span>{" "}
+                              <span className="font-medium">
+                                ${parseFloat(transfer.driver_price || "0").toFixed(2)}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -4535,11 +4580,13 @@ const EditOrder = () => {
                         if (e.target.files && e.target.files.length > 0) {
                           const selected = Array.from(e.target.files);
                           // Block files that match RC uploads (new or existing)
-                          const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map(f => f.name) : []);
+                          const rcNewNames = new Set(rcFiles ? Array.from(rcFiles).map((f) => f.name) : []);
                           const rcExistingNames = new Set(
-                            existingFiles.filter(f => f.file_category === 'RC').map(f => f.file_name)
+                            existingFiles.filter((f) => f.file_category === "RC").map((f) => f.file_name),
                           );
-                          const filtered = selected.filter(f => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name));
+                          const filtered = selected.filter(
+                            (f) => !rcNewNames.has(f.name) && !rcExistingNames.has(f.name),
+                          );
                           if (filtered.length < selected.length) {
                             toast({
                               title: "Duplicate file skipped",
@@ -4584,40 +4631,49 @@ const EditOrder = () => {
             <div className="flex justify-between items-center">
               <div>
                 {(truck || driver1) && !isLocked && (
-                  <Button type="button" variant="outline" onClick={async () => {
-                    setYardDialogOpen(true);
-                    setYardOriginalMiles("");
-                    setYardRecoveryMiles("");
-                    setOriginalDriverPrice("");
-                    
-                    // Calculate miles automatically
-                    const pickupsList = pickupsDrops.filter(pd => pd.type === 'pickup');
-                    const deliveriesList = pickupsDrops.filter(pd => pd.type === 'delivery');
-                    const firstPickup = pickupsList[0];
-                    const lastDelivery = deliveriesList[deliveriesList.length - 1];
-                    
-                    if (firstPickup?.latitude && firstPickup?.longitude && lastDelivery?.latitude && lastDelivery?.longitude) {
-                      setYardMilesLoading(true);
-                      try {
-                        const { data: milesData } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
-                          body: {
-                            pickupLat: firstPickup.latitude,
-                            pickupLon: firstPickup.longitude,
-                            deliveryLat: lastDelivery.latitude,
-                            deliveryLon: lastDelivery.longitude,
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      setYardDialogOpen(true);
+                      setYardOriginalMiles("");
+                      setYardRecoveryMiles("");
+                      setOriginalDriverPrice("");
+
+                      // Calculate miles automatically
+                      const pickupsList = pickupsDrops.filter((pd) => pd.type === "pickup");
+                      const deliveriesList = pickupsDrops.filter((pd) => pd.type === "delivery");
+                      const firstPickup = pickupsList[0];
+                      const lastDelivery = deliveriesList[deliveriesList.length - 1];
+
+                      if (
+                        firstPickup?.latitude &&
+                        firstPickup?.longitude &&
+                        lastDelivery?.latitude &&
+                        lastDelivery?.longitude
+                      ) {
+                        setYardMilesLoading(true);
+                        try {
+                          const { data: milesData } = await supabase.functions.invoke("calculate-yard-transfer-miles", {
+                            body: {
+                              pickupLat: firstPickup.latitude,
+                              pickupLon: firstPickup.longitude,
+                              deliveryLat: lastDelivery.latitude,
+                              deliveryLon: lastDelivery.longitude,
+                            },
+                          });
+                          if (milesData) {
+                            setYardOriginalMiles(milesData.originalMiles?.toString() || "");
+                            setYardRecoveryMiles(milesData.recoveryMiles?.toString() || "");
                           }
-                        });
-                        if (milesData) {
-                          setYardOriginalMiles(milesData.originalMiles?.toString() || "");
-                          setYardRecoveryMiles(milesData.recoveryMiles?.toString() || "");
+                        } catch (err) {
+                          console.error("Error calculating miles:", err);
+                        } finally {
+                          setYardMilesLoading(false);
                         }
-                      } catch (err) {
-                        console.error("Error calculating miles:", err);
-                      } finally {
-                        setYardMilesLoading(false);
                       }
-                    }
-                  }}>
+                    }}
+                  >
                     <Warehouse className="h-4 w-4 mr-2" />
                     Left Trailer at the Yard
                   </Button>
@@ -4715,12 +4771,18 @@ const EditOrder = () => {
         previousTransfer={
           orderTransfers.length > 0
             ? {
-                driverName: orderTransfers[orderTransfers.length - 1]?.driver1?.name || 
-                            orderTransfers[orderTransfers.length - 1]?.manual_driver_name || "N/A",
-                truckNumber: orderTransfers[orderTransfers.length - 1]?.truck?.truck_number || 
-                             orderTransfers[orderTransfers.length - 1]?.manual_truck_number || "N/A",
-                trailerNumber: orderTransfers[orderTransfers.length - 1]?.trailer?.trailer_number || 
-                               orderTransfers[orderTransfers.length - 1]?.manual_trailer_number || "N/A",
+                driverName:
+                  orderTransfers[orderTransfers.length - 1]?.driver1?.name ||
+                  orderTransfers[orderTransfers.length - 1]?.manual_driver_name ||
+                  "N/A",
+                truckNumber:
+                  orderTransfers[orderTransfers.length - 1]?.truck?.truck_number ||
+                  orderTransfers[orderTransfers.length - 1]?.manual_truck_number ||
+                  "N/A",
+                trailerNumber:
+                  orderTransfers[orderTransfers.length - 1]?.trailer?.trailer_number ||
+                  orderTransfers[orderTransfers.length - 1]?.manual_trailer_number ||
+                  "N/A",
                 miles: orderTransfers[orderTransfers.length - 1]?.miles || 0,
                 driverPrice: orderTransfers[orderTransfers.length - 1]?.driver_price || 0,
               }
@@ -4732,11 +4794,7 @@ const EditOrder = () => {
                 driverPrice: parseFloat(recoveryDriverPrice) || 0,
               }
         }
-        sequenceNumber={
-          orderTransfers.length > 0
-            ? Math.max(...orderTransfers.map((t) => t.sequence_number)) + 1
-            : 2
-        }
+        sequenceNumber={orderTransfers.length > 0 ? Math.max(...orderTransfers.map((t) => t.sequence_number)) + 1 : 2}
       />
 
       {/* Yard Dialog */}
@@ -4748,7 +4806,7 @@ const EditOrder = () => {
               This will clear the driver and truck assignments from this load and create a transfer record.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Original Assignment Info */}
             <div className="p-4 bg-muted rounded-lg space-y-2">
@@ -4756,15 +4814,15 @@ const EditOrder = () => {
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Driver: </span>
-                  <span>{drivers?.find(d => d.id === driver1)?.name || 'N/A'}</span>
+                  <span>{drivers?.find((d) => d.id === driver1)?.name || "N/A"}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Truck: </span>
-                  <span>{trucks?.find(t => t.id === truck)?.truck_number || 'N/A'}</span>
+                  <span>{trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Trailer: </span>
-                  <span>{trailer || 'N/A'}</span>
+                  <span>{trailer || "N/A"}</span>
                 </div>
               </div>
             </div>
@@ -4797,11 +4855,13 @@ const EditOrder = () => {
 
             {/* Original Driver Rate */}
             <div className="space-y-2">
-              <Label htmlFor="originalDriverRateInput">Original Driver Rate ($) <span className="text-destructive">*</span></Label>
+              <Label htmlFor="originalDriverRateInput">
+                Original Stop Amt ($) <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="originalDriverRateInput"
                 type="number"
-                placeholder="Enter original driver rate"
+                placeholder="Enter original stop amt"
                 value={originalDriverPrice}
                 onChange={(e) => setOriginalDriverPrice(e.target.value)}
               />
@@ -4809,7 +4869,9 @@ const EditOrder = () => {
 
             {/* BOL Location */}
             <div className="space-y-2">
-              <Label htmlFor="yardBolLocationInput">BOL Location <span className="text-destructive">*</span></Label>
+              <Label htmlFor="yardBolLocationInput">
+                BOL Location <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="yardBolLocationInput"
                 placeholder="e.g. In the trailer, office, driver has it..."
@@ -4820,7 +4882,9 @@ const EditOrder = () => {
 
             {/* Reason for leaving at yard - MANDATORY */}
             <div className="space-y-2">
-              <Label htmlFor="yardReasonInput">Reason for Leaving at Yard <span className="text-destructive">*</span></Label>
+              <Label htmlFor="yardReasonInput">
+                Reason for Leaving at Yard <span className="text-destructive">*</span>
+              </Label>
               <Textarea
                 id="yardReasonInput"
                 placeholder="Enter the reason why the trailer was left at the yard..."
@@ -4828,16 +4892,16 @@ const EditOrder = () => {
                 onChange={(e) => setYardReason(e.target.value)}
                 className="min-h-[80px]"
               />
-              <p className="text-xs text-muted-foreground">
-                This note will be added to the user notes for this order.
-              </p>
+              <p className="text-xs text-muted-foreground">This note will be added to the user notes for this order.</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setYardDialogOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={handleLeftAtYard} 
+            <Button variant="outline" onClick={() => setYardDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLeftAtYard}
               disabled={!yardReason.trim() || !yardBolLocation.trim() || !originalDriverPrice}
             >
               Confirm Left at Yard
@@ -4888,30 +4952,31 @@ const EditOrder = () => {
         onConfirm={async (reason) => {
           setShowMilesChangeDialog(false);
           // Send SMS notification
-           const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
-           if (phoneNumbers.length > 0 && milesChangeInfo) {
-             const selectedDriver1 = drivers?.find((d) => d.id === driver1);
-             const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === (selectedDriver1?.company_id))?.name;
-             const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
-              const message = buildMilesChangeSmsMessage({
-               internalLoadNumber: ilnDisplay,
-               brokerLoadNumber: brokerLoadNumber || "N/A",
-               dhMilesChanged: milesChangeInfo.dhMilesChanged,
-               loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
-               oldDh: milesChangeInfo.oldDhMiles,
-               newDh: milesChangeInfo.newDhMiles,
-               oldLoaded: milesChangeInfo.oldLoadedMiles,
-               newLoaded: milesChangeInfo.newLoadedMiles,
-               reason: reason,
-               userName: profile?.full_name || "Unknown",
-             });
-             try {
-               await supabase.functions.invoke("send-sms", {
-                 body: { message, phoneNumbers },
-               });
-             } catch (err) {
-               console.error("Failed to send miles change SMS:", err);
-             }
+          const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
+          if (phoneNumbers.length > 0 && milesChangeInfo) {
+            const selectedDriver1 = drivers?.find((d) => d.id === driver1);
+            const companyName =
+              selectedDriver1?.company?.name || companies?.find((c) => c.id === selectedDriver1?.company_id)?.name;
+            const ilnDisplay = formatInternalLoadNumber(internalLoadNumber, companyName);
+            const message = buildMilesChangeSmsMessage({
+              internalLoadNumber: ilnDisplay,
+              brokerLoadNumber: brokerLoadNumber || "N/A",
+              dhMilesChanged: milesChangeInfo.dhMilesChanged,
+              loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
+              oldDh: milesChangeInfo.oldDhMiles,
+              newDh: milesChangeInfo.newDhMiles,
+              oldLoaded: milesChangeInfo.oldLoadedMiles,
+              newLoaded: milesChangeInfo.newLoadedMiles,
+              reason: reason,
+              userName: profile?.full_name || "Unknown",
+            });
+            try {
+              await supabase.functions.invoke("send-sms", {
+                body: { message, phoneNumbers },
+              });
+            } catch (err) {
+              console.error("Failed to send miles change SMS:", err);
+            }
           }
           // Update baselines so check won't trigger again, then continue with submit
           setBaselineLoadedMiles(parseInt(loadedMiles) || 0);
@@ -4926,7 +4991,16 @@ const EditOrder = () => {
           setIsSubmitting(true);
           await performSave();
         }}
-        changeInfo={milesChangeInfo || { dhMilesChanged: false, loadedMilesChanged: false, oldDhMiles: 0, newDhMiles: 0, oldLoadedMiles: 0, newLoadedMiles: 0 }}
+        changeInfo={
+          milesChangeInfo || {
+            dhMilesChanged: false,
+            loadedMilesChanged: false,
+            oldDhMiles: 0,
+            newDhMiles: 0,
+            oldLoadedMiles: 0,
+            newLoadedMiles: 0,
+          }
+        }
       />
     </div>
   );
