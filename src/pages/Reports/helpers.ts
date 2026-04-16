@@ -148,8 +148,8 @@ export const hasPreviousOrdersWithoutPOD = (truck: any | null, currentOrder: any
     if (order.id === currentOrder.id) return false;
     if (order.notes === "GAME|OVER") return false;
 
-    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    const hasBOL = orderHasBOL(order);
+    const hasPOD = orderHasPOD(order);
 
     return hasBOL && !hasPOD;
   });
@@ -157,7 +157,7 @@ export const hasPreviousOrdersWithoutPOD = (truck: any | null, currentOrder: any
 
 // Helper to determine if we should show Going to Pickup button
 export const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null): boolean => {
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToPickupClicked = !!stop.going_to_at;
   const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
 
@@ -169,7 +169,7 @@ export const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null
 export const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null): boolean => {
   if (stop.arrived_at) return false;
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToPickupClicked = !!stop.going_to_at;
   const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
   const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
@@ -180,11 +180,22 @@ export const shouldShowAtPickup = (order: any, stop: any, truck: any | null = nu
 
 // Helper to determine if we should show Going to Delivery button
 export const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToDeliveryClicked = !!stop.going_to_at;
 
   if (goingToDeliveryClicked) return false;
   return hasBOL;
+};
+
+// Helper to determine if we should show At Delivery button
+export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
+  if (stop.arrived_at) return false;
+
+  const hasBOL = orderHasBOL(order);
+  const goingToDeliveryClicked = !!stop.going_to_at;
+  const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
+
+  return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
 };
 
 // Helper to determine if we should show At Delivery button
