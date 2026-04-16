@@ -1,42 +1,51 @@
 
+Fix the force-complete feature by updating the Reports source of truth, not just the popup state.
 
-## Plan: "Mark Complete" Button for Multi-Pickup/Drop BOL/POD
+1. Confirm the bug source
+- I checked the database for broker load `567154`: `pod_force_complete` is already `true`.
+- That means the save works, but Reports is still rendering stale/incomplete order state.
 
-### Problem
-Multi-pickup/drop orders sometimes receive only 1 BOL/POD file even though there are 3+ stops. The cell coloring logic checks file count vs stop count, making the order appear incomplete.
+2. Update Reports cache optimistically after force-complete
+- In `src/pages/Reports.tsx`, extend `handleForceComplete` so it updates the nested `["reports", "priority", ...]` and `["reports", "full"]` query data, not only `zoomedLoad`.
+- Update the matching order inside `truck.allOrders` with:
+  - `pod_force_complete` / `bol_force_complete = true`
+  - camelCase mirror fields too (`podForceComplete` / `bolForceComplete`)
+  - POD case: status `delivered`
+  - delivery stops `checked_out_at` locally after success
+- This will make the popup reopen correctly and make the pickup/drop cells change immediately.
 
-### Solution
-Add a "Complete" button in the Document Status section of the load info dialog (Reports page) for BOL and POD on multi-stop orders where file count is less than stop count. Clicking it (after confirmation) will force-mark all stops as having documents.
+3. Make popup reopening read both field shapes
+- In `getLoadDetailsForZoom`, derive the flags from both snake_case and camelCase:
+  - `order.pod_force_complete || order.podForceComplete`
+  - `order.bol_force_complete || order.bolForceComplete`
+- This prevents the button from reappearing when the cached order uses the transformed shape.
 
-### Database Changes
-Add two boolean columns to the `orders` table:
-- `bol_force_complete` (default false) — when true, all pickup stops show as BOL-complete
-- `pod_force_complete` (default false) — when true, all delivery stops show as POD-complete, and status is set to "delivered"
+4. Apply force-complete to Reports rendering logic everywhere
+- In `src/hooks/useReports.ts`, include force-complete flags in derived status:
+  - `hasPOD` should treat `pod_force_complete` as POD complete
+  - `hasBOL` should treat `bol_force_complete` as BOL complete
+- Update:
+  - `getDocumentStatus`
+  - `documentColors`
+  - `isActive` / `isRecentCompleted`
+  - any load-detail document summaries built from `order_files` only
+- This ensures force-completed loads behave like completed loads across the whole Reports page, not just cell color helpers.
 
-### UI Changes (src/pages/Reports.tsx)
+5. Keep button visibility strictly rule-based
+- In the load info dialog, keep the button visible only when:
+  - BOL: `pickupStops.length > bolCount` and force flag is false
+  - POD: `deliveryStops.length > podCount` and force flag is false
+- Use the normalized flag value so the button disappears reliably after completion.
 
-1. **Document Status section (line ~6278)**: After rendering BOL/POD badges, show a small "✓ Complete" button when:
-   - The doc type is BOL and pickup stops > 1 and BOL file count < pickup stop count and `bol_force_complete` is not already true
-   - The doc type is POD and delivery stops > 1 and POD file count < delivery stop count and `pod_force_complete` is not already true
+6. Verify the exact reported case
+- Re-test broker load `567154` after the changes:
+  - close/reopen load info: POD Complete button must stay hidden
+  - all delivery drops for that load must render as complete
+  - delivered/complete-derived UI should reflect the override consistently
 
-2. **Confirmation dialog**: Use AlertDialog — "Are you sure you want to mark all [BOL/POD] as complete? This will treat all [pickup/delivery] stops as having documents uploaded."
-
-3. **On confirm**:
-   - Update `orders.bol_force_complete = true` or `orders.pod_force_complete = true`
-   - For POD complete: also set `status = 'delivered'` and set `checked_out_at` on all delivery stops that don't have it
-   - Optimistically update `zoomedLoad` state
-   - Invalidate caches
-
-4. **Cell coloring logic (lines ~1578, ~1628)**: Update `getPickupCellClass` and `getDeliveryCellClass` to check force_complete flags — if true, treat all stops as having documents.
-
-### Data Flow
-- Fetch `bol_force_complete` and `pod_force_complete` from orders (via edge functions and direct queries)
-- Pass through to `zoomedLoad` state and cell coloring functions
-- The `ordersTransform` utility will need to expose these fields
-
-### Files to Modify
-- **Migration**: Add `bol_force_complete` and `pod_force_complete` columns
-- **src/pages/Reports.tsx**: Add Complete button + confirmation dialog + update cell coloring logic
-- **src/utils/ordersTransform.ts**: Pass through the new fields
-- **Edge functions** (`get-all-unlocked-orders`, `get-all-locked-orders`): Include new columns in SELECT
-
+Technical notes
+- Root cause is not the database write; it is stale Reports state plus incomplete use of `pod_force_complete` / `bol_force_complete` in derived UI logic.
+- Main files to update:
+  - `src/pages/Reports.tsx`
+  - `src/hooks/useReports.ts`
+- No database migration is needed for this fix.
