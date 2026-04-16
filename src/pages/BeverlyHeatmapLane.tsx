@@ -222,6 +222,41 @@ export default function BeverlyHeatmapLane() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch order details for dialog
+  const dialogOrderIds = selectedBroker?.order_ids || [];
+  const { data: orderDetails = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ["heatmap-lane-orders", dialogOrderIds],
+    queryFn: async () => {
+      if (dialogOrderIds.length === 0) return [];
+      const allDetails: { id: string; broker_load_number: string | null; freight_amount: number | null; loaded_miles: number | null; pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[] }[] = [];
+      for (let i = 0; i < dialogOrderIds.length; i += 200) {
+        const chunk = dialogOrderIds.slice(i, i + 200);
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("id, broker_load_number, freight_amount, loaded_miles")
+          .in("id", chunk);
+        if (!orders) continue;
+        const ids = orders.map((o: any) => o.id);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, city, state, type")
+          .in("order_id", ids)
+          .order("sequence_number", { ascending: true });
+        const pdMap = new Map<string, { city: string | null; state: string | null; stop_type: string | null }[]>();
+        for (const pd of pds || []) {
+          if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
+          pdMap.get(pd.order_id)!.push({ city: pd.city, state: pd.state, stop_type: pd.type });
+        }
+        for (const o of orders) {
+          allDetails.push({ ...o, pickup_drops: pdMap.get(o.id) || [] });
+        }
+      }
+      return allDetails;
+    },
+    enabled: dialogOrderIds.length > 0,
+    staleTime: 0,
+  });
+
   const sorted = useMemo(() => {
     if (!laneData?.brokerStats) return [];
     const rows = [...laneData.brokerStats];
