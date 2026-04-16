@@ -1008,16 +1008,28 @@ const Reports = () => {
               allOrders: truck.allOrders.map((o: any) => {
                 if (o.id !== orderId) return o;
                 const updated = { ...o };
+                const orderFiles = [...(updated.order_files || [])];
+                
                 if (type === "BOL") {
                   updated.bol_force_complete = true;
                   if (updated.order) updated.order = { ...updated.order, bol_force_complete: true };
+                  // Inject synthetic BOL files up to pickup stop count
+                  const pickupStopCount = (updated.pickupStops || []).length;
+                  const existingBolCount = orderFiles.filter((f: any) => f.file_category === "BOL").length;
+                  for (let i = existingBolCount; i < pickupStopCount; i++) {
+                    orderFiles.push({ id: `synthetic-bol-${i}`, file_category: "BOL", file_name: "force-complete", file_path: "" });
+                  }
                 } else {
                   updated.pod_force_complete = true;
                   updated.isActive = false;
                   updated.isRecentCompleted = true;
-                  updated.documentStatus = "complete";
-                  updated.documentColors = { ...updated.documentColors, pod: true };
                   if (updated.order) updated.order = { ...updated.order, pod_force_complete: true, status: "delivered" };
+                  // Inject synthetic POD files up to delivery stop count
+                  const deliveryStopCount = (updated.deliveryStops || []).length;
+                  const existingPodCount = orderFiles.filter((f: any) => f.file_category === "POD").length;
+                  for (let i = existingPodCount; i < deliveryStopCount; i++) {
+                    orderFiles.push({ id: `synthetic-pod-${i}`, file_category: "POD", file_name: "force-complete", file_path: "" });
+                  }
                   // Set checked_out_at on delivery stops
                   if (updated.deliveryStops) {
                     updated.deliveryStops = updated.deliveryStops.map((s: any) => 
@@ -1025,10 +1037,12 @@ const Reports = () => {
                     );
                   }
                 }
-                if (type === "BOL") {
-                  updated.documentColors = { ...updated.documentColors, bol: true };
-                  updated.documentStatus = updated.documentColors.pod ? "complete" : "partial";
-                }
+                updated.order_files = orderFiles;
+                // Recompute document status from files
+                const hasBOL = orderFiles.some((f: any) => f.file_category === "BOL");
+                const hasPOD = orderFiles.some((f: any) => f.file_category === "POD");
+                updated.documentStatus = hasPOD ? "complete" : hasBOL ? "partial" : "missing";
+                updated.documentColors = { bol: hasBOL, pod: hasPOD };
                 return updated;
               }),
             };
