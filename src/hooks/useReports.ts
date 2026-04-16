@@ -1461,7 +1461,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 // Check if there's a previous order with POD (completed)
                 if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD') || previousOrder.pod_force_complete === true;
                   
                   if (previousHasPOD) {
                     // Previous load is complete (has POD), so the last load without BOL is current
