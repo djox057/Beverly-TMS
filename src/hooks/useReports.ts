@@ -2151,8 +2151,8 @@ export const useReports = (options?: UseReportsOptions) => {
                   const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
                   const pickupStop = pickupStops[0];
                   const deliveryStop = deliveryStops[deliveryStops.length - 1];
-                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
+                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete === true;
                   
                   return {
                     id: order.id,
@@ -2167,6 +2167,8 @@ export const useReports = (options?: UseReportsOptions) => {
                     updated_at: order.updated_at,
                     loaded_miles: order.loaded_miles,
                     order_files: order.order_files,
+                    bol_force_complete: order.bol_force_complete || false,
+                    pod_force_complete: order.pod_force_complete || false,
                     pickupStop,
                     deliveryStop,
                     pickupStops,
