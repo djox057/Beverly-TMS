@@ -1176,8 +1176,8 @@ export const useReports = (options?: UseReportsOptions) => {
                 // Skip canceled orders
                 if (order.canceled) return false;
 
-                // Skip orders with POD files - they are completed and can't be "current"
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                // Skip orders with POD files or pod_force_complete - they are completed and can't be "current"
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
                 if (hasPOD) return false;
 
                 // Any pending/in_transit order without POD is a candidate for current order
@@ -1195,8 +1195,8 @@ export const useReports = (options?: UseReportsOptions) => {
 
                 if (order.status === "delivered") return true;
 
-                // Consider orders with POD files as completed regardless of status
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                // Consider orders with POD files or pod_force_complete as completed regardless of status
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
                 if (hasPOD) return true;
 
                 // Consider pending orders past delivery time as recently completed
