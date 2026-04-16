@@ -12,6 +12,9 @@ import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 const RADIUS_MILES = 60;
 
@@ -36,6 +39,7 @@ interface BrokerStat {
   avg_miles: number;
   rpm: number;
   order_count: number;
+  order_ids: string[];
 }
 
 type SortKey = "broker_name" | "total_freight" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
@@ -48,6 +52,9 @@ export default function BeverlyHeatmapLane() {
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
+    key: "order_count", dir: "desc",
+  });
+  const [selectedBroker, setSelectedBroker] = useState<BrokerStat | null>(null);
     key: "order_count", dir: "desc",
   });
 
@@ -157,13 +164,14 @@ export default function BeverlyHeatmapLane() {
       const matchingOrders = allOrders.filter(o => matchingOrderIds.has(o.id));
 
       // Aggregate by broker
-      const agg = new Map<string, { freight: number; miles: number; count: number }>();
+      const agg = new Map<string, { freight: number; miles: number; count: number; orderIds: string[] }>();
       for (const o of matchingOrders) {
-        if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0 });
+        if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0, orderIds: [] });
         const e = agg.get(o.broker_id)!;
         e.freight += Number(o.freight_amount) || 0;
         e.miles += Number(o.loaded_miles) || 0;
         e.count++;
+        e.orderIds.push(o.id);
       }
 
       // Fetch broker info
@@ -192,6 +200,7 @@ export default function BeverlyHeatmapLane() {
           avg_miles: stats.count > 0 ? stats.miles / stats.count : 0,
           rpm: stats.miles > 0 ? stats.freight / stats.miles : 0,
           order_count: stats.count,
+          order_ids: stats.orderIds,
         });
       }
 
