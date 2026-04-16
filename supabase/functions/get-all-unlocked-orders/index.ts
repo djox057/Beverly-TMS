@@ -20,7 +20,8 @@ const ORDER_COLUMNS = `
   other_charges, other_charges_driver, other_charges_reason,
   other_additionals, other_additionals_driver, other_additionals_reason,
   additional_miles, booked_by, paid, invoiced,
-  original_truck_id, original_trailer_id
+  original_truck_id, original_trailer_id,
+  bol_force_complete, pod_force_complete
 `;
 
 // Helper to split array into chunks
