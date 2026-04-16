@@ -2686,7 +2686,7 @@ const Analytics = () => {
                       <p className="text-lg sm:text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
                     </div>
 
-                    <div className="text-center">
+                    {!isDispatchOnly && <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Comm.</p>
                       <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
                         $
@@ -2695,11 +2695,11 @@ const Analytics = () => {
                         maximumFractionDigits: 2
                       })}
                       </p>
-                    </div>
-                    <div className="text-center col-span-2 sm:col-span-1">
+                    </div>}
+                    {!isDispatchOnly && <div className="text-center col-span-2 sm:col-span-1">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Comm. %</p>
                       <p className="text-lg sm:text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
-                    </div>
+                    </div>}
                   </div>
                   
                   {/* Expandable Extra Stats */}
@@ -2789,12 +2789,12 @@ const Analytics = () => {
                             Avg DH {sortBy === "avgDhMiles" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>}
 
-                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cut")}>
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cut")}>
                             Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
-                          </TableHead>
-                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cutPercent")}>
+                          </TableHead>}
+                          {!isDispatchOnly && <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cutPercent")}>
                             Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
-                          </TableHead>
+                          </TableHead>}
                           <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("avgTrucks")}>
                             Avg Trucks {sortBy === "avgTrucks" && (sortDirection === "desc" ? "↓" : "↑")}
                           </TableHead>
@@ -2841,14 +2841,14 @@ const Analytics = () => {
                               <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
                               {!isDispatchOnly && <TableCell className="text-right">{stat.avgDhMiles.toFixed(0)}</TableCell>}
 
-                              <TableCell className="text-right">
+                              {!isDispatchOnly && <TableCell className="text-right">
                                 $
                                 {stat.cut.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
                           })}
-                              </TableCell>
-                              <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                              </TableCell>}
+                              {!isDispatchOnly && <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>}
                               <TableCell className="text-right">
                                 {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
                               </TableCell>
@@ -3402,7 +3402,7 @@ const Analytics = () => {
                             Dispatcher {salarySortBy === "name" && (salarySortDir === "asc" ? "↑" : "↓")}
                           </TableHead>
                           <TableHead className="text-right">Total Freight</TableHead>
-                          <TableHead className="text-right">Total Comm.</TableHead>
+                          {!isDispatchOnly && <TableHead className="text-right">Total Comm.</TableHead>}
                           <TableHead className="text-right">Extra</TableHead>
                         {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
                         {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableHead className="text-right">Food</TableHead>}
@@ -3815,13 +3815,13 @@ const Analytics = () => {
                               maximumFractionDigits: 2
                             })}
                                 </TableCell>
-                                <TableCell className="text-right">
+                                {!isDispatchOnly && <TableCell className="text-right">
                                   $
                                   {stat.cut.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
                             })}
-                                </TableCell>
+                                </TableCell>}
                                 <TableCell className="text-right text-green-600">
                                   {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
                                     <Popover>
