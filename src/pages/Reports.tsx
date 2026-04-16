@@ -6462,8 +6462,11 @@ const Reports = () => {
                   const deliveryStops = zoomedLoad?.allDeliveryStops || [];
                   const bolFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "BOL").length || 0;
                   const podFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "POD").length || 0;
-                  const showBolComplete = pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete;
-                  const showPodComplete = deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete;
+                  const now = new Date();
+                  const pickupStart = pickupStops[0]?.dateTime ? new Date(pickupStops[0].dateTime) : null;
+                  const deliveryStart = deliveryStops[0]?.dateTime ? new Date(deliveryStops[0].dateTime) : null;
+                  const showBolComplete = pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete && pickupStart != null && now >= pickupStart;
+                  const showPodComplete = deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete && deliveryStart != null && now >= deliveryStart;
 
                   return (
                     <>
