@@ -900,6 +900,9 @@ const Reports = () => {
     const order = truck.allOrders?.find((o: any) => o.id === orderId);
     if (!order) return null;
 
+    const bolForceComplete = order.bol_force_complete === true || order.bolForceComplete === true;
+    const podForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
+
     // Build driver names from driver1Name and driver2Name
     let driverNames = truck.driver1Name || "";
     if (truck.driver2Name) {
@@ -968,8 +971,8 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
-      bolForceComplete: order.bol_force_complete === true,
-      podForceComplete: order.pod_force_complete === true,
+      bolForceComplete,
+      podForceComplete,
     };
   }, []);
   // Force complete handler for BOL/POD on multi-stop orders
@@ -1002,21 +1005,113 @@ const Reports = () => {
       }
     }
 
+    const nowIso = new Date().toISOString();
+    const isBol = type === "BOL";
+    const forceField = isBol ? "bol_force_complete" : "pod_force_complete";
+    const forceFieldCamel = isBol ? "bolForceComplete" : "podForceComplete";
+
+    const updateReportsData = (old: any) => {
+      if (!old) return old;
+
+      return old.map((group: any) => ({
+        ...group,
+        trucks: group.trucks.map((truck: any) => {
+          const allOrders = truck.allOrders?.map((order: any) => {
+            if (order.id !== orderId) return order;
+
+            const nextDeliveryStops = !isBol
+              ? (order.deliveryStops || []).map((stop: any) => ({
+                  ...stop,
+                  checked_out_at: stop.checked_out_at || nowIso,
+                }))
+              : order.deliveryStops;
+
+            const nextPickupDrops = !isBol
+              ? (order.pickup_drops || []).map((stop: any) =>
+                  stop.type === "delivery" || stop.type === "drop"
+                    ? { ...stop, checked_out_at: stop.checked_out_at || nowIso }
+                    : stop,
+                )
+              : order.pickup_drops;
+
+            const nextOrder = {
+              ...order,
+              [forceField]: true,
+              [forceFieldCamel]: true,
+              ...(isBol ? {} : { status: "delivered" }),
+              ...(nextDeliveryStops ? { deliveryStops: nextDeliveryStops } : {}),
+              ...(nextPickupDrops ? { pickup_drops: nextPickupDrops } : {}),
+            };
+
+            const nextHasBOL = nextOrder.order_files?.some((file: any) => file.file_category === "BOL") || nextOrder.bol_force_complete || nextOrder.bolForceComplete;
+            const nextHasPOD = nextOrder.order_files?.some((file: any) => file.file_category === "POD") || nextOrder.pod_force_complete || nextOrder.podForceComplete;
+
+            return {
+              ...nextOrder,
+              isActive: !nextHasPOD && (nextOrder.status === "pending" || nextOrder.status === "in_transit"),
+              isRecentCompleted: nextHasPOD || nextOrder.status === "delivered",
+              documentStatus: nextHasPOD ? "complete" : nextHasBOL ? "partial" : order.documentStatus,
+              documentColors:
+                order.documentColors && typeof order.documentColors === "object"
+                  ? { ...order.documentColors, pod: nextHasPOD, bol: nextHasBOL }
+                  : order.documentColors,
+              loadDetails: order.loadDetails
+                ? {
+                    ...order.loadDetails,
+                    documents: Array.isArray(order.loadDetails.documents)
+                      ? Array.from(
+                          new Map(
+                            [
+                              ...order.loadDetails.documents,
+                              { category: type },
+                            ].map((doc: any) => [doc.category, doc]),
+                          ).values(),
+                        )
+                      : order.loadDetails.documents,
+                  }
+                : order.loadDetails,
+            };
+          });
+
+          return {
+            ...truck,
+            ...(truck.currentOrder?.id === orderId
+              ? {
+                  currentOrder: allOrders?.find((order: any) => order.id === orderId) || truck.currentOrder,
+                }
+              : {}),
+            ...(truck.currentOrderId === orderId ? { currentOrderId: orderId } : {}),
+            allOrders,
+          };
+        }),
+      }));
+    };
+
+    queryClient.setQueriesData({ queryKey: ["reports", "priority"] }, updateReportsData);
+    queryClient.setQueryData(["reports", "full"], updateReportsData);
+
     // Optimistically update zoomedLoad
     setZoomedLoad((prev: any) => {
       if (!prev) return prev;
       return {
         ...prev,
-        [type === "BOL" ? "bolForceComplete" : "podForceComplete"]: true,
+        [forceFieldCamel]: true,
+        ...(!isBol
+          ? {
+              allDeliveryStops: (prev.allDeliveryStops || []).map((stop: any) => ({
+                ...stop,
+                checked_out_at: stop.checked_out_at || nowIso,
+              })),
+            }
+          : {}),
         documents: type === "POD" 
           ? [...new Set([...prev.documents, "POD"])]
           : [...new Set([...prev.documents, "BOL"])],
       };
     });
 
-    // Invalidate caches
+    // Invalidate non-reports caches
     queryClient.invalidateQueries({ queryKey: ["orders"] });
-    queryClient.invalidateQueries({ queryKey: ["reports"] });
 
     toast({ title: "Success", description: `All ${type === "BOL" ? "pickup" : "delivery"} stops marked as ${type} complete` });
     setForceCompleteDialog({ open: false, type: "BOL" });
@@ -6512,8 +6607,10 @@ const Reports = () => {
                   const deliveryStops = zoomedLoad?.allDeliveryStops || [];
                   const bolCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "BOL").length || 0;
                   const podCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "POD").length || 0;
-                   const showBolComplete = pickupStops.length > 1 && bolCount < pickupStops.length && !zoomedLoad?.bolForceComplete;
-                   const showPodComplete = deliveryStops.length > 1 && podCount < deliveryStops.length && !zoomedLoad?.podForceComplete;
+                  const bolForceComplete = zoomedLoad?.bolForceComplete === true;
+                  const podForceComplete = zoomedLoad?.podForceComplete === true;
+                  const showBolComplete = pickupStops.length > bolCount && !bolForceComplete;
+                  const showPodComplete = deliveryStops.length > podCount && !podForceComplete;
 
                   return (
                     <>
