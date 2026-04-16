@@ -76,6 +76,26 @@ export function transformOrders(allOrders: any[]) {
       toNum(order.wrong_address_fee || order.wrongAddressFee) -
       toNum(order.other_charges || order.otherCharges);
 
+    // Force-complete: inject synthetic file entries so all downstream file-count logic works
+    const bolForceComplete = order.bol_force_complete === true || order.bol_force_complete === "true";
+    const podForceComplete = order.pod_force_complete === true || order.pod_force_complete === "true";
+
+    if (bolForceComplete) {
+      const pickupStopCount = pickupDrops.filter((pd: any) => pd.type === "pickup").length;
+      const existingBolCount = orderFiles.filter((f: any) => f.file_category === "BOL").length;
+      for (let i = existingBolCount; i < pickupStopCount; i++) {
+        orderFiles.push({ id: `synthetic-bol-${i}`, file_category: "BOL", file_name: "force-complete", file_path: "" });
+      }
+    }
+
+    if (podForceComplete) {
+      const deliveryStopCount = pickupDrops.filter((pd: any) => pd.type === "delivery").length;
+      const existingPodCount = orderFiles.filter((f: any) => f.file_category === "POD").length;
+      for (let i = existingPodCount; i < deliveryStopCount; i++) {
+        orderFiles.push({ id: `synthetic-pod-${i}`, file_category: "POD", file_name: "force-complete", file_path: "" });
+      }
+    }
+
     // Filter files by category
     const rcFiles = orderFiles.filter((f: any) => f.file_category === "RC");
     const podFiles = orderFiles.filter((f: any) => f.file_category === "POD");
