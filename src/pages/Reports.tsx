@@ -2233,7 +2233,7 @@ const Reports = () => {
 
                       // Render a separate cell for each delivery stop
                       return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop);
+                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
                         const totalCellsOnDay =
                           allDeliveryOrders.reduce(
                             (sum, o) =>
@@ -2292,7 +2292,7 @@ const Reports = () => {
 
                       // Render a separate cell for each delivery stop
                       return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop);
+                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
                         const totalCellsOnDay =
                           allDeliveryOrders.reduce(
                             (sum, o) =>
@@ -2423,7 +2423,7 @@ const Reports = () => {
 
                           // Render a separate cell for each pickup stop
                           return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, stop);
+                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
                             const totalCellsOnDay =
                               allPickupOrders.reduce(
                                 (sum, o) =>
@@ -2485,7 +2485,7 @@ const Reports = () => {
 
                           // Render a separate cell for each pickup stop
                           return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, stop);
+                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
                             const totalCellsOnDay =
                               allPickupOrders.reduce(
                                 (sum, o) =>
