@@ -702,6 +702,7 @@ const Reports = () => {
   }, [proximityAddress, groupedReports]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  const [forceCompleteDialog, setForceCompleteDialog] = useState<{ open: boolean; type: "BOL" | "POD" }>({ open: false, type: "BOL" });
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
