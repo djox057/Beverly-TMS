@@ -79,6 +79,12 @@ export default function BeverlyHeatmapLane() {
 
   const handleSearch = async () => {
     if (!pickupAddress.trim() && !deliveryAddress.trim()) return;
+    if (!dateRange?.from) {
+      const today = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      setDateRange({ from: thirtyDaysAgo, to: today });
+    }
     setIsGeocoding(true);
     const [pCoords, dCoords] = await Promise.all([
       pickupAddress.trim() ? geocodeAddress(pickupAddress) : Promise.resolve(null),
