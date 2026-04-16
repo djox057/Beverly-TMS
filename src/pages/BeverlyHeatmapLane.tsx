@@ -12,6 +12,9 @@ import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 const RADIUS_MILES = 60;
 
@@ -36,6 +39,7 @@ interface BrokerStat {
   avg_miles: number;
   rpm: number;
   order_count: number;
+  order_ids: string[];
 }
 
 type SortKey = "broker_name" | "total_freight" | "avg_freight" | "avg_miles" | "rpm" | "order_count";
@@ -50,6 +54,7 @@ export default function BeverlyHeatmapLane() {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "order_count", dir: "desc",
   });
+  const [selectedBroker, setSelectedBroker] = useState<BrokerStat | null>(null);
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
@@ -157,13 +162,14 @@ export default function BeverlyHeatmapLane() {
       const matchingOrders = allOrders.filter(o => matchingOrderIds.has(o.id));
 
       // Aggregate by broker
-      const agg = new Map<string, { freight: number; miles: number; count: number }>();
+      const agg = new Map<string, { freight: number; miles: number; count: number; orderIds: string[] }>();
       for (const o of matchingOrders) {
-        if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0 });
+        if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0, orderIds: [] });
         const e = agg.get(o.broker_id)!;
         e.freight += Number(o.freight_amount) || 0;
         e.miles += Number(o.loaded_miles) || 0;
         e.count++;
+        e.orderIds.push(o.id);
       }
 
       // Fetch broker info
@@ -192,6 +198,7 @@ export default function BeverlyHeatmapLane() {
           avg_miles: stats.count > 0 ? stats.miles / stats.count : 0,
           rpm: stats.miles > 0 ? stats.freight / stats.miles : 0,
           order_count: stats.count,
+          order_ids: stats.orderIds,
         });
       }
 
@@ -213,6 +220,41 @@ export default function BeverlyHeatmapLane() {
     },
     enabled: hasCoords,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch order details for dialog
+  const dialogOrderIds = selectedBroker?.order_ids || [];
+  const { data: orderDetails = [], isLoading: isLoadingOrders } = useQuery({
+    queryKey: ["heatmap-lane-orders", dialogOrderIds],
+    queryFn: async () => {
+      if (dialogOrderIds.length === 0) return [];
+      const allDetails: { id: string; broker_load_number: string | null; freight_amount: number | null; loaded_miles: number | null; pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[] }[] = [];
+      for (let i = 0; i < dialogOrderIds.length; i += 200) {
+        const chunk = dialogOrderIds.slice(i, i + 200);
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("id, broker_load_number, freight_amount, loaded_miles")
+          .in("id", chunk);
+        if (!orders) continue;
+        const ids = orders.map((o: any) => o.id);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, city, state, type")
+          .in("order_id", ids)
+          .order("sequence_number", { ascending: true });
+        const pdMap = new Map<string, { city: string | null; state: string | null; stop_type: string | null }[]>();
+        for (const pd of pds || []) {
+          if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
+          pdMap.get(pd.order_id)!.push({ city: pd.city, state: pd.state, stop_type: pd.type });
+        }
+        for (const o of orders) {
+          allDetails.push({ ...o, pickup_drops: pdMap.get(o.id) || [] });
+        }
+      }
+      return allDetails;
+    },
+    enabled: dialogOrderIds.length > 0,
+    staleTime: 0,
   });
 
   const sorted = useMemo(() => {
@@ -366,7 +408,13 @@ export default function BeverlyHeatmapLane() {
                   <TableCell className="text-right text-sm font-mono">{fmtMiles(b.avg_miles)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{fmtRpm(b.rpm)}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary" className="font-mono">{b.order_count}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="font-mono cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => setSelectedBroker(b)}
+                    >
+                      {b.order_count}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))}
@@ -381,6 +429,57 @@ export default function BeverlyHeatmapLane() {
           Enter pickup and/or delivery locations to search lane history.
         </div>
       )}
+
+      {/* Orders Dialog */}
+      <Dialog open={!!selectedBroker} onOpenChange={(open) => { if (!open) setSelectedBroker(null); }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBroker?.broker_name} — {selectedBroker?.order_ids.length} Orders
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingOrders ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">Loading orders...</div>
+          ) : orderDetails.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">No orders found.</div>
+          ) : (
+            <div className="overflow-x-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[130px]">Broker Load #</TableHead>
+                    <TableHead className="w-[280px]">Lane</TableHead>
+                    <TableHead className="text-right w-[100px]">Freight</TableHead>
+                    <TableHead className="text-right w-[80px]">Miles</TableHead>
+                    <TableHead className="text-right w-[70px]">RPM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderDetails.map(order => {
+                    const miles = Number(order.loaded_miles) || 0;
+                    const freight = Number(order.freight_amount) || 0;
+                    const pickups = order.pickup_drops.filter(s => s.stop_type === "pickup");
+                    const deliveries = order.pickup_drops.filter(s => s.stop_type === "delivery");
+                    const p = pickups[0];
+                    const d = deliveries[deliveries.length - 1];
+                    const lane = `${p ? `${p.city || "?"}, ${p.state || "?"}` : "?"} → ${d ? `${d.city || "?"}, ${d.state || "?"}` : "?"}`;
+                    return (
+                      <TableRow key={order.id} className="hover:bg-transparent">
+                        <TableCell className="font-mono text-sm">{order.broker_load_number || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{lane}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmt(freight)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtMiles(miles)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtRpm(miles > 0 ? freight / miles : 0)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
