@@ -55,8 +55,6 @@ export default function BeverlyHeatmapLane() {
     key: "order_count", dir: "desc",
   });
   const [selectedBroker, setSelectedBroker] = useState<BrokerStat | null>(null);
-    key: "order_count", dir: "desc",
-  });
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
