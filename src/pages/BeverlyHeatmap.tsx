@@ -791,6 +791,9 @@ export default function BeverlyHeatmap() {
         <TabsContent value="brokers">
           <BeverlyHeatmapBrokers />
         </TabsContent>
+
+        <TabsContent value="lane">
+          <BeverlyHeatmapLane />
       </Tabs>
     </div>
   );
