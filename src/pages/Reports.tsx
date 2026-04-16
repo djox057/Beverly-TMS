@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
@@ -614,6 +615,7 @@ const Reports = () => {
   }>({ open: false, files: [], anchorEl: null });
   const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+  const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(null);
 
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
@@ -955,10 +957,101 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
+      bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
+      podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
   }, []);
 
-  // File upload handlers
+  // Force complete handler
+  const handleForceComplete = async (type: "BOL" | "POD", orderId: string) => {
+    try {
+      const updateData: any = {};
+      if (type === "BOL") {
+        updateData.bol_force_complete = true;
+      } else {
+        updateData.pod_force_complete = true;
+        updateData.status = "delivered";
+      }
+
+      const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
+      if (error) throw error;
+
+      // POD: set checked_out_at on all delivery stops that don't have it
+      if (type === "POD") {
+        await supabase
+          .from("pickup_drops")
+          .update({ checked_out_at: new Date().toISOString() })
+          .eq("order_id", orderId)
+          .eq("type", "delivery")
+          .is("checked_out_at", null);
+      }
+
+      // Optimistic update: update zoomedLoad state
+      setZoomedLoad((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          bolForceComplete: type === "BOL" ? true : prev.bolForceComplete,
+          podForceComplete: type === "POD" ? true : prev.podForceComplete,
+        };
+      });
+
+      // Optimistic update reports cache
+      const reportsCacheKeys = [["reports", "priority"], ["reports", "full"], ["reports"]];
+      for (const key of reportsCacheKeys) {
+        queryClient.setQueriesData({ queryKey: key }, (oldData: any) => {
+          if (!oldData || !Array.isArray(oldData)) return oldData;
+          return oldData.map((truck: any) => {
+            if (!truck.allOrders) return truck;
+            return {
+              ...truck,
+              allOrders: truck.allOrders.map((o: any) => {
+                if (o.id !== orderId) return o;
+                const updated = { ...o };
+                if (type === "BOL") {
+                  updated.bol_force_complete = true;
+                  if (updated.order) updated.order = { ...updated.order, bol_force_complete: true };
+                } else {
+                  updated.pod_force_complete = true;
+                  updated.isActive = false;
+                  updated.isRecentCompleted = true;
+                  updated.documentStatus = "complete";
+                  updated.documentColors = { ...updated.documentColors, pod: true };
+                  if (updated.order) updated.order = { ...updated.order, pod_force_complete: true, status: "delivered" };
+                  // Set checked_out_at on delivery stops
+                  if (updated.deliveryStops) {
+                    updated.deliveryStops = updated.deliveryStops.map((s: any) => 
+                      s.checked_out_at ? s : { ...s, checked_out_at: new Date().toISOString() }
+                    );
+                  }
+                }
+                if (type === "BOL") {
+                  updated.documentColors = { ...updated.documentColors, bol: true };
+                  updated.documentStatus = updated.documentColors.pod ? "complete" : "partial";
+                }
+                return updated;
+              }),
+            };
+          });
+        });
+      }
+
+      // Invalidate orders cache for other pages
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+
+      toast({
+        title: `${type} Force Complete`,
+        description: `All ${type === "BOL" ? "pickup" : "delivery"} stops marked as complete`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to force complete",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDocumentClick = (docType: string, isChecked: boolean) => {
     if (!isChecked) {
       setUploadDocType(docType);
@@ -6432,6 +6525,43 @@ const Reports = () => {
                   );
                 })}
 
+                {/* BOL/POD Force Complete Buttons */}
+                {(() => {
+                  const pickupStops = zoomedLoad?.allPickupStops || [];
+                  const deliveryStops = zoomedLoad?.allDeliveryStops || [];
+                  const bolFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "BOL").length || 0;
+                  const podFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "POD").length || 0;
+                  const showBolComplete = pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete;
+                  const showPodComplete = deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete;
+
+                  return (
+                    <>
+                      {showBolComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete))] hover:bg-[hsl(var(--cell-complete))]/10"
+                          onClick={() => setForceCompleteConfirm({ type: "BOL", orderId: zoomedLoad!.orderId })}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          BOL Complete
+                        </Button>
+                      )}
+                      {showPodComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete))] hover:bg-[hsl(var(--cell-complete))]/10"
+                          onClick={() => setForceCompleteConfirm({ type: "POD", orderId: zoomedLoad!.orderId })}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          POD Complete
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
+
                 {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
                   <Button
@@ -7191,6 +7321,32 @@ const Reports = () => {
         }}
         driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
       />
+
+      {/* Force Complete Confirmation Dialog */}
+      <AlertDialog open={!!forceCompleteConfirm} onOpenChange={(open) => !open && setForceCompleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force Complete {forceCompleteConfirm?.type}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark all {forceCompleteConfirm?.type === "BOL" ? "BOL" : "POD"} as complete?
+              {forceCompleteConfirm?.type === "POD" && " This will also mark the order as delivered."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (forceCompleteConfirm) {
+                  handleForceComplete(forceCompleteConfirm.type, forceCompleteConfirm.orderId);
+                  setForceCompleteConfirm(null);
+                }
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

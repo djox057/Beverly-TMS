@@ -2,6 +2,17 @@ import { format, isSameDay, addDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
+// Force-complete aware helpers: check both file existence AND force_complete flags
+export const orderHasBOL = (order: any): boolean => {
+  if (order.bol_force_complete || order.bolForceComplete) return true;
+  return order.order_files?.some((file: any) => file.file_category === "BOL") ?? false;
+};
+
+export const orderHasPOD = (order: any): boolean => {
+  if (order.pod_force_complete || order.podForceComplete) return true;
+  return order.order_files?.some((file: any) => file.file_category === "POD") ?? false;
+};
+
 const CHICAGO_TZ = "America/Chicago";
 
 /**
@@ -137,8 +148,8 @@ export const hasPreviousOrdersWithoutPOD = (truck: any | null, currentOrder: any
     if (order.id === currentOrder.id) return false;
     if (order.notes === "GAME|OVER") return false;
 
-    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    const hasBOL = orderHasBOL(order);
+    const hasPOD = orderHasPOD(order);
 
     return hasBOL && !hasPOD;
   });
@@ -146,7 +157,7 @@ export const hasPreviousOrdersWithoutPOD = (truck: any | null, currentOrder: any
 
 // Helper to determine if we should show Going to Pickup button
 export const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null): boolean => {
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToPickupClicked = !!stop.going_to_at;
   const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
 
@@ -158,7 +169,7 @@ export const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null
 export const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null): boolean => {
   if (stop.arrived_at) return false;
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToPickupClicked = !!stop.going_to_at;
   const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
   const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
@@ -169,7 +180,7 @@ export const shouldShowAtPickup = (order: any, stop: any, truck: any | null = nu
 
 // Helper to determine if we should show Going to Delivery button
 export const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToDeliveryClicked = !!stop.going_to_at;
 
   if (goingToDeliveryClicked) return false;
@@ -180,12 +191,13 @@ export const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | n
 export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
   if (stop.arrived_at) return false;
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasBOL = orderHasBOL(order);
   const goingToDeliveryClicked = !!stop.going_to_at;
   const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
 
   return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
 };
+
 
 // Helper to check if a date string matches today (no timezone conversion)
 const isDateToday = (dateStr: string | null | undefined): boolean => {
@@ -206,10 +218,15 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasBOL = orderHasBOL(order);
+  const hasPOD = orderHasPOD(order);
   const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
   const isLate = latePickups?.has(order.id);
+
+  // If bol_force_complete, all pickup cells are green
+  if (order.bol_force_complete || order.bolForceComplete) {
+    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
 
   // For multi-pickup loads: BOL should only turn the corresponding pickup green
   const pickupStops =
@@ -246,10 +263,15 @@ export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeli
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasBOL = orderHasBOL(order);
+  const hasPOD = orderHasPOD(order);
   const hasArrived = stop?.arrived_at;
   const isLate = lateDeliveries.has(order.id);
+
+  // If pod_force_complete, all delivery cells are green
+  if (order.pod_force_complete || order.podForceComplete) {
+    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
 
   const deliveryStops =
     order.deliveryStops ||

@@ -1176,8 +1176,8 @@ export const useReports = (options?: UseReportsOptions) => {
                 // Skip canceled orders
                 if (order.canceled) return false;
 
-                // Skip orders with POD files - they are completed and can't be "current"
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                // Skip orders with POD files or pod_force_complete - they are completed and can't be "current"
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
                 if (hasPOD) return false;
 
                 // Any pending/in_transit order without POD is a candidate for current order
@@ -1195,8 +1195,8 @@ export const useReports = (options?: UseReportsOptions) => {
 
                 if (order.status === "delivered") return true;
 
-                // Consider orders with POD files as completed regardless of status
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                // Consider orders with POD files or pod_force_complete as completed regardless of status
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
                 if (hasPOD) return true;
 
                 // Consider pending orders past delivery time as recently completed
@@ -1461,7 +1461,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 // Check if there's a previous order with POD (completed)
                 if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD') || previousOrder.pod_force_complete === true;
                   
                   if (previousHasPOD) {
                     // Previous load is complete (has POD), so the last load without BOL is current
@@ -1763,7 +1763,7 @@ export const useReports = (options?: UseReportsOptions) => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
               // Skip orders with POD files - they are completed and can't be "current"
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
               if (hasPOD) return false;
               // Any pending/in_transit order without POD is a candidate for current order
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
@@ -1777,7 +1777,7 @@ export const useReports = (options?: UseReportsOptions) => {
               if (order.status === "delivered") return true;
               
               // Consider orders with POD files as completed regardless of status
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
               if (hasPOD) return true;
               
               if (order.status === "pending" && order.delivery_datetime) {
@@ -1804,8 +1804,8 @@ export const useReports = (options?: UseReportsOptions) => {
             const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
             const pickupStop = pickupStops[0];
             const deliveryStop = deliveryStops[deliveryStops.length - 1];
-            const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-            const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+            const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
+            const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete === true;
             
             return {
               id: order.id,
@@ -1820,6 +1820,8 @@ export const useReports = (options?: UseReportsOptions) => {
               updated_at: order.updated_at,
               loaded_miles: order.loaded_miles,
               order_files: order.order_files,
+              bol_force_complete: order.bol_force_complete || false,
+              pod_force_complete: order.pod_force_complete || false,
               pickupStop,
               deliveryStop,
               pickupStops,
@@ -1854,12 +1856,12 @@ export const useReports = (options?: UseReportsOptions) => {
           
           if (allSortedOrders.length > 0) {
             const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-            const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+            const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL') || lastOrder.bol_force_complete;
             if (lastOrderHasBOL) {
               currentOrder = lastOrder;
             } else if (allSortedOrders.length >= 2) {
               const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-              const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+              const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD') || previousOrder.pod_force_complete === true;
               if (previousHasPOD) {
                 currentOrder = lastOrder;
               } else {
@@ -2149,8 +2151,8 @@ export const useReports = (options?: UseReportsOptions) => {
                   const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
                   const pickupStop = pickupStops[0];
                   const deliveryStop = deliveryStops[deliveryStops.length - 1];
-                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
+                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete === true;
                   
                   return {
                     id: order.id,
@@ -2165,6 +2167,8 @@ export const useReports = (options?: UseReportsOptions) => {
                     updated_at: order.updated_at,
                     loaded_miles: order.loaded_miles,
                     order_files: order.order_files,
+                    bol_force_complete: order.bol_force_complete || false,
+                    pod_force_complete: order.pod_force_complete || false,
                     pickupStop,
                     deliveryStop,
                     pickupStops,
@@ -2199,17 +2203,17 @@ export const useReports = (options?: UseReportsOptions) => {
               
               if (allSortedOrders.length > 0) {
                 const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL') || lastOrder.bol_force_complete;
                 if (lastOrderHasBOL) {
                   currentOrder = lastOrder;
                 } else if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD') || previousOrder.pod_force_complete === true;
                   if (previousHasPOD) {
                     currentOrder = lastOrder;
                   } else {
                     const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                      order.order_files?.some((file: any) => file.file_category === 'BOL')
+                      order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete
                     );
                     currentOrder = lastWithBOL || lastOrder;
                   }

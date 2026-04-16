@@ -1891,8 +1891,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               const pickupStop = pickupStops[0] || null;
               const deliveryStop = deliveryStops[deliveryStops.length - 1] || null;
               const orderFilesList = orderFilesMap.get(order.id) || [];
-              const hasPOD = orderFilesList.some((f: any) => f.file_category === 'POD');
-              const hasBOL = orderFilesList.some((f: any) => f.file_category === 'BOL');
+              const hasPOD = orderFilesList.some((f: any) => f.file_category === 'POD') || order.pod_force_complete === true;
+              const hasBOL = orderFilesList.some((f: any) => f.file_category === 'BOL') || order.bol_force_complete === true;
 
               const transferInfo = getTransferAwareStops(driver.id, order, pickupStop, deliveryStop);
 
@@ -1909,6 +1909,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
                 updated_at: order.updated_at,
                 loaded_miles: order.loaded_miles,
                 order_files: orderFilesList,
+                bol_force_complete: order.bol_force_complete || false,
+                pod_force_complete: order.pod_force_complete || false,
                 pickupStop: transferInfo.effectivePickupStop || pickupStop,
                 deliveryStop: transferInfo.effectiveDeliveryStop || deliveryStop,
                 pickupStops,

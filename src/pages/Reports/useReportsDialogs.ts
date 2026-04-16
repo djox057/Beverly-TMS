@@ -45,6 +45,9 @@ export interface ZoomedLoadState {
   freightAmount: number;
   loadedMiles: number;
   driverPay: number;
+  bolForceComplete?: boolean;
+  podForceComplete?: boolean;
+  orderFiles?: any[];
 }
 
 export interface CashAdvanceDialogState {
