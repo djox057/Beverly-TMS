@@ -813,7 +813,7 @@ const Reports = () => {
 
       // Check if this order has BOL but no POD (incomplete delivery)
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete;
 
       return hasBOL && !hasPOD;
     });
