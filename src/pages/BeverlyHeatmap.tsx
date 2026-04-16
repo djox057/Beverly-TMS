@@ -794,6 +794,7 @@ export default function BeverlyHeatmap() {
 
         <TabsContent value="lane">
           <BeverlyHeatmapLane />
+        </TabsContent>
       </Tabs>
     </div>
   );
