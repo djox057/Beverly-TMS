@@ -1656,10 +1656,15 @@ const Reports = () => {
       // Check if this is a recovery load first - purple background
       if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL") || order.bol_force_complete === true;
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete === true;
       const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
       const isLate = latePickups.has(order.id);
+
+      // If bol_force_complete, all pickups are green
+      if (order.bol_force_complete === true || order.pod_force_complete === true) {
+        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      }
 
       // For multi-pickup loads: BOL should only turn the corresponding pickup green
       const pickupStops =
@@ -1695,10 +1700,15 @@ const Reports = () => {
       // Check if this is a recovery load first - purple background
       if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+      const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL") || order.bol_force_complete === true;
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD") || order.pod_force_complete === true;
       const hasArrived = stop?.arrived_at;
       const isLate = lateDeliveries.has(order.id);
+
+      // If pod_force_complete, all deliveries are green
+      if (order.pod_force_complete === true) {
+        return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      }
 
       // For multi-drop loads: POD should only turn the corresponding delivery dark green
       // Get all delivery stops sorted by sequence_number
