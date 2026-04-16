@@ -222,10 +222,8 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
   const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
   const isLate = latePickups?.has(order.id);
 
-  // If bol_force_complete, all pickup cells are green
-  if (order.bol_force_complete || order.bolForceComplete) {
-    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-  }
+  // Synthetic files are injected by ordersTransform when force_complete is true,
+  // so the standard file-count logic below handles it automatically.
 
   // For multi-pickup loads: BOL should only turn the corresponding pickup green
   const pickupStops =
@@ -267,10 +265,8 @@ export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeli
   const hasArrived = stop?.arrived_at;
   const isLate = lateDeliveries.has(order.id);
 
-  // If pod_force_complete, all delivery cells are green
-  if (order.pod_force_complete || order.podForceComplete) {
-    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-  }
+  // Synthetic files are injected by ordersTransform when force_complete is true,
+  // so the standard file-count logic below handles it automatically.
 
   const deliveryStops =
     order.deliveryStops ||
