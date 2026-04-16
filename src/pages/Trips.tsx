@@ -465,7 +465,7 @@ const Trips = () => {
 
   // Use lazy loading hook - only fetches on search if no global orders cached
   const {
-    data: orders,
+    data: ordersRaw,
     isLoading,
     isLazyMode,
     hasGlobalOrders,
@@ -473,6 +473,37 @@ const Trips = () => {
   } = useTripsLazyOrders({ truckDriverSearch: searchFilter, loadNumberSearch });
 
   const queryClient = useQueryClient();
+
+  // For dispatch-only users: fetch the IDs of drivers assigned to them so we can
+  // restrict trips visibility to ONLY their assigned drivers/trucks (no booked_by, no others).
+  const { data: dispatchAssignedDriverIds } = useQuery({
+    queryKey: ["trips-dispatch-assigned-drivers", profile?.user_id],
+    queryFn: async () => {
+      if (!profile?.user_id) return [] as string[];
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("dispatcher_id", profile.user_id);
+      if (error) throw error;
+      return (data || []).map((d) => d.id);
+    },
+    enabled: isDispatchOnly && !!profile?.user_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Apply dispatch-only filter: keep only orders for drivers assigned to this dispatcher.
+  // For all other roles, this is a no-op.
+  const orders = useMemo(() => {
+    if (!isDispatchOnly) return ordersRaw;
+    if (!ordersRaw) return ordersRaw;
+    const allowed = new Set(dispatchAssignedDriverIds || []);
+    if (allowed.size === 0) return [];
+    return ordersRaw.filter(
+      (o: any) =>
+        (o.driver1Id && allowed.has(o.driver1Id)) ||
+        (o.driver2Id && allowed.has(o.driver2Id))
+    );
+  }, [ordersRaw, isDispatchOnly, dispatchAssignedDriverIds]);
 
   // Cell selection for Excel-like sum/average functionality
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
