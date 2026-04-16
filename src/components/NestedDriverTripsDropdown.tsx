@@ -51,17 +51,17 @@ const extractDatePart = (dateStr: string | null | undefined): string | null => {
 };
 
 // Toggle button component (controlled)
-export function NestedDriverTripsDropdown({ 
-  driverName, 
-  driverId, 
-  onSearchDriver, 
-  isOpen = false, 
-  onToggle 
+export function NestedDriverTripsDropdown({
+  driverName,
+  driverId,
+  onSearchDriver,
+  isOpen = false,
+  onToggle,
 }: NestedDriverTripsDropdownProps) {
   return (
-    <Button 
-      variant="ghost" 
-      size="sm" 
+    <Button
+      variant="ghost"
+      size="sm"
       className="h-6 px-2 text-xs gap-1 hover:bg-yellow-200 dark:hover:bg-yellow-800"
       onClick={onToggle}
     >
@@ -111,8 +111,7 @@ export function NestedDriverTripsInlineContent({
   const gridColsClass = tripsGridCols[gridVariant];
 
   const gridRowClass = useCallback(
-    (...extra: (string | undefined | false)[]) =>
-      cn("grid items-center gap-0", gridColsClass, ...extra),
+    (...extra: (string | undefined | false)[]) => cn("grid items-center gap-0", gridColsClass, ...extra),
     [gridColsClass],
   );
 
@@ -124,11 +123,7 @@ export function NestedDriverTripsInlineContent({
     queryKey: ["nested-driver-trips-inline", driverName, driverId],
     queryFn: async () => {
       // Flat fetch - no joins to eliminate RLS amplification
-      let query = supabase
-        .from("orders")
-        .select("*")
-        .order("delivery_datetime", { ascending: false })
-        .limit(50);
+      let query = supabase.from("orders").select("*").order("delivery_datetime", { ascending: false }).limit(50);
 
       if (driverId) {
         query = query.or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`);
@@ -162,14 +157,14 @@ export function NestedDriverTripsInlineContent({
       const driverPay = Number(order.totalDriverPay) || 0;
       const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
       if (miles === 0 && driverPay === 0 && freightAmount === 0) return false;
-      
+
       // Filter by assignment date if provided - only show orders delivered on or before assignment date
       if (assignmentDate && order.deliveryDate) {
         const deliveryDatePart = extractDatePart(order.deliveryDate);
         if (!deliveryDatePart) return true; // Don't filter on invalid dates
         if (deliveryDatePart > assignmentDate) return false; // Exclude orders after assignment date
       }
-      
+
       return true;
     });
   }, [orders, assignmentDate]);
@@ -241,8 +236,7 @@ export function NestedDriverTripsInlineContent({
     const hasReducedPay = totalFreight < freightAmount;
 
     const hasOrangeCondition =
-      order.canceled ||
-      ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
+      order.canceled || ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
     const isEvenRow = orderIndex % 2 === 1;
     const alternatingBg = isEvenRow ? "bg-muted/50 dark:bg-muted/30" : "bg-background";
@@ -278,10 +272,7 @@ export function NestedDriverTripsInlineContent({
             <img
               src={moneyStackIcon}
               alt={isPositive ? "Additional pay" : "Reduced pay"}
-              className={cn(
-                "h-4 w-4 object-contain",
-                !isPositive && "grayscale brightness-75 hue-rotate-180",
-              )}
+              className={cn("h-4 w-4 object-contain", !isPositive && "grayscale brightness-75 hue-rotate-180")}
             />
           </Button>
         </PopoverTrigger>
@@ -398,10 +389,17 @@ export function NestedDriverTripsInlineContent({
                           : "hover:bg-muted",
                       )}
                       onClick={() =>
-                        toggleCell(`week-driver-${week.weekStart}`, week.totals.driverPay, "driverPay", week.totals.miles)
+                        toggleCell(
+                          `week-driver-${week.weekStart}`,
+                          week.totals.driverPay,
+                          "driverPay",
+                          week.totals.miles,
+                        )
                       }
                     >
-                      <span className="text-green-600 dark:text-green-400">{formatCurrency(week.totals.driverPay)}</span>
+                      <span className="text-green-600 dark:text-green-400">
+                        {formatCurrency(week.totals.driverPay)}
+                      </span>
                     </div>
 
                     {/* Freight */}
@@ -414,14 +412,20 @@ export function NestedDriverTripsInlineContent({
                           : "hover:bg-muted",
                       )}
                       onClick={() =>
-                        toggleCell(`week-freight-${week.weekStart}`, week.totals.freightAmount, "freightAmount", week.totals.miles)
+                        toggleCell(
+                          `week-freight-${week.weekStart}`,
+                          week.totals.freightAmount,
+                          "freightAmount",
+                          week.totals.miles,
+                        )
                       }
                     >
-                      <span className="text-green-600 dark:text-green-400">{formatCurrency(week.totals.freightAmount)}</span>
+                      <span className="text-green-600 dark:text-green-400">
+                        {formatCurrency(week.totals.freightAmount)}
+                      </span>
                     </div>
 
                     {showPaidColumn && <div className={cn(cellBase, "py-2 text-center")} />}
-
 
                     {/* Actions (blank in week bar) */}
                     <div className={cn(cellBase, "py-2")} />
@@ -440,7 +444,7 @@ export function NestedDriverTripsInlineContent({
                     <div className={cn(cellBase, "py-1.5 font-medium text-right")}>Miles</div>
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Broker Name</div>
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Broker Load#</div>
-                    <div className={cn(cellBase, "py-1.5 font-medium text-right")}>Driver Pay</div>
+                    <div className={cn(cellBase, "py-1.5 font-medium text-right")}>Stop Amt</div>
                     <div className={cn(cellBase, "py-1.5 font-medium text-right")}>Freight Amt</div>
                     {showPaidColumn && <div className={cn(cellBase, "py-1.5 font-medium text-center")}>Paid</div>}
                     <div className={cn(cellBase, "py-1.5 font-medium")}>Actions</div>
@@ -459,14 +463,16 @@ export function NestedDriverTripsInlineContent({
 
                       <div className={cn(cellBase, "font-medium truncate")}>{order.truckNumber || ""}</div>
                       <div className={cn(cellBase, "truncate")}>{driverName}</div>
-                      <div className={cn(cellBase, "font-medium")}>{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</div>
+                      <div className={cn(cellBase, "font-medium")}>
+                        {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
+                      </div>
                       <div className={cellBase}>{formatDateDisplay(order.pickupDate)}</div>
-                      <div className={cn(cellBase, "truncate")}> 
+                      <div className={cn(cellBase, "truncate")}>
                         <span>{order.pickupCity}</span>
                         {order.pickupState && <span className="text-muted-foreground">, {order.pickupState}</span>}
                       </div>
                       <div className={cellBase}>{formatDateDisplay(order.deliveryDate)}</div>
-                      <div className={cn(cellBase, "truncate")}> 
+                      <div className={cn(cellBase, "truncate")}>
                         <span>{order.deliveryCity}</span>
                         {order.deliveryState && <span className="text-muted-foreground">, {order.deliveryState}</span>}
                       </div>
@@ -514,7 +520,9 @@ export function NestedDriverTripsInlineContent({
                           );
                         }}
                       >
-                        <span className="text-green-600 dark:text-green-400">{formatCurrency(order.totalDriverPay || 0)}</span>
+                        <span className="text-green-600 dark:text-green-400">
+                          {formatCurrency(order.totalDriverPay || 0)}
+                        </span>
                       </div>
 
                       {/* Freight */}
@@ -542,9 +550,7 @@ export function NestedDriverTripsInlineContent({
                       </div>
 
                       {showPaidColumn && (
-                        <div className={cn(cellBase, "text-center")}
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className={cn(cellBase, "text-center")} onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-center">
                             <Checkbox
                               checked={(order as any).paid === true}
@@ -553,7 +559,7 @@ export function NestedDriverTripsInlineContent({
                                 onOrderPaidToggle?.(
                                   order.id,
                                   (order as any).paid === true,
-                                  String((order as any).loadNumber ?? (order as any).internalLoadNumber ?? "")
+                                  String((order as any).loadNumber ?? (order as any).internalLoadNumber ?? ""),
                                 )
                               }
                               aria-label={`Mark load ${String((order as any).loadNumber ?? "")} as ${(order as any).paid ? "unpaid" : "paid"}`}
@@ -563,7 +569,7 @@ export function NestedDriverTripsInlineContent({
                       )}
 
                       {/* Actions */}
-                      <div className={cn(cellBase, "flex items-center justify-center gap-0.5")}> 
+                      <div className={cn(cellBase, "flex items-center justify-center gap-0.5")}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -598,4 +604,3 @@ export function NestedDriverTripsInlineContent({
     </TableRow>
   );
 }
-

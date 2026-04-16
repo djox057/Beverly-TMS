@@ -39,15 +39,11 @@ const SummaryCard = ({
       <div className="space-y-1">
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Sum:</span>
-          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-            {formatCurrency(sum)}
-          </span>
+          <span className="text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(sum)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Average:</span>
-          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-            {formatCurrency(avg)}
-          </span>
+          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(avg)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Total Miles:</span>
@@ -88,11 +84,9 @@ export const CellSelectionSummary = ({ selectedCellsArray, onClear }: CellSelect
   return (
     <div className="fixed z-50 flex gap-2" style={{ bottom: 24, right: 24 }}>
       {hasDriverPay && (
-        <SummaryCard label="Driver Pay" cells={driverPayCells} milesCells={milesCells} onClear={onClear} />
+        <SummaryCard label="Stop Amt" cells={driverPayCells} milesCells={milesCells} onClear={onClear} />
       )}
-      {hasFreight && (
-        <SummaryCard label="Freight Amt" cells={freightCells} milesCells={milesCells} onClear={onClear} />
-      )}
+      {hasFreight && <SummaryCard label="Freight Amt" cells={freightCells} milesCells={milesCells} onClear={onClear} />}
     </div>
   );
 };

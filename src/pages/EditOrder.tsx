@@ -3477,7 +3477,7 @@ const EditOrder = () => {
                   disabled={isLocked}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Total Driver Pay:{" "}
+                  Total Stop Amt:{" "}
                   <span className="font-semibold text-green-600 dark:text-green-400">${totalDriverPay.toFixed(2)}</span>
                 </p>
               </div>
