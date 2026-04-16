@@ -1828,7 +1828,11 @@ const Orders = () => {
                               {(() => {
                           const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
                           const podCount = order.podFiles?.length || 0;
-                          const isComplete = podCount >= deliveryCount;
+                          const isForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
+                          const isComplete = isForceComplete || podCount >= deliveryCount;
+                          if (isForceComplete) {
+                            return <Badge variant="outline" className="text-xs border-green-500 text-green-500">POD ✓</Badge>;
+                          }
                           if (podCount > 0) {
                             return <Button variant="outline" size="sm" className={`text-xs ${!isComplete ? 'border-warning text-warning' : ''}`} onClick={async () => {
                               const file = order.podFiles[0];
