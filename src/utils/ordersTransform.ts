@@ -17,7 +17,7 @@ export function transformOrders(allOrders: any[]) {
     // This ensures cached orders (which only have freight_amount) get proper totals
     // Parse JSONB fields back to arrays (already arrays from join)
     const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
-    const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
+    const orderFiles = Array.isArray(order.order_files) ? [...order.order_files] : [];
 
     // Extract pickup and delivery information
     const firstPickup = pickupDrops.find((pd: any) => pd.type === "pickup");
