@@ -615,6 +615,7 @@ const Reports = () => {
   }>({ open: false, files: [], anchorEl: null });
   const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+  const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(null);
 
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
