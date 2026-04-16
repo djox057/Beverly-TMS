@@ -218,10 +218,15 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasBOL = orderHasBOL(order);
+  const hasPOD = orderHasPOD(order);
   const hasArrived = stop?.arrived_at ?? order.pickupStop?.arrived_at;
   const isLate = latePickups?.has(order.id);
+
+  // If bol_force_complete, all pickup cells are green
+  if (order.bol_force_complete || order.bolForceComplete) {
+    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
 
   // For multi-pickup loads: BOL should only turn the corresponding pickup green
   const pickupStops =
@@ -258,10 +263,15 @@ export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeli
 
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasBOL = orderHasBOL(order);
+  const hasPOD = orderHasPOD(order);
   const hasArrived = stop?.arrived_at;
   const isLate = lateDeliveries.has(order.id);
+
+  // If pod_force_complete, all delivery cells are green
+  if (order.pod_force_complete || order.podForceComplete) {
+    return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
 
   const deliveryStops =
     order.deliveryStops ||
