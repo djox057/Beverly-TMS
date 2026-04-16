@@ -29,7 +29,15 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
-import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates, calculateRouteFromCoords, calculateMultiStopRouteFromCoords } from "@/utils/mapboxRouteCalculator";
+import {
+  calculateLoadedMiles,
+  calculateMultiStopMiles,
+  calculateDhMiles,
+  geocodeAddress,
+  Coordinates,
+  calculateRouteFromCoords,
+  calculateMultiStopRouteFromCoords,
+} from "@/utils/mapboxRouteCalculator";
 import { toZonedTime } from "date-fns-tz";
 import {
   AlertDialog,
@@ -44,8 +52,12 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
 import { DuplicateStopsConfirmDialog } from "@/components/DuplicateStopsConfirmDialog";
-import { MilesChangeReasonDialog, checkMilesChange, getMilesChangeSmsRecipients, buildMilesChangeSmsMessage } from "@/components/MilesChangeReasonDialog";
-
+import {
+  MilesChangeReasonDialog,
+  checkMilesChange,
+  getMilesChangeSmsRecipients,
+  buildMilesChangeSmsMessage,
+} from "@/components/MilesChangeReasonDialog";
 
 interface PickupDrop {
   id: string;
@@ -64,12 +76,12 @@ interface PickupDrop {
 }
 const NewOrder = () => {
   const navigate = useNavigate();
-  
+
   // Partial loads state
   const [isPartial, setIsPartial] = useState(false);
   const [partialCount, setPartialCount] = useState(2);
   const [partialDragStates, setPartialDragStates] = useState<boolean[]>([false, false, false, false]);
-  
+
   // Convert to arrays for partial loads
   const [bookedByCompany, setBookedByCompany] = useState("");
   const [bookedByCompanies, setBookedByCompanies] = useState<string[]>(["", "", "", ""]);
@@ -78,7 +90,7 @@ const NewOrder = () => {
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [brokerLoadNumbers, setBrokerLoadNumbers] = useState<string[]>(["", "", "", ""]);
   const [rcFilesArray, setRcFilesArray] = useState<File[][]>([[], [], [], []]);
-  
+
   const [truck, setTruck] = useState("");
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
@@ -264,15 +276,16 @@ const NewOrder = () => {
   });
 
   // Only show BF Prime LLC and Beverly Freight Inc for "Booked by company" dropdown
-  const filteredCompanies = companies?.filter(
-    (c) => c.name === "BF Prime LLC" || c.name === "Beverly Freight Inc"
-  );
+  const filteredCompanies = companies?.filter((c) => c.name === "BF Prime LLC" || c.name === "Beverly Freight Inc");
 
   // Get company_id from selected driver1 (not from truck)
   const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
   const driverCompanyId = selectedDriver1?.company_id;
   const driverCompanyName = companies?.find((c) => c.id === driverCompanyId)?.name;
-  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(driverCompanyId, driverCompanyName);
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(
+    driverCompanyId,
+    driverCompanyName,
+  );
 
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
@@ -284,7 +297,7 @@ const NewOrder = () => {
     if (isPartial) {
       return;
     }
-    
+
     // Original single load logic
     if (rcFiles.length === 0) {
       setHasAutoExtracted(false);
@@ -399,34 +412,32 @@ const NewOrder = () => {
       if (pickupsDrops.length < 2) return;
 
       // Geocode all addresses that don't have coordinates yet
-      const itemsToGeocode = pickupsDrops.filter(item => 
-        item.address.trim() && (item.latitude === undefined || item.longitude === undefined)
+      const itemsToGeocode = pickupsDrops.filter(
+        (item) => item.address.trim() && (item.latitude === undefined || item.longitude === undefined),
       );
-      
+
       if (itemsToGeocode.length > 0) {
         const updatedItems = [...pickupsDrops];
         let hasUpdates = false;
-        
+
         for (const item of itemsToGeocode) {
-          const fullAddress = [item.address, item.city, item.state, item.zipCode]
-            .filter(Boolean)
-            .join(', ');
-          
+          const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
+
           const coords = await geocodeAddress(fullAddress);
           if (coords) {
-            const index = updatedItems.findIndex(i => i.id === item.id);
+            const index = updatedItems.findIndex((i) => i.id === item.id);
             if (index !== -1) {
               updatedItems[index] = {
                 ...updatedItems[index],
                 latitude: coords.lat,
-                longitude: coords.lon
+                longitude: coords.lon,
               };
               hasUpdates = true;
               console.log(`📍 Geocoded ${item.type}: ${fullAddress} -> ${coords.lat}, ${coords.lon}`);
             }
           }
         }
-        
+
         if (hasUpdates) {
           setPickupsDrops(updatedItems);
           return; // Will re-trigger with updated coordinates
@@ -435,7 +446,7 @@ const NewOrder = () => {
 
       // Use pre-geocoded coordinates directly to avoid re-geocoding
       const stopsWithCoords = pickupsDrops.filter(
-        item => item.address.trim() && item.latitude !== undefined && item.longitude !== undefined
+        (item) => item.address.trim() && item.latitude !== undefined && item.longitude !== undefined,
       );
       if (stopsWithCoords.length < 2) {
         return;
@@ -443,7 +454,7 @@ const NewOrder = () => {
       setIsCalculatingMiles(true);
       try {
         let miles: number | null = null;
-        const coords: Coordinates[] = stopsWithCoords.map(item => ({
+        const coords: Coordinates[] = stopsWithCoords.map((item) => ({
           lat: item.latitude!,
           lon: item.longitude!,
         }));
@@ -457,11 +468,14 @@ const NewOrder = () => {
           autoCalcLoadedMilesRef.current = miles;
           toast({
             title: "Loaded Miles Calculated",
-            description: stopsWithCoords.length > 2 ? `Multi-stop route distance: ${miles} miles through ${stopsWithCoords.length} stops` : `Route distance: ${miles} miles`
+            description:
+              stopsWithCoords.length > 2
+                ? `Multi-stop route distance: ${miles} miles through ${stopsWithCoords.length} stops`
+                : `Route distance: ${miles} miles`,
           });
         }
       } catch (error) {
-        console.error('Error calculating loaded miles:', error);
+        console.error("Error calculating loaded miles:", error);
       } finally {
         setIsCalculatingMiles(false);
       }
@@ -477,7 +491,7 @@ const NewOrder = () => {
       if (!truck) {
         return;
       }
-      const firstPickup = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
+      const firstPickup = pickupsDrops.find((item) => item.type === "pickup" && item.address.trim());
       if (!firstPickup) {
         return;
       }
@@ -498,7 +512,7 @@ const NewOrder = () => {
             }
           } else {
             // Use default base coordinates
-            const baseCoords: Coordinates = { lat: 41.538030, lon: -87.578617 };
+            const baseCoords: Coordinates = { lat: 41.53803, lon: -87.578617 };
             miles = await calculateRouteFromCoords(baseCoords, pickupCoords);
           }
         } else {
@@ -507,7 +521,7 @@ const NewOrder = () => {
           if (firstPickup.city) addressParts.push(firstPickup.city);
           if (firstPickup.state) addressParts.push(firstPickup.state);
           if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
-          const pickupAddress = addressParts.join(', ');
+          const pickupAddress = addressParts.join(", ");
           const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
           miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
         }
@@ -517,16 +531,16 @@ const NewOrder = () => {
           autoCalcDhMilesRef.current = miles;
           toast({
             title: "DH Miles Calculated",
-            description: lastDelivery 
+            description: lastDelivery
               ? `Distance from last delivery: ${miles} miles`
-              : `Distance from base location: ${miles} miles`
+              : `Distance from base location: ${miles} miles`,
           });
         } else {
-          setDhMiles('0');
+          setDhMiles("0");
           autoCalcDhMilesRef.current = 0;
         }
       } catch (error) {
-        console.error('Error calculating DH miles:', error);
+        console.error("Error calculating DH miles:", error);
       } finally {
         setIsCalculatingDhMiles(false);
       }
@@ -539,13 +553,13 @@ const NewOrder = () => {
   // Auto-calculate driver price for company drivers based on cents per mile
   useEffect(() => {
     if (!driver1 || !allDrivers) return;
-    
-    const selectedDriver = allDrivers.find(d => d.id === driver1);
+
+    const selectedDriver = allDrivers.find((d) => d.id === driver1);
     if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
-    
+
     const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
     if (totalMiles <= 0) return;
-    
+
     const calculatedPrice = totalMiles * (selectedDriver.cents_per_mile / 100);
     setDriverPrice(calculatedPrice.toFixed(2));
   }, [driver1, dhMiles, loadedMiles, allDrivers]);
@@ -737,8 +751,8 @@ const NewOrder = () => {
         if (files && files.length > 0) {
           if (fileType === "email") {
             const selected = Array.from(files);
-            const rcFileNames = new Set(rcFiles.map(f => f.name));
-            const filtered = selected.filter(f => !rcFileNames.has(f.name));
+            const rcFileNames = new Set(rcFiles.map((f) => f.name));
+            const filtered = selected.filter((f) => !rcFileNames.has(f.name));
             if (filtered.length < selected.length) {
               toast({
                 title: "Duplicate file skipped",
@@ -773,15 +787,15 @@ const NewOrder = () => {
       console.log("Extraction already in progress, skipping...");
       return;
     }
-    
+
     // Check for files based on mode
     let filesToExtract: File[] = [];
     let filePartialIndexMap: number[] = []; // Track which partial each file belongs to
-    
+
     if (isPartial) {
       // For partial mode, flatten but keep track of which partial each file belongs to
       rcFilesArray.forEach((filesArray, partialIndex) => {
-        filesArray.forEach(file => {
+        filesArray.forEach((file) => {
           filesToExtract.push(file);
           filePartialIndexMap.push(partialIndex);
         });
@@ -789,7 +803,7 @@ const NewOrder = () => {
     } else {
       filesToExtract = rcFiles;
     }
-      
+
     if (filesToExtract.length === 0) {
       toast({
         title: "No RC File Selected",
@@ -798,12 +812,12 @@ const NewOrder = () => {
       });
       return;
     }
-    
+
     const pdfFiles = filesToExtract.filter((file) => file.type === "application/pdf");
-    const pdfFilePartialIndexMap = isPartial 
+    const pdfFilePartialIndexMap = isPartial
       ? filePartialIndexMap.filter((_, index) => filesToExtract[index].type === "application/pdf")
       : [];
-      
+
     if (pdfFiles.length === 0) {
       toast({
         title: "PDF Required",
@@ -812,14 +826,14 @@ const NewOrder = () => {
       });
       return;
     }
-    
+
     setIsExtracting(true);
     try {
       console.log(`Starting PDF extraction for ${pdfFiles.length} file(s)...`);
-      
+
       // Accumulate picks/drops from all files
       const allPickupsDrops: PickupDrop[] = [];
-      
+
       // For partial loads, accumulate data from each partial
       const partialBrokerLoadNumbers = isPartial ? [...brokerLoadNumbers] : [];
       let totalFreightAmount = 0;
@@ -827,19 +841,19 @@ const NewOrder = () => {
       let firstMileage = 0;
       let firstCommodity = "";
       let firstWeight = 0;
-      
+
       // Extract from each PDF file
       for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
         const pdfFile = pdfFiles[fileIndex];
         console.log(`Processing file ${fileIndex + 1}/${pdfFiles.length}: ${pdfFile.name}`);
-        
+
         const formData = new FormData();
         // Sanitize filename to prevent edge function failures from special characters
         const { sanitizeFileName } = await import("@/utils/orderFilesUpload");
         const safeName = sanitizeFileName(pdfFile.name);
         const safeFile = new File([pdfFile], safeName, { type: pdfFile.type });
         formData.append("pdf", safeFile);
-        
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -850,19 +864,19 @@ const NewOrder = () => {
           },
           body: formData,
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error("Edge function error:", errorText);
           throw new Error(`Edge function failed with status ${response.status} for file ${pdfFile.name}`);
         }
-        
+
         const data = await response.json();
         if (!data?.success) {
           console.error("Extraction failed:", data?.error);
           throw new Error(data?.error || `Failed to extract data from ${pdfFile.name}`);
         }
-        
+
         const extractedData = data.data;
         console.log(`Successfully extracted data from file ${fileIndex + 1}:`, extractedData);
 
@@ -877,7 +891,7 @@ const NewOrder = () => {
         } else if (fileIndex === 0 && extractedData.brokerLoadNumber) {
           setBrokerLoadNumber(extractedData.brokerLoadNumber);
         }
-        
+
         // Accumulate freight amount and driver price
         if (extractedData.freightAmount) {
           const amount = parseFloat(extractedData.freightAmount.toString());
@@ -891,7 +905,7 @@ const NewOrder = () => {
             totalDriverPrice += price;
           }
         }
-        
+
         // For first file, capture other single-use fields
         if (fileIndex === 0) {
           if (extractedData.mileage) firstMileage = extractedData.mileage;
@@ -914,10 +928,11 @@ const NewOrder = () => {
         // Set matched broker from first file by matching name
         if (fileIndex === 0 && extractedData.brokerName && allBrokers) {
           const brokerName = extractedData.brokerName.toLowerCase().trim();
-          const matchedBroker = allBrokers.find(b => 
-            b.name.toLowerCase().trim() === brokerName ||
-            b.name.toLowerCase().includes(brokerName) ||
-            brokerName.includes(b.name.toLowerCase())
+          const matchedBroker = allBrokers.find(
+            (b) =>
+              b.name.toLowerCase().trim() === brokerName ||
+              b.name.toLowerCase().includes(brokerName) ||
+              brokerName.includes(b.name.toLowerCase()),
           );
           if (matchedBroker) {
             setBroker(matchedBroker.id);
@@ -937,7 +952,7 @@ const NewOrder = () => {
             setPickupPuNumber(extractedData.pickupPuNumber);
             console.log("Set pickup PU# (legacy):", extractedData.pickupPuNumber);
           }
-          
+
           // Check for PO number from pickups
           if (extractedData.pickups?.[0]?.poNumber) {
             setPickupPoNumber(extractedData.pickups[0].poNumber);
@@ -946,7 +961,7 @@ const NewOrder = () => {
             setPickupPoNumber(extractedData.pickupPoNumber);
             console.log("Set pickup PO# (legacy):", extractedData.pickupPoNumber);
           }
-          
+
           // Check for delivery PO number
           if (extractedData.deliveries?.[0]?.poNumber) {
             setDeliveryPoNumber(extractedData.deliveries[0].poNumber);
@@ -962,7 +977,7 @@ const NewOrder = () => {
           extractedData.pickups.forEach((pickup: any, index: number) => {
             const pickupDateRange = createSafeDateRange(pickup.date);
             allPickupsDrops.push({
-              id: `pickup-${allPickupsDrops.filter(p => p.type === 'pickup').length + 1}`,
+              id: `pickup-${allPickupsDrops.filter((p) => p.type === "pickup").length + 1}`,
               type: "pickup",
               address: pickup.address || "",
               city: pickup.city ? toTitleCase(pickup.city) : "",
@@ -982,7 +997,7 @@ const NewOrder = () => {
           extractedData.deliveries.forEach((delivery: any, index: number) => {
             const deliveryDateRange = createSafeDateRange(delivery.date);
             allPickupsDrops.push({
-              id: `delivery-${allPickupsDrops.filter(p => p.type === 'delivery').length + 1}`,
+              id: `delivery-${allPickupsDrops.filter((p) => p.type === "delivery").length + 1}`,
               type: "delivery",
               address: delivery.address || "",
               city: delivery.city ? toTitleCase(delivery.city) : "",
@@ -997,18 +1012,18 @@ const NewOrder = () => {
           });
         }
       }
-      
+
       // Set accumulated picks/drops
       if (allPickupsDrops.length > 0) {
         console.log(`Setting ${allPickupsDrops.length} total pickup/drop locations`);
         setPickupsDrops(allPickupsDrops);
       }
-      
+
       // Update all accumulated state
       if (isPartial) {
         setBrokerLoadNumbers(partialBrokerLoadNumbers);
       }
-      
+
       if (totalFreightAmount > 0) {
         setFreightAmount(totalFreightAmount.toString());
         // Set driver price to match freight amount if not extracted separately, or use total
@@ -1016,14 +1031,14 @@ const NewOrder = () => {
       } else if (totalDriverPrice > 0) {
         setDriverPrice(totalDriverPrice.toString());
       }
-      
+
       // Note: Loaded miles are calculated via Mapbox from addresses, not from AI extraction
       if (firstCommodity) setCommodity(firstCommodity);
       if (firstWeight) setWeight(firstWeight.toString());
 
       toast({
         title: "Data Extracted Successfully",
-        description: isPartial 
+        description: isPartial
           ? `Extracted data from ${pdfFiles.length} file(s). Total freight: $${totalFreightAmount.toFixed(2)}. Found ${allPickupsDrops.length} pickup/drop locations.`
           : `Extracted data from ${pdfFiles.length} file(s). Found ${allPickupsDrops.length} pickup/drop locations. Please review and adjust as needed.`,
       });
@@ -1159,7 +1174,7 @@ const NewOrder = () => {
               console.error("❌ Error response:", responseData);
               throw new Error(responseData.error || "Failed to send email");
             }
-            
+
             // Log the email to driver_email_log table
             if (createdOrderId && driverForEmail.id) {
               console.log("📝 Logging email to driver_email_log:", {
@@ -1167,16 +1182,14 @@ const NewOrder = () => {
                 driver_id: driverForEmail.id,
                 sent_by: session?.user?.id,
               });
-              
-              const { error: logError } = await supabase
-                .from('driver_email_log')
-                .insert({
-                  order_id: createdOrderId,
-                  driver_id: driverForEmail.id,
-                  email_type: 'load_confirmation',
-                  sent_by: session?.user?.id,
-                });
-              
+
+              const { error: logError } = await supabase.from("driver_email_log").insert({
+                order_id: createdOrderId,
+                driver_id: driverForEmail.id,
+                email_type: "load_confirmation",
+                sent_by: session?.user?.id,
+              });
+
               if (logError) {
                 console.error("❌ Error logging email:", logError);
               } else {
@@ -1188,11 +1201,11 @@ const NewOrder = () => {
                 driverId: driverForEmail.id,
               });
             }
-            
+
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${driverForEmail.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ''}`,
+              description: `File sent to ${driverForEmail.email}${driver2ForEmail?.email ? ` and ${driver2ForEmail.email}` : ""}`,
             });
             resolve(true);
           } catch (err) {
@@ -1570,10 +1583,10 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    
+
     // For partial loads, validate that at least one company is selected
     if (isPartial) {
-      const hasAnyCompany = bookedByCompanies.slice(0, partialCount).some(c => c);
+      const hasAnyCompany = bookedByCompanies.slice(0, partialCount).some((c) => c);
       if (!hasAnyCompany) {
         toast({
           title: "Company Required",
@@ -1584,7 +1597,7 @@ const NewOrder = () => {
         return;
       }
     }
-    
+
     if (!isPartial && !brokerLoadNumber?.trim()) {
       toast({
         title: "Broker Load# Required",
@@ -1594,10 +1607,10 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    
+
     // For partial loads, validate that at least one broker load number is entered
     if (isPartial) {
-      const hasAnyLoadNumber = brokerLoadNumbers.slice(0, partialCount).some(n => n?.trim());
+      const hasAnyLoadNumber = brokerLoadNumbers.slice(0, partialCount).some((n) => n?.trim());
       if (!hasAnyLoadNumber) {
         toast({
           title: "Broker Load# Required",
@@ -1608,7 +1621,7 @@ const NewOrder = () => {
         return;
       }
     }
-    
+
     if (!isPartial && !broker) {
       toast({
         title: "Broker Required",
@@ -1618,10 +1631,10 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    
+
     // For partial loads, validate that at least one broker is selected
     if (isPartial) {
-      const hasAnyBroker = brokers.slice(0, partialCount).some(b => b);
+      const hasAnyBroker = brokers.slice(0, partialCount).some((b) => b);
       if (!hasAnyBroker) {
         toast({
           title: "Broker Required",
@@ -1632,7 +1645,7 @@ const NewOrder = () => {
         return;
       }
     }
-    
+
     if (!truck) {
       toast({
         title: "Truck# Required",
@@ -1759,7 +1772,8 @@ const NewOrder = () => {
       const oldLoaded = autoCalcLoadedMilesRef.current ?? 0;
       const newLoaded = parseInt(loadedMiles) || 0;
       // Skip miles change check if old values were 0 (initial state)
-      const milesCheck = (oldDh === 0 && oldLoaded === 0) ? { significant: false } : checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
+      const milesCheck =
+        oldDh === 0 && oldLoaded === 0 ? { significant: false } : checkMilesChange(oldDh, newDh, oldLoaded, newLoaded);
       if (milesCheck.significant) {
         setMilesChangeInfo({
           ...milesCheck,
@@ -1796,28 +1810,26 @@ const NewOrder = () => {
 
       // Create order data object for the atomic function
       const orderData = {
-        load_number: isPartial 
+        load_number: isPartial
           ? brokerLoadNumbers.slice(0, partialCount).filter(Boolean).join(", ") || `AUTO-${Date.now()}`
           : brokerLoadNumber || `AUTO-${Date.now()}`,
         company_id: driverCompanyId,
         // Driver's company for internal load numbering
-        booked_by_company_id: isPartial ? null : (bookedByCompany || bfPrimeCompany?.id || null),
+        booked_by_company_id: isPartial ? null : bookedByCompany || bfPrimeCompany?.id || null,
         // Company that booked the order (defaults to BF Prime LLC)
-        broker_id: isPartial ? null : (broker || null),
+        broker_id: isPartial ? null : broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find((t) => t.id === truck)?.trailer_id || null : null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
-        broker_load_number: isPartial ? null : (brokerLoadNumber || null),
+        broker_load_number: isPartial ? null : brokerLoadNumber || null,
         // Partial load fields
         is_partial: isPartial,
-        partial_broker_loads: isPartial 
+        partial_broker_loads: isPartial
           ? JSON.stringify(brokerLoadNumbers.slice(0, partialCount).filter(Boolean))
           : null,
-        partial_brokers: isPartial 
-          ? JSON.stringify(brokers.slice(0, partialCount).filter(Boolean))
-          : null,
-        partial_booked_by_companies: isPartial 
+        partial_brokers: isPartial ? JSON.stringify(brokers.slice(0, partialCount).filter(Boolean)) : null,
+        partial_booked_by_companies: isPartial
           ? JSON.stringify(bookedByCompanies.slice(0, partialCount).filter(Boolean))
           : null,
         pickup_datetime: (() => {
@@ -1901,7 +1913,7 @@ const NewOrder = () => {
       }
       const orderId = result.id;
       const newInternalLoadNumber = result.internal_load_number;
-      
+
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
@@ -1910,7 +1922,7 @@ const NewOrder = () => {
       if (pickupsDrops.length === 0) {
         throw new Error("Cannot create order without pickup/delivery locations");
       }
-      
+
       // Geocode any addresses that don't have coordinates yet (handles race condition with useEffect)
       const pickupDropData = await Promise.all(
         pickupsDrops
@@ -1929,15 +1941,13 @@ const NewOrder = () => {
             } catch (error) {
               console.error("Error combining date and time:", error);
             }
-            
+
             // Geocode if coordinates are missing
             let latitude = item.latitude || null;
             let longitude = item.longitude || null;
-            
+
             if (!latitude || !longitude) {
-              const fullAddress = [item.address, item.city, item.state, item.zipCode]
-                .filter(Boolean)
-                .join(', ');
+              const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
               const coords = await geocodeAddress(fullAddress);
               if (coords) {
                 latitude = coords.lat;
@@ -1945,7 +1955,7 @@ const NewOrder = () => {
                 console.log(`📍 Geocoded at submission: ${fullAddress} -> ${latitude}, ${longitude}`);
               }
             }
-            
+
             return {
               order_id: orderId,
               type: item.type,
@@ -1960,13 +1970,16 @@ const NewOrder = () => {
               latitude,
               longitude,
             };
-          })
+          }),
       );
-      
+
       // Filter out any invalid items after async mapping
       const validPickupDropData = pickupDropData.filter((item) => item.address && item.address.trim().length > 0);
 
-      console.log(`📍 Prepared ${validPickupDropData.length} pickup/drop locations for insertion:`, validPickupDropData);
+      console.log(
+        `📍 Prepared ${validPickupDropData.length} pickup/drop locations for insertion:`,
+        validPickupDropData,
+      );
 
       // CRITICAL: Must have at least one valid pickup/drop after filtering
       if (validPickupDropData.length === 0) {
@@ -2066,13 +2079,10 @@ const NewOrder = () => {
               const delivery = deliveries[i];
               await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
             }
-            
+
             // Auto-set status to "delivered" when all deliveries have PODs
             if (newPodCount >= deliveries.length && orderId) {
-              await supabase
-                .from("orders")
-                .update({ status: "delivered" })
-                .eq("id", orderId);
+              await supabase.from("orders").update({ status: "delivered" }).eq("id", orderId);
             }
           }
         }
@@ -2182,7 +2192,9 @@ const NewOrder = () => {
             <CardTitle className="text-2xl font-semibold">Create New Load</CardTitle>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
-              <div className="text-lg font-medium">{formatInternalLoadNumber(nextInternalLoadNumber, selectedDriver1?.company?.name)}</div>
+              <div className="text-lg font-medium">
+                {formatInternalLoadNumber(nextInternalLoadNumber, selectedDriver1?.company?.name)}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -2190,94 +2202,94 @@ const NewOrder = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* RC Upload Section - Top Priority */}
             {!isPartial && (
-            <Card
-              className={cn(
-                "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
-                dragStates.rc && "border-blue-400 bg-blue-100/50 scale-[1.02]",
-              )}
-              {...rcDragHandlers}
-              onClick={() => rcFileInputRef.current?.click()}
-            >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  RC (Rate Confirmation) Upload
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-blue-700">
-                      {rcFiles && rcFiles.length > 0
-                        ? `${rcFiles.length} file(s) selected`
-                        : "Click or drag files here to upload"}
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleExtractWithAI();
-                      }}
-                      disabled={
-                        isExtracting ||
-                        !rcFiles ||
-                        rcFiles.length === 0 ||
-                        !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
-                      }
-                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                      data-ai-extract="true"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      {isExtracting ? "Extracting..." : "Extract with AI"}
-                    </Button>
+              <Card
+                className={cn(
+                  "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
+                  dragStates.rc && "border-blue-400 bg-blue-100/50 scale-[1.02]",
+                )}
+                {...rcDragHandlers}
+                onClick={() => rcFileInputRef.current?.click()}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    RC (Rate Confirmation) Upload
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-blue-700">
+                        {rcFiles && rcFiles.length > 0
+                          ? `${rcFiles.length} file(s) selected`
+                          : "Click or drag files here to upload"}
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExtractWithAI();
+                        }}
+                        disabled={
+                          isExtracting ||
+                          !rcFiles ||
+                          rcFiles.length === 0 ||
+                          !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
+                        }
+                        className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                        data-ai-extract="true"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {isExtracting ? "Extracting..." : "Extract with AI"}
+                      </Button>
+                    </div>
+
+                    {dragStates.rc && (
+                      <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
+                        <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
+                        <p className="text-sm text-blue-600 font-medium">Drop your files here</p>
+                      </div>
+                    )}
+
+                    {!dragStates.rc && rcFiles.length > 0 && (
+                      <div className="space-y-2">
+                        {rcFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 p-2 bg-white rounded border border-blue-200"
+                          >
+                            <FileText className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                            <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!dragStates.rc && rcFiles.length === 0 && (
+                      <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
+                        <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
+                        <p className="text-sm text-blue-600 font-medium mb-1">Click or drag & drop files here</p>
+                        <p className="text-xs text-blue-500">PDF, JPG, JPEG, PNG files supported</p>
+                      </div>
+                    )}
+
+                    <input
+                      ref={rcFileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => setRcFiles(e.target.files ? Array.from(e.target.files) : [])}
+                      className="hidden"
+                    />
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  {dragStates.rc && (
-                    <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
-                      <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
-                      <p className="text-sm text-blue-600 font-medium">Drop your files here</p>
-                    </div>
-                  )}
-
-                  {!dragStates.rc && rcFiles.length > 0 && (
-                    <div className="space-y-2">
-                      {rcFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 p-2 bg-white rounded border border-blue-200"
-                        >
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                          <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {!dragStates.rc && rcFiles.length === 0 && (
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
-                      <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
-                      <p className="text-sm text-blue-600 font-medium mb-1">Click or drag & drop files here</p>
-                      <p className="text-xs text-blue-500">PDF, JPG, JPEG, PNG files supported</p>
-                    </div>
-                  )}
-
-                  <input
-                    ref={rcFileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setRcFiles(e.target.files ? Array.from(e.target.files) : [])}
-                  className="hidden"
-                />
-              </div>
-            </CardContent>
-          </Card>
-          )}
-
-          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="broker-load-number">Broker Load #</Label>
                 {!isPartial ? (
@@ -2304,7 +2316,7 @@ const NewOrder = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex flex-col items-end gap-2 pt-8">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="partial-toggle" className="text-sm font-medium cursor-pointer">
@@ -2332,20 +2344,24 @@ const NewOrder = () => {
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
             {isPartial && (
               <div className="space-y-4">
-                <div className={cn(
-                  "grid gap-4",
-                  partialCount === 2 ? "grid-cols-1 md:grid-cols-2" : 
-                  partialCount === 3 ? "grid-cols-1 md:grid-cols-3" :
-                  "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-                )}>
+                <div
+                  className={cn(
+                    "grid gap-4",
+                    partialCount === 2
+                      ? "grid-cols-1 md:grid-cols-2"
+                      : partialCount === 3
+                        ? "grid-cols-1 md:grid-cols-3"
+                        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+                  )}
+                >
                   {Array.from({ length: partialCount }).map((_, index) => {
                     const dragActive = partialDragStates[index];
-                    
+
                     const handleDrag = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
                     };
-                    
+
                     const handleDragIn = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -2355,7 +2371,7 @@ const NewOrder = () => {
                         setPartialDragStates(newStates);
                       }
                     };
-                    
+
                     const handleDragOut = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -2363,14 +2379,14 @@ const NewOrder = () => {
                       newStates[index] = false;
                       setPartialDragStates(newStates);
                     };
-                    
+
                     const handleFileDrop = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
                       const newStates = [...partialDragStates];
                       newStates[index] = false;
                       setPartialDragStates(newStates);
-                      
+
                       const files = Array.from(e.dataTransfer.files);
                       if (files.length > 0) {
                         const newArray = [...rcFilesArray];
@@ -2378,7 +2394,7 @@ const NewOrder = () => {
                         setRcFilesArray(newArray);
                       }
                     };
-                    
+
                     return (
                       <Card key={index} className="border-2">
                         <CardHeader className="pb-3">
@@ -2389,18 +2405,20 @@ const NewOrder = () => {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           {/* RC Upload for this partial with drag & drop */}
-                          <div 
+                          <div
                             className={cn(
                               "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-blue-50/30 transition-colors",
                               dragActive && "border-blue-500 bg-blue-50",
                               !dragActive && rcFilesArray[index]?.length > 0 && "border-blue-400 bg-blue-50/50",
-                              !dragActive && (!rcFilesArray[index] || rcFilesArray[index].length === 0) && "border-blue-300"
+                              !dragActive &&
+                                (!rcFilesArray[index] || rcFilesArray[index].length === 0) &&
+                                "border-blue-300",
                             )}
                             onClick={() => {
-                              const input = document.createElement('input');
-                              input.type = 'file';
+                              const input = document.createElement("input");
+                              input.type = "file";
                               input.multiple = true;
-                              input.accept = '.pdf,.jpg,.jpeg,.png';
+                              input.accept = ".pdf,.jpg,.jpeg,.png";
                               input.onchange = (e: any) => {
                                 const files = Array.from(e.target.files || []);
                                 const newArray = [...rcFilesArray];
@@ -2416,55 +2434,55 @@ const NewOrder = () => {
                           >
                             <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
                             <p className="text-sm text-blue-600 font-medium">
-                              {dragActive 
-                                ? 'Drop files here'
-                                : rcFilesArray[index]?.length > 0 
-                                  ? `${rcFilesArray[index].length} file(s)` 
-                                  : 'Click or drag & drop'}
+                              {dragActive
+                                ? "Drop files here"
+                                : rcFilesArray[index]?.length > 0
+                                  ? `${rcFilesArray[index].length} file(s)`
+                                  : "Click or drag & drop"}
                             </p>
                             {!dragActive && (!rcFilesArray[index] || rcFilesArray[index].length === 0) && (
                               <p className="text-xs text-blue-500 mt-1">PDF, JPG, PNG supported</p>
                             )}
                           </div>
-                        
-                        {/* Company selector */}
-                        <div className="space-y-1">
-                          <Label className="text-xs">Company</Label>
-                          <Combobox
-                            options={companyOptions}
-                            value={bookedByCompanies[index]}
-                            onValueChange={(val) => {
-                              const newCompanies = [...bookedByCompanies];
-                              newCompanies[index] = val;
-                              setBookedByCompanies(newCompanies);
-                            }}
-                            placeholder="Select"
-                            searchPlaceholder="Search..."
-                          />
-                        </div>
-                        
-                        {/* Broker selector */}
-                        <div className="space-y-1">
-                          <Label className="text-xs">Broker</Label>
-                          <BrokerCombobox
-                            value={brokers[index]}
-                            onValueChange={(val) => {
-                              const newBrokers = [...brokers];
-                              newBrokers[index] = val;
-                              setBrokers(newBrokers);
-                            }}
-                            placeholder="Select"
-                            searchPlaceholder="Search..."
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
+
+                          {/* Company selector */}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Company</Label>
+                            <Combobox
+                              options={companyOptions}
+                              value={bookedByCompanies[index]}
+                              onValueChange={(val) => {
+                                const newCompanies = [...bookedByCompanies];
+                                newCompanies[index] = val;
+                                setBookedByCompanies(newCompanies);
+                              }}
+                              placeholder="Select"
+                              searchPlaceholder="Search..."
+                            />
+                          </div>
+
+                          {/* Broker selector */}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Broker</Label>
+                            <BrokerCombobox
+                              value={brokers[index]}
+                              onValueChange={(val) => {
+                                const newBrokers = [...brokers];
+                                newBrokers[index] = val;
+                                setBrokers(newBrokers);
+                              }}
+                              placeholder="Select"
+                              searchPlaceholder="Search..."
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>
-                
+
                 {/* Extract button for partial loads */}
-                {rcFilesArray.some(arr => arr.length > 0) && (
+                {rcFilesArray.some((arr) => arr.length > 0) && (
                   <Button
                     type="button"
                     onClick={handleExtractWithAI}
@@ -2848,7 +2866,7 @@ const NewOrder = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="driver-price">Price for Driver</Label>
+                <Label htmlFor="driver-price">Stop Amount</Label>
                 <Input
                   id="driver-price"
                   type="number"
@@ -2857,21 +2875,19 @@ const NewOrder = () => {
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
                 {(() => {
-                  const selectedDriver = allDrivers?.find(d => d.id === driver1);
+                  const selectedDriver = allDrivers?.find((d) => d.id === driver1);
                   const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
                   if (selectedDriver?.is_company_driver && selectedDriver?.cents_per_mile) {
                     return (
                       <p className="text-xs text-muted-foreground">
-                        {totalMiles} miles × {selectedDriver.cents_per_mile}¢ = ${((totalMiles * selectedDriver.cents_per_mile) / 100).toFixed(2)}
+                        {totalMiles} miles × {selectedDriver.cents_per_mile}¢ = $
+                        {((totalMiles * selectedDriver.cents_per_mile) / 100).toFixed(2)}
                       </p>
                     );
                   }
                   return (
                     <p className="text-xs text-muted-foreground">
-                      RPM: $
-                      {(
-                        (parseFloat(driverPrice) || 0) / totalMiles || 0
-                      ).toFixed(2)}
+                      RPM: ${((parseFloat(driverPrice) || 0) / totalMiles || 0).toFixed(2)}
                     </p>
                   );
                 })()}
@@ -3109,8 +3125,8 @@ const NewOrder = () => {
                   onChange={(e) => {
                     if (!e.target.files) return;
                     const selected = Array.from(e.target.files);
-                    const rcFileNames = new Set(rcFiles.map(f => f.name));
-                    const filtered = selected.filter(f => !rcFileNames.has(f.name));
+                    const rcFileNames = new Set(rcFiles.map((f) => f.name));
+                    const filtered = selected.filter((f) => !rcFileNames.has(f.name));
                     if (filtered.length < selected.length) {
                       toast({
                         title: "Duplicate file skipped",
@@ -3151,8 +3167,8 @@ const NewOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isSubmitting || isExtracting || isCalculatingMiles}
                 className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
               >
@@ -3249,31 +3265,32 @@ const NewOrder = () => {
         onConfirm={async (reason) => {
           setShowMilesChangeDialog(false);
           // Send SMS notification
-           const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
-           if (phoneNumbers.length > 0 && milesChangeInfo) {
-             const companyName = selectedDriver1?.company?.name || companies?.find(c => c.id === driverCompanyId)?.name;
-             const ilnDisplay = nextInternalLoadNumber
-               ? formatInternalLoadNumber(nextInternalLoadNumber, companyName)
-               : "N/A";
-              const message = buildMilesChangeSmsMessage({
-               internalLoadNumber: ilnDisplay,
-               brokerLoadNumber: brokerLoadNumber || "N/A",
-               dhMilesChanged: milesChangeInfo.dhMilesChanged,
-               loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
-               oldDh: milesChangeInfo.oldDhMiles,
-               newDh: milesChangeInfo.newDhMiles,
-               oldLoaded: milesChangeInfo.oldLoadedMiles,
-               newLoaded: milesChangeInfo.newLoadedMiles,
-               reason: reason,
-               userName: profile?.full_name || "Unknown",
-             });
-             try {
-               await supabase.functions.invoke("send-sms", {
-                 body: { message, phoneNumbers },
-               });
-             } catch (err) {
-               console.error("Failed to send miles change SMS:", err);
-             }
+          const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
+          if (phoneNumbers.length > 0 && milesChangeInfo) {
+            const companyName =
+              selectedDriver1?.company?.name || companies?.find((c) => c.id === driverCompanyId)?.name;
+            const ilnDisplay = nextInternalLoadNumber
+              ? formatInternalLoadNumber(nextInternalLoadNumber, companyName)
+              : "N/A";
+            const message = buildMilesChangeSmsMessage({
+              internalLoadNumber: ilnDisplay,
+              brokerLoadNumber: brokerLoadNumber || "N/A",
+              dhMilesChanged: milesChangeInfo.dhMilesChanged,
+              loadedMilesChanged: milesChangeInfo.loadedMilesChanged,
+              oldDh: milesChangeInfo.oldDhMiles,
+              newDh: milesChangeInfo.newDhMiles,
+              oldLoaded: milesChangeInfo.oldLoadedMiles,
+              newLoaded: milesChangeInfo.newLoadedMiles,
+              reason: reason,
+              userName: profile?.full_name || "Unknown",
+            });
+            try {
+              await supabase.functions.invoke("send-sms", {
+                body: { message, phoneNumbers },
+              });
+            } catch (err) {
+              console.error("Failed to send miles change SMS:", err);
+            }
           }
           // Continue with submission
           if (pendingMilesSubmitEvent) {
@@ -3283,7 +3300,16 @@ const NewOrder = () => {
             handleSubmit(pendingMilesSubmitEvent, pendingMilesSkipDuplicate, pendingMilesSkipDuplicateStops);
           }
         }}
-        changeInfo={milesChangeInfo || { dhMilesChanged: false, loadedMilesChanged: false, oldDhMiles: 0, newDhMiles: 0, oldLoadedMiles: 0, newLoadedMiles: 0 }}
+        changeInfo={
+          milesChangeInfo || {
+            dhMilesChanged: false,
+            loadedMilesChanged: false,
+            oldDhMiles: 0,
+            newDhMiles: 0,
+            oldLoadedMiles: 0,
+            newLoadedMiles: 0,
+          }
+        }
       />
     </div>
   );
