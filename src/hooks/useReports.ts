@@ -2178,7 +2178,7 @@ export const useReports = (options?: UseReportsOptions) => {
                     delivery_end_datetime: order.delivery_end_datetime,
                     updated_at: order.updated_at,
                     loaded_miles: order.loaded_miles,
-                    order_files: order.order_files,
+                    order_files: orderFiles,
                     bol_force_complete: order.bol_force_complete || false,
                     pod_force_complete: order.pod_force_complete || false,
                     pickupStop,
@@ -2225,7 +2225,7 @@ export const useReports = (options?: UseReportsOptions) => {
                     currentOrder = lastOrder;
                   } else {
                     const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                      order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete
+                      order.order_files?.some((file: any) => file.file_category === 'BOL')
                     );
                     currentOrder = lastWithBOL || lastOrder;
                   }
