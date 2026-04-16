@@ -6135,14 +6135,27 @@ const Reports = () => {
                       ) : null}
                     </div>
 
-                    <div className="flex flex-col leading-tight">
-                      <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} Stop Amt</span>
-                      {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
-                        <span className="text-xs text-muted-foreground/80">
-                          {(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
-                        </span>
-                      ) : null}
-                    </div>
+                    {(() => {
+                      const isDispatchOnly =
+                        hasRole("dispatch") &&
+                        !hasRole("admin") &&
+                        !hasRole("manager") &&
+                        !hasRole("supervisor") &&
+                        !hasRole("afterhours") &&
+                        !hasRole("safety") &&
+                        !hasRole("accounting");
+                      if (isDispatchOnly) return null;
+                      return (
+                        <div className="flex flex-col leading-tight">
+                          <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} Stop Amt</span>
+                          {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
+                            <span className="text-xs text-muted-foreground/80">
+                              {(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex flex-col leading-tight">
                       <span>{zoomedLoad?.loadedMiles?.toLocaleString() || 0} mi</span>
