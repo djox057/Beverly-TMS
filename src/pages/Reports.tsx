@@ -5,7 +5,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
@@ -357,9 +366,7 @@ const Reports = () => {
   const { data: temporaryPlates } = useQuery({
     queryKey: ["temporary-plates-list"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("temporary_plates")
-        .select("id, truck_id");
+      const { data } = await supabase.from("temporary_plates").select("id, truck_id");
       return data || [];
     },
   });
@@ -615,7 +622,9 @@ const Reports = () => {
   }>({ open: false, files: [], anchorEl: null });
   const [docSignedUrls, setDocSignedUrls] = useState<Record<string, string>>({});
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
-  const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(null);
+  const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(
+    null,
+  );
 
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
@@ -1009,7 +1018,7 @@ const Reports = () => {
                 if (o.id !== orderId) return o;
                 const updated = { ...o };
                 const orderFiles = [...(updated.order_files || [])];
-                
+
                 if (type === "BOL") {
                   updated.bol_force_complete = true;
                   if (updated.order) updated.order = { ...updated.order, bol_force_complete: true };
@@ -1017,23 +1026,34 @@ const Reports = () => {
                   const pickupStopCount = (updated.pickupStops || []).length;
                   const existingBolCount = orderFiles.filter((f: any) => f.file_category === "BOL").length;
                   for (let i = existingBolCount; i < pickupStopCount; i++) {
-                    orderFiles.push({ id: `synthetic-bol-${i}`, file_category: "BOL", file_name: "force-complete", file_path: "" });
+                    orderFiles.push({
+                      id: `synthetic-bol-${i}`,
+                      file_category: "BOL",
+                      file_name: "force-complete",
+                      file_path: "",
+                    });
                   }
                 } else {
                   updated.pod_force_complete = true;
                   updated.isActive = false;
                   updated.isRecentCompleted = true;
-                  if (updated.order) updated.order = { ...updated.order, pod_force_complete: true, status: "delivered" };
+                  if (updated.order)
+                    updated.order = { ...updated.order, pod_force_complete: true, status: "delivered" };
                   // Inject synthetic POD files up to delivery stop count
                   const deliveryStopCount = (updated.deliveryStops || []).length;
                   const existingPodCount = orderFiles.filter((f: any) => f.file_category === "POD").length;
                   for (let i = existingPodCount; i < deliveryStopCount; i++) {
-                    orderFiles.push({ id: `synthetic-pod-${i}`, file_category: "POD", file_name: "force-complete", file_path: "" });
+                    orderFiles.push({
+                      id: `synthetic-pod-${i}`,
+                      file_category: "POD",
+                      file_name: "force-complete",
+                      file_path: "",
+                    });
                   }
                   // Set checked_out_at on delivery stops
                   if (updated.deliveryStops) {
-                    updated.deliveryStops = updated.deliveryStops.map((s: any) => 
-                      s.checked_out_at ? s : { ...s, checked_out_at: new Date().toISOString() }
+                    updated.deliveryStops = updated.deliveryStops.map((s: any) =>
+                      s.checked_out_at ? s : { ...s, checked_out_at: new Date().toISOString() },
                     );
                   }
                 }
@@ -2871,7 +2891,12 @@ const Reports = () => {
               if (stop.id) {
                 const nextStopInfo = getNextStopInSequence(stop.id, currentOrder, allSortedOrders);
                 if (nextStopInfo && stop.latitude && stop.longitude) {
-                  const distToNext = haversineDistanceMiles(stop.latitude, stop.longitude, nextStopInfo.latitude, nextStopInfo.longitude);
+                  const distToNext = haversineDistanceMiles(
+                    stop.latitude,
+                    stop.longitude,
+                    nextStopInfo.latitude,
+                    nextStopInfo.longitude,
+                  );
                   const threshold = nextStopInfo.nextOrderDhMiles + 10;
                   if (distToNext < threshold) return;
                 }
@@ -2936,7 +2961,12 @@ const Reports = () => {
               if (stop.id) {
                 const nextStopInfo = getNextStopInSequence(stop.id, currentOrder, allSortedOrders);
                 if (nextStopInfo && stop.latitude && stop.longitude) {
-                  const distToNext = haversineDistanceMiles(stop.latitude, stop.longitude, nextStopInfo.latitude, nextStopInfo.longitude);
+                  const distToNext = haversineDistanceMiles(
+                    stop.latitude,
+                    stop.longitude,
+                    nextStopInfo.latitude,
+                    nextStopInfo.longitude,
+                  );
                   const threshold = nextStopInfo.nextOrderDhMiles + 10;
                   if (distToNext < threshold) return;
                 }
@@ -3561,7 +3591,12 @@ const Reports = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety") || hasRole("dispatch") || hasRole("afterhours")) && (
+              {(hasRole("supervisor") ||
+                hasRole("manager") ||
+                hasRole("admin") ||
+                hasRole("safety") ||
+                hasRole("dispatch") ||
+                hasRole("afterhours")) && (
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
@@ -4076,8 +4111,13 @@ const Reports = () => {
                                                   if (truckAlerts.length === 0) return null;
                                                   if (truckAlerts.length === 1) {
                                                     const alert = truckAlerts[0];
-                                                    const IconMap: Record<string, any> = { CreditCard, ShieldCheck, CircleDot, Settings };
-                                                    if (alert.icon === 'dot') {
+                                                    const IconMap: Record<string, any> = {
+                                                      CreditCard,
+                                                      ShieldCheck,
+                                                      CircleDot,
+                                                      Settings,
+                                                    };
+                                                    if (alert.icon === "dot") {
                                                       return (
                                                         <Tooltip>
                                                           <TooltipTrigger asChild>
@@ -4086,9 +4126,10 @@ const Reports = () => {
                                                               alt="DOT Inspection"
                                                               className="h-4 w-4"
                                                               style={{
-                                                                filter: alert.color === "red"
-                                                                  ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
-                                                                  : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                                filter:
+                                                                  alert.color === "red"
+                                                                    ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                                    : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
                                                               }}
                                                             />
                                                           </TooltipTrigger>
@@ -4103,7 +4144,9 @@ const Reports = () => {
                                                     return (
                                                       <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                          <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />
+                                                          <IconComp
+                                                            className={`h-3.5 w-3.5 ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
+                                                          />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                           <p className="text-xs">{alert.tooltip}</p>
@@ -4112,12 +4155,12 @@ const Reports = () => {
                                                     );
                                                   }
                                                   // 2+ alerts: show count badge with popover
-                                                  const hasRed = truckAlerts.some(a => a.color === 'red');
+                                                  const hasRed = truckAlerts.some((a) => a.color === "red");
                                                   return (
                                                     <Popover>
                                                       <PopoverTrigger asChild>
                                                         <button
-                                                          className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer ${hasRed ? 'bg-red-500' : 'bg-yellow-500'}`}
+                                                          className={`inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold text-white cursor-pointer ${hasRed ? "bg-red-500" : "bg-yellow-500"}`}
                                                           onClick={(e) => e.stopPropagation()}
                                                         >
                                                           {truckAlerts.length}
@@ -4128,7 +4171,9 @@ const Reports = () => {
                                                         <div className="space-y-1">
                                                           {truckAlerts.map((alert, i) => (
                                                             <div key={i} className="flex items-center gap-2">
-                                                              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                                                              <span
+                                                                className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === "red" ? "bg-red-500" : "bg-yellow-500"}`}
+                                                              />
                                                               <span className="text-xs">{alert.tooltip}</span>
                                                             </div>
                                                           ))}
@@ -4248,7 +4293,7 @@ const Reports = () => {
                                                     key: string;
                                                     label: string;
                                                     tooltip: string;
-                                                    color: 'red' | 'yellow' | 'amber';
+                                                    color: "red" | "yellow" | "amber";
                                                     renderIcon: () => React.ReactNode;
                                                     onClick?: (e: React.MouseEvent) => void;
                                                   };
@@ -4258,19 +4303,20 @@ const Reports = () => {
                                                   const maintenanceStatus = getMaintenanceIconStatus(truck);
                                                   if (maintenanceStatus.show) {
                                                     icons.push({
-                                                      key: 'maintenance',
-                                                      label: 'Oil Change',
+                                                      key: "maintenance",
+                                                      label: "Oil Change",
                                                       tooltip: maintenanceStatus.tooltip,
-                                                      color: maintenanceStatus.color === 'red' ? 'red' : 'yellow',
+                                                      color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
                                                         <img
                                                           src={wrenchIcon}
                                                           alt="Maintenance"
                                                           className="h-3.5 w-3.5"
                                                           style={{
-                                                            filter: maintenanceStatus.color === "red"
-                                                              ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
-                                                              : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                            filter:
+                                                              maintenanceStatus.color === "red"
+                                                                ? "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)"
+                                                                : "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)",
                                                           }}
                                                         />
                                                       ),
@@ -4280,12 +4326,16 @@ const Reports = () => {
                                                   // 2. Lumper missing RC
                                                   if (hasLumperMissingRC(truck.driverId)) {
                                                     icons.push({
-                                                      key: 'lumper',
-                                                      label: 'Lumper - Missing Receipt',
-                                                      tooltip: 'Lumper - Missing Receipt',
-                                                      color: 'amber',
+                                                      key: "lumper",
+                                                      label: "Lumper - Missing Receipt",
+                                                      tooltip: "Lumper - Missing Receipt",
+                                                      color: "amber",
                                                       renderIcon: () => (
-                                                        <img src={lumperReceiptIcon} alt="Lumper Receipt" className="h-4 w-4 cursor-pointer" />
+                                                        <img
+                                                          src={lumperReceiptIcon}
+                                                          alt="Lumper Receipt"
+                                                          className="h-4 w-4 cursor-pointer"
+                                                        />
                                                       ),
                                                       onClick: (e) => {
                                                         e.stopPropagation();
@@ -4300,10 +4350,10 @@ const Reports = () => {
                                                   // 3. EFS fuel missing
                                                   if (hasEfsMissingData(truck.driverId)) {
                                                     icons.push({
-                                                      key: 'efs',
-                                                      label: 'EFS Fuel - Missing Data',
-                                                      tooltip: 'EFS Fuel - Missing Data',
-                                                      color: 'amber',
+                                                      key: "efs",
+                                                      label: "EFS Fuel - Missing Data",
+                                                      tooltip: "EFS Fuel - Missing Data",
+                                                      color: "amber",
                                                       renderIcon: () => (
                                                         <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
                                                       ),
@@ -4320,10 +4370,10 @@ const Reports = () => {
                                                   // 4. Random drug test
                                                   if (truck.randomDrugTestDate) {
                                                     icons.push({
-                                                      key: 'drugtest',
-                                                      label: 'Random Drug Test',
+                                                      key: "drugtest",
+                                                      label: "Random Drug Test",
                                                       tooltip: `Random Drug Test: ${format(new Date(truck.randomDrugTestDate), "MMM dd, yyyy")}`,
-                                                      color: 'amber',
+                                                      color: "amber",
                                                       renderIcon: () => (
                                                         <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
                                                       ),
@@ -4334,10 +4384,10 @@ const Reports = () => {
                                                   const tempPlateId = temporaryPlatesByTruckId.get(truck.id);
                                                   if (tempPlateId) {
                                                     icons.push({
-                                                      key: 'tempplate',
-                                                      label: 'Temporary Plate',
-                                                      tooltip: 'Temporary Plate - Click to upload photos',
-                                                      color: 'amber',
+                                                      key: "tempplate",
+                                                      label: "Temporary Plate",
+                                                      tooltip: "Temporary Plate - Click to upload photos",
+                                                      color: "amber",
                                                       renderIcon: () => (
                                                         <FileWarning className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
                                                       ),
@@ -4354,7 +4404,12 @@ const Reports = () => {
 
                                                   // 6. Driver document alerts (CDL, MVR, Clearing House, Medical Card)
                                                   const driverAlerts = collectDriverAlerts(truck);
-                                                  const IconMap: Record<string, any> = { IdCard, FileText, Building2, HeartPulse };
+                                                  const IconMap: Record<string, any> = {
+                                                    IdCard,
+                                                    FileText,
+                                                    Building2,
+                                                    HeartPulse,
+                                                  };
                                                   driverAlerts.forEach((alert) => {
                                                     icons.push({
                                                       key: `alert-${alert.label}`,
@@ -4364,7 +4419,11 @@ const Reports = () => {
                                                       renderIcon: () => {
                                                         const IconComp = IconMap[alert.icon];
                                                         if (!IconComp) return null;
-                                                        return <IconComp className={`h-3.5 w-3.5 ${alert.color === 'red' ? 'text-red-500' : 'text-yellow-500'}`} />;
+                                                        return (
+                                                          <IconComp
+                                                            className={`h-3.5 w-3.5 ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
+                                                          />
+                                                        );
                                                       },
                                                     });
                                                   });
@@ -4393,9 +4452,9 @@ const Reports = () => {
 
                                                   return (
                                                     <>
-                                                      {icons.length <= MAX_VISIBLE
-                                                        ? visible.map(renderSingleIcon)
-                                                        : (
+                                                      {icons.length <= MAX_VISIBLE ? (
+                                                        visible.map(renderSingleIcon)
+                                                      ) : (
                                                         <Popover>
                                                           <PopoverTrigger asChild>
                                                             <button
@@ -4406,7 +4465,9 @@ const Reports = () => {
                                                             </button>
                                                           </PopoverTrigger>
                                                           <PopoverContent className="w-auto max-w-xs p-3">
-                                                            <p className="text-xs font-bold mb-2">Driver Alerts ({icons.length})</p>
+                                                            <p className="text-xs font-bold mb-2">
+                                                              Driver Alerts ({icons.length})
+                                                            </p>
                                                             <div className="space-y-1.5">
                                                               {icons.map((icon) => (
                                                                 <button
@@ -4417,8 +4478,12 @@ const Reports = () => {
                                                                     else e.stopPropagation();
                                                                   }}
                                                                 >
-                                                                  <span className="flex-shrink-0">{icon.renderIcon()}</span>
-                                                                  <span className="text-xs cursor-pointer">{icon.label}</span>
+                                                                  <span className="flex-shrink-0">
+                                                                    {icon.renderIcon()}
+                                                                  </span>
+                                                                  <span className="text-xs cursor-pointer">
+                                                                    {icon.label}
+                                                                  </span>
                                                                 </button>
                                                               ))}
                                                             </div>
@@ -4428,7 +4493,7 @@ const Reports = () => {
                                                     </>
                                                   );
                                                 })()}
-                                                 {(truck.driverPhone ||
+                                                {(truck.driverPhone ||
                                                   truck.driverEmail ||
                                                   truck.trailerNumber ||
                                                   truck.driver2Name) && (
@@ -4675,10 +4740,17 @@ const Reports = () => {
                                                             <div className="border-t pt-1 mt-1">
                                                               <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                  <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">🚚 Truck: {truck.truckNumber}</p>
+                                                                  <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
+                                                                    🚚 Truck: {truck.truckNumber}
+                                                                  </p>
                                                                 </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2 text-xs space-y-0.5" side="top">
-                                                                  <p className="font-semibold">🚚 Truck: {truck.truckNumber}</p>
+                                                                <PopoverContent
+                                                                  className="w-auto p-2 text-xs space-y-0.5"
+                                                                  side="top"
+                                                                >
+                                                                  <p className="font-semibold">
+                                                                    🚚 Truck: {truck.truckNumber}
+                                                                  </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
                                                                 </PopoverContent>
@@ -4686,10 +4758,17 @@ const Reports = () => {
                                                               {truck.trailerNumber && (
                                                                 <Popover>
                                                                   <PopoverTrigger asChild>
-                                                                    <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">🚛 Trailer: {truck.trailerNumber}</p>
+                                                                    <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
+                                                                      🚛 Trailer: {truck.trailerNumber}
+                                                                    </p>
                                                                   </PopoverTrigger>
-                                                                  <PopoverContent className="w-auto p-2 text-xs space-y-0.5" side="top">
-                                                                    <p className="font-semibold">🚛 Trailer: {truck.trailerNumber}</p>
+                                                                  <PopoverContent
+                                                                    className="w-auto p-2 text-xs space-y-0.5"
+                                                                    side="top"
+                                                                  >
+                                                                    <p className="font-semibold">
+                                                                      🚛 Trailer: {truck.trailerNumber}
+                                                                    </p>
                                                                     <p>VIN: {(truck as any).trailerVin || "N/A"}</p>
                                                                     <p>Plate: {(truck as any).trailerPlate || "N/A"}</p>
                                                                   </PopoverContent>
@@ -4759,24 +4838,42 @@ const Reports = () => {
                                                               )}
                                                               {(truck as any).driverCriminal && (
                                                                 <img
-                                                                   src={criminalDatabaseIcon}
-                                                                   alt="Criminal"
-                                                                   className="h-5 w-5"
-                                                                   title="Criminal Record"
-                                                                 />
-                                                               )}
-                                                               {((truck as any).driverStraps ?? 2) > 0 && (
-                                                                 <span className="flex items-center gap-0.5" title="Straps">
-                                                                   <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
-                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5 pt-[2px]" />
-                                                                 </span>
-                                                               )}
-                                                               {((truck as any).driverLoadBars ?? 0) > 0 && (
-                                                                 <span className="flex items-center gap-0.5" title="Load Bars">
-                                                                   <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
-                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-[26px] w-[26px]" />
-                                                                 </span>
-                                                               )}
+                                                                  src={criminalDatabaseIcon}
+                                                                  alt="Criminal"
+                                                                  className="h-5 w-5"
+                                                                  title="Criminal Record"
+                                                                />
+                                                              )}
+                                                              {((truck as any).driverStraps ?? 2) > 0 && (
+                                                                <span
+                                                                  className="flex items-center gap-0.5"
+                                                                  title="Straps"
+                                                                >
+                                                                  <span className="text-xs font-medium">
+                                                                    {(truck as any).driverStraps ?? 2}x
+                                                                  </span>
+                                                                  <img
+                                                                    src={strapIcon}
+                                                                    alt="Straps"
+                                                                    className="h-5 w-5 pt-[2px]"
+                                                                  />
+                                                                </span>
+                                                              )}
+                                                              {((truck as any).driverLoadBars ?? 0) > 0 && (
+                                                                <span
+                                                                  className="flex items-center gap-0.5"
+                                                                  title="Load Bars"
+                                                                >
+                                                                  <span className="text-xs font-medium">
+                                                                    {(truck as any).driverLoadBars}x
+                                                                  </span>
+                                                                  <img
+                                                                    src={loadBarIcon}
+                                                                    alt="Load Bars"
+                                                                    className="h-[26px] w-[26px]"
+                                                                  />
+                                                                </span>
+                                                              )}
                                                             </div>
                                                           </>
                                                         ) : (
@@ -4923,10 +5020,17 @@ const Reports = () => {
                                                             </div>
                                                             <Popover>
                                                               <PopoverTrigger asChild>
-                                                                <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">🚚 Truck: {truck.truckNumber}</p>
+                                                                <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
+                                                                  🚚 Truck: {truck.truckNumber}
+                                                                </p>
                                                               </PopoverTrigger>
-                                                              <PopoverContent className="w-auto p-2 text-xs space-y-0.5" side="top">
-                                                                <p className="font-semibold">🚚 Truck: {truck.truckNumber}</p>
+                                                              <PopoverContent
+                                                                className="w-auto p-2 text-xs space-y-0.5"
+                                                                side="top"
+                                                              >
+                                                                <p className="font-semibold">
+                                                                  🚚 Truck: {truck.truckNumber}
+                                                                </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
                                                               </PopoverContent>
@@ -4934,10 +5038,17 @@ const Reports = () => {
                                                             {truck.trailerNumber && (
                                                               <Popover>
                                                                 <PopoverTrigger asChild>
-                                                                  <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">🚛 Trailer: {truck.trailerNumber}</p>
+                                                                  <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
+                                                                    🚛 Trailer: {truck.trailerNumber}
+                                                                  </p>
                                                                 </PopoverTrigger>
-                                                                <PopoverContent className="w-auto p-2 text-xs space-y-0.5" side="top">
-                                                                  <p className="font-semibold">🚛 Trailer: {truck.trailerNumber}</p>
+                                                                <PopoverContent
+                                                                  className="w-auto p-2 text-xs space-y-0.5"
+                                                                  side="top"
+                                                                >
+                                                                  <p className="font-semibold">
+                                                                    🚛 Trailer: {truck.trailerNumber}
+                                                                  </p>
                                                                   <p>VIN: {(truck as any).trailerVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).trailerPlate || "N/A"}</p>
                                                                 </PopoverContent>
@@ -5026,25 +5137,43 @@ const Reports = () => {
                                                                 />
                                                               )}
                                                               {(truck as any).driverCriminal && (
-                                                                 <img
-                                                                   src={criminalDatabaseIcon}
-                                                                   alt="Criminal"
-                                                                   className="h-5 w-5"
-                                                                   title="Criminal Record"
-                                                                 />
-                                                               )}
-                                                               {((truck as any).driverStraps ?? 2) > 0 && (
-                                                                 <span className="flex items-center gap-0.5" title="Straps">
-                                                                   <span className="text-xs font-medium">{(truck as any).driverStraps ?? 2}x</span>
-                                                                   <img src={strapIcon} alt="Straps" className="h-5 w-5 pt-[2px]" />
-                                                                 </span>
-                                                               )}
-                                                               {((truck as any).driverLoadBars ?? 0) > 0 && (
-                                                                 <span className="flex items-center gap-0.5" title="Load Bars">
-                                                                   <span className="text-xs font-medium">{(truck as any).driverLoadBars}x</span>
-                                                                   <img src={loadBarIcon} alt="Load Bars" className="h-[26px] w-[26px]" />
-                                                                 </span>
-                                                               )}
+                                                                <img
+                                                                  src={criminalDatabaseIcon}
+                                                                  alt="Criminal"
+                                                                  className="h-5 w-5"
+                                                                  title="Criminal Record"
+                                                                />
+                                                              )}
+                                                              {((truck as any).driverStraps ?? 2) > 0 && (
+                                                                <span
+                                                                  className="flex items-center gap-0.5"
+                                                                  title="Straps"
+                                                                >
+                                                                  <span className="text-xs font-medium">
+                                                                    {(truck as any).driverStraps ?? 2}x
+                                                                  </span>
+                                                                  <img
+                                                                    src={strapIcon}
+                                                                    alt="Straps"
+                                                                    className="h-5 w-5 pt-[2px]"
+                                                                  />
+                                                                </span>
+                                                              )}
+                                                              {((truck as any).driverLoadBars ?? 0) > 0 && (
+                                                                <span
+                                                                  className="flex items-center gap-0.5"
+                                                                  title="Load Bars"
+                                                                >
+                                                                  <span className="text-xs font-medium">
+                                                                    {(truck as any).driverLoadBars}x
+                                                                  </span>
+                                                                  <img
+                                                                    src={loadBarIcon}
+                                                                    alt="Load Bars"
+                                                                    className="h-[26px] w-[26px]"
+                                                                  />
+                                                                </span>
+                                                              )}
                                                             </div>
                                                           </>
                                                         )}
@@ -5230,7 +5359,13 @@ const Reports = () => {
                                                   height: "48px",
                                                 }}
                                               >
-                                                <svg width="135" height="48" viewBox="0 0 135 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <svg
+                                                  width="135"
+                                                  height="48"
+                                                  viewBox="0 0 135 48"
+                                                  fill="none"
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                >
                                                   <path
                                                     d="M2 2 L133 2 L133 34 L20 34 L10 46 L10 34 L2 34 Z"
                                                     fill="#F5E6A3"
@@ -6001,7 +6136,7 @@ const Reports = () => {
                     </div>
 
                     <div className="flex flex-col leading-tight">
-                      <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} driver pay</span>
+                      <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} Stop Amt</span>
                       {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
                         <span className="text-xs text-muted-foreground/80">
                           {(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
@@ -6465,8 +6600,18 @@ const Reports = () => {
                   const now = new Date();
                   const pickupStart = pickupStops[0]?.datetime ? new Date(pickupStops[0].datetime) : null;
                   const deliveryStart = deliveryStops[0]?.datetime ? new Date(deliveryStops[0].datetime) : null;
-                  const showBolComplete = pickupStops.length > 1 && pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete && pickupStart != null && now >= pickupStart;
-                  const showPodComplete = deliveryStops.length > 1 && deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete && deliveryStart != null && now >= deliveryStart;
+                  const showBolComplete =
+                    pickupStops.length > 1 &&
+                    pickupStops.length > bolFileCount &&
+                    !(zoomedLoad as any)?.bolForceComplete &&
+                    pickupStart != null &&
+                    now >= pickupStart;
+                  const showPodComplete =
+                    deliveryStops.length > 1 &&
+                    deliveryStops.length > podFileCount &&
+                    !(zoomedLoad as any)?.podForceComplete &&
+                    deliveryStart != null &&
+                    now >= deliveryStart;
 
                   return (
                     <>
@@ -7225,7 +7370,6 @@ const Reports = () => {
         truckNumber={tempPlateDialog?.truckNumber || ""}
         temporaryPlateId={tempPlateDialog?.temporaryPlateId || ""}
       />
-
 
       <DriverProblemDialog
         open={!!problemDialog}
