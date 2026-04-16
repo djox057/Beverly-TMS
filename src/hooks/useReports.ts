@@ -2203,17 +2203,17 @@ export const useReports = (options?: UseReportsOptions) => {
               
               if (allSortedOrders.length > 0) {
                 const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL') || lastOrder.bol_force_complete;
                 if (lastOrderHasBOL) {
                   currentOrder = lastOrder;
                 } else if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD') || previousOrder.pod_force_complete === true;
                   if (previousHasPOD) {
                     currentOrder = lastOrder;
                   } else {
                     const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                      order.order_files?.some((file: any) => file.file_category === 'BOL')
+                      order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete
                     );
                     currentOrder = lastWithBOL || lastOrder;
                   }
