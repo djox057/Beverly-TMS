@@ -783,13 +783,28 @@ export const useReports = (options?: UseReportsOptions) => {
     // Real-time subscription handles cache updates - no invalidation needed
   });
 
-  // Helper function to determine document status
-  const getDocumentStatus = (orderFiles: any[]) => {
-    if (!orderFiles || orderFiles.length === 0) return "none";
+  const hasBOLDocument = (order: any) =>
+    order?.order_files?.some((file: any) => file.file_category === "BOL") ||
+    order?.bol_force_complete === true ||
+    order?.bolForceComplete === true;
 
-    const hasRC = orderFiles.some((file) => file.file_category === "RC");
-    const hasBOL = orderFiles.some((file) => file.file_category === "BOL");
-    const hasPOD = orderFiles.some((file) => file.file_category === "POD");
+  const hasPODDocument = (order: any) =>
+    order?.order_files?.some((file: any) => file.file_category === "POD") ||
+    order?.pod_force_complete === true ||
+    order?.podForceComplete === true;
+
+  // Helper function to determine document status
+  const getDocumentStatus = (order: any) => {
+    const orderFiles = order?.order_files || [];
+    if (!orderFiles || orderFiles.length === 0) {
+      if (hasPODDocument(order)) return "complete";
+      if (hasBOLDocument(order)) return "partial";
+      return "none";
+    }
+
+    const hasRC = orderFiles.some((file: any) => file.file_category === "RC");
+    const hasBOL = hasBOLDocument(order);
+    const hasPOD = hasPODDocument(order);
 
     if (hasRC && hasBOL && hasPOD) return "complete";
     if (hasRC && hasBOL) return "partial";
@@ -1177,7 +1192,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 if (order.canceled) return false;
 
                 // Skip orders with POD files - they are completed and can't be "current"
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                const hasPOD = hasPODDocument(order);
                 if (hasPOD) return false;
 
                 // Any pending/in_transit order without POD is a candidate for current order
@@ -1196,7 +1211,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 if (order.status === "delivered") return true;
 
                 // Consider orders with POD files as completed regardless of status
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                const hasPOD = hasPODDocument(order);
                 if (hasPOD) return true;
 
                 // Consider pending orders past delivery time as recently completed
@@ -1357,7 +1372,7 @@ export const useReports = (options?: UseReportsOptions) => {
                   // For display: use first pickup and last delivery
                   const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
                   const deliveryStop = deliveryStops.length > 0 ? deliveryStops[deliveryStops.length - 1] : null;
-                  const documentStatus = getDocumentStatus(order.order_files || []);
+                  const documentStatus = getDocumentStatus(order);
                   const documentColors = getDocumentColorClass(documentStatus);
 
                   return {
@@ -1451,7 +1466,7 @@ export const useReports = (options?: UseReportsOptions) => {
             
             if (allSortedOrders.length > 0) {
               const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-              const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+              const lastOrderHasBOL = hasBOLDocument(lastOrder);
               
               if (lastOrderHasBOL) {
                 // Last load has BOL - it's the current load
@@ -1461,16 +1476,14 @@ export const useReports = (options?: UseReportsOptions) => {
                 // Check if there's a previous order with POD (completed)
                 if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = hasPODDocument(previousOrder);
                   
                   if (previousHasPOD) {
                     // Previous load is complete (has POD), so the last load without BOL is current
                     currentOrder = lastOrder;
                   } else {
                     // Previous load doesn't have POD, find the last load with BOL
-                    const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                      order.order_files?.some((file: any) => file.file_category === 'BOL')
-                    );
+                    const lastWithBOL = [...allSortedOrders].reverse().find((order) => hasBOLDocument(order));
                     // Fallback: if no load with BOL found, use last load
                     currentOrder = lastWithBOL || lastOrder;
                   }
@@ -1763,7 +1776,7 @@ export const useReports = (options?: UseReportsOptions) => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
               // Skip orders with POD files - they are completed and can't be "current"
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              const hasPOD = hasPODDocument(order);
               if (hasPOD) return false;
               // Any pending/in_transit order without POD is a candidate for current order
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
@@ -1777,7 +1790,7 @@ export const useReports = (options?: UseReportsOptions) => {
               if (order.status === "delivered") return true;
               
               // Consider orders with POD files as completed regardless of status
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              const hasPOD = hasPODDocument(order);
               if (hasPOD) return true;
               
               if (order.status === "pending" && order.delivery_datetime) {
@@ -1804,8 +1817,8 @@ export const useReports = (options?: UseReportsOptions) => {
             const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
             const pickupStop = pickupStops[0];
             const deliveryStop = deliveryStops[deliveryStops.length - 1];
-            const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-            const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+            const hasPOD = hasPODDocument(order);
+            const hasBOL = hasBOLDocument(order);
             
             return {
               id: order.id,
@@ -1854,18 +1867,16 @@ export const useReports = (options?: UseReportsOptions) => {
           
           if (allSortedOrders.length > 0) {
             const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-            const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+            const lastOrderHasBOL = hasBOLDocument(lastOrder);
             if (lastOrderHasBOL) {
               currentOrder = lastOrder;
             } else if (allSortedOrders.length >= 2) {
               const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-              const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+              const previousHasPOD = hasPODDocument(previousOrder);
               if (previousHasPOD) {
                 currentOrder = lastOrder;
               } else {
-                const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                  order.order_files?.some((file: any) => file.file_category === 'BOL')
-                );
+                const lastWithBOL = [...allSortedOrders].reverse().find((order) => hasBOLDocument(order));
                 currentOrder = lastWithBOL || lastOrder;
               }
             } else {
@@ -2149,8 +2160,8 @@ export const useReports = (options?: UseReportsOptions) => {
                   const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
                   const pickupStop = pickupStops[0];
                   const deliveryStop = deliveryStops[deliveryStops.length - 1];
-                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+                  const hasPOD = hasPODDocument(order);
+                  const hasBOL = hasBOLDocument(order);
                   
                   return {
                     id: order.id,
@@ -2199,18 +2210,16 @@ export const useReports = (options?: UseReportsOptions) => {
               
               if (allSortedOrders.length > 0) {
                 const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+                const lastOrderHasBOL = hasBOLDocument(lastOrder);
                 if (lastOrderHasBOL) {
                   currentOrder = lastOrder;
                 } else if (allSortedOrders.length >= 2) {
                   const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  const previousHasPOD = hasPODDocument(previousOrder);
                   if (previousHasPOD) {
                     currentOrder = lastOrder;
                   } else {
-                    const lastWithBOL = [...allSortedOrders].reverse().find(order =>
-                      order.order_files?.some((file: any) => file.file_category === 'BOL')
-                    );
+                    const lastWithBOL = [...allSortedOrders].reverse().find((order) => hasBOLDocument(order));
                     currentOrder = lastWithBOL || lastOrder;
                   }
                 } else {
