@@ -1,47 +1,22 @@
 
 
-## Root Cause Analysis
+## Problem
 
-The duplicate internal load numbers are caused by **EditOrder.tsx updating `company_id`** when saving an order.
+The Reports page delivery/pickup cells ignore force-complete flags because:
 
-### How it happens:
+1. **Local functions shadow helpers**: `Reports.tsx` defines its own `getPickupCellColor` and `getDeliveryCellColor` (lines 1667, 1706) that directly check `order.order_files` instead of using the `orderHasBOL`/`orderHasPOD` helpers from `helpers.ts`.
 
-1. **Order created**: Driver belongs to AP Silver → RPC gets `company_id = AP Silver` → suffix "AP" → counts AP Silver orders → assigns `12749-AP`
-2. **Order edited**: The truck or driver is reassigned to a BF Prime United truck/driver → EditOrder.tsx line 2421 overwrites `company_id` to BF Prime United
-3. **New order created**: Next AP Silver order → RPC counts AP Silver orders → the moved order is no longer counted → `12749-AP` gets reissued
+2. **No synthetic file injection in adapter**: `useReportsDateWindowAdapter.ts` never injects synthetic BOL/POD files for force-completed orders, so even if the helpers were used, the file counts wouldn't reflect force-complete status.
 
-The ironic part: the comment on line 2419 says *"Internal load number is frozen at creation — never reassigned"* but the very next line updates `company_id`, which breaks the uniqueness of the counter.
+## Plan
 
-### Evidence:
-- All duplicate pairs have one order originally from AP Silver whose `company_id` was later changed to BF Prime United (all with `booked_by_company_id = BF Prime LLC`)
-- The driver on the "BF Prime United" order (e.g., KIARA THOMAS) actually belongs to AP Silver, confirming the order was originally AP Silver
-- The pattern is consistent across dozens of duplicates
+### Step 1: Inject synthetic files in the date-window adapter
 
----
+In `src/hooks/useReportsDateWindowAdapter.ts`, after enriching orders with `order_files`, add logic to inject synthetic BOL/POD files when `bol_force_complete` or `pod_force_complete` is true — matching the same pattern used in `ordersTransform.ts`.
 
-## Fix Plan
+### Step 2: Remove duplicate local functions from Reports.tsx
 
-### 1. Stop updating `company_id` in EditOrder.tsx
-**File**: `src/pages/EditOrder.tsx` (lines 2419-2422)
+Delete the local `getPickupCellColor` (lines 1667–1703) and `getDeliveryCellColor` (lines 1706–1755) from `Reports.tsx`. Update all call sites to use the imported versions from `helpers.ts`, passing the required `lateDeliveries`/`latePickups` arguments.
 
-Remove the block that overwrites `company_id` with the current truck/driver's company. The `company_id` should be frozen at creation time, just like the internal load number.
-
-### 2. Add a unique constraint to prevent future duplicates
-**Database migration**: Add a unique index on `internal_load_number` to catch any edge cases at the database level:
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS orders_internal_load_number_unique 
-ON orders (internal_load_number) 
-WHERE internal_load_number IS NOT NULL;
-```
-
-### 3. Fix existing duplicate data
-Run a one-time data fix to reassign correct `company_id` back to orders that were incorrectly moved — restoring them to the company that matches their suffix.
-
----
-
-### Technical details
-
-- **Lines to remove**: `src/pages/EditOrder.tsx` lines 2419-2422 (the `company_id` override)
-- **Migration**: unique index on `internal_load_number` (prevents future duplicates at DB level)
-- **Data fix**: Update orders where company name doesn't match suffix (e.g., BF Prime United orders with "-AP" suffix should have company_id = AP Silver)
+This ensures all cell coloring goes through the single source of truth that already handles force-complete via `orderHasBOL`/`orderHasPOD`.
 
