@@ -408,7 +408,13 @@ export default function BeverlyHeatmapLane() {
                   <TableCell className="text-right text-sm font-mono">{fmtMiles(b.avg_miles)}</TableCell>
                   <TableCell className="text-right text-sm font-mono">{fmtRpm(b.rpm)}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary" className="font-mono">{b.order_count}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="font-mono cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => setSelectedBroker(b)}
+                    >
+                      {b.order_count}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))}
@@ -423,6 +429,57 @@ export default function BeverlyHeatmapLane() {
           Enter pickup and/or delivery locations to search lane history.
         </div>
       )}
+
+      {/* Orders Dialog */}
+      <Dialog open={!!selectedBroker} onOpenChange={(open) => { if (!open) setSelectedBroker(null); }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBroker?.broker_name} — {selectedBroker?.order_ids.length} Orders
+            </DialogTitle>
+          </DialogHeader>
+
+          {isLoadingOrders ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">Loading orders...</div>
+          ) : orderDetails.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">No orders found.</div>
+          ) : (
+            <div className="overflow-x-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[130px]">Broker Load #</TableHead>
+                    <TableHead className="w-[280px]">Lane</TableHead>
+                    <TableHead className="text-right w-[100px]">Freight</TableHead>
+                    <TableHead className="text-right w-[80px]">Miles</TableHead>
+                    <TableHead className="text-right w-[70px]">RPM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderDetails.map(order => {
+                    const miles = Number(order.loaded_miles) || 0;
+                    const freight = Number(order.freight_amount) || 0;
+                    const pickups = order.pickup_drops.filter(s => s.stop_type === "pickup");
+                    const deliveries = order.pickup_drops.filter(s => s.stop_type === "delivery");
+                    const p = pickups[0];
+                    const d = deliveries[deliveries.length - 1];
+                    const lane = `${p ? `${p.city || "?"}, ${p.state || "?"}` : "?"} → ${d ? `${d.city || "?"}, ${d.state || "?"}` : "?"}`;
+                    return (
+                      <TableRow key={order.id} className="hover:bg-transparent">
+                        <TableCell className="font-mono text-sm">{order.broker_load_number || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{lane}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmt(freight)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtMiles(miles)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtRpm(miles > 0 ? freight / miles : 0)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
