@@ -198,16 +198,6 @@ export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null =
   return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
 };
 
-// Helper to determine if we should show At Delivery button
-export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
-  if (stop.arrived_at) return false;
-
-  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-  const goingToDeliveryClicked = !!stop.going_to_at;
-  const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
-
-  return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
-};
 
 // Helper to check if a date string matches today (no timezone conversion)
 const isDateToday = (dateStr: string | null | undefined): boolean => {
