@@ -1622,7 +1622,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         const hasOtherOrder = sortedOrders.some(
           (o) => o.id !== order.id && !o.canceled && o.pickup_datetime && o.pickup_datetime.slice(0, 10) >= pickupDate
         );
-        return !hasOtherOrder;
+        if (hasOtherOrder) return false;
+        // Also hide if any non-canceled load has a delivery date after this canceled load's pickup date
+        const hasLaterDelivery = sortedOrders.some(
+          (o) => o.id !== order.id && !o.canceled && o.delivery_datetime && o.delivery_datetime.slice(0, 10) > pickupDate!
+        );
+        return !hasLaterDelivery;
       });
 
       // Find current order (most recent with BOL but no POD, or most recent)
@@ -1907,7 +1912,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               const hasOtherOrder = driverOrders.some(
                 (o: any) => o.id !== order.id && !o.canceled && o.pickup_datetime && o.pickup_datetime.slice(0, 10) >= pickupDate
               );
-              return !hasOtherOrder;
+              if (hasOtherOrder) return false;
+              const hasLaterDelivery = driverOrders.some(
+                (o: any) => o.id !== order.id && !o.canceled && o.delivery_datetime && o.delivery_datetime.slice(0, 10) > pickupDate!
+              );
+              return !hasLaterDelivery;
             })
             .map((order: any) => {
               const orderPickupDrops = order.pickup_drops || [];
