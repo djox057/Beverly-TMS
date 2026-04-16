@@ -164,7 +164,8 @@ const fetchOrdersForDateWindow = async (
         canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
         is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
         freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
+        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+        bol_force_complete, pod_force_complete
       `)
       .eq("locked", false)
       .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
