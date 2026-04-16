@@ -962,7 +962,96 @@ const Reports = () => {
     };
   }, []);
 
-  // File upload handlers
+  // Force complete handler
+  const handleForceComplete = async (type: "BOL" | "POD", orderId: string) => {
+    try {
+      const updateData: any = {};
+      if (type === "BOL") {
+        updateData.bol_force_complete = true;
+      } else {
+        updateData.pod_force_complete = true;
+        updateData.status = "delivered";
+      }
+
+      const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
+      if (error) throw error;
+
+      // POD: set checked_out_at on all delivery stops that don't have it
+      if (type === "POD") {
+        await supabase
+          .from("pickup_drops")
+          .update({ checked_out_at: new Date().toISOString() })
+          .eq("order_id", orderId)
+          .eq("type", "delivery")
+          .is("checked_out_at", null);
+      }
+
+      // Optimistic update: update zoomedLoad state
+      setZoomedLoad((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          bolForceComplete: type === "BOL" ? true : prev.bolForceComplete,
+          podForceComplete: type === "POD" ? true : prev.podForceComplete,
+        };
+      });
+
+      // Optimistic update reports cache
+      const reportsCacheKeys = [["reports", "priority"], ["reports", "full"], ["reports"]];
+      for (const key of reportsCacheKeys) {
+        queryClient.setQueriesData({ queryKey: key }, (oldData: any) => {
+          if (!oldData || !Array.isArray(oldData)) return oldData;
+          return oldData.map((truck: any) => {
+            if (!truck.allOrders) return truck;
+            return {
+              ...truck,
+              allOrders: truck.allOrders.map((o: any) => {
+                if (o.id !== orderId) return o;
+                const updated = { ...o };
+                if (type === "BOL") {
+                  updated.bol_force_complete = true;
+                  if (updated.order) updated.order = { ...updated.order, bol_force_complete: true };
+                } else {
+                  updated.pod_force_complete = true;
+                  updated.isActive = false;
+                  updated.isRecentCompleted = true;
+                  updated.documentStatus = "complete";
+                  updated.documentColors = { ...updated.documentColors, pod: true };
+                  if (updated.order) updated.order = { ...updated.order, pod_force_complete: true, status: "delivered" };
+                  // Set checked_out_at on delivery stops
+                  if (updated.deliveryStops) {
+                    updated.deliveryStops = updated.deliveryStops.map((s: any) => 
+                      s.checked_out_at ? s : { ...s, checked_out_at: new Date().toISOString() }
+                    );
+                  }
+                }
+                if (type === "BOL") {
+                  updated.documentColors = { ...updated.documentColors, bol: true };
+                  updated.documentStatus = updated.documentColors.pod ? "complete" : "partial";
+                }
+                return updated;
+              }),
+            };
+          });
+        });
+      }
+
+      // Invalidate orders cache for other pages
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+
+      toast({
+        title: `${type} Force Complete`,
+        description: `All ${type === "BOL" ? "pickup" : "delivery"} stops marked as complete`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to force complete",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDocumentClick = (docType: string, isChecked: boolean) => {
     if (!isChecked) {
       setUploadDocType(docType);
