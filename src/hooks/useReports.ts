@@ -2151,8 +2151,20 @@ export const useReports = (options?: UseReportsOptions) => {
                   const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
                   const pickupStop = pickupStops[0];
                   const deliveryStop = deliveryStops[deliveryStops.length - 1];
-                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD') || order.pod_force_complete === true;
-                  const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL') || order.bol_force_complete === true;
+                  // Inject synthetic files for force_complete
+                  const orderFiles = [...(order.order_files || [])];
+                  if (order.bol_force_complete) {
+                    const pCount = pickupStops.length;
+                    const eBol = orderFiles.filter((f: any) => f.file_category === 'BOL').length;
+                    for (let i = eBol; i < pCount; i++) orderFiles.push({ id: `synthetic-bol-${i}`, file_category: 'BOL', file_name: 'force-complete', file_path: '' });
+                  }
+                  if (order.pod_force_complete) {
+                    const dCount = deliveryStops.length;
+                    const ePod = orderFiles.filter((f: any) => f.file_category === 'POD').length;
+                    for (let i = ePod; i < dCount; i++) orderFiles.push({ id: `synthetic-pod-${i}`, file_category: 'POD', file_name: 'force-complete', file_path: '' });
+                  }
+                  const hasPOD = orderFiles.some((file: any) => file.file_category === 'POD');
+                  const hasBOL = orderFiles.some((file: any) => file.file_category === 'BOL');
                   
                   return {
                     id: order.id,
