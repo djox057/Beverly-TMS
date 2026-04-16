@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
-const RADIUS_MILES = 60;
+
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 3958.8;
@@ -51,6 +51,8 @@ export default function BeverlyHeatmapLane() {
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [pickupRadius, setPickupRadius] = useState(60);
+  const [deliveryRadius, setDeliveryRadius] = useState(60);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "order_count", dir: "desc",
   });
@@ -91,7 +93,7 @@ export default function BeverlyHeatmapLane() {
 
   // Fetch matching orders based on coordinates
   const { data: laneData, isLoading } = useQuery({
-    queryKey: ["heatmap-lane", pickupCoords, deliveryCoords, startDateStr, endDateStr],
+    queryKey: ["heatmap-lane", pickupCoords, deliveryCoords, startDateStr, endDateStr, pickupRadius, deliveryRadius],
     queryFn: async () => {
       if (!pickupCoords && !deliveryCoords) return null;
 
@@ -150,10 +152,10 @@ export default function BeverlyHeatmapLane() {
         const deliveries = stops.filter(s => s.type === "delivery" && s.latitude && s.longitude);
 
         const pickupMatch = !pickupCoords || pickups.some(
-          s => haversine(pickupCoords.lat, pickupCoords.lng, s.latitude!, s.longitude!) <= RADIUS_MILES
+          s => haversine(pickupCoords.lat, pickupCoords.lng, s.latitude!, s.longitude!) <= pickupRadius
         );
         const deliveryMatch = !deliveryCoords || deliveries.some(
-          s => haversine(deliveryCoords.lat, deliveryCoords.lng, s.latitude!, s.longitude!) <= RADIUS_MILES
+          s => haversine(deliveryCoords.lat, deliveryCoords.lng, s.latitude!, s.longitude!) <= deliveryRadius
         );
 
         if (pickupMatch && deliveryMatch) matchingOrderIds.add(orderId);
@@ -293,21 +295,45 @@ export default function BeverlyHeatmapLane() {
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-[200px] space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Pickup Location</label>
-          <Input
-            placeholder="City, State or address..."
-            value={pickupAddress}
-            onChange={e => setPickupAddress(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSearch()}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="City, State or address..."
+              value={pickupAddress}
+              onChange={e => setPickupAddress(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSearch()}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              min={0}
+              max={450}
+              value={pickupRadius}
+              onChange={e => setPickupRadius(Math.min(450, Math.max(0, parseInt(e.target.value) || 0)))}
+              className="w-[70px]"
+              title="Radius in miles"
+            />
+          </div>
         </div>
         <div className="flex-1 min-w-[200px] space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Delivery Location</label>
-          <Input
-            placeholder="City, State or address..."
-            value={deliveryAddress}
-            onChange={e => setDeliveryAddress(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSearch()}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="City, State or address..."
+              value={deliveryAddress}
+              onChange={e => setDeliveryAddress(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSearch()}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              min={0}
+              max={450}
+              value={deliveryRadius}
+              onChange={e => setDeliveryRadius(Math.min(450, Math.max(0, parseInt(e.target.value) || 0)))}
+              className="w-[70px]"
+              title="Radius in miles"
+            />
+          </div>
         </div>
         <DateRangePicker
           date={dateRange}
@@ -326,12 +352,12 @@ export default function BeverlyHeatmapLane() {
         <div className="flex gap-2 flex-wrap">
           {pickupCoords && (
             <Badge variant="outline" className="text-xs">
-              Pickup: {pickupCoords.lat.toFixed(3)}, {pickupCoords.lng.toFixed(3)} (±{RADIUS_MILES}mi)
+              Pickup: {pickupCoords.lat.toFixed(3)}, {pickupCoords.lng.toFixed(3)} (±{pickupRadius}mi)
             </Badge>
           )}
           {deliveryCoords && (
             <Badge variant="outline" className="text-xs">
-              Delivery: {deliveryCoords.lat.toFixed(3)}, {deliveryCoords.lng.toFixed(3)} (±{RADIUS_MILES}mi)
+              Delivery: {deliveryCoords.lat.toFixed(3)}, {deliveryCoords.lng.toFixed(3)} (±{deliveryRadius}mi)
             </Badge>
           )}
         </div>
