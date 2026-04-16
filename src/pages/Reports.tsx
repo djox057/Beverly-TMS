@@ -6504,7 +6504,43 @@ const Reports = () => {
                   );
                 })}
 
-                {/* Lumper Request and Cancel Button */}
+                {/* Force Complete buttons for multi-stop BOL/POD */}
+                {(() => {
+                  const pickupStops = zoomedLoad?.allPickupStops || [];
+                  const deliveryStops = zoomedLoad?.allDeliveryStops || [];
+                  const bolCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "BOL").length || 0;
+                  const podCount = zoomedLoad?.orderFiles?.filter((f: any) => f.file_category === "POD").length || 0;
+                  const showBolComplete = pickupStops.length > 1 && bolCount > 0 && bolCount < pickupStops.length && !zoomedLoad?.bolForceComplete;
+                  const showPodComplete = deliveryStops.length > 1 && podCount > 0 && podCount < deliveryStops.length && !zoomedLoad?.podForceComplete;
+
+                  return (
+                    <>
+                      {showBolComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs border-green-500/50 text-green-600 hover:bg-green-500/10"
+                          onClick={() => setForceCompleteDialog({ open: true, type: "BOL" })}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          BOL Complete
+                        </Button>
+                      )}
+                      {showPodComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs border-green-500/50 text-green-600 hover:bg-green-500/10"
+                          onClick={() => setForceCompleteDialog({ open: true, type: "POD" })}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          POD Complete
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
+
                 <div className="ml-auto flex gap-2">
                   <Button
                     variant="outline"
