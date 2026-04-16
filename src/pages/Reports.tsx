@@ -6525,6 +6525,43 @@ const Reports = () => {
                   );
                 })}
 
+                {/* BOL/POD Force Complete Buttons */}
+                {(() => {
+                  const pickupStops = zoomedLoad?.allPickupStops || [];
+                  const deliveryStops = zoomedLoad?.allDeliveryStops || [];
+                  const bolFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "BOL").length || 0;
+                  const podFileCount = zoomedLoad?.orderFiles?.filter((f) => f.file_category === "POD").length || 0;
+                  const showBolComplete = pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete;
+                  const showPodComplete = deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete;
+
+                  return (
+                    <>
+                      {showBolComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete))] hover:bg-[hsl(var(--cell-complete))]/10"
+                          onClick={() => setForceCompleteConfirm({ type: "BOL", orderId: zoomedLoad!.orderId })}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          BOL Complete
+                        </Button>
+                      )}
+                      {showPodComplete && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete))] hover:bg-[hsl(var(--cell-complete))]/10"
+                          onClick={() => setForceCompleteConfirm({ type: "POD", orderId: zoomedLoad!.orderId })}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          POD Complete
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
+
                 {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
                   <Button
