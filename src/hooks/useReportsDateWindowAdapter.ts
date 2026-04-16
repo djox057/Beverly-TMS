@@ -1890,9 +1890,20 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
                 .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0));
               const pickupStop = pickupStops[0] || null;
               const deliveryStop = deliveryStops[deliveryStops.length - 1] || null;
-              const orderFilesList = orderFilesMap.get(order.id) || [];
-              const hasPOD = orderFilesList.some((f: any) => f.file_category === 'POD') || order.pod_force_complete === true;
-              const hasBOL = orderFilesList.some((f: any) => f.file_category === 'BOL') || order.bol_force_complete === true;
+              // Inject synthetic files for force_complete
+              const orderFilesList = [...(orderFilesMap.get(order.id) || [])];
+              if (order.bol_force_complete) {
+                const pCount = pickupStops.length;
+                const eBol = orderFilesList.filter((f: any) => f.file_category === 'BOL').length;
+                for (let i = eBol; i < pCount; i++) orderFilesList.push({ id: `synthetic-bol-${i}`, file_category: 'BOL', file_name: 'force-complete', file_path: '' });
+              }
+              if (order.pod_force_complete) {
+                const dCount = deliveryStops.length;
+                const ePod = orderFilesList.filter((f: any) => f.file_category === 'POD').length;
+                for (let i = ePod; i < dCount; i++) orderFilesList.push({ id: `synthetic-pod-${i}`, file_category: 'POD', file_name: 'force-complete', file_path: '' });
+              }
+              const hasPOD = orderFilesList.some((f: any) => f.file_category === 'POD');
+              const hasBOL = orderFilesList.some((f: any) => f.file_category === 'BOL');
 
               const transferInfo = getTransferAwareStops(driver.id, order, pickupStop, deliveryStop);
 
