@@ -823,7 +823,7 @@ const Orders = () => {
       "Delivery City": order.deliveryCity,
       "Delivery State": order.deliveryState,
       Miles: order.mileage,
-      "Driver Pay": (order as any).totalDriverPay,
+      ...(primaryRole !== 'dispatch' ? { "Driver Pay": (order as any).totalDriverPay } : {}),
       Driver: order.driverName,
       "Broker Name": order.brokerName,
       "Broker Load #": order.brokerLoadNumber,
@@ -1374,7 +1374,7 @@ const Orders = () => {
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">Broker Load #</TableHead>
                     {primaryRole !== 'dispatch' && primaryRole !== 'afterhours' && <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>}
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Notes</TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
+                    {primaryRole !== 'dispatch' && <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>}
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Freight Amt</TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
@@ -1756,11 +1756,11 @@ const Orders = () => {
                                 {order.notes.length > 12 ? order.notes.substring(0, 12) + "..." : order.notes}
                               </Button>}
                           </TableCell>
-                          <TableCell className="w-24">
+                          {primaryRole !== 'dispatch' && <TableCell className="w-24">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency((order as any).totalDriverPay)}
                             </div>
-                          </TableCell>
+                          </TableCell>}
                           <TableCell className="w-28">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(order.totalFreightAmount)}
