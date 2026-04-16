@@ -614,6 +614,8 @@ const Reports = () => {
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
+    bolForceComplete: boolean;
+    podForceComplete: boolean;
   } | null>(null);
 
   // Additional files popover state
