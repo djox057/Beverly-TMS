@@ -25,7 +25,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, CalendarClock, ArrowLeftRight, Undo2, AlertCircle, X, Trash2 } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  FileDown,
+  Edit,
+  CalendarClock,
+  ArrowLeftRight,
+  Undo2,
+  AlertCircle,
+  X,
+  Trash2,
+} from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
@@ -46,8 +57,19 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { useAuth } from "@/hooks/useAuth";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
-import { useAssignmentHistory, AssignmentHistoryEntry, buildChangeDescription, extractDatePart } from "@/hooks/useAssignmentHistory";
-import { calculateTenures, calculateCombinedDriverTenures, Tenure, formatTenureDateRange, formatTenureDuration } from "@/utils/tenureCalculator";
+import {
+  useAssignmentHistory,
+  AssignmentHistoryEntry,
+  buildChangeDescription,
+  extractDatePart,
+} from "@/hooks/useAssignmentHistory";
+import {
+  calculateTenures,
+  calculateCombinedDriverTenures,
+  Tenure,
+  formatTenureDateRange,
+  formatTenureDuration,
+} from "@/utils/tenureCalculator";
 import { NestedDriverTripsDropdown, NestedDriverTripsInlineContent } from "@/components/NestedDriverTripsDropdown";
 
 // Legacy cleanup function (kept for reference)
@@ -101,10 +123,7 @@ const findLastDeliveryDate = (orders: any[]): Date | null => {
 };
 
 // Helper to fetch the previous week's last delivery for a truck
-const fetchPreviousWeekLastDelivery = async (
-  truckId: string,
-  currentWeekMonday: Date
-): Promise<Date | null> => {
+const fetchPreviousWeekLastDelivery = async (truckId: string, currentWeekMonday: Date): Promise<Date | null> => {
   // Calculate previous week range (Monday to Sunday before current week)
   const prevWeekMonday = addDays(currentWeekMonday, -7);
   const prevWeekSunday = addDays(currentWeekMonday, -1);
@@ -123,8 +142,6 @@ const fetchPreviousWeekLastDelivery = async (
     return null;
   }
 
-  
-
   if (!orders || orders.length === 0) return null;
 
   // Filter orders to only those with delivery in the previous week
@@ -137,9 +154,7 @@ const fetchPreviousWeekLastDelivery = async (
     // First try to get from pickup_drops
     const dropStops = order.pickup_drops?.filter((pd: any) => pd.type === "drop") || [];
     if (dropStops.length > 0) {
-      const lastDrop = dropStops.sort((a: any, b: any) => 
-        (b.datetime || "").localeCompare(a.datetime || "")
-      )[0];
+      const lastDrop = dropStops.sort((a: any, b: any) => (b.datetime || "").localeCompare(a.datetime || ""))[0];
       if (lastDrop?.datetime) {
         deliveryDate = parseDateNoTimezoneToDate(lastDrop.datetime);
       }
@@ -171,7 +186,7 @@ const fetchPreviousWeekLastDelivery = async (
 const calculateFuelDateRange = (
   previousWeekLastDelivery: Date | null,
   currentWeekLastDelivery: Date | null,
-  currentWeekMonday: Date
+  currentWeekMonday: Date,
 ): { fuelStart: Date; fuelEnd: Date } | null => {
   // If no delivery in current week → return null (no fuel)
   if (!currentWeekLastDelivery) return null;
@@ -192,11 +207,13 @@ const calculateFuelDateRange = (
 const fetchFuelTransactionsForTruck = async (
   truckNumber: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
 ): Promise<FuelTransaction[]> => {
   const { data, error } = await supabase
     .from("fuel_transactions")
-    .select("id, transaction_number, transaction_date, location_name, city, state, item, fees, unit_price, quantity, amount")
+    .select(
+      "id, transaction_number, transaction_date, location_name, city, state, item, fees, unit_price, quantity, amount",
+    )
     .eq("truck_number", truckNumber)
     .gte("transaction_date", format(startDate, "yyyy-MM-dd"))
     .lte("transaction_date", format(endDate, "yyyy-MM-dd"))
@@ -217,7 +234,7 @@ const fetchFuelTransactionsForStatement = async (
   truckNumber: string,
   truckId: string,
   orders: any[],
-  currentWeekMonday: Date
+  currentWeekMonday: Date,
 ): Promise<FuelTransaction[]> => {
   // Find current week's last delivery from the orders
   const currentWeekLastDelivery = findLastDeliveryDate(orders);
@@ -232,11 +249,7 @@ const fetchFuelTransactionsForStatement = async (
   const previousWeekLastDelivery = await fetchPreviousWeekLastDelivery(truckId, currentWeekMonday);
 
   // Calculate fuel range with new logic
-  const fuelRange = calculateFuelDateRange(
-    previousWeekLastDelivery,
-    currentWeekLastDelivery,
-    currentWeekMonday
-  );
+  const fuelRange = calculateFuelDateRange(previousWeekLastDelivery, currentWeekLastDelivery, currentWeekMonday);
 
   if (!fuelRange) {
     console.log("Could not calculate valid fuel range");
@@ -254,7 +267,7 @@ const writeFuelTransactionsToWorksheet = (
   worksheet: ExcelJS.Worksheet,
   fuelTransactions: FuelTransaction[],
   startRow: number,
-  endRow: number
+  endRow: number,
 ) => {
   let currentRow = startRow;
   fuelTransactions.forEach((fuel) => {
@@ -286,7 +299,7 @@ const writeFuelTransactionsToWorksheet = (
     // H: unit_price - set to amount when quantity is 1, rounded to 2 decimals
     const quantity = parseFloat(String(fuel.quantity)) || 0;
     const amount = parseFloat(String(fuel.amount)) || 0;
-    const unitPrice = (quantity === 1 || quantity === 1.0) ? amount : (parseFloat(String(fuel.unit_price)) || 0);
+    const unitPrice = quantity === 1 || quantity === 1.0 ? amount : parseFloat(String(fuel.unit_price)) || 0;
     const unitPriceCell = worksheet.getCell(`H${currentRow}`);
     unitPriceCell.value = Math.round(unitPrice * 100) / 100;
     unitPriceCell.numFmt = "$#,##0.00";
@@ -312,14 +325,14 @@ const formatDateDisplay = (dateStr: string | null | undefined) => {
   try {
     // Normalize the string - replace space with T for consistent parsing
     const normalizedStr = String(dateStr).replace(" ", "T");
-    
+
     // Extract date parts directly from the ISO string (YYYY-MM-DD)
     const datePart = normalizedStr.split("T")[0];
     if (!datePart) return "";
-    
+
     const [year, month, day] = datePart.split("-");
     if (!year || !month || !day) return "";
-    
+
     return `${month}/${day}/${year}`;
   } catch (e) {
     return dateStr;
@@ -352,18 +365,18 @@ type EfsDeduction = {
 const fetchEfsDeductionsForStatement = async (
   driverId: string,
   weekStartDate: Date,
-  weekEndDate: Date
+  weekEndDate: Date,
 ): Promise<EfsDeduction[]> => {
   const deductions: EfsDeduction[] = [];
-  
+
   if (!driverId) return deductions;
-  
+
   const weekStartISO = format(weekStartDate, "yyyy-MM-dd");
   const weekEndISO = format(addDays(weekEndDate, 1), "yyyy-MM-dd"); // Include the end date
-  
+
   // NOTE: Cash advances are now managed as driver_expenses (via StatementPreviewDialog deductions)
   // so we no longer fetch them separately here to avoid double-counting
-  
+
   // Fetch EFS other requests for the driver within the week
   // EXCLUDE fuel requests since they go to the dedicated fuel section
   const { data: efsOther, error: efsError } = await supabase
@@ -373,7 +386,7 @@ const fetchEfsDeductionsForStatement = async (
     .gte("requested_at", weekStartISO)
     .lt("requested_at", weekEndISO)
     .order("requested_at", { ascending: true });
-  
+
   if (efsError) {
     console.error("Error fetching EFS other requests:", efsError);
   } else if (efsOther) {
@@ -381,7 +394,7 @@ const fetchEfsDeductionsForStatement = async (
       // Skip fuel requests - they are handled in the fuel section via fuel_transactions
       const purpose = (efs.purpose || "").toLowerCase();
       if (purpose === "fuel") return;
-      
+
       deductions.push({
         description: efs.purpose || "EFS Other",
         date: formatDateDisplay(efs.requested_at),
@@ -389,7 +402,7 @@ const fetchEfsDeductionsForStatement = async (
       });
     });
   }
-  
+
   return deductions;
 };
 
@@ -423,11 +436,11 @@ const Trips = () => {
 
   // Use Individual Mode context - applies filtering when toggle is ON
   const { individualMode } = useIndividualMode();
-  
+
   // Apply filtering when Individual Mode is ON or user is dispatch-only
   const shouldFilterByUser = individualMode || isDispatchOnly;
-  const orderFilterOptions = shouldFilterByUser 
-    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null } 
+  const orderFilterOptions = shouldFilterByUser
+    ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null }
     : { bookedBy: null, dispatcherUserId: null };
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -451,9 +464,13 @@ const Trips = () => {
   } | null>(null);
 
   // Use lazy loading hook - only fetches on search if no global orders cached
-  const { data: orders, isLoading, isLazyMode, hasGlobalOrders, updateOrderLocally } = useTripsLazyOrders(
-    { truckDriverSearch: searchFilter, loadNumberSearch }
-  );
+  const {
+    data: orders,
+    isLoading,
+    isLazyMode,
+    hasGlobalOrders,
+    updateOrderLocally,
+  } = useTripsLazyOrders({ truckDriverSearch: searchFilter, loadNumberSearch });
 
   const queryClient = useQueryClient();
 
@@ -462,9 +479,9 @@ const Trips = () => {
 
   // Track expanded nested driver trips
   const [expandedNestedTrips, setExpandedNestedTrips] = useState<Set<string>>(new Set());
-  
+
   const toggleNestedTrips = useCallback((historyId: string) => {
-    setExpandedNestedTrips(prev => {
+    setExpandedNestedTrips((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(historyId)) {
         newSet.delete(historyId);
@@ -476,24 +493,24 @@ const Trips = () => {
   }, []);
 
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
-  const canMoveLoads = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && (roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false);
-  
-  // Check if user can see paid columns - dispatch/supervisor cannot
-  const canSeePaidColumn = primaryRole !== 'dispatch' && primaryRole !== 'supervisor';
-  // Check if user can toggle paid - manager/supervisor/dispatch cannot
-  const canTogglePaid = primaryRole !== 'dispatch' && primaryRole !== 'supervisor' && primaryRole !== 'manager';
+  const canMoveLoads =
+    primaryRole !== "dispatch" &&
+    primaryRole !== "supervisor" &&
+    (roles?.some((role) => ["manager", "admin", "accounting"].includes(role)) ?? false);
 
+  // Check if user can see paid columns - dispatch/supervisor cannot
+  const canSeePaidColumn = primaryRole !== "dispatch" && primaryRole !== "supervisor";
+  // Check if user can toggle paid - manager/supervisor/dispatch cannot
+  const canTogglePaid = primaryRole !== "dispatch" && primaryRole !== "supervisor" && primaryRole !== "manager";
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({
     queryKey: ["order-week-overrides"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_week_overrides")
-        .select("*");
-      
+      const { data, error } = await supabase.from("order_week_overrides").select("*");
+
       if (error) throw error;
-      
+
       // Convert to a map for quick lookup: order_id -> target_week_start
       const overrideMap: Record<string, string> = {};
       data?.forEach((row: any) => {
@@ -505,22 +522,27 @@ const Trips = () => {
 
   // Mutation to create/update week override
   const createWeekOverrideMutation = useMutation({
-    mutationFn: async ({ orderId, originalWeekStart, targetWeekStart }: { 
-      orderId: string; 
+    mutationFn: async ({
+      orderId,
+      originalWeekStart,
+      targetWeekStart,
+    }: {
+      orderId: string;
       originalWeekStart: string;
       targetWeekStart: string;
     }) => {
-      const { error } = await supabase
-        .from("order_week_overrides")
-        .upsert({
+      const { error } = await supabase.from("order_week_overrides").upsert(
+        {
           order_id: orderId,
           original_week_start: originalWeekStart,
           target_week_start: targetWeekStart,
           created_by: (await supabase.auth.getUser()).data.user?.id,
-        }, {
+        },
+        {
           onConflict: "order_id",
-        });
-      
+        },
+      );
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -536,11 +558,8 @@ const Trips = () => {
   // Mutation to delete week override (revert to original week)
   const deleteWeekOverrideMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const { error } = await supabase
-        .from("order_week_overrides")
-        .delete()
-        .eq("order_id", orderId);
-      
+      const { error } = await supabase.from("order_week_overrides").delete().eq("order_id", orderId);
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -562,11 +581,8 @@ const Trips = () => {
   // Mutation to delete assignment history entries (admin only)
   const deleteAssignmentHistoryMutation = useMutation({
     mutationFn: async (historyEntryIds: string[]) => {
-      const { error } = await supabase
-        .from("assignment_history")
-        .delete()
-        .in("id", historyEntryIds);
-      
+      const { error } = await supabase.from("assignment_history").delete().in("id", historyEntryIds);
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -582,12 +598,10 @@ const Trips = () => {
   const { data: paidWeeksData } = useQuery({
     queryKey: ["trips-paid-status"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trips_paid_status")
-        .select("*");
-      
+      const { data, error } = await supabase.from("trips_paid_status").select("*");
+
       if (error) throw error;
-      
+
       // Convert to a map for quick lookup
       const paidMap: Record<string, boolean> = {};
       data?.forEach((row: any) => {
@@ -600,43 +614,51 @@ const Trips = () => {
 
   // Mutation to toggle paid status
   const togglePaidMutation = useMutation({
-    mutationFn: async ({ truckNumber, truckId, driverName, weekStart, weekOrders, isPaid }: { 
-      truckNumber: string; 
+    mutationFn: async ({
+      truckNumber,
+      truckId,
+      driverName,
+      weekStart,
+      weekOrders,
+      isPaid,
+    }: {
+      truckNumber: string;
       truckId: string;
-      driverName: string; 
+      driverName: string;
       weekStart: string;
       weekOrders: any[];
       isPaid: boolean;
     }) => {
       // Update the trip paid status
-      const { error } = await supabase
-        .from("trips_paid_status")
-        .upsert({
+      const { error } = await supabase.from("trips_paid_status").upsert(
+        {
           truck_number: truckNumber || "unknown",
           driver_name: driverName || "unknown",
           week_start: weekStart,
           is_paid: isPaid,
-        }, {
+        },
+        {
           onConflict: "truck_number,driver_name,week_start",
-        });
-      
+        },
+      );
+
       if (error) throw error;
 
       // Also update fuel transactions paid status
       if (truckNumber && truckId) {
         const currentWeekMonday = new Date(weekStart + "T12:00:00");
-        
+
         // Get fuel transactions using the same logic as for statements
         const fuelTransactions = await fetchFuelTransactionsForStatement(
           truckNumber,
           truckId,
           weekOrders,
-          currentWeekMonday
+          currentWeekMonday,
         );
 
         // Update fuel transactions paid status
         if (fuelTransactions.length > 0) {
-          const fuelIds = fuelTransactions.map(f => f.id);
+          const fuelIds = fuelTransactions.map((f) => f.id);
           const { error: fuelError } = await supabase
             .from("fuel_transactions")
             .update({ paid: isPaid })
@@ -691,13 +713,13 @@ const Trips = () => {
 
   // Confirm individual order paid status change
   const confirmOrderPaidToggle = async () => {
-    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+    if (primaryRole === "manager" || primaryRole === "supervisor") {
       toast.error("Managers and supervisors cannot change paid status");
       setOrderPaidConfirmDialog(null);
       return;
     }
     if (!orderPaidConfirmDialog) return;
-    
+
     try {
       const newPaidStatus = !orderPaidConfirmDialog.currentPaid;
       const { error } = await supabase
@@ -707,16 +729,14 @@ const Trips = () => {
 
       if (error) throw error;
 
-      toast.success(`Load marked as ${newPaidStatus ? 'paid' : 'unpaid'}`);
+      toast.success(`Load marked as ${newPaidStatus ? "paid" : "unpaid"}`);
       // Optimistic cache update across all orders caches
       const cache = queryClient.getQueryCache();
       const orderQueries = cache.findAll({ queryKey: ["orders"], exact: false });
       orderQueries.forEach((query) => {
         queryClient.setQueryData(query.queryKey, (old: any[] | undefined) => {
           if (!old) return old;
-          return old.map((o: any) =>
-            o.id === orderPaidConfirmDialog.orderId ? { ...o, paid: newPaidStatus } : o
-          );
+          return old.map((o: any) => (o.id === orderPaidConfirmDialog.orderId ? { ...o, paid: newPaidStatus } : o));
         });
       });
       // Also update the Trips-local data for immediate UI feedback
@@ -730,7 +750,13 @@ const Trips = () => {
   };
 
   // Show confirmation dialog before toggling paid status
-  const handlePaidToggle = (truckNumber: string, truckId: string, driverName: string, weekStart: string, weekOrders: any[]) => {
+  const handlePaidToggle = (
+    truckNumber: string,
+    truckId: string,
+    driverName: string,
+    weekStart: string,
+    weekOrders: any[],
+  ) => {
     const currentStatus = isWeekPaid(truckNumber, driverName, weekStart);
     setPaidConfirmDialog({
       open: true,
@@ -745,7 +771,7 @@ const Trips = () => {
 
   // Confirm paid status toggle
   const confirmPaidToggle = () => {
-    if (primaryRole === 'manager' || primaryRole === 'supervisor') {
+    if (primaryRole === "manager" || primaryRole === "supervisor") {
       toast.error("Managers and supervisors cannot change paid status");
       setPaidConfirmDialog(null);
       return;
@@ -777,14 +803,14 @@ const Trips = () => {
   // Expand orders to include all transfer segments
   const expandedOrders = useMemo(() => {
     if (!orders) return [];
-    
+
     const result: any[] = [];
-    
+
     orders.forEach((order) => {
       // Check if this order has order_transfers records AND is still a recovery load
       // After reverting, is_recovery becomes false so we should show as single row
       const hasTransfers = order.order_transfers && order.order_transfers.length > 0 && order.isRecovery;
-      
+
       if (hasTransfers) {
         const transfers = Array.isArray(order.order_transfers)
           ? [...order.order_transfers].sort((a: any, b: any) => a.sequence_number - b.sequence_number)
@@ -792,16 +818,16 @@ const Trips = () => {
 
         // Build set of sequence numbers already in order_transfers
         const existingSeq = new Set<number>(transfers.map((t: any) => Number(t.sequence_number)));
-        
+
         // Track which sequences we've added to prevent duplicates
         const addedSequences = new Set<number>();
         const segments: any[] = [];
 
         // Legacy check: some multi-transfer loads may only have seq >= 2 in order_transfers
-        const legacyIsRecoveryLoad = !!order.originalDriver1Id && (
-          (order.originalDriverPrice && order.originalDriverPrice > 0) ||
-          (order.originalMiles && order.originalMiles > 0)
-        );
+        const legacyIsRecoveryLoad =
+          !!order.originalDriver1Id &&
+          ((order.originalDriverPrice && order.originalDriverPrice > 0) ||
+            (order.originalMiles && order.originalMiles > 0));
 
         // Add legacy Original (seq 0) if not in order_transfers
         if (legacyIsRecoveryLoad && !existingSeq.has(0) && !addedSequences.has(0)) {
@@ -834,16 +860,16 @@ const Trips = () => {
         if (legacyIsRecoveryLoad && !existingSeq.has(1) && !addedSequences.has(1)) {
           addedSequences.add(1);
           // Get recovery driver info from recovery_history if available
-          const recoveryHistory = Array.isArray(order.recoveryHistory) && order.recoveryHistory.length > 0 
-            ? order.recoveryHistory[0] 
-            : null;
+          const recoveryHistory =
+            Array.isArray(order.recoveryHistory) && order.recoveryHistory.length > 0 ? order.recoveryHistory[0] : null;
           const recDriverName = recoveryHistory?.recoveryDriver1?.name || recoveryHistory?.recoveryDriver1Name;
           const recTruckNumber = recoveryHistory?.recoveryTruck?.truck_number || recoveryHistory?.recoveryTruckNumber;
-          const recTrailerNumber = recoveryHistory?.recoveryTrailer?.trailer_number || recoveryHistory?.recoveryTrailerNumber;
-          
+          const recTrailerNumber =
+            recoveryHistory?.recoveryTrailer?.trailer_number || recoveryHistory?.recoveryTrailerNumber;
+
           // Use recovery_date for legacy Rec segment if available
           const recDeliveryDate = order.recoveryDate || order.deliveryDate;
-          
+
           segments.push({
             ...order,
             virtualId: `${order.id}_legacy_transfer_1`,
@@ -886,35 +912,47 @@ const Trips = () => {
           const segDeliveryDate = transfer.transfer_datetime || order.deliveryDate;
 
           // PICKUP: original uses order pickup; others use previous transfer's handoff
-          const segPickupCity = isOriginal ? order.pickupCity : (prevTransfer?.transfer_city || order.pickupCity);
-          const segPickupState = isOriginal ? order.pickupState : (prevTransfer?.transfer_state || order.pickupState);
-          const segPickupDate = isOriginal ? order.pickupDate : (prevTransfer?.transfer_datetime || order.pickupDate);
-          const segPickupDatetime = isOriginal ? order.pickupDatetime : (prevTransfer?.transfer_datetime || order.pickupDatetime);
+          const segPickupCity = isOriginal ? order.pickupCity : prevTransfer?.transfer_city || order.pickupCity;
+          const segPickupState = isOriginal ? order.pickupState : prevTransfer?.transfer_state || order.pickupState;
+          const segPickupDate = isOriginal ? order.pickupDate : prevTransfer?.transfer_datetime || order.pickupDate;
+          const segPickupDatetime = isOriginal
+            ? order.pickupDatetime
+            : prevTransfer?.transfer_datetime || order.pickupDatetime;
 
           const driverName = isOriginal
-            ? (order.originalDriver1Name || order.originalDriver2Name || transfer.driver1?.name || transfer.manual_driver_name || order.driverName)
-            : (transfer.driver1?.name || transfer.manual_driver_name || order.driverName);
+            ? order.originalDriver1Name ||
+              order.originalDriver2Name ||
+              transfer.driver1?.name ||
+              transfer.manual_driver_name ||
+              order.driverName
+            : transfer.driver1?.name || transfer.manual_driver_name || order.driverName;
 
           const driver1Name = isOriginal
-            ? (order.originalDriver1Name || transfer.driver1?.name || transfer.manual_driver_name)
-            : (transfer.driver1?.name || transfer.manual_driver_name);
+            ? order.originalDriver1Name || transfer.driver1?.name || transfer.manual_driver_name
+            : transfer.driver1?.name || transfer.manual_driver_name;
 
-          const driver2Name = isOriginal
-            ? (order.originalDriver2Name || transfer.driver2?.name)
-            : transfer.driver2?.name;
+          const driver2Name = isOriginal ? order.originalDriver2Name || transfer.driver2?.name : transfer.driver2?.name;
 
-          const truckId = isOriginal ? (order.originalTruckId || transfer.truck_id) : transfer.truck_id;
+          const truckId = isOriginal ? order.originalTruckId || transfer.truck_id : transfer.truck_id;
           const truckNumber = isOriginal
-            ? (order.originalTruckNumber || transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber)
-            : (transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber);
+            ? order.originalTruckNumber ||
+              transfer.truck?.truck_number ||
+              transfer.manual_truck_number ||
+              order.truckNumber
+            : transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber;
 
-          const trailerId = isOriginal ? (order.originalTrailerId || transfer.trailer_id) : transfer.trailer_id;
+          const trailerId = isOriginal ? order.originalTrailerId || transfer.trailer_id : transfer.trailer_id;
           const trailerNumber = isOriginal
-            ? (order.originalTrailerNumber || transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber)
-            : (transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber);
+            ? order.originalTrailerNumber ||
+              transfer.trailer?.trailer_number ||
+              transfer.manual_trailer_number ||
+              order.trailerNumber
+            : transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber;
 
           const mileage = isOriginal ? (transfer.miles ?? order.originalMiles ?? 0) : (transfer.miles ?? 0);
-          const driverPay = isOriginal ? (transfer.driver_price ?? order.originalDriverPrice ?? 0) : (transfer.driver_price ?? 0);
+          const driverPay = isOriginal
+            ? (transfer.driver_price ?? order.originalDriverPrice ?? 0)
+            : (transfer.driver_price ?? 0);
 
           segments.push({
             ...order,
@@ -923,8 +961,8 @@ const Trips = () => {
             transferBadge: badge,
             isOriginalDriverPortion: isOriginal,
             isRecoveryDriverPortion: seq === 1,
-            driver1Id: isOriginal ? (order.originalDriver1Id || transfer.driver1_id) : transfer.driver1_id,
-            driver2Id: isOriginal ? (order.originalDriver2Id || transfer.driver2_id) : transfer.driver2_id,
+            driver1Id: isOriginal ? order.originalDriver1Id || transfer.driver1_id : transfer.driver1_id,
+            driver2Id: isOriginal ? order.originalDriver2Id || transfer.driver2_id : transfer.driver2_id,
             driverName,
             driver1Name,
             driver2Name,
@@ -954,11 +992,12 @@ const Trips = () => {
         // Legacy: Split into Orig/Rec only if the order is still marked as recovery.
         // Some revert flows may leave original_* fields populated, but those should NOT
         // create extra trip rows once is_recovery is false.
-        const isRecoveryLoad = !!order.isRecovery && !!order.originalDriver1Id && (
-          (order.originalDriverPrice && order.originalDriverPrice > 0) ||
-          (order.originalMiles && order.originalMiles > 0)
-        );
-        
+        const isRecoveryLoad =
+          !!order.isRecovery &&
+          !!order.originalDriver1Id &&
+          ((order.originalDriverPrice && order.originalDriverPrice > 0) ||
+            (order.originalMiles && order.originalMiles > 0));
+
         if (isRecoveryLoad) {
           // For recovery driver (current driver): use recovery miles/pay if available
           result.push({
@@ -971,9 +1010,9 @@ const Trips = () => {
             driverPrice: order.recoveryDriverPrice || order.driverPrice,
             mileage: order.recoveryMiles || order.mileage,
             // Build transfer note with recovery driver info
-            transferNote: `Driver: ${order.driverName || 'N/A'}, Truck: ${order.truckNumber || 'N/A'}, Trailer: ${order.trailerNumber || 'N/A'}`,
+            transferNote: `Driver: ${order.driverName || "N/A"}, Truck: ${order.truckNumber || "N/A"}, Trailer: ${order.trailerNumber || "N/A"}`,
           });
-          
+
           // Create a virtual entry for the original driver's portion
           result.push({
             ...order,
@@ -1007,7 +1046,7 @@ const Trips = () => {
         }
       }
     });
-    
+
     return result;
   }, [orders]);
 
@@ -1027,12 +1066,11 @@ const Trips = () => {
       const matchesTruck = isNumericSearch
         ? order.truckNumber?.toLowerCase() === searchLower
         : order.truckNumber?.toLowerCase().includes(searchLower);
-      const matchesSearch = !searchLower ||
-        matchesTruck ||
-        order.driverName?.toLowerCase().includes(searchLower);
+      const matchesSearch = !searchLower || matchesTruck || order.driverName?.toLowerCase().includes(searchLower);
 
       const formattedInternalLoad = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
-      const matchesLoadNumber = !loadSearchLower ||
+      const matchesLoadNumber =
+        !loadSearchLower ||
         formattedInternalLoad.toLowerCase().includes(loadSearchLower) ||
         order.internalLoadNumber?.toString().includes(loadSearchLower) ||
         (parsedSearchNumber !== null && order.internalLoadNumber === parsedSearchNumber) ||
@@ -1071,72 +1109,78 @@ const Trips = () => {
   const filterInfo = useMemo(() => {
     const searchLower = searchFilter.toLowerCase().trim();
     if (!searchLower || filteredOrders.length === 0) {
-      return { filterType: null as 'truck' | 'driver' | null, entityId: null as string | null, companyName: null as string | null };
+      return {
+        filterType: null as "truck" | "driver" | null,
+        entityId: null as string | null,
+        companyName: null as string | null,
+      };
     }
-    
+
     // Check if the search matches a truck number
-    const matchedByTruck = filteredOrders.find(order => 
-      order.truckNumber?.toLowerCase().includes(searchLower)
-    );
-    
+    const matchedByTruck = filteredOrders.find((order) => order.truckNumber?.toLowerCase().includes(searchLower));
+
     // Check if the search matches a driver name
-    const matchedByDriver = filteredOrders.find(order => 
-      order.driverName?.toLowerCase().includes(searchLower)
-    );
-    
+    const matchedByDriver = filteredOrders.find((order) => order.driverName?.toLowerCase().includes(searchLower));
+
     // Determine filter type - prefer exact match, prioritize truck if both match
     if (matchedByTruck && matchedByTruck.truckNumber?.toLowerCase() === searchLower) {
-      return { 
-        filterType: 'truck' as const, 
-        entityId: matchedByTruck.truckId, 
-        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName 
+      return {
+        filterType: "truck" as const,
+        entityId: matchedByTruck.truckId,
+        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName,
       };
     }
     if (matchedByDriver && matchedByDriver.driverName?.toLowerCase() === searchLower) {
-      return { 
-        filterType: 'driver' as const, 
-        entityId: matchedByDriver.driver1Id, 
-        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName 
+      return {
+        filterType: "driver" as const,
+        entityId: matchedByDriver.driver1Id,
+        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName,
       };
     }
-    
+
     // Fallback to partial match
     if (matchedByTruck) {
-      return { 
-        filterType: 'truck' as const, 
-        entityId: matchedByTruck.truckId, 
-        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName 
+      return {
+        filterType: "truck" as const,
+        entityId: matchedByTruck.truckId,
+        companyName: matchedByTruck.driverCompanyName || matchedByTruck.companyName,
       };
     }
     if (matchedByDriver) {
-      return { 
-        filterType: 'driver' as const, 
-        entityId: matchedByDriver.driver1Id, 
-        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName 
+      return {
+        filterType: "driver" as const,
+        entityId: matchedByDriver.driver1Id,
+        companyName: matchedByDriver.driverCompanyName || matchedByDriver.companyName,
       };
     }
-    
+
     return { filterType: null, entityId: null, companyName: null };
   }, [searchFilter, filteredOrders]);
 
   // Fetch assignment history based on filter type
   const { data: assignmentHistory = [] } = useAssignmentHistory(
-    filterInfo.filterType === 'truck' ? 'truck' : 'driver',
-    filterInfo.entityId
+    filterInfo.filterType === "truck" ? "truck" : "driver",
+    filterInfo.entityId,
   );
 
   // Fetch terminated drivers AND their notes in a SINGLE query for faster display
   // This eliminates the delay caused by sequential queries
   const { data: terminatedDriversWithNotes = [] } = useQuery({
-    queryKey: ["terminated-drivers-with-notes-for-trips", filterInfo.filterType, filterInfo.entityId, assignmentHistory.length],
+    queryKey: [
+      "terminated-drivers-with-notes-for-trips",
+      filterInfo.filterType,
+      filterInfo.entityId,
+      assignmentHistory.length,
+    ],
     queryFn: async () => {
       // Only fetch when filtering by driver or truck
       if (!filterInfo.filterType || !filterInfo.entityId) return [];
-      
+
       // Fetch drivers with their termination notes in a single query
       let query = supabase
         .from("drivers")
-        .select(`
+        .select(
+          `
           id,
           name,
           first_name,
@@ -1147,36 +1191,37 @@ const Trips = () => {
             note,
             created_at
           )
-        `)
+        `,
+        )
         .eq("is_active", false)
         .not("termination_date", "is", null);
-      
+
       // If filtering by driver, only get that specific driver
-      if (filterInfo.filterType === 'driver') {
+      if (filterInfo.filterType === "driver") {
         query = query.eq("id", filterInfo.entityId);
       }
-      
+
       const { data, error } = await query.order("termination_date", { ascending: false });
-      
+
       if (error) {
         console.error("Error fetching terminated drivers:", error);
         return [];
       }
-      
+
       let filteredData = data || [];
-      
+
       // If filtering by truck, we need to find drivers that were assigned to that truck
-      if (filterInfo.filterType === 'truck' && filteredData.length > 0) {
+      if (filterInfo.filterType === "truck" && filteredData.length > 0) {
         // Get drivers that were ever assigned to this truck from assignment history
         const driverIdsFromHistory = assignmentHistory
-          .filter(h => h.driver1_id || h.driver2_id || h.old_driver1_id || h.old_driver2_id)
-          .flatMap(h => [h.driver1_id, h.driver2_id, h.old_driver1_id, h.old_driver2_id])
+          .filter((h) => h.driver1_id || h.driver2_id || h.old_driver1_id || h.old_driver2_id)
+          .flatMap((h) => [h.driver1_id, h.driver2_id, h.old_driver1_id, h.old_driver2_id])
           .filter(Boolean);
-        
+
         const uniqueDriverIds = [...new Set(driverIdsFromHistory)];
-        filteredData = filteredData.filter(d => uniqueDriverIds.includes(d.id));
+        filteredData = filteredData.filter((d) => uniqueDriverIds.includes(d.id));
       }
-      
+
       return filteredData;
     },
     enabled: !!filterInfo.filterType && !!filterInfo.entityId,
@@ -1185,7 +1230,7 @@ const Trips = () => {
 
   // Extract terminated drivers list (for backwards compatibility)
   const terminatedDrivers = useMemo(() => {
-    return terminatedDriversWithNotes.map(d => ({
+    return terminatedDriversWithNotes.map((d) => ({
       id: d.id,
       name: d.name,
       first_name: d.first_name,
@@ -1197,12 +1242,12 @@ const Trips = () => {
   // Create a map of driver_id to their most recent termination note (extracted from combined query)
   const terminationNotesByDriverId = useMemo(() => {
     const map: Record<string, string> = {};
-    terminatedDriversWithNotes.forEach(driver => {
-      const notes = driver.driver_termination_notes as any[] || [];
+    terminatedDriversWithNotes.forEach((driver) => {
+      const notes = (driver.driver_termination_notes as any[]) || [];
       if (notes.length > 0) {
         // Sort by created_at descending and take the first (most recent)
-        const sortedNotes = [...notes].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const sortedNotes = [...notes].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         map[driver.id] = sortedNotes[0].note;
       }
@@ -1214,57 +1259,57 @@ const Trips = () => {
   // This shows 1 entry per tenure period, not individual events
   const historyEntriesByWeek = useMemo(() => {
     if (!filterInfo.filterType || assignmentHistory.length === 0) return {};
-    
+
     // Filter to relevant change types
-    const filtered = assignmentHistory.filter(entry => 
-      entry.change_type === 'driver_assignment' || 
-      entry.change_type === 'trailer_assignment' ||
-      entry.change_type === 'assignment_change'
+    const filtered = assignmentHistory.filter(
+      (entry) =>
+        entry.change_type === "driver_assignment" ||
+        entry.change_type === "trailer_assignment" ||
+        entry.change_type === "assignment_change",
     );
-    
+
     // Calculate tenures using the same logic as truck history dialog
-    let tenures: Tenure[] = filterInfo.filterType === 'truck'
-      ? calculateCombinedDriverTenures(filtered)  // For truck, show driver tenures
-      : calculateTenures(filtered, 'truck');       // For driver, show truck tenures
-    
+    let tenures: Tenure[] =
+      filterInfo.filterType === "truck"
+        ? calculateCombinedDriverTenures(filtered) // For truck, show driver tenures
+        : calculateTenures(filtered, "truck"); // For driver, show truck tenures
+
     // Filter out assignments that lasted 1 day or less (unless current)
-    tenures = tenures.filter(tenure => 
-      tenure.endDate === null || tenure.durationDays >= 2
-    );
-    
+    tenures = tenures.filter((tenure) => tenure.endDate === null || tenure.durationDays >= 2);
+
     // Group tenures by week (using start date)
     const byWeek: { [weekKey: string]: Tenure[] } = {};
-    tenures.forEach(tenure => {
+    tenures.forEach((tenure) => {
       if (!tenure.startDate) return;
-      
-      const entryDate = new Date(tenure.startDate + 'T12:00:00');
+
+      const entryDate = new Date(tenure.startDate + "T12:00:00");
       const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
       const weekKey = format(weekStart, "yyyy-MM-dd");
       if (!byWeek[weekKey]) byWeek[weekKey] = [];
       byWeek[weekKey].push(tenure);
     });
-    
+
     return byWeek;
   }, [filterInfo.filterType, assignmentHistory]);
 
   // Group terminated drivers by week for display as red rows
   const terminationsByWeek = useMemo(() => {
     if (!filterInfo.filterType || terminatedDrivers.length === 0) return {};
-    
+
     const byWeek: { [weekKey: string]: typeof terminatedDrivers } = {};
-    terminatedDrivers.forEach(driver => {
+    terminatedDrivers.forEach((driver) => {
       if (!driver.termination_date) return;
-      
+
       const datePart = extractDatePart(driver.termination_date);
       if (!datePart) return;
-      
-      const entryDate = new Date(datePart + 'T12:00:00');
+
+      const entryDate = new Date(datePart + "T12:00:00");
       const weekStart = startOfWeek(entryDate, { weekStartsOn: 2 });
       const weekKey = format(weekStart, "yyyy-MM-dd");
       if (!byWeek[weekKey]) byWeek[weekKey] = [];
       byWeek[weekKey].push(driver);
     });
-    
+
     return byWeek;
   }, [filterInfo.filterType, terminatedDrivers]);
 
@@ -1285,10 +1330,10 @@ const Trips = () => {
         const normalizedStr = String(dateStr).replace(" ", "T");
         const datePart = normalizedStr.split("T")[0];
         if (!datePart) return null;
-        
+
         const [year, month, day] = datePart.split("-").map(Number);
         if (!year || !month || !day) return null;
-        
+
         // Create date at noon to avoid any DST edge cases
         return new Date(year, month - 1, day, 12, 0, 0);
       } catch (e) {
@@ -1300,7 +1345,7 @@ const Trips = () => {
       if (order.deliveryDate) {
         try {
           const deliveryDate = parseDateNoTimezone(String(order.deliveryDate));
-          
+
           if (!deliveryDate || isNaN(deliveryDate.getTime())) {
             console.error("Invalid date:", order.deliveryDate);
             return;
@@ -1309,11 +1354,11 @@ const Trips = () => {
           // Calculate original week
           const originalWeekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // Tuesday
           const originalWeekKey = format(originalWeekStart, "yyyy-MM-dd");
-          
+
           // Check if this order has a week override
           const overrideWeekKey = weekOverrides?.[order.id];
           const weekKey = overrideWeekKey || originalWeekKey;
-          
+
           // Store original week info on order for undo functionality
           const orderWithMeta = {
             ...order,
@@ -1337,23 +1382,23 @@ const Trips = () => {
       .map((weekKey) => {
         // Get tenure entries for this week (already consolidated like truck history dialog)
         const weekTenures = historyEntriesByWeek[weekKey] || [];
-        
+
         // Convert tenures to display items
         const historyAsItems = weekTenures.map((tenure: Tenure) => {
           const isCurrent = tenure.endDate === null;
           const duration = formatTenureDuration(tenure.durationDays);
           const durationText = isCurrent ? `current-${duration}` : duration;
-          
+
           let changeDescription: string;
-          
-          if (filterInfo.filterType === 'truck') {
+
+          if (filterInfo.filterType === "truck") {
             // Filtering by truck - showing driver changes on this truck
             // Note: We don't have info about driver's previous truck when querying by truck
-            const driverName = tenure.entityName || 'Unassigned';
+            const driverName = tenure.entityName || "Unassigned";
             changeDescription = `Driver change: ${driverName} (${durationText})`;
           } else {
             // Filtering by driver - showing truck changes for this driver
-            const newTruck = tenure.entityName || 'Unassigned';
+            const newTruck = tenure.entityName || "Unassigned";
             // For driver filter, oldEntityName is the previous truck number from old_truck_number
             if (tenure.oldEntityName && tenure.oldEntityName !== newTruck) {
               changeDescription = `Truck change to ${newTruck} from ${tenure.oldEntityName} (${durationText})`;
@@ -1361,13 +1406,13 @@ const Trips = () => {
               changeDescription = `Truck: ${newTruck} (${durationText})`;
             }
           }
-          
+
           return {
             _isHistoryEntry: true,
             // Use tenure start date + entity as unique ID
-            _historyId: `${tenure.startDate}-${tenure.entityId || 'none'}`,
+            _historyId: `${tenure.startDate}-${tenure.entityId || "none"}`,
             _historyDate: tenure.startDate,
-            _historyDateDisplay: tenure.startDate ? format(new Date(tenure.startDate + 'T12:00:00'), 'MM/dd/yyyy') : '',
+            _historyDateDisplay: tenure.startDate ? format(new Date(tenure.startDate + "T12:00:00"), "MM/dd/yyyy") : "",
             _changeDescription: changeDescription,
             _reason: tenure.endReason,
             _changedAt: tenure.startDate, // Use start date for sorting
@@ -1375,28 +1420,28 @@ const Trips = () => {
             // For sorting purposes - treat as the date
             deliveryDate: tenure.startDate,
             // Store entity info for nested trips dropdown (when filtering by truck, entity is driver)
-            _entityType: filterInfo.filterType === 'truck' ? 'driver' : 'truck',
-            _entityName: tenure.entityName || 'Unassigned',
+            _entityType: filterInfo.filterType === "truck" ? "driver" : "truck",
+            _entityName: tenure.entityName || "Unassigned",
             _entityId: tenure.entityId,
             // Store the underlying history entry IDs for deletion
             _historyEntryIds: tenure.historyEntryIds || [],
           };
         });
-        
+
         // Get terminated drivers for this week and convert to red row items
         const weekTerminations = terminationsByWeek[weekKey] || [];
         const terminationAsItems = weekTerminations.map((driver) => {
           const datePart = extractDatePart(driver.termination_date);
-          const driverName = driver.name || `${driver.first_name || ''} ${driver.last_name || ''}`.trim();
+          const driverName = driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim();
           // Get termination note for this driver, fallback to generic message
-          const terminationNote = terminationNotesByDriverId[driver.id] || 'Driver has been terminated';
-          
+          const terminationNote = terminationNotesByDriverId[driver.id] || "Driver has been terminated";
+
           return {
             _isTerminationEntry: true,
             // Use stable unique ID from database
             _terminationId: driver.id,
             _terminationDate: datePart,
-            _terminationDateDisplay: datePart ? format(new Date(datePart + 'T12:00:00'), 'MM/dd/yyyy') : '',
+            _terminationDateDisplay: datePart ? format(new Date(datePart + "T12:00:00"), "MM/dd/yyyy") : "",
             _terminationDriverName: driverName,
             _terminationDescription: `Driver Terminated: ${driverName}`,
             _terminationNote: terminationNote,
@@ -1404,10 +1449,10 @@ const Trips = () => {
             deliveryDate: datePart,
           };
         });
-        
+
         // Merge orders, history entries, and termination entries
         const allItems = [...groups[weekKey], ...historyAsItems, ...terminationAsItems];
-        
+
         // HARDENED: Sort by date (newest first) with secondary sort for stability
         // - Primary: Date (descending)
         // - Secondary: Timestamp precision for same-day items (for history entries)
@@ -1423,11 +1468,11 @@ const Trips = () => {
           };
           const dateA = getDateValue(a);
           const dateB = getDateValue(b);
-          
+
           if (dateA !== dateB) {
             return dateB - dateA; // Newest first
           }
-          
+
           // Secondary sort: For items on the same day, use full timestamp if available
           const getTimestamp = (item: any): number => {
             if (item._isHistoryEntry && item._changedAt) {
@@ -1435,7 +1480,7 @@ const Trips = () => {
             }
             // For termination entries, use termination date (end of day)
             if (item._isTerminationEntry && item._terminationDate) {
-              return new Date(item._terminationDate + 'T23:59:59').getTime();
+              return new Date(item._terminationDate + "T23:59:59").getTime();
             }
             // For orders, use delivery datetime with time component
             const dt = item.deliveryDatetime || item.deliveryDate;
@@ -1444,63 +1489,81 @@ const Trips = () => {
           };
           const tsA = getTimestamp(a);
           const tsB = getTimestamp(b);
-          
+
           if (tsA !== tsB) {
             return tsB - tsA; // Newest first
           }
-          
+
           // Tertiary sort: By ID for absolute stability
-          const idA = a._historyId || a._terminationId || a.id || a.virtualId || '';
-          const idB = b._historyId || b._terminationId || b.id || b.virtualId || '';
+          const idA = a._historyId || a._terminationId || a.id || a.virtualId || "";
+          const idB = b._historyId || b._terminationId || b.id || b.virtualId || "";
           return idB.localeCompare(idA);
         });
-        
+
         return {
           weekStart: weekKey,
           orders: allItems,
         };
       });
-    
+
     return weekGroups;
-  }, [paginatedOrders, weekOverrides, historyEntriesByWeek, terminationsByWeek, filterInfo.filterType, terminationNotesByDriverId]);
+  }, [
+    paginatedOrders,
+    weekOverrides,
+    historyEntriesByWeek,
+    terminationsByWeek,
+    filterInfo.filterType,
+    terminationNotesByDriverId,
+  ]);
 
   // Handle drag end for moving loads between weeks
-  const handleDragEnd = useCallback((result: DropResult) => {
-    const { destination, source, draggableId } = result;
-    
-    // No destination = dropped outside
-    if (!destination) return;
-    
-    // Dropped in same week = no change
-    if (destination.droppableId === source.droppableId) return;
-    
-    // Find the order being moved
-    const orderId = draggableId.split("_drag_")[0];
-    const sourceWeekKey = source.droppableId.replace("week-", "");
-    const targetWeekKey = destination.droppableId.replace("week-", "");
-    
-    // Find original week for this order
-    const sourceWeek = groupedByWeek.find(w => w.weekStart === sourceWeekKey);
-    const order = sourceWeek?.orders.find((o: any) => o.id === orderId || o.virtualId?.startsWith(orderId));
-    
-    if (!order) return;
-    
-    const originalWeekKey = order._originalWeekKey || sourceWeekKey;
-    
-    // Create or update the week override
-    createWeekOverrideMutation.mutate({
-      orderId: order.id,
-      originalWeekStart: originalWeekKey,
-      targetWeekStart: targetWeekKey,
-    });
-  }, [groupedByWeek, createWeekOverrideMutation]);
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      const { destination, source, draggableId } = result;
+
+      // No destination = dropped outside
+      if (!destination) return;
+
+      // Dropped in same week = no change
+      if (destination.droppableId === source.droppableId) return;
+
+      // Find the order being moved
+      const orderId = draggableId.split("_drag_")[0];
+      const sourceWeekKey = source.droppableId.replace("week-", "");
+      const targetWeekKey = destination.droppableId.replace("week-", "");
+
+      // Find original week for this order
+      const sourceWeek = groupedByWeek.find((w) => w.weekStart === sourceWeekKey);
+      const order = sourceWeek?.orders.find((o: any) => o.id === orderId || o.virtualId?.startsWith(orderId));
+
+      if (!order) return;
+
+      const originalWeekKey = order._originalWeekKey || sourceWeekKey;
+
+      // Create or update the week override
+      createWeekOverrideMutation.mutate({
+        orderId: order.id,
+        originalWeekStart: originalWeekKey,
+        targetWeekStart: targetWeekKey,
+      });
+    },
+    [groupedByWeek, createWeekOverrideMutation],
+  );
 
   // Handle reverting a load to its original week
-  const handleRevertToOriginalWeek = useCallback((orderId: string) => {
-    deleteWeekOverrideMutation.mutate(orderId);
-  }, [deleteWeekOverrideMutation]);
+  const handleRevertToOriginalWeek = useCallback(
+    (orderId: string) => {
+      deleteWeekOverrideMutation.mutate(orderId);
+    },
+    [deleteWeekOverrideMutation],
+  );
 
-  const exportWeekToExcel = async (week: any, weekStartDate: Date, weekEndDate: Date, scheduledDeductions: ScheduledDeduction[] = []) => {
+  const exportWeekToExcel = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    scheduledDeductions: ScheduledDeduction[] = [],
+  ) => {
     try {
       // Get the first order to determine driver/truck info
       const firstOrder = week.orders[0];
@@ -1540,7 +1603,14 @@ const Trips = () => {
       } else if (companyName === "BG Prime Inc") {
         await exportBGPrimeIncTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (companyName === "United Enterprise Solutions INC") {
-        await exportUnitedEnterpriseSolutionsTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+        await exportUnitedEnterpriseSolutionsTemplate(
+          week,
+          weekStartDate,
+          weekEndDate,
+          firstOrder,
+          driver,
+          scheduledDeductions,
+        );
       } else if (companyName === "AP Silver Trans LLC") {
         await exportAPSilverTransTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else {
@@ -1552,7 +1622,6 @@ const Trips = () => {
       toast.error("Failed to export to Excel");
     }
   };
-
 
   // Company Driver Template Export
   const exportCompanyDriverTemplate = async (
@@ -1663,7 +1732,10 @@ const Trips = () => {
         if (currentRow > 19) return;
 
         // A: Internal load number
-        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(
+          order.internalLoadNumber,
+          order.companyName,
+        );
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
@@ -1703,7 +1775,7 @@ const Trips = () => {
           credits.push({
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -1711,7 +1783,7 @@ const Trips = () => {
           credits.push({
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -1719,7 +1791,7 @@ const Trips = () => {
           credits.push({
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -1727,7 +1799,7 @@ const Trips = () => {
           credits.push({
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -1735,7 +1807,7 @@ const Trips = () => {
           credits.push({
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -1743,7 +1815,7 @@ const Trips = () => {
           credits.push({
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -1773,7 +1845,7 @@ const Trips = () => {
           negativeAdditionals.push({
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -1781,7 +1853,7 @@ const Trips = () => {
           negativeAdditionals.push({
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -1789,7 +1861,7 @@ const Trips = () => {
           negativeAdditionals.push({
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -1797,7 +1869,7 @@ const Trips = () => {
           negativeAdditionals.push({
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -1819,7 +1891,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (deductionsRow > 40) return;
@@ -1834,9 +1906,9 @@ const Trips = () => {
       // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
       // Credits go to credits section, expenses/yearly go to deductions section
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (after existing credits, rows 27-31)
         let creditsRowCD = 27;
         credits.forEach(() => creditsRowCD++); // Skip existing credits
@@ -1849,7 +1921,7 @@ const Trips = () => {
           amtCell.numFmt = "$#,##0.00";
           creditsRowCD++;
         });
-        
+
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
           if (deductionsRow > 40) return;
@@ -1867,7 +1939,7 @@ const Trips = () => {
         firstOrder.truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 45, 54);
 
@@ -2021,7 +2093,10 @@ const Trips = () => {
         if (currentRow > 20) return;
 
         // A: Internal load number
-        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(
+          order.internalLoadNumber,
+          order.companyName,
+        );
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
@@ -2079,7 +2154,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -2088,7 +2163,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -2097,7 +2172,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -2106,7 +2181,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -2115,7 +2190,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -2124,7 +2199,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -2157,7 +2232,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -2166,7 +2241,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -2175,7 +2250,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -2184,7 +2259,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -2240,7 +2315,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 43) return; // Deductions section ends at 43
@@ -2256,9 +2331,9 @@ const Trips = () => {
       // Credits go to credits section, expenses/yearly go to deductions section
       if (scheduledDeductions.length > 0) {
         // Separate credits from deductions
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (after existing credits)
         creditDeductions.forEach((credit) => {
           if (creditsRow > 31) return; // Credits section ends at 31
@@ -2269,7 +2344,7 @@ const Trips = () => {
           amtCell.numFmt = "$#,##0.00";
           creditsRow++;
         });
-        
+
         // Write expense/yearly deductions to deductions section
         expenseDeductions.forEach((deduction) => {
           if (negativeRow > 43) return; // Deductions section ends at 43
@@ -2288,7 +2363,7 @@ const Trips = () => {
         firstOrder.truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 48, 66);
 
@@ -2442,7 +2517,10 @@ const Trips = () => {
         if (currentRow > 20) return;
 
         // A: Trip No. (Internal load number)
-        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(
+          order.internalLoadNumber,
+          order.companyName,
+        );
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
@@ -2507,7 +2585,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -2516,7 +2594,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -2525,7 +2603,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -2534,7 +2612,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -2543,7 +2621,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -2552,7 +2630,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -2585,7 +2663,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -2594,7 +2672,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -2603,7 +2681,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -2612,7 +2690,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -2663,7 +2741,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 44) return; // Deductions section ends at 44
@@ -2679,9 +2757,9 @@ const Trips = () => {
       // Credits go to credits section, expenses/yearly go to deductions section
       const endDateFormattedBF = format(weekEndDate, "M/d/yy");
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (rows 27-31 for Beverly)
         creditDeductions.forEach((credit) => {
           if (creditsRow > 31) return;
@@ -2692,7 +2770,7 @@ const Trips = () => {
           amtCell.numFmt = "$#,##0.00";
           creditsRow++;
         });
-        
+
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
           if (negativeRow > 44) return;
@@ -2711,7 +2789,7 @@ const Trips = () => {
         truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 49, 63);
 
@@ -2900,7 +2978,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -2909,7 +2987,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -2918,7 +2996,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -2927,7 +3005,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -2936,7 +3014,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -2945,7 +3023,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -2978,7 +3056,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -2987,7 +3065,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -2996,7 +3074,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -3005,7 +3083,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -3064,7 +3142,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 32) return; // Deductions section ends at 32
@@ -3079,9 +3157,9 @@ const Trips = () => {
       // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
       // Credits go to credits section, expenses/yearly go to deductions section
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (rows 19-21 for BG Inc)
         creditDeductions.forEach((credit) => {
           if (creditsRow > 21) return;
@@ -3092,7 +3170,7 @@ const Trips = () => {
           amtCell.numFmt = "$#,##0.00";
           creditsRow++;
         });
-        
+
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
           if (negativeRow > 32) return;
@@ -3111,7 +3189,7 @@ const Trips = () => {
         firstOrder.truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 38, 44);
 
@@ -3145,7 +3223,7 @@ const Trips = () => {
     worksheet: ExcelJS.Worksheet,
     fuelTransactions: FuelTransaction[],
     startRow: number,
-    endRow: number
+    endRow: number,
   ) => {
     let currentRow = startRow;
     fuelTransactions.forEach((fuel) => {
@@ -3176,7 +3254,7 @@ const Trips = () => {
       // H: unit_price - set to amount when quantity is 1, rounded to 2 decimals
       const quantity = parseFloat(String(fuel.quantity)) || 0;
       const amount = parseFloat(String(fuel.amount)) || 0;
-      const unitPrice = (quantity === 1 || quantity === 1.0) ? amount : (parseFloat(String(fuel.unit_price)) || 0);
+      const unitPrice = quantity === 1 || quantity === 1.0 ? amount : parseFloat(String(fuel.unit_price)) || 0;
       const unitPriceCell = worksheet.getCell(`H${currentRow}`);
       unitPriceCell.value = Math.round(unitPrice * 100) / 100;
       unitPriceCell.numFmt = "$#,##0.00";
@@ -3205,7 +3283,9 @@ const Trips = () => {
   ) => {
     try {
       // Load the United Enterprise Solutions template
-      const response = await fetch(new URL("../assets/templates/United_Enterprise_Solutions.xlsx", import.meta.url).toString());
+      const response = await fetch(
+        new URL("../assets/templates/United_Enterprise_Solutions.xlsx", import.meta.url).toString(),
+      );
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
@@ -3311,7 +3391,10 @@ const Trips = () => {
         if (currentRow > 20) return;
 
         // A: Trip # (Internal load number)
-        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(
+          order.internalLoadNumber,
+          order.companyName,
+        );
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
@@ -3398,7 +3481,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -3407,7 +3490,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -3416,7 +3499,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -3425,7 +3508,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -3446,7 +3529,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
@@ -3461,9 +3544,9 @@ const Trips = () => {
       // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
       // Credits go to credits section, expenses/yearly go to deductions section
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (will be added to rows 36-38 below)
         // Store for later when we write the credits section
         creditDeductions.forEach((credit) => {
@@ -3473,7 +3556,7 @@ const Trips = () => {
             amount: credit.deductionAmount,
           });
         });
-        
+
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
           if (negativeRow > 33) return;
@@ -3491,7 +3574,7 @@ const Trips = () => {
         firstOrder.truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsForUES(worksheet, fuelTransactions, 39, 54);
 
@@ -3508,7 +3591,7 @@ const Trips = () => {
           credits.push({
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -3516,7 +3599,7 @@ const Trips = () => {
           credits.push({
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -3524,7 +3607,7 @@ const Trips = () => {
           credits.push({
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -3532,7 +3615,7 @@ const Trips = () => {
           credits.push({
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -3540,7 +3623,7 @@ const Trips = () => {
           credits.push({
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -3548,7 +3631,7 @@ const Trips = () => {
           credits.push({
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -3688,17 +3771,17 @@ const Trips = () => {
         worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
-        
+
         const driverPay = parseFloat(order.driverPrice) || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
-        
+
         // 88% of freight
         const cellJ = worksheet.getCell(`J${currentRow}`);
         cellJ.value = driverPay * 0.88;
         cellJ.numFmt = "$#,##0.00";
-        
+
         currentRow++;
       });
 
@@ -3712,17 +3795,53 @@ const Trips = () => {
       const credits: Array<{ internalLoadNumber: string; type: string; deliveryDate: string; amount: number }> = [];
       sortedOrders.forEach((order: any) => {
         const detention = Number(order.detentionDriver) || 0;
-        if (detention > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Detention", deliveryDate: formatDateDisplay(order.deliveryDate), amount: detention });
+        if (detention > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: detention,
+          });
         const layover = Number(order.layoverDriver) || 0;
-        if (layover > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Layover", deliveryDate: formatDateDisplay(order.deliveryDate), amount: layover });
+        if (layover > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: layover,
+          });
         const tonu = Number(order.tonuDriver) || 0;
-        if (tonu > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "TONU", deliveryDate: formatDateDisplay(order.deliveryDate), amount: tonu });
+        if (tonu > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: tonu,
+          });
         const extraStop = Number(order.extraStopDriver) || 0;
-        if (extraStop > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Extra Stop", deliveryDate: formatDateDisplay(order.deliveryDate), amount: extraStop });
+        if (extraStop > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: extraStop,
+          });
         const lumper = Number(order.lumperDriver) || 0;
-        if (lumper > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Lumper", deliveryDate: formatDateDisplay(order.deliveryDate), amount: lumper });
+        if (lumper > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: lumper,
+          });
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
-        if (otherAdditionals > 0) credits.push({ internalLoadNumber: order.internalLoadNumber || "", type: (order as any).otherAdditionalsReason || "Other Additionals", deliveryDate: formatDateDisplay(order.deliveryDate), amount: otherAdditionals });
+        if (otherAdditionals > 0)
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherAdditionalsReason || "Other Additionals",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherAdditionals,
+          });
       });
 
       let creditsRow = 58;
@@ -3737,16 +3856,45 @@ const Trips = () => {
       });
 
       // Collect negative additionals for deductions section
-      const negativeAdditionals: Array<{ internalLoadNumber: string; type: string; deliveryDate: string; amount: number }> = [];
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
       sortedOrders.forEach((order: any) => {
         const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
-        if (lateFee > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Late Fee", deliveryDate: formatDateDisplay(order.deliveryDate), amount: lateFee });
+        if (lateFee > 0)
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: lateFee,
+          });
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
-        if (noTrackingFee > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: "No Tracking Fee", deliveryDate: formatDateDisplay(order.deliveryDate), amount: noTrackingFee });
+        if (noTrackingFee > 0)
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: noTrackingFee,
+          });
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
-        if (wrongAddressFee > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: "Wrong Address Fee", deliveryDate: formatDateDisplay(order.deliveryDate), amount: wrongAddressFee });
+        if (wrongAddressFee > 0)
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: wrongAddressFee,
+          });
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
-        if (otherCharges > 0) negativeAdditionals.push({ internalLoadNumber: order.internalLoadNumber || "", type: (order as any).otherChargesReason || "Other Charges", deliveryDate: formatDateDisplay(order.deliveryDate), amount: otherCharges });
+        if (otherCharges > 0)
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: (order as any).otherChargesReason || "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: otherCharges,
+          });
       });
 
       // Fixed deductions (rows 25-33)
@@ -3797,7 +3945,11 @@ const Trips = () => {
       });
 
       // EFS deductions
-      const efsDeductions = await fetchEfsDeductionsForStatement(firstOrder.driver1Id || "", weekStartDate, weekEndDate);
+      const efsDeductions = await fetchEfsDeductionsForStatement(
+        firstOrder.driver1Id || "",
+        weekStartDate,
+        weekEndDate,
+      );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
@@ -3810,8 +3962,8 @@ const Trips = () => {
 
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
         creditDeductions.forEach((credit) => {
           if (creditsRow > 60) return;
           worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
@@ -3834,7 +3986,10 @@ const Trips = () => {
 
       // Fuel transactions (rows 39-54)
       const fuelTransactions = await fetchFuelTransactionsForStatement(
-        firstOrder.truckNumber || "", firstOrder.truckId || "", week.orders, weekStartDate
+        firstOrder.truckNumber || "",
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate,
       );
       writeFuelTransactionsForUES(worksheet, fuelTransactions, 39, 54);
 
@@ -4008,7 +4163,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: detention
+            amount: detention,
           });
         }
         const layover = Number(order.layoverDriver) || 0;
@@ -4017,7 +4172,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: layover
+            amount: layover,
           });
         }
         const tonu = Number(order.tonuDriver) || 0;
@@ -4026,7 +4181,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: tonu
+            amount: tonu,
           });
         }
         const extraStop = Number(order.extraStopDriver) || 0;
@@ -4035,7 +4190,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: extraStop
+            amount: extraStop,
           });
         }
         const lumper = Number(order.lumperDriver) || 0;
@@ -4044,7 +4199,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lumper
+            amount: lumper,
           });
         }
         const otherAdditionals = Number((order as any).otherAdditionalsDriver) || 0;
@@ -4053,7 +4208,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherAdditionalsReason || "Other Additionals",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherAdditionals
+            amount: otherAdditionals,
           });
         }
       });
@@ -4086,7 +4241,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: lateFee
+            amount: lateFee,
           });
         }
         const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
@@ -4095,7 +4250,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: noTrackingFee
+            amount: noTrackingFee,
           });
         }
         const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
@@ -4104,7 +4259,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: wrongAddressFee
+            amount: wrongAddressFee,
           });
         }
         const otherCharges = Math.abs(Number(order.otherChargesDriver) || 0);
@@ -4113,7 +4268,7 @@ const Trips = () => {
             internalLoadNumber: order.internalLoadNumber || "",
             type: (order as any).otherChargesReason || "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: otherCharges
+            amount: otherCharges,
           });
         }
       });
@@ -4174,7 +4329,7 @@ const Trips = () => {
       const efsDeductions = await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
-        weekEndDate
+        weekEndDate,
       );
       efsDeductions.forEach((efs) => {
         if (negativeRow > 47) return; // Deductions section ends at 47
@@ -4188,9 +4343,9 @@ const Trips = () => {
 
       // Write scheduled deductions (from driver expenses in Stuff) after EFS deductions
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter(d => d.expenseType === 'credit');
-        const expenseDeductions = scheduledDeductions.filter(d => d.expenseType !== 'credit');
-        
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+
         // Write credits to credits section (rows 52-54 for BF Prime United)
         creditDeductions.forEach((credit) => {
           if (creditsRow > 54) return;
@@ -4201,7 +4356,7 @@ const Trips = () => {
           amtCell.numFmt = "$#,##0.00";
           creditsRow++;
         });
-        
+
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
           if (negativeRow > 47) return;
@@ -4220,7 +4375,7 @@ const Trips = () => {
         firstOrder.truckNumber || "",
         firstOrder.truckId || "",
         week.orders,
-        weekStartDate
+        weekStartDate,
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 23, 34);
 
@@ -4352,13 +4507,14 @@ const Trips = () => {
 
       // Find the last paid week for this truck/driver
       let lastPaidWeekStart: Date | null = null;
-      
+
       if (paidWeeksData) {
         const paidKeys = Object.entries(paidWeeksData)
           .filter(([key, isPaid]) => {
             const [truck, driver] = key.split("_");
             const searchLower = searchFilter.toLowerCase().trim();
-            const matchesSearch = !searchLower || truck.toLowerCase().includes(searchLower) || driver.toLowerCase().includes(searchLower);
+            const matchesSearch =
+              !searchLower || truck.toLowerCase().includes(searchLower) || driver.toLowerCase().includes(searchLower);
             return isPaid && matchesSearch;
           })
           .map(([key]) => {
@@ -4374,7 +4530,7 @@ const Trips = () => {
 
       // Collect orders from last paid week to the most recent
       let finalOrders: any[];
-      
+
       if (lastPaidWeekStart) {
         // Include orders from the last paid week onwards
         finalOrders = filteredOrders.filter((order) => {
@@ -4401,15 +4557,21 @@ const Trips = () => {
       });
 
       // Get date range
-      const earliestDate = finalOrders.reduce((min, order) => {
-        const d = new Date(order.deliveryDate || order.pickupDate);
-        return d < min ? d : min;
-      }, new Date(finalOrders[0].deliveryDate || finalOrders[0].pickupDate));
-      
-      const latestDate = finalOrders.reduce((max, order) => {
-        const d = new Date(order.deliveryDate || order.pickupDate);
-        return d > max ? d : max;
-      }, new Date(finalOrders[0].deliveryDate || finalOrders[0].pickupDate));
+      const earliestDate = finalOrders.reduce(
+        (min, order) => {
+          const d = new Date(order.deliveryDate || order.pickupDate);
+          return d < min ? d : min;
+        },
+        new Date(finalOrders[0].deliveryDate || finalOrders[0].pickupDate),
+      );
+
+      const latestDate = finalOrders.reduce(
+        (max, order) => {
+          const d = new Date(order.deliveryDate || order.pickupDate);
+          return d > max ? d : max;
+        },
+        new Date(finalOrders[0].deliveryDate || finalOrders[0].pickupDate),
+      );
 
       // Fetch driver and company info
       const { data: driver, error: driverError } = await supabase
@@ -4451,7 +4613,13 @@ const Trips = () => {
     }
   };
 
-  const exportFinalBFPrimeDriversTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
+  const exportFinalBFPrimeDriversTemplate = async (
+    week: any,
+    startDate: Date,
+    endDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
     try {
       const response = await fetch(new URL("../assets/templates/BF_Prime.xlsx", import.meta.url).toString());
       const workbook = new ExcelJS.Workbook();
@@ -4465,16 +4633,23 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(21, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "bf_prime_drivers").single();
+      const { data: configData } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "bf_prime_drivers")
+        .single();
       worksheet.getCell("F3").value = `F-${configData?.current_number || 1000}`;
       worksheet.getCell("F4").value = format(new Date(), "MM/dd/yyyy");
       worksheet.getCell("B12").value = `${format(startDate, "MM/dd/yyyy")} - ${format(endDate, "MM/dd/yyyy")}`;
-      if (driver?.agreement_start_date) worksheet.getCell("K3").value = format(new Date(driver.agreement_start_date), "MM/dd/yyyy");
+      if (driver?.agreement_start_date)
+        worksheet.getCell("K3").value = format(new Date(driver.agreement_start_date), "MM/dd/yyyy");
       worksheet.getCell("F7").value = driver?.companies?.name || driver?.company_name || "";
       worksheet.getCell("F5").value = firstOrder.truckNumber || "";
       worksheet.getCell("K4").value = firstOrder.truckNumber || "";
       if (driver?.agreement_start_date && driver?.weeks_count) {
-        const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksPassed = Math.floor(
+          (new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         worksheet.getCell("K5").value = `${weeksPassed}/${driver.weeks_count}`;
       }
       worksheet.getCell("J7").value = driver?.name || "";
@@ -4498,12 +4673,27 @@ const Trips = () => {
         currentRow++;
       });
 
-      const deductions = [{ offset: 0, desc: "Cargo Insurance", amt: 250 }, { offset: 1, desc: "Trailer + Insurance", amt: 285 }, { offset: 2, desc: "ELD", amt: 50 }, { offset: 3, desc: "Pre-Pass", amt: 20 }, { offset: 4, desc: "Truck Payment" }, { offset: 5, desc: "Truck Insurance", amt: 195 }];
+      const deductions = [
+        { offset: 0, desc: "Cargo Insurance", amt: 250 },
+        { offset: 1, desc: "Trailer + Insurance", amt: 285 },
+        { offset: 2, desc: "ELD", amt: 50 },
+        { offset: 3, desc: "Pre-Pass", amt: 20 },
+        { offset: 4, desc: "Truck Payment" },
+        { offset: 5, desc: "Truck Insurance", amt: 195 },
+      ];
       deductions.forEach(({ offset, desc, amt }) => {
         worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        if (amt !== undefined) {
+          const c = worksheet.getCell(`J${deductionStartRow + offset}`);
+          c.value = amt;
+          c.numFmt = "$#,##0.00";
+        }
       });
-      if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+      if (driver?.weekly_payment) {
+        const c = worksheet.getCell(`J${deductionStartRow + 4}`);
+        c.value = driver.weekly_payment;
+        c.numFmt = "$#,##0.00";
+      }
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
       const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73 + extraRowsNeeded, 12);
@@ -4511,13 +4701,25 @@ const Trips = () => {
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`Final statement exported with ${week.orders.length} trips`);
-    } catch (error) { console.error("Error:", error); toast.error("Failed to export final statement"); }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to export final statement");
+    }
   };
 
-  const exportFinalBeverlyFreightTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
+  const exportFinalBeverlyFreightTemplate = async (
+    week: any,
+    startDate: Date,
+    endDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
     try {
       const response = await fetch(new URL("../assets/templates/Beverly_Freight.xlsx", import.meta.url).toString());
       const workbook = new ExcelJS.Workbook();
@@ -4531,16 +4733,23 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(21, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "beverly_freight_inc").single();
+      const { data: configData } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "beverly_freight_inc")
+        .single();
       worksheet.getCell("F3").value = `F-${configData?.current_number || 26198}`;
       worksheet.getCell("F4").value = format(new Date(), "MM/dd/yyyy");
       worksheet.getCell("B12").value = `${format(startDate, "MM/dd/yyyy")} - ${format(endDate, "MM/dd/yyyy")}`;
-      if (driver?.agreement_start_date) worksheet.getCell("K3").value = format(new Date(driver.agreement_start_date), "MM/dd/yyyy");
+      if (driver?.agreement_start_date)
+        worksheet.getCell("K3").value = format(new Date(driver.agreement_start_date), "MM/dd/yyyy");
       worksheet.getCell("F7").value = driver?.companies?.name || driver?.company_name || "";
       worksheet.getCell("F5").value = firstOrder.truckNumber || "";
       worksheet.getCell("K4").value = firstOrder.truckNumber || "";
       if (driver?.agreement_start_date && driver?.weeks_count) {
-        const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksPassed = Math.floor(
+          (new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         worksheet.getCell("K5").value = `${weeksPassed}/${driver.weeks_count}`;
       }
       worksheet.getCell("J7").value = driver?.name || "";
@@ -4570,12 +4779,27 @@ const Trips = () => {
         cellJ.numFmt = "$#,##0.00";
       }
 
-      const deductions = [{ offset: 0, desc: "Cargo Insurance", amt: 250 }, { offset: 1, desc: "Trailer + Insurance", amt: 285 }, { offset: 2, desc: "ELD", amt: 50 }, { offset: 3, desc: "Pre-Pass", amt: 20 }, { offset: 4, desc: "Truck payment" }, { offset: 5, desc: "Truck insurance", amt: 195 }];
+      const deductions = [
+        { offset: 0, desc: "Cargo Insurance", amt: 250 },
+        { offset: 1, desc: "Trailer + Insurance", amt: 285 },
+        { offset: 2, desc: "ELD", amt: 50 },
+        { offset: 3, desc: "Pre-Pass", amt: 20 },
+        { offset: 4, desc: "Truck payment" },
+        { offset: 5, desc: "Truck insurance", amt: 195 },
+      ];
       deductions.forEach(({ offset, desc, amt }) => {
         worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        if (amt !== undefined) {
+          const c = worksheet.getCell(`J${deductionStartRow + offset}`);
+          c.value = amt;
+          c.numFmt = "$#,##0.00";
+        }
       });
-      if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+      if (driver?.weekly_payment) {
+        const c = worksheet.getCell(`J${deductionStartRow + 4}`);
+        c.value = driver.weekly_payment;
+        c.numFmt = "$#,##0.00";
+      }
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
       const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 12);
@@ -4583,13 +4807,25 @@ const Trips = () => {
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`Final statement exported with ${week.orders.length} trips`);
-    } catch (error) { console.error("Error:", error); toast.error("Failed to export final statement"); }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to export final statement");
+    }
   };
 
-  const exportFinalBGPrimeIncTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
+  const exportFinalBGPrimeIncTemplate = async (
+    week: any,
+    startDate: Date,
+    endDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
     try {
       const response = await fetch(new URL("../assets/templates/BG_Inc.xlsx", import.meta.url).toString());
       const workbook = new ExcelJS.Workbook();
@@ -4612,14 +4848,20 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(20, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "bg_prime_inc").maybeSingle();
+      const { data: configData } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "bg_prime_inc")
+        .maybeSingle();
       worksheet.getCell("C7").value = `F-${configData?.current_number || 1332}`;
       worksheet.getCell("C8").value = format(new Date(), "M/d/yyyy");
       worksheet.getCell("C9").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
       worksheet.getCell("F8").value = driver?.name || firstOrder.driverName || "";
-      if (driver?.agreement_start_date) worksheet.getCell("J8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+      if (driver?.agreement_start_date)
+        worksheet.getCell("J8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
       worksheet.getCell("J9").value = firstOrder.truckNumber || "";
-      if (driver?.weekly_payment && driver?.weeks_count) worksheet.getCell("J10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      if (driver?.weekly_payment && driver?.weeks_count)
+        worksheet.getCell("J10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
 
       // Sort orders ascending by date for statement export
       const sortedOrders = sortOrdersAscending(week.orders);
@@ -4641,7 +4883,14 @@ const Trips = () => {
       });
 
       const endDateFormatted = format(endDate, "M/d/yyyy");
-      const deductions = [{ offset: 0, desc: "Cargo Insurance", amt: 285 }, { offset: 1, desc: "Trailer + Insurance", amt: 285 }, { offset: 2, desc: "ELD", amt: 50 }, { offset: 3, desc: "Pre-Pass", amt: 20 }, { offset: 4, desc: "Truck Payment" }, { offset: 5, desc: "Truck Insurance", amt: 195 }];
+      const deductions = [
+        { offset: 0, desc: "Cargo Insurance", amt: 285 },
+        { offset: 1, desc: "Trailer + Insurance", amt: 285 },
+        { offset: 2, desc: "ELD", amt: 50 },
+        { offset: 3, desc: "Pre-Pass", amt: 20 },
+        { offset: 4, desc: "Truck Payment" },
+        { offset: 5, desc: "Truck Insurance", amt: 195 },
+      ];
       deductions.forEach(({ offset, desc, amt }) => {
         const row = deductionStartRow + offset;
         // Clear any shared formulas on deduction cells too
@@ -4651,13 +4900,23 @@ const Trips = () => {
         });
         worksheet.getCell(`B${row}`).value = desc;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${row}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        if (amt !== undefined) {
+          const c = worksheet.getCell(`J${row}`);
+          c.value = amt;
+          c.numFmt = "$#,##0.00";
+        }
       });
       if (driver?.agreement_start_date && driver?.weeks_count) {
-        const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksPassed = Math.floor(
+          (new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         worksheet.getCell(`E${deductionStartRow + 4}`).value = `${weeksPassed}/${driver.weeks_count}`;
       }
-      if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+      if (driver?.weekly_payment) {
+        const c = worksheet.getCell(`J${deductionStartRow + 4}`);
+        c.value = driver.weekly_payment;
+        c.numFmt = "$#,##0.00";
+      }
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
       const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 61 + extraRowsNeeded, 12);
@@ -4665,13 +4924,25 @@ const Trips = () => {
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`Final statement exported with ${week.orders.length} trips`);
-    } catch (error) { console.error("Error:", error); toast.error("Failed to export final statement"); }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to export final statement");
+    }
   };
 
-  const exportFinalBFPrimeTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
+  const exportFinalBFPrimeTemplate = async (
+    week: any,
+    startDate: Date,
+    endDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
     try {
       const response = await fetch(new URL("../assets/templates/BF_Prime_United.xlsx", import.meta.url).toString());
       const workbook = new ExcelJS.Workbook();
@@ -4685,12 +4956,18 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(35, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "bf_prime_united").single();
+      const { data: configData } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "bf_prime_united")
+        .single();
       worksheet.getCell("C2").value = `F-${configData?.current_number || 8820}`;
       worksheet.getCell("B3").value = format(new Date(), "M/d/yyyy");
       worksheet.getCell("B8").value = driver?.company_name || "";
-      if (driver?.agreement_start_date) worksheet.getCell("F7").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
-      if (driver?.weekly_payment && driver?.weeks_count) worksheet.getCell("F9").value = `$${driver.weekly_payment}/${driver.weeks_count}`;
+      if (driver?.agreement_start_date)
+        worksheet.getCell("F7").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+      if (driver?.weekly_payment && driver?.weeks_count)
+        worksheet.getCell("F9").value = `$${driver.weekly_payment}/${driver.weeks_count}`;
       worksheet.getCell("F4").value = driver?.name || "";
       worksheet.getCell("F6").value = firstOrder.truckNumber || "";
       worksheet.getCell("B5").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
@@ -4715,17 +4992,34 @@ const Trips = () => {
       });
 
       const endDateFormatted = format(endDate, "M/d/yyyy");
-      const deductions = [{ offset: 0, desc: "Cargo Insurance", amt: 285 }, { offset: 1, desc: "Trailer + Insurance", amt: 285 }, { offset: 2, desc: "ELD", amt: 50 }, { offset: 3, desc: "Pre-Pass", amt: 20 }, { offset: 4, desc: "Truck Payment" }, { offset: 5, desc: "Truck Insurance", amt: 195 }];
+      const deductions = [
+        { offset: 0, desc: "Cargo Insurance", amt: 285 },
+        { offset: 1, desc: "Trailer + Insurance", amt: 285 },
+        { offset: 2, desc: "ELD", amt: 50 },
+        { offset: 3, desc: "Pre-Pass", amt: 20 },
+        { offset: 4, desc: "Truck Payment" },
+        { offset: 5, desc: "Truck Insurance", amt: 195 },
+      ];
       deductions.forEach(({ offset, desc, amt }) => {
         worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
         worksheet.getCell(`I${deductionStartRow + offset}`).value = endDateFormatted;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        if (amt !== undefined) {
+          const c = worksheet.getCell(`J${deductionStartRow + offset}`);
+          c.value = amt;
+          c.numFmt = "$#,##0.00";
+        }
       });
       if (driver?.agreement_start_date && driver?.weeks_count) {
-        const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksPassed = Math.floor(
+          (new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         worksheet.getCell(`E${deductionStartRow + 4}`).value = `${weeksPassed}/${driver.weeks_count}`;
       }
-      if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+      if (driver?.weekly_payment) {
+        const c = worksheet.getCell(`J${deductionStartRow + 4}`);
+        c.value = driver.weekly_payment;
+        c.numFmt = "$#,##0.00";
+      }
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
       const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 67 + extraRowsNeeded, 12);
@@ -4733,13 +5027,25 @@ const Trips = () => {
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`Final statement exported with ${week.orders.length} trips`);
-    } catch (error) { console.error("Error:", error); toast.error("Failed to export final statement"); }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to export final statement");
+    }
   };
 
-  const exportFinalAPSilverTransTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
+  const exportFinalAPSilverTransTemplate = async (
+    week: any,
+    startDate: Date,
+    endDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
     try {
       const response = await fetch(new URL("../assets/templates/AP_Silver_Trans.xlsx", import.meta.url).toString());
       const workbook = new ExcelJS.Workbook();
@@ -4752,15 +5058,21 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(20, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "ap_silver_trans").single();
+      const { data: configData } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "ap_silver_trans")
+        .single();
       worksheet.getCell("D4").value = configData?.current_number || 547;
       worksheet.getCell("D2").value = format(new Date(), "M/d/yy");
       worksheet.getCell("D3").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
       worksheet.getCell("C6").value = driver?.name || "";
       worksheet.getCell("C7").value = driver?.company_name || "";
-      if (driver?.agreement_start_date) worksheet.getCell("C8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+      if (driver?.agreement_start_date)
+        worksheet.getCell("C8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
       worksheet.getCell("C9").value = firstOrder.truckNumber || "";
-      if (driver?.weekly_payment && driver?.weeks_count) worksheet.getCell("C10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      if (driver?.weekly_payment && driver?.weeks_count)
+        worksheet.getCell("C10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
 
       const sortedOrders = sortOrdersAscending(week.orders);
 
@@ -4796,10 +5108,16 @@ const Trips = () => {
       deductions.forEach(({ offset, desc, amt }) => {
         worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
         worksheet.getCell(`I${deductionStartRow + offset}`).value = endDateFormatted;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        if (amt !== undefined) {
+          const c = worksheet.getCell(`J${deductionStartRow + offset}`);
+          c.value = amt;
+          c.numFmt = "$#,##0.00";
+        }
       });
       if (driver?.agreement_start_date && driver?.weeks_count) {
-        const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksPassed = Math.floor(
+          (new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+        );
         worksheet.getCell(`E${deductionStartRow + 4}`).value = `${weeksPassed}/${driver.weeks_count}`;
       }
       if (driver?.weekly_payment) {
@@ -4813,10 +5131,16 @@ const Trips = () => {
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
       window.URL.revokeObjectURL(url);
       toast.success(`Final statement exported with ${week.orders.length} trips`);
-    } catch (error) { console.error("Error:", error); toast.error("Failed to export final statement"); }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to export final statement");
+    }
   };
 
   const renderPaginationItems = () => {
@@ -4877,7 +5201,7 @@ const Trips = () => {
   // The UI will display current data (or empty state) while new data loads in the background
 
   // Show empty state when in lazy mode and no search active
-  const hasActiveSearch = (searchFilter?.trim().length >= 2) || (loadNumberSearch?.trim().length >= 2);
+  const hasActiveSearch = searchFilter?.trim().length >= 2 || loadNumberSearch?.trim().length >= 2;
   const showEmptyPrompt = isLazyMode && !hasActiveSearch && (!orders || orders.length === 0);
 
   if (showEmptyPrompt) {
@@ -4926,7 +5250,8 @@ const Trips = () => {
             <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Search for Trips</h3>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Enter a truck number or driver name to load their trips, or search by load number to find a specific order.
+              Enter a truck number or driver name to load their trips, or search by load number to find a specific
+              order.
             </p>
           </CardContent>
         </Card>
@@ -5003,9 +5328,7 @@ const Trips = () => {
           <CardTitle className="text-base md:text-lg">
             Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
             {filterInfo.companyName && searchFilter && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                — {filterInfo.companyName}
-              </span>
+              <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
           </CardTitle>
           <Button
@@ -5022,47 +5345,82 @@ const Trips = () => {
         </CardHeader>
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="p-2 md:p-6 relative overflow-x-auto">
-            <Table className="min-w-[900px]">
-              <TableHeader className="sticky top-0 z-20">
-                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
-                  {canMoveLoads && <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>}
-                  <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Truck#</TableHead>
-                  <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver</TableHead>
-                  <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Load#</TableHead>
-                  <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Pickup Date</TableHead>
-                  <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Pickup City</TableHead>
-                  <TableHead className="w-[115px] min-w-[115px] max-w-[115px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Delivery Date</TableHead>
-                  <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Delivery City</TableHead>
-                  <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Miles</TableHead>
-                  <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Name</TableHead>
-                  <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Broker Load#</TableHead>
-                  
-                  <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Driver Pay</TableHead>
-                  <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Freight Amt</TableHead>
-                  {canSeePaidColumn && <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">Paid</TableHead>}
-                  <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groupedByWeek.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : (canSeePaidColumn ? 13 : 12)} className="text-center py-8 text-muted-foreground">
-                      No trips found
-                    </TableCell>
+            <div className="p-2 md:p-6 relative overflow-x-auto">
+              <Table className="min-w-[900px]">
+                <TableHeader className="sticky top-0 z-20">
+                  <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
+                    {canMoveLoads && (
+                      <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>
+                    )}
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Truck#
+                    </TableHead>
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Driver
+                    </TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Load#
+                    </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Pickup Date
+                    </TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Pickup City
+                    </TableHead>
+                    <TableHead className="w-[115px] min-w-[115px] max-w-[115px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Delivery Date
+                    </TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Delivery City
+                    </TableHead>
+                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Miles
+                    </TableHead>
+                    <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Broker Name
+                    </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Broker Load#
+                    </TableHead>
+
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Stop Amt
+                    </TableHead>
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Freight Amt
+                    </TableHead>
+                    {canSeePaidColumn && (
+                      <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
+                        Paid
+                      </TableHead>
+                    )}
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  groupedByWeek.map((week, weekIndex) => {
-                    // Filter out history and termination entries for totals calculation
-                    const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
-                    const weekTotal = actualOrders.reduce(
-                      (acc: any, order: any) => ({
-                        miles: acc.miles + (Number(order.mileage) || 0),
-                        driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
-                        freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
-                      }),
-                      { miles: 0, driverPay: 0, freightAmount: 0 },
-                    );
+                </TableHeader>
+                <TableBody>
+                  {groupedByWeek.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : canSeePaidColumn ? 13 : 12}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No trips found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    groupedByWeek.map((week, weekIndex) => {
+                      // Filter out history and termination entries for totals calculation
+                      const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
+                      const weekTotal = actualOrders.reduce(
+                        (acc: any, order: any) => ({
+                          miles: acc.miles + (Number(order.mileage) || 0),
+                          driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
+                          freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
+                        }),
+                        { miles: 0, driverPay: 0, freightAmount: 0 },
+                      );
 
                       const weekStartDate = new Date(week.weekStart + "T12:00:00");
                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
@@ -5079,7 +5437,9 @@ const Trips = () => {
                           <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
                             <TableCell colSpan={canMoveLoads ? 8 : 7} className="py-3">
                               <div className="flex items-center gap-4">
-                                <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
+                                <span>
+                                  Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
+                                </span>
                                 {canSeePaidColumn && (
                                   <div className="flex items-center gap-2">
                                     {canTogglePaid ? (
@@ -5087,7 +5447,15 @@ const Trips = () => {
                                         <Checkbox
                                           id={`paid-${week.weekStart}`}
                                           checked={weekIsPaid}
-                                          onCheckedChange={() => handlePaidToggle(weekTruckNumber, firstActualOrder?.truckId || "", weekDriverName, week.weekStart, actualOrders)}
+                                          onCheckedChange={() =>
+                                            handlePaidToggle(
+                                              weekTruckNumber,
+                                              firstActualOrder?.truckId || "",
+                                              weekDriverName,
+                                              week.weekStart,
+                                              actualOrders,
+                                            )
+                                          }
                                         />
                                         <label
                                           htmlFor={`paid-${week.weekStart}`}
@@ -5097,7 +5465,9 @@ const Trips = () => {
                                         </label>
                                       </>
                                     ) : (
-                                      <span className={`text-sm ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                                      <span
+                                        className={`text-sm ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+                                      >
                                         {weekIsPaid ? "✓ Paid" : "Unpaid"}
                                       </span>
                                     )}
@@ -5111,619 +5481,763 @@ const Trips = () => {
                                 )}
                               </div>
                             </TableCell>
-                          <TableCell 
-                            className={`py-3 cursor-pointer select-none transition-colors ${
-                              isSelected(`week-miles-${week.weekStart}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={() => toggleCell(`week-miles-${week.weekStart}`, weekTotal.miles, "miles")}
-                          >
-                            {weekTotal.miles.toLocaleString()}
-                          </TableCell>
-                          <TableCell colSpan={2} className="py-3"></TableCell>
-                          <TableCell 
-                            className={`py-3 cursor-pointer select-none transition-colors ${
-                              isSelected(`week-driver-${week.weekStart}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={() => toggleCell(`week-driver-${week.weekStart}`, weekTotal.driverPay, "driverPay", weekTotal.miles)}
-                          >
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency(weekTotal.driverPay)}
-                            </div>
-                          </TableCell>
-                          <TableCell 
-                            className={`py-3 cursor-pointer select-none transition-colors ${
-                              isSelected(`week-freight-${week.weekStart}`) 
-                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                : "hover:bg-muted/50"
-                            }`}
-                            onClick={() => toggleCell(`week-freight-${week.weekStart}`, weekTotal.freightAmount, "freightAmount", weekTotal.miles)}
-                          >
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency(weekTotal.freightAmount)}
-                            </div>
-                          </TableCell>
-                          {canSeePaidColumn && <TableCell className="py-3"></TableCell>}
-                          <TableCell className="py-3">
-                            {canSeePaidColumn && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  // Get the first actual order (not history/termination entries)
-                                  const firstActualOrder = actualOrders.find((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
-                                  if (!firstActualOrder) {
-                                    toast.error("No orders to export");
-                                    return;
-                                  }
-                                  setStatementDialogData({
-                                    week: { ...week, orders: actualOrders },
-                                    weekStartDate,
-                                    weekEndDate,
-                                    driverId: firstActualOrder.driver1Id || "",
-                                    driverName: firstActualOrder.driverName || "Unknown",
-                                    truckNumber: firstActualOrder.truckNumber || "",
-                                    truckId: firstActualOrder.truck?.id || "",
-                                  });
-                                  setStatementDialogOpen(true);
-                                }}
-                                title="Export week to Excel"
-                              >
-                                <FileDown className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-
-
-                        {/* Drop zone indicator - shown when dragging over this week */}
-                        <Droppable 
-                          droppableId={`week-${week.weekStart}`} 
-                          isDropDisabled={!canMoveLoads}
-                          renderClone={(provided, snapshot, rubric) => {
-                            const draggedOrder = week.orders[rubric.source.index];
-                            return (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className="bg-card border-2 border-primary rounded-md p-3 shadow-xl opacity-90"
-                              >
-                                <div className="font-medium">{draggedOrder?.truckNumber} - {draggedOrder?.driverName}</div>
-                                <div className="text-sm text-muted-foreground">Load #{formatInternalLoadNumber(draggedOrder?.internalLoadNumber, draggedOrder?.companyName)}</div>
-                              </div>
-                            );
-                          }}
-                        >
-                          {(provided, snapshot) => (
-                            <Fragment>
-                              {/* Drop indicator row - visible when dragging over */}
-                              {snapshot.isDraggingOver && (
-                                <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
-                                  <TableCell colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} className="py-4 text-center">
-                                    <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
-                                      <ArrowLeftRight className="h-4 w-4" />
-                                      Drop here to move load to this week
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                              {/* Hidden droppable target - needed for proper drop detection */}
-                              <tr 
-                                ref={provided.innerRef} 
-                                {...provided.droppableProps}
-                                className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
-                              >
-                                <td colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13)} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
-                              </tr>
-                              {week.orders.map((order, orderIndex) => {
-                          // Check if this is a history entry (merged in during grouping)
-                          if (order._isHistoryEntry) {
-                            const historyKey = `history-${week.weekStart}-${order._historyId}`;
-                            const isExpanded = expandedNestedTrips.has(historyKey);
-                            const canShowNestedTrips = order._entityType === 'driver' && order._entityName && order._entityName !== 'Unassigned';
-                            const totalColSpan = canMoveLoads ? (canSeePaidColumn ? 15 : 14) : (canSeePaidColumn ? 14 : 13);
-                            
-                            return (
-                              <Fragment key={historyKey}>
-                                <TableRow 
-                                  className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500"
-                                >
-                                  {canMoveLoads && <TableCell></TableCell>}
-                                  <TableCell className="text-sm font-semibold">
-                                    {order._historyDateDisplay}
-                                  </TableCell>
-                                  <TableCell colSpan={4} className="text-sm font-medium">
-                                    <div className="flex items-center gap-2">
-                                      <span>{order._changeDescription}</span>
-                                      {/* Show toggle button to expand driver's trips inline */}
-                                      {canShowNestedTrips && (
-                                        <NestedDriverTripsDropdown 
-                                          driverName={order._entityName} 
-                                          driverId={order._entityId}
-                                          onSearchDriver={(name) => {
-                                            setSearchFilter(name);
-                                            setCurrentPage(1);
-                                          }}
-                                          isOpen={isExpanded}
-                                          onToggle={() => toggleNestedTrips(historyKey)}
-                                        />
-                                      )}
-                                      {/* Show dash for non-driver entries */}
-                                      {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell colSpan={canSeePaidColumn ? 7 : 6} className="text-sm">
-                                    {order._reason || "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {/* Delete button for admins */}
-                                    {hasRole("admin") && order._historyEntryIds && order._historyEntryIds.length > 0 && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                        onClick={() => setDeleteHistoryConfirmDialog({
-                                          historyEntryIds: order._historyEntryIds,
-                                          description: order._changeDescription,
-                                        })}
-                                        title="Delete assignment history entry"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </TableCell>
-                                </TableRow>
-                                {/* Render inline driver trips content when expanded */}
-                                {isExpanded && canShowNestedTrips && (
-                                  <NestedDriverTripsInlineContent
-                                    driverName={order._entityName}
-                                    driverId={order._entityId}
-                                    assignmentDate={order._historyDate}
-                                    onSearchDriver={(name) => {
-                                      setSearchFilter(name);
-                                      setCurrentPage(1);
-                                      toggleNestedTrips(historyKey);
-                                    }}
-                                    onEditOrder={(orderId) => {
-                                      localStorage.setItem("returnToTrips", "true");
-                                      navigate(`/edit-order/${orderId}`);
-                                    }}
-                                    onOrderPaidToggle={handleOrderPaidToggle}
-                                    colSpan={totalColSpan}
-                                    showMoveColumn={canMoveLoads}
-                                    showPaidColumn={canSeePaidColumn}
-                                  />
-                                )}
-                              </Fragment>
-                            );
-                          }
-                          
-                          // Check if this is a termination entry (driver terminated - red row)
-                          if (order._isTerminationEntry) {
-                            return (
-                              <TableRow 
-                                key={`termination-${week.weekStart}-${order._terminationId}`}
-                                className="bg-red-100 dark:bg-red-900/50 border-l-4 border-l-red-500"
-                              >
-                                {canMoveLoads && <TableCell></TableCell>}
-                                <TableCell className="text-sm font-semibold text-red-700 dark:text-red-300">
-                                  {order._terminationDateDisplay}
-                                </TableCell>
-                                <TableCell colSpan={4} className="text-sm font-medium text-red-700 dark:text-red-300">
-                                  {order._terminationDescription}
-                                </TableCell>
-                                <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm text-red-600 dark:text-red-400">
-                                  {order._terminationNote}
-                                </TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
-                            );
-                          }
-                          
-                          // Background color rules - Based on total freight vs freight amount
-                          const isRecovery = order.isRecovery;
-                          const freightAmount = Number(order.freightAmount) || 0;
-                          const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
-                          const hasAdditionalPay = totalFreight > freightAmount;
-                          const hasReducedPay = totalFreight < freightAmount;
-
-                          const hasOrangeCondition =
-                            order.canceled ||
-                            ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
-
-                          const isEvenRow = orderIndex % 2 === 1;
-                          const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
-
-                          // Add blue border if order has week override
-                          const hasWeekOverride = order._hasWeekOverride;
-                          const weekOverrideBorder = hasWeekOverride ? "ring-2 ring-blue-500 ring-inset" : "";
-
-                          const rowClassName = isRecovery
-                            ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
-                            : hasReducedPay
-                              ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
-                              : hasAdditionalPay
-                                ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
-                                : hasOrangeCondition
-                                  ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
-                                  : alternatingBg;
-                          
-                          const draggableId = `${order.id}_drag_${order.transferSequence ?? "base"}`;
-
-                          return (
-                            <Draggable 
-                              key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} 
-                              draggableId={draggableId}
-                              index={orderIndex}
-                              isDragDisabled={!canMoveLoads}
+                            <TableCell
+                              className={`py-3 cursor-pointer select-none transition-colors ${
+                                isSelected(`week-miles-${week.weekStart}`)
+                                  ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                  : "hover:bg-muted/50"
+                              }`}
+                              onClick={() => toggleCell(`week-miles-${week.weekStart}`, weekTotal.miles, "miles")}
                             >
-                              {(dragProvided, dragSnapshot) => (
-                                <TableRow 
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  className={`h-16 ${rowClassName} ${weekOverrideBorder} ${dragSnapshot.isDragging ? "opacity-50 bg-primary/20" : ""}`}
-                                >
-                                  {canMoveLoads && (
-                                    <TableCell className="w-8 p-1">
-                                      <div className="flex flex-col items-center gap-0.5">
-                                        <div 
-                                          {...dragProvided.dragHandleProps}
-                                          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
-                                          title="Drag to move to different week"
-                                        >
-                                          <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
-                                        </div>
-                                        {hasWeekOverride && (
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-5 w-5 p-0"
-                                            onClick={() => handleRevertToOriginalWeek(order.id)}
-                                            title="Return to original week"
-                                          >
-                                            <Undo2 className="h-3 w-3 text-blue-500" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                  )}
-                              <TableCell className="font-medium">
-                                <div className="line-clamp-2">{order.truckNumber}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">
-                                  {order.driverName}
-                                  {hasWeekOverride && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                                      title={`Originally in week of ${order._originalWeekKey}`}
-                                    >
-                                      Moved
-                                    </Badge>
-                                  )}
-                                  {order.transferBadge && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`ml-1 text-[10px] px-1 py-0 ${
-                                        order.transferBadge === "Orig" 
-                                          ? "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
-                                          : order.transferBadge === "Rec"
-                                            ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                                            : "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
-                                      }`}
-                                    >
-                                      {order.transferBadge}
-                                    </Badge>
-                                  )}
-                                  {/* Legacy badges for orders without transferBadge */}
-                                  {!order.transferBadge && order.isOriginalDriverPortion && (
-                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
-                                      Orig
-                                    </Badge>
-                                  )}
-                                  {!order.transferBadge && order.isRecoveryDriverPortion && (
-                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                                      Rec
-                                    </Badge>
-                                  )}
-                                  {order.transferNote && (
-                                    <div className="text-[10px] text-muted-foreground mt-0.5">{order.transferNote}</div>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">
-                                  {order.pickupCity}
-                                  {order.pickupCity && order.pickupState ? ", " : ""}
-                                  {order.pickupState}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{formatDateDisplay(order.deliveryDate)}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">
-                                  {order.deliveryCity}
-                                  {order.deliveryCity && order.deliveryState ? ", " : ""}
-                                  {order.deliveryState}
-                                </div>
-                              </TableCell>
-                              <TableCell 
-                                className={`cursor-pointer select-none transition-colors ${
-                                  isSelected(`order-miles-${order.virtualId ?? order.id}`) 
-                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                    : "hover:bg-muted/50"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCell(`order-miles-${order.virtualId ?? order.id}`, Number(order.mileage) || 0, "miles");
-                                }}
-                              >
-                                <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.brokerName}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.brokerLoadNumber}</div>
-                              </TableCell>
-                              <TableCell 
-                                className={`cursor-pointer select-none transition-colors ${
-                                  isSelected(`order-driver-${order.virtualId ?? order.id}`) 
-                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                    : "hover:bg-muted/50"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCell(`order-driver-${order.virtualId ?? order.id}`, Number(order.totalDriverPay) || 0, "driverPay", Number(order.mileage) || 0);
-                                }}
-                              >
-                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
-                                  {formatCurrency(order.totalDriverPay)}
-                                </div>
-                              </TableCell>
-                              <TableCell 
-                                className={`cursor-pointer select-none transition-colors ${
-                                  isSelected(`order-freight-${order.virtualId ?? order.id}`) 
-                                    ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset" 
-                                    : "hover:bg-muted/50"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCell(`order-freight-${order.virtualId ?? order.id}`, Number(order.totalFreightAmountNoLumper) || 0, "freightAmount", Number(order.mileage) || 0);
-                                }}
-                              >
-                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
-                                  {formatCurrency(order.totalFreightAmountNoLumper)}
-                                </div>
-                              </TableCell>
+                              {weekTotal.miles.toLocaleString()}
+                            </TableCell>
+                            <TableCell colSpan={2} className="py-3"></TableCell>
+                            <TableCell
+                              className={`py-3 cursor-pointer select-none transition-colors ${
+                                isSelected(`week-driver-${week.weekStart}`)
+                                  ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                  : "hover:bg-muted/50"
+                              }`}
+                              onClick={() =>
+                                toggleCell(
+                                  `week-driver-${week.weekStart}`,
+                                  weekTotal.driverPay,
+                                  "driverPay",
+                                  weekTotal.miles,
+                                )
+                              }
+                            >
+                              <div className="font-semibold text-green-600 dark:text-green-400">
+                                {formatCurrency(weekTotal.driverPay)}
+                              </div>
+                            </TableCell>
+                            <TableCell
+                              className={`py-3 cursor-pointer select-none transition-colors ${
+                                isSelected(`week-freight-${week.weekStart}`)
+                                  ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                  : "hover:bg-muted/50"
+                              }`}
+                              onClick={() =>
+                                toggleCell(
+                                  `week-freight-${week.weekStart}`,
+                                  weekTotal.freightAmount,
+                                  "freightAmount",
+                                  weekTotal.miles,
+                                )
+                              }
+                            >
+                              <div className="font-semibold text-green-600 dark:text-green-400">
+                                {formatCurrency(weekTotal.freightAmount)}
+                              </div>
+                            </TableCell>
+                            {canSeePaidColumn && <TableCell className="py-3"></TableCell>}
+                            <TableCell className="py-3">
                               {canSeePaidColumn && (
-                                <TableCell className="text-center">
-                                  <div className="flex justify-center">
-                                    {canTogglePaid ? (
-                                      <Checkbox
-                                        checked={order.paid === true}
-                                        onCheckedChange={() => handleOrderPaidToggle(order.id, order.paid === true, order.loadNumber)}
-                                        aria-label={`Mark load ${order.loadNumber} as ${order.paid ? 'unpaid' : 'paid'}`}
-                                      />
-                                    ) : (
-                                      <span className="text-sm">{order.paid ? "✓" : "—"}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    // Get the first actual order (not history/termination entries)
+                                    const firstActualOrder = actualOrders.find(
+                                      (o: any) => !o._isHistoryEntry && !o._isTerminationEntry,
+                                    );
+                                    if (!firstActualOrder) {
+                                      toast.error("No orders to export");
+                                      return;
+                                    }
+                                    setStatementDialogData({
+                                      week: { ...week, orders: actualOrders },
+                                      weekStartDate,
+                                      weekEndDate,
+                                      driverId: firstActualOrder.driver1Id || "",
+                                      driverName: firstActualOrder.driverName || "Unknown",
+                                      truckNumber: firstActualOrder.truckNumber || "",
+                                      truckId: firstActualOrder.truck?.id || "",
+                                    });
+                                    setStatementDialogOpen(true);
+                                  }}
+                                  title="Export week to Excel"
+                                >
+                                  <FileDown className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Drop zone indicator - shown when dragging over this week */}
+                          <Droppable
+                            droppableId={`week-${week.weekStart}`}
+                            isDropDisabled={!canMoveLoads}
+                            renderClone={(provided, snapshot, rubric) => {
+                              const draggedOrder = week.orders[rubric.source.index];
+                              return (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className="bg-card border-2 border-primary rounded-md p-3 shadow-xl opacity-90"
+                                >
+                                  <div className="font-medium">
+                                    {draggedOrder?.truckNumber} - {draggedOrder?.driverName}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    Load #
+                                    {formatInternalLoadNumber(
+                                      draggedOrder?.internalLoadNumber,
+                                      draggedOrder?.companyName,
                                     )}
                                   </div>
-                                </TableCell>
-                              )}
-                              <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      localStorage.setItem("returnToTrips", "true");
-                                      navigate(`/edit-order/${order.id}`);
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  {(() => {
-                                    const freightAmount = Number(order.freightAmount) || 0;
-                                    const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
-                                    const difference = totalFreight - freightAmount;
-                                    
-                                    if (difference === 0) return null;
-                                    
-                                    const isPositive = difference > 0;
-                                    
-                                    // Build itemized breakdown for freight-side and driver-side
-                                    const freightItems: { label: string; value: number }[] = [];
-                                    const driverItems: { label: string; value: number }[] = [];
-
-                                    // Freight amounts
-                                    const detention = Number((order as any).detention) || 0;
-                                    const layover = Number((order as any).layover) || 0;
-                                    const tonu = Number((order as any).tonu) || 0;
-                                    const extraStop = Number((order as any).extraStop) || 0;
-                                    const lateFee = Number((order as any).lateFee) || 0;
-                                    const noTrackingFee = Number((order as any).noTrackingFee) || 0;
-                                    const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
-                                    const escortFee = Number((order as any).escortFee) || 0;
-                                    const lumper = Number((order as any).lumper) || 0;
-                                    const otherCharges = Number((order as any).otherCharges) || 0;
-                                    const otherAdditionals = Number((order as any).otherAdditionals) || 0;
-
-                                    // Driver amounts
-                                    const detentionDriver = Number((order as any).detentionDriver) || 0;
-                                    const layoverDriver = Number((order as any).layoverDriver) || 0;
-                                    const tonuDriver = Number((order as any).tonuDriver) || 0;
-                                    const extraStopDriver = Number((order as any).extraStopDriver) || 0;
-                                    const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
-                                    const noTrackingFeeDriver = Number((order as any).noTrackingFeeDriver) || 0;
-                                    const wrongAddressFeeDriver = Number((order as any).wrongAddressFeeDriver) || 0;
-                                    const lumperDriver = Number((order as any).lumperDriver) || 0;
-                                    const otherChargesDriver = Number((order as any).otherChargesDriver) || 0;
-                                    const otherAdditionalsDriver = Number((order as any).otherAdditionalsDriver) || 0;
-
-                                    // Base driver pay
-                                    const driverPrice = Number((order as any).driverPrice) || 0;
-                                    const totalDriverPay = Number((order as any).totalDriverPay) || 0;
-
-                                    // Build freight items - late fee, no tracking, wrong address, other charges are deductions (negative)
-                                    if (detention !== 0) freightItems.push({ label: "Detention", value: detention });
-                                    if (layover !== 0) freightItems.push({ label: "Layover", value: layover });
-                                    if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
-                                    if (extraStop !== 0) freightItems.push({ label: "Extra Stop", value: extraStop });
-                                    if (lateFee !== 0) freightItems.push({ label: "Late Fee", value: -lateFee });
-                                    if (noTrackingFee !== 0) freightItems.push({ label: "No Tracking", value: -noTrackingFee });
-                                    if (wrongAddressFee !== 0) freightItems.push({ label: "Wrong Address", value: -wrongAddressFee });
-                                    if (escortFee !== 0) freightItems.push({ label: "Escort", value: escortFee });
-                                    if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
-                                    if (otherCharges !== 0) {
-                                      const reason = String((order as any).otherChargesReason || "").trim();
-                                      freightItems.push({ label: reason || "Other Charges", value: -otherCharges });
-                                    }
-                                    if (otherAdditionals !== 0) {
-                                      const reason = String((order as any).otherAdditionalsReason || "").trim();
-                                      freightItems.push({ label: reason || "Other Additionals", value: otherAdditionals });
-                                    }
-
-                                    // Build driver items - late fee, no tracking, wrong address are deductions (negative)
-                                    if (detentionDriver !== 0) driverItems.push({ label: "Detention", value: detentionDriver });
-                                    if (layoverDriver !== 0) driverItems.push({ label: "Layover", value: layoverDriver });
-                                    if (tonuDriver !== 0) driverItems.push({ label: "TONU", value: tonuDriver });
-                                    if (extraStopDriver !== 0) driverItems.push({ label: "Extra Stop", value: extraStopDriver });
-                                    if (lateFeeDriver !== 0) driverItems.push({ label: "Late Fee", value: -lateFeeDriver });
-                                    if (noTrackingFeeDriver !== 0) driverItems.push({ label: "No Tracking", value: -noTrackingFeeDriver });
-                                    if (wrongAddressFeeDriver !== 0) driverItems.push({ label: "Wrong Address", value: -wrongAddressFeeDriver });
-                                    if (lumperDriver !== 0) driverItems.push({ label: "Lumper", value: lumperDriver });
-                                    if (otherChargesDriver !== 0) {
-                                      const reason = String((order as any).otherChargesReason || "").trim();
-                                      driverItems.push({ label: reason || "Other Charges", value: -otherChargesDriver });
-                                    }
-                                    if (otherAdditionalsDriver !== 0) {
-                                      const reason = String((order as any).otherAdditionalsReason || "").trim();
-                                      driverItems.push({ label: reason || "Other Additionals", value: otherAdditionalsDriver });
-                                    }
-
-                                    const driverDifference = totalDriverPay - driverPrice;
-                                    const hasDriverItems = driverItems.length > 0;
-                                    
-                                    return (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                                            <img 
-                                              src={moneyStackIcon} 
-                                              alt={isPositive ? "Additional pay" : "Reduced pay"} 
-                                              className={`h-5 w-5 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
-                                            />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-3 max-w-sm" align="start">
-                                          <div className="text-sm font-semibold mb-2">
-                                            {isPositive ? "Additional Pay" : "Reduced Pay"}
-                                          </div>
-                                          
-                                          {/* Freight Section */}
-                                          <div className="space-y-1 text-sm">
-                                            <div className="font-medium text-muted-foreground">Company (Freight)</div>
-                                            <div>Base: {formatCurrency(freightAmount)}</div>
-                                            {freightItems.map((item, idx) => {
-                                              const sign = item.value >= 0 ? "+" : "-";
-                                              return (
-                                                <div key={idx} className="text-muted-foreground pl-2">
-                                                  {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
-                                                </div>
-                                              );
-                                            })}
-                                            <div className="pt-1 border-t">Total: {formatCurrency(totalFreight)}</div>
-                                            <div className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                                              Difference: {isPositive ? "+" : ""}{formatCurrency(difference)}
-                                            </div>
-                                          </div>
-
-                                          {/* Driver Section - only show if there are driver items */}
-                                          {hasDriverItems && (
-                                            <div className="space-y-1 text-sm mt-3 pt-3 border-t">
-                                              <div className="font-medium text-muted-foreground">Driver Pay</div>
-                                              <div>Base: {formatCurrency(driverPrice)}</div>
-                                              {driverItems.map((item, idx) => {
-                                                const sign = item.value >= 0 ? "+" : "-";
-                                                return (
-                                                  <div key={idx} className="text-muted-foreground pl-2">
-                                                    {item.label}: {sign}{formatCurrency(Math.abs(item.value))}
-                                                  </div>
-                                                );
-                                              })}
-                                              <div className="pt-1 border-t">Total: {formatCurrency(totalDriverPay)}</div>
-                                              <div className={`font-semibold ${driverDifference >= 0 ? "text-green-500" : "text-red-500"}`}>
-                                                Difference: {driverDifference >= 0 ? "+" : ""}{formatCurrency(driverDifference)}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </PopoverContent>
-                                      </Popover>
-                                    );
-                                  })()}
-                                  {/* Rescheduled icon */}
-                                  {(order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "" && (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                                          <CalendarClock className="h-5 w-5 text-orange-500" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-3 max-w-xs" align="start">
-                                        <div className="text-sm font-semibold mb-2">Rescheduled</div>
-                                        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                          {(order as any).dateChangeNotes}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  )}
-                                  {/* Missing POD icon - hide for canceled loads */}
-                                  {!order.canceled && (!order.podFiles || order.podFiles.length === 0) && (
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                                          <AlertCircle className="h-5 w-5 text-red-600 fill-red-100" strokeWidth={2.5} />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-3 max-w-xs" align="start">
-                                        <div className="text-sm font-semibold text-red-500">POD Missing</div>
-                                        <div className="text-sm text-muted-foreground">
-                                          No proof of delivery uploaded for this load.
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  )}
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                              {provided.placeholder}
-                            </Fragment>
-                          )}
-                        </Droppable>
-                      </Fragment>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                              );
+                            }}
+                          >
+                            {(provided, snapshot) => (
+                              <Fragment>
+                                {/* Drop indicator row - visible when dragging over */}
+                                {snapshot.isDraggingOver && (
+                                  <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
+                                    <TableCell
+                                      colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                      className="py-4 text-center"
+                                    >
+                                      <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
+                                        <ArrowLeftRight className="h-4 w-4" />
+                                        Drop here to move load to this week
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                                {/* Hidden droppable target - needed for proper drop detection */}
+                                <tr
+                                  ref={provided.innerRef}
+                                  {...provided.droppableProps}
+                                  className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
+                                >
+                                  <td
+                                    colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                    style={{ padding: 0, height: snapshot.isDraggingOver ? "4px" : "0px" }}
+                                  />
+                                </tr>
+                                {week.orders.map((order, orderIndex) => {
+                                  // Check if this is a history entry (merged in during grouping)
+                                  if (order._isHistoryEntry) {
+                                    const historyKey = `history-${week.weekStart}-${order._historyId}`;
+                                    const isExpanded = expandedNestedTrips.has(historyKey);
+                                    const canShowNestedTrips =
+                                      order._entityType === "driver" &&
+                                      order._entityName &&
+                                      order._entityName !== "Unassigned";
+                                    const totalColSpan = canMoveLoads
+                                      ? canSeePaidColumn
+                                        ? 15
+                                        : 14
+                                      : canSeePaidColumn
+                                        ? 14
+                                        : 13;
+
+                                    return (
+                                      <Fragment key={historyKey}>
+                                        <TableRow className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500">
+                                          {canMoveLoads && <TableCell></TableCell>}
+                                          <TableCell className="text-sm font-semibold">
+                                            {order._historyDateDisplay}
+                                          </TableCell>
+                                          <TableCell colSpan={4} className="text-sm font-medium">
+                                            <div className="flex items-center gap-2">
+                                              <span>{order._changeDescription}</span>
+                                              {/* Show toggle button to expand driver's trips inline */}
+                                              {canShowNestedTrips && (
+                                                <NestedDriverTripsDropdown
+                                                  driverName={order._entityName}
+                                                  driverId={order._entityId}
+                                                  onSearchDriver={(name) => {
+                                                    setSearchFilter(name);
+                                                    setCurrentPage(1);
+                                                  }}
+                                                  isOpen={isExpanded}
+                                                  onToggle={() => toggleNestedTrips(historyKey)}
+                                                />
+                                              )}
+                                              {/* Show dash for non-driver entries */}
+                                              {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell colSpan={canSeePaidColumn ? 7 : 6} className="text-sm">
+                                            {order._reason || "—"}
+                                          </TableCell>
+                                          <TableCell className="text-center">
+                                            {/* Delete button for admins */}
+                                            {hasRole("admin") &&
+                                              order._historyEntryIds &&
+                                              order._historyEntryIds.length > 0 && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                                  onClick={() =>
+                                                    setDeleteHistoryConfirmDialog({
+                                                      historyEntryIds: order._historyEntryIds,
+                                                      description: order._changeDescription,
+                                                    })
+                                                  }
+                                                  title="Delete assignment history entry"
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              )}
+                                          </TableCell>
+                                        </TableRow>
+                                        {/* Render inline driver trips content when expanded */}
+                                        {isExpanded && canShowNestedTrips && (
+                                          <NestedDriverTripsInlineContent
+                                            driverName={order._entityName}
+                                            driverId={order._entityId}
+                                            assignmentDate={order._historyDate}
+                                            onSearchDriver={(name) => {
+                                              setSearchFilter(name);
+                                              setCurrentPage(1);
+                                              toggleNestedTrips(historyKey);
+                                            }}
+                                            onEditOrder={(orderId) => {
+                                              localStorage.setItem("returnToTrips", "true");
+                                              navigate(`/edit-order/${orderId}`);
+                                            }}
+                                            onOrderPaidToggle={handleOrderPaidToggle}
+                                            colSpan={totalColSpan}
+                                            showMoveColumn={canMoveLoads}
+                                            showPaidColumn={canSeePaidColumn}
+                                          />
+                                        )}
+                                      </Fragment>
+                                    );
+                                  }
+
+                                  // Check if this is a termination entry (driver terminated - red row)
+                                  if (order._isTerminationEntry) {
+                                    return (
+                                      <TableRow
+                                        key={`termination-${week.weekStart}-${order._terminationId}`}
+                                        className="bg-red-100 dark:bg-red-900/50 border-l-4 border-l-red-500"
+                                      >
+                                        {canMoveLoads && <TableCell></TableCell>}
+                                        <TableCell className="text-sm font-semibold text-red-700 dark:text-red-300">
+                                          {order._terminationDateDisplay}
+                                        </TableCell>
+                                        <TableCell
+                                          colSpan={4}
+                                          className="text-sm font-medium text-red-700 dark:text-red-300"
+                                        >
+                                          {order._terminationDescription}
+                                        </TableCell>
+                                        <TableCell
+                                          colSpan={canSeePaidColumn ? 8 : 7}
+                                          className="text-sm text-red-600 dark:text-red-400"
+                                        >
+                                          {order._terminationNote}
+                                        </TableCell>
+                                        <TableCell></TableCell>
+                                      </TableRow>
+                                    );
+                                  }
+
+                                  // Background color rules - Based on total freight vs freight amount
+                                  const isRecovery = order.isRecovery;
+                                  const freightAmount = Number(order.freightAmount) || 0;
+                                  const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
+                                  const hasAdditionalPay = totalFreight > freightAmount;
+                                  const hasReducedPay = totalFreight < freightAmount;
+
+                                  const hasOrangeCondition =
+                                    order.canceled ||
+                                    ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
+
+                                  const isEvenRow = orderIndex % 2 === 1;
+                                  const alternatingBg = isEvenRow
+                                    ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30"
+                                    : "bg-background hover:bg-background";
+
+                                  // Add blue border if order has week override
+                                  const hasWeekOverride = order._hasWeekOverride;
+                                  const weekOverrideBorder = hasWeekOverride ? "ring-2 ring-blue-500 ring-inset" : "";
+
+                                  const rowClassName = isRecovery
+                                    ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
+                                    : hasReducedPay
+                                      ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_90%)] dark:hover:bg-[hsl(0_62%_25%)]"
+                                      : hasAdditionalPay
+                                        ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_90%)] dark:hover:bg-[hsl(120_40%_25%)]"
+                                        : hasOrangeCondition
+                                          ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
+                                          : alternatingBg;
+
+                                  const draggableId = `${order.id}_drag_${order.transferSequence ?? "base"}`;
+
+                                  return (
+                                    <Draggable
+                                      key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`}
+                                      draggableId={draggableId}
+                                      index={orderIndex}
+                                      isDragDisabled={!canMoveLoads}
+                                    >
+                                      {(dragProvided, dragSnapshot) => (
+                                        <TableRow
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
+                                          className={`h-16 ${rowClassName} ${weekOverrideBorder} ${dragSnapshot.isDragging ? "opacity-50 bg-primary/20" : ""}`}
+                                        >
+                                          {canMoveLoads && (
+                                            <TableCell className="w-8 p-1">
+                                              <div className="flex flex-col items-center gap-0.5">
+                                                <div
+                                                  {...dragProvided.dragHandleProps}
+                                                  className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
+                                                  title="Drag to move to different week"
+                                                >
+                                                  <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
+                                                </div>
+                                                {hasWeekOverride && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 p-0"
+                                                    onClick={() => handleRevertToOriginalWeek(order.id)}
+                                                    title="Return to original week"
+                                                  >
+                                                    <Undo2 className="h-3 w-3 text-blue-500" />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                          )}
+                                          <TableCell className="font-medium">
+                                            <div className="line-clamp-2">{order.truckNumber}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {order.driverName}
+                                              {hasWeekOverride && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                                  title={`Originally in week of ${order._originalWeekKey}`}
+                                                >
+                                                  Moved
+                                                </Badge>
+                                              )}
+                                              {order.transferBadge && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`ml-1 text-[10px] px-1 py-0 ${
+                                                    order.transferBadge === "Orig"
+                                                      ? "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
+                                                      : order.transferBadge === "Rec"
+                                                        ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                                        : "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                                                  }`}
+                                                >
+                                                  {order.transferBadge}
+                                                </Badge>
+                                              )}
+                                              {/* Legacy badges for orders without transferBadge */}
+                                              {!order.transferBadge && order.isOriginalDriverPortion && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="ml-1 text-[10px] px-1 py-0 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
+                                                >
+                                                  Orig
+                                                </Badge>
+                                              )}
+                                              {!order.transferBadge && order.isRecoveryDriverPortion && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                                >
+                                                  Rec
+                                                </Badge>
+                                              )}
+                                              {order.transferNote && (
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                  {order.transferNote}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {order.pickupCity}
+                                              {order.pickupCity && order.pickupState ? ", " : ""}
+                                              {order.pickupState}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">{formatDateDisplay(order.deliveryDate)}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {order.deliveryCity}
+                                              {order.deliveryCity && order.deliveryState ? ", " : ""}
+                                              {order.deliveryState}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell
+                                            className={`cursor-pointer select-none transition-colors ${
+                                              isSelected(`order-miles-${order.virtualId ?? order.id}`)
+                                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                                : "hover:bg-muted/50"
+                                            }`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleCell(
+                                                `order-miles-${order.virtualId ?? order.id}`,
+                                                Number(order.mileage) || 0,
+                                                "miles",
+                                              );
+                                            }}
+                                          >
+                                            <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">{order.brokerName}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">{order.brokerLoadNumber}</div>
+                                          </TableCell>
+                                          <TableCell
+                                            className={`cursor-pointer select-none transition-colors ${
+                                              isSelected(`order-driver-${order.virtualId ?? order.id}`)
+                                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                                : "hover:bg-muted/50"
+                                            }`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleCell(
+                                                `order-driver-${order.virtualId ?? order.id}`,
+                                                Number(order.totalDriverPay) || 0,
+                                                "driverPay",
+                                                Number(order.mileage) || 0,
+                                              );
+                                            }}
+                                          >
+                                            <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                              {formatCurrency(order.totalDriverPay)}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell
+                                            className={`cursor-pointer select-none transition-colors ${
+                                              isSelected(`order-freight-${order.virtualId ?? order.id}`)
+                                                ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
+                                                : "hover:bg-muted/50"
+                                            }`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleCell(
+                                                `order-freight-${order.virtualId ?? order.id}`,
+                                                Number(order.totalFreightAmountNoLumper) || 0,
+                                                "freightAmount",
+                                                Number(order.mileage) || 0,
+                                              );
+                                            }}
+                                          >
+                                            <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                              {formatCurrency(order.totalFreightAmountNoLumper)}
+                                            </div>
+                                          </TableCell>
+                                          {canSeePaidColumn && (
+                                            <TableCell className="text-center">
+                                              <div className="flex justify-center">
+                                                {canTogglePaid ? (
+                                                  <Checkbox
+                                                    checked={order.paid === true}
+                                                    onCheckedChange={() =>
+                                                      handleOrderPaidToggle(
+                                                        order.id,
+                                                        order.paid === true,
+                                                        order.loadNumber,
+                                                      )
+                                                    }
+                                                    aria-label={`Mark load ${order.loadNumber} as ${order.paid ? "unpaid" : "paid"}`}
+                                                  />
+                                                ) : (
+                                                  <span className="text-sm">{order.paid ? "✓" : "—"}</span>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                          )}
+                                          <TableCell>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                  localStorage.setItem("returnToTrips", "true");
+                                                  navigate(`/edit-order/${order.id}`);
+                                                }}
+                                              >
+                                                <Edit className="h-4 w-4" />
+                                              </Button>
+                                              {(() => {
+                                                const freightAmount = Number(order.freightAmount) || 0;
+                                                const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;
+                                                const difference = totalFreight - freightAmount;
+
+                                                if (difference === 0) return null;
+
+                                                const isPositive = difference > 0;
+
+                                                // Build itemized breakdown for freight-side and driver-side
+                                                const freightItems: { label: string; value: number }[] = [];
+                                                const driverItems: { label: string; value: number }[] = [];
+
+                                                // Freight amounts
+                                                const detention = Number((order as any).detention) || 0;
+                                                const layover = Number((order as any).layover) || 0;
+                                                const tonu = Number((order as any).tonu) || 0;
+                                                const extraStop = Number((order as any).extraStop) || 0;
+                                                const lateFee = Number((order as any).lateFee) || 0;
+                                                const noTrackingFee = Number((order as any).noTrackingFee) || 0;
+                                                const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
+                                                const escortFee = Number((order as any).escortFee) || 0;
+                                                const lumper = Number((order as any).lumper) || 0;
+                                                const otherCharges = Number((order as any).otherCharges) || 0;
+                                                const otherAdditionals = Number((order as any).otherAdditionals) || 0;
+
+                                                // Driver amounts
+                                                const detentionDriver = Number((order as any).detentionDriver) || 0;
+                                                const layoverDriver = Number((order as any).layoverDriver) || 0;
+                                                const tonuDriver = Number((order as any).tonuDriver) || 0;
+                                                const extraStopDriver = Number((order as any).extraStopDriver) || 0;
+                                                const lateFeeDriver = Number((order as any).lateFeeDriver) || 0;
+                                                const noTrackingFeeDriver =
+                                                  Number((order as any).noTrackingFeeDriver) || 0;
+                                                const wrongAddressFeeDriver =
+                                                  Number((order as any).wrongAddressFeeDriver) || 0;
+                                                const lumperDriver = Number((order as any).lumperDriver) || 0;
+                                                const otherChargesDriver =
+                                                  Number((order as any).otherChargesDriver) || 0;
+                                                const otherAdditionalsDriver =
+                                                  Number((order as any).otherAdditionalsDriver) || 0;
+
+                                                // Base driver pay
+                                                const driverPrice = Number((order as any).driverPrice) || 0;
+                                                const totalDriverPay = Number((order as any).totalDriverPay) || 0;
+
+                                                // Build freight items - late fee, no tracking, wrong address, other charges are deductions (negative)
+                                                if (detention !== 0)
+                                                  freightItems.push({ label: "Detention", value: detention });
+                                                if (layover !== 0)
+                                                  freightItems.push({ label: "Layover", value: layover });
+                                                if (tonu !== 0) freightItems.push({ label: "TONU", value: tonu });
+                                                if (extraStop !== 0)
+                                                  freightItems.push({ label: "Extra Stop", value: extraStop });
+                                                if (lateFee !== 0)
+                                                  freightItems.push({ label: "Late Fee", value: -lateFee });
+                                                if (noTrackingFee !== 0)
+                                                  freightItems.push({ label: "No Tracking", value: -noTrackingFee });
+                                                if (wrongAddressFee !== 0)
+                                                  freightItems.push({
+                                                    label: "Wrong Address",
+                                                    value: -wrongAddressFee,
+                                                  });
+                                                if (escortFee !== 0)
+                                                  freightItems.push({ label: "Escort", value: escortFee });
+                                                if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
+                                                if (otherCharges !== 0) {
+                                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                                  freightItems.push({
+                                                    label: reason || "Other Charges",
+                                                    value: -otherCharges,
+                                                  });
+                                                }
+                                                if (otherAdditionals !== 0) {
+                                                  const reason = String(
+                                                    (order as any).otherAdditionalsReason || "",
+                                                  ).trim();
+                                                  freightItems.push({
+                                                    label: reason || "Other Additionals",
+                                                    value: otherAdditionals,
+                                                  });
+                                                }
+
+                                                // Build driver items - late fee, no tracking, wrong address are deductions (negative)
+                                                if (detentionDriver !== 0)
+                                                  driverItems.push({ label: "Detention", value: detentionDriver });
+                                                if (layoverDriver !== 0)
+                                                  driverItems.push({ label: "Layover", value: layoverDriver });
+                                                if (tonuDriver !== 0)
+                                                  driverItems.push({ label: "TONU", value: tonuDriver });
+                                                if (extraStopDriver !== 0)
+                                                  driverItems.push({ label: "Extra Stop", value: extraStopDriver });
+                                                if (lateFeeDriver !== 0)
+                                                  driverItems.push({ label: "Late Fee", value: -lateFeeDriver });
+                                                if (noTrackingFeeDriver !== 0)
+                                                  driverItems.push({
+                                                    label: "No Tracking",
+                                                    value: -noTrackingFeeDriver,
+                                                  });
+                                                if (wrongAddressFeeDriver !== 0)
+                                                  driverItems.push({
+                                                    label: "Wrong Address",
+                                                    value: -wrongAddressFeeDriver,
+                                                  });
+                                                if (lumperDriver !== 0)
+                                                  driverItems.push({ label: "Lumper", value: lumperDriver });
+                                                if (otherChargesDriver !== 0) {
+                                                  const reason = String((order as any).otherChargesReason || "").trim();
+                                                  driverItems.push({
+                                                    label: reason || "Other Charges",
+                                                    value: -otherChargesDriver,
+                                                  });
+                                                }
+                                                if (otherAdditionalsDriver !== 0) {
+                                                  const reason = String(
+                                                    (order as any).otherAdditionalsReason || "",
+                                                  ).trim();
+                                                  driverItems.push({
+                                                    label: reason || "Other Additionals",
+                                                    value: otherAdditionalsDriver,
+                                                  });
+                                                }
+
+                                                const driverDifference = totalDriverPay - driverPrice;
+                                                const hasDriverItems = driverItems.length > 0;
+
+                                                return (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                                        <img
+                                                          src={moneyStackIcon}
+                                                          alt={isPositive ? "Additional pay" : "Reduced pay"}
+                                                          className={`h-5 w-5 object-contain ${!isPositive ? "grayscale brightness-75 hue-rotate-180" : ""}`}
+                                                        />
+                                                      </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-3 max-w-sm" align="start">
+                                                      <div className="text-sm font-semibold mb-2">
+                                                        {isPositive ? "Additional Pay" : "Reduced Pay"}
+                                                      </div>
+
+                                                      {/* Freight Section */}
+                                                      <div className="space-y-1 text-sm">
+                                                        <div className="font-medium text-muted-foreground">
+                                                          Company (Freight)
+                                                        </div>
+                                                        <div>Base: {formatCurrency(freightAmount)}</div>
+                                                        {freightItems.map((item, idx) => {
+                                                          const sign = item.value >= 0 ? "+" : "-";
+                                                          return (
+                                                            <div key={idx} className="text-muted-foreground pl-2">
+                                                              {item.label}: {sign}
+                                                              {formatCurrency(Math.abs(item.value))}
+                                                            </div>
+                                                          );
+                                                        })}
+                                                        <div className="pt-1 border-t">
+                                                          Total: {formatCurrency(totalFreight)}
+                                                        </div>
+                                                        <div
+                                                          className={`font-semibold ${isPositive ? "text-green-500" : "text-red-500"}`}
+                                                        >
+                                                          Difference: {isPositive ? "+" : ""}
+                                                          {formatCurrency(difference)}
+                                                        </div>
+                                                      </div>
+
+                                                      {/* Driver Section - only show if there are driver items */}
+                                                      {hasDriverItems && (
+                                                        <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                                                          <div className="font-medium text-muted-foreground">
+                                                            Driver Pay
+                                                          </div>
+                                                          <div>Base: {formatCurrency(driverPrice)}</div>
+                                                          {driverItems.map((item, idx) => {
+                                                            const sign = item.value >= 0 ? "+" : "-";
+                                                            return (
+                                                              <div key={idx} className="text-muted-foreground pl-2">
+                                                                {item.label}: {sign}
+                                                                {formatCurrency(Math.abs(item.value))}
+                                                              </div>
+                                                            );
+                                                          })}
+                                                          <div className="pt-1 border-t">
+                                                            Total: {formatCurrency(totalDriverPay)}
+                                                          </div>
+                                                          <div
+                                                            className={`font-semibold ${driverDifference >= 0 ? "text-green-500" : "text-red-500"}`}
+                                                          >
+                                                            Difference: {driverDifference >= 0 ? "+" : ""}
+                                                            {formatCurrency(driverDifference)}
+                                                          </div>
+                                                        </div>
+                                                      )}
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                );
+                                              })()}
+                                              {/* Rescheduled icon */}
+                                              {(order as any).dateChangeNotes &&
+                                                (order as any).dateChangeNotes.trim() !== "" && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                                        <CalendarClock className="h-5 w-5 text-orange-500" />
+                                                      </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                                      <div className="text-sm font-semibold mb-2">Rescheduled</div>
+                                                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                                        {(order as any).dateChangeNotes}
+                                                      </div>
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                )}
+                                              {/* Missing POD icon - hide for canceled loads */}
+                                              {!order.canceled && (!order.podFiles || order.podFiles.length === 0) && (
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
+                                                      <AlertCircle
+                                                        className="h-5 w-5 text-red-600 fill-red-100"
+                                                        strokeWidth={2.5}
+                                                      />
+                                                    </Button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                                    <div className="text-sm font-semibold text-red-500">
+                                                      POD Missing
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                      No proof of delivery uploaded for this load.
+                                                    </div>
+                                                  </PopoverContent>
+                                                </Popover>
+                                              )}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      )}
+                                    </Draggable>
+                                  );
+                                })}
+                                {provided.placeholder}
+                              </Fragment>
+                            )}
+                          </Droppable>
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </DragDropContext>
 
           {totalPages > 1 && (
@@ -5757,7 +6271,7 @@ const Trips = () => {
               {paidConfirmDialog?.newPaidStatus ? "Mark Week as Paid?" : "Mark Week as Unpaid?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {paidConfirmDialog?.newPaidStatus 
+              {paidConfirmDialog?.newPaidStatus
                 ? "This will mark the week and its associated fuel transactions as paid."
                 : "This will mark the week and its associated fuel transactions as unpaid."}
             </AlertDialogDescription>
@@ -5770,43 +6284,44 @@ const Trips = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* Individual Order Paid Confirmation Dialog */}
-      <AlertDialog open={orderPaidConfirmDialog?.open ?? false} onOpenChange={(open) => !open && setOrderPaidConfirmDialog(null)}>
+      <AlertDialog
+        open={orderPaidConfirmDialog?.open ?? false}
+        onOpenChange={(open) => !open && setOrderPaidConfirmDialog(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Payment Status Change</AlertDialogTitle>
             <AlertDialogDescription>
-              {orderPaidConfirmDialog?.currentPaid 
+              {orderPaidConfirmDialog?.currentPaid
                 ? "Are you sure you want to mark this load as unpaid?"
                 : "Are you sure you want to mark this load as paid?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmOrderPaidToggle}>
-              Confirm
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmOrderPaidToggle}>Confirm</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Assignment History Confirmation Dialog (Admin Only) */}
-      <AlertDialog 
-        open={!!deleteHistoryConfirmDialog} 
+      <AlertDialog
+        open={!!deleteHistoryConfirmDialog}
         onOpenChange={(open) => !open && setDeleteHistoryConfirmDialog(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Assignment History?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the history entry: "{deleteHistoryConfirmDialog?.description}"?
-              This action cannot be undone.
+              Are you sure you want to delete the history entry: "{deleteHistoryConfirmDialog?.description}"? This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 if (deleteHistoryConfirmDialog?.historyEntryIds) {
                   deleteAssignmentHistoryMutation.mutate(deleteHistoryConfirmDialog.historyEntryIds);
@@ -5838,7 +6353,7 @@ const Trips = () => {
               statementDialogData.week,
               statementDialogData.weekStartDate,
               statementDialogData.weekEndDate,
-              scheduledDeductions
+              scheduledDeductions,
             );
           }}
           onMarkWeekPaid={async () => {
