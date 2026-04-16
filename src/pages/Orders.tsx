@@ -514,13 +514,11 @@ const Orders = () => {
         } else if (missingDocsFilter === "missing-pod") {
           const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
           const podCount = order.podFiles?.length || 0;
-          const isPodForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-          matchesMissingDocs = !isPodForceComplete && podCount < deliveryCount;
+          matchesMissingDocs = podCount < deliveryCount;
         } else if (missingDocsFilter === "complete") {
           const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
           const podCount = order.podFiles?.length || 0;
-          const isPodForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-          matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (isPodForceComplete || podCount >= deliveryCount);
+          matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && podCount >= deliveryCount;
         } else if (missingDocsFilter === "canceled") {
           matchesMissingDocs = order.canceled === true;
         } else if (missingDocsFilter === "pending-payment") {
@@ -551,13 +549,11 @@ const Orders = () => {
       } else if (missingDocsFilter === "missing-pod") {
         const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
         const podCount = order.podFiles?.length || 0;
-        const isPodForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-        matchesMissingDocs = !isPodForceComplete && podCount < deliveryCount;
+        matchesMissingDocs = podCount < deliveryCount;
       } else if (missingDocsFilter === "complete") {
         const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
         const podCount = order.podFiles?.length || 0;
-        const isPodForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-        matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (isPodForceComplete || podCount >= deliveryCount);
+        matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && podCount >= deliveryCount;
       } else if (missingDocsFilter === "canceled") {
         matchesMissingDocs = order.canceled === true;
       } else if (missingDocsFilter === "pending-payment") {
@@ -1832,11 +1828,7 @@ const Orders = () => {
                               {(() => {
                           const deliveryCount = order.pickup_drops?.filter((pd: any) => pd.type === 'delivery').length || 1;
                           const podCount = order.podFiles?.length || 0;
-                          const isForceComplete = order.pod_force_complete === true || order.podForceComplete === true;
-                          const isComplete = isForceComplete || podCount >= deliveryCount;
-                          if (isForceComplete) {
-                            return <Badge variant="outline" className="text-xs border-green-500 text-green-500">POD ✓</Badge>;
-                          }
+                          const isComplete = podCount >= deliveryCount;
                           if (podCount > 0) {
                             return <Button variant="outline" size="sm" className={`text-xs ${!isComplete ? 'border-warning text-warning' : ''}`} onClick={async () => {
                               const file = order.podFiles[0];
