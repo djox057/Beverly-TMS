@@ -161,6 +161,7 @@ const generateMonthOptions = () => {
 export default function BeverlyHeatmap() {
   const { hasRole } = useAuthContext();
   const canRecompute = hasRole("admin") || hasRole("manager");
+  const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("manager") && !hasRole("chicago_management");
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isRecomputing, setIsRecomputing] = useState(false);
@@ -570,11 +571,11 @@ export default function BeverlyHeatmap() {
         <h1 className="text-3xl font-semibold text-foreground">Beverly Heatmap</h1>
       </div>
 
-      <Tabs defaultValue="heatmap" className="w-full">
+      <Tabs defaultValue={isDispatchOnly ? "lane" : "heatmap"} className="w-full">
         <TabsList>
-          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
-          <TabsTrigger value="facilities">Facilities</TabsTrigger>
-          <TabsTrigger value="brokers">Brokers</TabsTrigger>
+          {!isDispatchOnly && <TabsTrigger value="heatmap">Heatmap</TabsTrigger>}
+          {!isDispatchOnly && <TabsTrigger value="facilities">Facilities</TabsTrigger>}
+          {!isDispatchOnly && <TabsTrigger value="brokers">Brokers</TabsTrigger>}
           <TabsTrigger value="lane">Lane</TabsTrigger>
         </TabsList>
 

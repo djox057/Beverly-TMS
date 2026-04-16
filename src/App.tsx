@@ -167,7 +167,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/beverly-heatmap" element={
-          <ProtectedRoute allowedRoles={['manager', 'admin', 'chicago_management']}>
+          <ProtectedRoute allowedRoles={['manager', 'admin', 'chicago_management', 'dispatch']}>
             <Layout><BeverlyHeatmap /></Layout>
           </ProtectedRoute>
         } />
