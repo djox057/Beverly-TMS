@@ -1595,7 +1595,7 @@ const Orders = () => {
                                       </div>
 
                                       {/* Driver Section */}
-                                      {hasDriverItems && <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                                      {primaryRole !== 'dispatch' && hasDriverItems && <div className="space-y-1 text-sm mt-3 pt-3 border-t">
                                           <div className="font-medium text-muted-foreground">Driver Pay</div>
                                           <div>Base: {formatCurrency(driverPrice)}</div>
                                           {driverItems.map((item, idx) => {
