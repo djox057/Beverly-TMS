@@ -970,8 +970,57 @@ const Reports = () => {
       podForceComplete: order.pod_force_complete === true,
     };
   }, []);
+  // Force complete handler for BOL/POD on multi-stop orders
+  const handleForceComplete = async (type: "BOL" | "POD") => {
+    if (!zoomedLoad) return;
+    const orderId = zoomedLoad.orderId;
+    const field = type === "BOL" ? "bol_force_complete" : "pod_force_complete";
 
-  // File upload handlers
+    const updateData: any = { [field]: true };
+    // For POD force complete, also set status to delivered
+    if (type === "POD") {
+      updateData.status = "delivered";
+    }
+
+    const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
+    if (error) {
+      toast({ title: "Error", description: `Failed to mark ${type} as complete`, variant: "destructive" });
+      return;
+    }
+
+    // For POD: also set checked_out_at on delivery stops that don't have it
+    if (type === "POD" && zoomedLoad.allDeliveryStops?.length > 0) {
+      const stopsWithoutCheckout = zoomedLoad.allDeliveryStops.filter((s: any) => !s.checked_out_at);
+      if (stopsWithoutCheckout.length > 0) {
+        await Promise.all(
+          stopsWithoutCheckout.map((s: any) =>
+            supabase.from("pickup_drops").update({ checked_out_at: new Date().toISOString() }).eq("id", s.id)
+          )
+        );
+      }
+    }
+
+    // Optimistically update zoomedLoad
+    setZoomedLoad((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [type === "BOL" ? "bolForceComplete" : "podForceComplete"]: true,
+        documents: type === "POD" 
+          ? [...new Set([...prev.documents, "POD"])]
+          : [...new Set([...prev.documents, "BOL"])],
+      };
+    });
+
+    // Invalidate caches
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
+
+    toast({ title: "Success", description: `All ${type === "BOL" ? "pickup" : "delivery"} stops marked as ${type} complete` });
+    setForceCompleteDialog({ open: false, type: "BOL" });
+  };
+
+
   const handleDocumentClick = (docType: string, isChecked: boolean) => {
     if (!isChecked) {
       setUploadDocType(docType);
