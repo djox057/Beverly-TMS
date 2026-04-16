@@ -6465,8 +6465,8 @@ const Reports = () => {
                   const now = new Date();
                   const pickupStart = pickupStops[0]?.datetime ? new Date(pickupStops[0].datetime) : null;
                   const deliveryStart = deliveryStops[0]?.datetime ? new Date(deliveryStops[0].datetime) : null;
-                  const showBolComplete = pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete && pickupStart != null && now >= pickupStart;
-                  const showPodComplete = deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete && deliveryStart != null && now >= deliveryStart;
+                  const showBolComplete = pickupStops.length > 1 && pickupStops.length > bolFileCount && !(zoomedLoad as any)?.bolForceComplete && pickupStart != null && now >= pickupStart;
+                  const showPodComplete = deliveryStops.length > 1 && deliveryStops.length > podFileCount && !(zoomedLoad as any)?.podForceComplete && deliveryStart != null && now >= deliveryStart;
 
                   return (
                     <>
