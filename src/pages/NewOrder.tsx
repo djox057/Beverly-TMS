@@ -1440,19 +1440,29 @@ const NewOrder = () => {
 
   // Import timezone-agnostic date utilities
 
+  // Normalize broker load number for comparison: strip spaces and '#', lowercase
+  const normalizeLoadNumber = (value: string | null | undefined): string => {
+    if (!value) return "";
+    return value.replace(/[\s#]/g, "").toLowerCase();
+  };
+
   // Check for duplicate orders with same broker load# and pickup date
   const checkForDuplicates = async () => {
-    if (!brokerLoadNumber?.trim()) return [];
+    const normalizedInput = normalizeLoadNumber(brokerLoadNumber);
+    if (!normalizedInput) return [];
     const pickups = pickupsDrops.filter((item) => item.type === "pickup");
     if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
     const pickupDate = pickups[0].dateRange.from;
-    const pickupDateStr = pickupDate.toISOString().split("T")[0]; // YYYY-MM-DD format
+    // Use local date components to avoid timezone drift
+    const pickupDateStr = `${pickupDate.getFullYear()}-${String(pickupDate.getMonth() + 1).padStart(2, "0")}-${String(pickupDate.getDate()).padStart(2, "0")}`;
 
-    // Query for orders with same broker load number
+    // Fetch a broader candidate set: any order whose broker_load_number contains the
+    // normalized input's characters. We then compare normalized values client-side so
+    // that " " and "#" differences are ignored.
     const { data: existingOrders, error } = await supabase
       .from("orders")
       .select("id, internal_load_number, broker_load_number, pickup_datetime, status")
-      .eq("broker_load_number", brokerLoadNumber.trim())
+      .not("broker_load_number", "is", null)
       .not("status", "eq", "canceled")
       .eq("canceled", false);
     if (error) {
@@ -1461,10 +1471,12 @@ const NewOrder = () => {
     }
     if (!existingOrders || existingOrders.length === 0) return [];
 
-    // Filter orders with the same pickup date
+    // Filter orders: normalized load number matches AND same pickup date (local)
     const duplicates = existingOrders.filter((order) => {
       if (!order.pickup_datetime) return false;
-      const orderPickupDate = new Date(order.pickup_datetime).toISOString().split("T")[0];
+      if (normalizeLoadNumber(order.broker_load_number) !== normalizedInput) return false;
+      const d = new Date(order.pickup_datetime);
+      const orderPickupDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       return orderPickupDate === pickupDateStr;
     });
     return duplicates;
