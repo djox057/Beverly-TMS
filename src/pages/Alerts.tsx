@@ -139,6 +139,7 @@ export default function Alerts() {
   const [trucksSearch, setTrucksSearch] = useState("");
   const [trailersSearch, setTrailersSearch] = useState("");
   const [driversSearch, setDriversSearch] = useState("");
+  const [tempPlatesSearch, setTempPlatesSearch] = useState("");
   
   // "Is Assigned" toggle
   const [isAssignedFilter, setIsAssignedFilter] = useState(false);
@@ -327,6 +328,7 @@ export default function Alerts() {
       case "trucks": return trucksSearch;
       case "trailers": return trailersSearch;
       case "drivers": return driversSearch;
+      case "temp_plates": return tempPlatesSearch;
       default: return "";
     }
   };
@@ -344,6 +346,9 @@ export default function Alerts() {
       case "drivers": 
         setDriversSearch(value);
         setDriversPage(1);
+        break;
+      case "temp_plates":
+        setTempPlatesSearch(value);
         break;
     }
   };
