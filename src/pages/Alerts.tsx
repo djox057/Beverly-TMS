@@ -139,6 +139,7 @@ export default function Alerts() {
   const [trucksSearch, setTrucksSearch] = useState("");
   const [trailersSearch, setTrailersSearch] = useState("");
   const [driversSearch, setDriversSearch] = useState("");
+  const [tempPlatesSearch, setTempPlatesSearch] = useState("");
   
   // "Is Assigned" toggle
   const [isAssignedFilter, setIsAssignedFilter] = useState(false);
@@ -327,6 +328,7 @@ export default function Alerts() {
       case "trucks": return trucksSearch;
       case "trailers": return trailersSearch;
       case "drivers": return driversSearch;
+      case "temp_plates": return tempPlatesSearch;
       default: return "";
     }
   };
@@ -344,6 +346,9 @@ export default function Alerts() {
       case "drivers": 
         setDriversSearch(value);
         setDriversPage(1);
+        break;
+      case "temp_plates":
+        setTempPlatesSearch(value);
         break;
     }
   };
@@ -1126,6 +1131,17 @@ export default function Alerts() {
               ) : temporaryPlates.length === 0 ? (
                 <p className="text-muted-foreground">No trucks with temporary plates.</p>
               ) : (
+                (() => {
+                  const tpSearch = tempPlatesSearch.trim().toLowerCase();
+                  const filteredTempPlates = tpSearch
+                    ? temporaryPlates.filter((plate) => {
+                        const truck = tempPlateTruckMap.get(plate.truck_id);
+                        const truckNum = (truck?.truck_number || "").toLowerCase();
+                        const driverName = (truck?.driver1?.name || "").toLowerCase();
+                        return truckNum.includes(tpSearch) || driverName.includes(tpSearch);
+                      })
+                    : temporaryPlates;
+                  return (
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
@@ -1137,7 +1153,7 @@ export default function Alerts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {temporaryPlates.map((plate) => {
+                    {filteredTempPlates.map((plate) => {
                       const truck = tempPlateTruckMap.get(plate.truck_id);
                       const hasFiles = (tempPlateFileMap[plate.id]?.length || 0) > 0;
                       return (
@@ -1201,6 +1217,8 @@ export default function Alerts() {
                     })}
                   </TableBody>
                 </Table>
+                  );
+                })()
               )}
             </TabsContent>
           </Tabs>
