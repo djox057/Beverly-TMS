@@ -1217,6 +1217,8 @@ export default function Alerts() {
                     })}
                   </TableBody>
                 </Table>
+                  );
+                })()
               )}
             </TabsContent>
           </Tabs>
