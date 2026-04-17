@@ -1131,6 +1131,17 @@ export default function Alerts() {
               ) : temporaryPlates.length === 0 ? (
                 <p className="text-muted-foreground">No trucks with temporary plates.</p>
               ) : (
+                (() => {
+                  const tpSearch = tempPlatesSearch.trim().toLowerCase();
+                  const filteredTempPlates = tpSearch
+                    ? temporaryPlates.filter((plate) => {
+                        const truck = tempPlateTruckMap.get(plate.truck_id);
+                        const truckNum = (truck?.truck_number || "").toLowerCase();
+                        const driverName = (truck?.driver1?.name || "").toLowerCase();
+                        return truckNum.includes(tpSearch) || driverName.includes(tpSearch);
+                      })
+                    : temporaryPlates;
+                  return (
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
@@ -1142,7 +1153,7 @@ export default function Alerts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {temporaryPlates.map((plate) => {
+                    {filteredTempPlates.map((plate) => {
                       const truck = tempPlateTruckMap.get(plate.truck_id);
                       const hasFiles = (tempPlateFileMap[plate.id]?.length || 0) > 0;
                       return (
