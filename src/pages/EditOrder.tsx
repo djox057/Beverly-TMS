@@ -4536,13 +4536,6 @@ const EditOrder = () => {
                                 variant: "destructive",
                               });
                             }
-                            } else {
-                              toast({
-                                title: "Error",
-                                description: "No signed URL received from server",
-                                variant: "destructive",
-                              });
-                            }
                           }}
                         >
                           <Download className="h-4 w-4" />
