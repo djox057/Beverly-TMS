@@ -1446,19 +1446,11 @@ const NewOrder = () => {
     return value.replace(/[\s#]/g, "").toLowerCase();
   };
 
-  // Check for duplicate orders with same broker load# and pickup date
+  // Check for duplicate orders by broker load# only (ignoring spaces, '#', case)
   const checkForDuplicates = async () => {
     const normalizedInput = normalizeLoadNumber(brokerLoadNumber);
     if (!normalizedInput) return [];
-    const pickups = pickupsDrops.filter((item) => item.type === "pickup");
-    if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
-    const pickupDate = pickups[0].dateRange.from;
-    // Use local date components to avoid timezone drift
-    const pickupDateStr = `${pickupDate.getFullYear()}-${String(pickupDate.getMonth() + 1).padStart(2, "0")}-${String(pickupDate.getDate()).padStart(2, "0")}`;
 
-    // Fetch a broader candidate set: any order whose broker_load_number contains the
-    // normalized input's characters. We then compare normalized values client-side so
-    // that " " and "#" differences are ignored.
     const { data: existingOrders, error } = await supabase
       .from("orders")
       .select("id, internal_load_number, broker_load_number, pickup_datetime, status")
@@ -1471,14 +1463,10 @@ const NewOrder = () => {
     }
     if (!existingOrders || existingOrders.length === 0) return [];
 
-    // Filter orders: normalized load number matches AND same pickup date (local)
-    const duplicates = existingOrders.filter((order) => {
-      if (!order.pickup_datetime) return false;
-      if (normalizeLoadNumber(order.broker_load_number) !== normalizedInput) return false;
-      const d = new Date(order.pickup_datetime);
-      const orderPickupDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      return orderPickupDate === pickupDateStr;
-    });
+    // Match purely by normalized broker load number
+    const duplicates = existingOrders.filter(
+      (order) => normalizeLoadNumber(order.broker_load_number) === normalizedInput
+    );
     return duplicates;
   };
   const validatePickupDropData = () => {
