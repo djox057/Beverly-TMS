@@ -159,12 +159,55 @@ const EditOrder = () => {
   const [wrongAddressFeeDriver, setWrongAddressFeeDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
-  const [otherCharges, setOtherCharges] = useState("");
-  const [otherChargesDriver, setOtherChargesDriver] = useState("");
-  const [otherChargesReason, setOtherChargesReason] = useState("");
-  const [otherAdditionals, setOtherAdditionals] = useState("");
-  const [otherAdditionalsDriver, setOtherAdditionalsDriver] = useState("");
-  const [otherAdditionalsReason, setOtherAdditionalsReason] = useState("");
+  // Multi-entry: each item has its own amount, driverAmount, and reason.
+  // Derived totals + first reason are computed below for backward compatibility.
+  const [otherChargesItems, setOtherChargesItems] = useState<
+    { amount: number; driverAmount: number; reason: string }[]
+  >([]);
+  const [otherAdditionalsItems, setOtherAdditionalsItems] = useState<
+    { amount: number; driverAmount: number; reason: string }[]
+  >([]);
+
+  // Derived legacy values (sums + combined reasons)
+  const otherChargesTotal = useMemo(
+    () => otherChargesItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    [otherChargesItems],
+  );
+  const otherChargesDriverTotal = useMemo(
+    () => otherChargesItems.reduce((s, i) => s + (Number(i.driverAmount) || 0), 0),
+    [otherChargesItems],
+  );
+  const otherChargesReason = useMemo(
+    () =>
+      otherChargesItems
+        .map((i) => (i.reason || "").trim())
+        .filter(Boolean)
+        .join("; "),
+    [otherChargesItems],
+  );
+  const otherAdditionalsTotal = useMemo(
+    () => otherAdditionalsItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    [otherAdditionalsItems],
+  );
+  const otherAdditionalsDriverTotal = useMemo(
+    () => otherAdditionalsItems.reduce((s, i) => s + (Number(i.driverAmount) || 0), 0),
+    [otherAdditionalsItems],
+  );
+  const otherAdditionalsReason = useMemo(
+    () =>
+      otherAdditionalsItems
+        .map((i) => (i.reason || "").trim())
+        .filter(Boolean)
+        .join("; "),
+    [otherAdditionalsItems],
+  );
+
+  // Legacy string aliases used by calculations / save payload.
+  const otherCharges = otherChargesTotal ? String(otherChargesTotal) : "";
+  const otherChargesDriver = otherChargesDriverTotal ? String(otherChargesDriverTotal) : "";
+  const otherAdditionals = otherAdditionalsTotal ? String(otherAdditionalsTotal) : "";
+  const otherAdditionalsDriver = otherAdditionalsDriverTotal ? String(otherAdditionalsDriverTotal) : "";
+
   const [additionalMiles, setAdditionalMiles] = useState("");
   const [escortFee, setEscortFee] = useState("");
   const [escortFeeBrokerPaid, setEscortFeeBrokerPaid] = useState(false);
