@@ -36,12 +36,25 @@ const ADDITIONAL_TYPES = [
 
 type AdditionalType = typeof ADDITIONAL_TYPES[number]["value"];
 
+// Types that allow multiple entries (one per reason)
+const MULTI_ENTRY_TYPES: AdditionalType[] = ["other_charges", "other_additionals"];
+
+export interface OtherItem {
+  amount: number;
+  driverAmount: number;
+  reason: string;
+}
+
 export interface AdditionalItem {
+  // Stable id used as React key. For single-value types it's the type slug,
+  // for multi-entry types it's `${type}-${index}`.
   id: string;
   type: AdditionalType;
+  // For multi-entry types, the index inside the items array. Undefined otherwise.
+  index?: number;
   companyAmount: string;
   driverAmount: string;
-  isEditing?: boolean;
+  reason?: string;
 }
 
 export interface OrderAdditionalsManagerRef {
@@ -82,18 +95,11 @@ interface OrderAdditionalsManagerProps {
   setTonu: (value: string) => void;
   tonuDriver: string;
   setTonuDriver: (value: string) => void;
-  otherCharges: string;
-  setOtherCharges: (value: string) => void;
-  otherChargesDriver: string;
-  setOtherChargesDriver: (value: string) => void;
-  otherChargesReason: string;
-  setOtherChargesReason: (value: string) => void;
-  otherAdditionals: string;
-  setOtherAdditionals: (value: string) => void;
-  otherAdditionalsDriver: string;
-  setOtherAdditionalsDriver: (value: string) => void;
-  otherAdditionalsReason: string;
-  setOtherAdditionalsReason: (value: string) => void;
+  // Multi-entry: arrays of items each with its own reason
+  otherChargesItems: OtherItem[];
+  setOtherChargesItems: (items: OtherItem[]) => void;
+  otherAdditionalsItems: OtherItem[];
+  setOtherAdditionalsItems: (items: OtherItem[]) => void;
   // Special handlers for TONU
   onTonuChange?: (value: string) => void;
   isLocked: boolean;
@@ -128,18 +134,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   setTonu,
   tonuDriver,
   setTonuDriver,
-  otherCharges,
-  setOtherCharges,
-  otherChargesDriver,
-  setOtherChargesDriver,
-  otherChargesReason,
-  setOtherChargesReason,
-  otherAdditionals,
-  setOtherAdditionals,
-  otherAdditionalsDriver,
-  setOtherAdditionalsDriver,
-  otherAdditionalsReason,
-  setOtherAdditionalsReason,
+  otherChargesItems,
+  setOtherChargesItems,
+  otherAdditionalsItems,
+  setOtherAdditionalsItems,
   onTonuChange,
   isLocked,
 }, ref) => {
@@ -148,15 +146,15 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
   const [newDriverAmount, setNewDriverAmount] = useState("");
   const [newReason, setNewReason] = useState("");
-  
-  // Track which items are in edit mode
+
+  // Track which item is in edit mode (use AdditionalItem.id as key)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCompanyAmount, setEditCompanyAmount] = useState("");
   const [editDriverAmount, setEditDriverAmount] = useState("");
   const [editReason, setEditReason] = useState("");
 
-  // Helper to get value and setter for each type
-  const getTypeHandlers = (type: AdditionalType) => {
+  // Helper to get value and setter for single-value types only
+  const getSingleTypeHandlers = (type: AdditionalType) => {
     switch (type) {
       case "detention":
         return { company: detention, setCompany: setDetention, driver: detentionDriver, setDriver: setDetentionDriver };
@@ -173,16 +171,12 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
       case "wrong_address_fee":
         return { company: wrongAddressFee, setCompany: setWrongAddressFee, driver: wrongAddressFeeDriver, setDriver: setWrongAddressFeeDriver };
       case "tonu":
-        return { 
-          company: tonu, 
-          setCompany: onTonuChange || setTonu, 
-          driver: tonuDriver, 
-          setDriver: setTonuDriver 
+        return {
+          company: tonu,
+          setCompany: onTonuChange || setTonu,
+          driver: tonuDriver,
+          setDriver: setTonuDriver,
         };
-      case "other_charges":
-        return { company: otherCharges, setCompany: setOtherCharges, driver: otherChargesDriver, setDriver: setOtherChargesDriver };
-      case "other_additionals":
-        return { company: otherAdditionals, setCompany: setOtherAdditionals, driver: otherAdditionalsDriver, setDriver: setOtherAdditionalsDriver };
       default:
         return { company: "", setCompany: () => {}, driver: "", setDriver: () => {} };
     }
@@ -191,48 +185,119 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   // Build list of active additionals from current state
   const activeAdditionals = useMemo(() => {
     const items: AdditionalItem[] = [];
-    
+
     ADDITIONAL_TYPES.forEach((typeInfo) => {
-      const handlers = getTypeHandlers(typeInfo.value);
-      const companyVal = parseFloat(handlers.company) || 0;
-      const driverVal = parseFloat(handlers.driver) || 0;
-      
-      if (companyVal > 0 || driverVal > 0) {
-        items.push({
-          id: typeInfo.value,
-          type: typeInfo.value,
-          companyAmount: handlers.company,
-          driverAmount: handlers.driver,
+      if (MULTI_ENTRY_TYPES.includes(typeInfo.value)) {
+        const list = typeInfo.value === "other_charges" ? otherChargesItems : otherAdditionalsItems;
+        (list || []).forEach((it, idx) => {
+          if ((it.amount || 0) > 0 || (it.driverAmount || 0) > 0 || (it.reason || "").trim()) {
+            items.push({
+              id: `${typeInfo.value}-${idx}`,
+              type: typeInfo.value,
+              index: idx,
+              companyAmount: String(it.amount ?? ""),
+              driverAmount: String(it.driverAmount ?? ""),
+              reason: it.reason || "",
+            });
+          }
         });
+      } else {
+        const handlers = getSingleTypeHandlers(typeInfo.value);
+        const companyVal = parseFloat(handlers.company) || 0;
+        const driverVal = parseFloat(handlers.driver) || 0;
+
+        if (companyVal > 0 || driverVal > 0) {
+          items.push({
+            id: typeInfo.value,
+            type: typeInfo.value,
+            companyAmount: handlers.company,
+            driverAmount: handlers.driver,
+          });
+        }
       }
     });
-    
-    return items;
-  }, [detention, detentionDriver, layover, layoverDriver, extraStop, lumper, lateFee, lateFeeDriver, noTrackingFee, noTrackingFeeDriver, wrongAddressFee, wrongAddressFeeDriver, tonu, tonuDriver, otherCharges, otherChargesDriver, otherAdditionals, otherAdditionalsDriver]);
 
-  // Get types that are already added (for filtering dropdown)
-  const usedTypes = useMemo(() => {
-    return activeAdditionals.map(a => a.type);
+    return items;
+  }, [
+    detention, detentionDriver, layover, layoverDriver, extraStop, lumper,
+    lateFee, lateFeeDriver, noTrackingFee, noTrackingFeeDriver,
+    wrongAddressFee, wrongAddressFeeDriver, tonu, tonuDriver,
+    otherChargesItems, otherAdditionalsItems,
+  ]);
+
+  // Get types that are already added (for filtering dropdown). Multi-entry
+  // types are always available so users can add more.
+  const usedSingleTypes = useMemo(() => {
+    return activeAdditionals
+      .filter((a) => !MULTI_ENTRY_TYPES.includes(a.type))
+      .map((a) => a.type);
   }, [activeAdditionals]);
 
-  // Available types for adding (not already used)
+  // Available types for adding
   const availableTypes = useMemo(() => {
-    return ADDITIONAL_TYPES.filter(t => !usedTypes.includes(t.value));
-  }, [usedTypes]);
+    return ADDITIONAL_TYPES.filter(
+      (t) => MULTI_ENTRY_TYPES.includes(t.value) || !usedSingleTypes.includes(t.value),
+    );
+  }, [usedSingleTypes]);
+
+  const handleAddAdditional = (): boolean => {
+    if (!selectedType || isLocked) return false;
+
+    const requiresReason = MULTI_ENTRY_TYPES.includes(selectedType);
+    if (requiresReason && !newReason.trim()) {
+      return false;
+    }
+
+    if (!newCompanyAmount && !newDriverAmount) return false;
+
+    if (selectedType === "other_charges") {
+      const next = [
+        ...(otherChargesItems || []),
+        {
+          amount: parseFloat(newCompanyAmount) || 0,
+          driverAmount: parseFloat(newDriverAmount) || 0,
+          reason: newReason.trim(),
+        },
+      ];
+      setOtherChargesItems(next);
+    } else if (selectedType === "other_additionals") {
+      const next = [
+        ...(otherAdditionalsItems || []),
+        {
+          amount: parseFloat(newCompanyAmount) || 0,
+          driverAmount: parseFloat(newDriverAmount) || 0,
+          reason: newReason.trim(),
+        },
+      ];
+      setOtherAdditionalsItems(next);
+    } else {
+      const handlers = getSingleTypeHandlers(selectedType);
+      handlers.setCompany(newCompanyAmount || "0");
+      if (ADDITIONAL_TYPES.find((t) => t.value === selectedType)?.hasDriver) {
+        handlers.setDriver(newDriverAmount || "0");
+      }
+    }
+
+    // Reset form
+    setSelectedType("");
+    setNewCompanyAmount("");
+    setNewDriverAmount("");
+    setNewReason("");
+    setTypeOpen(false);
+
+    return true;
+  };
 
   // Expose commitPendingAdditional to parent via ref
   useImperativeHandle(ref, () => ({
     commitPendingAdditional: () => {
-      // Mirror the Add button behavior: do nothing if not enough info.
       if (!selectedType) return false;
       if (!newCompanyAmount && !newDriverAmount) return false;
-      if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
+      if (MULTI_ENTRY_TYPES.includes(selectedType) && !newReason.trim()) {
         return false;
       }
 
       let didAdd = false;
-      // Force React to apply the parent state updates immediately so the submit handler
-      // can read the new values.
       flushSync(() => {
         didAdd = handleAddAdditional();
       });
@@ -246,50 +311,21 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     }
   };
 
-  const handleAddAdditional = (): boolean => {
-    if (!selectedType || isLocked) return false;
-    
-    // Require reason for other_charges and other_additionals
-    if ((selectedType === "other_charges" || selectedType === "other_additionals") && !newReason.trim()) {
-      return false;
-    }
-    
-    const handlers = getTypeHandlers(selectedType);
-    handlers.setCompany(newCompanyAmount || "0");
-    if (ADDITIONAL_TYPES.find(t => t.value === selectedType)?.hasDriver) {
-      handlers.setDriver(newDriverAmount || "0");
-    }
-    
-    // Set reason for other charges and other additionals
-    if (selectedType === "other_charges") {
-      setOtherChargesReason(newReason.trim());
-    } else if (selectedType === "other_additionals") {
-      setOtherAdditionalsReason(newReason.trim());
-    }
-    
-    // Reset form
-    setSelectedType("");
-    setNewCompanyAmount("");
-    setNewDriverAmount("");
-    setNewReason("");
-    setTypeOpen(false);
-
-    return true;
-  };
-
-  const handleRemoveAdditional = (type: AdditionalType) => {
+  const handleRemoveAdditional = (item: AdditionalItem) => {
     if (isLocked) return;
-    
-    const handlers = getTypeHandlers(type);
+
+    if (item.type === "other_charges" && item.index !== undefined) {
+      setOtherChargesItems((otherChargesItems || []).filter((_, i) => i !== item.index));
+      return;
+    }
+    if (item.type === "other_additionals" && item.index !== undefined) {
+      setOtherAdditionalsItems((otherAdditionalsItems || []).filter((_, i) => i !== item.index));
+      return;
+    }
+
+    const handlers = getSingleTypeHandlers(item.type);
     handlers.setCompany("");
     handlers.setDriver("");
-    
-    // Clear reason for other charges and other additionals
-    if (type === "other_charges") {
-      setOtherChargesReason("");
-    } else if (type === "other_additionals") {
-      setOtherAdditionalsReason("");
-    }
   };
 
   const handleStartEdit = (item: AdditionalItem) => {
@@ -297,35 +333,45 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     setEditingId(item.id);
     setEditCompanyAmount(item.companyAmount);
     setEditDriverAmount(item.driverAmount);
-    // Set current reason for other charges/additionals
-    if (item.type === "other_charges") {
-      setEditReason(otherChargesReason);
-    } else if (item.type === "other_additionals") {
-      setEditReason(otherAdditionalsReason);
-    } else {
-      setEditReason("");
-    }
+    setEditReason(item.reason || "");
   };
 
-  const handleSaveEdit = (type: AdditionalType) => {
-    // Require reason for other_charges and other_additionals
-    if ((type === "other_charges" || type === "other_additionals") && !editReason.trim()) {
+  const handleSaveEdit = (item: AdditionalItem) => {
+    const requiresReason = MULTI_ENTRY_TYPES.includes(item.type);
+    if (requiresReason && !editReason.trim()) {
       return;
     }
-    
-    const handlers = getTypeHandlers(type);
-    handlers.setCompany(editCompanyAmount || "0");
-    if (ADDITIONAL_TYPES.find(t => t.value === type)?.hasDriver) {
-      handlers.setDriver(editDriverAmount || "0");
+
+    if (item.type === "other_charges" && item.index !== undefined) {
+      const next = (otherChargesItems || []).map((it, i) =>
+        i === item.index
+          ? {
+              amount: parseFloat(editCompanyAmount) || 0,
+              driverAmount: parseFloat(editDriverAmount) || 0,
+              reason: editReason.trim(),
+            }
+          : it,
+      );
+      setOtherChargesItems(next);
+    } else if (item.type === "other_additionals" && item.index !== undefined) {
+      const next = (otherAdditionalsItems || []).map((it, i) =>
+        i === item.index
+          ? {
+              amount: parseFloat(editCompanyAmount) || 0,
+              driverAmount: parseFloat(editDriverAmount) || 0,
+              reason: editReason.trim(),
+            }
+          : it,
+      );
+      setOtherAdditionalsItems(next);
+    } else {
+      const handlers = getSingleTypeHandlers(item.type);
+      handlers.setCompany(editCompanyAmount || "0");
+      if (ADDITIONAL_TYPES.find((t) => t.value === item.type)?.hasDriver) {
+        handlers.setDriver(editDriverAmount || "0");
+      }
     }
-    
-    // Update reason for other charges and other additionals
-    if (type === "other_charges") {
-      setOtherChargesReason(editReason.trim());
-    } else if (type === "other_additionals") {
-      setOtherAdditionalsReason(editReason.trim());
-    }
-    
+
     setEditingId(null);
     setEditCompanyAmount("");
     setEditDriverAmount("");
@@ -339,28 +385,26 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     setEditReason("");
   };
 
-  const getTypeLabel = (type: AdditionalType, useReason: boolean = false) => {
-    // For other_charges and other_additionals, show the reason if available
-    if (useReason) {
-      if (type === "other_charges" && otherChargesReason.trim()) {
-        return otherChargesReason.trim();
-      }
-      if (type === "other_additionals" && otherAdditionalsReason.trim()) {
-        return otherAdditionalsReason.trim();
-      }
-    }
-    return ADDITIONAL_TYPES.find(t => t.value === type)?.label || type;
+  const getTypeLabel = (type: AdditionalType) => {
+    return ADDITIONAL_TYPES.find((t) => t.value === type)?.label || type;
   };
-  
+
+  const getDisplayLabel = (item: AdditionalItem) => {
+    if (MULTI_ENTRY_TYPES.includes(item.type) && item.reason?.trim()) {
+      return item.reason.trim();
+    }
+    return getTypeLabel(item.type);
+  };
+
   const typeRequiresReason = (type: AdditionalType) => {
-    return type === "other_charges" || type === "other_additionals";
+    return MULTI_ENTRY_TYPES.includes(type);
   };
 
   const typeHasDriver = (type: AdditionalType) => {
-    return ADDITIONAL_TYPES.find(t => t.value === type)?.hasDriver ?? false;
+    return ADDITIONAL_TYPES.find((t) => t.value === type)?.hasDriver ?? false;
   };
 
-  const selectedTypeInfo = ADDITIONAL_TYPES.find(t => t.value === selectedType);
+  const selectedTypeInfo = ADDITIONAL_TYPES.find((t) => t.value === selectedType);
 
   return (
     <div className="space-y-4">
@@ -377,9 +421,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   aria-expanded={typeOpen}
                   className="w-full justify-between h-9"
                 >
-                  {selectedType
-                    ? getTypeLabel(selectedType)
-                    : "Select type..."}
+                  {selectedType ? getTypeLabel(selectedType) : "Select type..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -401,7 +443,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedType === type.value ? "opacity-100" : "opacity-0"
+                              selectedType === type.value ? "opacity-100" : "opacity-0",
                             )}
                           />
                           {type.label}
@@ -448,7 +490,9 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
           {selectedType && typeRequiresReason(selectedType) && (
             <div className="space-y-1.5 flex-1 min-w-[150px]">
-              <Label className="text-xs">Reason <span className="text-destructive">*</span></Label>
+              <Label className="text-xs">
+                Reason <span className="text-destructive">*</span>
+              </Label>
               <Input
                 type="text"
                 placeholder="Enter reason..."
@@ -485,7 +529,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                 // Edit mode
                 <>
                   <Badge variant="secondary" className="shrink-0">
-                    {typeRequiresReason(item.type) ? (item.type === "other_charges" ? "Other Charges" : "Other Additionals") : getTypeLabel(item.type)}
+                    {getTypeLabel(item.type)}
                   </Badge>
                   <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <div className="flex items-center gap-1">
@@ -536,7 +580,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleSaveEdit(item.type)}
+                      onClick={() => handleSaveEdit(item)}
                       disabled={typeRequiresReason(item.type) && !editReason.trim()}
                       className="h-8 px-2 text-green-600 hover:text-green-700"
                     >
@@ -557,7 +601,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                 // View mode
                 <>
                   <Badge variant="secondary" className="shrink-0">
-                    {getTypeLabel(item.type, true)}
+                    {getDisplayLabel(item)}
                   </Badge>
                   <div className="flex items-center gap-4 flex-1 text-sm">
                     <span>
@@ -586,7 +630,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRemoveAdditional(item.type)}
+                        onClick={() => handleRemoveAdditional(item)}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
