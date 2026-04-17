@@ -2715,9 +2715,11 @@ export type Database = {
           original_wrong_address_fee_driver: number | null
           other_additionals: number | null
           other_additionals_driver: number | null
+          other_additionals_items: Json | null
           other_additionals_reason: string | null
           other_charges: number | null
           other_charges_driver: number | null
+          other_charges_items: Json | null
           other_charges_reason: string | null
           paid: boolean | null
           partial_booked_by_companies: Json | null
@@ -2826,9 +2828,11 @@ export type Database = {
           original_wrong_address_fee_driver?: number | null
           other_additionals?: number | null
           other_additionals_driver?: number | null
+          other_additionals_items?: Json | null
           other_additionals_reason?: string | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          other_charges_items?: Json | null
           other_charges_reason?: string | null
           paid?: boolean | null
           partial_booked_by_companies?: Json | null
@@ -2937,9 +2941,11 @@ export type Database = {
           original_wrong_address_fee_driver?: number | null
           other_additionals?: number | null
           other_additionals_driver?: number | null
+          other_additionals_items?: Json | null
           other_additionals_reason?: string | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          other_charges_items?: Json | null
           other_charges_reason?: string | null
           paid?: boolean | null
           partial_booked_by_companies?: Json | null
