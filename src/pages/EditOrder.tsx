@@ -678,18 +678,53 @@ const EditOrder = () => {
         setWrongAddressFeeDriver(
           (orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "",
         );
-        setOtherCharges((orderData as any).other_charges > 0 ? (orderData as any).other_charges.toString() : "");
-        setOtherChargesDriver(
-          (orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "",
-        );
-        setOtherChargesReason((orderData as any).other_charges_reason || "");
-        setOtherAdditionals(
-          (orderData as any).other_additionals > 0 ? (orderData as any).other_additionals.toString() : "",
-        );
-        setOtherAdditionalsDriver(
-          (orderData as any).other_additionals_driver > 0 ? (orderData as any).other_additionals_driver.toString() : "",
-        );
-        setOtherAdditionalsReason((orderData as any).other_additionals_reason || "");
+        // Load multi-entry items, with backward-compat fallback to legacy single-value fields
+        {
+          const itemsRaw = (orderData as any).other_charges_items;
+          if (Array.isArray(itemsRaw) && itemsRaw.length > 0) {
+            setOtherChargesItems(
+              itemsRaw.map((it: any) => ({
+                amount: Number(it?.amount) || 0,
+                driverAmount: Number(it?.driverAmount ?? it?.driver_amount) || 0,
+                reason: String(it?.reason || ""),
+              })),
+            );
+          } else {
+            const legacyAmount = Number((orderData as any).other_charges) || 0;
+            const legacyDriver = Number((orderData as any).other_charges_driver) || 0;
+            const legacyReason = String((orderData as any).other_charges_reason || "");
+            if (legacyAmount > 0 || legacyDriver > 0 || legacyReason) {
+              setOtherChargesItems([
+                { amount: legacyAmount, driverAmount: legacyDriver, reason: legacyReason },
+              ]);
+            } else {
+              setOtherChargesItems([]);
+            }
+          }
+        }
+        {
+          const itemsRaw = (orderData as any).other_additionals_items;
+          if (Array.isArray(itemsRaw) && itemsRaw.length > 0) {
+            setOtherAdditionalsItems(
+              itemsRaw.map((it: any) => ({
+                amount: Number(it?.amount) || 0,
+                driverAmount: Number(it?.driverAmount ?? it?.driver_amount) || 0,
+                reason: String(it?.reason || ""),
+              })),
+            );
+          } else {
+            const legacyAmount = Number((orderData as any).other_additionals) || 0;
+            const legacyDriver = Number((orderData as any).other_additionals_driver) || 0;
+            const legacyReason = String((orderData as any).other_additionals_reason || "");
+            if (legacyAmount > 0 || legacyDriver > 0 || legacyReason) {
+              setOtherAdditionalsItems([
+                { amount: legacyAmount, driverAmount: legacyDriver, reason: legacyReason },
+              ]);
+            } else {
+              setOtherAdditionalsItems([]);
+            }
+          }
+        }
         setAdditionalMiles(
           (orderData as any).additional_miles > 0 ? (orderData as any).additional_miles.toString() : "",
         );
@@ -3580,18 +3615,10 @@ const EditOrder = () => {
                   setTonu={setTonu}
                   tonuDriver={tonuDriver}
                   setTonuDriver={setTonuDriver}
-                  otherCharges={otherCharges}
-                  setOtherCharges={setOtherCharges}
-                  otherChargesDriver={otherChargesDriver}
-                  setOtherChargesDriver={setOtherChargesDriver}
-                  otherChargesReason={otherChargesReason}
-                  setOtherChargesReason={setOtherChargesReason}
-                  otherAdditionals={otherAdditionals}
-                  setOtherAdditionals={setOtherAdditionals}
-                  otherAdditionalsDriver={otherAdditionalsDriver}
-                  setOtherAdditionalsDriver={setOtherAdditionalsDriver}
-                  otherAdditionalsReason={otherAdditionalsReason}
-                  setOtherAdditionalsReason={setOtherAdditionalsReason}
+                  otherChargesItems={otherChargesItems}
+                  setOtherChargesItems={setOtherChargesItems}
+                  otherAdditionalsItems={otherAdditionalsItems}
+                  setOtherAdditionalsItems={setOtherAdditionalsItems}
                   onTonuChange={(value) => {
                     if (value === "" || parseFloat(value) >= 0) {
                       setTonu(value);
