@@ -77,6 +77,7 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
 } from "@/hooks/useReportsDateWindowAdapter";
+import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
@@ -6464,14 +6465,18 @@ const Reports = () => {
                           setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                           setDocSignedUrls({});
                         } else if (open && docFiles.length >= 1) {
-                          // Pre-fetch signed URLs for all files
+                          // Pre-fetch signed URLs for all files (self-healing on stale paths)
                           const urls: Record<string, string> = {};
                           await Promise.all(
                             docFiles.map(async (file) => {
-                              const { data } = await supabase.storage
-                                .from("order-files")
-                                .createSignedUrl(file.file_path, 3600);
-                              if (data?.signedUrl) urls[file.id] = data.signedUrl;
+                              const { signedUrl } = await getOrderFileSignedUrl({
+                                id: file.id,
+                                order_id: zoomedLoad?.orderId,
+                                file_category: file.file_category,
+                                file_name: file.file_name,
+                                file_path: file.file_path,
+                              });
+                              if (signedUrl) urls[file.id] = signedUrl;
                             }),
                           );
                           setDocSignedUrls(urls);
@@ -6528,10 +6533,14 @@ const Reports = () => {
                                       e.preventDefault();
                                       let url = signedUrl;
                                       if (!url) {
-                                        const { data, error } = await supabase.storage
-                                          .from("order-files")
-                                          .createSignedUrl(file.file_path, 3600);
-                                        if (error) {
+                                        const { signedUrl: fresh } = await getOrderFileSignedUrl({
+                                          id: file.id,
+                                          order_id: zoomedLoad?.orderId,
+                                          file_category: file.file_category,
+                                          file_name: file.file_name,
+                                          file_path: file.file_path,
+                                        });
+                                        if (!fresh) {
                                           toast({
                                             title: "Error",
                                             description: "Failed to get file URL",
@@ -6539,7 +6548,7 @@ const Reports = () => {
                                           });
                                           return;
                                         }
-                                        url = data.signedUrl;
+                                        url = fresh;
                                       }
                                       window.open(url, "_blank");
                                       setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
@@ -6557,10 +6566,14 @@ const Reports = () => {
                                       e.preventDefault();
                                       let url = signedUrl;
                                       if (!url) {
-                                        const { data, error } = await supabase.storage
-                                          .from("order-files")
-                                          .createSignedUrl(file.file_path, 3600);
-                                        if (error) {
+                                        const { signedUrl: fresh } = await getOrderFileSignedUrl({
+                                          id: file.id,
+                                          order_id: zoomedLoad?.orderId,
+                                          file_category: file.file_category,
+                                          file_name: file.file_name,
+                                          file_path: file.file_path,
+                                        });
+                                        if (!fresh) {
                                           toast({
                                             title: "Error",
                                             description: "Failed to get file URL",
@@ -6568,7 +6581,7 @@ const Reports = () => {
                                           });
                                           return;
                                         }
-                                        url = data.signedUrl;
+                                        url = fresh;
                                       }
                                       // Fetch as blob to force real download
                                       try {
