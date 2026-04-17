@@ -57,6 +57,7 @@ import { useTrailers } from "@/hooks/useTrailers";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
+import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
@@ -4431,46 +4432,41 @@ const EditOrder = () => {
                           size="icon"
                           className="h-8 w-8"
                           onClick={async () => {
-                            const { data, error } = await supabase.storage
-                              .from("order-files")
-                              .createSignedUrl(file.file_path, 3600);
+                            const { signedUrl, error } = await getOrderFileSignedUrl({
+                              id: file.id,
+                              order_id: (file as any).order_id,
+                              file_category: file.file_category,
+                              file_name: file.file_name,
+                              file_path: file.file_path,
+                            });
 
-                            if (error) {
+                            if (!signedUrl) {
                               toast({
                                 title: "Error",
-                                description: "Failed to load file: " + error.message,
+                                description: "Failed to load file" + (error?.message ? ": " + error.message : ""),
                                 variant: "destructive",
                               });
                               return;
                             }
-                            const signedUrl = data?.signedUrl || (data as any)?.signedURL;
-                            if (signedUrl) {
-                              try {
-                                const response = await fetch(signedUrl);
-                                if (!response.ok) throw new Error("Failed to fetch file");
-                                const blob = await response.blob();
-                                const blobUrl = URL.createObjectURL(blob);
-                                const newWindow = window.open(blobUrl, "_blank");
-                                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                                if (!newWindow) {
-                                  toast({
-                                    title: "Popup Blocked",
-                                    description: "Please allow popups for this site",
-                                    variant: "destructive",
-                                  });
-                                }
-                              } catch (err) {
-                                console.error("Error opening file:", err);
+                            try {
+                              const response = await fetch(signedUrl);
+                              if (!response.ok) throw new Error("Failed to fetch file");
+                              const blob = await response.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              const newWindow = window.open(blobUrl, "_blank");
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                              if (!newWindow) {
                                 toast({
-                                  title: "Error",
-                                  description: "Failed to open file",
+                                  title: "Popup Blocked",
+                                  description: "Please allow popups for this site",
                                   variant: "destructive",
                                 });
                               }
-                            } else {
+                            } catch (err) {
+                              console.error("Error opening file:", err);
                               toast({
                                 title: "Error",
-                                description: "No signed URL received from server",
+                                description: "Failed to open file",
                                 variant: "destructive",
                               });
                             }
@@ -4504,40 +4500,42 @@ const EditOrder = () => {
                           size="icon"
                           className="h-8 w-8"
                           onClick={async () => {
-                            const { data, error } = await supabase.storage
-                              .from("order-files")
-                              .createSignedUrl(file.file_path, 3600);
+                            const { signedUrl, error } = await getOrderFileSignedUrl({
+                              id: file.id,
+                              order_id: (file as any).order_id,
+                              file_category: file.file_category,
+                              file_name: file.file_name,
+                              file_path: file.file_path,
+                            });
 
-                            if (error) {
+                            if (!signedUrl) {
                               toast({
                                 title: "Error",
-                                description: "Failed to load file: " + error.message,
+                                description: "Failed to load file" + (error?.message ? ": " + error.message : ""),
                                 variant: "destructive",
                               });
                               return;
                             }
-                            const signedUrl = data?.signedUrl || (data as any)?.signedURL;
-                            if (signedUrl) {
-                              try {
-                                const response = await fetch(signedUrl);
-                                if (!response.ok) throw new Error("Failed to fetch file");
-                                const blob = await response.blob();
-                                const url = window.URL.createObjectURL(blob);
-                                const link = document.createElement("a");
-                                link.href = url;
-                                link.download = file.file_name;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                window.URL.revokeObjectURL(url);
-                              } catch (err) {
-                                console.error("Error downloading file:", err);
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to download file",
-                                  variant: "destructive",
-                                });
-                              }
+                            try {
+                              const response = await fetch(signedUrl);
+                              if (!response.ok) throw new Error("Failed to fetch file");
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement("a");
+                              link.href = url;
+                              link.download = file.file_name;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                            } catch (err) {
+                              console.error("Error downloading file:", err);
+                              toast({
+                                title: "Error",
+                                description: "Failed to download file",
+                                variant: "destructive",
+                              });
+                            }
                             } else {
                               toast({
                                 title: "Error",
