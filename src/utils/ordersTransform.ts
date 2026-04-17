@@ -203,8 +203,10 @@ export function transformOrders(allOrders: any[]) {
       escortFeeBrokerPaid: order.escort_fee_broker_paid,
       otherCharges: order.other_charges,
       otherChargesReason: (order as any).other_charges_reason,
+      otherChargesItems: (order as any).other_charges_items,
       otherAdditionals: (order as any).other_additionals,
       otherAdditionalsReason: (order as any).other_additionals_reason,
+      otherAdditionalsItems: (order as any).other_additionals_items,
       totalFreightAmount,
       totalFreightAmountNoLumper,
 
@@ -446,8 +448,10 @@ export function reverseTransformOrders(transformedOrders: any[]) {
     escort_fee_broker_paid: order.escortFeeBrokerPaid,
     other_charges: order.otherCharges,
     other_charges_reason: order.otherChargesReason,
+    other_charges_items: (order as any).otherChargesItems,
     other_additionals: order.otherAdditionals,
     other_additionals_reason: order.otherAdditionalsReason,
+    other_additionals_items: (order as any).otherAdditionalsItems,
 
     // Financial fields - driver amounts
     driver_price: order.driverPrice,
