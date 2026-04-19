@@ -43,17 +43,20 @@ serve(async (req) => {
     );
   }
 
-  // Auth: CRON_SECRET header (primary), then fall back to existing checks
+  // Auth: CRON_SECRET header (primary), then anon-key bearer (cron), then fall back to existing checks
   const cronSecret = req.headers.get('x-cron-secret');
   const authHeader = req.headers.get('Authorization');
   const cronSecretEnv = Deno.env.get('CRON_SECRET');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   let authMethod: string | null = null;
 
   if (cronSecretEnv && cronSecret === cronSecretEnv) {
     authMethod = 'cron-secret';
   } else if (cronSecretEnv && authHeader === `Bearer ${cronSecretEnv}`) {
     authMethod = 'cron-secret-bearer';
+  } else if (anonKey && authHeader === `Bearer ${anonKey}`) {
+    authMethod = 'anon-bearer';
   } else if (serviceRoleKey && authHeader?.includes(serviceRoleKey)) {
     authMethod = 'service-role';
   } else if (authHeader?.startsWith('Bearer ')) {
