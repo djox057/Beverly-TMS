@@ -1,54 +1,59 @@
 
 
-## Problem
+## Root cause (confirmed against live DB + logs)
 
-RC files in `/orders` (Reports) popover return HTTP 400 from `createSignedUrl` because the in-memory file cache is stale.
+The cron jobs ARE firing — but the edge functions **never run**. Here's the proof:
 
-**Confirmed via DB inspection of order `1a7c4522…` (8202-BF):**
-- DB `order_files` RC row → `…/RC/doc1750727645.pdf` ✅ (also exists in storage)
-- App is requesting → `…/RC/doc1749789069.pdf` ❌ (does not exist in DB or storage)
+| Check | Result |
+|---|---|
+| `cron.job` (jobs 40–43) | ✅ All 4 active with the new schedules |
+| `cron.job_run_details` for last 24h | ✅ All 5 fires today: `succeeded` (12 UTC, 13 UTC, 14 UTC, 23 UTC, 00 UTC) |
+| `afterhours_cron_log` table | ❌ **0 rows** — function never inserted its "started" row |
+| Edge function logs (`send-afterhours-sms`, `process-afterhours-schedule`) | ❌ **"No logs found"** — handler never executed |
 
-## Why it happens
+**Why:** the cron SQL uses
+```sql
+'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SUPABASE_ANON_KEY' LIMIT 1)
+```
 
-`src/hooks/useReportsDateWindowAdapter.ts` keeps a **module-level Map** (`orderFilesCacheByOrderId` + `orderFilesLoadedOrderIds`) of order_files. When a user replaces an RC in Edit Order, the old RC row is hard-deleted and a new one inserted. Cache invalidation relies on **two** mechanisms:
+Reading `vault.decrypted_secrets` from `pg_cron`'s background worker context is **blocked** (we hit the exact same block ourselves: `blocked_query: query attempted to access vault.decrypted_secrets`). The subquery returns `NULL`, and `'Bearer ' || NULL = NULL`, so the `Authorization` header is missing. The Supabase Edge Functions **gateway rejects the request with 401 before our code runs** — that's why there are zero function logs, zero cron-log rows, and the response gets cleared from `net._http_response` quickly (failed-to-route requests aren't retained the same way).
 
-1. `invalidateOrderFilesCacheForOrder(id)` called in EditOrder before navigating back (works for the editor).
-2. A realtime subscription on `order_files` (works for everyone else).
+Every other cron in this project that actually works (`record-lost-days-daily`, `hos-sync-every-5-min`, `update-truck-distances-cron`, etc.) embeds the **literal anon key as a hardcoded string** in the SQL — not a vault subquery. That's the proven pattern we need to copy.
 
-The realtime subscription is fragile — if it's not yet `SUBSCRIBED`, the tab was backgrounded, the WebSocket dropped, or the user wasn't on Reports when the RC was swapped from another tab/user, the cache keeps the old `file.file_path` forever. RC is the only category that gets fully replaced (delete-all-then-insert), so it's the only one that misbehaves; BOL/POD/ADDITIONAL are additive.
+The `pg_net` 5s timeout (the previous theory) is a real ceiling on other crons, but it isn't what's breaking these — these never even reach the function.
 
-## Plan
+## Fix (one migration, no code changes needed)
 
-Make the open/download flow self-healing instead of relying solely on realtime.
+Replace the 4 cron jobs with the working pattern: literal anon key in the `Authorization` header, literal `CRON_SECRET` in `x-cron-secret`. The anon key is already a public token (it's even in `.env`), and `CRON_SECRET` lives in cron internal config — both are safe to inline in the cron definition.
 
-### 1. Fall back to a fresh DB lookup on signed-URL failure
+```text
+For each of jobs: afterhours-start, afterhours-end, afterhours-end-dst, send-afterhours-sms-daily
 
-In `src/pages/Reports.tsx`, in the doc popover click handlers (3 spots: pre-fetch loop, link click, download button — around lines 6469-6580), wrap `createSignedUrl` so that on error or missing object:
+  cron.unschedule(<name>)
+  cron.schedule(<name>, <existing schedule>, $$
+    SELECT net.http_post(
+      url    := '<existing URL incl ?action=… for start/end>',
+      headers := '{"Content-Type":"application/json",
+                  "Authorization":"Bearer <ANON_KEY_LITERAL>",
+                  "x-cron-secret":"<CRON_SECRET_LITERAL>"}'::jsonb,
+      body   := '{}'::jsonb,
+      timeout_milliseconds := 30000
+    );
+  $$)
+```
 
-- Re-query `order_files` by `file.id` (or by `order_id + file_category` if the row was deleted) directly from Supabase.
-- Update the module-level cache (`invalidateOrderFilesCacheForOrder` + force a refetch) and retry `createSignedUrl` with the fresh `file_path`.
-- If still failing, show the existing toast.
+Schedules and URLs stay exactly as they are now — already DST-safe (dual-hour fires + in-function Chicago-hour self-check).
 
-### 2. Prefer fresh files when opening the RC popover
+The edge function code (already deployed) is untouched: it accepts `x-cron-secret` as the primary auth method, runs work in `EdgeRuntime.waitUntil`, returns 200 immediately, chunks SMS at 30/call with self-invocation, and logs to `afterhours_cron_log` + `afterhours_sms_send_log`.
 
-When the popover for any doc category opens, re-fetch that order's `order_files` from the DB (cheap, single order, indexed) and use the fresh result for both the URL pre-fetch and the rendered list — rather than trusting the cached `zoomedLoad.orderFiles`. Update the cache with the result so the grid stays consistent.
+## Verification after the migration runs
 
-### 3. Apply the same safety net in EditOrder existing-files viewer
+I'll run these to confirm:
+1. `SELECT * FROM afterhours_cron_log ORDER BY started_at DESC LIMIT 10` — should populate on the next 13 UTC / 14 UTC / 23 UTC / 00 UTC fire (a "skipped: wrong-hour" row counts as success).
+2. Edge function logs for `send-afterhours-sms` and `process-afterhours-schedule` — should now show invocations.
+3. After the next 8 AM Chicago fire: `SELECT chicago_date, COUNT(*), SUM(success::int) FROM afterhours_sms_send_log GROUP BY 1` — should equal that day's `afterhours_assignments` count.
 
-`src/pages/EditOrder.tsx` lines 4434 and 4507 also call `createSignedUrl` from local state. They are safer (state is freshly loaded for that order) but can still go stale after another user edits. Add the same "on 400 → re-fetch this file row by id → retry" fallback.
+## Files changed
 
-### 4. Optional hardening (low risk)
-
-In `useReportsDateWindowAdapter.ts`, when the realtime subscription transitions to `SUBSCRIBED` (or reconnects), clear `orderFilesLoadedOrderIds` for the visible window so the next read repopulates from DB. This recovers from missed events after WebSocket drops.
-
-### Files to change
-
-- `src/pages/Reports.tsx` — popover open/click/download handlers for RC/BOL/POD/ADDITIONAL.
-- `src/pages/EditOrder.tsx` — existing-files Eye buttons (lines ~4434 and ~4507).
-- `src/hooks/useReportsDateWindowAdapter.ts` — small helper to refetch a single order's files + reconnect-aware invalidation.
-
-### Out of scope
-
-- No DB migration needed.
-- No change to upload/replace logic; the bug is read-side cache staleness.
+- **New migration**: re-creates the 4 cron jobs with literal-string headers. No edge function or app code changes.
 
