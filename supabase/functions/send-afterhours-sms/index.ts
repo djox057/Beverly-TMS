@@ -47,10 +47,14 @@ serve(async (req) => {
   const authHeader = req.headers.get('Authorization');
   let authMethod: string | null = null;
 
+  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
   if (CRON_SECRET && cronSecretHeader === CRON_SECRET) {
     authMethod = 'cron-secret';
   } else if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
     authMethod = 'cron-secret-bearer';
+  } else if (ANON_KEY && authHeader === `Bearer ${ANON_KEY}`) {
+    authMethod = 'anon-bearer';
   } else if (SERVICE_ROLE_KEY && authHeader?.includes(SERVICE_ROLE_KEY)) {
     authMethod = 'service-role';
   } else if (authHeader?.startsWith('Bearer ')) {
