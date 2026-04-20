@@ -399,8 +399,9 @@ const Reports = () => {
       // Otherwise check for drug test styling
       if (!truck.driverId) return {};
       const drugTest = getDrugTestForDriver(truck.driverId);
-      const isNew = isNewDriver(truck);
-      if (!isNew) return {};
+      // Gate by ALL-TIME load count (< 2), not the visible date window
+      const isEligibleForDrugTestUI = getDriverAllTimeLoadCount(truck.driverId) < 2;
+      if (!isEligibleForDrugTestUI) return {};
       if (drugTest?.result === "positive") {
         return {
           backgroundColor: "hsl(0, 72%, 53%)",
@@ -414,7 +415,7 @@ const Reports = () => {
       }
       return {};
     },
-    [hasGameOverDays, getDrugTestForDriver, isNewDriver],
+    [hasGameOverDays, getDrugTestForDriver, getDriverAllTimeLoadCount],
   );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
