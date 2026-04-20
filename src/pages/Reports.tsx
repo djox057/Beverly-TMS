@@ -100,7 +100,6 @@ import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useDriverAllTimeLoadCounts } from "@/hooks/useDriverAllTimeLoadCounts";
 import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
@@ -359,7 +358,6 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
-  const { getDriverLoadCount } = useDriverAllTimeLoadCounts();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
@@ -399,8 +397,7 @@ const Reports = () => {
       // Otherwise check for drug test styling
       if (!truck.driverId) return {};
       const drugTest = getDrugTestForDriver(truck.driverId);
-      // Drug-test "new" check: based on lifetime non-canceled load count, not the visible window
-      const isNew = getDriverLoadCount(truck.driverId) < 2;
+      const isNew = isNewDriver(truck);
       if (!isNew) return {};
       if (drugTest?.result === "positive") {
         return {
@@ -415,7 +412,7 @@ const Reports = () => {
       }
       return {};
     },
-    [hasGameOverDays, getDrugTestForDriver, getDriverLoadCount],
+    [hasGameOverDays, getDrugTestForDriver, isNewDriver],
   );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
@@ -4067,8 +4064,7 @@ const Reports = () => {
                                       truck.cycleMinutes <= 0;
 
                                     // Get driver cell styling (includes drug test and game over)
-                                    // Drug-test "new" check uses lifetime load count, not the visible window
-                                    const isNew = getDriverLoadCount(truck.driverId) < 2;
+                                    const isNew = isNewDriver(truck);
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const driverCellStyle = getDriverCellStyle(truck);
