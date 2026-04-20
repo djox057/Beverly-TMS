@@ -4067,7 +4067,7 @@ const Reports = () => {
                                       truck.cycleMinutes <= 0;
 
                                     // Get driver cell styling (includes drug test and game over)
-                                    const isNew = isNewDriver(truck);
+                                    const isNew = !!truck.driverId && getDriverAllTimeLoadCount(truck.driverId) < 2;
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const driverCellStyle = getDriverCellStyle(truck);
