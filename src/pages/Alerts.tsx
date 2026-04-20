@@ -189,6 +189,9 @@ export default function Alerts() {
   const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
 
+  // Oil change sort state: null = no sort, 'asc' = oldest first, 'desc' = newest first
+  const [oilChangeSort, setOilChangeSort] = useState<"asc" | "desc" | null>(null);
+
   // Build sets for "is assigned" filtering
   const assignedTruckIds = new Set<string>();
   const assignedTrailerIds = new Set<string>();
