@@ -238,7 +238,12 @@ export const generateInvoicePDF = async (
       
       // Header - Use bookedByCompanyName for display, fallback to suffix-derived company
       const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || companyName;
-      const displayCompanyName = order.bookedByCompanyName || derivedCompany;
+      const rawDisplayCompanyName = order.bookedByCompanyName || derivedCompany;
+      // Page 1 header-only override: expand "BF Prime LLC" to full DBA name
+      const displayCompanyName =
+        rawDisplayCompanyName === 'BF Prime LLC'
+          ? 'BF PRIME LLC dba TITAN TRANSPORT GROUP'
+          : rawDisplayCompanyName;
       
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
