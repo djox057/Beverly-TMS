@@ -753,7 +753,36 @@ export default function Alerts() {
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Oil Change {truckColumnFilter === "oil_change" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Oil Change {truckColumnFilter === "oil_change" && "✓"}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOilChangeSort((prev) =>
+                                prev === null ? "asc" : prev === "asc" ? "desc" : null
+                              );
+                              setTrucksPage(1);
+                            }}
+                            className="inline-flex items-center justify-center rounded p-0.5 hover:bg-muted"
+                            aria-label="Sort by oil change date"
+                            title={
+                              oilChangeSort === "asc"
+                                ? "Sorted ascending — click for descending"
+                                : oilChangeSort === "desc"
+                                ? "Sorted descending — click to clear"
+                                : "Click to sort ascending"
+                            }
+                          >
+                            {oilChangeSort === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                            ) : oilChangeSort === "desc" ? (
+                              <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
