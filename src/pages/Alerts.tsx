@@ -308,10 +308,21 @@ export default function Alerts() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination logic for trucks
-  const trucksTotalPages = Math.ceil(filteredTrucks.length / itemsPerPage);
+  const sortedTrucks = oilChangeSort
+    ? [...filteredTrucks].sort((a, b) => {
+        const aDate = a.oil_change_date ? new Date(a.oil_change_date).getTime() : null;
+        const bDate = b.oil_change_date ? new Date(b.oil_change_date).getTime() : null;
+        // Push nulls to the end regardless of direction
+        if (aDate === null && bDate === null) return 0;
+        if (aDate === null) return 1;
+        if (bDate === null) return -1;
+        return oilChangeSort === "asc" ? aDate - bDate : bDate - aDate;
+      })
+    : filteredTrucks;
+  const trucksTotalPages = Math.ceil(sortedTrucks.length / itemsPerPage);
   const trucksStartIndex = (trucksPage - 1) * itemsPerPage;
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
-  const paginatedTrucks = filteredTrucks.slice(trucksStartIndex, trucksEndIndex);
+  const paginatedTrucks = sortedTrucks.slice(trucksStartIndex, trucksEndIndex);
 
   // Pagination logic for trailers
   const trailersTotalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
