@@ -1,70 +1,52 @@
 
 
-## Goal
+# Fix Drug-Test "New Driver" detection — use all-time load count
 
-Execute the write-mode verification steps (9, 10, 11, 12) that plan mode cannot perform. All checks 1–8 already passed against live DB and code.
+## The problem
 
-## What will run
+In Reports, the green/red drug-test cell highlight and the click-to-set-result UI appear for any driver flagged "new". Today "new" is computed from `truck.allOrders`, which is **scoped to the currently viewed Reports date window**. A driver like Leonard Smith — who has many historical loads but only 1 inside the current window — incorrectly shows as a new driver and gets the drug-test treatment.
 
-### Step A — Identify a safe test user
-```sql
-select ur.user_id, p.email, p.full_name, array_agg(ur2.role) as all_roles
-from public.user_roles ur
-join public.profiles p on p.user_id = ur.user_id
-left join public.user_roles ur2 on ur2.user_id = ur.user_id
-where ur.role = 'dispatch'
-group by ur.user_id, p.email, p.full_name
-limit 5;
-```
-You pick the UUID. I won't proceed without it — flipping a real dispatcher's role mid-shift is disruptive.
+## Fix
 
-### Step B — Dry-run flip (check 9)
+Switch the drug-test "is new" check to use **all-time** load count: a driver is "new for drug-test purposes" only if they have **fewer than 2 non-canceled orders ever recorded** (i.e. no loads, or just their very first one).
 
-1. Insert today's schedule row for the chosen test user.
-2. Create `public.flip_afterhours_roles_test(direction text)` — copy of the real function with the hour guard removed (forces `chicago_hour := 6` for promote, `17` for revert in the log entries).
-3. Run `select public.flip_afterhours_roles_test('promote');`
-4. Read `role_flip_log` (last 5 entries) and `user_roles` for the test user — expect one `flipped` entry and role now = `afterhours`.
-5. Run `select public.flip_afterhours_roles_test('revert');` — expect role back to `dispatch` and a second `flipped` entry.
-6. Drop `flip_afterhours_roles_test`.
-7. Delete today's test schedule row.
+The existing `isNewDriver` helper (window-based) keeps its current behavior so the "New Drivers" filter button continues to work as today (that filter button is intentionally about who's new in the visible window).
 
-### Step C — Invariant test (check 10)
+## Changes
 
-1. Insert a second `user_roles` row giving the test user both `dispatch` and `afterhours`.
-2. Re-create `flip_afterhours_roles_test` momentarily.
-3. Run `select public.flip_afterhours_roles_test('promote');`
-4. Verify `role_flip_log` has `action='error'`, message mentions "Invariant violated", and **both** roles still present on the user.
-5. Clean up: drop the extra `afterhours` row, drop the test function, delete the test schedule row.
+### 1. New hook `src/hooks/useDriverAllTimeLoadCounts.ts`
 
-### Step D — Realtime end-to-end smoke test (check 11)
+Returns a `Map<driverId, number>` of total non-canceled orders per driver, plus a helper `getDriverLoadCount(driverId)`.
 
-This is interactive — requires a signed-in browser session. Two options:
+- Single Supabase query against `orders`, grouping by `driver1_id` (and accounting for `driver2_id` so team drivers count both ways), filtering out canceled rows.
+- Uses TanStack Query, cached with key `["driver-all-time-load-counts"]`, `staleTime` 5 min.
+- Lightweight: only `driver1_id, driver2_id` columns selected.
 
-- **You drive it**: keep your own session open, tell me your `auth.uid()`, I'll run `update user_roles set role='afterhours' where user_id='<you>' and role='dispatch'` then revert ~5s later. You watch the sidebar and tell me what you saw.
-- **Skip until 4/26**: trust that checks 1–8 prove the wiring is correct and let the first real cron firing on 2026-04-26 serve as the live smoke test.
+### 2. `src/pages/Reports.tsx`
 
-### Step E — First real firing (check 12, 2026-04-26)
+- Import the new hook, call it once at the top of the component.
+- Add `isNewDriverForDrugTest(truck)` inline helper (or memoized callback): returns `true` when `getDriverLoadCount(truck.driverId) < 2`.
+- Replace the two `isNewDriver(truck)` calls that gate drug-test logic with `isNewDriverForDrugTest(truck)`:
+  - Line ~400 inside `getDriverCellStyle` (controls green/red highlight)
+  - Line ~4067 (`const isNew = …`) which feeds `shouldShowDrugTestUI`
+- Update the corresponding `useCallback` dependency arrays.
 
-No action now. Calendar reminder for 2026-04-26 evening:
-```sql
-select * from public.role_flip_log where chicago_date = '2026-04-26' order by executed_at;
-select * from cron.job_run_details
-  where jobid in (44,45,46,47) and start_time >= '2026-04-26'
-  order by start_time;
-```
-Expect 3 `flipped` rows in the morning (promote) + 3 in the evening (revert), one cron run per direction did work and the off-DST sibling exited at the hour guard.
+### 3. Nothing else changes
 
-## What I need from you before executing
+- `useReportsFilters.ts` `isNewDriver` is kept as-is (still used elsewhere via the New Drivers filter, though that filter actually uses its own inline logic — leaving the helper untouched avoids breakage).
+- No DB schema changes, no new RLS, no migrations.
+- "New Drivers" filter button behavior is unchanged.
+- Drug-test toast / mutation logic unchanged.
 
-1. The test user UUID for steps B and C (or "use the first dispatcher returned by Step A").
-2. Whether you want to do the realtime smoke test (D) now or defer.
-3. Approval to execute the writes — there will be 4 small migrations (insert schedule, create test fn, drop test fn, cleanup), each idempotent and reversible.
+## Result
 
-## Files / DB objects touched
+Leonard Smith (and anyone with 2+ historical loads) will no longer get the drug-test cell coloring or click-to-set dialog, regardless of the date window. Truly brand-new drivers (0 or 1 lifetime load) keep the existing behavior.
 
-- **Temporary**: `public.flip_afterhours_roles_test(text)` — created and dropped within the same session
-- **Temporary rows**: `afterhours_schedule` (1 row, deleted after) and `user_roles` (1 extra row for invariant test, deleted after)
-- **Permanent rows**: `role_flip_log` entries from the test runs — these stay as audit history (they're labeled with `chicago_hour` matching the test direction, easy to identify)
+## Verification
 
-No production code, function, cron job, or RLS policy is modified.
+1. View Reports for a date window where Leonard Smith has 1 load — cell should render normally, no green/red drug-test styling, no click-to-open drug-test dialog.
+2. Create/find a driver with 0 lifetime loads — should still show drug-test UI.
+3. A driver with exactly 1 lifetime load (their first ever) — should still show drug-test UI.
+4. Driver with 2+ lifetime loads — never shows drug-test UI in Reports, regardless of window.
+5. The "New Drivers" filter button at the top of Reports still filters correctly (window-based logic intact).
 
