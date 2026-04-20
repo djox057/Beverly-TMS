@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2 } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -189,6 +189,9 @@ export default function Alerts() {
   const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
 
+  // Oil change sort state: null = no sort, 'asc' = oldest first, 'desc' = newest first
+  const [oilChangeSort, setOilChangeSort] = useState<"asc" | "desc" | null>(null);
+
   // Build sets for "is assigned" filtering
   const assignedTruckIds = new Set<string>();
   const assignedTrailerIds = new Set<string>();
@@ -305,10 +308,21 @@ export default function Alerts() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination logic for trucks
-  const trucksTotalPages = Math.ceil(filteredTrucks.length / itemsPerPage);
+  const sortedTrucks = oilChangeSort
+    ? [...filteredTrucks].sort((a, b) => {
+        const aDate = a.oil_change_date ? new Date(a.oil_change_date).getTime() : null;
+        const bDate = b.oil_change_date ? new Date(b.oil_change_date).getTime() : null;
+        // Push nulls to the end regardless of direction
+        if (aDate === null && bDate === null) return 0;
+        if (aDate === null) return 1;
+        if (bDate === null) return -1;
+        return oilChangeSort === "asc" ? aDate - bDate : bDate - aDate;
+      })
+    : filteredTrucks;
+  const trucksTotalPages = Math.ceil(sortedTrucks.length / itemsPerPage);
   const trucksStartIndex = (trucksPage - 1) * itemsPerPage;
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
-  const paginatedTrucks = filteredTrucks.slice(trucksStartIndex, trucksEndIndex);
+  const paginatedTrucks = sortedTrucks.slice(trucksStartIndex, trucksEndIndex);
 
   // Pagination logic for trailers
   const trailersTotalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
@@ -739,7 +753,36 @@ export default function Alerts() {
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Oil Change {truckColumnFilter === "oil_change" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Oil Change {truckColumnFilter === "oil_change" && "✓"}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOilChangeSort((prev) =>
+                                prev === null ? "asc" : prev === "asc" ? "desc" : null
+                              );
+                              setTrucksPage(1);
+                            }}
+                            className="inline-flex items-center justify-center rounded p-0.5 hover:bg-muted"
+                            aria-label="Sort by oil change date"
+                            title={
+                              oilChangeSort === "asc"
+                                ? "Sorted ascending — click for descending"
+                                : oilChangeSort === "desc"
+                                ? "Sorted descending — click to clear"
+                                : "Click to sort ascending"
+                            }
+                          >
+                            {oilChangeSort === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                            ) : oilChangeSort === "desc" ? (
+                              <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                            ) : (
+                              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
                       </TableHead>
                       <TableHead 
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
