@@ -359,6 +359,7 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
+  const { getLoadCount: getDriverAllTimeLoadCount } = useDriverAllTimeLoadCounts();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
