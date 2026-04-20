@@ -359,6 +359,7 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
+  const { getDriverLoadCount } = useDriverAllTimeLoadCounts();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
@@ -398,7 +399,8 @@ const Reports = () => {
       // Otherwise check for drug test styling
       if (!truck.driverId) return {};
       const drugTest = getDrugTestForDriver(truck.driverId);
-      const isNew = isNewDriver(truck);
+      // Drug-test "new" check: based on lifetime non-canceled load count, not the visible window
+      const isNew = getDriverLoadCount(truck.driverId) < 2;
       if (!isNew) return {};
       if (drugTest?.result === "positive") {
         return {
@@ -413,7 +415,7 @@ const Reports = () => {
       }
       return {};
     },
-    [hasGameOverDays, getDrugTestForDriver, isNewDriver],
+    [hasGameOverDays, getDrugTestForDriver, getDriverLoadCount],
   );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
@@ -4065,7 +4067,8 @@ const Reports = () => {
                                       truck.cycleMinutes <= 0;
 
                                     // Get driver cell styling (includes drug test and game over)
-                                    const isNew = isNewDriver(truck);
+                                    // Drug-test "new" check uses lifetime load count, not the visible window
+                                    const isNew = getDriverLoadCount(truck.driverId) < 2;
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const driverCellStyle = getDriverCellStyle(truck);
