@@ -33,21 +33,54 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
 
   const canManage = hasRole("admin") || hasRole("manager");
 
+  const handleSmsResponse = (data: any) => {
+    // Manual invocations return a structured `results` object.
+    if (data?.results) {
+      const { sent, failed, skipped, details } = data.results;
+      const summary = `SMS sent: ${sent}, failed: ${failed}, skipped: ${skipped}`;
+      if (failed > 0) {
+        toast.error(summary);
+        console.error('SMS failures:', (details || []).filter((d: any) => d.status === 'failed'));
+      } else if (sent > 0) {
+        toast.success(summary);
+      } else {
+        toast.info(summary);
+      }
+      if (data.has_more) {
+        toast.info(
+          `More assignments remain (offset ${data.next_offset}). Click Send SMS again to continue.`,
+          { duration: 8000 }
+        );
+      }
+      return;
+    }
+    // Skipped paths (wrong-hour, not-a-scheduled-day) — should not be reachable from the manual button,
+    // but handle defensively.
+    if (data?.skipped) {
+      toast.warning(`SMS not sent: ${data.reason ?? 'unknown reason'}`);
+      return;
+    }
+    // Legacy async-accepted response (cron fire path) — should not be reachable from the manual button.
+    if (data?.accepted) {
+      toast.info('Send initiated in background. Check logs for results.');
+      return;
+    }
+    toast.error('SMS send returned an unexpected response.');
+  };
+
   const handleSendSms = async (targetDate?: string) => {
     setSendingSms(true);
     try {
-      const body: any = {};
-      if (targetDate) body.target_date = targetDate;
-      const { data, error } = await supabase.functions.invoke('send-afterhours-sms', { body });
+      // Default to today's Chicago date (matches process-afterhours-schedule convention).
+      const chicagoDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      const { data, error } = await supabase.functions.invoke('send-afterhours-sms', {
+        body: {
+          manual: true,
+          target_date: targetDate ?? chicagoDate,
+        },
+      });
       if (error) throw error;
-      const results = data?.results || [];
-      const sent = results.filter((r: any) => r.status === 'sent').length;
-      const failed = results.filter((r: any) => r.status === 'failed').length;
-      const skipped = results.filter((r: any) => r.status === 'skipped').length;
-      toast.success(`SMS sent: ${sent}, failed: ${failed}, skipped: ${skipped}`);
-      if (failed > 0) {
-        console.error('SMS failures:', results.filter((r: any) => r.status === 'failed'));
-      }
+      handleSmsResponse(data);
     } catch (err: any) {
       console.error('Send SMS error:', err);
       toast.error(`Failed to send SMS: ${err.message || 'Unknown error'}`);
