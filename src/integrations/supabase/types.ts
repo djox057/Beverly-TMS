@@ -3508,6 +3508,59 @@ export type Database = {
           },
         ]
       }
+      role_flip_log: {
+        Row: {
+          action: string
+          chicago_date: string | null
+          chicago_hour: number | null
+          direction: string
+          dispatcher_name: string | null
+          executed_at: string
+          from_role: Database["public"]["Enums"]["app_role"] | null
+          id: string
+          message: string | null
+          schedule_id: string | null
+          to_role: Database["public"]["Enums"]["app_role"] | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          chicago_date?: string | null
+          chicago_hour?: number | null
+          direction: string
+          dispatcher_name?: string | null
+          executed_at?: string
+          from_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          message?: string | null
+          schedule_id?: string | null
+          to_role?: Database["public"]["Enums"]["app_role"] | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          chicago_date?: string | null
+          chicago_hour?: number | null
+          direction?: string
+          dispatcher_name?: string | null
+          executed_at?: string
+          from_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          message?: string | null
+          schedule_id?: string | null
+          to_role?: Database["public"]["Enums"]["app_role"] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_flip_log_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "afterhours_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       samsara_locations_cache: {
         Row: {
           fetch_started_at: string | null
@@ -4307,6 +4360,7 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
+      flip_afterhours_roles: { Args: { direction: string }; Returns: undefined }
       get_assignment_history: {
         Args: {
           p_entity_id: string

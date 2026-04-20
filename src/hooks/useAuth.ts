@@ -60,6 +60,35 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Realtime subscription on user_roles for the current user
+  // Picks up automated role flips (afterhours cron) and admin-driven changes
+  // without waiting for JWT refresh.
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`user_roles:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_roles',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          // Guard against stale closure: re-check current user before fetching
+          fetchUserRoles(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
