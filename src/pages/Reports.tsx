@@ -3091,32 +3091,15 @@ const Reports = () => {
         .filter((group) => group.trucks.length > 0);
     }
 
-    // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
+    // New drivers filter: show only trucks whose driver has fewer than 2 loads ALL-TIME
+    // (excluding GAME|OVER placeholders). Window-scoped check would falsely flag veteran
+    // drivers who happen to have only 1 load in the visible date range.
     if (showNewDrivers) {
-      const today = getChicagoToday();
       return reports
         .map((group) => {
           const newDriverTrucks = group.trucks.filter((truck) => {
-            // Get all non-GAME|OVER orders
-            const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
-
-            // Case 1: No loads ever - brand new driver
-            if (realOrders.length === 0) {
-              return true;
-            }
-
-            // Case 2: Exactly 1 load with pickup today - first load starting today
-            if (realOrders.length === 1) {
-              const order = realOrders[0];
-              if (!order.pickupStop?.datetime) return false;
-              // Use parseSimpleDateTime to avoid timezone conversion
-              const parsed = parseSimpleDateTime(order.pickupStop.datetime);
-              const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
-              return isSameDay(pickupDate, today);
-            }
-
-            // More than 1 load = experienced driver
-            return false;
+            if (!truck.driverId) return false;
+            return getDriverAllTimeLoadCount(truck.driverId) < 2;
           });
           return {
             ...group,
