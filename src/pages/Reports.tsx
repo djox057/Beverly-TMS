@@ -100,7 +100,6 @@ import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useDriverAllTimeLoadCounts } from "@/hooks/useDriverAllTimeLoadCounts";
 import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
@@ -359,7 +358,6 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
-  const { getLoadCount: getDriverAllTimeLoadCount } = useDriverAllTimeLoadCounts();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
@@ -399,9 +397,8 @@ const Reports = () => {
       // Otherwise check for drug test styling
       if (!truck.driverId) return {};
       const drugTest = getDrugTestForDriver(truck.driverId);
-      // Gate by ALL-TIME load count (< 2), not the visible date window
-      const isEligibleForDrugTestUI = getDriverAllTimeLoadCount(truck.driverId) < 2;
-      if (!isEligibleForDrugTestUI) return {};
+      const isNew = isNewDriver(truck);
+      if (!isNew) return {};
       if (drugTest?.result === "positive") {
         return {
           backgroundColor: "hsl(0, 72%, 53%)",
@@ -415,7 +412,7 @@ const Reports = () => {
       }
       return {};
     },
-    [hasGameOverDays, getDrugTestForDriver, getDriverAllTimeLoadCount],
+    [hasGameOverDays, getDrugTestForDriver, isNewDriver],
   );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
@@ -3091,15 +3088,32 @@ const Reports = () => {
         .filter((group) => group.trucks.length > 0);
     }
 
-    // New drivers filter: show only trucks whose driver has fewer than 2 loads ALL-TIME
-    // (excluding GAME|OVER placeholders). Window-scoped check would falsely flag veteran
-    // drivers who happen to have only 1 load in the visible date range.
+    // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
+      const today = getChicagoToday();
       return reports
         .map((group) => {
           const newDriverTrucks = group.trucks.filter((truck) => {
-            if (!truck.driverId) return false;
-            return getDriverAllTimeLoadCount(truck.driverId) < 2;
+            // Get all non-GAME|OVER orders
+            const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
+
+            // Case 1: No loads ever - brand new driver
+            if (realOrders.length === 0) {
+              return true;
+            }
+
+            // Case 2: Exactly 1 load with pickup today - first load starting today
+            if (realOrders.length === 1) {
+              const order = realOrders[0];
+              if (!order.pickupStop?.datetime) return false;
+              // Use parseSimpleDateTime to avoid timezone conversion
+              const parsed = parseSimpleDateTime(order.pickupStop.datetime);
+              const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
+              return isSameDay(pickupDate, today);
+            }
+
+            // More than 1 load = experienced driver
+            return false;
           });
           return {
             ...group,
@@ -4050,7 +4064,7 @@ const Reports = () => {
                                       truck.cycleMinutes <= 0;
 
                                     // Get driver cell styling (includes drug test and game over)
-                                    const isNew = !!truck.driverId && getDriverAllTimeLoadCount(truck.driverId) < 2;
+                                    const isNew = isNewDriver(truck);
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const driverCellStyle = getDriverCellStyle(truck);
