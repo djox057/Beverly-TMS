@@ -30,13 +30,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Parse body (target_date for manual run, offset/invocationId for self-invoke)
+  // Parse body. Supported flags:
+  //   - manual: true            → human-triggered (admin/manager UI). Bypasses hour & schedule guards. Sync, one chunk.
+  //   - target_date: 'YYYY-MM-DD' → override Chicago date
+  //   - invocationId / offset / chicagoDate → self-invoked next chunk (cron path only)
   let body: any = {};
   try {
     if (req.method === 'POST') body = await req.clone().json();
   } catch {}
 
-  const isSelfInvoke = !!body?.invocationId;
+  const isManual: boolean = body?.manual === true;
+  const isSelfInvoke: boolean = !!body?.invocationId && !isManual;
   const invocationId: string = body?.invocationId ?? crypto.randomUUID();
   const offset: number = Number.isFinite(body?.offset) ? Number(body.offset) : 0;
 
@@ -52,20 +56,19 @@ serve(async (req) => {
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false })
   );
 
-  // Auth: CRON_SECRET (primary), then fall back
+  // Auth methods (in order of preference):
+  //   1. cron-header   — pg_cron via x-cron-secret env match
+  //   2. service-role  — pg_cron via Bearer SUPABASE_SERVICE_ROLE_KEY (current production cron pattern)
+  //   3. jwt-admin     — logged-in admin/manager user JWT (manual UI invocation)
+  // The previous anon-key bearer branch was removed (security: anon key ships in frontend bundle).
+  // The previous cron-bearer-secret branch was removed (no callers in production cron jobs).
   const cronSecretHeader = req.headers.get('x-cron-secret');
   const authHeader = req.headers.get('Authorization');
   let authMethod: string | null = null;
 
-  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-
   if (CRON_SECRET && cronSecretHeader === CRON_SECRET) {
-    authMethod = 'cron-secret';
-  } else if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
-    authMethod = 'cron-secret-bearer';
-  } else if (ANON_KEY && authHeader === `Bearer ${ANON_KEY}`) {
-    authMethod = 'anon-bearer';
-  } else if (SERVICE_ROLE_KEY && authHeader?.includes(SERVICE_ROLE_KEY)) {
+    authMethod = 'cron-header';
+  } else if (SERVICE_ROLE_KEY && authHeader === `Bearer ${SERVICE_ROLE_KEY}`) {
     authMethod = 'service-role';
   } else if (authHeader?.startsWith('Bearer ')) {
     try {
@@ -95,10 +98,20 @@ serve(async (req) => {
     });
   }
 
-  // DST self-check ONLY on initial cron fire (no body, no manual target_date)
-  // Skip self-check on self-invoke (chained chunks may run after the hour boundary)
-  // and on manual invocations with target_date
-  const isInitialCronFire = !isSelfInvoke && !body?.target_date;
+  // Manual invocations are humans clicking a button — must come from a real admin/manager session,
+  // not from the cron auth paths. Block accidental misuse.
+  if (isManual && authMethod !== 'jwt-admin') {
+    console.error(`[${invocationId}] Forbidden: manual=true requires jwt-admin (got ${authMethod})`);
+    return new Response(
+      JSON.stringify({ error: 'Forbidden: manual invocation requires user authentication' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // DST hour guard applies ONLY to the initial cron fire.
+  // Manual invocations bypass it (manager knows what they're doing).
+  // Self-invoked chained chunks bypass it (may run past the hour boundary).
+  const isInitialCronFire = !isSelfInvoke && !isManual && !body?.target_date;
   if (isInitialCronFire && chicagoHour !== 8) {
     console.log(`[${invocationId}] Skipping: Chicago hour=${chicagoHour}, expected=8`);
     return new Response(
@@ -107,14 +120,14 @@ serve(async (req) => {
     );
   }
 
-  console.log(`[${invocationId}] start chicagoDate=${chicagoDate} offset=${offset} self=${isSelfInvoke} auth=${authMethod}`);
+  console.log(`[${invocationId}] start chicagoDate=${chicagoDate} offset=${offset} self=${isSelfInvoke} manual=${isManual} auth=${authMethod}`);
 
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Schedule check (only on initial)
-  if (!isSelfInvoke) {
+  // Schedule check (skip for manual + self-invoke; only the initial cron fire enforces it).
+  if (!isSelfInvoke && !isManual) {
     const { data: schedule, error: schedErr } = await supabaseAdmin
       .from('afterhours_schedule')
       .select('id')
