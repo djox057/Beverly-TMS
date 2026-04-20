@@ -15,6 +15,16 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type SendDetail = {
+  assignment_id: string;
+  driver_id: string;
+  driver_name: string | null;
+  dispatcher_name: string | null;
+  status: 'sent' | 'failed' | 'skipped';
+  reason?: string;
+  rc_message_id?: string;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

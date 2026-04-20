@@ -46,6 +46,51 @@ export type Database = {
           },
         ]
       }
+      afterhours_cron_log: {
+        Row: {
+          auth_method: string | null
+          chicago_date: string
+          completed_at: string | null
+          error_message: string | null
+          expected_count: number | null
+          function_name: string
+          id: number
+          invocation_id: string
+          payload: Json | null
+          processed_count: number | null
+          started_at: string
+          success: boolean | null
+        }
+        Insert: {
+          auth_method?: string | null
+          chicago_date: string
+          completed_at?: string | null
+          error_message?: string | null
+          expected_count?: number | null
+          function_name: string
+          id?: number
+          invocation_id: string
+          payload?: Json | null
+          processed_count?: number | null
+          started_at?: string
+          success?: boolean | null
+        }
+        Update: {
+          auth_method?: string | null
+          chicago_date?: string
+          completed_at?: string | null
+          error_message?: string | null
+          expected_count?: number | null
+          function_name?: string
+          id?: number
+          invocation_id?: string
+          payload?: Json | null
+          processed_count?: number | null
+          started_at?: string
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       afterhours_schedule: {
         Row: {
           created_at: string
@@ -70,6 +115,42 @@ export type Database = {
           id?: string
           scheduled_date?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      afterhours_sms_send_log: {
+        Row: {
+          assignment_id: string
+          chicago_date: string
+          driver_id: string
+          error_message: string | null
+          id: number
+          invocation_id: string | null
+          rc_message_id: string | null
+          sent_at: string
+          success: boolean
+        }
+        Insert: {
+          assignment_id: string
+          chicago_date: string
+          driver_id: string
+          error_message?: string | null
+          id?: number
+          invocation_id?: string | null
+          rc_message_id?: string | null
+          sent_at?: string
+          success?: boolean
+        }
+        Update: {
+          assignment_id?: string
+          chicago_date?: string
+          driver_id?: string
+          error_message?: string | null
+          id?: number
+          invocation_id?: string | null
+          rc_message_id?: string | null
+          sent_at?: string
+          success?: boolean
         }
         Relationships: []
       }
