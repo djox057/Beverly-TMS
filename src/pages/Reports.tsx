@@ -100,6 +100,7 @@ import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
+import { useDriverAllTimeLoadCounts } from "@/hooks/useDriverAllTimeLoadCounts";
 import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
