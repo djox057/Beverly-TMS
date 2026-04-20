@@ -15,18 +15,32 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type SendDetail = {
+  assignment_id: string;
+  driver_id: string;
+  driver_name: string | null;
+  dispatcher_name: string | null;
+  status: 'sent' | 'failed' | 'skipped';
+  reason?: string;
+  rc_message_id?: string;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Parse body (target_date for manual run, offset/invocationId for self-invoke)
+  // Parse body. Supported flags:
+  //   - manual: true            → human-triggered (admin/manager UI). Bypasses hour & schedule guards. Sync, one chunk.
+  //   - target_date: 'YYYY-MM-DD' → override Chicago date
+  //   - invocationId / offset / chicagoDate → self-invoked next chunk (cron path only)
   let body: any = {};
   try {
     if (req.method === 'POST') body = await req.clone().json();
   } catch {}
 
-  const isSelfInvoke = !!body?.invocationId;
+  const isManual: boolean = body?.manual === true;
+  const isSelfInvoke: boolean = !!body?.invocationId && !isManual;
   const invocationId: string = body?.invocationId ?? crypto.randomUUID();
   const offset: number = Number.isFinite(body?.offset) ? Number(body.offset) : 0;
 
@@ -42,20 +56,19 @@ serve(async (req) => {
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false })
   );
 
-  // Auth: CRON_SECRET (primary), then fall back
+  // Auth methods (in order of preference):
+  //   1. cron-header   — pg_cron via x-cron-secret env match
+  //   2. service-role  — pg_cron via Bearer SUPABASE_SERVICE_ROLE_KEY (current production cron pattern)
+  //   3. jwt-admin     — logged-in admin/manager user JWT (manual UI invocation)
+  // The previous anon-key bearer branch was removed (security: anon key ships in frontend bundle).
+  // The previous cron-bearer-secret branch was removed (no callers in production cron jobs).
   const cronSecretHeader = req.headers.get('x-cron-secret');
   const authHeader = req.headers.get('Authorization');
   let authMethod: string | null = null;
 
-  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-
   if (CRON_SECRET && cronSecretHeader === CRON_SECRET) {
-    authMethod = 'cron-secret';
-  } else if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
-    authMethod = 'cron-secret-bearer';
-  } else if (ANON_KEY && authHeader === `Bearer ${ANON_KEY}`) {
-    authMethod = 'anon-bearer';
-  } else if (SERVICE_ROLE_KEY && authHeader?.includes(SERVICE_ROLE_KEY)) {
+    authMethod = 'cron-header';
+  } else if (SERVICE_ROLE_KEY && authHeader === `Bearer ${SERVICE_ROLE_KEY}`) {
     authMethod = 'service-role';
   } else if (authHeader?.startsWith('Bearer ')) {
     try {
@@ -85,10 +98,20 @@ serve(async (req) => {
     });
   }
 
-  // DST self-check ONLY on initial cron fire (no body, no manual target_date)
-  // Skip self-check on self-invoke (chained chunks may run after the hour boundary)
-  // and on manual invocations with target_date
-  const isInitialCronFire = !isSelfInvoke && !body?.target_date;
+  // Manual invocations are humans clicking a button — must come from a real admin/manager session,
+  // not from the cron auth paths. Block accidental misuse.
+  if (isManual && authMethod !== 'jwt-admin') {
+    console.error(`[${invocationId}] Forbidden: manual=true requires jwt-admin (got ${authMethod})`);
+    return new Response(
+      JSON.stringify({ error: 'Forbidden: manual invocation requires user authentication' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // DST hour guard applies ONLY to the initial cron fire.
+  // Manual invocations bypass it (manager knows what they're doing).
+  // Self-invoked chained chunks bypass it (may run past the hour boundary).
+  const isInitialCronFire = !isSelfInvoke && !isManual && !body?.target_date;
   if (isInitialCronFire && chicagoHour !== 8) {
     console.log(`[${invocationId}] Skipping: Chicago hour=${chicagoHour}, expected=8`);
     return new Response(
@@ -97,14 +120,14 @@ serve(async (req) => {
     );
   }
 
-  console.log(`[${invocationId}] start chicagoDate=${chicagoDate} offset=${offset} self=${isSelfInvoke} auth=${authMethod}`);
+  console.log(`[${invocationId}] start chicagoDate=${chicagoDate} offset=${offset} self=${isSelfInvoke} manual=${isManual} auth=${authMethod}`);
 
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Schedule check (only on initial)
-  if (!isSelfInvoke) {
+  // Schedule check (skip for manual + self-invoke; only the initial cron fire enforces it).
+  if (!isSelfInvoke && !isManual) {
     const { data: schedule, error: schedErr } = await supabaseAdmin
       .from('afterhours_schedule')
       .select('id')
@@ -167,167 +190,237 @@ serve(async (req) => {
     logId = existing?.id ?? null;
   }
 
+  // ============================================================
+  // processChunk: shared chunk-processing routine.
+  // Returns details[] of every assignment processed (sent / failed / skipped),
+  // plus the raw chunk size so callers can detect "more remain".
+  // ============================================================
+  const processChunk = async (): Promise<{ details: SendDetail[]; chunkSize: number }> => {
+    const details: SendDetail[] = [];
+
+    const { data: assignments, error: assignErr } = await supabaseAdmin
+      .from('afterhours_assignments')
+      .select('id, afterhours_user_id, driver_id')
+      .eq('scheduled_date', chicagoDate)
+      .order('id', { ascending: true })
+      .range(offset, offset + CHUNK_SIZE - 1);
+
+    if (assignErr) throw assignErr;
+    console.log(`[${invocationId}] chunk offset=${offset} got=${assignments?.length ?? 0}`);
+    if (!assignments || assignments.length === 0) return { details, chunkSize: 0 };
+
+    const dispatcherIds = [...new Set(assignments.map((a) => a.afterhours_user_id))];
+    const driverIds = [...new Set(assignments.map((a) => a.driver_id))];
+
+    const [profilesRes, driversRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('user_id, full_name, phone_number').in('user_id', dispatcherIds),
+      supabaseAdmin.from('drivers').select('id, phone, name').in('id', driverIds),
+    ]);
+    if (profilesRes.error) throw profilesRes.error;
+    if (driversRes.error) throw driversRes.error;
+
+    const profileMap = new Map(profilesRes.data!.map((p: any) => [p.user_id, p]));
+    const driverMap = new Map(driversRes.data!.map((d: any) => [d.id, d]));
+
+    // RingCentral auth (unchanged behavior)
+    const CLIENT_ID = Deno.env.get('RINGCENTRAL_CLIENT_ID');
+    const CLIENT_SECRET = Deno.env.get('RINGCENTRAL_CLIENT_SECRET');
+    const JWT_TOKEN = Deno.env.get('RINGCENTRAL_JWT_TOKEN');
+    const SERVER_URL = Deno.env.get('RINGCENTRAL_SERVER_URL') || 'https://platform.ringcentral.com';
+    const FROM_NUMBER = Deno.env.get('RINGCENTRAL_PHONE_NUMBER');
+    if (!CLIENT_ID || !CLIENT_SECRET || !JWT_TOKEN || !FROM_NUMBER) {
+      throw new Error('Missing RingCentral credentials');
+    }
+
+    const authResp = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`,
+      },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${JWT_TOKEN}`,
+    });
+    if (!authResp.ok) throw new Error(`RingCentral auth failed: ${await authResp.text()}`);
+    const { access_token } = await authResp.json();
+
+    for (let i = 0; i < assignments.length; i++) {
+      const a = assignments[i];
+      const driver: any = driverMap.get(a.driver_id);
+      const dispatcher: any = profileMap.get(a.afterhours_user_id);
+      const driverName: string | null = driver?.name ?? null;
+      const dispatcherName: string | null = dispatcher?.full_name ?? null;
+
+      // Idempotency check
+      const { data: existing } = await supabaseAdmin
+        .from('afterhours_sms_send_log')
+        .select('id, success')
+        .eq('assignment_id', a.id)
+        .eq('chicago_date', chicagoDate)
+        .eq('success', true)
+        .maybeSingle();
+      if (existing?.success) {
+        console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=already-sent`);
+        details.push({
+          assignment_id: a.id, driver_id: a.driver_id,
+          driver_name: driverName, dispatcher_name: dispatcherName,
+          status: 'skipped', reason: 'already-sent',
+        });
+        continue;
+      }
+
+      if (!dispatcher?.full_name || !dispatcher?.phone_number) {
+        console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=dispatcher-missing-info`);
+        await supabaseAdmin.from('afterhours_sms_send_log').insert({
+          assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
+          invocation_id: invocationId, success: false, error_message: 'dispatcher missing info',
+        });
+        details.push({
+          assignment_id: a.id, driver_id: a.driver_id,
+          driver_name: driverName, dispatcher_name: dispatcherName,
+          status: 'skipped', reason: 'dispatcher-missing-info',
+        });
+        continue;
+      }
+      if (!driver?.phone) {
+        console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=no-driver-phone`);
+        await supabaseAdmin.from('afterhours_sms_send_log').insert({
+          assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
+          invocation_id: invocationId, success: false, error_message: 'driver no phone',
+        });
+        details.push({
+          assignment_id: a.id, driver_id: a.driver_id,
+          driver_name: driverName, dispatcher_name: dispatcherName,
+          status: 'skipped', reason: 'no-driver-phone',
+        });
+        continue;
+      }
+
+      // Build message (unchanged)
+      const nameParts = dispatcher.full_name.trim().split(/\s+/);
+      const lastWord = nameParts[nameParts.length - 1];
+      const lastName = lastWord.includes('-') ? lastWord.split('-').pop()! : lastWord;
+      const dispatcherPhone = String(dispatcher.phone_number).replace(/^\+1\s?/, '');
+      const message = `Good morning, your dispatcher for today will be ${lastName}, you can contact him directly via this number ${dispatcherPhone}`;
+
+      // Send with retries on rate limit (unchanged)
+      let ok = false;
+      let rcMessageId: string | null = null;
+      let errMsg: string | null = null;
+      const retries = 3;
+      for (let attempt = 0; attempt < retries; attempt++) {
+        const smsResp = await fetch(`${SERVER_URL}/restapi/v1.0/account/~/extension/~/sms`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: { phoneNumber: FROM_NUMBER },
+            to: [{ phoneNumber: driver.phone }],
+            text: message,
+          }),
+        });
+        if (smsResp.ok) {
+          const data = await smsResp.json();
+          rcMessageId = data.id;
+          ok = true;
+          break;
+        }
+        const errText = await smsResp.text();
+        if (errText.includes('CMN-301') && attempt < retries - 1) {
+          const backoff = (attempt + 1) * 3000;
+          console.log(`[${invocationId}] driver=${a.driver_id} rate-limited, backoff=${backoff}ms`);
+          await delay(backoff);
+          continue;
+        }
+        errMsg = errText;
+        break;
+      }
+
+      await supabaseAdmin.from('afterhours_sms_send_log').insert({
+        assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
+        invocation_id: invocationId, success: ok, rc_message_id: rcMessageId, error_message: errMsg,
+      });
+
+      details.push({
+        assignment_id: a.id, driver_id: a.driver_id,
+        driver_name: driverName, dispatcher_name: dispatcherName,
+        status: ok ? 'sent' : 'failed',
+        ...(ok && rcMessageId ? { rc_message_id: rcMessageId } : {}),
+        ...(!ok && errMsg ? { reason: errMsg.slice(0, 200) } : {}),
+      });
+
+      console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} success=${ok}`);
+
+      if (i < assignments.length - 1) {
+        await delay(SMS_SPACING_MS);
+      }
+    }
+
+    return { details, chunkSize: assignments.length };
+  };
+
+  // ============================================================
+  // BRANCH: manual (synchronous, one chunk, returns full results)
+  // ============================================================
+  if (isManual) {
+    try {
+      const { details, chunkSize } = await processChunk();
+      const sent = details.filter((d) => d.status === 'sent').length;
+      const failed = details.filter((d) => d.status === 'failed').length;
+      const skipped = details.filter((d) => d.status === 'skipped').length;
+      const hasMore = chunkSize === CHUNK_SIZE;
+
+      await finishLog(supabaseAdmin, logId, failed === 0, failed > 0 ? `${failed} failed` : null);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          manual: true,
+          chicago_date: chicagoDate,
+          invocation_id: invocationId,
+          auth_method: authMethod,
+          results: { sent, failed, skipped, details },
+          has_more: hasMore,
+          next_offset: hasMore ? offset + CHUNK_SIZE : null,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[${invocationId}] manual run failed:`, msg);
+      await finishLog(supabaseAdmin, logId, false, msg);
+      return new Response(
+        JSON.stringify({ success: false, manual: true, error: msg, invocation_id: invocationId }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  // ============================================================
+  // BRANCH: cron (async, chains next chunk via fire-and-forget)
+  // ============================================================
   const work = async () => {
     try {
-      // Fetch this chunk
-      const { data: assignments, error: assignErr } = await supabaseAdmin
-        .from('afterhours_assignments')
-        .select('id, afterhours_user_id, driver_id')
-        .eq('scheduled_date', chicagoDate)
-        .order('id', { ascending: true })
-        .range(offset, offset + CHUNK_SIZE - 1);
-
-      if (assignErr) throw assignErr;
-
-      console.log(`[${invocationId}] chunk offset=${offset} got=${assignments?.length ?? 0}`);
-
-      if (!assignments || assignments.length === 0) {
-        // No more to process — mark complete
+      const { chunkSize } = await processChunk();
+      if (chunkSize === 0) {
         await finishLog(supabaseAdmin, logId, true, null);
         return;
       }
-
-      // Fetch dispatcher + driver info
-      const dispatcherIds = [...new Set(assignments.map((a) => a.afterhours_user_id))];
-      const driverIds = [...new Set(assignments.map((a) => a.driver_id))];
-
-      const [profilesRes, driversRes] = await Promise.all([
-        supabaseAdmin.from('profiles').select('user_id, full_name, phone_number').in('user_id', dispatcherIds),
-        supabaseAdmin.from('drivers').select('id, phone, name').in('id', driverIds),
-      ]);
-      if (profilesRes.error) throw profilesRes.error;
-      if (driversRes.error) throw driversRes.error;
-
-      const profileMap = new Map(profilesRes.data!.map((p: any) => [p.user_id, p]));
-      const driverMap = new Map(driversRes.data!.map((d: any) => [d.id, d]));
-
-      // RingCentral auth
-      const CLIENT_ID = Deno.env.get('RINGCENTRAL_CLIENT_ID');
-      const CLIENT_SECRET = Deno.env.get('RINGCENTRAL_CLIENT_SECRET');
-      const JWT_TOKEN = Deno.env.get('RINGCENTRAL_JWT_TOKEN');
-      const SERVER_URL = Deno.env.get('RINGCENTRAL_SERVER_URL') || 'https://platform.ringcentral.com';
-      const FROM_NUMBER = Deno.env.get('RINGCENTRAL_PHONE_NUMBER');
-      if (!CLIENT_ID || !CLIENT_SECRET || !JWT_TOKEN || !FROM_NUMBER) {
-        throw new Error('Missing RingCentral credentials');
-      }
-
-      const authResp = await fetch(`${SERVER_URL}/restapi/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`,
-        },
-        body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${JWT_TOKEN}`,
-      });
-      if (!authResp.ok) throw new Error(`RingCentral auth failed: ${await authResp.text()}`);
-      const { access_token } = await authResp.json();
-
-      // Process each assignment
-      for (let i = 0; i < assignments.length; i++) {
-        const a = assignments[i];
-        const driver = driverMap.get(a.driver_id);
-        const dispatcher = profileMap.get(a.afterhours_user_id);
-
-        // Idempotency check
-        const { data: existing } = await supabaseAdmin
-          .from('afterhours_sms_send_log')
-          .select('id, success')
-          .eq('assignment_id', a.id)
-          .eq('chicago_date', chicagoDate)
-          .maybeSingle();
-        if (existing?.success) {
-          console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=already-sent`);
-          continue;
-        }
-
-        if (!dispatcher?.full_name || !dispatcher?.phone_number) {
-          console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=dispatcher-missing-info`);
-          await supabaseAdmin.from('afterhours_sms_send_log').insert({
-            assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
-            invocation_id: invocationId, success: false, error_message: 'dispatcher missing info',
-          });
-          continue;
-        }
-        if (!driver?.phone) {
-          console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} skip=no-driver-phone`);
-          await supabaseAdmin.from('afterhours_sms_send_log').insert({
-            assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
-            invocation_id: invocationId, success: false, error_message: 'driver no phone',
-          });
-          continue;
-        }
-
-        // Build message
-        const nameParts = dispatcher.full_name.trim().split(/\s+/);
-        const lastWord = nameParts[nameParts.length - 1];
-        const lastName = lastWord.includes('-') ? lastWord.split('-').pop()! : lastWord;
-        const dispatcherPhone = String(dispatcher.phone_number).replace(/^\+1\s?/, '');
-        const message = `Good morning, your dispatcher for today will be ${lastName}, you can contact him directly via this number ${dispatcherPhone}`;
-
-        // Send with retries on rate limit
-        let ok = false;
-        let rcMessageId: string | null = null;
-        let errMsg: string | null = null;
-        const retries = 3;
-        for (let attempt = 0; attempt < retries; attempt++) {
-          const smsResp = await fetch(`${SERVER_URL}/restapi/v1.0/account/~/extension/~/sms`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: { phoneNumber: FROM_NUMBER },
-              to: [{ phoneNumber: driver.phone }],
-              text: message,
-            }),
-          });
-          if (smsResp.ok) {
-            const data = await smsResp.json();
-            rcMessageId = data.id;
-            ok = true;
-            break;
-          }
-          const errText = await smsResp.text();
-          if (errText.includes('CMN-301') && attempt < retries - 1) {
-            const backoff = (attempt + 1) * 3000;
-            console.log(`[${invocationId}] driver=${a.driver_id} rate-limited, backoff=${backoff}ms`);
-            await delay(backoff);
-            continue;
-          }
-          errMsg = errText;
-          break;
-        }
-
-        await supabaseAdmin.from('afterhours_sms_send_log').insert({
-          assignment_id: a.id, driver_id: a.driver_id, chicago_date: chicagoDate,
-          invocation_id: invocationId, success: ok, rc_message_id: rcMessageId, error_message: errMsg,
-        });
-
-        console.log(`[${invocationId}] driver=${a.driver_id} assignment=${a.id} success=${ok}`);
-
-        if (i < assignments.length - 1) {
-          await delay(SMS_SPACING_MS);
-        }
-      }
-
-      // Chunk done — chain next
-      if (assignments.length === CHUNK_SIZE) {
+      if (chunkSize === CHUNK_SIZE) {
         const nextOffset = offset + CHUNK_SIZE;
         console.log(`[${invocationId}] chaining next chunk offset=${nextOffset}`);
         const selfUrl = `${SUPABASE_URL}/functions/v1/send-afterhours-sms`;
-        // Fire and forget
+        // Fire and forget. Use service-role auth (matches the cron job pattern; anon-key path was removed).
         fetch(selfUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-cron-secret': CRON_SECRET,
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY') ?? ''}`,
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({ offset: nextOffset, invocationId, chicagoDate }),
         }).catch((e) => console.error(`[${invocationId}] self-invoke failed:`, e));
       } else {
-        // Final chunk
         await finishLog(supabaseAdmin, logId, true, null);
       }
     } catch (err) {
@@ -337,7 +430,7 @@ serve(async (req) => {
     }
   };
 
-  // @ts-ignore
+  // @ts-ignore EdgeRuntime is provided by Supabase
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(work());
