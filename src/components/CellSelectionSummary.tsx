@@ -23,7 +23,9 @@ const SummaryCard = ({
   const avg = cells.length > 0 ? sum / cells.length : 0;
   const directMiles = milesCells.reduce((acc, c) => acc + c.value, 0);
   const associatedMiles = cells.reduce((acc, c) => acc + (c.rowMiles || 0), 0);
-  const totalMiles = directMiles + associatedMiles;
+  // If miles cells are explicitly selected, use them as the source of truth.
+  // Otherwise fall back to row-associated miles to keep RPM working when only $ cells are selected.
+  const totalMiles = directMiles > 0 ? directMiles : associatedMiles;
   const rpm = totalMiles > 0 ? sum / totalMiles : 0;
 
   return (
