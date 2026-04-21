@@ -426,10 +426,12 @@ function DrugTestResultCell({
   result,
   driverId,
   canEdit,
+  twoWeekNotice,
 }: {
   result: string | null | undefined;
   driverId: string | null;
   canEdit: boolean;
+  twoWeekNotice?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -454,7 +456,11 @@ function DrugTestResultCell({
   });
 
   const current = DRUG_TEST_OPTIONS.find((o) => o.value === result);
-  const badge = current ? (
+  const badge = twoWeekNotice ? (
+    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 whitespace-nowrap">
+      2 Week Notice
+    </span>
+  ) : current ? (
     <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", current.cls)}>
       {current.label}
     </span>
@@ -462,7 +468,7 @@ function DrugTestResultCell({
     <span className="text-muted-foreground">-</span>
   );
 
-  if (!canEdit || !driverId) {
+  if (twoWeekNotice || !canEdit || !driverId) {
     return <LockedCell group="drug_test">{badge}</LockedCell>;
   }
 
