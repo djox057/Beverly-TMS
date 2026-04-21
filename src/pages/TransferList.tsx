@@ -645,6 +645,7 @@ const TransferList = () => {
         dispatcher_office: profile?.office || "",
         safety_name: safetyProfile?.name || "",
         drug_test_result: row.driver_id ? drugTestMap.get(row.driver_id) || null : null,
+        two_week_notice: !!driver?.two_week_block_date,
       };
     });
   }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
