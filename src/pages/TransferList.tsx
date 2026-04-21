@@ -62,6 +62,7 @@ interface TransferRow {
   dispatcher_office?: string;
   safety_name?: string;
   drug_test_result?: string | null;
+  two_week_notice?: boolean;
 }
 
 // ─── Role permission helpers ───
