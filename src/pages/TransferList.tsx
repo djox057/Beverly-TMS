@@ -1013,6 +1013,7 @@ const TransferList = () => {
                                 result={row.drug_test_result}
                                 driverId={row.driver_id}
                                 canEdit={columnPerms.drug_test}
+                                twoWeekNotice={row.two_week_notice}
                               />
                             </TableCell>
 
