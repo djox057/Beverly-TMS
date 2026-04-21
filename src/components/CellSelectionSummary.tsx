@@ -62,6 +62,38 @@ const SummaryCard = ({
   );
 };
 
+const MilesSummaryCard = ({ cells, onClear }: { cells: SelectedCell[]; onClear: () => void }) => {
+  const sum = cells.reduce((acc, c) => acc + c.value, 0);
+  const avg = cells.length > 0 ? sum / cells.length : 0;
+
+  return (
+    <div className="bg-card border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          Miles · {cells.length} cell{cells.length > 1 ? "s" : ""}
+        </span>
+        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onClear}>
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+      <div className="space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">Sum:</span>
+          <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+            {sum.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-muted-foreground">Average:</span>
+          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+            {avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const CellSelectionSummary = ({ selectedCellsArray, onClear }: CellSelectionSummaryProps) => {
   if (selectedCellsArray.length === 0) return null;
 
@@ -71,15 +103,7 @@ export const CellSelectionSummary = ({ selectedCellsArray, onClear }: CellSelect
 
   const hasDriverPay = driverPayCells.length > 0;
   const hasFreight = freightCells.length > 0;
-
-  // If only miles selected, show a single generic card
-  if (!hasDriverPay && !hasFreight) {
-    return (
-      <div className="fixed z-50 flex gap-2" style={{ bottom: 24, right: 24 }}>
-        <SummaryCard label="Miles" cells={milesCells} milesCells={[]} onClear={onClear} />
-      </div>
-    );
-  }
+  const hasMiles = milesCells.length > 0;
 
   return (
     <div className="fixed z-50 flex gap-2" style={{ bottom: 24, right: 24 }}>
@@ -87,6 +111,7 @@ export const CellSelectionSummary = ({ selectedCellsArray, onClear }: CellSelect
         <SummaryCard label="Stop Amt" cells={driverPayCells} milesCells={milesCells} onClear={onClear} />
       )}
       {hasFreight && <SummaryCard label="Freight Amt" cells={freightCells} milesCells={milesCells} onClear={onClear} />}
+      {hasMiles && <MilesSummaryCard cells={milesCells} onClear={onClear} />}
     </div>
   );
 };
