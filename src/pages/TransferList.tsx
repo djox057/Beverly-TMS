@@ -62,6 +62,7 @@ interface TransferRow {
   dispatcher_office?: string;
   safety_name?: string;
   drug_test_result?: string | null;
+  two_week_notice?: boolean;
 }
 
 // ─── Role permission helpers ───
@@ -425,10 +426,12 @@ function DrugTestResultCell({
   result,
   driverId,
   canEdit,
+  twoWeekNotice,
 }: {
   result: string | null | undefined;
   driverId: string | null;
   canEdit: boolean;
+  twoWeekNotice?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -453,7 +456,11 @@ function DrugTestResultCell({
   });
 
   const current = DRUG_TEST_OPTIONS.find((o) => o.value === result);
-  const badge = current ? (
+  const badge = twoWeekNotice ? (
+    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 whitespace-nowrap">
+      2 Week Notice
+    </span>
+  ) : current ? (
     <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium capitalize", current.cls)}>
       {current.label}
     </span>
@@ -461,7 +468,7 @@ function DrugTestResultCell({
     <span className="text-muted-foreground">-</span>
   );
 
-  if (!canEdit || !driverId) {
+  if (twoWeekNotice || !canEdit || !driverId) {
     return <LockedCell group="drug_test">{badge}</LockedCell>;
   }
 
@@ -644,6 +651,7 @@ const TransferList = () => {
         dispatcher_office: profile?.office || "",
         safety_name: safetyProfile?.name || "",
         drug_test_result: row.driver_id ? drugTestMap.get(row.driver_id) || null : null,
+        two_week_notice: !!driver?.two_week_block_date,
       };
     });
   }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
@@ -1005,6 +1013,7 @@ const TransferList = () => {
                                 result={row.drug_test_result}
                                 driverId={row.driver_id}
                                 canEdit={columnPerms.drug_test}
+                                twoWeekNotice={row.two_week_notice}
                               />
                             </TableCell>
 
