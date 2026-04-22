@@ -3123,12 +3123,15 @@ const Reports = () => {
         .filter((group) => group.trucks.length > 0);
     }
 
-    // Problems filter: show only trucks with drivers that have active problems
+    // Home time filter: show trucks with drivers that have active problems
+    // OR have a home_time note (visible in pickup/delivery cells).
     if (showProblems) {
       return reports
         .map((group) => {
           const problemTrucks = group.trucks.filter((truck) => {
-            return truck.driverId && hasDriverProblem(truck.driverId);
+            if (truck.driverId && hasDriverProblem(truck.driverId)) return true;
+            const notes: any[] = (truck.lost_day_notes ?? (truck as any).lostDayNotes ?? []) as any[];
+            return notes.some((note: any) => note?.note_type === "home_time");
           });
           return {
             ...group,
@@ -3642,7 +3645,7 @@ const Reports = () => {
                         className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
                       >
                         <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Problems
+                        Home time
                       </Button>
                     </>
                   )}
