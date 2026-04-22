@@ -325,7 +325,7 @@ export default function Problems() {
     <div className="py-6 px-4 space-y-6 w-full min-w-[1400px]">
       <Card className="w-full">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle>Driver Problems</CardTitle>
+          <CardTitle>Home time</CardTitle>
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -345,7 +345,7 @@ export default function Problems() {
             <Tabs defaultValue="problems" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="problems">
-                  Driver Problems ({unresolvedProblems.length})
+                  Home time ({unresolvedProblems.length})
                 </TabsTrigger>
                 <TabsTrigger value="history">
                   History ({resolvedGrouped.reduce((acc, g) => acc + g.problems.length, 0)})
