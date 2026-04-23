@@ -328,14 +328,23 @@ Purpose: Cash advance`;
       text: emailBody,
     };
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    let emailResponse: Response;
+    try {
+      emailResponse = await sendResendEmailWithRetry(resendApiKey, emailPayload);
+    } catch (networkErr: any) {
+      console.error("Resend network failure after retries:", networkErr);
+      // Rollback record so user can retry
+      if (insertedAdvance?.id) {
+        await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service is unreachable. Please try again in a moment.",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const emailResultText = await emailResponse.text();
     let emailResult: any = null;
@@ -355,13 +364,12 @@ Purpose: Cash advance`;
         await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
       }
 
-      // Extract the actual error message from Resend
-      const resendErrorMessage = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+      const userMessage = mapResendErrorMessage(emailResponse.status, emailResult, fromEmail);
 
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Email failed: ${resendErrorMessage}. Sender domain "${fromEmail}" may need to be verified in Resend.`,
+          error: userMessage,
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
