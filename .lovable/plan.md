@@ -1,35 +1,28 @@
 
+## Clarify "4/13" interpretation
 
-# Plan — Independent Miles popup in Trips cell selection
+The previous migration matched only drivers created on **April 13 of any year (MM-DD = '04-13')** → just 1 driver got $90. Everyone else got $110.
 
-## What changes
+I need to confirm what "creation date 4/13" means before fixing:
 
-When you click cells in the **Miles** column on the Trips page, a dedicated popup will always appear next to the existing **Stop Amt** and **Freight Amt** popups — even when those are also active. The Miles popup will show only **Sum** and **Average**, with no `$` sign and no Total Miles / RPM rows.
+### Option A — Drivers created **on or before April 13, 2026** get $90
+All historical drivers (the bulk created Feb–Mar 2026 and earlier) = $90
+Drivers created from April 14, 2026 onward = $110
 
-The Stop Amt and Freight Amt popups continue to behave exactly as today (Sum, Average, Total Miles, RPM with `$`), and they still pull miles context from selected miles cells for their RPM calculation.
+### Option B — Drivers created **before a specific date** (you tell me which)
+e.g. before "today" or before some cutoff
 
-## Visual
+### Option C — Only drivers with creation date exactly April 13 (any year) = $90
+This is what the last migration did (only 1 driver matched).
 
-```text
-[ Stop Amt · 3 cells ]   [ Freight Amt · 3 cells ]   [ Miles · 5 cells ]
-  Sum:        $1,200       Sum:         $4,500         Sum:       2,341
-  Average:    $400         Average:     $1,500         Average:   468.20
-  Total Miles: 2,341       Total Miles: 2,341
-  RPM:        $0.51        RPM:         $1.92
-```
+## Proposed fix (assuming Option A)
 
-All three popups appear bottom-right, side by side, in the order: Stop Amt → Freight Amt → Miles.
+Single SQL UPDATE on `public.driver_expenses`:
+- Filter: `is_fixed = true`, explanation contains "drug test" (excludes "random"), excludes `expense_type = 'company_expense'`
+- Set `amount = 90` where `drivers.created_at AT TIME ZONE 'America/Chicago' <= '2026-04-13 23:59:59'`
+- Set `amount = 110` for the rest
+- Recompute `status` (paid / partial / pending) using new amount vs existing `paid_amount`
 
-## Implementation
+No frontend code change needed — `DEFAULT_FIXED_EXPENSES` already uses $110 for new drivers going forward.
 
-**File:** `src/components/CellSelectionSummary.tsx`
-
-1. Add a second small card component `MilesSummaryCard` that renders only:
-   - `Sum: <number>.toLocaleString()` (no `$`)
-   - `Average: <number>.toFixed(2)` (no `$`)
-   - Same header (`Miles · N cells`) and close `X` button styling as `SummaryCard` for visual consistency.
-2. Update the main `CellSelectionSummary` render so the Miles card shows whenever `milesCells.length > 0`, independently of whether Stop Amt or Freight Amt cards are showing. Remove the early-return branch that only shows Miles when nothing else is selected.
-3. Keep `SummaryCard` (Stop Amt / Freight Amt) unchanged — it still receives `milesCells` to compute Total Miles / RPM.
-
-No other files, hooks, or selection logic need to change — `useCellSelection` already tracks miles cells with `type: "miles"`.
-
+**Please confirm A, B (with date), or C so I can run the correct migration.**
