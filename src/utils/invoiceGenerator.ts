@@ -261,8 +261,12 @@ export const generateInvoicePDF = async (
       // Header - Use bookedByCompanyName for display, fallback to suffix-derived company
       const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || companyName;
       const rawDisplayCompanyName = order.bookedByCompanyName || derivedCompany;
-      // Page 1 header-only override: append DBA suffix to all companies
-      const displayCompanyName = `${rawDisplayCompanyName.toUpperCase()} dba TITAN TRANSPORT GROUP`;
+      // Page 1 header-only override: append DBA suffix only for BF Prime LLC
+      const upperName = rawDisplayCompanyName.toUpperCase();
+      const isBfPrime = upperName.includes("BF PRIME");
+      const displayCompanyName = isBfPrime
+        ? `${upperName} dba TITAN TRANSPORT GROUP`
+        : upperName;
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
