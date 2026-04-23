@@ -248,14 +248,19 @@ Location: ${city}, ${state}`;
       text: emailBody,
     };
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    let emailResponse: Response;
+    try {
+      emailResponse = await sendResendEmailWithRetry(resendApiKey, emailPayload);
+    } catch (networkErr: any) {
+      console.error("Resend network failure after retries:", networkErr);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service is unreachable. Please try again in a moment.",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const emailResultText = await emailResponse.text();
     let emailResult: any = null;
@@ -269,11 +274,11 @@ Location: ${city}, ${state}`;
 
     if (!emailResponse.ok) {
       console.error("Resend API error:", { status: emailResponse.status, result: emailResult, fromEmail });
-      const resendErrorMessage = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+      const userMessage = mapResendErrorMessage(emailResponse.status, emailResult, fromEmail);
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Email failed: ${resendErrorMessage}. Sender domain "${fromEmail}" may need to be verified in Resend.`,
+          error: userMessage,
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
