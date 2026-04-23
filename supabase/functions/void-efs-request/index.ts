@@ -172,14 +172,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending void email:", { resendEmailId, fromEmail, lastNamePart, callerEmail });
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    let emailResponse: Response;
+    try {
+      emailResponse = await sendResendEmailWithRetry(resendApiKey, emailPayload);
+    } catch (networkErr: any) {
+      console.error("Resend network failure after retries:", networkErr);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Void email failed: email service is unreachable. Please try again in a moment.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const emailResultText = await emailResponse.text();
     let emailResult: any = null;
@@ -192,7 +197,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Void email response:", { ok: emailResponse.ok, status: emailResponse.status, result: emailResult });
 
     if (!emailResponse.ok) {
-      const errorMsg = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+      const errorMsg = mapResendErrorMessage(emailResponse.status, emailResult, fromEmail);
       return new Response(
         JSON.stringify({ success: false, error: `Void email failed: ${errorMsg}` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
