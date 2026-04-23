@@ -67,6 +67,57 @@ function getChicagoWeekStartUTC(): string {
   return utcMonday.toISOString();
 }
 
+// Send email via Resend with retry on transient failures (408, 429, 5xx, network).
+async function sendResendEmailWithRetry(
+  resendApiKey: string,
+  payload: Record<string, any>,
+  maxAttempts = 3,
+  backoffMs = 600,
+): Promise<Response> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const transient =
+        resp.status === 408 ||
+        resp.status === 429 ||
+        (resp.status >= 500 && resp.status <= 599);
+      if (!transient || attempt === maxAttempts) return resp;
+      console.warn(`Resend transient ${resp.status} on attempt ${attempt}, retrying...`);
+    } catch (err) {
+      lastError = err;
+      console.warn(`Resend network error on attempt ${attempt}:`, err);
+      if (attempt === maxAttempts) throw err;
+    }
+    await new Promise((r) => setTimeout(r, backoffMs));
+  }
+  throw lastError ?? new Error("Resend send failed");
+}
+
+// Map a Resend error response to a clear, status-aware user message.
+function mapResendErrorMessage(
+  status: number,
+  result: any,
+  fromEmail: string,
+): string {
+  const raw = result?.message || result?.error?.message || "";
+  if (status === 408) return "Email service timed out. Please try again in a moment.";
+  if (status === 429) return "Email service is rate-limited. Please retry shortly.";
+  if (status >= 500) return "Email service is temporarily unavailable. Please try again.";
+  if (status === 401 || status === 403) return "Email service rejected the request (auth). Contact admin.";
+  if (status === 422 && /domain|verify|from/i.test(raw)) {
+    return `${raw || "Invalid sender"}. Sender domain "${fromEmail}" may need to be verified in Resend.`;
+  }
+  return raw || `Email service error (${status}).`;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -277,14 +328,23 @@ Purpose: Cash advance`;
       text: emailBody,
     };
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    let emailResponse: Response;
+    try {
+      emailResponse = await sendResendEmailWithRetry(resendApiKey, emailPayload);
+    } catch (networkErr: any) {
+      console.error("Resend network failure after retries:", networkErr);
+      // Rollback record so user can retry
+      if (insertedAdvance?.id) {
+        await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service is unreachable. Please try again in a moment.",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const emailResultText = await emailResponse.text();
     let emailResult: any = null;
@@ -304,13 +364,12 @@ Purpose: Cash advance`;
         await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
       }
 
-      // Extract the actual error message from Resend
-      const resendErrorMessage = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+      const userMessage = mapResendErrorMessage(emailResponse.status, emailResult, fromEmail);
 
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Email failed: ${resendErrorMessage}. Sender domain "${fromEmail}" may need to be verified in Resend.`,
+          error: userMessage,
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
