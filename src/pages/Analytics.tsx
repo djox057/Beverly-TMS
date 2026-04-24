@@ -2530,31 +2530,9 @@ const Analytics = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
-            {isAdmin && (
+          {isAdmin && (
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isRecomputing}
-                  onClick={async () => {
-                    setIsRecomputing(true);
-                    try {
-                      const { data, error } = await supabase.functions.invoke("recompute-analytics-aggregates");
-                      if (error) throw error;
-                      toast.success(`Aggregates rebuilt: ${data.rowCount} rows in ${(data.elapsedMs / 1000).toFixed(1)}s`);
-                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates"] });
-                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates-alltime"] });
-                      queryClient.invalidateQueries({ queryKey: ["analytics-aggregates-alltime-daily"] });
-                    } catch (err: any) {
-                      toast.error(`Recompute failed: ${err.message}`);
-                    } finally {
-                      setIsRecomputing(false);
-                    }
-                  }}
-                >
-                  {isRecomputing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  Recompute
-                </Button>
+                <span className="text-sm text-muted-foreground">Admin view</span>
               </div>
             )}
           </div>
