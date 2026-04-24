@@ -47,18 +47,25 @@ export function useLumperMissingRevisedRC() {
         truckIds.length > 0 ? supabase.from("trucks").select("id, truck_number").in("id", truckIds) : { data: [] },
         (async () => {
           let allFiles: { order_id: string; file_category: string }[] = [];
-          let from = 0;
+          // Batch orderIds to avoid huge URL query strings, and paginate per batch
+          // since a single .in(...) result can exceed the 1000-row default.
+          const ID_BATCH = 100;
           const PAGE_SIZE = 1000;
-          while (true) {
-            const { data } = await supabase
-              .from("order_files")
-              .select("order_id, file_category")
-              .in("order_id", orderIds)
-              .order("id", { ascending: true })
-              .range(from, from + PAGE_SIZE - 1);
-            allFiles = [...allFiles, ...(data || [])];
-            if (!data || data.length < PAGE_SIZE) break;
-            from += PAGE_SIZE;
+          for (let i = 0; i < orderIds.length; i += ID_BATCH) {
+            const idBatch = orderIds.slice(i, i + ID_BATCH);
+            let from = 0;
+            while (true) {
+              const { data, error } = await supabase
+                .from("order_files")
+                .select("order_id, file_category")
+                .in("order_id", idBatch)
+                .order("id", { ascending: true })
+                .range(from, from + PAGE_SIZE - 1);
+              if (error) throw error;
+              allFiles = [...allFiles, ...(data || [])];
+              if (!data || data.length < PAGE_SIZE) break;
+              from += PAGE_SIZE;
+            }
           }
           return { data: allFiles };
         })(),
