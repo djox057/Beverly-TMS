@@ -54,6 +54,7 @@ export function useLumperMissingRevisedRC() {
               .from("order_files")
               .select("order_id, file_category")
               .in("order_id", orderIds)
+              .order("id", { ascending: true })
               .range(from, from + PAGE_SIZE - 1);
             allFiles = [...allFiles, ...(data || [])];
             if (!data || data.length < PAGE_SIZE) break;
