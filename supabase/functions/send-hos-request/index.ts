@@ -11,6 +11,7 @@ interface HosRequestPayload {
   driverName: string;
   truckNumber: string;
   companyName: string;
+  teamDriverName?: string;
   requestType: 'full_shift' | 'full_cycle' | 'custom';
   customHours?: {
     driveHours: number;
@@ -51,7 +52,7 @@ const handler = async (req: Request): Promise<Response> => {
     const payload: HosRequestPayload = await req.json();
     console.log('Received HOS request payload:', JSON.stringify(payload, null, 2));
 
-    const { driverName, truckNumber, companyName, requestType, customHours, violationFix, requesterEmail } = payload;
+    const { driverName, truckNumber, companyName, teamDriverName, requestType, customHours, violationFix, requesterEmail } = payload;
 
     // Build request type text
     let requestTypeText = '';
@@ -81,7 +82,10 @@ const handler = async (req: Request): Promise<Response> => {
     const violationText = violationFix ? ' + Violation Fix' : '';
 
     // Build the message
-    const message = `Driver: ${driverName}
+    const driverLine = teamDriverName
+      ? `Driver: ${driverName} (${teamDriverName})`
+      : `Driver: ${driverName}`;
+    const message = `${driverLine}
 Vehicle: ${truckNumber}
 Company: ${companyName}
 ${requestTypeText}${violationText}`;

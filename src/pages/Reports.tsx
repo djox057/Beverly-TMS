@@ -724,6 +724,7 @@ const Reports = () => {
     driverName: string;
     truckNumber: string;
     companyName: string;
+    teamDriverName?: string;
   } | null>(null);
 
   // EFS Missing Data dialog state
@@ -4638,6 +4639,7 @@ const Reports = () => {
                                                                           driverName: truck.driver1Name,
                                                                           truckNumber: truck.truckNumber,
                                                                           companyName: truck.companyName || "",
+                                                                          teamDriverName: truck.driver2Name || undefined,
                                                                         });
                                                                       }}
                                                                     >
@@ -4731,6 +4733,7 @@ const Reports = () => {
                                                                           driverName: truck.driver2Name!,
                                                                           truckNumber: truck.truckNumber,
                                                                           companyName: truck.companyName || "",
+                                                                          teamDriverName: truck.driver1Name || undefined,
                                                                         });
                                                                       }}
                                                                     >
@@ -7378,6 +7381,7 @@ const Reports = () => {
         driverName={hosRequestDialog?.driverName || ""}
         truckNumber={hosRequestDialog?.truckNumber || ""}
         companyName={hosRequestDialog?.companyName || ""}
+        teamDriverName={hosRequestDialog?.teamDriverName}
       />
 
       {/* EFS Missing Data Dialog */}
