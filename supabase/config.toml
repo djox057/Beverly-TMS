@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.void-efs-request]
 verify_jwt = false
+
+[functions.auto-assign-weekend-drivers]
+verify_jwt = false
