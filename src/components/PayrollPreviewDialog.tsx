@@ -32,6 +32,9 @@ interface PayrollPreviewDialogProps {
   onCheckedChanged?: () => void; // Called when checked status changes
   onPtoChanged?: (userId: string, ptoCount: number) => void; // Called when PTO selections change
   previewOnly?: boolean; // When true, hide send button and PTO editing
+  // When true, hide Extra Pay / Charges (but still show Penalties).
+  // Used for the dispatch role.
+  hideChargesAndExtraPay?: boolean;
   isDeletedUser?: boolean; // When true, add future month salary/bonus rows
   futureSalary1Percent?: number; // Salary 1% for next month
   futureBonus5Percent?: number; // Bonus 5% for next month
@@ -62,6 +65,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   onCheckedChanged,
   onPtoChanged,
   previewOnly = false,
+  hideChargesAndExtraPay = false,
   isDeletedUser = false,
   futureSalary1Percent = 0,
   futureBonus5Percent = 0,
@@ -81,6 +85,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
+
+  // Penalty form state
+  const [newPenaltyReason, setNewPenaltyReason] = useState("");
+  const [newPenaltyAmount, setNewPenaltyAmount] = useState("");
+  const [newPenaltyApplied, setNewPenaltyApplied] = useState(true);
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
@@ -165,7 +174,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         const selectedPtoDates = Object.entries(ptoSelections).filter(([_, v]) => v).map(([d]) => d);
         const nonSickLostDays = Math.max(0, lostDays - selectedPtoDates.length);
         const daysOffDeduction = nonSickLostDays * perDayRate;
-        const adjTotal = newAdjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+        const adjTotal = newAdjustments.reduce((sum: number, a: any) => {
+          if (a.type === "addition") return sum + a.amount;
+          if (a.type === "charge") return sum - a.amount;
+          if (a.type === "penalty" && a.applied) return sum - a.amount;
+          return sum;
+        }, 0);
         const fullTotal = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
         await supabase
           .from("dispatcher_salary_payments" as any)
@@ -288,7 +302,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
-        adjustments: previewOnly ? [] : adjustments,
+        adjustments: hideChargesAndExtraPay
+          ? adjustments.filter((a) => a.type === "penalty")
+          : adjustments,
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
@@ -341,6 +357,38 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
   const handleRemoveAdjustment = (index: number) => {
     const updated = adjustments.filter((_, i) => i !== index);
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
+  };
+
+  const handleAddPenalty = () => {
+    const amount = parseFloat(newPenaltyAmount);
+    if (!newPenaltyReason.trim()) {
+      toast.error("Please enter a reason");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    const newPen: PayrollAdjustment = {
+      type: "penalty",
+      reason: newPenaltyReason.trim(),
+      amount,
+      applied: newPenaltyApplied,
+    };
+    const updated = [...adjustments, newPen];
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
+    setNewPenaltyReason("");
+    setNewPenaltyAmount("");
+    setNewPenaltyApplied(true);
+  };
+
+  const handleTogglePenaltyApplied = (index: number, applied: boolean) => {
+    const updated = adjustments.map((a, i) =>
+      i === index && a.type === "penalty" ? { ...a, applied } : a,
+    );
     setAdjustments(updated);
     saveAdjustmentsToDb(updated);
   };
@@ -491,7 +539,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;
-      const adjTotal = adjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+      const adjTotal = adjustments.reduce((sum: number, a: any) => {
+        if (a.type === "addition") return sum + a.amount;
+        if (a.type === "charge") return sum - a.amount;
+        if (a.type === "penalty" && a.applied) return sum - a.amount;
+        return sum;
+      }, 0);
       const fullPaidAmount = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
 
       // Insert new payment record: paid_amount = full total, calculated_salary = base rate only (for carry-over)
@@ -520,6 +573,22 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
   const remainingPtoDays = maxPtoDays - usedPtoDaysThisYear;
   const currentMonthPtoSelected = Object.values(ptoSelections).filter(Boolean).length;
+
+  // Split adjustments by category for the right panel
+  const chargesAndExtras = adjustments
+    .map((a, i) => ({ adj: a, index: i }))
+    .filter((x) => x.adj.type === "addition" || x.adj.type === "charge");
+  const penalties = adjustments
+    .map((a, i) => ({ adj: a, index: i }))
+    .filter((x) => x.adj.type === "penalty");
+
+  // Right panel is visible when there's something to show or edit.
+  // Dispatchers (previewOnly + hideChargesAndExtraPay) only see it when penalties exist.
+  const canEditCharges = !previewOnly && !hideChargesAndExtraPay;
+  const canEditPenalties = !previewOnly;
+  const showRightPanel = previewOnly
+    ? penalties.length > 0
+    : (showAdjustmentsForm || lostDayDates.length > 0 || penalties.length > 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -557,17 +626,17 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               size="icon"
               className="h-8 w-8 shrink-0 self-start"
               onClick={() => setShowAdjustmentsForm(true)}
-              title="Add Extra Pay / Charge"
+              title="Add Extra Pay / Charge / Penalty"
             >
               <Plus className="h-4 w-4" />
             </Button>
           )}
 
-          {/* Right Panel - PTO and Adjustments */}
-          {!previewOnly && (showAdjustmentsForm || lostDayDates.length > 0) && (
+          {/* Right Panel - PTO, Adjustments and Penalties */}
+          {showRightPanel && (
             <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
               {/* PTO Section - only show if there are days off */}
-              {lostDayDates.length > 0 && (
+              {!previewOnly && lostDayDates.length > 0 && (
                 <>
                   <div>
                     <h3 className="font-semibold text-sm">Mark as PTO</h3>
@@ -612,14 +681,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                       onClick={() => setShowAdjustmentsForm(true)}
                     >
                       <Plus className="h-4 w-4 mr-1" />
-                      Extra Pay / Charge
+                      Extra Pay / Charge / Penalty
                     </Button>
                   )}
                 </>
               )}
 
-              {/* Adjustments Section - only show when toggled */}
-              {showAdjustmentsForm && (
+              {/* Extra Pay / Charges Section */}
+              {canEditCharges && showAdjustmentsForm && (
                 <>
                   <div className="flex items-center justify-between">
                     <div>
@@ -638,10 +707,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     </Button>
                   </div>
 
-                  {/* Existing adjustments list */}
-                  {adjustments.length > 0 && (
+                  {/* Existing extra pay / charges list */}
+                  {chargesAndExtras.length > 0 && (
                     <div className="space-y-2">
-                      {adjustments.map((adj, index) => (
+                      {chargesAndExtras.map(({ adj, index }) => (
                         <div 
                           key={index} 
                           className={`flex items-center justify-between p-2 rounded-md text-sm ${
@@ -717,6 +786,99 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     </div>
                   </div>
                 </>
+              )}
+
+              {/* Penalties Section - visible to all roles incl. dispatch */}
+              {(canEditPenalties ? showAdjustmentsForm || penalties.length > 0 : penalties.length > 0) && (
+                <div className={canEditCharges && showAdjustmentsForm ? "border-t pt-4 space-y-3" : "space-y-3"}>
+                  <div>
+                    <h3 className="font-semibold text-sm">Penalties</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check the box to apply the deduction. Otherwise it will only show as a warning.
+                    </p>
+                  </div>
+
+                  {/* Existing penalties list */}
+                  {penalties.length > 0 && (
+                    <div className="space-y-2">
+                      {penalties.map(({ adj, index }) => (
+                        <div
+                          key={index}
+                          className={`flex items-start gap-2 p-2 rounded-md text-sm ${
+                            adj.applied
+                              ? "bg-red-50 dark:bg-red-900/20"
+                              : "bg-yellow-50 dark:bg-yellow-900/20"
+                          }`}
+                        >
+                          {canEditPenalties && (
+                            <Checkbox
+                              checked={!!adj.applied}
+                              onCheckedChange={(c) => handleTogglePenaltyApplied(index, c as boolean)}
+                              className="mt-0.5"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{adj.reason}</p>
+                            {adj.applied ? (
+                              <p className="text-red-600">-${adj.amount.toFixed(2)}</p>
+                            ) : (
+                              <p className="text-yellow-700 dark:text-yellow-500 text-xs">
+                                Warning only — would be ${adj.amount.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                          {canEditPenalties && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => handleRemoveAdjustment(index)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add new penalty form */}
+                  {canEditPenalties && showAdjustmentsForm && (
+                    <div className="space-y-3 pt-2">
+                      <Input
+                        placeholder="Reason"
+                        value={newPenaltyReason}
+                        onChange={(e) => setNewPenaltyReason(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          value={newPenaltyAmount}
+                          onChange={(e) => setNewPenaltyAmount(e.target.value)}
+                          className="h-8 text-sm flex-1"
+                          min="0"
+                          step="0.01"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleAddPenalty}
+                          disabled={!newPenaltyReason.trim() || !newPenaltyAmount}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Checkbox
+                          checked={newPenaltyApplied}
+                          onCheckedChange={(c) => setNewPenaltyApplied(c as boolean)}
+                        />
+                        <span>Apply as deduction (uncheck for warning only)</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

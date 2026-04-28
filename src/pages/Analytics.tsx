@@ -5174,6 +5174,7 @@ const Analytics = () => {
             dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus}
             perDayRate={payrollPreviewData.perDayRate}
             previewOnly={isDispatchOnly}
+            hideChargesAndExtraPay={isDispatchOnly}
             isDeletedUser={payrollPreviewData.isDeletedUser}
             futureMonthLabel={payrollPreviewData.futureMonthLabel}
             futureSalary1Percent={payrollPreviewData.futureSalary1Percent}

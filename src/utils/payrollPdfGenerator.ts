@@ -2,9 +2,12 @@ import jsPDF from "jspdf";
 
 // Export the adjustment type for use in other components
 export interface PayrollAdjustment {
-  type: "addition" | "charge";
+  type: "addition" | "charge" | "penalty";
   reason: string;
   amount: number;
+  // Only used when type === "penalty". When false, the penalty is shown as a
+  // warning only and does NOT deduct from the check amount.
+  applied?: boolean;
 }
 
 interface PayrollData {
@@ -60,14 +63,18 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   const totalCharges = adjustments
     .filter(a => a.type === "charge")
     .reduce((sum, a) => sum + a.amount, 0);
+  const totalAppliedPenalties = adjustments
+    .filter(a => a.type === "penalty" && a.applied === true)
+    .reduce((sum, a) => sum + a.amount, 0);
   
   // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
   const extraDaysAdd = hasExtraDays ? data.extraDaysAmount : 0;
   const daysOffDeduction = nonSickDaysOff * perDayRate;
   
-  const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
-    extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0) + totalAdditions - totalCharges;
+  const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance +
+    extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0) +
+    totalAdditions - totalCharges - totalAppliedPenalties;
 
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
@@ -328,7 +335,7 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
         "#FFFFFF",
         LIGHT_BLUE_BG
       );
-    } else {
+    } else if (adjustment.type === "charge") {
       drawRow(
         `Charge: ${adjustment.reason || "Charge"}`,
         `-$${adjustment.amount.toFixed(2)}`,
@@ -337,6 +344,24 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
         false,
         BLACK_COLOR
       );
+    } else if (adjustment.type === "penalty") {
+      if (adjustment.applied) {
+        drawRow(
+          `Penalty: ${adjustment.reason || "Penalty"}`,
+          `-$${adjustment.amount.toFixed(2)}`,
+          "#FFFFFF",
+          LIGHT_BLUE_BG,
+          false,
+          BLACK_COLOR
+        );
+      } else {
+        drawRow(
+          `Warning: ${adjustment.reason || "Penalty"}. If this happens again, penalty will be $${adjustment.amount.toFixed(2)}.`,
+          `$0.00`,
+          "#FFFFFF",
+          LIGHT_BLUE_BG
+        );
+      }
     }
   }
 

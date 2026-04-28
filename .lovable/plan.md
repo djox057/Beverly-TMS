@@ -1,57 +1,80 @@
+# Add Penalties Section to Payroll Statement
 
+Split the current "Extra Pay / Charges" UI into two distinct sections — **Extra Pay / Charges** (existing behavior) and a new **Penalties** section. Penalties have a confirmation checkbox that controls whether they actually deduct from the paycheck or just appear as a warning note.
 
-## Why this happened
+## Behavior summary
 
-The Resend domain `unitedenterprisesolutions.net` is verified — you're correct. Looking at the actual edge function logs, what Resend really returned was:
+**Extra Pay / Charges** (unchanged)
+- Hidden from `dispatch` role (current behavior preserved).
+- Always reflected in the paycheck total.
 
+**Penalties** (new)
+- Visible to dispatchers in the PDF preview (unlike charges).
+- Each penalty has: **Reason**, **Amount**, **"Apply deduction" checkbox**.
+- If checkbox is **checked**: behaves like a charge — line shows `Penalty: <reason>` with `-$amount` and reduces the check amount.
+- If checkbox is **unchecked**: line shows a warning instead — `Warning: <reason>. If this happens again, penalty will be $<amount>.` with `$0.00` and no deduction.
+- Penalties only appear in the payroll PDF preview — they never appear under Order Additionals.
+
+## Data model
+
+Extend the existing `additionals` jsonb array in `dispatcher_salary_payments` (no schema change needed — it's already jsonb storing `PayrollAdjustment[]`). Add a new variant:
+
+```ts
+type PayrollAdjustment =
+  | { type: "addition"; reason: string; amount: number }
+  | { type: "charge"; reason: string; amount: number }
+  | { type: "penalty"; reason: string; amount: number; applied: boolean };
 ```
-status: 408
-message: "Operation timed out. Please try again later."
-```
 
-That's a transient Resend timeout, not a domain problem. But the edge functions append the same misleading sentence — `Sender domain "..." may need to be verified in Resend` — to **every** non-OK Resend response, regardless of cause. The driver/dispatcher saw that and naturally thought it was a verification issue.
-
-This affects all three EFS-sending edge functions: `send-efs-other-request` (used by the fuel EFS dialog — what was hit here), `send-cash-advance-request`, and `void-efs-request`.
-
-## Proposed fix
-
-Two improvements:
-
-### 1. Auto-retry on transient Resend failures
-
-In `send-efs-other-request`, `send-cash-advance-request`, and `void-efs-request`, wrap the `fetch("https://api.resend.com/emails", ...)` call with a small retry helper:
-
-- Retry up to 2 additional times (3 attempts total) on these statuses: `408` (timeout), `429` (rate limit), `500/502/503/504`, and on network/`fetch` exceptions.
-- 600 ms backoff between attempts.
-- No retry on `4xx` other than `408`/`429` (those are real config errors — verification, bad payload, etc.).
-
-This will silently recover from the kind of timeout that just happened, so the dispatcher never sees the error.
-
-### 2. Honest error messages
-
-Replace the blanket `"...may need to be verified in Resend."` suffix with a status-aware message:
-
-| Resend status | User-facing message |
-|---|---|
-| 408 / network timeout (after retries) | `Email service timed out. Please try again in a moment.` |
-| 429 | `Email service is rate-limited. Please retry shortly.` |
-| 5xx | `Email service is temporarily unavailable. Please try again.` |
-| 401 / 403 | `Email service rejected the request (auth). Contact admin.` |
-| 422 + message contains "domain" / "verify" / "from" | Keep the existing `Sender domain "<x>" may need to be verified in Resend.` |
-| Other 4xx | Show Resend's raw message without the verification suffix |
-
-Same logic applied to all three functions for consistency.
+Old records remain valid (no `applied` field on additions/charges).
 
 ## Files to change
 
-- `supabase/functions/send-efs-other-request/index.ts` — add retry wrapper + status-aware error mapping around the Resend `fetch`.
-- `supabase/functions/send-cash-advance-request/index.ts` — same pattern.
-- `supabase/functions/void-efs-request/index.ts` — same pattern (currently just bubbles `Resend error <status>` — also gets retry + better wording).
+### `src/utils/payrollPdfGenerator.ts`
+- Extend `PayrollAdjustment` union to include `penalty` with `applied: boolean`.
+- In the adjustments loop, render a `penalty` row:
+  - `applied === true`: `Penalty: <reason>` with `-$amount` (subtract from `checkAmount`, like a charge).
+  - `applied === false`: `Warning: <reason>. If repeated, penalty will be $<amount>.` with `$0.00` (no deduction).
+- Update `totalCharges` calculation so applied penalties are also subtracted.
 
-No DB schema, no UI, no client-side changes needed. The existing `EfsRequestDialog` already displays whatever `data.error` the edge function returns, so improving the wording on the server side automatically improves the toast the user sees.
+### `src/components/PayrollPreviewDialog.tsx`
+- Replace the single Extra Pay / Charge form area with two stacked sections inside the right panel:
+  1. **Extra Pay / Charges** — existing form (Extra Pay / Charge buttons + Reason + Amount).
+  2. **Penalties** — new form: Reason, Amount, "Apply deduction" checkbox, Add button. Below it, a list of existing penalties each with the same checkbox toggle (live edit) and a delete button.
+- The `Plus` button trigger label changes to "Add Extra Pay / Charge / Penalty".
+- Update `handleAddAdjustment` to also handle penalty creation; add `handleTogglePenaltyApplied(index)` that updates the `applied` flag and persists via `saveAdjustmentsToDb`.
+- Update the `adjTotal` calculation in `saveAdjustmentsToDb` and `handleSendEmail` to subtract applied penalties.
+- Pass a new prop `hideChargesAndExtraPay: boolean` (true when `isDispatchOnly`). When true:
+  - Hide the Extra Pay / Charges sub-form in the right panel.
+  - When generating the PDF for preview, filter `adjustments` to only include `penalty` entries (instead of the current `previewOnly ? [] : adjustments`).
+- Penalties section is always rendered (visible to all roles including dispatch).
 
-## Out of scope
+### `src/pages/Analytics.tsx`
+- Pass `hideChargesAndExtraPay={isDispatchOnly}` to `PayrollPreviewDialog`.
+- Keep `previewOnly={isDispatchOnly}` so dispatchers still can't send/edit.
+- Important: dispatchers must still be able to **view** penalties but not create/edit them — `previewOnly` already disables forms; that's correct.
 
-- The mileage/audit popovers and Drug Test expense work from earlier are unrelated and untouched.
-- No changes to `send-efs-request` (the lumper-fee one) — it uses the Resend SDK and didn't trigger this error, but I'll mirror the retry into it as well so the next lumper-fee timeout is handled consistently. (Adding it here for completeness — let me know if you'd rather leave it alone.)
+## PDF rendering details
 
+For penalty rows (using existing `drawRow` helper):
+
+```text
+applied === true:
+  drawRow(`Penalty: ${reason}`, `-$${amount.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG, false, BLACK_COLOR);
+
+applied === false:
+  drawRow(
+    `Warning: ${reason}. If repeated, penalty will be $${amount.toFixed(2)}.`,
+    `$0.00`,
+    "#FFFFFF",
+    LIGHT_BLUE_BG
+  );
+```
+
+The existing `drawRow` already auto-wraps long text, so the warning sentence will wrap cleanly.
+
+## Out of scope / confirmations
+
+- No database migration — `additionals` column is already jsonb and tolerates the new shape.
+- No changes to `OrderAdditionalsManager` — penalties live entirely inside payroll, never in order additionals.
+- Memory rule "Hides bonuses from 'dispatch' role" remains intact for charges/extra pay; only penalties are exposed to dispatch.
