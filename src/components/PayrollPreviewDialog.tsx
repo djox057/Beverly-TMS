@@ -302,7 +302,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
-        adjustments: previewOnly ? [] : adjustments,
+        adjustments: hideChargesAndExtraPay
+          ? adjustments.filter((a) => a.type === "penalty")
+          : adjustments,
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
