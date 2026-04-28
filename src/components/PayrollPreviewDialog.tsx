@@ -32,6 +32,9 @@ interface PayrollPreviewDialogProps {
   onCheckedChanged?: () => void; // Called when checked status changes
   onPtoChanged?: (userId: string, ptoCount: number) => void; // Called when PTO selections change
   previewOnly?: boolean; // When true, hide send button and PTO editing
+  // When true, hide Extra Pay / Charges (but still show Penalties).
+  // Used for the dispatch role.
+  hideChargesAndExtraPay?: boolean;
   isDeletedUser?: boolean; // When true, add future month salary/bonus rows
   futureSalary1Percent?: number; // Salary 1% for next month
   futureBonus5Percent?: number; // Bonus 5% for next month
@@ -62,6 +65,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   onCheckedChanged,
   onPtoChanged,
   previewOnly = false,
+  hideChargesAndExtraPay = false,
   isDeletedUser = false,
   futureSalary1Percent = 0,
   futureBonus5Percent = 0,
@@ -81,6 +85,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newAdjustmentType, setNewAdjustmentType] = useState<"addition" | "charge">("addition");
   const [newAdjustmentReason, setNewAdjustmentReason] = useState("");
   const [newAdjustmentAmount, setNewAdjustmentAmount] = useState("");
+
+  // Penalty form state
+  const [newPenaltyReason, setNewPenaltyReason] = useState("");
+  const [newPenaltyAmount, setNewPenaltyAmount] = useState("");
+  const [newPenaltyApplied, setNewPenaltyApplied] = useState(true);
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
