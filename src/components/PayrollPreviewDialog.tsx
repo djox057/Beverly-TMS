@@ -174,7 +174,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         const selectedPtoDates = Object.entries(ptoSelections).filter(([_, v]) => v).map(([d]) => d);
         const nonSickLostDays = Math.max(0, lostDays - selectedPtoDates.length);
         const daysOffDeduction = nonSickLostDays * perDayRate;
-        const adjTotal = newAdjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+        const adjTotal = newAdjustments.reduce((sum: number, a: any) => {
+          if (a.type === "addition") return sum + a.amount;
+          if (a.type === "charge") return sum - a.amount;
+          if (a.type === "penalty" && a.applied) return sum - a.amount;
+          return sum;
+        }, 0);
         const fullTotal = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
         await supabase
           .from("dispatcher_salary_payments" as any)
@@ -500,7 +505,12 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;
-      const adjTotal = adjustments.reduce((sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount), 0);
+      const adjTotal = adjustments.reduce((sum: number, a: any) => {
+        if (a.type === "addition") return sum + a.amount;
+        if (a.type === "charge") return sum - a.amount;
+        if (a.type === "penalty" && a.applied) return sum - a.amount;
+        return sum;
+      }, 0);
       const fullPaidAmount = baseRate + foodAllowance + extraDaysAmount - daysOffDeduction + dispatcherBonus + adjTotal;
 
       // Insert new payment record: paid_amount = full total, calculated_salary = base rate only (for carry-over)
