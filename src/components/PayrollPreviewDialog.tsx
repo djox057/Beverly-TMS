@@ -626,17 +626,17 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
               size="icon"
               className="h-8 w-8 shrink-0 self-start"
               onClick={() => setShowAdjustmentsForm(true)}
-              title="Add Extra Pay / Charge"
+              title="Add Extra Pay / Charge / Penalty"
             >
               <Plus className="h-4 w-4" />
             </Button>
           )}
 
-          {/* Right Panel - PTO and Adjustments */}
-          {!previewOnly && (showAdjustmentsForm || lostDayDates.length > 0) && (
+          {/* Right Panel - PTO, Adjustments and Penalties */}
+          {showRightPanel && (
             <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
               {/* PTO Section - only show if there are days off */}
-              {lostDayDates.length > 0 && (
+              {!previewOnly && lostDayDates.length > 0 && (
                 <>
                   <div>
                     <h3 className="font-semibold text-sm">Mark as PTO</h3>
@@ -681,14 +681,14 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                       onClick={() => setShowAdjustmentsForm(true)}
                     >
                       <Plus className="h-4 w-4 mr-1" />
-                      Extra Pay / Charge
+                      Extra Pay / Charge / Penalty
                     </Button>
                   )}
                 </>
               )}
 
-              {/* Adjustments Section - only show when toggled */}
-              {showAdjustmentsForm && (
+              {/* Extra Pay / Charges Section */}
+              {canEditCharges && showAdjustmentsForm && (
                 <>
                   <div className="flex items-center justify-between">
                     <div>
@@ -707,10 +707,10 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     </Button>
                   </div>
 
-                  {/* Existing adjustments list */}
-                  {adjustments.length > 0 && (
+                  {/* Existing extra pay / charges list */}
+                  {chargesAndExtras.length > 0 && (
                     <div className="space-y-2">
-                      {adjustments.map((adj, index) => (
+                      {chargesAndExtras.map(({ adj, index }) => (
                         <div 
                           key={index} 
                           className={`flex items-center justify-between p-2 rounded-md text-sm ${
@@ -786,6 +786,99 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     </div>
                   </div>
                 </>
+              )}
+
+              {/* Penalties Section - visible to all roles incl. dispatch */}
+              {(canEditPenalties ? showAdjustmentsForm || penalties.length > 0 : penalties.length > 0) && (
+                <div className={canEditCharges && showAdjustmentsForm ? "border-t pt-4 space-y-3" : "space-y-3"}>
+                  <div>
+                    <h3 className="font-semibold text-sm">Penalties</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check the box to apply the deduction. Otherwise it will only show as a warning.
+                    </p>
+                  </div>
+
+                  {/* Existing penalties list */}
+                  {penalties.length > 0 && (
+                    <div className="space-y-2">
+                      {penalties.map(({ adj, index }) => (
+                        <div
+                          key={index}
+                          className={`flex items-start gap-2 p-2 rounded-md text-sm ${
+                            adj.applied
+                              ? "bg-red-50 dark:bg-red-900/20"
+                              : "bg-yellow-50 dark:bg-yellow-900/20"
+                          }`}
+                        >
+                          {canEditPenalties && (
+                            <Checkbox
+                              checked={!!adj.applied}
+                              onCheckedChange={(c) => handleTogglePenaltyApplied(index, c as boolean)}
+                              className="mt-0.5"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{adj.reason}</p>
+                            {adj.applied ? (
+                              <p className="text-red-600">-${adj.amount.toFixed(2)}</p>
+                            ) : (
+                              <p className="text-yellow-700 dark:text-yellow-500 text-xs">
+                                Warning only — would be ${adj.amount.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                          {canEditPenalties && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => handleRemoveAdjustment(index)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add new penalty form */}
+                  {canEditPenalties && showAdjustmentsForm && (
+                    <div className="space-y-3 pt-2">
+                      <Input
+                        placeholder="Reason"
+                        value={newPenaltyReason}
+                        onChange={(e) => setNewPenaltyReason(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          value={newPenaltyAmount}
+                          onChange={(e) => setNewPenaltyAmount(e.target.value)}
+                          className="h-8 text-sm flex-1"
+                          min="0"
+                          step="0.01"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleAddPenalty}
+                          disabled={!newPenaltyReason.trim() || !newPenaltyAmount}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Checkbox
+                          checked={newPenaltyApplied}
+                          onCheckedChange={(c) => setNewPenaltyApplied(c as boolean)}
+                        />
+                        <span>Apply as deduction (uncheck for warning only)</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
