@@ -361,6 +361,38 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     saveAdjustmentsToDb(updated);
   };
 
+  const handleAddPenalty = () => {
+    const amount = parseFloat(newPenaltyAmount);
+    if (!newPenaltyReason.trim()) {
+      toast.error("Please enter a reason");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    const newPen: PayrollAdjustment = {
+      type: "penalty",
+      reason: newPenaltyReason.trim(),
+      amount,
+      applied: newPenaltyApplied,
+    };
+    const updated = [...adjustments, newPen];
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
+    setNewPenaltyReason("");
+    setNewPenaltyAmount("");
+    setNewPenaltyApplied(true);
+  };
+
+  const handleTogglePenaltyApplied = (index: number, applied: boolean) => {
+    const updated = adjustments.map((a, i) =>
+      i === index && a.type === "penalty" ? { ...a, applied } : a,
+    );
+    setAdjustments(updated);
+    saveAdjustmentsToDb(updated);
+  };
+
   // Use a ref to serialize PTO saves and prevent race conditions
   const ptoSaveQueue = React.useRef<Promise<void>>(Promise.resolve());
 
