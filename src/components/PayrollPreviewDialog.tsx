@@ -574,6 +574,22 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const remainingPtoDays = maxPtoDays - usedPtoDaysThisYear;
   const currentMonthPtoSelected = Object.values(ptoSelections).filter(Boolean).length;
 
+  // Split adjustments by category for the right panel
+  const chargesAndExtras = adjustments
+    .map((a, i) => ({ adj: a, index: i }))
+    .filter((x) => x.adj.type === "addition" || x.adj.type === "charge");
+  const penalties = adjustments
+    .map((a, i) => ({ adj: a, index: i }))
+    .filter((x) => x.adj.type === "penalty");
+
+  // Right panel is visible when there's something to show or edit.
+  // Dispatchers (previewOnly + hideChargesAndExtraPay) only see it when penalties exist.
+  const canEditCharges = !previewOnly && !hideChargesAndExtraPay;
+  const canEditPenalties = !previewOnly;
+  const showRightPanel = previewOnly
+    ? penalties.length > 0
+    : (showAdjustmentsForm || lostDayDates.length > 0 || penalties.length > 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
