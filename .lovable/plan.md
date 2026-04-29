@@ -1,78 +1,134 @@
-## Goal
+## Diagnosis recap
 
-Make `%`-based adjustments (Extra Pay, Charge, Penalty) **dynamic**: the actual dollar deduction/addition recalculates whenever the dispatcher's salary base changes (Gross×1% + Comm×5%), instead of being frozen at a static dollar amount captured at creation time.
+Home Time disappears on refresh because `src/hooks/useReportsDateWindowAdapter.ts` fetches `lost_day_notes` for a static ±30-day window and silently hits PostgREST's 1,000-row cap (current 60-day window contains 1,057 rows). Without an `ORDER BY`, the truncated rows are non-deterministic and tend to drop the newest entries — exactly matching "today and future dates vanish".
 
-## Current behavior (problem)
+## Requested fix
 
-When the user picks `%` mode and enters e.g. `5`, the code immediately computes `(percentBase * 5) / 100` and stores only the resulting dollar amount in the `additionals` JSONB. There is no record that the value was a percentage, so if the salary later changes the deduction does NOT track it.
+Make the lost-day-notes loader behave like the loads / pickup-drops loader: a small window of **3 days before → current day → 4 days after**, that **expands** as the user navigates the calendar carousel, and **never refetches** ranges already loaded.
 
-## New behavior
+This both eliminates the row-cap problem and keeps payloads small.
 
-If the user enters the value in `%` mode, we persist the percentage itself alongside the adjustment. The effective dollar amount used in the PDF, salary totals, and DB calculations is then derived live from the current `percentBase` (= `salary1Percent + bonus5Percent`).
+## Reference pattern (already implemented for orders)
 
-If the user enters in `$` mode, behavior is unchanged: a fixed dollar amount is stored.
+`src/hooks/useReportsDateWindow.ts` already implements the exact pattern we want for orders/pickup-drops:
 
-## Data model change
+- A `currentWindow = calculateDateWindow(selectedDate, 'initial')` per render.
+- A module-scope `globalAccumulatedOrders` map and `globalLoadedWindows` set: when a window key is already loaded, the queryFn returns immediately.
+- The query key includes the `windowKey`, so navigating the calendar fires a new fetch only for the new range; previously fetched ranges stay in the global store.
 
-Extend `PayrollAdjustment` in `src/utils/payrollPdfGenerator.ts`:
+We will replicate that pattern for `lost_day_notes`.
+
+## Implementation
+
+### File: `src/hooks/useReportsDateWindowAdapter.ts`
+
+1. **Replace the ±30-day window** (lines ~563-574) with the new 8-day window:
+
+   ```ts
+   // -3 days before selectedDate through +4 days after (matches orders/pickup-drops behavior).
+   const lostNotesDateRange = useMemo(() => {
+     const start = new Date(selectedDate);
+     start.setDate(start.getDate() - 3);
+     const end = new Date(selectedDate);
+     end.setDate(end.getDate() + 4);
+     const fmt = (d: Date) => d.toISOString().slice(0, 10);
+     return { start: fmt(start), end: fmt(end) };
+   }, [selectedDate]);
+   ```
+
+2. **Add a module-scope accumulator** at the top of the file (next to `orderFilesCacheByOrderId`):
+
+   ```ts
+   // Persistent accumulator for lost_day_notes across calendar navigations.
+   // Keyed by `${driver_id}_${date}` so updates replace the previous record.
+   const lostDayNotesAccumulator = new Map<string, any>();
+   const lostDayNotesLoadedRanges = new Set<string>(); // "YYYY-MM-DD_YYYY-MM-DD"
+
+   const lostDayNotesAccKey = (n: { driver_id: string; date: string }) =>
+     `${n.driver_id}_${String(n.date).slice(0, 10)}`;
+
+   const ingestLostDayNotes = (rows: any[]) => {
+     for (const r of rows) {
+       if (!r?.driver_id || !r?.date) continue;
+       lostDayNotesAccumulator.set(lostDayNotesAccKey(r), r);
+     }
+   };
+
+   export const removeLostDayNoteFromAccumulator = (driverId: string, date: string) => {
+     lostDayNotesAccumulator.delete(`${driverId}_${String(date).slice(0, 10)}`);
+   };
+
+   export const upsertLostDayNoteInAccumulator = (note: any) => {
+     if (!note?.driver_id || !note?.date) return;
+     lostDayNotesAccumulator.set(lostDayNotesAccKey(note), note);
+   };
+   ```
+
+3. **Rewrite the `allLostDayNotes` query** to:
+   - Use the new 8-day window in its key so each carousel position triggers exactly one fetch.
+   - Skip the network when the window is already in `lostDayNotesLoadedRanges` (mirrors `globalLoadedWindows` for orders).
+   - Add `.order("updated_at", { ascending: false })` and `.range(0, 9999)` as a defensive cap (8 days will be far below this, but it removes the silent 1000-row footgun forever).
+   - Ingest results into `lostDayNotesAccumulator` and return all currently-accumulated rows.
+
+   ```ts
+   const lostNotesRangeKey = `${lostNotesDateRange.start}_${lostNotesDateRange.end}`;
+
+   const { data: allLostDayNotes } = useQuery({
+     queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey],
+     queryFn: async () => {
+       if (!lostDayNotesLoadedRanges.has(lostNotesRangeKey)) {
+         const { data, error } = await supabase
+           .from("lost_day_notes")
+           .select("*")
+           .gte("date", lostNotesDateRange.start)
+           .lte("date", lostNotesDateRange.end)
+           .order("updated_at", { ascending: false })
+           .range(0, 9999);
+         if (error) throw error;
+         ingestLostDayNotes(data || []);
+         lostDayNotesLoadedRanges.add(lostNotesRangeKey);
+       }
+       return Array.from(lostDayNotesAccumulator.values());
+     },
+     staleTime: 300000,
+     gcTime: 300000,
+     refetchOnWindowFocus: false,
+     enabled: globalEnabled,
+   });
+   ```
+
+4. **Wire the realtime + optimistic-update paths** so the accumulator stays consistent (it's the single source of truth now):
+
+   - In the existing realtime handler around line 988 (`lost_day_notes` channel), after computing `newRecord`/`oldRecord`/`eventType`, also call:
+     - INSERT / UPDATE → `upsertLostDayNoteInAccumulator(newRecord)`
+     - DELETE → `removeLostDayNoteFromAccumulator(oldRecord.driver_id, oldRecord.date)`
+   - In `src/hooks/useReports.ts` `updateLostDayNote.onMutate`, after building `newNote`, also call `upsertLostDayNoteInAccumulator(newNote)` (import from the adapter file). On `onError` rollback, restore by calling `upsertLostDayNoteInAccumulator(previousNote)` if there was one, or `removeLostDayNoteFromAccumulator(driverId, date)` if there wasn't.
+
+   This guarantees that when the user marks Home Time and refreshes, the new note is in both the cache and the accumulator, so it survives the refresh and any subsequent carousel scroll.
+
+### Reset behavior
+
+Add a one-line clear inside the existing `individualMode` change effect in the adapter (mirrors how `globalAccumulatedOrders` is cleared in `useReportsDateWindow.ts`):
 
 ```ts
-export interface PayrollAdjustment {
-  type: "addition" | "charge" | "penalty";
-  reason: string;
-  amount: number;          // resolved $ at the time of writing — kept for back-compat / display fallback
-  applied?: boolean;       // penalty only
-  percent?: number;        // NEW — when set, amount must be recomputed as base * percent / 100
-}
+// where globalAccumulatedOrders.clear() is invoked
+lostDayNotesAccumulator.clear();
+lostDayNotesLoadedRanges.clear();
 ```
 
-No DB migration needed (`additionals` is already JSONB). Old records without `percent` keep working as fixed-dollar entries.
+This prevents stale notes from leaking across major scope switches.
 
-## Files to change
+## Verification
 
-### 1. `src/utils/payrollPdfGenerator.ts`
-- Add optional `percent?: number` field to `PayrollAdjustment`.
-- (PDF rendering itself doesn't need to change — it already uses `adjustment.amount`. The caller resolves `amount` from `percent` before passing in.)
-
-### 2. `src/components/PayrollPreviewDialog.tsx`
-
-**Persisting**
-- In `handleAddAdjustment` and `handleAddPenalty`, when the input mode is `percent`, store both `percent: parseFloat(raw)` and the currently-resolved `amount`. When mode is `dollar`, store only `amount` as today (no `percent` field).
-
-**Resolving live**
-- Add a helper `resolveAdjustments(list, base)` that maps each adjustment to a copy where, if `percent` is set, `amount = base * percent / 100`. Use this:
-  - When computing `adjTotal` inside `saveAdjustmentsToDb`, `handleSendEmail`, and the live preview total.
-  - When passing `adjustments` into the PDF generator (so the PDF shows the up-to-date dollar figure).
-  - When displaying the existing-adjustments list in the right panel (so the user sees the live $ next to e.g. `5%`).
-
-**Display**
-- In the existing-adjustments list, if an adjustment has `percent`, show it as `5% ($123.45)` so it's clear the value is dynamic. If not, show only `$amount` as today.
-
-**Saving back to DB**
-- `saveAdjustmentsToDb` writes the array as-is (with `percent` preserved). Do NOT overwrite `percent` entries with their resolved dollar value — that would freeze them.
-
-### 3. `src/pages/Analytics.tsx`
-- Where `additionals` is fetched and reduced into `adjustmentsTotal` (both the dispatcher RPC path and the regular path), apply the same resolve step:
-  ```ts
-  const resolved = (additionals ?? []).map(a =>
-    a.percent != null ? { ...a, amount: (baseRate * a.percent) / 100 } : a
-  );
-  ```
-  Then run the existing reduce. `baseRate` here is `salary1Percent + bonus5Percent` for that dispatcher/month — already computed in this file.
-
-### 4. `src/components/PayrollPreviewDialog.tsx` — toggle UX (minor)
-- Keep current toggle behavior. When the user toggles `$` ↔ `%` while typing a NEW adjustment, do not auto-convert the typed value (treat it as a fresh entry in the new unit) — matches today's UX.
-- Existing adjustments cannot be edited in-place (only deleted/re-added), so no migration UI is needed.
-
-## Edge cases
-
-- `percentBase` is 0 (no gross/comm yet): resolved amount becomes `0`. This is correct — a percentage of nothing is nothing, and the deduction will start applying once orders are added.
-- Mixed list (some `$`, some `%`): each entry is resolved independently.
-- Penalties with `applied: false`: percent still resolves to a dollar figure, but the PDF still shows it as a `Warning: …` line with `$0.00` and no deduction (existing rule).
-- Old saved records without `percent`: behave exactly as before (frozen dollar).
+1. Today is the selected date. Mark Home Time on a driver → refresh → icon persists.
+2. Mark Home Time 4 days in the future → refresh → icon persists.
+3. Scroll the calendar carousel forward by a few days → the new days load their notes; previously loaded days still show their notes (no flicker, no refetch).
+4. Scroll back to today → still no refetch (window already in `lostDayNotesLoadedRanges`).
+5. Network panel: each carousel move issues at most one `lost_day_notes` request, scoped to the new window only.
 
 ## Out of scope
 
-- No DB schema migration.
-- No retroactive conversion of existing fixed-dollar adjustments to percentages.
-- No change to charges/extra-pay visibility rules per role.
+- No DB migration.
+- No change to the write path's actual upsert (it was correct).
+- `truck_notes` query is unaffected — it already orders by `updated_at desc` and is a smaller table.
+- Memory note `lost-day-notes` will need updating from "±30 day window" to "sliding -3/+4 day window with accumulator" once the change is shipped.

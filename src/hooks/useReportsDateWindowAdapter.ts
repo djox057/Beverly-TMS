@@ -50,6 +50,44 @@ const orderFilesCacheByOrderId = new Map<string, OrderFileLite[]>();
 const orderFilesLoadedOrderIds = new Set<string>();
 let orderFilesFetchInFlight: Promise<void> | null = null;
 
+/**
+ * Lost day notes accumulator (module-scope)
+ *
+ * Mirrors the orders sliding-window pattern from useReportsDateWindow.ts.
+ * The query loads a small window (-3 / +4 days) around the selected date and
+ * accumulates results here. Already-loaded windows are skipped, so navigating
+ * the calendar carousel only fetches the *new* days.
+ *
+ * Keyed by `${driver_id}_${YYYY-MM-DD}` so upserts replace prior rows.
+ */
+const lostDayNotesAccumulator = new Map<string, any>();
+const lostDayNotesLoadedRanges = new Set<string>();
+
+const lostDayNotesAccKey = (n: { driver_id: string; date: string }) =>
+  `${n.driver_id}_${String(n.date).slice(0, 10)}`;
+
+const ingestLostDayNotes = (rows: any[]) => {
+  for (const r of rows) {
+    if (!r?.driver_id || !r?.date) continue;
+    lostDayNotesAccumulator.set(lostDayNotesAccKey(r), r);
+  }
+};
+
+export const upsertLostDayNoteInAccumulator = (note: any) => {
+  if (!note?.driver_id || !note?.date) return;
+  lostDayNotesAccumulator.set(lostDayNotesAccKey(note), note);
+};
+
+export const removeLostDayNoteFromAccumulator = (driverId: string, date: string) => {
+  if (!driverId || !date) return;
+  lostDayNotesAccumulator.delete(`${driverId}_${String(date).slice(0, 10)}`);
+};
+
+const clearLostDayNotesAccumulator = () => {
+  lostDayNotesAccumulator.clear();
+  lostDayNotesLoadedRanges.clear();
+};
+
 const clearOrderFilesCache = () => {
   orderFilesCacheByOrderId.clear();
   orderFilesLoadedOrderIds.clear();
@@ -316,6 +354,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
         // Individual-mode toggle is a full context switch; clear order_files cache to avoid stale bloat
         clearOrderFilesCache();
+        // Same context switch — drop accumulated lost_day_notes so the new scope refetches cleanly.
+        clearLostDayNotesAccumulator();
         
         // Invalidate all adapter queries to force refetch with new scope
         queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
@@ -560,32 +600,38 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return allTruckNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allTruckNotes, driverIdsForScope]);
 
-  // Compute a generous date range for lost_day_notes fetch.
-  // The visible window is ~6 days, but game_over / home_time notes can span ahead.
-  // Use ±30 days from selectedDate to cover edge cases while staying well under
-  // Supabase's default 1000-row limit (table has 2400+ total rows).
+  // Sliding window for lost_day_notes: -3 / +4 days around selectedDate.
+  // Mirrors orders/pickup_drops behavior — each carousel position fetches its
+  // own small window once, then results accumulate in a module-scope Map.
   const lostNotesDateRange = useMemo(() => {
     const start = new Date(selectedDate);
-    start.setDate(start.getDate() - 30);
+    start.setDate(start.getDate() - 3);
     const end = new Date(selectedDate);
-    end.setDate(end.getDate() + 30);
+    end.setDate(end.getDate() + 4);
     const fmt = (d: Date) => d.toISOString().slice(0, 10);
     return { start: fmt(start), end: fmt(end) };
   }, [selectedDate]);
 
-  // GLOBAL FETCH: lost day notes scoped to a ±30-day window around selectedDate
+  const lostNotesRangeKey = `${lostNotesDateRange.start}_${lostNotesDateRange.end}`;
+
   const { data: allLostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesDateRange.start, lostNotesDateRange.end],
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey],
     queryFn: async () => {
-      console.time('[perf] adapter-lost-day-notes');
-      const { data, error } = await supabase
-        .from("lost_day_notes")
-        .select("*")
-        .gte("date", lostNotesDateRange.start)
-        .lte("date", lostNotesDateRange.end);
-      console.timeEnd('[perf] adapter-lost-day-notes');
-      if (error) throw error;
-      return data || [];
+      if (!lostDayNotesLoadedRanges.has(lostNotesRangeKey)) {
+        console.time('[perf] adapter-lost-day-notes');
+        const { data, error } = await supabase
+          .from("lost_day_notes")
+          .select("*")
+          .gte("date", lostNotesDateRange.start)
+          .lte("date", lostNotesDateRange.end)
+          .order("updated_at", { ascending: false })
+          .range(0, 9999);
+        console.timeEnd('[perf] adapter-lost-day-notes');
+        if (error) throw error;
+        ingestLostDayNotes(data || []);
+        lostDayNotesLoadedRanges.add(lostNotesRangeKey);
+      }
+      return Array.from(lostDayNotesAccumulator.values());
     },
     staleTime: 300000,
     gcTime: 300000,
@@ -999,7 +1045,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           }
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
-          
+
+          // Keep the module-scope accumulator in sync so refresh / carousel scroll preserve the change.
+          if (eventType === "DELETE") {
+            removeLostDayNoteFromAccumulator(oldRecord?.driver_id, oldRecord?.date);
+          } else if (newRecord) {
+            upsertLostDayNoteInAccumulator(newRecord);
+          }
+
           // Build the exact query key to patch (3 elements to match query key)
           const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current];
           

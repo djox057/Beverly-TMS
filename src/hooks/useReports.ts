@@ -11,6 +11,10 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
+import {
+  upsertLostDayNoteInAccumulator,
+  removeLostDayNoteFromAccumulator,
+} from "./useReportsDateWindowAdapter";
 
 // Helper to compute transfer-aware pickup/delivery for a driver's segment
 interface TransferSegmentInfo {
@@ -530,6 +534,24 @@ export const useReports = (options?: UseReportsOptions) => {
       // New note object for cache patch
       const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
 
+      // Mirror the change into the module-scope accumulator so it survives a
+      // page refresh and shows up immediately when the carousel scrolls.
+      const previousAccumulatorNote = (() => {
+        // Snapshot whatever any cache currently shows for (driver, date) so we can roll back.
+        for (const [, data] of previousAdapterNotes as Array<[any, any]>) {
+          if (Array.isArray(data)) {
+            const found = data.find((n: any) => n?.driver_id === driverId && n?.date === date);
+            if (found) return found;
+          }
+        }
+        return null;
+      })();
+      if (note === null && noteType == null) {
+        removeLostDayNoteFromAccumulator(driverId, date);
+      } else {
+        upsertLostDayNoteInAccumulator({ ...(previousAccumulatorNote || {}), ...newNote });
+      }
+
       // Helper to update lost day note in legacy reports data structure
       const updateNoteInData = (old: any) => {
         if (!old) return old;
@@ -576,7 +598,7 @@ export const useReports = (options?: UseReportsOptions) => {
         }
       );
 
-      return { previousPriority, previousFull, previousAdapterNotes };
+      return { previousPriority, previousFull, previousAdapterNotes, previousAccumulatorNote, driverId, date };
     },
     onError: (err, variables, context) => {
       // Rollback all caches on error
@@ -592,6 +614,12 @@ export const useReports = (options?: UseReportsOptions) => {
         context.previousAdapterNotes.forEach(([queryKey, data]: [any, any]) => {
           queryClient.setQueryData(queryKey, data);
         });
+      }
+      // Roll back the accumulator too.
+      if (context?.previousAccumulatorNote) {
+        upsertLostDayNoteInAccumulator(context.previousAccumulatorNote);
+      } else if (context?.driverId && context?.date) {
+        removeLostDayNoteFromAccumulator(context.driverId, context.date);
       }
     },
     // Real-time subscription handles final cache update - no invalidation needed
