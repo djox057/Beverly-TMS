@@ -53,15 +53,13 @@ let orderFilesFetchInFlight: Promise<void> | null = null;
 /**
  * Lost day notes accumulator (module-scope)
  *
- * Mirrors the orders sliding-window pattern from useReportsDateWindow.ts.
- * The query loads a small window (-3 / +4 days) around the selected date and
- * accumulates results here. Already-loaded windows are skipped, so navigating
- * the calendar carousel only fetches the *new* days.
+  * Home Time / lost_day_notes are loaded explicitly by date. Once a date is
+  * present in lostDayNotesLoadedDates, it is not queried again in this page
+  * session. New carousel positions request only the not-yet-loaded dates.
  *
  * Keyed by `${driver_id}_${YYYY-MM-DD}` so upserts replace prior rows.
  */
 const lostDayNotesAccumulator = new Map<string, any>();
-const lostDayNotesLoadedRanges = new Set<string>();
 // Track individual dates (YYYY-MM-DD) that have already been fetched so
 // overlapping windows don't re-fetch the same days repeatedly.
 const lostDayNotesLoadedDates = new Set<string>();
@@ -143,7 +141,6 @@ export const removeLostDayNoteFromAccumulator = (driverId: string, date: string)
 
 const clearLostDayNotesAccumulator = () => {
   lostDayNotesAccumulator.clear();
-  lostDayNotesLoadedRanges.clear();
   lostDayNotesLoadedDates.clear();
 };
 
