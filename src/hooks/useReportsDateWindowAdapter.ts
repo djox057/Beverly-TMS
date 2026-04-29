@@ -129,10 +129,8 @@ const ingestLostDayNotes = (rows: any[]) => {
   }
 };
 
-let lostDayNotesNotifyVersion = 0;
 const lostDayNotesVersionListeners = new Set<() => void>();
 const bumpLostDayNotesVersion = () => {
-  lostDayNotesNotifyVersion++;
   for (const fn of lostDayNotesVersionListeners) fn();
 };
 
