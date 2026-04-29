@@ -77,6 +77,8 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
   ensureLostDayNotesForDateRange,
+  upsertLostDayNoteInAccumulator,
+  removeLostDayNoteFromAccumulator,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
@@ -529,26 +531,40 @@ const Reports = () => {
       const { error } = await supabase.from("lost_day_notes").delete().eq("driver_id", driverId).eq("date", date);
       if (error) throw error;
     },
-    // Keep: lost_day_notes has no realtime subscription, optimistic update is the only UI path
+    // Patch Home Time locally; already-loaded dates must not be refetched after deletes.
     onMutate: async ({ driverId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
       const previousData = queryClient.getQueryData(["reports"]);
+      const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-lost-day-notes"] });
+      const previousAccumulatorNote = (() => {
+        for (const [, data] of previousAdapterNotes as Array<[any, any]>) {
+          if (Array.isArray(data)) {
+            const found = data.find((n: any) => n?.driver_id === driverId && n?.date === date);
+            if (found) return found;
+          }
+        }
+        return null;
+      })();
+      removeLostDayNoteFromAccumulator(driverId, date);
       queryClient.setQueryData(["reports"], (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
           ...group,
           trucks: group.trucks.map((truck: any) => {
             if (truck.driverId !== driverId) return truck;
-            const updatedNotes = (truck.lostDayNotes || []).filter((n: any) => n.date !== date);
-            return { ...truck, lostDayNotes: updatedNotes };
+            const updatedNotes = (truck.lost_day_notes ?? truck.lostDayNotes ?? []).filter((n: any) => n.date !== date);
+            return { ...truck, lost_day_notes: updatedNotes, lostDayNotes: updatedNotes };
           }),
         }));
       });
-      return { previousData };
+      return { previousData, previousAccumulatorNote, driverId, date };
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(["reports"], context.previousData);
+      }
+      if (context?.previousAccumulatorNote) {
+        upsertLostDayNoteInAccumulator(context.previousAccumulatorNote);
       }
     },
     // Real-time subscription handles cache updates - no invalidation needed

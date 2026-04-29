@@ -52,16 +52,13 @@ let orderFilesFetchInFlight: Promise<void> | null = null;
 
 /**
  * Lost day notes accumulator (module-scope)
- *
- * Mirrors the orders sliding-window pattern from useReportsDateWindow.ts.
- * The query loads a small window (-3 / +4 days) around the selected date and
- * accumulates results here. Already-loaded windows are skipped, so navigating
- * the calendar carousel only fetches the *new* days.
+ * Home Time / lost_day_notes are loaded explicitly by date. Once a date is
+ * present in lostDayNotesLoadedDates, it is not queried again in this page
+ * session. New carousel positions request only the not-yet-loaded dates.
  *
  * Keyed by `${driver_id}_${YYYY-MM-DD}` so upserts replace prior rows.
  */
 const lostDayNotesAccumulator = new Map<string, any>();
-const lostDayNotesLoadedRanges = new Set<string>();
 // Track individual dates (YYYY-MM-DD) that have already been fetched so
 // overlapping windows don't re-fetch the same days repeatedly.
 const lostDayNotesLoadedDates = new Set<string>();
@@ -131,37 +128,34 @@ const ingestLostDayNotes = (rows: any[]) => {
   }
 };
 
+const lostDayNotesVersionListeners = new Set<() => void>();
+const bumpLostDayNotesVersion = () => {
+  for (const fn of lostDayNotesVersionListeners) fn();
+};
+
 export const upsertLostDayNoteInAccumulator = (note: any) => {
   if (!note?.driver_id || !note?.date) return;
   lostDayNotesAccumulator.set(lostDayNotesAccKey(note), note);
+  bumpLostDayNotesVersion();
 };
 
 export const removeLostDayNoteFromAccumulator = (driverId: string, date: string) => {
   if (!driverId || !date) return;
   lostDayNotesAccumulator.delete(`${driverId}_${String(date).slice(0, 10)}`);
+  bumpLostDayNotesVersion();
 };
 
 const clearLostDayNotesAccumulator = () => {
   lostDayNotesAccumulator.clear();
-  lostDayNotesLoadedRanges.clear();
   lostDayNotesLoadedDates.clear();
 };
 
 /**
- * On-demand fetch for a lost_day_notes window centered on `anchorDate`
- * (-3 / +4 days). Used by the calendar carousel so notes appear for days
- * outside the page's initial selectedDate window without refetching ranges
- * we've already loaded.
+ * Explicit missing-date loaders for lost_day_notes. These are the only paths
+ * that query Home Time data, and they always skip already loaded dates first.
  *
- * Notifies React Query so any mounted `adapter-lost-day-notes` query
- * re-derives its data from the (now-larger) accumulator.
+ * Notifies mounted Reports adapters to re-derive UI data from the accumulator.
  */
-let lostDayNotesNotifyVersion = 0;
-const lostDayNotesVersionListeners = new Set<() => void>();
-const bumpLostDayNotesVersion = () => {
-  lostDayNotesNotifyVersion++;
-  for (const fn of lostDayNotesVersionListeners) fn();
-};
 
 export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
   const start = new Date(anchorDate);
@@ -699,22 +693,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return allTruckNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allTruckNotes, driverIdsForScope]);
 
-  // Sliding window for lost_day_notes: -3 / +4 days around selectedDate.
-  // Mirrors orders/pickup_drops behavior — each carousel position fetches its
-  // own small window once, then results accumulate in a module-scope Map.
-  const lostNotesDateRange = useMemo(() => {
-    const start = new Date(selectedDate);
-    start.setDate(start.getDate() - 3);
-    const end = new Date(selectedDate);
-    end.setDate(end.getDate() + 4);
-    return { start: fmtLostDayDate(start), end: fmtLostDayDate(end) };
-  }, [selectedDate]);
-
-  const lostNotesRangeKey = `${lostNotesDateRange.start}_${lostNotesDateRange.end}`;
-
-  // Re-render this hook when an external caller (e.g. calendar carousel)
-  // loads a new lost_day_notes window via ensureLostDayNotesWindowForDate.
-  const [, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
+  // Re-render this hook when the explicit missing-date loader, optimistic
+  // mutation, or realtime patch changes the module-scope accumulator.
+  const [lostNotesTick, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     const listener = () => forceLostNotesTick();
     lostDayNotesVersionListeners.add(listener);
@@ -723,34 +704,34 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, []);
 
-  const { data: allLostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey, lostDayNotesNotifyVersion],
-    queryFn: async () => {
-      const startD = new Date(lostNotesDateRange.start);
-      const endD = new Date(lostNotesDateRange.end);
-      const missingDates = getLostDayDateStrings(startD, endD).filter(
-        (ds) => !lostDayNotesLoadedDates.has(ds)
-      );
-
-      if (missingDates.length > 0) {
-        console.time('[perf] adapter-lost-day-notes');
-        const didFetch = await fetchMissingLostDayNoteDates(missingDates, "adapter-lost-day-notes");
-        console.timeEnd('[perf] adapter-lost-day-notes');
-        if (didFetch) {
-          lostDayNotesLoadedRanges.add(lostNotesRangeKey);
-        }
-      }
-      return Array.from(lostDayNotesAccumulator.values());
-    },
-    staleTime: 300000,
-    gcTime: 300000,
+  useQuery({
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix],
+    queryFn: async () => Array.from(lostDayNotesAccumulator.values()),
+    staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     enabled: globalEnabled,
   });
 
+  useEffect(() => {
+    if (!globalEnabled) return;
+    ensureLostDayNotesWindowForDate(selectedDate);
+  }, [globalEnabled, selectedDate]);
+
+  const allLostDayNotes = useMemo(
+    () => Array.from(lostDayNotesAccumulator.values()),
+    [lostNotesTick],
+  );
+
+  useEffect(() => {
+    queryClient.setQueryData(["adapter-lost-day-notes", modeKeySuffix], allLostDayNotes);
+  }, [allLostDayNotes, modeKeySuffix, queryClient]);
+
   // Client-side filtering for current office scope
   const filteredLostDayNotes = useMemo(() => {
-    if (!allLostDayNotes || driverIdsForScope.length === 0) return [];
+    if (driverIdsForScope.length === 0) return [];
     const scopeSet = new Set(driverIdsForScope);
     return allLostDayNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allLostDayNotes, driverIdsForScope]);
