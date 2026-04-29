@@ -11,6 +11,10 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
+import {
+  upsertLostDayNoteInAccumulator,
+  removeLostDayNoteFromAccumulator,
+} from "./useReportsDateWindowAdapter";
 
 // Helper to compute transfer-aware pickup/delivery for a driver's segment
 interface TransferSegmentInfo {
