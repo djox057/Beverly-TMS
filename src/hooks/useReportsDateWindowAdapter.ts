@@ -1045,7 +1045,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           }
           
           console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
-          
+
+          // Keep the module-scope accumulator in sync so refresh / carousel scroll preserve the change.
+          if (eventType === "DELETE") {
+            removeLostDayNoteFromAccumulator(oldRecord?.driver_id, oldRecord?.date);
+          } else if (newRecord) {
+            upsertLostDayNoteInAccumulator(newRecord);
+          }
+
           // Build the exact query key to patch (3 elements to match query key)
           const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current];
           
