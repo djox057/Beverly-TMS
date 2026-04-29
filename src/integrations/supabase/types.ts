@@ -4479,6 +4479,10 @@ export type Database = {
           truck_number: string
         }[]
       }
+      get_dispatcher_salary_penalties: {
+        Args: { _month: string; _user_id: string }
+        Returns: Json
+      }
       get_driver_id_for_user: { Args: never; Returns: string }
       get_facility_visit_counts:
         | {
