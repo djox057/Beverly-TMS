@@ -379,6 +379,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       type: newAdjustmentType,
       reason: newAdjustmentReason.trim(),
       amount,
+      ...(adjustmentAmountMode === "percent"
+        ? { percent: parseFloat(newAdjustmentAmount) }
+        : {}),
     };
     const updated = [...adjustments, newAdj];
     setAdjustments(updated);
@@ -410,6 +413,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       reason: newPenaltyReason.trim(),
       amount,
       applied: newPenaltyApplied,
+      ...(penaltyAmountMode === "percent"
+        ? { percent: parseFloat(newPenaltyAmount) }
+        : {}),
     };
     const updated = [...adjustments, newPen];
     setAdjustments(updated);
