@@ -7,7 +7,7 @@
  * It also re-exports mutations from useReports.ts to maintain full functionality.
  */
 
-import { useMemo, useCallback, useEffect, useRef } from "react";
+import { useMemo, useCallback, useEffect, useRef, useReducer } from "react";
 import { isValidUUID } from "@/utils/validation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
