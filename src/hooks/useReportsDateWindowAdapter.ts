@@ -50,6 +50,44 @@ const orderFilesCacheByOrderId = new Map<string, OrderFileLite[]>();
 const orderFilesLoadedOrderIds = new Set<string>();
 let orderFilesFetchInFlight: Promise<void> | null = null;
 
+/**
+ * Lost day notes accumulator (module-scope)
+ *
+ * Mirrors the orders sliding-window pattern from useReportsDateWindow.ts.
+ * The query loads a small window (-3 / +4 days) around the selected date and
+ * accumulates results here. Already-loaded windows are skipped, so navigating
+ * the calendar carousel only fetches the *new* days.
+ *
+ * Keyed by `${driver_id}_${YYYY-MM-DD}` so upserts replace prior rows.
+ */
+const lostDayNotesAccumulator = new Map<string, any>();
+const lostDayNotesLoadedRanges = new Set<string>();
+
+const lostDayNotesAccKey = (n: { driver_id: string; date: string }) =>
+  `${n.driver_id}_${String(n.date).slice(0, 10)}`;
+
+const ingestLostDayNotes = (rows: any[]) => {
+  for (const r of rows) {
+    if (!r?.driver_id || !r?.date) continue;
+    lostDayNotesAccumulator.set(lostDayNotesAccKey(r), r);
+  }
+};
+
+export const upsertLostDayNoteInAccumulator = (note: any) => {
+  if (!note?.driver_id || !note?.date) return;
+  lostDayNotesAccumulator.set(lostDayNotesAccKey(note), note);
+};
+
+export const removeLostDayNoteFromAccumulator = (driverId: string, date: string) => {
+  if (!driverId || !date) return;
+  lostDayNotesAccumulator.delete(`${driverId}_${String(date).slice(0, 10)}`);
+};
+
+const clearLostDayNotesAccumulator = () => {
+  lostDayNotesAccumulator.clear();
+  lostDayNotesLoadedRanges.clear();
+};
+
 const clearOrderFilesCache = () => {
   orderFilesCacheByOrderId.clear();
   orderFilesLoadedOrderIds.clear();
