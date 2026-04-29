@@ -189,8 +189,60 @@ export default function Alerts() {
   const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
 
-  // Oil change sort state: null = no sort, 'asc' = oldest first, 'desc' = newest first
-  const [oilChangeSort, setOilChangeSort] = useState<"asc" | "desc" | null>(null);
+  // Sort state per table: { key, dir } where dir: 'asc' | 'desc'. null = no sort.
+  type SortState<K extends string> = { key: K; dir: "asc" | "desc" } | null;
+  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
+  type TrailerSortKey = "dot" | "plate" | "insurance";
+  type DriverSortKey = "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
+  const [truckSort, setTruckSort] = useState<SortState<TruckSortKey>>(null);
+  const [trailerSort, setTrailerSort] = useState<SortState<TrailerSortKey>>(null);
+  const [driverSort, setDriverSort] = useState<SortState<DriverSortKey>>(null);
+
+  const cycleSort = <K extends string>(
+    current: SortState<K>,
+    key: K
+  ): SortState<K> => {
+    if (!current || current.key !== key) return { key, dir: "asc" };
+    if (current.dir === "asc") return { key, dir: "desc" };
+    return null;
+  };
+
+  // Reusable sort indicator button used inside table headers
+  const renderSortButton = <K extends string>(
+    current: SortState<K>,
+    key: K,
+    onCycle: () => void,
+    label: string
+  ) => {
+    const isActive = !!current && current.key === key;
+    const dir = isActive ? current!.dir : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCycle();
+        }}
+        className="inline-flex items-center justify-center rounded p-0.5 hover:bg-muted"
+        aria-label={`Sort by ${label}`}
+        title={
+          dir === "asc"
+            ? "Sorted ascending — click for descending"
+            : dir === "desc"
+            ? "Sorted descending — click to clear"
+            : "Click to sort ascending"
+        }
+      >
+        {dir === "asc" ? (
+          <ArrowUp className="h-3.5 w-3.5 text-primary" />
+        ) : dir === "desc" ? (
+          <ArrowDown className="h-3.5 w-3.5 text-primary" />
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </button>
+    );
+  };
 
   // Build sets for "is assigned" filtering
   const assignedTruckIds = new Set<string>();
@@ -307,16 +359,42 @@ export default function Alerts() {
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Generic comparators
+  const compareDates = (a: string | null | undefined, b: string | null | undefined, dir: "asc" | "desc") => {
+    const aT = a ? new Date(a).getTime() : null;
+    const bT = b ? new Date(b).getTime() : null;
+    if (aT === null && bT === null) return 0;
+    if (aT === null) return 1;
+    if (bT === null) return -1;
+    return dir === "asc" ? aT - bT : bT - aT;
+  };
+  const compareStrings = (a: string | null | undefined, b: string | null | undefined, dir: "asc" | "desc") => {
+    const aS = (a || "").toString();
+    const bS = (b || "").toString();
+    if (!aS && !bS) return 0;
+    if (!aS) return 1;
+    if (!bS) return -1;
+    const cmp = aS.localeCompare(bS);
+    return dir === "asc" ? cmp : -cmp;
+  };
+
+  const truckSortKeyToDate: Record<Exclude<TruckSortKey, "company">, keyof typeof trucks[number]> = {
+    dot: "dot_inspection_date" as any,
+    plate: "plate_expiration_date" as any,
+    insurance: "insurance_expiration_date" as any,
+    oil_change: "oil_change_date" as any,
+    tires_swap: "tires_swap_date" as any,
+    maintenance_check: "maintenance_check_date" as any,
+  };
+
   // Pagination logic for trucks
-  const sortedTrucks = oilChangeSort
+  const sortedTrucks = truckSort
     ? [...filteredTrucks].sort((a, b) => {
-        const aDate = a.oil_change_date ? new Date(a.oil_change_date).getTime() : null;
-        const bDate = b.oil_change_date ? new Date(b.oil_change_date).getTime() : null;
-        // Push nulls to the end regardless of direction
-        if (aDate === null && bDate === null) return 0;
-        if (aDate === null) return 1;
-        if (bDate === null) return -1;
-        return oilChangeSort === "asc" ? aDate - bDate : bDate - aDate;
+        if (truckSort.key === "company") {
+          return compareStrings(a.company?.name, b.company?.name, truckSort.dir);
+        }
+        const field = truckSortKeyToDate[truckSort.key];
+        return compareDates((a as any)[field], (b as any)[field], truckSort.dir);
       })
     : filteredTrucks;
   const trucksTotalPages = Math.ceil(sortedTrucks.length / itemsPerPage);
@@ -324,17 +402,43 @@ export default function Alerts() {
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
   const paginatedTrucks = sortedTrucks.slice(trucksStartIndex, trucksEndIndex);
 
+  const trailerSortKeyToDate: Record<TrailerSortKey, string> = {
+    dot: "dot_inspection_date",
+    plate: "plate_expiration_date",
+    insurance: "insurance_expiration_date",
+  };
+  const sortedTrailers = trailerSort
+    ? [...filteredTrailers].sort((a, b) => {
+        const field = trailerSortKeyToDate[trailerSort.key];
+        return compareDates((a as any)[field], (b as any)[field], trailerSort.dir);
+      })
+    : filteredTrailers;
+
   // Pagination logic for trailers
-  const trailersTotalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
+  const trailersTotalPages = Math.ceil(sortedTrailers.length / itemsPerPage);
   const trailersStartIndex = (trailersPage - 1) * itemsPerPage;
   const trailersEndIndex = trailersStartIndex + itemsPerPage;
-  const paginatedTrailers = filteredTrailers.slice(trailersStartIndex, trailersEndIndex);
+  const paginatedTrailers = sortedTrailers.slice(trailersStartIndex, trailersEndIndex);
+
+  const driverSortKeyToDate: Record<DriverSortKey, string> = {
+    cdl: "cdl_expiration_date",
+    mvr: "mvr_date",
+    clearing_house: "clearing_house",
+    medical: "medical_card_expiration_date",
+    drug_test: "random_drug_test_date",
+  };
+  const sortedDrivers = driverSort
+    ? [...filteredDrivers].sort((a, b) => {
+        const field = driverSortKeyToDate[driverSort.key];
+        return compareDates((a as any)[field], (b as any)[field], driverSort.dir);
+      })
+    : filteredDrivers;
 
   // Pagination logic for drivers
-  const driversTotalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
+  const driversTotalPages = Math.ceil(sortedDrivers.length / itemsPerPage);
   const driversStartIndex = (driversPage - 1) * itemsPerPage;
   const driversEndIndex = driversStartIndex + itemsPerPage;
-  const paginatedDrivers = filteredDrivers.slice(driversStartIndex, driversEndIndex);
+  const paginatedDrivers = sortedDrivers.slice(driversStartIndex, driversEndIndex);
 
   // Get current search value and setter based on active tab
   const getCurrentSearch = () => {
@@ -730,71 +834,65 @@ export default function Alerts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[90px]">Truck #</TableHead>
-                      <TableHead className="w-[130px]">Company</TableHead>
-                      <TableHead 
+                      <TableHead className="w-[130px]">
+                        <div className="flex items-center gap-1">
+                          <span>Company</span>
+                          {renderSortButton(truckSort, "company", () => { setTruckSort(prev => cycleSort(prev, "company")); setTrucksPage(1); }, "company")}
+                        </div>
+                      </TableHead>
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        DOT Inspection {truckColumnFilter === "dot" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>DOT Inspection {truckColumnFilter === "dot" && "✓"}</span>
+                          {renderSortButton(truckSort, "dot", () => { setTruckSort(prev => cycleSort(prev, "dot")); setTrucksPage(1); }, "DOT inspection date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Plate Expiration {truckColumnFilter === "plate" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Plate Expiration {truckColumnFilter === "plate" && "✓"}</span>
+                          {renderSortButton(truckSort, "plate", () => { setTruckSort(prev => cycleSort(prev, "plate")); setTrucksPage(1); }, "plate expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Insurance Expiration {truckColumnFilter === "insurance" && "✓"}</span>
+                          {renderSortButton(truckSort, "insurance", () => { setTruckSort(prev => cycleSort(prev, "insurance")); setTrucksPage(1); }, "insurance expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         <div className="flex items-center gap-1">
                           <span>Oil Change {truckColumnFilter === "oil_change" && "✓"}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOilChangeSort((prev) =>
-                                prev === null ? "asc" : prev === "asc" ? "desc" : null
-                              );
-                              setTrucksPage(1);
-                            }}
-                            className="inline-flex items-center justify-center rounded p-0.5 hover:bg-muted"
-                            aria-label="Sort by oil change date"
-                            title={
-                              oilChangeSort === "asc"
-                                ? "Sorted ascending — click for descending"
-                                : oilChangeSort === "desc"
-                                ? "Sorted descending — click to clear"
-                                : "Click to sort ascending"
-                            }
-                          >
-                            {oilChangeSort === "asc" ? (
-                              <ArrowUp className="h-3.5 w-3.5 text-primary" />
-                            ) : oilChangeSort === "desc" ? (
-                              <ArrowDown className="h-3.5 w-3.5 text-primary" />
-                            ) : (
-                              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                          </button>
+                          {renderSortButton(truckSort, "oil_change", () => { setTruckSort(prev => cycleSort(prev, "oil_change")); setTrucksPage(1); }, "oil change date")}
                         </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Tires Swap {truckColumnFilter === "tires_swap" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Tires Swap {truckColumnFilter === "tires_swap" && "✓"}</span>
+                          {renderSortButton(truckSort, "tires_swap", () => { setTruckSort(prev => cycleSort(prev, "tires_swap")); setTrucksPage(1); }, "tires swap date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_check" ? "all" : "maintenance_check")}
                         className={`w-[160px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Maintenance Check {truckColumnFilter === "maintenance_check" && "✓"}</span>
+                          {renderSortButton(truckSort, "maintenance_check", () => { setTruckSort(prev => cycleSort(prev, "maintenance_check")); setTrucksPage(1); }, "maintenance check date")}
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -912,23 +1010,32 @@ export default function Alerts() {
                       <TableHead className="w-[100px]">Trailer #</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
                       <TableHead className="w-[100px]">Type</TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        DOT Inspection {trailerColumnFilter === "dot" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>DOT Inspection {trailerColumnFilter === "dot" && "✓"}</span>
+                          {renderSortButton(trailerSort, "dot", () => { setTrailerSort(prev => cycleSort(prev, "dot")); setTrailersPage(1); }, "DOT inspection date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Plate Expiration {trailerColumnFilter === "plate" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Plate Expiration {trailerColumnFilter === "plate" && "✓"}</span>
+                          {renderSortButton(trailerSort, "plate", () => { setTrailerSort(prev => cycleSort(prev, "plate")); setTrailersPage(1); }, "plate expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}</span>
+                          {renderSortButton(trailerSort, "insurance", () => { setTrailerSort(prev => cycleSort(prev, "insurance")); setTrailersPage(1); }, "insurance expiration date")}
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1031,35 +1138,50 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[160px]">Driver Name</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        CDL Expiration {driverColumnFilter === "cdl" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>CDL Expiration {driverColumnFilter === "cdl" && "✓"}</span>
+                          {renderSortButton(driverSort, "cdl", () => { setDriverSort(prev => cycleSort(prev, "cdl")); setDriversPage(1); }, "CDL expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
                         className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        MVR Date {driverColumnFilter === "mvr" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>MVR Date {driverColumnFilter === "mvr" && "✓"}</span>
+                          {renderSortButton(driverSort, "mvr", () => { setDriverSort(prev => cycleSort(prev, "mvr")); setDriversPage(1); }, "MVR date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Clearing House {driverColumnFilter === "clearing_house" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Clearing House {driverColumnFilter === "clearing_house" && "✓"}</span>
+                          {renderSortButton(driverSort, "clearing_house", () => { setDriverSort(prev => cycleSort(prev, "clearing_house")); setDriversPage(1); }, "clearing house date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Medical Card Exp {driverColumnFilter === "medical" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Medical Card Exp {driverColumnFilter === "medical" && "✓"}</span>
+                          {renderSortButton(driverSort, "medical", () => { setDriverSort(prev => cycleSort(prev, "medical")); setDriversPage(1); }, "medical card expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Random Drug Test {driverColumnFilter === "drug_test" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Random Drug Test {driverColumnFilter === "drug_test" && "✓"}</span>
+                          {renderSortButton(driverSort, "drug_test", () => { setDriverSort(prev => cycleSort(prev, "drug_test")); setDriversPage(1); }, "random drug test date")}
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
