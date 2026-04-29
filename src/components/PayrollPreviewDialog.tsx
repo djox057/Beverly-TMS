@@ -540,7 +540,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: ptoDatesForEmail,
         totalSickDaysAvailable: maxPtoDays,
-        adjustments,
+        adjustments: resolveAdjustments(adjustments),
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
@@ -580,7 +580,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;
-      const adjTotal = adjustments.reduce((sum: number, a: any) => {
+      const adjTotal = resolveAdjustments(adjustments).reduce((sum: number, a: any) => {
         if (a.type === "addition") return sum + a.amount;
         if (a.type === "charge") return sum - a.amount;
         if (a.type === "penalty" && a.applied) return sum - a.amount;
