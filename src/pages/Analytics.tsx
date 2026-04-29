@@ -4159,7 +4159,14 @@ const Analytics = () => {
                             const isChecked = payment?.is_checked || false;
 
                             // Calculate full total for salary and paid columns
-                            const adj = payment?.additionals as any[] | null;
+                            const adjRaw = payment?.additionals as any[] | null;
+                            const adj = adjRaw
+                              ? adjRaw.map((a: any) =>
+                                  a && a.percent != null
+                                    ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                    : a,
+                                )
+                              : null;
                             const adjustmentsTotal = adj
                               ? adj.reduce(
                                   (sum: number, a: any) => {
