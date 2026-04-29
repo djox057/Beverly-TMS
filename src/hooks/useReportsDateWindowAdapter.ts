@@ -88,6 +88,56 @@ const clearLostDayNotesAccumulator = () => {
   lostDayNotesLoadedRanges.clear();
 };
 
+/**
+ * On-demand fetch for a lost_day_notes window centered on `anchorDate`
+ * (-3 / +4 days). Used by the calendar carousel so notes appear for days
+ * outside the page's initial selectedDate window without refetching ranges
+ * we've already loaded.
+ *
+ * Notifies React Query so any mounted `adapter-lost-day-notes` query
+ * re-derives its data from the (now-larger) accumulator.
+ */
+let lostDayNotesNotifyVersion = 0;
+const lostDayNotesVersionListeners = new Set<() => void>();
+const bumpLostDayNotesVersion = () => {
+  lostDayNotesNotifyVersion++;
+  for (const fn of lostDayNotesVersionListeners) fn();
+};
+
+export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
+  const start = new Date(anchorDate);
+  start.setDate(start.getDate() - 3);
+  const end = new Date(anchorDate);
+  end.setDate(end.getDate() + 4);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const startStr = fmt(start);
+  const endStr = fmt(end);
+  const rangeKey = `${startStr}_${endStr}`;
+  if (lostDayNotesLoadedRanges.has(rangeKey)) return;
+  // Mark as loaded immediately to dedupe concurrent calls.
+  lostDayNotesLoadedRanges.add(rangeKey);
+  try {
+    const { data, error } = await supabase
+      .from("lost_day_notes")
+      .select("*")
+      .gte("date", startStr)
+      .lte("date", endStr)
+      .order("updated_at", { ascending: false })
+      .range(0, 9999);
+    if (error) {
+      // Roll back so a retry is possible.
+      lostDayNotesLoadedRanges.delete(rangeKey);
+      console.error("[adapter] ensureLostDayNotesWindowForDate error:", error);
+      return;
+    }
+    ingestLostDayNotes(data || []);
+    bumpLostDayNotesVersion();
+  } catch (e) {
+    lostDayNotesLoadedRanges.delete(rangeKey);
+    console.error("[adapter] ensureLostDayNotesWindowForDate threw:", e);
+  }
+};
+
 const clearOrderFilesCache = () => {
   orderFilesCacheByOrderId.clear();
   orderFilesLoadedOrderIds.clear();
