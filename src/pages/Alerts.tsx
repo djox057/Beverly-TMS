@@ -1010,23 +1010,32 @@ export default function Alerts() {
                       <TableHead className="w-[100px]">Trailer #</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
                       <TableHead className="w-[100px]">Type</TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        DOT Inspection {trailerColumnFilter === "dot" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>DOT Inspection {trailerColumnFilter === "dot" && "✓"}</span>
+                          {renderSortButton(trailerSort, "dot", () => { setTrailerSort(prev => cycleSort(prev, "dot")); setTrailersPage(1); }, "DOT inspection date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Plate Expiration {trailerColumnFilter === "plate" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Plate Expiration {trailerColumnFilter === "plate" && "✓"}</span>
+                          {renderSortButton(trailerSort, "plate", () => { setTrailerSort(prev => cycleSort(prev, "plate")); setTrailersPage(1); }, "plate expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}</span>
+                          {renderSortButton(trailerSort, "insurance", () => { setTrailerSort(prev => cycleSort(prev, "insurance")); setTrailersPage(1); }, "insurance expiration date")}
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
