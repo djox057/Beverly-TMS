@@ -77,6 +77,7 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
   ensureLostDayNotesForDateRange,
+  removeLostDayNoteFromAccumulator,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
@@ -533,6 +534,17 @@ const Reports = () => {
     onMutate: async ({ driverId, date }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
       const previousData = queryClient.getQueryData(["reports"]);
+      const previousAdapterNotes = queryClient.getQueriesData({ queryKey: ["adapter-lost-day-notes"] });
+      const previousAccumulatorNote = (() => {
+        for (const [, data] of previousAdapterNotes as Array<[any, any]>) {
+          if (Array.isArray(data)) {
+            const found = data.find((n: any) => n?.driver_id === driverId && n?.date === date);
+            if (found) return found;
+          }
+        }
+        return null;
+      })();
+      removeLostDayNoteFromAccumulator(driverId, date);
       queryClient.setQueryData(["reports"], (old: any) => {
         if (!old) return old;
         return old.map((group: any) => ({
@@ -544,11 +556,14 @@ const Reports = () => {
           }),
         }));
       });
-      return { previousData };
+      return { previousData, previousAccumulatorNote, driverId, date };
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(["reports"], context.previousData);
+      }
+      if (context?.previousAccumulatorNote) {
+        upsertLostDayNoteInAccumulator(context.previousAccumulatorNote);
       }
     },
     // Real-time subscription handles cache updates - no invalidation needed
