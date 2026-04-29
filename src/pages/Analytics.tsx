@@ -965,7 +965,7 @@ const Analytics = () => {
 
   // Fetch salary payments for the selected month AND previous month using useQuery for caching
   const { data: salaryPaymentsData } = useQuery({
-    queryKey: ["salary-payments", selectedMonth],
+    queryKey: ["salary-payments", selectedMonth, profile?.user_id, isDispatchOnly],
     queryFn: async () => {
       if (!selectedMonth || selectedMonth === "all") {
         return { current: {}, previous: {} };
@@ -1006,6 +1006,20 @@ const Analytics = () => {
             is_checked: record.is_checked || false,
           };
         });
+      }
+
+      if (isDispatchOnly && profile?.user_id) {
+        const { data: penaltyData } = await supabase.rpc("get_dispatcher_salary_penalties" as any, {
+          _user_id: profile.user_id,
+          _month: selectedMonth,
+        });
+        const penalties = Array.isArray(penaltyData) ? penaltyData : [];
+        if (penalties.length > 0) {
+          paymentsMap[profile.user_id] = {
+            ...(paymentsMap[profile.user_id] || { paid_amount: 0, paid_at: null }),
+            additionals: penalties,
+          };
+        }
       }
 
       const prevMap: Record<string, { paid_amount: number; calculated_salary: number }> = {};
@@ -4147,12 +4161,17 @@ const Analytics = () => {
                             const adj = payment?.additionals as any[] | null;
                             const adjustmentsTotal = adj
                               ? adj.reduce(
-                                  (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),
+                                  (sum: number, a: any) => {
+                                    if (a.type === "addition") return sum + a.amount;
+                                    if (a.type === "charge") return sum - a.amount;
+                                    if (a.type === "penalty" && a.applied) return sum - a.amount;
+                                    return sum;
+                                  },
                                   0,
                                 )
                               : 0;
                             const fullTotal = isDispatchOnly
-                              ? baseRate + extraDaysAmount + foodAllowance
+                              ? baseRate + extraDaysAmount + foodAllowance + adjustmentsTotal
                               : baseRate +
                                 extraDaysAmount -
                                 daysOffDeduction +

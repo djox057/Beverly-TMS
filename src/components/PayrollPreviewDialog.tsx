@@ -233,6 +233,20 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
 
   const loadExistingAdjustments = async () => {
     try {
+      if (hideChargesAndExtraPay) {
+        const { data, error } = await supabase.rpc("get_dispatcher_salary_penalties" as any, {
+          _user_id: dispatcherUserId,
+          _month: selectedMonth,
+        });
+
+        if (error) throw error;
+
+        const loaded = Array.isArray(data) ? (data as PayrollAdjustment[]) : [];
+        setAdjustments(loaded);
+        if (loaded.length > 0) setShowAdjustmentsForm(true);
+        return;
+      }
+
       const { data } = await supabase
         .from("dispatcher_salary_payments" as any)
         .select("additionals")
