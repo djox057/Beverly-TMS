@@ -52,10 +52,9 @@ let orderFilesFetchInFlight: Promise<void> | null = null;
 
 /**
  * Lost day notes accumulator (module-scope)
- *
-  * Home Time / lost_day_notes are loaded explicitly by date. Once a date is
-  * present in lostDayNotesLoadedDates, it is not queried again in this page
-  * session. New carousel positions request only the not-yet-loaded dates.
+ * Home Time / lost_day_notes are loaded explicitly by date. Once a date is
+ * present in lostDayNotesLoadedDates, it is not queried again in this page
+ * session. New carousel positions request only the not-yet-loaded dates.
  *
  * Keyed by `${driver_id}_${YYYY-MM-DD}` so upserts replace prior rows.
  */
@@ -152,10 +151,8 @@ const clearLostDayNotesAccumulator = () => {
 };
 
 /**
- * On-demand fetch for a lost_day_notes window centered on `anchorDate`
- * (-3 / +4 days). Used by the calendar carousel so notes appear for days
- * outside the page's initial selectedDate window without refetching ranges
- * we've already loaded.
+ * Explicit missing-date loaders for lost_day_notes. These are the only paths
+ * that query Home Time data, and they always skip already loaded dates first.
  *
  * Notifies React Query so any mounted `adapter-lost-day-notes` query
  * re-derives its data from the (now-larger) accumulator.
