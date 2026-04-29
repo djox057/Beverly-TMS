@@ -4939,9 +4939,14 @@ const Analytics = () => {
                                 {!isDispatchOnly && (
                                   <TableCell className="text-right">
                                     {(() => {
-                                      const adj = payment?.additionals as any[] | null;
-                                      if (!adj || adj.length === 0)
+                                      const adjRawCell = payment?.additionals as any[] | null;
+                                      if (!adjRawCell || adjRawCell.length === 0)
                                         return <span className="text-muted-foreground">—</span>;
+                                      const adj = adjRawCell.map((a: any) =>
+                                        a && a.percent != null
+                                          ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                          : a,
+                                      );
                                       const total = adj.reduce(
                                         (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),
                                         0,
