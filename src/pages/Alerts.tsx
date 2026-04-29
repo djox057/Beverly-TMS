@@ -365,17 +365,43 @@ export default function Alerts() {
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
   const paginatedTrucks = sortedTrucks.slice(trucksStartIndex, trucksEndIndex);
 
+  const trailerSortKeyToDate: Record<TrailerSortKey, string> = {
+    dot: "dot_inspection_date",
+    plate: "plate_expiration_date",
+    insurance: "insurance_expiration_date",
+  };
+  const sortedTrailers = trailerSort
+    ? [...filteredTrailers].sort((a, b) => {
+        const field = trailerSortKeyToDate[trailerSort.key];
+        return compareDates((a as any)[field], (b as any)[field], trailerSort.dir);
+      })
+    : filteredTrailers;
+
   // Pagination logic for trailers
-  const trailersTotalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
+  const trailersTotalPages = Math.ceil(sortedTrailers.length / itemsPerPage);
   const trailersStartIndex = (trailersPage - 1) * itemsPerPage;
   const trailersEndIndex = trailersStartIndex + itemsPerPage;
-  const paginatedTrailers = filteredTrailers.slice(trailersStartIndex, trailersEndIndex);
+  const paginatedTrailers = sortedTrailers.slice(trailersStartIndex, trailersEndIndex);
+
+  const driverSortKeyToDate: Record<DriverSortKey, string> = {
+    cdl: "cdl_expiration_date",
+    mvr: "mvr_date",
+    clearing_house: "clearing_house",
+    medical: "medical_card_expiration_date",
+    drug_test: "random_drug_test_date",
+  };
+  const sortedDrivers = driverSort
+    ? [...filteredDrivers].sort((a, b) => {
+        const field = driverSortKeyToDate[driverSort.key];
+        return compareDates((a as any)[field], (b as any)[field], driverSort.dir);
+      })
+    : filteredDrivers;
 
   // Pagination logic for drivers
-  const driversTotalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
+  const driversTotalPages = Math.ceil(sortedDrivers.length / itemsPerPage);
   const driversStartIndex = (driversPage - 1) * itemsPerPage;
   const driversEndIndex = driversStartIndex + itemsPerPage;
-  const paginatedDrivers = filteredDrivers.slice(driversStartIndex, driversEndIndex);
+  const paginatedDrivers = sortedDrivers.slice(driversStartIndex, driversEndIndex);
 
   // Get current search value and setter based on active tab
   const getCurrentSearch = () => {
