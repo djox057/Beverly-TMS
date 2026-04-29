@@ -705,7 +705,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, []);
 
-  const { data: initialLostDayNotes } = useQuery({
+  useQuery({
     queryKey: ["adapter-lost-day-notes", modeKeySuffix],
     queryFn: async () => Array.from(lostDayNotesAccumulator.values()),
     staleTime: Infinity,
@@ -723,7 +723,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   const allLostDayNotes = useMemo(
     () => Array.from(lostDayNotesAccumulator.values()),
-    [initialLostDayNotes, lostNotesTick],
+    [lostNotesTick],
   );
 
   useEffect(() => {
