@@ -129,14 +129,23 @@ const ingestLostDayNotes = (rows: any[]) => {
   }
 };
 
+let lostDayNotesNotifyVersion = 0;
+const lostDayNotesVersionListeners = new Set<() => void>();
+const bumpLostDayNotesVersion = () => {
+  lostDayNotesNotifyVersion++;
+  for (const fn of lostDayNotesVersionListeners) fn();
+};
+
 export const upsertLostDayNoteInAccumulator = (note: any) => {
   if (!note?.driver_id || !note?.date) return;
   lostDayNotesAccumulator.set(lostDayNotesAccKey(note), note);
+  bumpLostDayNotesVersion();
 };
 
 export const removeLostDayNoteFromAccumulator = (driverId: string, date: string) => {
   if (!driverId || !date) return;
   lostDayNotesAccumulator.delete(`${driverId}_${String(date).slice(0, 10)}`);
+  bumpLostDayNotesVersion();
 };
 
 const clearLostDayNotesAccumulator = () => {
@@ -153,12 +162,6 @@ const clearLostDayNotesAccumulator = () => {
  * Notifies React Query so any mounted `adapter-lost-day-notes` query
  * re-derives its data from the (now-larger) accumulator.
  */
-let lostDayNotesNotifyVersion = 0;
-const lostDayNotesVersionListeners = new Set<() => void>();
-const bumpLostDayNotesVersion = () => {
-  lostDayNotesNotifyVersion++;
-  for (const fn of lostDayNotesVersionListeners) fn();
-};
 
 export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
   const start = new Date(anchorDate);
