@@ -343,7 +343,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   }, [ptoSelections, adjustments]);
 
   const handleAddAdjustment = () => {
-    const amount = parseFloat(newAdjustmentAmount);
+    const amount = computeAmountFromInput(newAdjustmentAmount, adjustmentAmountMode);
     if (!newAdjustmentReason.trim()) {
       toast.error("Please enter a reason");
       return;
@@ -374,7 +374,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   };
 
   const handleAddPenalty = () => {
-    const amount = parseFloat(newPenaltyAmount);
+    const amount = computeAmountFromInput(newPenaltyAmount, penaltyAmountMode);
     if (!newPenaltyReason.trim()) {
       toast.error("Please enter a reason");
       return;
