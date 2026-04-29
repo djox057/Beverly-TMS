@@ -90,6 +90,18 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newPenaltyReason, setNewPenaltyReason] = useState("");
   const [newPenaltyAmount, setNewPenaltyAmount] = useState("");
   const [newPenaltyApplied, setNewPenaltyApplied] = useState(true);
+
+  // Input mode for amount fields ($ vs % of base)
+  // Base = salary1Percent (gross*0.01) + bonus5Percent (comm*0.05)
+  // Excludes additionals, food allowance, extra/lost days, dispatcher bonus.
+  const [adjustmentAmountMode, setAdjustmentAmountMode] = useState<"dollar" | "percent">("dollar");
+  const [penaltyAmountMode, setPenaltyAmountMode] = useState<"dollar" | "percent">("dollar");
+  const percentBase = salary1Percent + bonus5Percent;
+  const computeAmountFromInput = (raw: string, mode: "dollar" | "percent"): number => {
+    const n = parseFloat(raw);
+    if (isNaN(n)) return NaN;
+    return mode === "percent" ? (percentBase * n) / 100 : n;
+  };
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
