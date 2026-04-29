@@ -4596,6 +4596,11 @@ const Analytics = () => {
                                     })}
                                   </TableCell>
                                 )}
+                                <TableCell className="text-right">
+                                  {stat.totalMiles > 0
+                                    ? `$${(stat.totalFreight / stat.totalMiles).toFixed(2)}`
+                                    : "—"}
+                                </TableCell>
                                 <TableCell className="text-right text-green-600">
                                   {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
                                     <Popover>
