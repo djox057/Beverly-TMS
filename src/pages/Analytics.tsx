@@ -4066,6 +4066,7 @@ const Analytics = () => {
                           </TableHead>
                           <TableHead className="text-right">Total Freight</TableHead>
                           {!isDispatchOnly && <TableHead className="text-right">Total Comm.</TableHead>}
+                          <TableHead className="text-right">RPM</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                           {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
                           {!isDispatchOnly && hasFoodOffice(profile?.office) && (
