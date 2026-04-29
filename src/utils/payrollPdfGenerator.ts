@@ -39,13 +39,20 @@ interface PayrollData {
   office?: string; // Dispatcher's office for conditional logic
 }
 
+interface GeneratePayrollPdfOptions {
+  previewOnly?: boolean;
+}
+
 const BLACK_COLOR = "#000000";
 const LINE_COLOR = "#2596BE";
 const RED_COLOR = "#FF0000";
 const LIGHT_BLUE_BG = "#DCE6F1";
 const GRAY_HEADER_BG = "#C0C0C0";
 
-export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
+export const generatePayrollPdf = async (
+  data: PayrollData,
+  options: GeneratePayrollPdfOptions = {}
+): Promise<Blob> => {
   const sickDayDates = data.sickDayDates || [];
   const totalSickDaysAvailable = data.totalSickDaysAvailable ?? 3;
   
@@ -420,6 +427,17 @@ export const generatePayrollPdf = async (data: PayrollData): Promise<Blob> => {
   const disclaimer = "***Due to the company policy discussing your salary at work is prohibited. If there are any problems and concerns they need to be discussed with the managers directly.";
   const splitDisclaimer = doc.splitTextToSize(disclaimer, pageWidth - 2 * margin);
   doc.text(splitDisclaimer, margin, y);
+
+  if (options.previewOnly) {
+    y += splitDisclaimer.length * 4 + 6;
+    doc.setFontSize(12);
+    doc.setTextColor(RED_COLOR);
+    doc.setFont("helvetica", "bolditalic");
+    const previewNotice =
+      "***This is NOT an official payroll statement. Changes may still be made. The only official statement is the one sent to you via email from statements@beverlyfreight.net.";
+    const splitPreviewNotice = doc.splitTextToSize(previewNotice, pageWidth - 2 * margin);
+    doc.text(splitPreviewNotice, margin, y);
+  }
 
   return doc.output("blob");
 };
