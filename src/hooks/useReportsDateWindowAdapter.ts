@@ -154,8 +154,7 @@ const clearLostDayNotesAccumulator = () => {
  * Explicit missing-date loaders for lost_day_notes. These are the only paths
  * that query Home Time data, and they always skip already loaded dates first.
  *
- * Notifies React Query so any mounted `adapter-lost-day-notes` query
- * re-derives its data from the (now-larger) accumulator.
+ * Notifies mounted Reports adapters to re-derive UI data from the accumulator.
  */
 
 export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
