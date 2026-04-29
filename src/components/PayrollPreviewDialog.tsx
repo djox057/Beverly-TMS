@@ -222,9 +222,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       setNewAdjustmentAmount("");
       setPdfUrl(null);
       loadPtoDays();
-      if (!previewOnly) {
-        loadExistingAdjustments();
-      }
+      loadExistingAdjustments();
     }
     return () => {
       if (pdfUrl) {
