@@ -616,10 +616,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const currentMonthPtoSelected = Object.values(ptoSelections).filter(Boolean).length;
 
   // Split adjustments by category for the right panel
-  const chargesAndExtras = adjustments
+  const resolvedAdjustments = resolveAdjustments(adjustments);
+  const chargesAndExtras = resolvedAdjustments
     .map((a, i) => ({ adj: a, index: i }))
     .filter((x) => x.adj.type === "addition" || x.adj.type === "charge");
-  const penalties = adjustments
+  const penalties = resolvedAdjustments
     .map((a, i) => ({ adj: a, index: i }))
     .filter((x) => x.adj.type === "penalty");
 
