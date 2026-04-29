@@ -1138,35 +1138,50 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[160px]">Driver Name</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        CDL Expiration {driverColumnFilter === "cdl" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>CDL Expiration {driverColumnFilter === "cdl" && "✓"}</span>
+                          {renderSortButton(driverSort, "cdl", () => { setDriverSort(prev => cycleSort(prev, "cdl")); setDriversPage(1); }, "CDL expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
                         className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        MVR Date {driverColumnFilter === "mvr" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>MVR Date {driverColumnFilter === "mvr" && "✓"}</span>
+                          {renderSortButton(driverSort, "mvr", () => { setDriverSort(prev => cycleSort(prev, "mvr")); setDriversPage(1); }, "MVR date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Clearing House {driverColumnFilter === "clearing_house" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Clearing House {driverColumnFilter === "clearing_house" && "✓"}</span>
+                          {renderSortButton(driverSort, "clearing_house", () => { setDriverSort(prev => cycleSort(prev, "clearing_house")); setDriversPage(1); }, "clearing house date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Medical Card Exp {driverColumnFilter === "medical" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Medical Card Exp {driverColumnFilter === "medical" && "✓"}</span>
+                          {renderSortButton(driverSort, "medical", () => { setDriverSort(prev => cycleSort(prev, "medical")); setDriversPage(1); }, "medical card expiration date")}
+                        </div>
                       </TableHead>
-                      <TableHead 
+                      <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
                       >
-                        Random Drug Test {driverColumnFilter === "drug_test" && "✓"}
+                        <div className="flex items-center gap-1">
+                          <span>Random Drug Test {driverColumnFilter === "drug_test" && "✓"}</span>
+                          {renderSortButton(driverSort, "drug_test", () => { setDriverSort(prev => cycleSort(prev, "drug_test")); setDriversPage(1); }, "random drug test date")}
+                        </div>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
