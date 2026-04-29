@@ -697,21 +697,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return allTruckNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allTruckNotes, driverIdsForScope]);
 
-  // Sliding window for lost_day_notes: -3 / +4 days around selectedDate.
-  // Mirrors orders/pickup_drops behavior — each carousel position fetches its
-  // own small window once, then results accumulate in a module-scope Map.
-  const lostNotesDateRange = useMemo(() => {
-    const start = new Date(selectedDate);
-    start.setDate(start.getDate() - 3);
-    const end = new Date(selectedDate);
-    end.setDate(end.getDate() + 4);
-    return { start: fmtLostDayDate(start), end: fmtLostDayDate(end) };
-  }, [selectedDate]);
-
-  const lostNotesRangeKey = `${lostNotesDateRange.start}_${lostNotesDateRange.end}`;
-
-  // Re-render this hook when an external caller (e.g. calendar carousel)
-  // loads a new lost_day_notes window via ensureLostDayNotesWindowForDate.
+  // Re-render this hook when the explicit missing-date loader, optimistic
+  // mutation, or realtime patch changes the module-scope accumulator.
   const [, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     const listener = () => forceLostNotesTick();
@@ -722,27 +709,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, []);
 
   const { data: allLostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey, lostDayNotesNotifyVersion],
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix],
     queryFn: async () => {
-      const startD = new Date(lostNotesDateRange.start);
-      const endD = new Date(lostNotesDateRange.end);
-      const missingDates = getLostDayDateStrings(startD, endD).filter(
-        (ds) => !lostDayNotesLoadedDates.has(ds)
-      );
-
-      if (missingDates.length > 0) {
-        console.time('[perf] adapter-lost-day-notes');
-        const didFetch = await fetchMissingLostDayNoteDates(missingDates, "adapter-lost-day-notes");
-        console.timeEnd('[perf] adapter-lost-day-notes');
-        if (didFetch) {
-          lostDayNotesLoadedRanges.add(lostNotesRangeKey);
-        }
-      }
+      await ensureLostDayNotesWindowForDate(selectedDate);
       return Array.from(lostDayNotesAccumulator.values());
     },
-    staleTime: 300000,
-    gcTime: 300000,
+    staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     enabled: globalEnabled,
   });
 
