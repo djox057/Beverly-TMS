@@ -346,7 +346,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         futureSalary1Percent,
         futureBonus5Percent,
         office,
-      });
+      }, { previewOnly: true });
 
       const url = URL.createObjectURL(pdfBlob);
       setPdfUrl(url);
