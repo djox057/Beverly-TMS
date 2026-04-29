@@ -77,6 +77,7 @@ import {
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
   ensureLostDayNotesForDateRange,
+  upsertLostDayNoteInAccumulator,
   removeLostDayNoteFromAccumulator,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
