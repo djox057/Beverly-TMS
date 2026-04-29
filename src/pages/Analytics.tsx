@@ -4161,12 +4161,17 @@ const Analytics = () => {
                             const adj = payment?.additionals as any[] | null;
                             const adjustmentsTotal = adj
                               ? adj.reduce(
-                                  (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),
+                                  (sum: number, a: any) => {
+                                    if (a.type === "addition") return sum + a.amount;
+                                    if (a.type === "charge") return sum - a.amount;
+                                    if (a.type === "penalty" && a.applied) return sum - a.amount;
+                                    return sum;
+                                  },
                                   0,
                                 )
                               : 0;
                             const fullTotal = isDispatchOnly
-                              ? baseRate + extraDaysAmount + foodAllowance
+                              ? baseRate + extraDaysAmount + foodAllowance + adjustmentsTotal
                               : baseRate +
                                 extraDaysAmount -
                                 daysOffDeduction +
