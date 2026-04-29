@@ -5019,6 +5019,13 @@ const Analytics = () => {
                                   maximumFractionDigits: 2,
                                 })}
                             </TableCell>
+                            <TableCell className="text-right font-bold">
+                              {(() => {
+                                const tF = dispatcherStats.reduce((sum, s) => sum + s.totalFreight, 0);
+                                const tM = dispatcherStats.reduce((sum, s) => sum + s.totalMiles, 0);
+                                return tM > 0 ? `$${(tF / tM).toFixed(2)}` : "—";
+                              })()}
+                            </TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               +
                               {dispatcherStats.reduce(
