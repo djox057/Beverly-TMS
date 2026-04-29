@@ -90,6 +90,18 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const [newPenaltyReason, setNewPenaltyReason] = useState("");
   const [newPenaltyAmount, setNewPenaltyAmount] = useState("");
   const [newPenaltyApplied, setNewPenaltyApplied] = useState(true);
+
+  // Input mode for amount fields ($ vs % of base)
+  // Base = salary1Percent (gross*0.01) + bonus5Percent (comm*0.05)
+  // Excludes additionals, food allowance, extra/lost days, dispatcher bonus.
+  const [adjustmentAmountMode, setAdjustmentAmountMode] = useState<"dollar" | "percent">("dollar");
+  const [penaltyAmountMode, setPenaltyAmountMode] = useState<"dollar" | "percent">("dollar");
+  const percentBase = salary1Percent + bonus5Percent;
+  const computeAmountFromInput = (raw: string, mode: "dollar" | "percent"): number => {
+    const n = parseFloat(raw);
+    if (isNaN(n)) return NaN;
+    return mode === "percent" ? (percentBase * n) / 100 : n;
+  };
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
@@ -331,7 +343,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   }, [ptoSelections, adjustments]);
 
   const handleAddAdjustment = () => {
-    const amount = parseFloat(newAdjustmentAmount);
+    const amount = computeAmountFromInput(newAdjustmentAmount, adjustmentAmountMode);
     if (!newAdjustmentReason.trim()) {
       toast.error("Please enter a reason");
       return;
@@ -362,7 +374,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   };
 
   const handleAddPenalty = () => {
-    const amount = parseFloat(newPenaltyAmount);
+    const amount = computeAmountFromInput(newPenaltyAmount, penaltyAmountMode);
     if (!newPenaltyReason.trim()) {
       toast.error("Please enter a reason");
       return;
@@ -767,15 +779,32 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                     />
 
                     <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Amount"
-                        value={newAdjustmentAmount}
-                        onChange={(e) => setNewAdjustmentAmount(e.target.value)}
-                        className="h-8 text-sm flex-1"
-                        min="0"
-                        step="0.01"
-                      />
+                      <div className="relative flex-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAdjustmentAmountMode((m) => (m === "dollar" ? "percent" : "dollar"))
+                          }
+                          className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          title={
+                            adjustmentAmountMode === "dollar"
+                              ? "Click to switch to % of (gross×1% + comm×5%)"
+                              : `Click to switch to $. Base: $${percentBase.toFixed(2)}`
+                          }
+                          tabIndex={-1}
+                        >
+                          {adjustmentAmountMode === "dollar" ? "$" : "%"}
+                        </button>
+                        <Input
+                          type="number"
+                          placeholder={adjustmentAmountMode === "dollar" ? "Amount" : "Percent"}
+                          value={newAdjustmentAmount}
+                          onChange={(e) => setNewAdjustmentAmount(e.target.value)}
+                          className="h-8 text-sm pl-8"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
                       <Button
                         size="sm"
                         onClick={handleAddAdjustment}
@@ -852,15 +881,32 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                         className="h-8 text-sm"
                       />
                       <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          placeholder="Amount"
-                          value={newPenaltyAmount}
-                          onChange={(e) => setNewPenaltyAmount(e.target.value)}
-                          className="h-8 text-sm flex-1"
-                          min="0"
-                          step="0.01"
-                        />
+                        <div className="relative flex-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPenaltyAmountMode((m) => (m === "dollar" ? "percent" : "dollar"))
+                            }
+                            className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            title={
+                              penaltyAmountMode === "dollar"
+                                ? "Click to switch to % of (gross×1% + comm×5%)"
+                                : `Click to switch to $. Base: $${percentBase.toFixed(2)}`
+                            }
+                            tabIndex={-1}
+                          >
+                            {penaltyAmountMode === "dollar" ? "$" : "%"}
+                          </button>
+                          <Input
+                            type="number"
+                            placeholder={penaltyAmountMode === "dollar" ? "Amount" : "Percent"}
+                            value={newPenaltyAmount}
+                            onChange={(e) => setNewPenaltyAmount(e.target.value)}
+                            className="h-8 text-sm pl-8"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
                         <Button
                           size="sm"
                           onClick={handleAddPenalty}
