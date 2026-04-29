@@ -765,6 +765,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                             <p className="truncate font-medium">{adj.reason}</p>
                             <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
                               {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
+                              {adj.percent != null && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({adj.percent}% of base)
+                                </span>
+                              )}
                             </p>
                           </div>
                           <Button
@@ -879,10 +884,18 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">{adj.reason}</p>
                             {adj.applied ? (
-                              <p className="text-red-600">-${adj.amount.toFixed(2)}</p>
+                              <p className="text-red-600">
+                                -${adj.amount.toFixed(2)}
+                                {adj.percent != null && (
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    ({adj.percent}% of base)
+                                  </span>
+                                )}
+                              </p>
                             ) : (
                               <p className="text-yellow-700 dark:text-yellow-500 text-xs">
                                 Warning only — would be ${adj.amount.toFixed(2)}
+                                {adj.percent != null && ` (${adj.percent}% of base)`}
                               </p>
                             )}
                           </div>
