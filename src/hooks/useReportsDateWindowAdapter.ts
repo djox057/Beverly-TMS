@@ -354,6 +354,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
         // Individual-mode toggle is a full context switch; clear order_files cache to avoid stale bloat
         clearOrderFilesCache();
+        // Same context switch — drop accumulated lost_day_notes so the new scope refetches cleanly.
+        clearLostDayNotesAccumulator();
         
         // Invalidate all adapter queries to force refetch with new scope
         queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
