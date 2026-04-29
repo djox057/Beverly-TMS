@@ -177,6 +177,16 @@ export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
   }
 };
 
+export const ensureLostDayNotesForDateRange = async (startDate: Date, endDate: Date) => {
+  const didFetch = await fetchMissingLostDayNoteDates(
+    getLostDayDateStrings(startDate, endDate),
+    "ensureLostDayNotesForDateRange"
+  );
+  if (didFetch) {
+    bumpLostDayNotesVersion();
+  }
+};
+
 const clearOrderFilesCache = () => {
   orderFilesCacheByOrderId.clear();
   orderFilesLoadedOrderIds.clear();
