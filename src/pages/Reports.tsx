@@ -76,6 +76,7 @@ import {
   useReportsDateWindowAdapter,
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
+  ensureLostDayNotesWindowForDate,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
