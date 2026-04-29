@@ -689,17 +689,35 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const { data: allLostDayNotes } = useQuery({
     queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey, lostDayNotesNotifyVersion],
     queryFn: async () => {
-      if (!lostDayNotesLoadedRanges.has(lostNotesRangeKey)) {
+      // Compute which individual dates in the window are missing and only
+      // fetch those. Avoids re-fetching overlapping dates as the user
+      // scrolls the calendar carousel one day at a time.
+      const missing: string[] = [];
+      const startD = new Date(lostNotesDateRange.start);
+      const endD = new Date(lostNotesDateRange.end);
+      const cursor = new Date(startD);
+      while (cursor <= endD) {
+        const ds = cursor.toISOString().slice(0, 10);
+        if (!lostDayNotesLoadedDates.has(ds)) missing.push(ds);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      if (missing.length > 0) {
+        for (const ds of missing) lostDayNotesLoadedDates.add(ds);
+        const fetchStart = missing[0];
+        const fetchEnd = missing[missing.length - 1];
         console.time('[perf] adapter-lost-day-notes');
         const { data, error } = await supabase
           .from("lost_day_notes")
           .select("*")
-          .gte("date", lostNotesDateRange.start)
-          .lte("date", lostNotesDateRange.end)
+          .gte("date", fetchStart)
+          .lte("date", fetchEnd)
           .order("updated_at", { ascending: false })
           .range(0, 9999);
         console.timeEnd('[perf] adapter-lost-day-notes');
-        if (error) throw error;
+        if (error) {
+          for (const ds of missing) lostDayNotesLoadedDates.delete(ds);
+          throw error;
+        }
         ingestLostDayNotes(data || []);
         lostDayNotesLoadedRanges.add(lostNotesRangeKey);
       }
