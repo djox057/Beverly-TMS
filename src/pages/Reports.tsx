@@ -76,7 +76,7 @@ import {
   useReportsDateWindowAdapter,
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
-  ensureLostDayNotesWindowForDate,
+  ensureLostDayNotesForDateRange,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
@@ -1634,8 +1634,7 @@ const Reports = () => {
 
       // Also expand the lost_day_notes window so Home Time / Game Over icons
       // appear for past/future dates the user scrolls into.
-      ensureLostDayNotesWindowForDate(newDate);
-      ensureLostDayNotesWindowForDate(addDays(newDate, 5));
+      ensureLostDayNotesForDateRange(newDate, addDays(newDate, 5));
     },
     [loadDispatcherOrders],
   );
