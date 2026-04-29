@@ -699,7 +699,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Re-render this hook when the explicit missing-date loader, optimistic
   // mutation, or realtime patch changes the module-scope accumulator.
-  const [, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
+  const [lostNotesTick, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     const listener = () => forceLostNotesTick();
     lostDayNotesVersionListeners.add(listener);
@@ -708,7 +708,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
   }, []);
 
-  const { data: allLostDayNotes } = useQuery({
+  const { data: initialLostDayNotes } = useQuery({
     queryKey: ["adapter-lost-day-notes", modeKeySuffix],
     queryFn: async () => {
       await ensureLostDayNotesWindowForDate(selectedDate);
@@ -722,9 +722,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: globalEnabled,
   });
 
+  const allLostDayNotes = useMemo(
+    () => Array.from(lostDayNotesAccumulator.values()),
+    [initialLostDayNotes, lostNotesTick],
+  );
+
   // Client-side filtering for current office scope
   const filteredLostDayNotes = useMemo(() => {
-    if (!allLostDayNotes || driverIdsForScope.length === 0) return [];
+    if (driverIdsForScope.length === 0) return [];
     const scopeSet = new Set(driverIdsForScope);
     return allLostDayNotes.filter(n => scopeSet.has(n.driver_id));
   }, [allLostDayNotes, driverIdsForScope]);
