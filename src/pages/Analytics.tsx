@@ -4066,6 +4066,7 @@ const Analytics = () => {
                           </TableHead>
                           <TableHead className="text-right">Total Freight</TableHead>
                           {!isDispatchOnly && <TableHead className="text-right">Total Comm.</TableHead>}
+                          <TableHead className="text-right">RPM</TableHead>
                           <TableHead className="text-right">Extra</TableHead>
                           {!isDispatchOnly && <TableHead className="text-right">Days Off</TableHead>}
                           {!isDispatchOnly && hasFoodOffice(profile?.office) && (
@@ -4595,6 +4596,11 @@ const Analytics = () => {
                                     })}
                                   </TableCell>
                                 )}
+                                <TableCell className="text-right">
+                                  {stat.totalMiles > 0
+                                    ? `$${(stat.totalFreight / stat.totalMiles).toFixed(2)}`
+                                    : "—"}
+                                </TableCell>
                                 <TableCell className="text-right text-green-600">
                                   {!isDispatchOnly && selectedMonth && selectedMonth !== "all" ? (
                                     <Popover>
@@ -5012,6 +5018,13 @@ const Analytics = () => {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })}
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              {(() => {
+                                const tF = dispatcherStats.reduce((sum, s) => sum + s.totalFreight, 0);
+                                const tM = dispatcherStats.reduce((sum, s) => sum + s.totalMiles, 0);
+                                return tM > 0 ? `$${(tF / tM).toFixed(2)}` : "—";
+                              })()}
                             </TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               +
