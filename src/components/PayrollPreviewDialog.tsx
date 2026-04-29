@@ -102,6 +102,16 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     if (isNaN(n)) return NaN;
     return mode === "percent" ? (percentBase * n) / 100 : n;
   };
+
+  // For any adjustment that was entered as a percentage, recompute its dollar
+  // amount from the CURRENT percentBase so totals/PDF stay in sync as salary
+  // changes. Adjustments without `percent` are returned unchanged.
+  const resolveAdjustments = (list: PayrollAdjustment[]): PayrollAdjustment[] =>
+    list.map((a) =>
+      a.percent != null
+        ? { ...a, amount: (percentBase * a.percent) / 100 }
+        : a,
+    );
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
