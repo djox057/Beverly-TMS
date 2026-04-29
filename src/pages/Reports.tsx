@@ -552,8 +552,8 @@ const Reports = () => {
           ...group,
           trucks: group.trucks.map((truck: any) => {
             if (truck.driverId !== driverId) return truck;
-            const updatedNotes = (truck.lostDayNotes || []).filter((n: any) => n.date !== date);
-            return { ...truck, lostDayNotes: updatedNotes };
+            const updatedNotes = (truck.lost_day_notes ?? truck.lostDayNotes ?? []).filter((n: any) => n.date !== date);
+            return { ...truck, lost_day_notes: updatedNotes, lostDayNotes: updatedNotes };
           }),
         }));
       });
