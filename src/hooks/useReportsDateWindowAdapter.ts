@@ -664,8 +664,19 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   const lostNotesRangeKey = `${lostNotesDateRange.start}_${lostNotesDateRange.end}`;
 
+  // Re-render this hook when an external caller (e.g. calendar carousel)
+  // loads a new lost_day_notes window via ensureLostDayNotesWindowForDate.
+  const [, forceLostNotesTick] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    const listener = () => forceLostNotesTick();
+    lostDayNotesVersionListeners.add(listener);
+    return () => {
+      lostDayNotesVersionListeners.delete(listener);
+    };
+  }, []);
+
   const { data: allLostDayNotes } = useQuery({
-    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey],
+    queryKey: ["adapter-lost-day-notes", modeKeySuffix, lostNotesRangeKey, lostDayNotesNotifyVersion],
     queryFn: async () => {
       if (!lostDayNotesLoadedRanges.has(lostNotesRangeKey)) {
         console.time('[perf] adapter-lost-day-notes');
