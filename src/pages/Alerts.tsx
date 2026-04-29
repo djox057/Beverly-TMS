@@ -322,16 +322,42 @@ export default function Alerts() {
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Generic comparators
+  const compareDates = (a: string | null | undefined, b: string | null | undefined, dir: "asc" | "desc") => {
+    const aT = a ? new Date(a).getTime() : null;
+    const bT = b ? new Date(b).getTime() : null;
+    if (aT === null && bT === null) return 0;
+    if (aT === null) return 1;
+    if (bT === null) return -1;
+    return dir === "asc" ? aT - bT : bT - aT;
+  };
+  const compareStrings = (a: string | null | undefined, b: string | null | undefined, dir: "asc" | "desc") => {
+    const aS = (a || "").toString();
+    const bS = (b || "").toString();
+    if (!aS && !bS) return 0;
+    if (!aS) return 1;
+    if (!bS) return -1;
+    const cmp = aS.localeCompare(bS);
+    return dir === "asc" ? cmp : -cmp;
+  };
+
+  const truckSortKeyToDate: Record<Exclude<TruckSortKey, "company">, keyof typeof trucks[number]> = {
+    dot: "dot_inspection_date" as any,
+    plate: "plate_expiration_date" as any,
+    insurance: "insurance_expiration_date" as any,
+    oil_change: "oil_change_date" as any,
+    tires_swap: "tires_swap_date" as any,
+    maintenance_check: "maintenance_check_date" as any,
+  };
+
   // Pagination logic for trucks
-  const sortedTrucks = oilChangeSort
+  const sortedTrucks = truckSort
     ? [...filteredTrucks].sort((a, b) => {
-        const aDate = a.oil_change_date ? new Date(a.oil_change_date).getTime() : null;
-        const bDate = b.oil_change_date ? new Date(b.oil_change_date).getTime() : null;
-        // Push nulls to the end regardless of direction
-        if (aDate === null && bDate === null) return 0;
-        if (aDate === null) return 1;
-        if (bDate === null) return -1;
-        return oilChangeSort === "asc" ? aDate - bDate : bDate - aDate;
+        if (truckSort.key === "company") {
+          return compareStrings(a.company?.name, b.company?.name, truckSort.dir);
+        }
+        const field = truckSortKeyToDate[truckSort.key];
+        return compareDates((a as any)[field], (b as any)[field], truckSort.dir);
       })
     : filteredTrucks;
   const trucksTotalPages = Math.ceil(sortedTrucks.length / itemsPerPage);
