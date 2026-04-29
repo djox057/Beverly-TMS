@@ -189,8 +189,23 @@ export default function Alerts() {
   const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
 
-  // Oil change sort state: null = no sort, 'asc' = oldest first, 'desc' = newest first
-  const [oilChangeSort, setOilChangeSort] = useState<"asc" | "desc" | null>(null);
+  // Sort state per table: { key, dir } where dir: 'asc' | 'desc'. null = no sort.
+  type SortState<K extends string> = { key: K; dir: "asc" | "desc" } | null;
+  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
+  type TrailerSortKey = "dot" | "plate" | "insurance";
+  type DriverSortKey = "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
+  const [truckSort, setTruckSort] = useState<SortState<TruckSortKey>>(null);
+  const [trailerSort, setTrailerSort] = useState<SortState<TrailerSortKey>>(null);
+  const [driverSort, setDriverSort] = useState<SortState<DriverSortKey>>(null);
+
+  const cycleSort = <K extends string>(
+    current: SortState<K>,
+    key: K
+  ): SortState<K> => {
+    if (!current || current.key !== key) return { key, dir: "asc" };
+    if (current.dir === "asc") return { key, dir: "desc" };
+    return null;
+  };
 
   // Build sets for "is assigned" filtering
   const assignedTruckIds = new Set<string>();
