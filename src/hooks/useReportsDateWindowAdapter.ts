@@ -168,39 +168,12 @@ export const ensureLostDayNotesWindowForDate = async (anchorDate: Date) => {
   start.setDate(start.getDate() - 3);
   const end = new Date(anchorDate);
   end.setDate(end.getDate() + 4);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  // Build the list of dates in the window and skip any already loaded.
-  const missing: string[] = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    const ds = fmt(cursor);
-    if (!lostDayNotesLoadedDates.has(ds)) missing.push(ds);
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  if (missing.length === 0) return;
-  // Mark immediately to dedupe concurrent calls for the same dates.
-  for (const ds of missing) lostDayNotesLoadedDates.add(ds);
-  const fetchStart = missing[0];
-  const fetchEnd = missing[missing.length - 1];
-  try {
-    const { data, error } = await supabase
-      .from("lost_day_notes")
-      .select("*")
-      .gte("date", fetchStart)
-      .lte("date", fetchEnd)
-      .order("updated_at", { ascending: false })
-      .range(0, 9999);
-    if (error) {
-      // Roll back so a retry is possible.
-      for (const ds of missing) lostDayNotesLoadedDates.delete(ds);
-      console.error("[adapter] ensureLostDayNotesWindowForDate error:", error);
-      return;
-    }
-    ingestLostDayNotes(data || []);
+  const didFetch = await fetchMissingLostDayNoteDates(
+    getLostDayDateStrings(start, end),
+    "ensureLostDayNotesWindowForDate"
+  );
+  if (didFetch) {
     bumpLostDayNotesVersion();
-  } catch (e) {
-    for (const ds of missing) lostDayNotesLoadedDates.delete(ds);
-    console.error("[adapter] ensureLostDayNotesWindowForDate threw:", e);
   }
 };
 
