@@ -76,7 +76,7 @@ import {
   useReportsDateWindowAdapter,
   USE_DATE_WINDOW_LOADING,
   invalidateOrderFilesCacheForOrder,
-  ensureLostDayNotesWindowForDate,
+  ensureLostDayNotesForDateRange,
 } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
@@ -1618,6 +1618,8 @@ const Reports = () => {
   };
   const handleCalendarDateChange = useCallback(
     (dispatcherId: string, newDate: Date) => {
+      const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
+
       // Update the per-dispatcher calendar position
       setCalendarDates((prev) => ({
         ...prev,
@@ -1634,10 +1636,13 @@ const Reports = () => {
 
       // Also expand the lost_day_notes window so Home Time / Game Over icons
       // appear for past/future dates the user scrolls into.
-      ensureLostDayNotesWindowForDate(newDate);
-      ensureLostDayNotesWindowForDate(addDays(newDate, 5));
+      if (newDate < previousStartDate) {
+        ensureLostDayNotesForDateRange(newDate, addDays(previousStartDate, -1));
+      } else if (newDate > previousStartDate) {
+        ensureLostDayNotesForDateRange(addDays(previousStartDate, 6), addDays(newDate, 5));
+      }
     },
-    [loadDispatcherOrders],
+    [calendarDates, loadDispatcherOrders],
   );
   const getStatusColors = (status: string) => {
     switch (status) {
