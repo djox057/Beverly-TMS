@@ -5138,7 +5138,14 @@ const Analytics = () => {
                               const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
                               const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                               const payment = salaryPayments[stat.userId];
-                              const adj = payment?.additionals as any[] | null;
+                              const adjRaw = payment?.additionals as any[] | null;
+                              const adj = adjRaw
+                                ? adjRaw.map((a: any) =>
+                                    a && a.percent != null
+                                      ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                      : a,
+                                  )
+                                : null;
                               const adjustmentsTotal = adj
                                 ? adj.reduce(
                                     (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),
