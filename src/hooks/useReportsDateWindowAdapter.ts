@@ -89,6 +89,7 @@ export const removeLostDayNoteFromAccumulator = (driverId: string, date: string)
 const clearLostDayNotesAccumulator = () => {
   lostDayNotesAccumulator.clear();
   lostDayNotesLoadedRanges.clear();
+  lostDayNotesLoadedDates.clear();
 };
 
 /**
