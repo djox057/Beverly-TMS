@@ -4159,7 +4159,14 @@ const Analytics = () => {
                             const isChecked = payment?.is_checked || false;
 
                             // Calculate full total for salary and paid columns
-                            const adj = payment?.additionals as any[] | null;
+                            const adjRaw = payment?.additionals as any[] | null;
+                            const adj = adjRaw
+                              ? adjRaw.map((a: any) =>
+                                  a && a.percent != null
+                                    ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                    : a,
+                                )
+                              : null;
                             const adjustmentsTotal = adj
                               ? adj.reduce(
                                   (sum: number, a: any) => {
@@ -4932,9 +4939,14 @@ const Analytics = () => {
                                 {!isDispatchOnly && (
                                   <TableCell className="text-right">
                                     {(() => {
-                                      const adj = payment?.additionals as any[] | null;
-                                      if (!adj || adj.length === 0)
+                                      const adjRawCell = payment?.additionals as any[] | null;
+                                      if (!adjRawCell || adjRawCell.length === 0)
                                         return <span className="text-muted-foreground">—</span>;
+                                      const adj = adjRawCell.map((a: any) =>
+                                        a && a.percent != null
+                                          ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                          : a,
+                                      );
                                       const total = adj.reduce(
                                         (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),
                                         0,
@@ -5126,7 +5138,14 @@ const Analytics = () => {
                               const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
                               const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                               const payment = salaryPayments[stat.userId];
-                              const adj = payment?.additionals as any[] | null;
+                              const adjRaw = payment?.additionals as any[] | null;
+                              const adj = adjRaw
+                                ? adjRaw.map((a: any) =>
+                                    a && a.percent != null
+                                      ? { ...a, amount: (baseRate * a.percent) / 100 }
+                                      : a,
+                                  )
+                                : null;
                               const adjustmentsTotal = adj
                                 ? adj.reduce(
                                     (sum: number, a: any) => sum + (a.type === "addition" ? a.amount : -a.amount),

@@ -1,80 +1,78 @@
-# Add Penalties Section to Payroll Statement
+## Goal
 
-Split the current "Extra Pay / Charges" UI into two distinct sections — **Extra Pay / Charges** (existing behavior) and a new **Penalties** section. Penalties have a confirmation checkbox that controls whether they actually deduct from the paycheck or just appear as a warning note.
+Make `%`-based adjustments (Extra Pay, Charge, Penalty) **dynamic**: the actual dollar deduction/addition recalculates whenever the dispatcher's salary base changes (Gross×1% + Comm×5%), instead of being frozen at a static dollar amount captured at creation time.
 
-## Behavior summary
+## Current behavior (problem)
 
-**Extra Pay / Charges** (unchanged)
-- Hidden from `dispatch` role (current behavior preserved).
-- Always reflected in the paycheck total.
+When the user picks `%` mode and enters e.g. `5`, the code immediately computes `(percentBase * 5) / 100` and stores only the resulting dollar amount in the `additionals` JSONB. There is no record that the value was a percentage, so if the salary later changes the deduction does NOT track it.
 
-**Penalties** (new)
-- Visible to dispatchers in the PDF preview (unlike charges).
-- Each penalty has: **Reason**, **Amount**, **"Apply deduction" checkbox**.
-- If checkbox is **checked**: behaves like a charge — line shows `Penalty: <reason>` with `-$amount` and reduces the check amount.
-- If checkbox is **unchecked**: line shows a warning instead — `Warning: <reason>. If this happens again, penalty will be $<amount>.` with `$0.00` and no deduction.
-- Penalties only appear in the payroll PDF preview — they never appear under Order Additionals.
+## New behavior
 
-## Data model
+If the user enters the value in `%` mode, we persist the percentage itself alongside the adjustment. The effective dollar amount used in the PDF, salary totals, and DB calculations is then derived live from the current `percentBase` (= `salary1Percent + bonus5Percent`).
 
-Extend the existing `additionals` jsonb array in `dispatcher_salary_payments` (no schema change needed — it's already jsonb storing `PayrollAdjustment[]`). Add a new variant:
+If the user enters in `$` mode, behavior is unchanged: a fixed dollar amount is stored.
+
+## Data model change
+
+Extend `PayrollAdjustment` in `src/utils/payrollPdfGenerator.ts`:
 
 ```ts
-type PayrollAdjustment =
-  | { type: "addition"; reason: string; amount: number }
-  | { type: "charge"; reason: string; amount: number }
-  | { type: "penalty"; reason: string; amount: number; applied: boolean };
+export interface PayrollAdjustment {
+  type: "addition" | "charge" | "penalty";
+  reason: string;
+  amount: number;          // resolved $ at the time of writing — kept for back-compat / display fallback
+  applied?: boolean;       // penalty only
+  percent?: number;        // NEW — when set, amount must be recomputed as base * percent / 100
+}
 ```
 
-Old records remain valid (no `applied` field on additions/charges).
+No DB migration needed (`additionals` is already JSONB). Old records without `percent` keep working as fixed-dollar entries.
 
 ## Files to change
 
-### `src/utils/payrollPdfGenerator.ts`
-- Extend `PayrollAdjustment` union to include `penalty` with `applied: boolean`.
-- In the adjustments loop, render a `penalty` row:
-  - `applied === true`: `Penalty: <reason>` with `-$amount` (subtract from `checkAmount`, like a charge).
-  - `applied === false`: `Warning: <reason>. If repeated, penalty will be $<amount>.` with `$0.00` (no deduction).
-- Update `totalCharges` calculation so applied penalties are also subtracted.
+### 1. `src/utils/payrollPdfGenerator.ts`
+- Add optional `percent?: number` field to `PayrollAdjustment`.
+- (PDF rendering itself doesn't need to change — it already uses `adjustment.amount`. The caller resolves `amount` from `percent` before passing in.)
 
-### `src/components/PayrollPreviewDialog.tsx`
-- Replace the single Extra Pay / Charge form area with two stacked sections inside the right panel:
-  1. **Extra Pay / Charges** — existing form (Extra Pay / Charge buttons + Reason + Amount).
-  2. **Penalties** — new form: Reason, Amount, "Apply deduction" checkbox, Add button. Below it, a list of existing penalties each with the same checkbox toggle (live edit) and a delete button.
-- The `Plus` button trigger label changes to "Add Extra Pay / Charge / Penalty".
-- Update `handleAddAdjustment` to also handle penalty creation; add `handleTogglePenaltyApplied(index)` that updates the `applied` flag and persists via `saveAdjustmentsToDb`.
-- Update the `adjTotal` calculation in `saveAdjustmentsToDb` and `handleSendEmail` to subtract applied penalties.
-- Pass a new prop `hideChargesAndExtraPay: boolean` (true when `isDispatchOnly`). When true:
-  - Hide the Extra Pay / Charges sub-form in the right panel.
-  - When generating the PDF for preview, filter `adjustments` to only include `penalty` entries (instead of the current `previewOnly ? [] : adjustments`).
-- Penalties section is always rendered (visible to all roles including dispatch).
+### 2. `src/components/PayrollPreviewDialog.tsx`
 
-### `src/pages/Analytics.tsx`
-- Pass `hideChargesAndExtraPay={isDispatchOnly}` to `PayrollPreviewDialog`.
-- Keep `previewOnly={isDispatchOnly}` so dispatchers still can't send/edit.
-- Important: dispatchers must still be able to **view** penalties but not create/edit them — `previewOnly` already disables forms; that's correct.
+**Persisting**
+- In `handleAddAdjustment` and `handleAddPenalty`, when the input mode is `percent`, store both `percent: parseFloat(raw)` and the currently-resolved `amount`. When mode is `dollar`, store only `amount` as today (no `percent` field).
 
-## PDF rendering details
+**Resolving live**
+- Add a helper `resolveAdjustments(list, base)` that maps each adjustment to a copy where, if `percent` is set, `amount = base * percent / 100`. Use this:
+  - When computing `adjTotal` inside `saveAdjustmentsToDb`, `handleSendEmail`, and the live preview total.
+  - When passing `adjustments` into the PDF generator (so the PDF shows the up-to-date dollar figure).
+  - When displaying the existing-adjustments list in the right panel (so the user sees the live $ next to e.g. `5%`).
 
-For penalty rows (using existing `drawRow` helper):
+**Display**
+- In the existing-adjustments list, if an adjustment has `percent`, show it as `5% ($123.45)` so it's clear the value is dynamic. If not, show only `$amount` as today.
 
-```text
-applied === true:
-  drawRow(`Penalty: ${reason}`, `-$${amount.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG, false, BLACK_COLOR);
+**Saving back to DB**
+- `saveAdjustmentsToDb` writes the array as-is (with `percent` preserved). Do NOT overwrite `percent` entries with their resolved dollar value — that would freeze them.
 
-applied === false:
-  drawRow(
-    `Warning: ${reason}. If repeated, penalty will be $${amount.toFixed(2)}.`,
-    `$0.00`,
-    "#FFFFFF",
-    LIGHT_BLUE_BG
+### 3. `src/pages/Analytics.tsx`
+- Where `additionals` is fetched and reduced into `adjustmentsTotal` (both the dispatcher RPC path and the regular path), apply the same resolve step:
+  ```ts
+  const resolved = (additionals ?? []).map(a =>
+    a.percent != null ? { ...a, amount: (baseRate * a.percent) / 100 } : a
   );
-```
+  ```
+  Then run the existing reduce. `baseRate` here is `salary1Percent + bonus5Percent` for that dispatcher/month — already computed in this file.
 
-The existing `drawRow` already auto-wraps long text, so the warning sentence will wrap cleanly.
+### 4. `src/components/PayrollPreviewDialog.tsx` — toggle UX (minor)
+- Keep current toggle behavior. When the user toggles `$` ↔ `%` while typing a NEW adjustment, do not auto-convert the typed value (treat it as a fresh entry in the new unit) — matches today's UX.
+- Existing adjustments cannot be edited in-place (only deleted/re-added), so no migration UI is needed.
 
-## Out of scope / confirmations
+## Edge cases
 
-- No database migration — `additionals` column is already jsonb and tolerates the new shape.
-- No changes to `OrderAdditionalsManager` — penalties live entirely inside payroll, never in order additionals.
-- Memory rule "Hides bonuses from 'dispatch' role" remains intact for charges/extra pay; only penalties are exposed to dispatch.
+- `percentBase` is 0 (no gross/comm yet): resolved amount becomes `0`. This is correct — a percentage of nothing is nothing, and the deduction will start applying once orders are added.
+- Mixed list (some `$`, some `%`): each entry is resolved independently.
+- Penalties with `applied: false`: percent still resolves to a dollar figure, but the PDF still shows it as a `Warning: …` line with `$0.00` and no deduction (existing rule).
+- Old saved records without `percent`: behave exactly as before (frozen dollar).
+
+## Out of scope
+
+- No DB schema migration.
+- No retroactive conversion of existing fixed-dollar adjustments to percentages.
+- No change to charges/extra-pay visibility rules per role.

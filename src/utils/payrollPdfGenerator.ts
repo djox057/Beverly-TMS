@@ -8,6 +8,11 @@ export interface PayrollAdjustment {
   // Only used when type === "penalty". When false, the penalty is shown as a
   // warning only and does NOT deduct from the check amount.
   applied?: boolean;
+  // When set, `amount` is dynamic: it must be recomputed by the caller as
+  // (current base) * percent / 100 before being passed in. Base = salary1Percent
+  // (gross*0.01) + bonus5Percent (comm*0.05). When undefined, `amount` is a
+  // frozen dollar value entered directly by the user.
+  percent?: number;
 }
 
 interface PayrollData {

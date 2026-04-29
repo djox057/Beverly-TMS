@@ -102,6 +102,16 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
     if (isNaN(n)) return NaN;
     return mode === "percent" ? (percentBase * n) / 100 : n;
   };
+
+  // For any adjustment that was entered as a percentage, recompute its dollar
+  // amount from the CURRENT percentBase so totals/PDF stay in sync as salary
+  // changes. Adjustments without `percent` are returned unchanged.
+  const resolveAdjustments = (list: PayrollAdjustment[]): PayrollAdjustment[] =>
+    list.map((a) =>
+      a.percent != null
+        ? { ...a, amount: (percentBase * a.percent) / 100 }
+        : a,
+    );
   
   // Checked state
   const [isCheckedState, setIsCheckedState] = useState(false);
@@ -186,7 +196,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         const selectedPtoDates = Object.entries(ptoSelections).filter(([_, v]) => v).map(([d]) => d);
         const nonSickLostDays = Math.max(0, lostDays - selectedPtoDates.length);
         const daysOffDeduction = nonSickLostDays * perDayRate;
-        const adjTotal = newAdjustments.reduce((sum: number, a: any) => {
+        const resolvedNew = resolveAdjustments(newAdjustments);
+        const adjTotal = resolvedNew.reduce((sum: number, a: any) => {
           if (a.type === "addition") return sum + a.amount;
           if (a.type === "charge") return sum - a.amount;
           if (a.type === "penalty" && a.applied) return sum - a.amount;
@@ -327,8 +338,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         sickDayDates: selectedPtoDates,
         totalSickDaysAvailable: maxPtoDays,
         adjustments: hideChargesAndExtraPay
-          ? adjustments.filter((a) => a.type === "penalty")
-          : adjustments,
+          ? resolveAdjustments(adjustments).filter((a) => a.type === "penalty")
+          : resolveAdjustments(adjustments),
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
@@ -369,6 +380,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       type: newAdjustmentType,
       reason: newAdjustmentReason.trim(),
       amount,
+      ...(adjustmentAmountMode === "percent"
+        ? { percent: parseFloat(newAdjustmentAmount) }
+        : {}),
     };
     const updated = [...adjustments, newAdj];
     setAdjustments(updated);
@@ -400,6 +414,9 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       reason: newPenaltyReason.trim(),
       amount,
       applied: newPenaltyApplied,
+      ...(penaltyAmountMode === "percent"
+        ? { percent: parseFloat(newPenaltyAmount) }
+        : {}),
     };
     const updated = [...adjustments, newPen];
     setAdjustments(updated);
@@ -523,7 +540,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         perDayRate,
         sickDayDates: ptoDatesForEmail,
         totalSickDaysAvailable: maxPtoDays,
-        adjustments,
+        adjustments: resolveAdjustments(adjustments),
         usedPtoDaysYearly: usedPtoDaysThisYear,
         isDeletedUser,
         futureMonthLabel,
@@ -563,7 +580,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;
-      const adjTotal = adjustments.reduce((sum: number, a: any) => {
+      const adjTotal = resolveAdjustments(adjustments).reduce((sum: number, a: any) => {
         if (a.type === "addition") return sum + a.amount;
         if (a.type === "charge") return sum - a.amount;
         if (a.type === "penalty" && a.applied) return sum - a.amount;
@@ -599,10 +616,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   const currentMonthPtoSelected = Object.values(ptoSelections).filter(Boolean).length;
 
   // Split adjustments by category for the right panel
-  const chargesAndExtras = adjustments
+  const resolvedAdjustments = resolveAdjustments(adjustments);
+  const chargesAndExtras = resolvedAdjustments
     .map((a, i) => ({ adj: a, index: i }))
     .filter((x) => x.adj.type === "addition" || x.adj.type === "charge");
-  const penalties = adjustments
+  const penalties = resolvedAdjustments
     .map((a, i) => ({ adj: a, index: i }))
     .filter((x) => x.adj.type === "penalty");
 
@@ -747,6 +765,11 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                             <p className="truncate font-medium">{adj.reason}</p>
                             <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
                               {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
+                              {adj.percent != null && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({adj.percent}% of base)
+                                </span>
+                              )}
                             </p>
                           </div>
                           <Button
@@ -861,10 +884,18 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">{adj.reason}</p>
                             {adj.applied ? (
-                              <p className="text-red-600">-${adj.amount.toFixed(2)}</p>
+                              <p className="text-red-600">
+                                -${adj.amount.toFixed(2)}
+                                {adj.percent != null && (
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    ({adj.percent}% of base)
+                                  </span>
+                                )}
+                              </p>
                             ) : (
                               <p className="text-yellow-700 dark:text-yellow-500 text-xs">
                                 Warning only — would be ${adj.amount.toFixed(2)}
+                                {adj.percent != null && ` (${adj.percent}% of base)`}
                               </p>
                             )}
                           </div>
