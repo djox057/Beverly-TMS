@@ -207,6 +207,43 @@ export default function Alerts() {
     return null;
   };
 
+  // Reusable sort indicator button used inside table headers
+  const renderSortButton = <K extends string>(
+    current: SortState<K>,
+    key: K,
+    onCycle: () => void,
+    label: string
+  ) => {
+    const isActive = !!current && current.key === key;
+    const dir = isActive ? current!.dir : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCycle();
+        }}
+        className="inline-flex items-center justify-center rounded p-0.5 hover:bg-muted"
+        aria-label={`Sort by ${label}`}
+        title={
+          dir === "asc"
+            ? "Sorted ascending — click for descending"
+            : dir === "desc"
+            ? "Sorted descending — click to clear"
+            : "Click to sort ascending"
+        }
+      >
+        {dir === "asc" ? (
+          <ArrowUp className="h-3.5 w-3.5 text-primary" />
+        ) : dir === "desc" ? (
+          <ArrowDown className="h-3.5 w-3.5 text-primary" />
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </button>
+    );
+  };
+
   // Build sets for "is assigned" filtering
   const assignedTruckIds = new Set<string>();
   const assignedTrailerIds = new Set<string>();
