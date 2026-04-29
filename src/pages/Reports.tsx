@@ -1631,6 +1631,11 @@ const Reports = () => {
       // Load orders for the start and end of the visible 6-day range
       loadDispatcherOrders(dispatcherId, newDate);
       loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+
+      // Also expand the lost_day_notes window so Home Time / Game Over icons
+      // appear for past/future dates the user scrolls into.
+      ensureLostDayNotesWindowForDate(newDate);
+      ensureLostDayNotesWindowForDate(addDays(newDate, 5));
     },
     [loadDispatcherOrders],
   );
