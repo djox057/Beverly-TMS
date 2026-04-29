@@ -727,6 +727,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     [initialLostDayNotes, lostNotesTick],
   );
 
+  useEffect(() => {
+    queryClient.setQueryData(["adapter-lost-day-notes", modeKeySuffix], allLostDayNotes);
+  }, [allLostDayNotes, modeKeySuffix, queryClient]);
+
   // Client-side filtering for current office scope
   const filteredLostDayNotes = useMemo(() => {
     if (driverIdsForScope.length === 0) return [];
