@@ -710,10 +710,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   const { data: initialLostDayNotes } = useQuery({
     queryKey: ["adapter-lost-day-notes", modeKeySuffix],
-    queryFn: async () => {
-      await ensureLostDayNotesWindowForDate(selectedDate);
-      return Array.from(lostDayNotesAccumulator.values());
-    },
+    queryFn: async () => Array.from(lostDayNotesAccumulator.values()),
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnWindowFocus: false,
@@ -721,6 +718,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     refetchOnReconnect: false,
     enabled: globalEnabled,
   });
+
+  useEffect(() => {
+    if (!globalEnabled) return;
+    ensureLostDayNotesWindowForDate(selectedDate);
+  }, [globalEnabled, selectedDate]);
 
   const allLostDayNotes = useMemo(
     () => Array.from(lostDayNotesAccumulator.values()),
