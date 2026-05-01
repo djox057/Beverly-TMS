@@ -4574,7 +4574,7 @@ export type Database = {
         | "Čačak"
         | "KRAGUJEVAC"
         | "BG 1st floor"
-        | "BG 2nd floor"
+        | "BG 4th floor"
         | "Recovery"
     }
     CompositeTypes: {
@@ -4720,7 +4720,7 @@ export const Constants = {
         "Čačak",
         "KRAGUJEVAC",
         "BG 1st floor",
-        "BG 2nd floor",
+        "BG 4th floor",
         "Recovery",
       ],
     },
