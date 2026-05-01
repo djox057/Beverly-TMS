@@ -2914,7 +2914,7 @@ const Analytics = () => {
                         )
                           .filter((office) => office !== "Recovery")
                           .sort((a, b) => {
-                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 2nd floor"];
+                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 4th floor"];
                             const ai = order.indexOf(a as string);
                             const bi = order.indexOf(b as string);
                             return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
@@ -3326,7 +3326,7 @@ const Analytics = () => {
                         )
                           .filter((office) => office !== "Recovery")
                           .sort((a, b) => {
-                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 2nd floor"];
+                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 4th floor"];
                             const ai = order.indexOf(a as string);
                             const bi = order.indexOf(b as string);
                             return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
@@ -5147,7 +5147,7 @@ const Analytics = () => {
                               const ptoCount = ptoDaysByUser[stat.userId] || 0;
                               const nonSickLostDays = Math.max(0, lostDays - ptoCount);
                               const daysOffDeduction = nonSickLostDays * perDayRate;
-                              const foodAllowance = (stat.office === "BG 1st floor" || stat.office === "BG 2nd floor") ? 0 : 70;
+                              const foodAllowance = (stat.office === "BG 1st floor" || stat.office === "BG 4th floor") ? 0 : 70;
                               const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                               const payment = salaryPayments[stat.userId];
                               const adjRaw = payment?.additionals as any[] | null;

@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       const profileUpdates: Record<string, any> = {}
       
       if (office) {
-        const validOffices = ['Čačak', 'KRAGUJEVAC', 'BG 1st floor', 'BG 2nd floor', 'Recovery']
+        const validOffices = ['Čačak', 'KRAGUJEVAC', 'BG 1st floor', 'BG 4th floor', 'Recovery']
         if (validOffices.includes(office)) {
           profileUpdates.office = office
         }

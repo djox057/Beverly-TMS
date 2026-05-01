@@ -340,7 +340,7 @@ const Fleets = () => {
                 <SelectContent>
                   <SelectItem value="all">All Offices</SelectItem>
                   <SelectItem value="BG 1st floor">BG 1st floor</SelectItem>
-                  <SelectItem value="BG 2nd floor">BG 2nd floor</SelectItem>
+                  <SelectItem value="BG 4th floor">BG 4th floor</SelectItem>
                   <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
                   <SelectItem value="Čačak">Čačak</SelectItem>
                   <SelectItem value="Recovery">Recovery</SelectItem>
