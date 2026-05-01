@@ -2913,6 +2913,12 @@ const Analytics = () => {
                           ),
                         )
                           .filter((office) => office !== "Recovery")
+                          .sort((a, b) => {
+                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 2nd floor"];
+                            const ai = order.indexOf(a as string);
+                            const bi = order.indexOf(b as string);
+                            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                          })
                           .map((office) => (
                             <Button
                               key={office}
@@ -3319,6 +3325,12 @@ const Analytics = () => {
                           ),
                         )
                           .filter((office) => office !== "Recovery")
+                          .sort((a, b) => {
+                            const order = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 2nd floor"];
+                            const ai = order.indexOf(a as string);
+                            const bi = order.indexOf(b as string);
+                            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                          })
                           .map((office) => (
                             <Button
                               key={office}
