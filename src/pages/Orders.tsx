@@ -797,19 +797,22 @@ const Orders = () => {
   
 
   const uniqueBookedBy = (() => {
-    if (!allUserProfiles) return [];
     const seen = new Set<string>();
-    return allUserProfiles
-      .map(p => ({
-        value: p.full_name || p.email || "",
-        label: (p.full_name?.trim() || p.email || "").trim(),
-      }))
-      .filter(item => {
-        if (!item.value || seen.has(item.value)) return false;
-        seen.add(item.value);
-        return true;
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
+    const items: { value: string; label: string }[] = [];
+    for (const p of allUserProfiles || []) {
+      const value = (p.full_name?.trim() || p.email || "").trim();
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      items.push({ value, label: value });
+    }
+    // Merge in historical booked_by names (e.g. deleted users) so they remain searchable
+    for (const name of allBookedByFromOrders || []) {
+      const value = (name || "").trim();
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      items.push({ value, label: value });
+    }
+    return items.sort((a, b) => a.label.localeCompare(b.label));
   })();
   const uniqueTrucks = (trucks || []).map((t: any) => t.truck_number).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, {
     numeric: true
