@@ -3621,7 +3621,7 @@ const Reports = () => {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <TabsList className="grid grid-cols-4 flex-1">
+              <TabsList className="grid grid-cols-5 flex-1">
                 {offices.map((office) => (
                   <TabsTrigger key={office} value={office} className="text-xs sm:text-sm">
                     {getOfficeDisplayName(office)}
