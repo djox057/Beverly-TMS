@@ -125,7 +125,9 @@ Deno.serve(async (req) => {
     
     if (office !== undefined) {
       const validOffices = ['Čačak', 'KRAGUJEVAC', 'BG 1st floor', 'BG 4th floor', 'Recovery']
-      profileUpdates.office = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
+      const normalizedOffice = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
+      profileUpdates.office = normalizedOffice
+      console.log('Office normalization:', { received: office, normalized: normalizedOffice, validOffices })
     }
     
     if (ext !== undefined) {

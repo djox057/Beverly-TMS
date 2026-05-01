@@ -125,6 +125,8 @@ Deno.serve(async (req) => {
         const validOffices = ['Čačak', 'KRAGUJEVAC', 'BG 1st floor', 'BG 4th floor', 'Recovery']
         if (validOffices.includes(office)) {
           profileUpdates.office = office
+        } else {
+          console.warn('Invalid office rejected:', office, 'valid:', validOffices)
         }
       }
       
