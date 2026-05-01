@@ -138,7 +138,7 @@ export function getMilesChangeSmsRecipients(office: string | null | undefined): 
 
   // Office-specific recipients
   const upper = office.toUpperCase();
-  if (upper === "BEOGRAD") {
+  if (upper === "BG 1ST FLOOR" || upper === "BG 2ND FLOOR") {
     recipients.push("+12192938762"); // Lucas
   } else if (upper === "KRAGUJEVAC") {
     recipients.push("+15743476856"); // Guss

@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     }
     
     if (office !== undefined) {
-      const validOffices = ['Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery']
+      const validOffices = ['Čačak', 'KRAGUJEVAC', 'BG 1st floor', 'BG 2nd floor', 'Recovery']
       profileUpdates.office = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
     }
     
