@@ -82,6 +82,34 @@ const Orders = () => {
     },
     staleTime: 5 * 60 * 1000,
   });
+  // Also fetch distinct booked_by values from orders so deleted users still appear in the filter
+  const { data: allBookedByFromOrders } = useQuery({
+    queryKey: ["all-booked-by-from-orders"],
+    queryFn: async () => {
+      const names = new Set<string>();
+      const PAGE = 1000;
+      let from = 0;
+      // Page through distinct-ish results; booked_by has limited cardinality
+      while (true) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("booked_by")
+          .not("booked_by", "is", null)
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const row of data) {
+          const v = (row as any).booked_by?.trim();
+          if (v) names.add(v);
+        }
+        if (data.length < PAGE) break;
+        from += PAGE;
+        if (from > 50000) break; // safety bound
+      }
+      return Array.from(names);
+    },
+    staleTime: 10 * 60 * 1000,
+  });
   console.log("🟦 [Orders Page] Component rendering");
 
   // Debug navigation function with filter persistence
