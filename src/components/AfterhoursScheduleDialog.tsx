@@ -307,7 +307,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       let office: OfficeKey = "kragujevac"; // Default
       if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
         office = "cacak";
-      } else if (officeRaw.includes("beograd")) {
+      } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
         office = "beograd";
       } else if (officeRaw.includes("kragujevac")) {
         office = "kragujevac";
@@ -622,7 +622,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       let office: OfficeKey = "kragujevac"; // Default fallback
                       if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
                         office = "cacak";
-                      } else if (officeRaw.includes("beograd")) {
+                      } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
                         office = "beograd";
                       } else if (officeRaw.includes("kragujevac")) {
                         office = "kragujevac";
