@@ -4483,6 +4483,12 @@ export type Database = {
         Args: { _month: string; _user_id: string }
         Returns: Json
       }
+      get_distinct_booked_by: {
+        Args: never
+        Returns: {
+          booked_by: string
+        }[]
+      }
       get_driver_id_for_user: { Args: never; Returns: string }
       get_facility_visit_counts:
         | {
