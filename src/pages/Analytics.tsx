@@ -5135,7 +5135,7 @@ const Analytics = () => {
                               const ptoCount = ptoDaysByUser[stat.userId] || 0;
                               const nonSickLostDays = Math.max(0, lostDays - ptoCount);
                               const daysOffDeduction = nonSickLostDays * perDayRate;
-                              const foodAllowance = stat.office === "BEOGRAD" ? 0 : 70;
+                              const foodAllowance = (stat.office === "BG 1st floor" || stat.office === "BG 2nd floor") ? 0 : 70;
                               const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                               const payment = salaryPayments[stat.userId];
                               const adjRaw = payment?.additionals as any[] | null;

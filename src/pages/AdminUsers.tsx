@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { createUserSchema } from "@/lib/validation";
 
-type OfficeLocation = 'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery' | null;
+type OfficeLocation = 'Čačak' | 'KRAGUJEVAC' | 'BG 1st floor' | 'BG 2nd floor' | 'Recovery' | null;
 
 interface User {
   id: string;
@@ -605,7 +605,8 @@ const AdminUsers = () => {
                     <SelectItem value="none">No Office</SelectItem>
                     <SelectItem value="Čačak">ČAČAK</SelectItem>
                     <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
-                    <SelectItem value="BEOGRAD">Beograd</SelectItem>
+                    <SelectItem value="BG 1st floor">BG 1st floor</SelectItem>
+                    <SelectItem value="BG 2nd floor">BG 2nd floor</SelectItem>
                     <SelectItem value="Recovery">Recovery</SelectItem>
                   </SelectContent>
                 </Select>
@@ -821,7 +822,8 @@ const AdminUsers = () => {
                   <SelectItem value="none">No Office</SelectItem>
                   <SelectItem value="Čačak">Čačak</SelectItem>
                   <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
-                  <SelectItem value="BEOGRAD">Beograd</SelectItem>
+                  <SelectItem value="BG 1st floor">BG 1st floor</SelectItem>
+                  <SelectItem value="BG 2nd floor">BG 2nd floor</SelectItem>
                   <SelectItem value="Recovery">Recovery</SelectItem>
                 </SelectContent>
               </Select>

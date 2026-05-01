@@ -422,7 +422,7 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list - values must match database enum values
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+  const offices = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 2nd floor", "Recovery"];
 
   // Display names for offices (uppercase for UI consistency)
   const getOfficeDisplayName = (office: string) => {
