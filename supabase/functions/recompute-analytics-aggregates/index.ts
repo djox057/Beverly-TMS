@@ -30,14 +30,14 @@ Deno.serve(async (req) => {
       console.log("[recompute] Auth: CRON_SECRET");
     }
 
-    // Check admin JWT
+    // Check admin JWT (server-verified)
     if (!authorized && token && token !== supabaseAnonKey) {
       const userClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-      if (!claimsErr && claimsData?.claims?.sub) {
-        const userId = claimsData.claims.sub;
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (!userErr && userData?.user) {
+        const userId = userData.user.id;
         const adminClient = createClient(supabaseUrl, serviceRoleKey);
         const { data: roles } = await adminClient
           .from("user_roles")
@@ -49,12 +49,6 @@ Deno.serve(async (req) => {
           console.log("[recompute] Auth: admin JWT", userId);
         }
       }
-    }
-
-    // Allow anon key calls (for backward compat during testing) — remove after cron is set up
-    if (!authorized && token === supabaseAnonKey) {
-      authorized = true;
-      console.log("[recompute] Auth: anon key (temporary)");
     }
 
     if (!authorized) {
