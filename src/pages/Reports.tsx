@@ -3460,7 +3460,8 @@ const Reports = () => {
       if (isFinalUpdateWindow && newValue.trim() && !finalUpdateSentTruckIds.has(truckId)) {
         try {
           // Look up truck info for subject/body
-          const truckInfo = (data || []).flatMap((g: any) => g.trucks || [])
+          const truckInfo = (Object.values(groupedReports || {}) as any[])
+            .flatMap((g: any) => g.trucks || [])
             .find((t: any) => t.id === truckId);
           const truckNumber = truckInfo?.truckNumber || "";
           const driverName =
