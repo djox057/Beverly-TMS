@@ -151,7 +151,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       console.log("[OrdersWithProgress] Starting locked orders fetch (all batches)...");
 
       let batchAttempts = 0;
-      const MAX_BATCH_ATTEMPTS = 20;
+      const MAX_BATCH_ATTEMPTS = 200;
       while (hasMoreLocked && batchAttempts < MAX_BATCH_ATTEMPTS) {
         batchAttempts++;
         const { data: lockedResponse, error: lockedError } = await supabase.functions.invoke(
@@ -196,6 +196,9 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
         }
       }
 
+      if (hasMoreLocked && batchAttempts >= MAX_BATCH_ATTEMPTS) {
+        console.warn(`[OrdersWithProgress] ⚠️ Stopped fetching locked orders after ${MAX_BATCH_ATTEMPTS} batches (${allLockedOrders.length} loaded). Increase MAX_BATCH_ATTEMPTS if order count keeps growing.`);
+      }
       console.log(`[OrdersWithProgress] ✅ Fetched all ${allLockedOrders.length} locked orders`);
 
       const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
