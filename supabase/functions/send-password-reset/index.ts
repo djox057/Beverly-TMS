@@ -11,7 +11,7 @@ const corsHeaders = {
 
 interface PasswordResetRequest {
   email: string;
-  redirectTo: string;
+  redirectTo?: string; // ignored — server hardcodes redirect to prevent open-redirect abuse
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -21,13 +21,16 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, redirectTo }: PasswordResetRequest = await req.json();
+    const { email }: PasswordResetRequest = await req.json();
 
     console.log('📧 Password reset requested for:', email);
 
     if (!email) {
       throw new Error('Email is required');
     }
+
+    // Hardcoded server-side redirect URL — never trust client input here
+    const redirectTo = 'https://fleetcarrier.us/reset-password';
 
     // Create Supabase admin client to generate password reset link
     const supabaseAdmin = createClient(

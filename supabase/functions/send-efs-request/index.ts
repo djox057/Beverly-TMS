@@ -49,6 +49,29 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Require authentication
+    const authHeaderRequired = req.headers.get("Authorization");
+    if (!authHeaderRequired) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    {
+      const supabaseUrlEarly = Deno.env.get("SUPABASE_URL")!;
+      const supabaseAnonKeyEarly = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const supabaseAuthEarly = createClient(supabaseUrlEarly, supabaseAnonKeyEarly, {
+        global: { headers: { Authorization: authHeaderRequired } },
+      });
+      const { data: u, error: e } = await supabaseAuthEarly.auth.getUser();
+      if (e || !u?.user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const body: EfsRequestBody = await req.json();
     const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName } = body;
 
