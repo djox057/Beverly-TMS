@@ -536,6 +536,36 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // --- Auth check: CRON_SECRET or admin JWT ---
+    const supabaseUrl0 = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey0 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey0 = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const tokenPart = authHeader.replace("Bearer ", "");
+    let authorized = false;
+    if (cronSecret && tokenPart === cronSecret) {
+      authorized = true;
+    } else if (authHeader.startsWith("Bearer ") && tokenPart !== anonKey0) {
+      const userClient = createClient(supabaseUrl0, anonKey0, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData } = await userClient.auth.getUser();
+      if (userData?.user) {
+        const adminClient = createClient(supabaseUrl0, serviceRoleKey0);
+        const { data: roles } = await adminClient
+          .from("user_roles").select("role").eq("user_id", userData.user.id);
+        if (roles?.some((r: any) => ["admin","manager"].includes(r.role))) {
+          authorized = true;
+        }
+      }
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const startTime = Date.now();
     console.log("[sync-google-sheets] Starting sync...");
 
