@@ -598,6 +598,53 @@ const Reports = () => {
     longitude: number;
   } | null>(null);
 
+  // Final Update window: 15:45 - 16:30 Chicago time
+  const [isFinalUpdateWindow, setIsFinalUpdateWindow] = useState(false);
+  const [finalUpdateSentTruckIds, setFinalUpdateSentTruckIds] = useState<Set<string>>(new Set());
+  const [finalUpdateDate, setFinalUpdateDate] = useState<string>("");
+
+  useEffect(() => {
+    const computeWindow = () => {
+      const chicagoNow = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }),
+      );
+      const minutes = chicagoNow.getHours() * 60 + chicagoNow.getMinutes();
+      const inWindow = minutes >= 15 * 60 + 45 && minutes < 16 * 60 + 30;
+      setIsFinalUpdateWindow(inWindow);
+      const y = chicagoNow.getFullYear();
+      const m = String(chicagoNow.getMonth() + 1).padStart(2, "0");
+      const d = String(chicagoNow.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${d}`;
+      setFinalUpdateDate((prev) => {
+        if (prev !== dateStr) {
+          setFinalUpdateSentTruckIds(new Set());
+          return dateStr;
+        }
+        return prev;
+      });
+    };
+    computeWindow();
+    const i = setInterval(computeWindow, 30_000);
+    return () => clearInterval(i);
+  }, []);
+
+  // Load already-sent records for today so cell stays purple after a refresh
+  useEffect(() => {
+    if (!finalUpdateDate) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("final_update_sends")
+        .select("truck_id")
+        .eq("send_date", finalUpdateDate);
+      if (cancelled || !data) return;
+      setFinalUpdateSentTruckIds(new Set(data.map((r: any) => r.truck_id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [finalUpdateDate]);
+
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
   const [lateTrucks, setLateTrucks] = useState<Set<string>>(new Set()); // Track late trucks by truck ID
