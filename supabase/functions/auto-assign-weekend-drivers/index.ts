@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
 
   const invocationId = crypto.randomUUID();
 
+  // BG 1st floor and BG 4th floor are treated as a single "BG" office for
+  // weekend distribution purposes. Underlying profile.office values are
+  // unchanged; this only affects bucketing.
+  const BG_OFFICES = new Set(["BG 1st floor", "BG 4th floor"]);
+  const groupKey = (office: string | null | undefined): string =>
+    office && BG_OFFICES.has(office) ? "BG" : (office || "Unknown");
+
   // --- Auth ---
   const cronSecret = req.headers.get("x-cron-secret");
   const authHeader = req.headers.get("authorization");
@@ -182,7 +189,7 @@ Deno.serve(async (req) => {
     const enrichedDrivers: EnrichedDriver[] = (drivers ?? []).map((d: any) => ({
       id: d.id,
       dispatcher_id: d.dispatcher_id ?? null,
-      office: (d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) : null) || "Unknown",
+      office: groupKey(d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) : null),
     }));
 
     const driversByOffice = new Map<string, EnrichedDriver[]>();
@@ -213,7 +220,7 @@ Deno.serve(async (req) => {
       // Group weekend dispatchers by office
       const weekendByOffice = new Map<string, string[]>();
       for (const uid of userIdsForDay) {
-        const office = userOfficeMap.get(uid) || "Unknown";
+        const office = groupKey(userOfficeMap.get(uid));
         if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
         weekendByOffice.get(office)!.push(uid);
       }
@@ -255,40 +262,57 @@ Deno.serve(async (req) => {
           assigned.set(wd, []);
         });
 
-        // First pass: each WD gets their own weekday drivers (up to capacity)
+        // First pass: each WD takes their OWN weekday drivers as a single
+        // block (no per-capacity cap here; we still try to keep the group
+        // together). The second pass enforces overall load balance.
         for (const wd of sortedWD) {
           const ownGroup = groups.find((g) => g.dispId === wd);
           if (ownGroup && ownGroup.drivers.length > 0) {
-            const cap = capacity.get(wd)!;
-            const take = ownGroup.drivers.splice(0, cap);
-            assigned.get(wd)!.push(...take.map((d) => d.id));
+            assigned.get(wd)!.push(...ownGroup.drivers.map((d) => d.id));
+            ownGroup.drivers.length = 0;
           }
         }
 
-        // Second pass: greedy bin-packing of remaining
-        const remaining = groups.filter((g) => g.drivers.length > 0);
+        // Second pass: place each remaining weekday-dispatcher group as a
+        // WHOLE block under the weekend dispatcher with the largest remaining
+        // capacity. Only split the group when no WD can absorb it without
+        // exceeding the largest current load by more than 1 driver.
+        const remaining = groups
+          .filter((g) => g.drivers.length > 0)
+          .sort((a, b) => b.drivers.length - a.drivers.length);
+
         for (const group of remaining) {
           while (group.drivers.length > 0) {
+            // Find WD with most remaining capacity
             let bestWD = sortedWD[0];
-            let bestRemaining = -1;
+            let bestRem = capacity.get(bestWD)! - assigned.get(bestWD)!.length;
             for (const wd of sortedWD) {
               const rem = capacity.get(wd)! - assigned.get(wd)!.length;
-              if (rem > bestRemaining) {
-                bestRemaining = rem;
-                bestWD = wd;
-              }
+              if (rem > bestRem) { bestRem = rem; bestWD = wd; }
             }
-            if (bestRemaining <= 0) {
-              let minOver = Infinity;
-              for (const wd of sortedWD) {
-                const over = assigned.get(wd)!.length - capacity.get(wd)!;
-                if (over < minOver) {
-                  minOver = over;
-                  bestWD = wd;
-                }
-              }
+
+            if (bestRem >= group.drivers.length) {
+              // Whole group fits within capacity — keep it together.
+              assigned.get(bestWD)!.push(...group.drivers.map((d) => d.id));
+              group.drivers.length = 0;
+              continue;
             }
-            const take = group.drivers.splice(0, Math.max(bestRemaining, 1));
+
+            // No WD has enough free capacity for the whole group.
+            // Decide: place whole group anyway (tolerable imbalance) or split.
+            // Tolerable = placing the whole group keeps bestWD's load within
+            // 1 of the current max load across WDs.
+            const maxLoad = Math.max(...sortedWD.map((wd) => assigned.get(wd)!.length));
+            const projected = assigned.get(bestWD)!.length + group.drivers.length;
+            if (projected <= maxLoad + 1) {
+              assigned.get(bestWD)!.push(...group.drivers.map((d) => d.id));
+              group.drivers.length = 0;
+              continue;
+            }
+
+            // Otherwise split: take as many as fit (at least 1) into bestWD,
+            // loop continues with the rest.
+            const take = group.drivers.splice(0, Math.max(bestRem, 1));
             assigned.get(bestWD)!.push(...take.map((d) => d.id));
           }
         }
