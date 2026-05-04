@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// BG 1st floor and BG 4th floor are treated as a single "BG" office for
+// weekend distribution purposes only. Underlying profile.office values are
+// unchanged; this only affects bucketing inside autoAssignDrivers().
+const BG_OFFICES = new Set(['BG 1st floor', 'BG 4th floor']);
+const groupKey = (office: string | null | undefined): string =>
+  office && BG_OFFICES.has(office) ? 'BG' : (office || 'Unknown');
+
 interface AfterhoursUser {
   id: string;
   full_name: string | null;
@@ -267,7 +274,7 @@ export const useAfterhoursAssignments = () => {
       // Group drivers by office (via their weekday dispatcher's office)
       const driversByOffice = new Map<string, any[]>();
       for (const d of allDriversWithTrucks) {
-        const office = d.dispatcher_office || 'Unknown';
+        const office = groupKey(d.dispatcher_office);
         if (!driversByOffice.has(office)) driversByOffice.set(office, []);
         driversByOffice.get(office)!.push(d);
       }
@@ -294,7 +301,7 @@ export const useAfterhoursAssignments = () => {
         // Group weekend dispatchers for this day by office
         const weekendByOffice = new Map<string, AfterhoursFleet[]>();
         for (const fleet of dayFleets) {
-          const office = fleet.user.office || 'Unknown';
+          const office = groupKey(fleet.user.office);
           if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
           weekendByOffice.get(office)!.push(fleet);
         }
@@ -341,40 +348,49 @@ export const useAfterhoursAssignments = () => {
             assigned.set(wd.user.id, []);
           });
 
-          // First pass: assign own weekday drivers
+          // First pass: each weekend dispatcher takes their OWN weekday
+          // drivers as a single block (keep the group together).
           for (const wd of sortedWD) {
             const ownGroup = groups.find(g => g.dispId === wd.user.id);
             if (ownGroup && ownGroup.drivers.length > 0) {
-              const cap = capacity.get(wd.user.id)!;
-              const take = ownGroup.drivers.splice(0, cap);
-              assigned.get(wd.user.id)!.push(...take.map(d => d.id));
+              assigned.get(wd.user.id)!.push(...ownGroup.drivers.map((d: any) => d.id));
+              ownGroup.drivers.length = 0;
             }
           }
 
-          // Second pass: greedy bin-packing of remaining
-          const remaining = groups.filter(g => g.drivers.length > 0);
+          // Second pass: place each remaining weekday-dispatcher group as a
+          // WHOLE block under the WD with the largest remaining capacity.
+          // Only split when no WD can absorb it without exceeding the
+          // current max load by more than 1 driver.
+          const remaining = groups
+            .filter(g => g.drivers.length > 0)
+            .sort((a, b) => b.drivers.length - a.drivers.length);
+
           for (const group of remaining) {
             while (group.drivers.length > 0) {
               let bestWD = sortedWD[0].user.id;
-              let bestRemaining = -1;
+              let bestRem = capacity.get(bestWD)! - assigned.get(bestWD)!.length;
               for (const wd of sortedWD) {
                 const rem = capacity.get(wd.user.id)! - assigned.get(wd.user.id)!.length;
-                if (rem > bestRemaining) {
-                  bestRemaining = rem;
-                  bestWD = wd.user.id;
-                }
+                if (rem > bestRem) { bestRem = rem; bestWD = wd.user.id; }
               }
 
-              if (bestRemaining <= 0) {
-                let minOver = Infinity;
-                for (const wd of sortedWD) {
-                  const over = assigned.get(wd.user.id)!.length - capacity.get(wd.user.id)!;
-                  if (over < minOver) { minOver = over; bestWD = wd.user.id; }
-                }
+              if (bestRem >= group.drivers.length) {
+                assigned.get(bestWD)!.push(...group.drivers.map((d: any) => d.id));
+                group.drivers.length = 0;
+                continue;
               }
 
-              const take = group.drivers.splice(0, Math.max(bestRemaining, 1));
-              assigned.get(bestWD)!.push(...take.map(d => d.id));
+              const maxLoad = Math.max(...sortedWD.map(wd => assigned.get(wd.user.id)!.length));
+              const projected = assigned.get(bestWD)!.length + group.drivers.length;
+              if (projected <= maxLoad + 1) {
+                assigned.get(bestWD)!.push(...group.drivers.map((d: any) => d.id));
+                group.drivers.length = 0;
+                continue;
+              }
+
+              const take = group.drivers.splice(0, Math.max(bestRem, 1));
+              assigned.get(bestWD)!.push(...take.map((d: any) => d.id));
             }
           }
 
