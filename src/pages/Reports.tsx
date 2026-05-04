@@ -5634,6 +5634,8 @@ const Reports = () => {
                                                 setNoteDialogContent={setNoteDialogContent}
                                                 setNoteDialogOpen={setNoteDialogOpen}
                                                 onHistoryClick={setHistoryDialogDriverId}
+                                                isFinalUpdateWindow={isFinalUpdateWindow}
+                                                isFinalUpdateSent={finalUpdateSentTruckIds.has(truck.id)}
                                               />
                                             </div>
                                           </td>
