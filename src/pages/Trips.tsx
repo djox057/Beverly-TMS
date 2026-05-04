@@ -1407,10 +1407,19 @@ const Trips = () => {
       }
     });
 
-    // Sort weeks by date (newest first)
-    const weekGroups = Object.keys(groups)
+    // Include week keys that only contain history or termination entries
+    // (otherwise weeks where the only order was filtered out — e.g. $0 freight —
+    // would silently drop the termination/history rows).
+    const allWeekKeys = new Set<string>([
+      ...Object.keys(groups),
+      ...Object.keys(historyEntriesByWeek || {}),
+      ...Object.keys(terminationsByWeek || {}),
+    ]);
+
+    const weekGroups = Array.from(allWeekKeys)
       .sort((a, b) => b.localeCompare(a))
       .map((weekKey) => {
+        if (!groups[weekKey]) groups[weekKey] = [];
         // Get tenure entries for this week (already consolidated like truck history dialog)
         const weekTenures = historyEntriesByWeek[weekKey] || [];
 
