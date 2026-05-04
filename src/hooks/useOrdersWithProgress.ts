@@ -151,7 +151,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       console.log("[OrdersWithProgress] Starting locked orders fetch (all batches)...");
 
       let batchAttempts = 0;
-      const MAX_BATCH_ATTEMPTS = 20;
+      const MAX_BATCH_ATTEMPTS = 200;
       while (hasMoreLocked && batchAttempts < MAX_BATCH_ATTEMPTS) {
         batchAttempts++;
         const { data: lockedResponse, error: lockedError } = await supabase.functions.invoke(
