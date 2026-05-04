@@ -142,6 +142,38 @@ serve(async (req) => {
   }
 
   try {
+    // --- Auth check: CRON_SECRET or admin/manager JWT ---
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.replace('Bearer ', '');
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    let authorized = false;
+    if (cronSecret && token === cronSecret) {
+      authorized = true;
+    } else if (authHeader.startsWith('Bearer ')) {
+      const authClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: userData } = await authClient.auth.getUser();
+      if (userData?.user) {
+        const adminClient = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        );
+        const { data: roles } = await adminClient
+          .from('user_roles').select('role').eq('user_id', userData.user.id);
+        if (roles?.some((r: any) => ['admin','manager','dispatch','safety'].includes(r.role))) {
+          authorized = true;
+        }
+      }
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log('HOS Sync started');
     
     const apiKeysEnv = Deno.env.get('TRANSIT_TRACKING_API_KEYS');
