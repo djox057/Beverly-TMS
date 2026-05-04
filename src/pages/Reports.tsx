@@ -217,6 +217,8 @@ const EditableNoteField = ({
   setNoteDialogContent,
   setNoteDialogOpen,
   onHistoryClick,
+  isFinalUpdateWindow,
+  isFinalUpdateSent,
 }: {
   truckId: string;
   driverId: string | null;
@@ -225,6 +227,8 @@ const EditableNoteField = ({
   setNoteDialogContent: (value: string) => void;
   setNoteDialogOpen: (data: { truckId: string; driverId: string | null } | null) => void;
   onHistoryClick: (driverId: string | null) => void;
+  isFinalUpdateWindow?: boolean;
+  isFinalUpdateSent?: boolean;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -237,6 +241,13 @@ const EditableNoteField = ({
     }
   }, [value, isEditing, isSaving]);
   const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
+  // Gold during final-update window unless already sent today; otherwise purple if has content
+  const showGold = !!isFinalUpdateWindow && !isFinalUpdateSent;
+  const bgClass = showGold
+    ? "bg-yellow-400/30"
+    : hasContent
+    ? "bg-purple-500/20"
+    : "bg-transparent";
   const handleBlur = async () => {
     if (localValue !== value) {
       setIsSaving(true);
@@ -262,7 +273,7 @@ const EditableNoteField = ({
               setIsEditing(false);
             }
           }}
-          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? "bg-purple-500/20" : "bg-transparent"} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
+          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${bgClass} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -276,7 +287,7 @@ const EditableNoteField = ({
       ) : (
         <div
           onClick={() => setIsEditing(true)}
-          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? "bg-purple-500/20" : "bg-transparent"} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? "opacity-70" : ""}`}
+          className={`text-[0.624rem] font-bold cursor-text ${bgClass} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? "opacity-70" : ""}`}
           style={{
             height: "32px",
             minHeight: "32px",
