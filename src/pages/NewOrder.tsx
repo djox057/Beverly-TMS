@@ -857,10 +857,13 @@ const NewOrder = () => {
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("Your session has expired. Please sign in again.");
+        }
         const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: formData,
         });
@@ -1373,11 +1376,14 @@ const NewOrder = () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Your session has expired. Please sign in again.");
+      }
       const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/generate-load-confirmation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(confirmationData),
       });
