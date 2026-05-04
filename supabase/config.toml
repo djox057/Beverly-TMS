@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.auto-assign-weekend-drivers]
 verify_jwt = false
+
+[functions.send-final-update]
+verify_jwt = false

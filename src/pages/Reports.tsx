@@ -217,6 +217,8 @@ const EditableNoteField = ({
   setNoteDialogContent,
   setNoteDialogOpen,
   onHistoryClick,
+  isFinalUpdateWindow,
+  isFinalUpdateSent,
 }: {
   truckId: string;
   driverId: string | null;
@@ -225,6 +227,8 @@ const EditableNoteField = ({
   setNoteDialogContent: (value: string) => void;
   setNoteDialogOpen: (data: { truckId: string; driverId: string | null } | null) => void;
   onHistoryClick: (driverId: string | null) => void;
+  isFinalUpdateWindow?: boolean;
+  isFinalUpdateSent?: boolean;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -237,6 +241,13 @@ const EditableNoteField = ({
     }
   }, [value, isEditing, isSaving]);
   const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
+  // Gold during final-update window unless already sent today; otherwise purple if has content
+  const showGold = !!isFinalUpdateWindow && !isFinalUpdateSent;
+  const bgClass = showGold
+    ? "bg-yellow-400/30"
+    : hasContent
+    ? "bg-purple-500/20"
+    : "bg-transparent";
   const handleBlur = async () => {
     if (localValue !== value) {
       setIsSaving(true);
@@ -262,7 +273,7 @@ const EditableNoteField = ({
               setIsEditing(false);
             }
           }}
-          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? "bg-purple-500/20" : "bg-transparent"} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
+          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${bgClass} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -276,7 +287,7 @@ const EditableNoteField = ({
       ) : (
         <div
           onClick={() => setIsEditing(true)}
-          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? "bg-purple-500/20" : "bg-transparent"} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? "opacity-70" : ""}`}
+          className={`text-[0.624rem] font-bold cursor-text ${bgClass} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? "opacity-70" : ""}`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -586,6 +597,53 @@ const Reports = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  // Final Update window: 15:45 - 16:30 Chicago time
+  const [isFinalUpdateWindow, setIsFinalUpdateWindow] = useState(false);
+  const [finalUpdateSentTruckIds, setFinalUpdateSentTruckIds] = useState<Set<string>>(new Set());
+  const [finalUpdateDate, setFinalUpdateDate] = useState<string>("");
+
+  useEffect(() => {
+    const computeWindow = () => {
+      const chicagoNow = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }),
+      );
+      const minutes = chicagoNow.getHours() * 60 + chicagoNow.getMinutes();
+      const inWindow = minutes >= 15 * 60 + 45 && minutes < 16 * 60 + 30;
+      setIsFinalUpdateWindow(inWindow);
+      const y = chicagoNow.getFullYear();
+      const m = String(chicagoNow.getMonth() + 1).padStart(2, "0");
+      const d = String(chicagoNow.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${d}`;
+      setFinalUpdateDate((prev) => {
+        if (prev !== dateStr) {
+          setFinalUpdateSentTruckIds(new Set());
+          return dateStr;
+        }
+        return prev;
+      });
+    };
+    computeWindow();
+    const i = setInterval(computeWindow, 30_000);
+    return () => clearInterval(i);
+  }, []);
+
+  // Load already-sent records for today so cell stays purple after a refresh
+  useEffect(() => {
+    if (!finalUpdateDate) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("final_update_sends")
+        .select("truck_id")
+        .eq("send_date", finalUpdateDate);
+      if (cancelled || !data) return;
+      setFinalUpdateSentTruckIds(new Set(data.map((r: any) => r.truck_id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [finalUpdateDate]);
 
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
@@ -3398,6 +3456,48 @@ const Reports = () => {
         driverId: driverId || undefined,
         note: newValue.trim(),
       });
+      // Final Update: if we're in the 15:45-16:30 Chicago window and there's a note, send email
+      if (isFinalUpdateWindow && newValue.trim() && !finalUpdateSentTruckIds.has(truckId)) {
+        try {
+          // Look up truck info for subject/body
+          const truckInfo = (Object.values(groupedReports || {}) as any[])
+            .flatMap((g: any) => g.trucks || [])
+            .find((t: any) => t.id === truckId);
+          const truckNumber = truckInfo?.truckNumber || "";
+          const driverName =
+            (truckInfo?.driver1Name || "") +
+            (truckInfo?.driver2Name ? ` / ${truckInfo.driver2Name}` : "");
+          // Optimistically mark as sent so cell turns purple
+          setFinalUpdateSentTruckIds((prev) => {
+            const n = new Set(prev);
+            n.add(truckId);
+            return n;
+          });
+          const { error: fnErr } = await supabase.functions.invoke("send-final-update", {
+            body: {
+              truckId,
+              driverId: driverId || null,
+              truckNumber,
+              driverName: driverName.trim(),
+              note: newValue.trim(),
+            },
+          });
+          if (fnErr) throw fnErr;
+          toast({ title: "Final update sent", description: `Truck ${truckNumber}` });
+        } catch (e: any) {
+          // Roll back optimistic mark on failure
+          setFinalUpdateSentTruckIds((prev) => {
+            const n = new Set(prev);
+            n.delete(truckId);
+            return n;
+          });
+          toast({
+            title: "Final update email failed",
+            description: e?.message || "Could not send final update email.",
+            variant: "destructive",
+          });
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Update failed",
@@ -5534,6 +5634,8 @@ const Reports = () => {
                                                 setNoteDialogContent={setNoteDialogContent}
                                                 setNoteDialogOpen={setNoteDialogOpen}
                                                 onHistoryClick={setHistoryDialogDriverId}
+                                                isFinalUpdateWindow={isFinalUpdateWindow}
+                                                isFinalUpdateSent={finalUpdateSentTruckIds.has(truck.id)}
                                               />
                                             </div>
                                           </td>

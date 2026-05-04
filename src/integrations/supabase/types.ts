@@ -2149,6 +2149,42 @@ export type Database = {
         }
         Relationships: []
       }
+      final_update_sends: {
+        Row: {
+          driver_id: string | null
+          driver_name: string | null
+          id: string
+          note: string | null
+          send_date: string
+          sent_at: string
+          sent_by: string | null
+          truck_id: string
+          truck_number: string | null
+        }
+        Insert: {
+          driver_id?: string | null
+          driver_name?: string | null
+          id?: string
+          note?: string | null
+          send_date: string
+          sent_at?: string
+          sent_by?: string | null
+          truck_id: string
+          truck_number?: string | null
+        }
+        Update: {
+          driver_id?: string | null
+          driver_name?: string | null
+          id?: string
+          note?: string | null
+          send_date?: string
+          sent_at?: string
+          sent_by?: string | null
+          truck_id?: string
+          truck_number?: string | null
+        }
+        Relationships: []
+      }
       fuel_driver_mappings: {
         Row: {
           created_at: string
