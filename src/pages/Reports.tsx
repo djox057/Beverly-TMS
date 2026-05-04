@@ -3456,6 +3456,47 @@ const Reports = () => {
         driverId: driverId || undefined,
         note: newValue.trim(),
       });
+      // Final Update: if we're in the 15:45-16:30 Chicago window and there's a note, send email
+      if (isFinalUpdateWindow && newValue.trim() && !finalUpdateSentTruckIds.has(truckId)) {
+        try {
+          // Look up truck info for subject/body
+          const truckInfo = (data || []).flatMap((g: any) => g.trucks || [])
+            .find((t: any) => t.id === truckId);
+          const truckNumber = truckInfo?.truckNumber || "";
+          const driverName =
+            (truckInfo?.driver1Name || "") +
+            (truckInfo?.driver2Name ? ` / ${truckInfo.driver2Name}` : "");
+          // Optimistically mark as sent so cell turns purple
+          setFinalUpdateSentTruckIds((prev) => {
+            const n = new Set(prev);
+            n.add(truckId);
+            return n;
+          });
+          const { error: fnErr } = await supabase.functions.invoke("send-final-update", {
+            body: {
+              truckId,
+              driverId: driverId || null,
+              truckNumber,
+              driverName: driverName.trim(),
+              note: newValue.trim(),
+            },
+          });
+          if (fnErr) throw fnErr;
+          toast({ title: "Final update sent", description: `Truck ${truckNumber}` });
+        } catch (e: any) {
+          // Roll back optimistic mark on failure
+          setFinalUpdateSentTruckIds((prev) => {
+            const n = new Set(prev);
+            n.delete(truckId);
+            return n;
+          });
+          toast({
+            title: "Final update email failed",
+            description: e?.message || "Could not send final update email.",
+            variant: "destructive",
+          });
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Update failed",
