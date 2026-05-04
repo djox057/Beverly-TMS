@@ -196,6 +196,9 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
         }
       }
 
+      if (hasMoreLocked && batchAttempts >= MAX_BATCH_ATTEMPTS) {
+        console.warn(`[OrdersWithProgress] ⚠️ Stopped fetching locked orders after ${MAX_BATCH_ATTEMPTS} batches (${allLockedOrders.length} loaded). Increase MAX_BATCH_ATTEMPTS if order count keeps growing.`);
+      }
       console.log(`[OrdersWithProgress] ✅ Fetched all ${allLockedOrders.length} locked orders`);
 
       const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
