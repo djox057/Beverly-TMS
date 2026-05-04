@@ -256,7 +256,7 @@ async function aggregateOrders(
     const { data: orders, error } = await query;
 
     if (error) {
-      console.error(`[recompute] Fetch error at offset ${offset}:`, error);
+      console.error(`[recompute] Fetch error at lastId ${lastId}:`, error);
       throw error;
     }
 
