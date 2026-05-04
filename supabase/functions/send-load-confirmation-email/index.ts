@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
+import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -7,6 +8,29 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Allow-list of legitimate sender addresses (must match company email config)
+const ALLOWED_SENDER_EMAILS = new Set([
+  "truckload@bfprime.net",
+  "dispatch@bfprime.net",
+  "truckload@bfprimeunited.net",
+  "dispatch@bfprimeunited.net",
+  "truckload@beverlygroupllc.net",
+  "dispatch@beverlygroupllc.net",
+  "truckload@beverlyfreight.net",
+  "dispatch@beverlyfreight.net",
+  "truckload@bgprime.net",
+  "dispatch@bgprime.net",
+  "truckload@unitedenterprisesolutions.net",
+  "dispatch@unitedenterprisesolutions.net",
+  "truckload@apsilvertrans.net",
+  "dispatch@apsilvertrans.net",
+]);
+
+function extractEmail(addr: string): string {
+  const m = addr.match(/<([^>]+)>/);
+  return (m ? m[1] : addr).trim().toLowerCase();
+}
 
 interface EmailRequest {
   to: string | string[];
@@ -36,6 +60,25 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // --- Auth check ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: userData, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const {
       to,
       from,
@@ -46,6 +89,14 @@ const handler = async (req: Request): Promise<Response> => {
       attachmentFilename,
       attachmentContentType
     }: EmailRequest = await req.json();
+
+    // Validate sender against allow-list to prevent phishing/spoofing
+    if (!from || !ALLOWED_SENDER_EMAILS.has(extractEmail(from))) {
+      console.error('❌ Rejected sender (not in allow-list):', from);
+      return new Response(JSON.stringify({ error: 'Sender address not permitted' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log('📧 ========================================');
     console.log('📧 EMAIL REQUEST RECEIVED');
