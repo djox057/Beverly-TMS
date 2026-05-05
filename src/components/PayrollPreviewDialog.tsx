@@ -400,12 +400,15 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   };
 
   const handleAddPenalty = () => {
-    const amount = computeAmountFromInput(newPenaltyAmount, penaltyAmountMode);
     if (!newPenaltyReason.trim()) {
       toast.error("Please enter a reason");
       return;
     }
-    if (isNaN(amount) || amount <= 0) {
+    const rawAmount = newPenaltyAmount.trim();
+    const amount = rawAmount === ""
+      ? 0
+      : computeAmountFromInput(newPenaltyAmount, penaltyAmountMode);
+    if (isNaN(amount) || amount < 0) {
       toast.error("Please enter a valid amount");
       return;
     }
@@ -414,7 +417,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
       reason: newPenaltyReason.trim(),
       amount,
       applied: newPenaltyApplied,
-      ...(penaltyAmountMode === "percent"
+      ...(rawAmount !== "" && penaltyAmountMode === "percent"
         ? { percent: parseFloat(newPenaltyAmount) }
         : {}),
     };
