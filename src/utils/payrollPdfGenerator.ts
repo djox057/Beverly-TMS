@@ -340,17 +340,18 @@ export const generatePayrollPdf = async (
 
   // Custom adjustments rows (additions and charges)
   for (const adjustment of adjustments) {
+    const percentSuffix = adjustment.percent != null ? ` (${adjustment.percent}%)` : "";
     if (adjustment.type === "addition") {
       drawRow(
         `Extra pay: ${adjustment.reason || "Extra Pay"}`,
-        `$${adjustment.amount.toFixed(2)}`,
+        `$${adjustment.amount.toFixed(2)}${percentSuffix}`,
         "#FFFFFF",
         LIGHT_BLUE_BG
       );
     } else if (adjustment.type === "charge") {
       drawRow(
         `Charge: ${adjustment.reason || "Charge"}`,
-        `-$${adjustment.amount.toFixed(2)}`,
+        `-$${adjustment.amount.toFixed(2)}${percentSuffix}`,
         "#FFFFFF",
         LIGHT_BLUE_BG,
         false,
@@ -360,7 +361,7 @@ export const generatePayrollPdf = async (
       if (adjustment.applied) {
         drawRow(
           `Penalty: ${adjustment.reason || "Penalty"}`,
-          `-$${adjustment.amount.toFixed(2)}`,
+          `-$${adjustment.amount.toFixed(2)}${percentSuffix}`,
           "#FFFFFF",
           LIGHT_BLUE_BG,
           false,
@@ -369,7 +370,7 @@ export const generatePayrollPdf = async (
       } else {
         drawRow(
           `Warning: ${adjustment.reason || "Penalty"}`,
-          `$0.00`,
+          `$0.00${percentSuffix}`,
           "#FFFFFF",
           LIGHT_BLUE_BG
         );
