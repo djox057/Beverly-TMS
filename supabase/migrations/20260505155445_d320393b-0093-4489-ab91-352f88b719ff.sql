@@ -1,0 +1,1 @@
+DELETE FROM public.dispatcher_sick_days WHERE id = 'e0416bd1-a1cd-4b49-83cf-188dafae6be6';
