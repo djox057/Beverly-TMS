@@ -367,11 +367,8 @@ export const generatePayrollPdf = async (
           BLACK_COLOR
         );
       } else {
-        const warningText = adjustment.amount > 0
-          ? `Warning: ${adjustment.reason || "Penalty"}. If this happens again, penalty will be $${adjustment.amount.toFixed(2)}.`
-          : `Warning: ${adjustment.reason || "Penalty"}`;
         drawRow(
-          warningText,
+          `Warning: ${adjustment.reason || "Penalty"}`,
           `$0.00`,
           "#FFFFFF",
           LIGHT_BLUE_BG
