@@ -554,7 +554,7 @@ const TransferList = () => {
   const { data: drivers = [] } = useDrivers();
   const { data: companies = [] } = useCompanies();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("bf_prime_united");
+  const [activeTab, setActiveTab] = useState<string>("ues");
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
@@ -1269,7 +1269,7 @@ function TransferRowDialog({
         const { error } = await supabase.from("transfer_list" as any).insert({
           ...payload,
           created_by: userId,
-          transfer_type: transferType || 'bf_prime_united',
+          transfer_type: transferType || 'ues',
         } as any);
         if (error) throw error;
       }
