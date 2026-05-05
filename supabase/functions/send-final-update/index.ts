@@ -59,7 +59,7 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "Dispatch Alerts <jon@bfprime.net>",
-        to: ["djordjeljubicicyt@gmail.com"],
+        to: ["report@beverlyfreight.net"],
         subject,
         html,
       }),
