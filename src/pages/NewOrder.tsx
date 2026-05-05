@@ -2335,28 +2335,6 @@ const NewOrder = () => {
                 )}
               </div>
 
-              <div className="flex flex-col items-end gap-2 pt-8">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="partial-toggle" className="text-sm font-medium cursor-pointer">
-                    Partial Load
-                  </Label>
-                  <Switch
-                    id="partial-toggle"
-                    checked={isPartial}
-                    onCheckedChange={(checked) => {
-                      setIsPartial(checked);
-                      if (checked) {
-                        // Always show dialog to select count when enabling partial
-                        const count = window.prompt("How many partial loads? (2-4)", partialCount.toString());
-                        const num = parseInt(count || partialCount.toString());
-                        if (num >= 2 && num <= 4) {
-                          setPartialCount(num);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
