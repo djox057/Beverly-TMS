@@ -1,59 +1,51 @@
-## Goal
+# Fix HOS data — cron is failing with 401
 
-In the weekend auto-assign, the two BG offices (`BG 1st floor` and `BG 4th floor`) are currently treated as separate offices, so weekend dispatchers from one floor never receive drivers whose weekday dispatcher is on the other floor. Result: only `BG 1st floor` weekend dispatchers get drivers (or vice versa). Unify both floors into a single logical "BG" pool for distribution, while:
+## What's actually wrong
 
-- Keeping each driver's underlying `office` value untouched in the database.
-- Prioritizing keeping a weekday dispatcher's full set of trucks under ONE weekend dispatcher (no splitting across two weekend dispatchers when avoidable).
+The HOS numbers shown for Arturo Favela (truck 0760) and every other driver are stale — they have not been updated since **2026-05-04 13:06 UTC**. That's why the values look nothing like reality (10h10m vs his real 8h48m). It's not a calculation bug, it's that the sync stopped running.
 
-## Changes
-
-### 1. Edge function: `supabase/functions/auto-assign-weekend-drivers/index.ts`
-
-- Add a `groupKey(office)` helper that maps both `BG 1st floor` and `BG 4th floor` to a single key `"BG"`; everything else returns the office unchanged.
-- Use `groupKey(...)` everywhere drivers/dispatchers are bucketed:
-  - When building `driversByOffice` from enriched drivers.
-  - When building `weekendByOffice` from scheduled afterhours users.
-- Update the per-day distribution loop so a single "BG" bucket combines weekend dispatchers from both floors and all BG-floor drivers.
-- Replace the current second-pass greedy bin-packing with a **whole-group placement** strategy that prioritizes keeping a weekday dispatcher's drivers together:
-
-  ```text
-  Pass 1: each weekend dispatcher takes their OWN weekday drivers (capped at base+extra share).
-  Pass 2: process remaining weekday-dispatcher groups largest-first.
-          For each group, place the WHOLE group into the weekend dispatcher
-          with the most remaining capacity (no splitting), even if it slightly
-          exceeds the base share. Only split a group when no weekend dispatcher
-          can fit it without going more than 1 driver above the largest
-          current load (load-balance guard).
+### Evidence
+- All 959 drivers with HOS data have `hos_last_updated` older than 1 hour. Most recent value across the whole table: `2026-05-04 13:06:02 UTC`.
+- The pg_cron job `hos-sync-every-5-min` is running every 5 minutes and reports `succeeded` (it successfully fires the HTTP call).
+- But the response logged in `net._http_response` for every run since at least 2026-05-04 is:
   ```
+  status_code: 401
+  content: {"error":"Unauthorized"}
+  ```
+- Looking at `supabase/functions/hos-sync/index.ts`, the function only authorizes a request if:
+  1. `Authorization: Bearer <CRON_SECRET>`, OR
+  2. A valid user JWT belonging to a user with role admin/manager/dispatch/safety.
 
-  This keeps "all of dispatcher X's trucks under one weekend dispatcher" whenever feasible, and only splits when the remaining group is larger than any single weekend dispatcher can absorb without serious imbalance.
+  The cron job is sending the **anon publishable JWT** as the bearer token. That token is not the `CRON_SECRET`, and `auth.getUser()` returns no user for it, so the function rejects with 401 every single run.
 
-### 2. Client hook: `src/hooks/useAfterhoursAssignments.ts`
+So Transit Tracking API is never queried, `bulk_update_hos` is never called, and the drivers table just keeps showing the values from May 4.
 
-Mirror the same two changes inside `autoAssignDrivers()` so the manual "Auto-assign" button in the UI behaves identically to the scheduled cron job:
+## Plan
 
-- Same `groupKey()` helper unifying the two BG floors.
-- Same "place whole group, then split only when necessary" second-pass logic.
+1. **Update the pg_cron job `hos-sync-every-5-min`** to send `Authorization: Bearer <CRON_SECRET>` instead of the anon JWT, so the edge function authorizes the call. This is the only change needed to restore live HOS updates.
+2. **After deploying**, verify by:
+   - Re-checking `net._http_response` — newest row for the hos-sync URL should be `200` with `{"success":true,...}`.
+   - Re-querying `drivers.hos_last_updated` — `max()` should be within the last few minutes.
+   - Spot-checking Arturo Favela / truck 0760 — values should now match the ELD app.
+3. **Audit other cron jobs** that hit edge functions the same way (e.g. the Samsara one is also failing with 500, and any other function that requires `CRON_SECRET`). Out of scope for this fix unless you want it included — let me know.
 
-### 3. No changes to
+## Technical details
 
-- `AssignAfterhoursDriversDialog.tsx` (manual add) — it groups for display only and the user already sees both BG floors as separate office headers, which is correct.
-- Database schema / `office` enum.
-- Other pages that read `office` (Analytics, Reports, Fleets) — they still treat the floors separately, which is desired everywhere except auto-assign.
+- Migration will use `cron.unschedule('hos-sync-every-5-min')` then `cron.schedule(...)` with the new headers JSON, since `CRON_SECRET` is already set in Vault. The new body:
+  ```sql
+  select net.http_post(
+    url := 'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/hos-sync',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name='CRON_SECRET')
+    ),
+    body := '{"time":"now"}'::jsonb
+  );
+  ```
+- No code changes to `hos-sync/index.ts` are needed — its auth logic is correct; the cron just wasn't sending the right token.
+- No frontend changes; the UI reads `drivers.hos_*` directly via `useDrivers` and will refresh automatically once data starts updating.
 
-## Technical detail
+## Out of scope (ask if you want them added)
 
-```ts
-const BG_OFFICES = new Set(["BG 1st floor", "BG 4th floor"]);
-const groupKey = (office: string | null | undefined) =>
-  office && BG_OFFICES.has(office) ? "BG" : (office || "Unknown");
-```
-
-Used to bucket `driversByOffice` and `weekendByOffice`. Driver/user records keep their original `office` field; only the bucketing key changes.
-
-## Verification
-
-After deploy, run the edge function with `?force=1` for an upcoming weekend and confirm:
-- Weekend dispatchers from BOTH BG floors receive drivers from BOTH BG floors.
-- Each weekday dispatcher's drivers stay under a single weekend dispatcher unless the group is too large to fit without imbalance.
-- Non-BG offices (KRAGUJEVAC, Čačak, Recovery) are unaffected.
+- Fixing the Samsara location cron (different function, different failure — 500, not 401).
+- Adding alerting for stale HOS data so a future silent failure surfaces sooner.
