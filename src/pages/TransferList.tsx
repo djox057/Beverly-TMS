@@ -573,6 +573,12 @@ const TransferList = () => {
     return map;
   }, [trucks]);
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (companies || []).forEach((c: any) => map.set(c.id, c.name));
+    return map;
+  }, [companies]);
+
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-for-transfer"],
     queryFn: async () => {
@@ -664,6 +670,15 @@ const TransferList = () => {
       const driver = driverMap.get(row.driver_id);
       return driver?.is_active !== false;
     });
+    // UES tab: only show drivers whose current company is United Enterprise Solutions INC
+    if (activeTab === "ues") {
+      rows = rows.filter((row) => {
+        if (!row.driver_id) return false;
+        const driver = driverMap.get(row.driver_id);
+        if (!driver?.company_id) return false;
+        return companyMap.get(driver.company_id) === "United Enterprise Solutions INC";
+      });
+    }
     if (isDispatchOnly) {
       rows = rows.filter((row) => {
         if (!row.driver_id) return false;
@@ -672,7 +687,7 @@ const TransferList = () => {
       });
     }
     return rows;
-  }, [enrichedRows, activeTab, isDispatchOnly, driverMap, user?.id]);
+  }, [enrichedRows, activeTab, isDispatchOnly, driverMap, companyMap, user?.id]);
 
   const companyCounts = useMemo(() => {
     const counts: Record<string, number> = {};
