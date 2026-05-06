@@ -1,0 +1,1 @@
+DELETE FROM public.transfer_list WHERE driver_id IN (SELECT id FROM public.drivers WHERE company_id IS DISTINCT FROM '0fc3ad2c-eb06-4727-99d4-218aed6d89e7');
