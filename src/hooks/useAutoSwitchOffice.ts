@@ -167,7 +167,7 @@ export function useAutoSwitchOffice({
   const findOfficeMatches = useCallback((
     filterType: "truck" | "dispatch" | "load",
     searchTerm: string,
-  ): Array<{ office: string; rank: 1 | 2 }> => {
+  ): Array<{ office: string; rank: number }> => {
     if (!groupedReports || !searchTerm) return [];
     const term = searchTerm.toLowerCase().trim();
     if (!term) return [];
