@@ -80,7 +80,7 @@ export function useReportsFilters() {
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
   const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
-  const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
+  const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 200);
 
   // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
   const isNewDriver = useCallback((truck: any) => {
