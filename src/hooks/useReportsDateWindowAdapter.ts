@@ -404,7 +404,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const queryClient = useQueryClient();
   
   // Get individual mode state - this controls database-level filtering
-  const { individualMode, currentUserDispatcherId } = useIndividualMode();
+  const { individualMode, currentUserDispatcherId, individualOverrideDriverIds } = useIndividualMode();
   
   // Track previous mode to detect changes and invalidate cache
   const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
@@ -482,6 +482,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Disable individual mode filtering when: 1) viewing other office without search, or 2) searching in other office
     individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
     currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
+    individualOverrideDriverIds: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : individualOverrideDriverIds,
     spotlightDriverId: spotlightDriverId ?? null,
   });
 
@@ -2303,10 +2304,22 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!individualMode || !transformedData) {
       return transformedData;
     }
-    
+
+    // Override mode (e.g. afterhours): scope is an explicit driver-id list.
+    // Filter trucks within each group, drop empty groups.
+    if (individualOverrideDriverIds) {
+      const allowed = new Set(individualOverrideDriverIds);
+      return transformedData
+        .map((group: any) => ({
+          ...group,
+          trucks: (group.trucks || []).filter((t: any) => allowed.has(t.driverId)),
+        }))
+        .filter((group: any) => (group.trucks?.length ?? 0) > 0);
+    }
+
     // Individual mode: filter to show only user's own drivers (safety net)
     return transformedData.filter(group => group.dispatcherId === currentUserDispatcherId);
-  }, [individualMode, transformedData, currentUserDispatcherId]);
+  }, [individualMode, transformedData, currentUserDispatcherId, individualOverrideDriverIds]);
 
   if (!USE_DATE_WINDOW_LOADING) {
     return legacyReportsHook;
