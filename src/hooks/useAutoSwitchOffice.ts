@@ -5,6 +5,22 @@ import { isValidUUID } from "@/utils/validation";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 /**
+ * Word-boundary match: term matches the start of any word in `text`,
+ * or `text` equals `term` exactly (case-insensitive).
+ * Used to prefer "Sam Smith" over "Marsam Jones" when searching "sam".
+ */
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isWordBoundaryMatch = (text: string | null | undefined, term: string): boolean => {
+  if (!text) return false;
+  const t = String(text).toLowerCase();
+  const q = term.toLowerCase().trim();
+  if (!q) return false;
+  if (t === q) return true;
+  // Word boundary: start of string or after whitespace/dash/slash
+  return new RegExp(`(^|[\\s\\-/])${escapeRegExp(q)}`, "i").test(text);
+};
+
+/**
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
