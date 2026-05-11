@@ -612,7 +612,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -686,14 +686,49 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     return result;
   }, [initialData, priorityOffice, individualMode]);
 
+  // ---- Spotlight two-stage publish ----
+  // Tracks which `${office}_${windowKey}` keys have already been expanded
+  // past the spotlight stage (i.e. the full driverIds list is now published).
+  const [expandedSpotlightKeys, setExpandedSpotlightKeys] = useState<Set<string>>(new Set());
+
+  const spotlightStageKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+
+  // Decide which driverIds to publish to downstream consumers.
+  // - If a spotlight driver is set, lives in this office scope, and we have
+  //   not yet expanded for this (office, window), publish only the spotlight.
+  // - Otherwise, publish the full office scope.
+  const publishedDriverIds = useMemo(() => {
+    const fullIds = scopeForOffice.driverIds;
+    if (
+      spotlightDriverId &&
+      fullIds.length > 1 &&
+      fullIds.includes(spotlightDriverId) &&
+      !expandedSpotlightKeys.has(spotlightStageKey)
+    ) {
+      return [spotlightDriverId];
+    }
+    return fullIds;
+  }, [scopeForOffice.driverIds, spotlightDriverId, expandedSpotlightKeys, spotlightStageKey]);
+
+  // After a spotlight-only fetch completes, mark the key as expanded so the
+  // next render publishes the full driverIds list, which triggers a refetch.
+  const markSpotlightExpanded = useCallback((key: string) => {
+    setExpandedSpotlightKeys((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
+
   // Use a ref to avoid stale closure issues with driverIds in the queryFn
   // This ensures the queryFn always reads the current value when it runs
   const driverIdsRef = useRef<string[]>([]);
   const currentWindowRef = useRef(currentWindow);
   
   useEffect(() => {
-    driverIdsRef.current = scopeForOffice.driverIds;
-  }, [scopeForOffice.driverIds]);
+    driverIdsRef.current = publishedDriverIds;
+  }, [publishedDriverIds]);
   
   useEffect(() => {
     currentWindowRef.current = currentWindow;
