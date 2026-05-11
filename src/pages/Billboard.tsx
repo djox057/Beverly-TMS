@@ -470,35 +470,35 @@ const Billboard = () => {
   }
 
   return (
-    <div className="bg-background flex flex-col p-7" style={{ height: "100vh" }}>
+    <div className="bg-background flex flex-col p-4 overflow-hidden" style={{ height: "100vh" }}>
       {/* Average RPM - Big number at top */}
-      <div className="text-center py-7 border-b border-border">
-        <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
-        <p className="text-[10.5rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
+      <div className="text-center py-2 border-b border-border shrink-0">
+        <p className="text-lg text-muted-foreground uppercase tracking-widest mb-1">Average Rate Per Mile</p>
+        <p className="text-7xl font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
       </div>
 
       {/* Rotating Leaderboard */}
-      <div className="flex-1 flex flex-col justify-center mt-7">
+      <div className="flex-1 flex flex-col justify-center mt-3 min-h-0">
         <div
           className={`transition-all duration-500 ease-in-out ${
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           }`}
         >
-          <h2 className="text-2xl text-center text-muted-foreground uppercase tracking-widest mb-7">{currentTitle}</h2>
+          <h2 className="text-xl text-center text-muted-foreground uppercase tracking-widest mb-3">{currentTitle}</h2>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {currentList.map((dispatcher, index) => (
               <div
                 key={dispatcher.name}
-                className="flex items-center justify-between px-10 py-5 bg-card rounded-lg border border-border"
+                className="flex items-center justify-between px-6 py-2.5 bg-card rounded-lg border border-border"
               >
                 {/* Rank + Name + Office */}
-                <div className="flex items-center gap-5">
-                  <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{descending ? startRank - index : startRank + index}</span>
-                  <span className="text-4xl font-semibold text-foreground">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl font-bold text-muted-foreground w-12 text-center">{descending ? startRank - index : startRank + index}</span>
+                  <span className="text-2xl font-semibold text-foreground">
                     {dispatcher.displayName}
                     {dispatcher.office && (
-                      <span className="text-2xl text-muted-foreground ml-2">
+                      <span className="text-lg text-muted-foreground ml-2">
                         ~{dispatcher.office === "Čačak" ? "ČAČAK" : dispatcher.office}
                       </span>
                     )}
@@ -506,22 +506,22 @@ const Billboard = () => {
                 </div>
 
                 {/* Gross or Miles + RPM */}
-                <div className="flex items-center gap-14">
+                <div className="flex items-center gap-10">
                   <div className="text-right">
-                    <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                    <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">RPM</p>
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                       {formatRPM(dispatcher.ratePerMile)}
                     </p>
                   </div>
                   {isRpmView ? (
                     <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">Total Miles</p>
-                      <p className="text-4xl font-bold text-primary">{dispatcher.totalMiles.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Miles</p>
+                      <p className="text-2xl font-bold text-primary">{dispatcher.totalMiles.toLocaleString()}</p>
                     </div>
                   ) : (
                     <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">Gross</p>
-                      <p className="text-4xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Gross</p>
+                      <p className="text-2xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
                     </div>
                   )}
                 </div>
@@ -534,22 +534,22 @@ const Billboard = () => {
               return (
                 <div
                   key={`empty-${i}`}
-                  className="flex items-center justify-between px-10 py-5 bg-card/50 rounded-lg border border-border opacity-30"
+                  className="flex items-center justify-between px-6 py-2.5 bg-card/50 rounded-lg border border-border opacity-30"
                 >
-                  <div className="flex items-center gap-5">
-                    <span className="text-5xl font-bold text-muted-foreground w-14 text-center">{emptyRank}</span>
-                    <span className="text-4xl font-semibold text-muted-foreground">—</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl font-bold text-muted-foreground w-12 text-center">{emptyRank}</span>
+                    <span className="text-2xl font-semibold text-muted-foreground">—</span>
                   </div>
-                  <div className="flex items-center gap-14">
+                  <div className="flex items-center gap-10">
                     <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">RPM</p>
-                      <p className="text-4xl font-bold text-muted-foreground">—</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">RPM</p>
+                      <p className="text-2xl font-bold text-muted-foreground">—</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-base text-muted-foreground uppercase tracking-wide">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
                         {isRpmView ? "Total Miles" : "Gross"}
                       </p>
-                      <p className="text-4xl font-bold text-muted-foreground">—</p>
+                      <p className="text-2xl font-bold text-muted-foreground">—</p>
                     </div>
                   </div>
                 </div>
@@ -559,7 +559,7 @@ const Billboard = () => {
         </div>
 
         {/* View indicator dots (6 dots now, clickable) */}
-        <div className="flex justify-center gap-3 mt-8">
+        <div className="flex justify-center gap-3 mt-4">
           {viewOrder.map((view) => (
             <div
               key={view}
