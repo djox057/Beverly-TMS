@@ -844,15 +844,24 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // trigger a refetch to ensure orders are loaded. This handles the case where
   // the query ran before driverIds were ready due to stale closure.
   const hasTriggeredInitialFetchRef = useRef(false);
+  // Track which published-driverIds signature we've already triggered for, so
+  // that when the spotlight expands to the full set we trigger again.
+  const lastTriggeredSignatureRef = useRef<string>('');
   useEffect(() => {
-    const driverIds = scopeForOffice.driverIds;
+    const driverIds = publishedDriverIds;
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-    if (driverIds.length > 0 && !globalLoadedWindows.has(scopedKey) && !hasTriggeredInitialFetchRef.current) {
+    const signature = `${scopedKey}|n=${driverIds.length}|first=${driverIds[0] || ''}`;
+    if (
+      driverIds.length > 0 &&
+      !globalLoadedWindows.has(scopedKey) &&
+      lastTriggeredSignatureRef.current !== signature
+    ) {
       hasTriggeredInitialFetchRef.current = true;
+      lastTriggeredSignatureRef.current = signature;
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
     }
-  }, [scopeForOffice.driverIds, windowKey, refetch]);
+  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId]);
   
   // Reset the trigger flag when window changes
   useEffect(() => {
