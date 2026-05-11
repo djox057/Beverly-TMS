@@ -40,6 +40,13 @@ export interface ReportsDateWindowOptions {
   individualMode?: boolean;
   /** The current user's dispatcher ID for Individual mode filtering */
   currentUserDispatcherId?: string | null;
+  /**
+   * Optional spotlight driver id. When set and the driver belongs to the
+   * current office scope, the hook publishes [spotlightDriverId] first so
+   * the matched row renders immediately, then expands to the full office
+   * scope in a second pass (background fill).
+   */
+  spotlightDriverId?: string | null;
 }
 
 // Helper to format date for Supabase queries
