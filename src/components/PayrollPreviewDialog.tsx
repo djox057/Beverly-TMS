@@ -550,7 +550,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         futureSalary1Percent,
         futureBonus5Percent,
         office,
-      });
+      }, { previewOnly: false });
 
       // Convert to bytes
       const arrayBuffer = await pdfBlob.arrayBuffer();
