@@ -4587,6 +4587,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      lookup_load_office: {
+        Args: { p_term: string }
+        Returns: {
+          driver1_id: string
+          is_canceled: boolean
+          is_locked: boolean
+          office: string
+          pickup_datetime: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
