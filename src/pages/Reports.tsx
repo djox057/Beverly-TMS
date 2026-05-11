@@ -2794,6 +2794,17 @@ const Reports = () => {
               if (debouncedLoadNumberFilter) {
                 const searchTerm = debouncedLoadNumberFilter.toLowerCase();
                 const hasMatchingLoad = truck.allOrders?.some((order: any) => {
+                  // Exclude canceled orders unless they still appear as red cells in reports
+                  // (canceled with pickup today — i.e., no next load yet). Mirrors getPickupCellColor logic.
+                  if (order.canceled) {
+                    const pickupDateStr =
+                      order.pickupStops?.[0]?.datetime || order.pickup_datetime || order.pickupStop?.datetime;
+                    if (!pickupDateStr) return false;
+                    const datePart = String(pickupDateStr).substring(0, 10);
+                    const today = new Date();
+                    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                    if (datePart !== todayStr) return false;
+                  }
                   // Check broker load number
                   const brokerMatch = String(order.broker_load_number || "")
                     .toLowerCase()
