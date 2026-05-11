@@ -618,7 +618,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, spotlightDriverId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -641,7 +641,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     'reports-date-window-stable',
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId : 'all-dispatchers',
-  ], [individualMode, currentUserDispatcherId]);
+    individualMode && individualOverrideDriverIds
+      ? `override:${individualOverrideDriverIds.length}:${individualOverrideDriverIds.slice(0, 3).join(',')}`
+      : 'no-override',
+  ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds]);
 
   // Primary query: fetches driver scopes (all offices at once, or single dispatcher)
   // Does NOT refetch when selectedDate or priorityOffice changes
@@ -649,6 +652,13 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     queryKey: stableQueryKey,
     queryFn: async () => {
       if (individualMode && currentUserDispatcherId) {
+        // Override path: caller (e.g. afterhours user) provides the explicit
+        // driver-id list to scope to. Skip the dispatcher_id-based lookup.
+        if (individualOverrideDriverIds) {
+          const ids = individualOverrideDriverIds;
+          console.log(`[useReportsDateWindow] Individual mode (override): ${ids.length} drivers`);
+          return { driverIds: ids, dispatcherIds: [currentUserDispatcherId], allScopes: null };
+        }
         // Individual mode: single dispatcher scope
         const scope = await fetchIndividualDriverScope(currentUserDispatcherId);
         if (scope.driverIds.length === 0) {
