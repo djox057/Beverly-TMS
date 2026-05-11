@@ -478,19 +478,19 @@ const Billboard = () => {
       </div>
 
       {/* Rotating Leaderboard */}
-      <div className="flex-1 flex flex-col justify-center mt-3 min-h-0">
+      <div className="flex-1 flex flex-col mt-3 min-h-0">
         <div
-          className={`transition-all duration-500 ease-in-out ${
+          className={`flex-1 flex flex-col min-h-0 transition-all duration-500 ease-in-out ${
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           }`}
         >
-          <h2 className="text-xl text-center text-muted-foreground uppercase tracking-widest mb-3">{currentTitle}</h2>
+          <h2 className="text-xl text-center text-muted-foreground uppercase tracking-widest mb-3 shrink-0">{currentTitle}</h2>
 
-          <div className="space-y-2">
+          <div className="flex-1 flex flex-col gap-2 min-h-0">
             {currentList.map((dispatcher, index) => (
               <div
                 key={dispatcher.name}
-                className="flex items-center justify-between px-6 py-2.5 bg-card rounded-lg border border-border"
+                className="flex-1 flex items-center justify-between px-6 bg-card rounded-lg border border-border min-h-0"
               >
                 {/* Rank + Name + Office */}
                 <div className="flex items-center gap-4">
@@ -534,7 +534,7 @@ const Billboard = () => {
               return (
                 <div
                   key={`empty-${i}`}
-                  className="flex items-center justify-between px-6 py-2.5 bg-card/50 rounded-lg border border-border opacity-30"
+                  className="flex-1 flex items-center justify-between px-6 bg-card/50 rounded-lg border border-border opacity-30 min-h-0"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl font-bold text-muted-foreground w-12 text-center">{emptyRank}</span>
