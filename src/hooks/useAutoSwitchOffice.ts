@@ -5,6 +5,22 @@ import { isValidUUID } from "@/utils/validation";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 /**
+ * Word-boundary match: term matches the start of any word in `text`,
+ * or `text` equals `term` exactly (case-insensitive).
+ * Used to prefer "Sam Smith" over "Marsam Jones" when searching "sam".
+ */
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isWordBoundaryMatch = (text: string | null | undefined, term: string): boolean => {
+  if (!text) return false;
+  const t = String(text).toLowerCase();
+  const q = term.toLowerCase().trim();
+  if (!q) return false;
+  if (t === q) return true;
+  // Word boundary: start of string or after whitespace/dash/slash
+  return new RegExp(`(^|[\\s\\-/])${escapeRegExp(q)}`, "i").test(text);
+};
+
+/**
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
@@ -130,134 +146,116 @@ export function useAutoSwitchOffice({
   }, [offices, officeKey]);
 
   /**
+   * Compute the best match rank per office for a given filter+term.
+   * rank 1 = exact / word-boundary match (preferred)
+   * rank 2 = pure substring fallback
+   * Only returns offices whose best rank equals the global best rank,
+   * so substring false positives are dropped when an exact match exists somewhere.
+   */
+  const findOfficeMatches = useCallback((
+    filterType: "truck" | "dispatch" | "load",
+    searchTerm: string,
+  ): Array<{ office: string; rank: 1 | 2 }> => {
+    if (!groupedReports || !searchTerm) return [];
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return [];
+    const isNumeric = /^\d+$/.test(term);
+    const numericPart = term.split("-")[0];
+    const numericPartIsDigits = /^\d+$/.test(numericPart) && numericPart.length > 0;
+
+    const all: Array<{ office: string; rank: 1 | 2 }> = [];
+
+    for (const group of groupedReports) {
+      const office = normalizeToKnownOffice(group.office);
+      if (!office) continue;
+
+      let bestRank: 1 | 2 | null = null;
+      const bump = (r: 1 | 2) => {
+        if (bestRank === null || r < bestRank) bestRank = r;
+      };
+
+      if (filterType === "truck") {
+        group.trucks?.forEach((truck: any) => {
+          const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
+          if (isNumeric) {
+            // Truck number numeric search is exact-only
+            if (truckNumberValue === term) bump(1);
+          } else {
+            if (truckNumberValue === term) bump(1);
+            else if (truckNumberValue.includes(term)) bump(2);
+            // Driver names — prefer word-boundary
+            if (isWordBoundaryMatch(truck.driver, term) || isWordBoundaryMatch(truck.driver2Name, term)) {
+              bump(1);
+            } else if (
+              truck.driver?.toLowerCase().includes(term) ||
+              truck.driver2Name?.toLowerCase().includes(term)
+            ) {
+              bump(2);
+            }
+          }
+        });
+      } else if (filterType === "dispatch") {
+        if (isWordBoundaryMatch(group.dispatcher, term)) bump(1);
+        else if (group.dispatcher?.toLowerCase().includes(term)) bump(2);
+      } else if (filterType === "load") {
+        group.trucks?.forEach((truck: any) => {
+          truck.allOrders?.forEach((order: any) => {
+            const broker = String(order.broker_load_number ?? "").toLowerCase();
+            const internal = String(order.internal_load_number ?? "").toLowerCase();
+            const companyName = order.company?.name || order.driver1?.company?.name;
+            const formatted = order.internal_load_number
+              ? formatInternalLoadNumber(order.internal_load_number, companyName).toLowerCase()
+              : "";
+
+            // Exact / boundary matches → rank 1
+            if (broker && broker === term) bump(1);
+            if (numericPartIsDigits && (internal === numericPart || internal.startsWith(numericPart + "-"))) {
+              bump(1);
+            }
+            if (formatted && formatted === term) bump(1);
+
+            // Substring fallbacks → rank 2
+            if (broker && broker.includes(term)) bump(2);
+            if (internal && internal.includes(term)) bump(2);
+            if (formatted && formatted.includes(term)) bump(2);
+          });
+        });
+      }
+
+      if (bestRank !== null) all.push({ office, rank: bestRank });
+    }
+
+    if (all.length === 0) return [];
+    const minRank = Math.min(...all.map((m) => m.rank)) as 1 | 2;
+    return all.filter((m) => m.rank === minRank);
+  }, [groupedReports, normalizeToKnownOffice]);
+
+  /**
    * Check ALL loaded office data, not just the active tab.
-   * This avoids unnecessary DB queries when data is already in memory.
+   * Returns the office to switch to, preferring the active tab when it
+   * is among the best-ranked matches.
    */
   const findInAllLoadedData = useCallback((
     filterType: "truck" | "dispatch" | "load",
     searchTerm: string
   ): string | null => {
-    if (!groupedReports || !searchTerm) return null;
-    
-    const term = searchTerm.toLowerCase().trim();
-    
-    // Check ALL offices in the loaded data
-    for (const group of groupedReports) {
-      const office = normalizeToKnownOffice(group.office);
-      if (!office) continue;
-      
-      let found = false;
-      const isNumericSearch = /^\d+$/.test(term);
-      
-      switch (filterType) {
-        case "truck":
-          found = group.trucks?.some((truck: any) => {
-            // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
-            const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
-            // Truck number uses exact match for numeric searches
-            const matchesTruck = isNumericSearch
-              ? truckNumberValue === term
-              : truckNumberValue.includes(term);
-            const matchesDriver = truck.driver?.toLowerCase().includes(term);
-            const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
-            return matchesTruck || matchesDriver || matchesDriver2;
-          }) || false;
-          break;
-          
-        case "dispatch":
-          found = group.dispatcher?.toLowerCase().includes(term) || false;
-          break;
-          
-        case "load":
-          found = group.trucks?.some((truck: any) => 
-            truck.allOrders?.some((order: any) => {
-              // Check broker load number
-              if (String(order.broker_load_number || '').toLowerCase().includes(term)) return true;
-              
-              // Check internal load number (formatted and raw)
-              const internalNum = order.internal_load_number;
-              const companyName = order.company?.name || order.driver1?.company?.name;
-              if (internalNum) {
-                const formatted = formatInternalLoadNumber(internalNum, companyName).toLowerCase();
-                if (formatted.includes(term)) return true;
-                if (String(internalNum).toLowerCase().includes(term)) return true;
-              }
-              return false;
-            })
-          ) || false;
-          break;
-      }
-      
-      if (found) return office;
-    }
-    
-    return null;
-  }, [groupedReports, normalizeToKnownOffice]);
+    const matches = findOfficeMatches(filterType, searchTerm);
+    if (matches.length === 0) return null;
+    const currentInMatches = matches.find((m) => m.office === activeTab);
+    if (currentInMatches) return currentInMatches.office;
+    return matches[0].office;
+  }, [findOfficeMatches, activeTab]);
 
-  // Check if there's a local match in the currently loaded data (active tab only)
-  const hasLocalMatch = useCallback((filterType: "truck" | "dispatch" | "load", searchTerm: string): boolean => {
-    if (!groupedReports || !searchTerm) return false;
-    
-    const term = searchTerm.toLowerCase().trim();
-    
-    // Filter to current office only (use normalized comparison to avoid case/diacritics mismatch)
-    const currentOfficeKey = officeKey(activeTab);
-    const currentOfficeData = groupedReports.filter((g) => {
-      const key = typeof g.office === "string" ? officeKey(g.office) : "";
-      return key === currentOfficeKey;
-    });
-    
-    const isNumericSearch = /^\d+$/.test(term);
-    
-    switch (filterType) {
-      case "truck":
-        // Check truck numbers and driver names
-        return currentOfficeData.some(group => 
-          group.trucks?.some((truck: any) => {
-            // NOTE: Some datasets use camelCase (truckNumber) and others snake_case (truck_number)
-            const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
-            // Truck number uses exact match for numeric searches
-            const matchesTruck = isNumericSearch
-              ? truckNumberValue === term
-              : truckNumberValue.includes(term);
-            const matchesDriver = truck.driver?.toLowerCase().includes(term);
-            // Also check driver2 name
-            const matchesDriver2 = truck.driver2Name?.toLowerCase().includes(term);
-            return matchesTruck || matchesDriver || matchesDriver2;
-          })
-        );
-        
-      case "dispatch":
-        // Check dispatcher names
-        return currentOfficeData.some(group => 
-          group.dispatcher?.toLowerCase().includes(term)
-        );
-        
-      case "load":
-        // Check load numbers in allOrders
-        return currentOfficeData.some(group => 
-          group.trucks?.some((truck: any) => 
-            truck.allOrders?.some((order: any) => {
-              // Check broker load number
-              if (String(order.broker_load_number || '').toLowerCase().includes(term)) return true;
-              
-              // Check internal load number (formatted and raw)
-              const internalNum = order.internal_load_number;
-              const companyName = order.company?.name || order.driver1?.company?.name;
-              if (internalNum) {
-                const formatted = formatInternalLoadNumber(internalNum, companyName).toLowerCase();
-                if (formatted.includes(term)) return true;
-                if (String(internalNum).toLowerCase().includes(term)) return true;
-              }
-              return false;
-            })
-          )
-        );
-        
-      default:
-        return false;
-    }
-  }, [groupedReports, activeTab, officeKey]);
+  // Local-tab match: only true if the active tab carries the GLOBAL best rank.
+  // Otherwise we prefer to switch to the office that has the better-ranked match.
+  const hasLocalMatch = useCallback((
+    filterType: "truck" | "dispatch" | "load",
+    searchTerm: string,
+  ): boolean => {
+    const matches = findOfficeMatches(filterType, searchTerm);
+    if (matches.length === 0) return false;
+    return matches.some((m) => m.office === activeTab);
+  }, [findOfficeMatches, activeTab]);
 
   // DB lookup for truck/driver -> office
   const lookupTruckDriverOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
@@ -374,16 +372,23 @@ export function useAutoSwitchOffice({
       // If no truck match, try drivers by name
       const { data: driverMatches, error: driverError } = await supabase
         .from("drivers")
-        .select("dispatcher_id")
+        .select("name, dispatcher_id")
         .ilike("name", `%${term}%`)
         .not("dispatcher_id", "is", null)
         .eq("is_active", true)
-        .limit(5);
+        .limit(20);
       
       if (driverError) throw driverError;
       
       if (driverMatches && driverMatches.length > 0) {
-        const dispatcherIds = [...new Set(driverMatches.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
+        // Prefer word-boundary matches over substring matches
+        const ranked = driverMatches.map((d) => ({
+          dispatcher_id: d.dispatcher_id,
+          rank: isWordBoundaryMatch((d as any).name, term) ? 1 : 2,
+        }));
+        const minRank = Math.min(...ranked.map((r) => r.rank));
+        const filtered = ranked.filter((r) => r.rank === minRank);
+        const dispatcherIds = [...new Set(filtered.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
         
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -412,16 +417,25 @@ export function useAutoSwitchOffice({
   // DB lookup for dispatcher name -> office
   const lookupDispatcherOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
     try {
+      const term = searchTerm.trim();
       const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("office")
-        .ilike("full_name", `%${searchTerm.trim()}%`)
+        .select("full_name, office")
+        .ilike("full_name", `%${term}%`)
         .not("office", "is", null)
-        .limit(5);
+        .limit(20);
       
       if (error) throw error;
       
-      const foundOffices = [...new Set(profiles?.map(p => p.office).filter(Boolean) as string[])];
+      const rows = (profiles ?? []) as Array<{ full_name: string | null; office: string | null }>;
+      // Prefer word-boundary matches over substring matches
+      const ranked = rows.map((p) => ({
+        office: p.office,
+        rank: isWordBoundaryMatch(p.full_name, term) ? 1 : 2,
+      }));
+      const minRank = ranked.length ? Math.min(...ranked.map((r) => r.rank)) : 2;
+      const filtered = ranked.filter((r) => r.rank === minRank);
+      const foundOffices = [...new Set(filtered.map(r => r.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
         return { type: "found", office: foundOffices[0] };
