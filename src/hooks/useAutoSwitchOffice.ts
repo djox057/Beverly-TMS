@@ -372,16 +372,23 @@ export function useAutoSwitchOffice({
       // If no truck match, try drivers by name
       const { data: driverMatches, error: driverError } = await supabase
         .from("drivers")
-        .select("dispatcher_id")
+        .select("name, dispatcher_id")
         .ilike("name", `%${term}%`)
         .not("dispatcher_id", "is", null)
         .eq("is_active", true)
-        .limit(5);
+        .limit(20);
       
       if (driverError) throw driverError;
       
       if (driverMatches && driverMatches.length > 0) {
-        const dispatcherIds = [...new Set(driverMatches.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
+        // Prefer word-boundary matches over substring matches
+        const ranked = driverMatches.map((d) => ({
+          dispatcher_id: d.dispatcher_id,
+          rank: isWordBoundaryMatch((d as any).name, term) ? 1 : 2,
+        }));
+        const minRank = Math.min(...ranked.map((r) => r.rank));
+        const filtered = ranked.filter((r) => r.rank === minRank);
+        const dispatcherIds = [...new Set(filtered.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
         
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -410,16 +417,25 @@ export function useAutoSwitchOffice({
   // DB lookup for dispatcher name -> office
   const lookupDispatcherOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
     try {
+      const term = searchTerm.trim();
       const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("office")
-        .ilike("full_name", `%${searchTerm.trim()}%`)
+        .select("full_name, office")
+        .ilike("full_name", `%${term}%`)
         .not("office", "is", null)
-        .limit(5);
+        .limit(20);
       
       if (error) throw error;
       
-      const foundOffices = [...new Set(profiles?.map(p => p.office).filter(Boolean) as string[])];
+      const rows = (profiles ?? []) as Array<{ full_name: string | null; office: string | null }>;
+      // Prefer word-boundary matches over substring matches
+      const ranked = rows.map((p) => ({
+        office: p.office,
+        rank: isWordBoundaryMatch(p.full_name, term) ? 1 : 2,
+      }));
+      const minRank = ranked.length ? Math.min(...ranked.map((r) => r.rank)) : 2;
+      const filtered = ranked.filter((r) => r.rank === minRank);
+      const foundOffices = [...new Set(filtered.map(r => r.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
         return { type: "found", office: foundOffices[0] };
