@@ -457,6 +457,11 @@ const Reports = () => {
     setActiveTabRaw(office);
   }, []);
 
+  // Spotlight driver: when load# search resolves to a driver in a different
+  // office, this id is set so useReportsDateWindow can publish that one
+  // driver first and load the rest of the office in the background.
+  const [spotlightDriverId, setSpotlightDriverId] = useState<string | null>(null);
+
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
   const hasActiveSearch = !!(
@@ -473,6 +478,7 @@ const Reports = () => {
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
     hasActiveSearch, // Bypass Individual Mode office restrictions when searching
+    spotlightDriverId,
   });
 
   const {
@@ -507,6 +513,7 @@ const Reports = () => {
     setActiveTab,
     offices,
     groupedReports,
+    setSpotlightDriverId,
   });
 
   // Auto-navigate calendar when load search finds an order outside the visible date window
