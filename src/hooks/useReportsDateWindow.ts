@@ -748,14 +748,23 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         return { orders: [], windowKey };
       }
       
+      // Detect spotlight pass: we're publishing a single driver as the
+      // first stage of a two-stage office load.
+      const isSpotlightPass =
+        !!spotlightDriverId &&
+        driverIds.length === 1 &&
+        driverIds[0] === spotlightDriverId &&
+        scopeForOffice.driverIds.length > 1 &&
+        !expandedSpotlightKeys.has(spotlightStageKey);
+
       // Skip if already loaded this window
       const scopedWindowKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-      if (globalLoadedWindows.has(scopedWindowKey)) {
+      if (!isSpotlightPass && globalLoadedWindows.has(scopedWindowKey)) {
         console.log(`[useReportsDateWindow] Window ${scopedWindowKey} already loaded, skipping`);
         return { orders: [], windowKey, skipped: true };
       }
       
-      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers`);
+      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers${isSpotlightPass ? ' [SPOTLIGHT pass]' : ''}`);
       
       // Fetch all order types for this window
       console.time('[perf] fetchOrders');
@@ -799,7 +808,12 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         globalAccumulatedOrders.set(order.id, order);
       }
       const scopedWindowKeyForMark = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-      globalLoadedWindows.add(scopedWindowKeyForMark);
+      // Only mark the window fully-loaded when we fetched the FULL driverIds.
+      // The spotlight pass intentionally leaves it unmarked so the follow-up
+      // full-scope fetch is allowed to run.
+      if (!isSpotlightPass) {
+        globalLoadedWindows.add(scopedWindowKeyForMark);
+      }
       
       // CRITICAL: Increment version and notify listeners so the UI re-renders
       // This ensures accumulatedOrders memo updates when orders are loaded via queryFn
@@ -808,9 +822,16 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       
       console.log(`[useReportsDateWindow] Loaded ${allOrders.length} orders for window ${windowKey}, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
       
+      // If this was a spotlight pass, mark expansion AFTER the data lands.
+      // That re-publishes the full driverIds list, which triggers a refetch
+      // for the rest of the office in the background.
+      if (isSpotlightPass) {
+        markSpotlightExpanded(spotlightStageKey);
+      }
+
       return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId && scopeForOffice.driverIds.length > 0,
+    enabled: !!dispatcherId && publishedDriverIds.length > 0,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
