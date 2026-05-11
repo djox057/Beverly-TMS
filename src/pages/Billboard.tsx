@@ -472,13 +472,13 @@ const Billboard = () => {
   return (
     <div className="bg-background flex flex-col p-4 overflow-hidden" style={{ height: "100vh" }}>
       {/* Average RPM - Big number at top */}
-      <div className="text-center py-2 border-b border-border">
-        <p className="text-xl text-muted-foreground uppercase tracking-widest mb-1">Average Rate Per Mile</p>
-        <p className="text-[7rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
+      <div className="text-center py-4 border-b border-border">
+        <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
+        <p className="text-[8.5rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
       </div>
 
       {/* Rotating Leaderboard */}
-      <div className="flex-1 flex flex-col justify-center mt-3 min-h-0">
+      <div className="flex-1 flex flex-col mt-5 min-h-0">
         <div
           className={`transition-all duration-500 ease-in-out ${
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
