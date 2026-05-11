@@ -404,7 +404,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const queryClient = useQueryClient();
   
   // Get individual mode state - this controls database-level filtering
-  const { individualMode, currentUserDispatcherId } = useIndividualMode();
+  const { individualMode, currentUserDispatcherId, individualOverrideDriverIds } = useIndividualMode();
   
   // Track previous mode to detect changes and invalidate cache
   const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
@@ -482,6 +482,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Disable individual mode filtering when: 1) viewing other office without search, or 2) searching in other office
     individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
     currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
+    individualOverrideDriverIds: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : individualOverrideDriverIds,
     spotlightDriverId: spotlightDriverId ?? null,
   });
 
