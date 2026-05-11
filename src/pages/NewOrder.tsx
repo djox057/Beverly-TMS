@@ -406,6 +406,20 @@ const NewOrder = () => {
     }
   }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
+  // Signature of only the geo-relevant fields. Changing shipper/receiver name,
+  // pickup/delivery date/time, or other non-location fields must NOT trigger
+  // miles recalculation.
+  const pickupsDropsGeoKey = useMemo(
+    () =>
+      pickupsDrops
+        .map(
+          (i) =>
+            `${i.id}|${i.type}|${i.address ?? ""}|${i.city ?? ""}|${i.state ?? ""}|${i.zipCode ?? ""}|${i.latitude ?? ""}|${i.longitude ?? ""}`,
+        )
+        .join("~"),
+    [pickupsDrops],
+  );
+
   // Auto-calculate loaded miles and geocode addresses when pickups/drops change
   useEffect(() => {
     const geocodeAndCalculateMiles = async () => {
@@ -483,7 +497,8 @@ const NewOrder = () => {
 
     const timeoutId = setTimeout(geocodeAndCalculateMiles, 1500);
     return () => clearTimeout(timeoutId);
-  }, [pickupsDrops, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupsDropsGeoKey, toast]);
 
   // Auto-calculate DH miles when truck is selected and pickup address is entered
   useEffect(() => {
@@ -548,7 +563,8 @@ const NewOrder = () => {
 
     const timeoutId = setTimeout(calculateDh, 1500);
     return () => clearTimeout(timeoutId);
-  }, [truck, lastDelivery, pickupsDrops, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [truck, lastDelivery, pickupsDropsGeoKey, toast]);
 
   // Auto-calculate driver price for company drivers based on cents per mile
   useEffect(() => {
