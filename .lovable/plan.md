@@ -1,88 +1,90 @@
-# Faster cross-office load# search in Reports
+## Problem
 
-## The problem
+When you type a load# that lives in an office that isn't currently loaded, the spinner sits on the current office for ~1–2 seconds before switching. Once it switches, the loaded office renders instantly. Searching for a load that lives in the currently loaded office is already fast and must stay that way.
 
-When you search a load number in Reports and the load belongs to a different office tab:
-
-1. `useAutoSwitchOffice` does a DB lookup → finds the office → calls `setActiveTab(newOffice)`.
-2. `activeTab` is wired into `useReports` as `priorityOffice` (Reports.tsx line 471).
-3. The priority query re-runs and loads the **entire** new office: every dispatcher, every truck, every driver, all unlocked + locked orders for that office (90 days), notes, lost-day notes, etc.
-4. Only after that finishes does the searched load's row appear.
-
-When the load is already in the open tab, no refetch is needed → results are instant. We want the cross-office case to feel just as fast.
-
-## The fix — "spotlight driver" path
-
-Render the single matched driver row immediately using a tiny targeted fetch, then swap it in as the full office finishes loading in the background.
-
-### Flow
+The slow path is in `src/hooks/useAutoSwitchOffice.ts` → `lookupLoadOffice()`. It runs **three sequential round trips** to Supabase:
 
 ```text
-User types load# (e.g., 12345)
-        │
-        ▼
-useAutoSwitchOffice.lookupLoadOffice()
-  - finds order(s), driver1_id, dispatcher.office
-  - returns { office, driver1_id, orderIds }
-        │
-        ├──► setSpotlightDriverId(driver1_id)   ← NEW, fires immediately
-        │       └──► useReportsSpotlightDriver()  fetches ONLY:
-        │              • that driver + their truck/trailer/company
-        │              • the matching order(s) + pickup_drops + transfers
-        │              • that driver's recent notes / lost-day notes
-        │            → injected into groupedReports as a synthetic
-        │              one-row group at the top, visible in <1s.
-        │
-        └──► setActiveTab(office)
-                └──► priorityQuery starts loading the rest of the
-                     office in the background (existing behavior).
-                     When it returns, spotlight row is reconciled
-                     with the full data and the synthetic group
-                     is dropped.
+orders (broker_load_number ilike) ─► driver1_id list
+                  │
+                  ▼ (await)
+            orders (internal_load_number ilike)  ─► more driver1_id
+                  │
+                  ▼ (await)
+            drivers.in(driver1_ids) ─► dispatcher_id list
+                  │
+                  ▼ (await)
+            profiles.in(dispatcher_ids) ─► office
 ```
 
-### Rendering rules
+Each `await` adds a Supabase round trip (~150–400 ms). With debounce + 3–4 hops + tab-switch render, that's the perceived "spinning on the wrong office".
 
-- The spotlight row is shown only while:
-  - load# search is active, AND
-  - the spotlight driver does **not** yet exist in `groupedReports`.
-- Once the priority query for the new office returns and includes that driver, drop the spotlight (full data wins).
-- If the user clears or changes the search, clear the spotlight immediately.
-- If the matched driver is already in the currently loaded data, skip the spotlight entirely (current fast path).
+There is no real retry loop — the existing local cache (`localMatchFoundRef`, `lastSearchedTermsRef`, `findInAllLoadedData`) already prevents repeats. The fix is purely about cutting hops.
 
-### Edge cases
+## Fix (load# only — do not touch truck/dispatch search)
 
-- **Ambiguous match** (multiple offices): no spotlight; behave as today.
-- **Locked / canceled orders**: spotlight still shows; reuse the existing locked/canceled badges from `foundOrderMeta`.
-- **Multiple driver1_ids** for the same load# prefix: spotlight the first match only; the others appear when the office finishes loading.
-- **Tab manually switched away**: clear spotlight (don't strand a row from another office).
+### 1. Collapse the load# DB lookup to a single joined query
 
-## Files to change
+Replace the 3-hop chain in `lookupLoadOffice` with one Postgres-side nested select that returns the office in one round trip:
 
-1. **`src/hooks/useAutoSwitchOffice.ts`**
-   - Extend `lookupLoadOffice` to also return `driver1_id` and `orderIds` for the best match.
-   - Expose new state from the hook: `spotlightDriverId`, `spotlightOrderIds` (cleared when load filter clears or the driver appears in `groupedReports`).
+```ts
+supabase
+  .from("orders")
+  .select(`
+    locked,
+    canceled,
+    pickup_datetime,
+    driver1_id,
+    drivers!inner (
+      dispatcher_id,
+      profiles:profiles!drivers_dispatcher_id_fkey ( office )
+    )
+  `)
+  .or(`broker_load_number.ilike.%${term}%,internal_load_number.ilike.${numericPart}%`)
+  .not("driver1_id", "is", null)
+  .limit(10);
+```
 
-2. **`src/hooks/useReportsSpotlightDriver.ts`** (new)
-   - Tiny `useQuery` keyed by `["reports", "spotlight", driverId]`.
-   - Fetches: driver row, their truck (+ trailer, company), the specific order(s) by id with `pickup_drops` + `order_transfers`, that driver's recent truck notes / lost-day notes / problems (same shape used by the main grid).
-   - Returns a single synthesized group object matching the structure produced by `fetchReportsData` so it can be merged into `groupedReports` with no renderer changes.
+(If the FK relationship hint name differs we'll resolve via `supabase__read_query` against `pg_constraint` while implementing.)
 
-3. **`src/hooks/useReportsDateWindowAdapter.ts`** (or wherever `groupedReports` is finalized for Reports.tsx)
-   - Accept an optional `spotlightGroup` and prepend/merge it into the returned data when the spotlight driver isn't already present.
-   - Reconcile (drop spotlight) once the real group containing that driver is loaded.
+This drops 3 round trips to 1. Same data, same logic for `isLocked` / `isCanceled` / `pickupDate` / `driverId` / ambiguous-office detection — just extracted from the joined rows instead of fetched separately.
 
-4. **`src/pages/Reports.tsx`**
-   - Wire `spotlightDriverId` from `useAutoSwitchOffice` → `useReportsSpotlightDriver` → adapter merge.
-   - No UI changes beyond rendering the existing row component for the spotlight group.
+### 2. Run the DB lookup in parallel with the local scan
 
-## Out of scope
+Currently the effect does, in order:
+1. `hasLocalMatch` (current tab only) → if hit, stop.
+2. `findInAllLoadedData` (every loaded office) → if hit, switch tab, stop.
+3. DB lookup.
 
-- No changes to the autoswitch heuristics for truck/driver-name search (already fast — they don't need a spotlight).
-- No changes to background office loading, RLS, or the date-window logic.
-- No UI redesign; the spotlight uses the same row component as a normal driver group.
+For load# (and only load#), step 2 iterates every order in every loaded office on the main thread. When the load lives in an unloaded office, that scan is pure waste before the network call even starts. Change the load# effect to:
 
-## Success criteria
+1. Run `hasLocalMatch` (cheap — current tab only).
+2. If miss, kick off `lookupLoadOffice` immediately AND `findInAllLoadedData` in parallel.
+3. Whichever resolves first with a target office wins; the other is ignored.
 
-- Searching a load# whose driver is in a different office shows that driver's row in roughly the same time as searching a load# in the current tab (sub-second after the DB lookup).
-- The full office tab continues to fill in behind it without flicker, and the spotlight row is replaced seamlessly.
+This means in the bad case (load not in any loaded office), the network request starts ~one tick after typing instead of after the full multi-office JS scan. In the good case (load is in current/loaded office), local match still wins instantly — current fast behavior is preserved.
+
+### 3. Lower load# debounce from 300 ms → 200 ms
+
+In `src/pages/Reports/useReportsFilters.ts`, the `loadNumberFilter` is debounced at 300 ms alongside the other two. Drop just `debouncedLoadNumberFilter` to 200 ms. Truck/dispatch debounce stays at 300 ms (they're typed character-by-character; load numbers are usually pasted, so we can react sooner without thrash).
+
+## What stays the same
+
+- All existing guards: `userOverrideRef`, `manualTabSwitchRef`, `localMatchFoundRef`, `lastAutoSwitchRef`, `lastSearchedTermsRef`, 2000 ms cooldown, circuit breaker.
+- "Search ALL orders including locked and canceled, no date filter" rule for load lookup.
+- `setSpotlightDriverId` behavior so the matched driver row appears immediately after the tab switches.
+- Truck/Driver and Dispatcher search paths — untouched.
+- Current fast in-tab search behavior — untouched (local check still runs first).
+
+## Files to edit
+
+- `src/hooks/useAutoSwitchOffice.ts` — rewrite `lookupLoadOffice`; restructure the load-number effect to race local-cross-office scan against the DB call.
+- `src/pages/Reports/useReportsFilters.ts` — change `useDebounce(loadNumberFilter, 300)` → `200`.
+
+## Validation
+
+After implementing, on `/reports`:
+- Search a load# in current loaded office → still instant (local hit).
+- Search a load# in another **loaded** office → still instant (cross-office local hit).
+- Search a load# in an **unloaded** office → noticeably faster: spinner ≤ ~400 ms before tab switches, then renders.
+- Search a non-existent load# → `not_found` shown, no infinite retries (verify no repeated network requests in DevTools Network tab while the input value is unchanged).
