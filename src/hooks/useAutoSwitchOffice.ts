@@ -881,6 +881,8 @@ export function useAutoSwitchOffice({
       setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
       localMatchFoundRef.current = null;
+      // Clear spotlight when load filter is cleared
+      setSpotlightDriverId?.(null);
       // Clear ALL override refs when filter is cleared
       if (manualTabSwitchRef.current?.filter === "load") {
         manualTabSwitchRef.current = null;
@@ -941,6 +943,8 @@ export function useAutoSwitchOffice({
       localMatchFoundRef.current = { filter: "load", value: debouncedLoadNumber, office: activeTab };
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
       setLoadSearchStatus("found");
+      // Match is in current tab — no spotlight needed
+      setSpotlightDriverId?.(null);
       return;
     }
     
@@ -986,6 +990,9 @@ export function useAutoSwitchOffice({
             setAmbiguousMatch(null);
             setLoadSearchStatus("found");
             setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
+            // Spotlight the matched driver so its row can render before
+            // the rest of the new office finishes loading.
+            if (result.driverId) setSpotlightDriverId?.(result.driverId);
             setActiveTab(targetOffice);
             return;
           }
