@@ -918,7 +918,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   return {
     orders: accumulatedOrders,
     accumulatedOrders,
-    driverIds: scopeForOffice.driverIds,
+    // Expose the currently published set so downstream supporting queries
+    // (trucks, drivers, notes, etc.) follow the spotlight → full expansion.
+    driverIds: publishedDriverIds,
+    fullDriverIds: scopeForOffice.driverIds,
     dateWindow: currentWindow,
     isLoading: initialLoading && globalAccumulatedOrders.size === 0,
     isFetching,
