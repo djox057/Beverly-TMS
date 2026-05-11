@@ -2304,10 +2304,22 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!individualMode || !transformedData) {
       return transformedData;
     }
-    
+
+    // Override mode (e.g. afterhours): scope is an explicit driver-id list.
+    // Filter trucks within each group, drop empty groups.
+    if (individualOverrideDriverIds) {
+      const allowed = new Set(individualOverrideDriverIds);
+      return transformedData
+        .map((group: any) => ({
+          ...group,
+          trucks: (group.trucks || []).filter((t: any) => allowed.has(t.driverId)),
+        }))
+        .filter((group: any) => (group.trucks?.length ?? 0) > 0);
+    }
+
     // Individual mode: filter to show only user's own drivers (safety net)
     return transformedData.filter(group => group.dispatcherId === currentUserDispatcherId);
-  }, [individualMode, transformedData, currentUserDispatcherId]);
+  }, [individualMode, transformedData, currentUserDispatcherId, individualOverrideDriverIds]);
 
   if (!USE_DATE_WINDOW_LOADING) {
     return legacyReportsHook;
