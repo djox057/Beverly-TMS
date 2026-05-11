@@ -41,6 +41,12 @@ export interface ReportsDateWindowOptions {
   /** The current user's dispatcher ID for Individual mode filtering */
   currentUserDispatcherId?: string | null;
   /**
+   * Optional explicit driver-id list to use as the Individual-mode scope.
+   * Used by afterhours users so the scope is their weekend assignments
+   * rather than drivers where dispatcher_id = user.
+   */
+  individualOverrideDriverIds?: string[] | null;
+  /**
    * Optional spotlight driver id. When set and the driver belongs to the
    * current office scope, the hook publishes [spotlightDriverId] first so
    * the matched row renders immediately, then expands to the full office
