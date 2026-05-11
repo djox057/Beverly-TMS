@@ -516,6 +516,21 @@ const Reports = () => {
     setSpotlightDriverId,
   });
 
+  // Once the spotlighted driver appears in any loaded group, drop the
+  // spotlight so future tab interactions aren't gated by it. The hook also
+  // clears it when the load filter is emptied.
+  useEffect(() => {
+    if (!spotlightDriverId || !groupedReports) return;
+    const present = groupedReports.some((g: any) =>
+      Array.isArray(g?.trucks) && g.trucks.some((t: any) => {
+        const d1 = t?.driver1?.id || t?.driver1Id || t?.driver_id;
+        const d2 = t?.driver2?.id || t?.driver2Id;
+        return d1 === spotlightDriverId || d2 === spotlightDriverId;
+      })
+    );
+    if (present) setSpotlightDriverId(null);
+  }, [spotlightDriverId, groupedReports]);
+
   // Auto-navigate calendar when load search finds an order outside the visible date window
   useEffect(() => {
     if (foundOrderMeta?.pickupDate) {
