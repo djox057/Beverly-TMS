@@ -889,31 +889,41 @@ export function useAutoSwitchOffice({
       setSpotlightDriverId?.(null);
       return;
     }
-    
-    // Check ALL loaded offices before hitting database
-    const matchInLoadedData = findInAllLoadedData("load", debouncedLoadNumber);
-    const loadedTargetOffice = normalizeToKnownOffice(matchInLoadedData);
-    if (loadedTargetOffice && loadedTargetOffice !== activeTab) {
-      lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber, targetOffice: loadedTargetOffice };
-      lastSwitchTimeRef.current = Date.now();
-      setAmbiguousMatch(null);
-      setLoadSearchStatus("found");
-      setActiveTab(loadedTargetOffice);
-      return;
-    }
-    
+
     // Circuit breaker
     if (dbErrorCountRef.current >= MAX_CONSECUTIVE_ERRORS && Date.now() < dbErrorBackoffUntilRef.current) {
       setLoadSearchStatus("not_found");
       lastSearchedTermsRef.current.load = debouncedLoadNumber;
       return;
     }
-    
+
     const search = async () => {
       isSearchingRef.current = true;
       setLoadSearchStatus("searching");
+      let resolved = false;
       try {
-        const result = await lookupLoadOffice(debouncedLoadNumber);
+        // Race the DB lookup against an async cross-office local scan so the
+        // network request starts immediately instead of waiting for the JS scan.
+        const dbPromise = lookupLoadOffice(debouncedLoadNumber);
+        const localPromise = Promise.resolve().then(() => {
+          const match = findInAllLoadedData("load", debouncedLoadNumber);
+          return normalizeToKnownOffice(match);
+        });
+
+        const localOffice = await localPromise;
+        if (localOffice && localOffice !== activeTab) {
+          lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber, targetOffice: localOffice };
+          lastSwitchTimeRef.current = Date.now();
+          setAmbiguousMatch(null);
+          setLoadSearchStatus("found");
+          setActiveTab(localOffice);
+          resolved = true;
+          // Don't await dbPromise — it'll complete in background, harmless.
+          return;
+        }
+
+        const result = await dbPromise;
+        if (resolved) return;
 
         if (result.type !== "error") {
           dbErrorCountRef.current = 0;
