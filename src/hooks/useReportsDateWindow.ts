@@ -40,6 +40,13 @@ export interface ReportsDateWindowOptions {
   individualMode?: boolean;
   /** The current user's dispatcher ID for Individual mode filtering */
   currentUserDispatcherId?: string | null;
+  /**
+   * Optional spotlight driver id. When set and the driver belongs to the
+   * current office scope, the hook publishes [spotlightDriverId] first so
+   * the matched row renders immediately, then expands to the full office
+   * scope in a second pass (background fill).
+   */
+  spotlightDriverId?: string | null;
 }
 
 // Helper to format date for Supabase queries
@@ -605,7 +612,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -679,14 +686,49 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     return result;
   }, [initialData, priorityOffice, individualMode]);
 
+  // ---- Spotlight two-stage publish ----
+  // Tracks which `${office}_${windowKey}` keys have already been expanded
+  // past the spotlight stage (i.e. the full driverIds list is now published).
+  const [expandedSpotlightKeys, setExpandedSpotlightKeys] = useState<Set<string>>(new Set());
+
+  const spotlightStageKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
+
+  // Decide which driverIds to publish to downstream consumers.
+  // - If a spotlight driver is set, lives in this office scope, and we have
+  //   not yet expanded for this (office, window), publish only the spotlight.
+  // - Otherwise, publish the full office scope.
+  const publishedDriverIds = useMemo(() => {
+    const fullIds = scopeForOffice.driverIds;
+    if (
+      spotlightDriverId &&
+      fullIds.length > 1 &&
+      fullIds.includes(spotlightDriverId) &&
+      !expandedSpotlightKeys.has(spotlightStageKey)
+    ) {
+      return [spotlightDriverId];
+    }
+    return fullIds;
+  }, [scopeForOffice.driverIds, spotlightDriverId, expandedSpotlightKeys, spotlightStageKey]);
+
+  // After a spotlight-only fetch completes, mark the key as expanded so the
+  // next render publishes the full driverIds list, which triggers a refetch.
+  const markSpotlightExpanded = useCallback((key: string) => {
+    setExpandedSpotlightKeys((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
+
   // Use a ref to avoid stale closure issues with driverIds in the queryFn
   // This ensures the queryFn always reads the current value when it runs
   const driverIdsRef = useRef<string[]>([]);
   const currentWindowRef = useRef(currentWindow);
   
   useEffect(() => {
-    driverIdsRef.current = scopeForOffice.driverIds;
-  }, [scopeForOffice.driverIds]);
+    driverIdsRef.current = publishedDriverIds;
+  }, [publishedDriverIds]);
   
   useEffect(() => {
     currentWindowRef.current = currentWindow;
@@ -706,14 +748,23 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         return { orders: [], windowKey };
       }
       
+      // Detect spotlight pass: we're publishing a single driver as the
+      // first stage of a two-stage office load.
+      const isSpotlightPass =
+        !!spotlightDriverId &&
+        driverIds.length === 1 &&
+        driverIds[0] === spotlightDriverId &&
+        scopeForOffice.driverIds.length > 1 &&
+        !expandedSpotlightKeys.has(spotlightStageKey);
+
       // Skip if already loaded this window
       const scopedWindowKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-      if (globalLoadedWindows.has(scopedWindowKey)) {
+      if (!isSpotlightPass && globalLoadedWindows.has(scopedWindowKey)) {
         console.log(`[useReportsDateWindow] Window ${scopedWindowKey} already loaded, skipping`);
         return { orders: [], windowKey, skipped: true };
       }
       
-      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers`);
+      console.log(`[useReportsDateWindow] Loading orders for window: ${windowKey}, ${driverIds.length} drivers${isSpotlightPass ? ' [SPOTLIGHT pass]' : ''}`);
       
       // Fetch all order types for this window
       console.time('[perf] fetchOrders');
@@ -757,7 +808,12 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         globalAccumulatedOrders.set(order.id, order);
       }
       const scopedWindowKeyForMark = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-      globalLoadedWindows.add(scopedWindowKeyForMark);
+      // Only mark the window fully-loaded when we fetched the FULL driverIds.
+      // The spotlight pass intentionally leaves it unmarked so the follow-up
+      // full-scope fetch is allowed to run.
+      if (!isSpotlightPass) {
+        globalLoadedWindows.add(scopedWindowKeyForMark);
+      }
       
       // CRITICAL: Increment version and notify listeners so the UI re-renders
       // This ensures accumulatedOrders memo updates when orders are loaded via queryFn
@@ -766,9 +822,16 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       
       console.log(`[useReportsDateWindow] Loaded ${allOrders.length} orders for window ${windowKey}, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
       
+      // If this was a spotlight pass, mark expansion AFTER the data lands.
+      // That re-publishes the full driverIds list, which triggers a refetch
+      // for the rest of the office in the background.
+      if (isSpotlightPass) {
+        markSpotlightExpanded(spotlightStageKey);
+      }
+
       return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId && scopeForOffice.driverIds.length > 0,
+    enabled: !!dispatcherId && publishedDriverIds.length > 0,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
@@ -781,15 +844,24 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // trigger a refetch to ensure orders are loaded. This handles the case where
   // the query ran before driverIds were ready due to stale closure.
   const hasTriggeredInitialFetchRef = useRef(false);
+  // Track which published-driverIds signature we've already triggered for, so
+  // that when the spotlight expands to the full set we trigger again.
+  const lastTriggeredSignatureRef = useRef<string>('');
   useEffect(() => {
-    const driverIds = scopeForOffice.driverIds;
+    const driverIds = publishedDriverIds;
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-    if (driverIds.length > 0 && !globalLoadedWindows.has(scopedKey) && !hasTriggeredInitialFetchRef.current) {
+    const signature = `${scopedKey}|n=${driverIds.length}|first=${driverIds[0] || ''}`;
+    if (
+      driverIds.length > 0 &&
+      !globalLoadedWindows.has(scopedKey) &&
+      lastTriggeredSignatureRef.current !== signature
+    ) {
       hasTriggeredInitialFetchRef.current = true;
+      lastTriggeredSignatureRef.current = signature;
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
     }
-  }, [scopeForOffice.driverIds, windowKey, refetch]);
+  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId]);
   
   // Reset the trigger flag when window changes
   useEffect(() => {
@@ -846,7 +918,10 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   return {
     orders: accumulatedOrders,
     accumulatedOrders,
-    driverIds: scopeForOffice.driverIds,
+    // Expose the currently published set so downstream supporting queries
+    // (trucks, drivers, notes, etc.) follow the spotlight → full expansion.
+    driverIds: publishedDriverIds,
+    fullDriverIds: scopeForOffice.driverIds,
     dateWindow: currentWindow,
     isLoading: initialLoading && globalAccumulatedOrders.size === 0,
     isFetching,

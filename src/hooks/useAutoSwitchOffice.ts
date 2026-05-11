@@ -8,7 +8,7 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
-  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean; pickupDate?: string }
+  | { type: "found"; office: string; isLocked?: boolean; isCanceled?: boolean; pickupDate?: string; driverId?: string }
   | { type: "ambiguous"; offices: string[] }
   | { type: "not_found" }
   | { type: "error"; error: Error };
@@ -29,6 +29,7 @@ export function useAutoSwitchOffice({
   setActiveTab,
   offices,
   groupedReports,
+  setSpotlightDriverId,
 }: {
   truckDriverFilter: string;
   dispatchNameFilter: string;
@@ -37,6 +38,13 @@ export function useAutoSwitchOffice({
   setActiveTab: (office: string) => void;
   offices: string[];
   groupedReports: any[] | null;
+  /**
+   * Optional callback to set a "spotlight" driver id when the load# search
+   * resolves to a driver that lives in a different office than the active tab.
+   * Reports.tsx owns this state and feeds it into the data hook so the matched
+   * driver's row can render before the rest of the office finishes loading.
+   */
+  setSpotlightDriverId?: (driverId: string | null) => void;
 }) {
   const { individualMode } = useIndividualMode();
   
@@ -450,6 +458,7 @@ export function useAutoSwitchOffice({
       let isLocked = false;
       let isCanceled = false;
       let pickupDate: string | undefined;
+      let firstDriverId: string | undefined;
       
       if (brokerMatches && brokerMatches.length > 0) {
         driver1Ids.push(...brokerMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
@@ -458,6 +467,7 @@ export function useAutoSwitchOffice({
         isCanceled = brokerMatches.some(o => o.canceled);
         // Use first match's pickup date for calendar navigation
         pickupDate = brokerMatches[0]?.pickup_datetime ?? undefined;
+        firstDriverId = (brokerMatches[0]?.driver1_id as string | undefined) ?? undefined;
       }
       
       // Also search by internal_load_number (text field, search by prefix)
@@ -479,6 +489,7 @@ export function useAutoSwitchOffice({
           if (!isLocked) isLocked = internalMatches.some(o => o.locked);
           if (!isCanceled) isCanceled = internalMatches.some(o => o.canceled);
           if (!pickupDate) pickupDate = internalMatches[0]?.pickup_datetime ?? undefined;
+          if (!firstDriverId) firstDriverId = (internalMatches[0]?.driver1_id as string | undefined) ?? undefined;
         }
       }
       
@@ -514,7 +525,7 @@ export function useAutoSwitchOffice({
       const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
       
       if (foundOffices.length === 1) {
-        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate };
+        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate, driverId: firstDriverId };
       } else if (foundOffices.length > 1) {
         return { type: "ambiguous", offices: foundOffices };
       }
@@ -870,6 +881,8 @@ export function useAutoSwitchOffice({
       setLoadSearchStatus("idle");
       setFoundOrderMeta(null);
       localMatchFoundRef.current = null;
+      // Clear spotlight when load filter is cleared
+      setSpotlightDriverId?.(null);
       // Clear ALL override refs when filter is cleared
       if (manualTabSwitchRef.current?.filter === "load") {
         manualTabSwitchRef.current = null;
@@ -930,6 +943,8 @@ export function useAutoSwitchOffice({
       localMatchFoundRef.current = { filter: "load", value: debouncedLoadNumber, office: activeTab };
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
       setLoadSearchStatus("found");
+      // Match is in current tab — no spotlight needed
+      setSpotlightDriverId?.(null);
       return;
     }
     
@@ -975,6 +990,9 @@ export function useAutoSwitchOffice({
             setAmbiguousMatch(null);
             setLoadSearchStatus("found");
             setFoundOrderMeta({ isLocked: result.isLocked, isCanceled: result.isCanceled, pickupDate: result.pickupDate });
+            // Spotlight the matched driver so its row can render before
+            // the rest of the new office finishes loading.
+            if (result.driverId) setSpotlightDriverId?.(result.driverId);
             setActiveTab(targetOffice);
             return;
           }
@@ -1024,8 +1042,9 @@ export function useAutoSwitchOffice({
       lastAutoSwitchRef.current = null;
       setAmbiguousMatch(null);
       setFoundOrderMeta(null);
+      setSpotlightDriverId?.(null);
     }
-  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter]);
+  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter, setSpotlightDriverId]);
 
   return {
     ambiguousMatch,

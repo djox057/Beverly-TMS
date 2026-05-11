@@ -457,6 +457,11 @@ const Reports = () => {
     setActiveTabRaw(office);
   }, []);
 
+  // Spotlight driver: when load# search resolves to a driver in a different
+  // office, this id is set so useReportsDateWindow can publish that one
+  // driver first and load the rest of the office in the background.
+  const [spotlightDriverId, setSpotlightDriverId] = useState<string | null>(null);
+
   // Determine if there's an active search (any filter has meaningful input)
   // Used to bypass Individual Mode office restrictions when searching
   const hasActiveSearch = !!(
@@ -473,6 +478,7 @@ const Reports = () => {
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
     hasActiveSearch, // Bypass Individual Mode office restrictions when searching
+    spotlightDriverId,
   });
 
   const {
@@ -507,7 +513,23 @@ const Reports = () => {
     setActiveTab,
     offices,
     groupedReports,
+    setSpotlightDriverId,
   });
+
+  // Once the spotlighted driver appears in any loaded group, drop the
+  // spotlight so future tab interactions aren't gated by it. The hook also
+  // clears it when the load filter is emptied.
+  useEffect(() => {
+    if (!spotlightDriverId || !groupedReports) return;
+    const present = groupedReports.some((g: any) =>
+      Array.isArray(g?.trucks) && g.trucks.some((t: any) => {
+        const d1 = t?.driver1?.id || t?.driver1Id || t?.driver_id;
+        const d2 = t?.driver2?.id || t?.driver2Id;
+        return d1 === spotlightDriverId || d2 === spotlightDriverId;
+      })
+    );
+    if (present) setSpotlightDriverId(null);
+  }, [spotlightDriverId, groupedReports]);
 
   // Auto-navigate calendar when load search finds an order outside the visible date window
   useEffect(() => {
