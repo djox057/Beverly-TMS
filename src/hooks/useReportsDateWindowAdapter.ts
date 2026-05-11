@@ -27,6 +27,12 @@ interface UseReportsDateWindowAdapterOptions {
   selectedDate: Date;
   /** When true, bypasses Individual Mode office restrictions (for search results) */
   hasActiveSearch?: boolean;
+  /**
+   * Optional spotlight driver id from the Reports load# search. Passed
+   * through to useReportsDateWindow so the matched driver renders before
+   * the rest of the office finishes loading.
+   */
+  spotlightDriverId?: string | null;
 }
 
 /**
@@ -394,7 +400,7 @@ const getTransferAwareStops = (driverId: string, order: any, originalPickupStop:
  * to match the shape expected by Reports.tsx
  */
 export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapterOptions) => {
-  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate, hasActiveSearch } = options;
+  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate, hasActiveSearch, spotlightDriverId } = options;
   const queryClient = useQueryClient();
   
   // Get individual mode state - this controls database-level filtering
@@ -476,6 +482,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Disable individual mode filtering when: 1) viewing other office without search, or 2) searching in other office
     individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
     currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
+    spotlightDriverId: spotlightDriverId ?? null,
   });
 
   // Legacy hook (for fallback when feature flag is OFF). When feature flag is ON,
