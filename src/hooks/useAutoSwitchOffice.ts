@@ -1042,8 +1042,9 @@ export function useAutoSwitchOffice({
       lastAutoSwitchRef.current = null;
       setAmbiguousMatch(null);
       setFoundOrderMeta(null);
+      setSpotlightDriverId?.(null);
     }
-  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter]);
+  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter, setSpotlightDriverId]);
 
   return {
     ambiguousMatch,
