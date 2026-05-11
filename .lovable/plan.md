@@ -1,54 +1,29 @@
-# Fix: Load# search "58899" wrongly shows offices that have load 7588996
+## Goal
 
-## Root cause
+The "***This is NOT an official payroll statement..." notice should only appear in the in-app preview, not in the PDF that is actually emailed to dispatchers.
 
-When you search `58899`, both the DB RPC (`lookup_load_office`) and the local in-memory matcher use **substring** matching (`ILIKE '%58899%'` / `.includes("58899")`). So:
+## Current behavior
 
-- KRAGUJEVAC has broker `58899` → correct match.
-- BG 4th floor has broker `7588996` → false positive (contains "58899" as substring).
+In `src/components/PayrollPreviewDialog.tsx`:
+- `generatePreview()` calls `generatePayrollPdf(..., { previewOnly: true })` → adds the notice. ✅ Correct.
+- `handleSendEmail()` also calls `generatePayrollPdf(...)` **without** `previewOnly`, so by the code in `src/utils/payrollPdfGenerator.ts` the notice should already be skipped.
 
-That's why the multi-office popup shows both. BG 4th floor doesn't actually have load 58899.
+However, the user reports the sent PDF still contains the notice. The likely cause: the `previewOnly` flag defaults correctly, but the disclaimer block above it (the red italic "***Due to the company policy..." line) is always rendered — and the user may be referring to that combined paragraph, OR the notice is leaking because something else.
 
-## Fix (load# filter only — purely numeric searches)
+Re-reading `payrollPdfGenerator.ts`: only the `if (options.previewOnly)` branch adds the "This is NOT an official payroll statement..." text. So `handleSendEmail` should already produce a clean PDF. The bug must be elsewhere.
 
-When the search term is **purely digits**, prefer exact / boundary matches over substring matches. If any office has an exact match, only return those offices. If no office has an exact match, fall back to current substring behavior.
+## Investigation step
 
-### Changes
+Confirm there is no other call site that sends the PDF with `previewOnly: true`. Search for `previewOnly` and `send-payroll-email` invocations. If `handleSendEmail` is correct, the issue is that the user is seeing the preview-with-notice in their email client because the same blob object is reused, OR there is a second sender path.
 
-**1. New migration — update `lookup_load_office` RPC**
+## Plan
 
-Rewrite the function so for numeric terms it returns an "exact-match-preferred" result:
+1. Audit all call sites of `generatePayrollPdf` and `send-payroll-email` to confirm only `handleSendEmail` sends emails and that it never passes `previewOnly: true`.
+2. If a leak is found (e.g., a path passing `previewOnly: true` to the email function), fix it so emailed PDFs always use `previewOnly: false`.
+3. As a safety net, add an explicit `{ previewOnly: false }` in `handleSendEmail` to make intent obvious and impossible to misread.
+4. Manually verify by sending a test statement and opening the attached PDF — confirm the "This is NOT an official payroll statement..." line is absent while the standard red disclaimer about company policy remains.
 
-```text
-matched_orders = orders where
-  broker_load_number = p_term
-  OR (numeric & internal_load_number starts with p_term + '-')   -- e.g. 14457-AP
-  OR broker_load_number ILIKE '%term%'      -- substring fallback
-  OR (numeric & internal_load_number ILIKE 'term%')
-```
+## Files likely touched
 
-Tag each row with `match_rank` (1 = exact broker / internal-prefix-with-dash, 2 = substring).
-After grouping by office, if ANY office has rank-1 rows, drop offices that only have rank-2 rows. Otherwise return all.
-
-For non-numeric terms keep current substring behavior (no change in feel).
-
-**2. `src/hooks/useAutoSwitchOffice.ts`**
-
-Apply the same "prefer exact" rule in two places used for the load# filter:
-- `findInAllLoadedData` (case `"load"`) — when term is numeric and at least one office has an exact `broker_load_number === term` (or `internal_load_number` starts with `term + "-"`), restrict matching to those exact-match offices.
-- `hasLocalMatch` (case `"load"`) — same rule for the current-tab match check.
-
-No change to truck/dispatch search paths. No change to debounce or the parallel local/DB race added previously.
-
-## Files
-
-- `supabase/migrations/<new>.sql` — new RPC version with exact-match-preferred logic.
-- `src/hooks/useAutoSwitchOffice.ts` — update the two `case "load"` matchers.
-
-## Validation
-
-- Search `58899` → only KRAGUJEVAC (no BG 4th floor).
-- Search `14457` → resolves the office of internal `14457-AP`.
-- Search a non-existent number → still resolves to `not_found`.
-- Search a partial number that has no exact match anywhere → falls back to substring like today.
-- Truck/driver/dispatch searches unchanged.
+- `src/components/PayrollPreviewDialog.tsx` — make `handleSendEmail` pass `{ previewOnly: false }` explicitly; fix any other sender path found in the audit.
+- (No changes expected to `src/utils/payrollPdfGenerator.ts` — its conditional is already correct.)
