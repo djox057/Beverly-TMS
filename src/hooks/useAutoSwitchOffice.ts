@@ -21,6 +21,18 @@ const isWordBoundaryMatch = (text: string | null | undefined, term: string): boo
 };
 
 /**
+ * Exact-token match: term equals any whitespace/dash/slash-delimited token in text.
+ * Used to prefer "Andrej Sretenovic-Alex" (token "Alex") over "...-Alexa" when searching "alex".
+ */
+const isExactTokenMatch = (text: string | null | undefined, term: string): boolean => {
+  if (!text) return false;
+  const q = term.toLowerCase().trim();
+  if (!q) return false;
+  const tokens = String(text).toLowerCase().split(/[\s\-/]+/).filter(Boolean);
+  return tokens.includes(q);
+};
+
+/**
  * Result of office lookup - can be single office, multiple (ambiguous), or none
  */
 type OfficeResult = 
@@ -163,14 +175,14 @@ export function useAutoSwitchOffice({
     const numericPart = term.split("-")[0];
     const numericPartIsDigits = /^\d+$/.test(numericPart) && numericPart.length > 0;
 
-    const all: Array<{ office: string; rank: 1 | 2 }> = [];
+    const all: Array<{ office: string; rank: number }> = [];
 
     for (const group of groupedReports) {
       const office = normalizeToKnownOffice(group.office);
       if (!office) continue;
 
-      let bestRank: 1 | 2 | null = null;
-      const bump = (r: 1 | 2) => {
+      let bestRank: number | null = null;
+      const bump = (r: number) => {
         if (bestRank === null || r < bestRank) bestRank = r;
       };
 
@@ -195,8 +207,9 @@ export function useAutoSwitchOffice({
           }
         });
       } else if (filterType === "dispatch") {
-        if (isWordBoundaryMatch(group.dispatcher, term)) bump(1);
-        else if (group.dispatcher?.toLowerCase().includes(term)) bump(2);
+        if (isExactTokenMatch(group.dispatcher, term)) bump(1);
+        else if (isWordBoundaryMatch(group.dispatcher, term)) bump(2);
+        else if (group.dispatcher?.toLowerCase().includes(term)) bump(3);
       } else if (filterType === "load") {
         group.trucks?.forEach((truck: any) => {
           truck.allOrders?.forEach((order: any) => {
@@ -226,7 +239,7 @@ export function useAutoSwitchOffice({
     }
 
     if (all.length === 0) return [];
-    const minRank = Math.min(...all.map((m) => m.rank)) as 1 | 2;
+    const minRank = Math.min(...all.map((m) => m.rank));
     return all.filter((m) => m.rank === minRank);
   }, [groupedReports, normalizeToKnownOffice]);
 
@@ -428,12 +441,17 @@ export function useAutoSwitchOffice({
       if (error) throw error;
       
       const rows = (profiles ?? []) as Array<{ full_name: string | null; office: string | null }>;
-      // Prefer word-boundary matches over substring matches
+      // Prefer exact-token matches (e.g. "alex" → "...-Alex") over word-boundary
+      // prefix matches (e.g. "...-Alexa") over plain substring matches.
       const ranked = rows.map((p) => ({
         office: p.office,
-        rank: isWordBoundaryMatch(p.full_name, term) ? 1 : 2,
+        rank: isExactTokenMatch(p.full_name, term)
+          ? 1
+          : isWordBoundaryMatch(p.full_name, term)
+            ? 2
+            : 3,
       }));
-      const minRank = ranked.length ? Math.min(...ranked.map((r) => r.rank)) : 2;
+      const minRank = ranked.length ? Math.min(...ranked.map((r) => r.rank)) : 3;
       const filtered = ranked.filter((r) => r.rank === minRank);
       const foundOffices = [...new Set(filtered.map(r => r.office).filter(Boolean) as string[])];
       
