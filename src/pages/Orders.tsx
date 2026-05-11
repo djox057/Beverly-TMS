@@ -62,7 +62,8 @@ const Orders = () => {
   const {
     hasRole,
     getPrimaryRole,
-    profile
+    profile,
+    roles
   } = useAuthContext();
   const {
     individualMode
@@ -154,8 +155,8 @@ const Orders = () => {
   // Auto-set bookedBy filter for dispatchers (but not afterhours or safety)
   const isDispatcher = primaryRole === "dispatch";
 
-  // Check if user has only dispatch role (afterhours and safety excluded from auto-filter)
-  const isDispatchOnly = hasRole("dispatch") && !hasRole("afterhours") && !hasRole("admin") && !hasRole("manager") && !hasRole("accounting") && !hasRole("supervisor") && !hasRole("safety");
+  // Check if user has only dispatch role (afterhours, safety, and maintenance excluded from auto-filter)
+  const isDispatchOnly = hasRole("dispatch") && !roles.includes("maintenance") && !hasRole("afterhours") && !hasRole("admin") && !hasRole("manager") && !hasRole("accounting") && !hasRole("supervisor") && !hasRole("safety");
 
   // For individual mode users OR dispatch-only users, pass their name and user_id to filter at the database level
   // This includes orders they booked AND orders for drivers assigned to them
