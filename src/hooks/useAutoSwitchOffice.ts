@@ -443,93 +443,35 @@ export function useAutoSwitchOffice({
   const lookupLoadOffice = useCallback(async (searchTerm: string): Promise<OfficeResult> => {
     try {
       const term = searchTerm.trim();
-      
-      // Search by broker_load_number first - NO STATUS FILTERS
-      const { data: brokerMatches, error: brokerError } = await supabase
-        .from("orders")
-        .select("driver1_id, locked, canceled, pickup_datetime")
-        .ilike("broker_load_number", `%${term}%`)
-        .not("driver1_id", "is", null)
-        .limit(10);
-      
-      if (brokerError) throw brokerError;
-      
-      const driver1Ids: string[] = [];
-      let isLocked = false;
-      let isCanceled = false;
-      let pickupDate: string | undefined;
-      let firstDriverId: string | undefined;
-      
-      if (brokerMatches && brokerMatches.length > 0) {
-        driver1Ids.push(...brokerMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
-        // Track if any match is locked/canceled for UI indication
-        isLocked = brokerMatches.some(o => o.locked);
-        isCanceled = brokerMatches.some(o => o.canceled);
-        // Use first match's pickup date for calendar navigation
-        pickupDate = brokerMatches[0]?.pickup_datetime ?? undefined;
-        firstDriverId = (brokerMatches[0]?.driver1_id as string | undefined) ?? undefined;
-      }
-      
-      // Also search by internal_load_number (text field, search by prefix)
-      const numericPart = term.split("-")[0];
-      
-      if (/^\d+$/.test(numericPart)) {
-        // NO STATUS FILTERS - search ALL orders
-        const { data: internalMatches, error: internalError } = await supabase
-          .from("orders")
-          .select("driver1_id, locked, canceled, pickup_datetime")
-          .ilike("internal_load_number", `${numericPart}%`)
-          .not("driver1_id", "is", null)
-          .limit(10);
-        
-        if (internalError) throw internalError;
-        
-        if (internalMatches && internalMatches.length > 0) {
-          driver1Ids.push(...internalMatches.map(o => o.driver1_id).filter(Boolean) as string[]);
-          if (!isLocked) isLocked = internalMatches.some(o => o.locked);
-          if (!isCanceled) isCanceled = internalMatches.some(o => o.canceled);
-          if (!pickupDate) pickupDate = internalMatches[0]?.pickup_datetime ?? undefined;
-          if (!firstDriverId) firstDriverId = (internalMatches[0]?.driver1_id as string | undefined) ?? undefined;
-        }
-      }
-      
-      if (driver1Ids.length === 0) {
-        return { type: "not_found" };
-      }
-      
-      // Get dispatcher_id from drivers
-      const uniqueDriverIds = [...new Set(driver1Ids)];
-      const { data: driverData, error: driverError } = await supabase
-        .from("drivers")
-        .select("dispatcher_id")
-        .in("id", uniqueDriverIds)
-        .not("dispatcher_id", "is", null);
-      
-      if (driverError) throw driverError;
-      
-      const dispatcherIds = [...new Set(driverData?.map(d => d.dispatcher_id).filter((id): id is string => Boolean(id) && isValidUUID(id)))];
-      
-      if (dispatcherIds.length === 0) {
-        return { type: "not_found" };
-      }
-      
-      // Get office from profiles
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("office")
-        .in("user_id", dispatcherIds)
-        .not("office", "is", null);
-      
-      if (profileError) throw profileError;
-      
-      const foundOffices = [...new Set(profileData?.map(p => p.office).filter(Boolean) as string[])];
-      
+
+      // Single round-trip: RPC joins orders -> drivers -> profiles server-side.
+      // Searches ALL orders including locked and canceled (no status/date filters).
+      const { data, error } = await supabase.rpc("lookup_load_office", { p_term: term });
+
+      if (error) throw error;
+
+      const rows = (data ?? []) as Array<{
+        office: string;
+        is_locked: boolean | null;
+        is_canceled: boolean | null;
+        pickup_datetime: string | null;
+        driver1_id: string | null;
+      }>;
+
+      if (rows.length === 0) return { type: "not_found" };
+
+      const isLocked = rows.some(r => r.is_locked === true);
+      const isCanceled = rows.some(r => r.is_canceled === true);
+      const pickupDate = rows.find(r => r.pickup_datetime)?.pickup_datetime ?? undefined;
+      const firstDriverId = rows.find(r => r.driver1_id)?.driver1_id ?? undefined;
+      const foundOffices = [...new Set(rows.map(r => r.office).filter(Boolean))];
+
       if (foundOffices.length === 1) {
-        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate, driverId: firstDriverId };
-      } else if (foundOffices.length > 1) {
+        return { type: "found", office: foundOffices[0], isLocked, isCanceled, pickupDate, driverId: firstDriverId ?? undefined };
+      }
+      if (foundOffices.length > 1) {
         return { type: "ambiguous", offices: foundOffices };
       }
-      
       return { type: "not_found" };
     } catch (error) {
       console.error("[AutoSwitch] Load lookup error:", error);
