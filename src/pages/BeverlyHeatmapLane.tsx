@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -17,18 +17,6 @@ import {
 } from "@/components/ui/dialog";
 
 
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 3958.8;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 interface BrokerStat {
   broker_id: string;
@@ -61,17 +49,29 @@ export default function BeverlyHeatmapLane() {
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
 
+  // In-memory geocode cache (per session) + cached mapbox token
+  const geocodeCacheRef = useRef<Map<string, { lat: number; lng: number } | null>>(new Map());
+  const mapboxTokenRef = useRef<string | null>(null);
+
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    const key = address.trim().toLowerCase();
+    if (geocodeCacheRef.current.has(key)) return geocodeCacheRef.current.get(key)!;
     try {
-      const { data } = await supabase.functions.invoke("get-mapbox-token");
-      if (!data?.token) return null;
+      let token = mapboxTokenRef.current;
+      if (!token) {
+        const { data } = await supabase.functions.invoke("get-mapbox-token");
+        token = data?.token || null;
+        mapboxTokenRef.current = token;
+      }
+      if (!token) return null;
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${data.token}&limit=1&country=us`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&limit=1&country=us`
       );
       const json = await res.json();
       const feat = json.features?.[0];
-      if (!feat) return null;
-      return { lng: feat.center[0], lat: feat.center[1] };
+      const result = feat ? { lng: feat.center[0], lat: feat.center[1] } : null;
+      geocodeCacheRef.current.set(key, result);
+      return result;
     } catch {
       return null;
     }
@@ -102,128 +102,20 @@ export default function BeverlyHeatmapLane() {
     queryKey: ["heatmap-lane", pickupCoords, deliveryCoords, startDateStr, endDateStr, pickupRadius, deliveryRadius],
     queryFn: async () => {
       if (!pickupCoords && !deliveryCoords) return null;
-
-      // Fetch pickup_drops with coordinates to find matching stops
-      let orderQuery = supabase
-        .from("orders")
-        .select("id, broker_id, freight_amount, loaded_miles")
-        .eq("canceled", false)
-        .not("broker_id", "is", null);
-
-      if (startDateStr) orderQuery = orderQuery.gte("pickup_datetime", startDateStr);
-      if (endDateStr) {
-        const next = new Date(endDateStr);
-        next.setDate(next.getDate() + 1);
-        orderQuery = orderQuery.lt("pickup_datetime", next.toISOString().split("T")[0]);
-      }
-
-      const allOrders: { id: string; broker_id: string; freight_amount: number | null; loaded_miles: number | null }[] = [];
-      let offset = 0;
-      const PAGE = 1000;
-      while (true) {
-        const { data, error } = await orderQuery.range(offset, offset + PAGE - 1);
-        if (error) throw error;
-        if (data) allOrders.push(...(data as any[]));
-        if (!data || data.length < PAGE) break;
-        offset += PAGE;
-      }
-
-      if (allOrders.length === 0) return { matchingOrders: [], brokerStats: [] };
-
-      // Get all order IDs
-      const orderIds = allOrders.map(o => o.id);
-
-      // Fetch pickup_drops for these orders
-      const allStops: { order_id: string; type: string; latitude: number | null; longitude: number | null }[] = [];
-      for (let i = 0; i < orderIds.length; i += 200) {
-        const chunk = orderIds.slice(i, i + 200);
-        const { data: stops } = await supabase
-          .from("pickup_drops")
-          .select("order_id, type, latitude, longitude")
-          .in("order_id", chunk);
-        if (stops) allStops.push(...(stops as any[]));
-      }
-
-      // Group stops by order
-      const stopsByOrder = new Map<string, typeof allStops>();
-      for (const s of allStops) {
-        if (!stopsByOrder.has(s.order_id)) stopsByOrder.set(s.order_id, []);
-        stopsByOrder.get(s.order_id)!.push(s);
-      }
-
-      // Filter orders that match both pickup and delivery radius
-      const matchingOrderIds = new Set<string>();
-      for (const [orderId, stops] of stopsByOrder) {
-        const pickups = stops.filter(s => s.type === "pickup" && s.latitude && s.longitude);
-        const deliveries = stops.filter(s => s.type === "delivery" && s.latitude && s.longitude);
-
-        const pickupMatch = !pickupCoords || pickups.some(
-          s => haversine(pickupCoords.lat, pickupCoords.lng, s.latitude!, s.longitude!) <= pickupRadius
-        );
-        const deliveryMatch = !deliveryCoords || deliveries.some(
-          s => haversine(deliveryCoords.lat, deliveryCoords.lng, s.latitude!, s.longitude!) <= deliveryRadius
-        );
-
-        if (pickupMatch && deliveryMatch) matchingOrderIds.add(orderId);
-      }
-
-      const matchingOrders = allOrders.filter(o => matchingOrderIds.has(o.id));
-
-      // Aggregate by broker
-      const agg = new Map<string, { freight: number; miles: number; count: number; orderIds: string[] }>();
-      for (const o of matchingOrders) {
-        if (!agg.has(o.broker_id)) agg.set(o.broker_id, { freight: 0, miles: 0, count: 0, orderIds: [] });
-        const e = agg.get(o.broker_id)!;
-        e.freight += Number(o.freight_amount) || 0;
-        e.miles += Number(o.loaded_miles) || 0;
-        e.count++;
-        e.orderIds.push(o.id);
-      }
-
-      // Fetch broker info
-      const brokerIds = [...agg.keys()];
-      const brokerInfo = new Map<string, { name: string; mc: string }>();
-      for (let i = 0; i < brokerIds.length; i += 200) {
-        const chunk = brokerIds.slice(i, i + 200);
-        const { data: bData } = await supabase
-          .from("brokers")
-          .select("id, name, mc_number")
-          .in("id", chunk);
-        if (bData) {
-          for (const b of bData) brokerInfo.set(b.id, { name: b.name, mc: b.mc_number });
-        }
-      }
-
-      const brokerStats: BrokerStat[] = [];
-      for (const [brokerId, stats] of agg) {
-        const info = brokerInfo.get(brokerId);
-        brokerStats.push({
-          broker_id: brokerId,
-          broker_name: info?.name || "Unknown",
-          broker_mc: info?.mc || "",
-          total_freight: stats.freight,
-          avg_freight: stats.count > 0 ? stats.freight / stats.count : 0,
-          avg_miles: stats.count > 0 ? stats.miles / stats.count : 0,
-          rpm: stats.miles > 0 ? stats.freight / stats.miles : 0,
-          order_count: stats.count,
-          order_ids: stats.orderIds,
-        });
-      }
-
-      // Overall stats
-      const totalFreight = matchingOrders.reduce((s, o) => s + (Number(o.freight_amount) || 0), 0);
-      const totalMiles = matchingOrders.reduce((s, o) => s + (Number(o.loaded_miles) || 0), 0);
-      const count = matchingOrders.length;
-
-      return {
-        matchingOrders,
-        brokerStats,
-        overall: {
-          count,
-          avgFreight: count > 0 ? totalFreight / count : 0,
-          avgMiles: count > 0 ? totalMiles / count : 0,
-          rpm: totalMiles > 0 ? totalFreight / totalMiles : 0,
+      const { data, error } = await supabase.functions.invoke("lane-search", {
+        body: {
+          pickup: pickupCoords,
+          delivery: deliveryCoords,
+          pickupRadius,
+          deliveryRadius,
+          dateFrom: startDateStr ?? null,
+          dateTo: endDateStr ?? null,
         },
+      });
+      if (error) throw error;
+      return data as {
+        overall: { count: number; avgFreight: number; avgMiles: number; rpm: number };
+        brokerStats: BrokerStat[];
       };
     },
     enabled: hasCoords,
@@ -401,7 +293,7 @@ export default function BeverlyHeatmapLane() {
       )}
 
       {/* No results */}
-      {hasCoords && !isLoading && laneData && laneData.matchingOrders.length === 0 && (
+      {hasCoords && !isLoading && laneData && laneData.overall?.count === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">No loads found for this lane.</div>
       )}
 
