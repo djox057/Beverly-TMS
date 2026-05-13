@@ -563,14 +563,20 @@ const Reports = () => {
 
   // Auto-scroll each affected dispatcher's calendar carousel to show the matched load
   const loadFilterCalendarOverridesRef = useRef<Set<string>>(new Set());
+  const loadFilterWasActiveRef = useRef(false);
   useEffect(() => {
+    const hasLoadFilter = debouncedLoadNumberFilter.trim().length >= 3;
     // When the load filter is cleared, return Reports to today's default calendar window.
-    if (debouncedLoadNumberFilter.trim().length < 3) {
-      setSelectedDateForWindow(getChicagoToday());
-      setCalendarDates({});
+    if (!hasLoadFilter) {
+      if (loadFilterWasActiveRef.current) {
+        setSelectedDateForWindow(getChicagoToday());
+        setCalendarDates({});
+      }
+      loadFilterWasActiveRef.current = false;
       loadFilterCalendarOverridesRef.current.clear();
       return;
     }
+    loadFilterWasActiveRef.current = true;
     if (!foundOrderMeta?.pickupDate) return;
     const loadDate = new Date(foundOrderMeta.pickupDate);
     if (isNaN(loadDate.getTime())) return;
