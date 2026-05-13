@@ -2389,7 +2389,13 @@ const Reports = () => {
               zIndex: 10000,
             } as const;
 
-            const renderHalf = (slots: Slot[], top: number, height: number, connected: Set<number>, half: "top" | "bottom") => {
+            const renderHalf = (
+              slots: Slot[],
+              top: number,
+              height: number,
+              connected: Set<number>,
+              half: "top" | "bottom",
+            ) => {
               const total = slots.length;
               if (total === 0) return null;
               return slots.map((slot, i) => {
