@@ -571,7 +571,7 @@ const Reports = () => {
     targetStart.setDate(targetStart.getDate() - 2);
 
     const updates: Record<string, Date> = {};
-    for (const group of groupedReports as any[]) {
+    for (const group of (groupedReports || []) as any[]) {
       const dispatcherId = group?.dispatcherId;
       if (!dispatcherId || !Array.isArray(group?.trucks)) continue;
       const matches = group.trucks.some((truck: any) =>
