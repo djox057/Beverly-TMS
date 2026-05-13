@@ -117,10 +117,9 @@ Deno.serve(async (req) => {
         bookedBy = body.bookedBy || null;
         dispatcherDriverIds = body.dispatcherDriverIds || [];
         offset = body.offset || 0;
-        // Larger batches = fewer round-trips. Tail batches stay smaller to avoid
-        // statement timeouts on the deepest pages.
-        const defaultLimit = offset >= 10000 ? 1000 : (offset >= 6000 ? 1500 : 2000);
-        limit = Math.min(body.limit || defaultLimit, 2000);
+        // PostgREST caps responses at 1000 rows by default in this project,
+        // so requesting more silently returns 1000 and breaks pagination.
+        limit = Math.min(body.limit || 1000, 1000);
       } catch {
         // No body or invalid JSON
       }
@@ -303,7 +302,12 @@ Deno.serve(async (req) => {
     const fetchTime = Date.now() - startTime;
     console.log(`[get-all-locked-orders] TOTAL: ${orders?.length || 0} orders in ${fetchTime}ms (offset=${offset})`);
 
-    const hasMore = orders && orders.length === limit;
+    // Prefer authoritative totalCount when available (first batch).
+    // For subsequent batches, fall back to length === limit.
+    const returned = orders?.length || 0;
+    const hasMore = totalCount !== null
+      ? offset + returned < totalCount
+      : returned === limit;
 
     return new Response(
       JSON.stringify({
