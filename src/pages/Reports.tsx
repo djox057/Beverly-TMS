@@ -2862,7 +2862,7 @@ const Reports = () => {
                     top: -3,
                     left: `calc(${leftPct}% - 3px)`,
                     width: `calc(${widthPct}% + 6px)`,
-                    height: 38,
+                    height: fullyCovered ? 35 : 38,
                   }}
                 />,
               );
@@ -2887,10 +2887,10 @@ const Reports = () => {
                   style={{
                     ...overlayStyle,
                     ...(fullyCovered ? { borderTop: 0 } : {}),
-                    top: 29,
+                    top: fullyCovered ? 32 : 29,
                     left: `calc(${leftPct}% - 3px)`,
                     width: `calc(${widthPct}% + 6px)`,
-                    height: 38,
+                    height: fullyCovered ? 35 : 38,
                   }}
                 />,
               );
