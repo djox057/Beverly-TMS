@@ -339,6 +339,22 @@ const MemoizedDispatcherGroup = React.memo<{
 );
 MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
+// Helper to check if an order matches the load number search filter
+const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
+  if (!searchTerm || !order) return false;
+  const term = searchTerm.toLowerCase();
+  const brokerMatch = String(order.broker_load_number || "").toLowerCase().includes(term);
+  if (brokerMatch) return true;
+  const internalLoadNumber = order.internal_load_number;
+  const companyName = order.company?.name || order.driver1?.company?.name;
+  if (internalLoadNumber) {
+    const formattedInternal = formatInternalLoadNumber(internalLoadNumber, companyName).toLowerCase();
+    if (formattedInternal.includes(term)) return true;
+    if (String(internalLoadNumber).toLowerCase().includes(term)) return true;
+  }
+  return false;
+};
+
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
   const navigate = useNavigate();
