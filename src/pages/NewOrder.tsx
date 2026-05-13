@@ -123,6 +123,11 @@ const NewOrder = () => {
 
   // Miles change tracking
   const autoCalcLoadedMilesRef = useRef<number | null>(null);
+  // Idempotency key for order creation. Generated once per logical submit and
+  // reused across retries so a network retry of the RPC never creates a duplicate
+  // order. Cleared only on confirmed success or explicit form reset; never in a
+  // catch/finally because an "ambiguous" failure may actually have inserted the row.
+  const clientRequestIdRef = useRef<string | null>(null);
   const autoCalcDhMilesRef = useRef<number | null>(null);
   const [showMilesChangeDialog, setShowMilesChangeDialog] = useState(false);
   const [milesChangeInfo, setMilesChangeInfo] = useState<any>(null);
