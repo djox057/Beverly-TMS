@@ -1,19 +1,38 @@
-I’ll make a focused visual-only fix in `src/pages/Reports.tsx`:
+## Problem
 
-1. **Force the golden outline above the red today border**
-   - Render the golden highlight overlay after the actual stop cells instead of before them, so it wins the stacking order.
-   - Keep a very high `zIndex` on the gold overlay.
+In the gold-outline highlight logic for `Reports.tsx`, when a same-order pickup and delivery overlap horizontally with **different widths** (e.g. delivery is one of two half-width stops, pickup is a single full-width stop), the current code splits the wider slot into multiple segments to remove the border only over the overlap range. That makes a single pickup cell look visually split with a vertical seam in its gold outline — even though there is only one pickup in that cell.
 
-2. **Keep borders visible when pickup and delivery are connected**
-   - Stop removing the top/bottom border widths for connected pickup/drop slots.
-   - Instead, prevent the doubled middle line by slightly aligning/overlapping the two highlight rectangles while preserving a visible top and bottom edge.
+Reference (uploaded screenshot): "Marietta, GA 14:00" pickup spans the whole bottom of the cell, but the gold outline around it shows a vertical seam in the middle because the matched delivery above only covers the right half.
 
-3. **Scope the outline only to matched stops**
-   - Keep the per-slot calculation based on the exact rendered pickup/drop stop order.
-   - Do not create a widened combined overlay that spans unrelated neighboring stops.
+Expected:
+- Pickup with a single stop → one continuous gold rectangle, no internal seams.
+- Doubled middle line (where delivery bottom meets pickup top) still hidden.
 
-4. **Remove empty gaps between multiple pickup/drop stops**
-   - Replace the `space-x-0.5` flex gap with zero-gap layout.
-   - Keep each multi-stop cell at exact proportional widths so the green stop boxes touch cleanly without blank space.
+## Fix
 
-No data/business logic changes; only Reports visual rendering.
+In `src/pages/Reports.tsx` inside the gold overlay block (around lines 2820–2895), change the strategy from "split the wider slot into segments" to "remove the border on the fully-covered (smaller-width) side":
+
+For each pair of matched same-order delivery slot D and pickup slot P that overlap horizontally:
+
+- Compute overlap range `[oLeft, oRight]` and overlap width.
+- If overlap width >= D's width − epsilon → D is fully covered by P:
+  - Drop D's `borderBottom` entirely (single rect, no segmentation).
+- If overlap width >= P's width − epsilon → P is fully covered by D:
+  - Drop P's `borderTop` entirely (single rect, no segmentation).
+- If neither fully covers the other (true partial overlap with mismatched extents) → keep both borders intact (accept a short doubled segment) rather than introduce a visible seam in the larger slot.
+
+This removes the segmentation pass entirely. Each matched pickup and delivery slot renders as exactly one gold rectangle. The doubled-line cleanup only happens on the slot that is fully contained — which by definition has no border to "split" because the entire side is covered.
+
+## Result
+
+- Single full-width pickup with a half-width same-order delivery above:
+  - Delivery loses its bottom border (matches existing visual that pickup continues below it).
+  - Pickup keeps its full continuous top border with no internal seam.
+- Two stops pickup paired with two stops delivery, same width: existing `pairedDelivery` combined rectangle path still handles it (unchanged).
+- Equal full-width pickup + delivery same-order: paired-rect path also handles it (unchanged).
+
+## Files
+
+- `src/pages/Reports.tsx` — replace the per-segment loop in both "Standalone matched delivery slots" and "Standalone matched pickup slots" blocks with the single-rect + full-coverage check described above.
+
+No business logic, data, or styling token changes.
