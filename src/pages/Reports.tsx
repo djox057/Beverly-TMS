@@ -561,6 +561,49 @@ const Reports = () => {
     }
   }, [foundOrderMeta?.pickupDate]);
 
+  // Auto-scroll each affected dispatcher's calendar carousel to show the matched load
+  useEffect(() => {
+    if (!foundOrderMeta?.pickupDate) return;
+    if (debouncedLoadNumberFilter.trim().length < 3) return;
+    const loadDate = new Date(foundOrderMeta.pickupDate);
+    if (isNaN(loadDate.getTime())) return;
+    const targetStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
+    targetStart.setDate(targetStart.getDate() - 2);
+
+    const updates: Record<string, Date> = {};
+    for (const group of groupedReports as any[]) {
+      const dispatcherId = group?.dispatcherId;
+      if (!dispatcherId || !Array.isArray(group?.trucks)) continue;
+      const matches = group.trucks.some((truck: any) =>
+        (truck?.allOrders || []).some((order: any) =>
+          orderMatchesLoadFilter(order, debouncedLoadNumberFilter),
+        ),
+      );
+      if (!matches) continue;
+      const currentStart = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
+      const currentEnd = addDays(currentStart, 5);
+      const loadDay = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
+      if (loadDay >= currentStart && loadDay <= currentEnd) continue;
+      if (isSameDay(currentStart, targetStart)) continue;
+      updates[dispatcherId] = targetStart;
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    setCalendarDates((prev) => ({ ...prev, ...updates }));
+    for (const [dispatcherId, newDate] of Object.entries(updates)) {
+      const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
+      loadDispatcherOrders(dispatcherId, newDate);
+      loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+      if (newDate < previousStartDate) {
+        ensureLostDayNotesForDateRange(newDate, addDays(previousStartDate, -1));
+      } else if (newDate > previousStartDate) {
+        ensureLostDayNotesForDateRange(addDays(previousStartDate, 6), addDays(newDate, 5));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foundOrderMeta?.pickupDate, debouncedLoadNumberFilter, groupedReports]);
+
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
