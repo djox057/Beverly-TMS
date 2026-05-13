@@ -562,7 +562,6 @@ const Reports = () => {
   }, [foundOrderMeta?.pickupDate]);
 
   // Auto-scroll each affected dispatcher's calendar carousel to show the matched load
-  const loadFilterCalendarOverridesRef = useRef<Set<string>>(new Set());
   const loadFilterWasActiveRef = useRef(false);
   useEffect(() => {
     const hasLoadFilter = debouncedLoadNumberFilter.trim().length >= 3;
@@ -573,7 +572,6 @@ const Reports = () => {
         setCalendarDates({});
       }
       loadFilterWasActiveRef.current = false;
-      loadFilterCalendarOverridesRef.current.clear();
       return;
     }
     loadFilterWasActiveRef.current = true;
@@ -604,9 +602,6 @@ const Reports = () => {
     if (Object.keys(updates).length === 0) return;
 
     setCalendarDates((prev) => ({ ...prev, ...updates }));
-    for (const id of Object.keys(updates)) {
-      loadFilterCalendarOverridesRef.current.add(id);
-    }
     for (const [dispatcherId, newDate] of Object.entries(updates)) {
       const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
       loadDispatcherOrders(dispatcherId, newDate);
