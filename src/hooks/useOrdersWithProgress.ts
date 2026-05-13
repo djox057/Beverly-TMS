@@ -20,6 +20,15 @@ interface UseOrdersWithProgressOptions {
 }
 
 const LOCKED_BATCH_SIZE = 1000;
+const LOCKED_FETCH_CONCURRENCY = 4;
+
+const perfLogEnabled = () =>
+  typeof window !== "undefined" &&
+  localStorage.getItem("analytics_perf_log") === "true";
+
+const plog = (...args: unknown[]) => {
+  if (perfLogEnabled()) console.log("[analytics-perf]", ...args);
+};
 
 /**
  * Hook for Analytics page that loads orders with progress tracking.
@@ -72,6 +81,8 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
     queryFn: async () => {
       const startTime = Date.now();
       console.log(`[OrdersWithProgress] Starting fetch (precomputed=${usePrecomputed})...`);
+      const tFetchStart = performance.now();
+      let tTransformMs = 0;
 
       setProgress({
         unlockedLoaded: 0,
@@ -86,12 +97,14 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
 
       // Phase 1: Fetch ALL unlocked orders (always)
+      const tUnlockedStart = performance.now();
       const { data: unlockedResponse, error: unlockedError } = await supabase.functions.invoke(
         "get-all-unlocked-orders",
         {
           body: {
             bookedBy,
             dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            fields: "analytics",
           },
         }
       );
@@ -109,6 +122,12 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
         totalUnlockedCount = unlockedResponse.count;
         console.log(`[OrdersWithProgress] ✅ Fetched ${allUnlockedOrders.length} unlocked orders in ${unlockedResponse.fetchTimeMs}ms`);
       }
+      plog(`unlocked fetch: ${allUnlockedOrders.length} rows in ${(performance.now() - tUnlockedStart).toFixed(0)}ms (server reported ${unlockedResponse?.fetchTimeMs}ms)`);
+
+      // Transform unlocked immediately so the cost overlaps with locked-batch network time.
+      const tTUnlockedStart = performance.now();
+      const transformedUnlocked = transformOrders(allUnlockedOrders);
+      tTransformMs += performance.now() - tTUnlockedStart;
 
       if (isMountedRef.current) {
         setProgress(prev => ({ 
@@ -135,83 +154,120 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
           });
         }
 
-        const mergedOrders = transformOrders(allUnlockedOrders);
+        const mergedOrders = transformedUnlocked;
         console.log(`[OrdersWithProgress] ✅ COMPLETE (precomputed): ${mergedOrders.length} unlocked orders in ${totalTime}ms`);
 
         queryClient.setQueryData(["orders"], mergedOrders);
         return mergedOrders;
       }
 
-      // --- Fallback: full locked order fetch (analytics_use_raw_orders = "true") ---
-      let allLockedOrders: any[] = [];
-      let lockedOffset = 0;
-      let hasMoreLocked = true;
+      // --- Locked order fetch: worker-pool, per-batch transform ---
+      const tLockedStart = performance.now();
+      const transformedLocked: any[] = [];
+      let lockedRowsFetched = 0;
       let totalLockedCount: number | null = null;
 
-      console.log("[OrdersWithProgress] Starting locked orders fetch (all batches)...");
+      const fetchLockedBatch = async (offset: number) => {
+        const { data: resp, error } = await supabase.functions.invoke("get-all-locked-orders", {
+          body: {
+            bookedBy,
+            dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            offset,
+            limit: LOCKED_BATCH_SIZE,
+            fields: "analytics",
+          },
+        });
+        if (error) throw error;
+        return resp;
+      };
 
-      let batchAttempts = 0;
-      const MAX_BATCH_ATTEMPTS = 200;
-      while (hasMoreLocked && batchAttempts < MAX_BATCH_ATTEMPTS) {
-        batchAttempts++;
-        const { data: lockedResponse, error: lockedError } = await supabase.functions.invoke(
-          "get-all-locked-orders",
-          {
-            body: {
-              bookedBy,
-              dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
-              offset: lockedOffset,
-              limit: LOCKED_BATCH_SIZE,
-            },
+      // Bootstrap with first batch to learn totalCount.
+      const firstResp = await fetchLockedBatch(0);
+      if (firstResp?.orders?.length) {
+        const tT = performance.now();
+        transformedLocked.push(...transformOrders(firstResp.orders));
+        tTransformMs += performance.now() - tT;
+        lockedRowsFetched += firstResp.orders.length;
+      }
+      totalLockedCount = firstResp?.totalCount ?? null;
+      plog(`locked first batch: ${firstResp?.orders?.length ?? 0} rows, totalCount=${totalLockedCount}`);
+
+      if (isMountedRef.current) {
+        setProgress(prev => ({
+          ...prev,
+          lockedLoaded: lockedRowsFetched,
+          lockedTotal: totalLockedCount,
+        }));
+      }
+
+      // Plan remaining offsets. If totalCount missing, fall back to sequential length-based pagination.
+      if (totalLockedCount !== null) {
+        const offsets: number[] = [];
+        for (let off = LOCKED_BATCH_SIZE; off < totalLockedCount; off += LOCKED_BATCH_SIZE) {
+          offsets.push(off);
+        }
+        plog(`locked plan: ${offsets.length} more batches at concurrency ${LOCKED_FETCH_CONCURRENCY}`);
+
+        // Worker pool
+        let cursor = 0;
+        const worker = async () => {
+          while (cursor < offsets.length) {
+            const myIndex = cursor++;
+            const off = offsets[myIndex];
+            const resp = await fetchLockedBatch(off);
+            const batch = resp?.orders ?? [];
+            if (batch.length) {
+              const tT = performance.now();
+              const tBatch = transformOrders(batch);
+              tTransformMs += performance.now() - tT;
+              transformedLocked.push(...tBatch);
+              lockedRowsFetched += batch.length;
+              if (isMountedRef.current) {
+                setProgress(prev => ({
+                  ...prev,
+                  lockedLoaded: lockedRowsFetched,
+                  lockedTotal: totalLockedCount,
+                }));
+              }
+            }
           }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(LOCKED_FETCH_CONCURRENCY, offsets.length) }, worker)
         );
-
-        if (lockedError) {
-          console.error("[OrdersWithProgress] Locked Edge Function error:", lockedError);
-          break;
-        }
-
-        if (lockedResponse?.orders) {
-          const batchOrders = lockedResponse.orders;
-          allLockedOrders = [...allLockedOrders, ...batchOrders];
-          
-          if (lockedOffset === 0 && lockedResponse.totalCount !== null) {
-            totalLockedCount = lockedResponse.totalCount;
+      } else {
+        // Fallback: server didn't report totalCount — sequential, trust hasMore.
+        let off = LOCKED_BATCH_SIZE;
+        let attempts = 0;
+        const MAX_ATTEMPTS = 200;
+        let hasMore = !!firstResp?.hasMore;
+        while (hasMore && attempts < MAX_ATTEMPTS) {
+          attempts++;
+          const resp = await fetchLockedBatch(off);
+          const batch = resp?.orders ?? [];
+          if (batch.length) {
+            const tT = performance.now();
+            transformedLocked.push(...transformOrders(batch));
+            tTransformMs += performance.now() - tT;
+            lockedRowsFetched += batch.length;
+            off += batch.length;
+            if (isMountedRef.current) {
+              setProgress(prev => ({ ...prev, lockedLoaded: lockedRowsFetched, lockedTotal: null }));
+            }
           }
-          
-          // Trust server's hasMore flag — server may cap tail batches below
-          // LOCKED_BATCH_SIZE, so length-based termination would stop early.
-          hasMoreLocked = lockedResponse.hasMore && batchOrders.length > 0;
-          lockedOffset += batchOrders.length;
-          
-          console.log(`[OrdersWithProgress] Locked batch: ${batchOrders.length} orders (total: ${allLockedOrders.length}/${totalLockedCount || '?'})`);
-          
-          if (isMountedRef.current) {
-            setProgress(prev => ({
-              ...prev,
-              lockedLoaded: allLockedOrders.length,
-              lockedTotal: totalLockedCount,
-            }));
-          }
-        } else {
-          hasMoreLocked = false;
+          hasMore = !!resp?.hasMore && batch.length > 0;
         }
       }
 
-      if (hasMoreLocked && batchAttempts >= MAX_BATCH_ATTEMPTS) {
-        console.warn(`[OrdersWithProgress] ⚠️ Stopped fetching locked orders after ${MAX_BATCH_ATTEMPTS} batches (${allLockedOrders.length} loaded). Increase MAX_BATCH_ATTEMPTS if order count keeps growing.`);
-      }
-      console.log(`[OrdersWithProgress] ✅ Fetched all ${allLockedOrders.length} locked orders`);
+      plog(`locked total: ${lockedRowsFetched} rows in ${(performance.now() - tLockedStart).toFixed(0)}ms`);
 
-      const unlockedOrderIds = new Set(allUnlockedOrders.map(o => o.id));
-      const deduplicatedLockedOrders = allLockedOrders.filter(
-        order => !unlockedOrderIds.has(order.id)
-      );
-      
-      deduplicatedLockedOrders.sort((a, b) => {
-        const dateA = a.pickup_datetime || '';
-        const dateB = b.pickup_datetime || '';
-        return dateB.localeCompare(dateA);
+      // Dedupe: unlocked always wins. Build a set of unlocked ids and drop locked dupes.
+      const unlockedIds = new Set(transformedUnlocked.map((o: any) => o.id));
+      const dedupedLocked = transformedLocked.filter((o: any) => !unlockedIds.has(o.id));
+      dedupedLocked.sort((a: any, b: any) => {
+        const da = a.pickupDatetime || "";
+        const db = b.pickupDatetime || "";
+        return db.localeCompare(da);
       });
 
       const totalTime = Date.now() - startTime;
@@ -219,7 +275,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
         setProgress({
           unlockedLoaded: allUnlockedOrders.length,
           unlockedTotal: totalUnlockedCount,
-          lockedLoaded: deduplicatedLockedOrders.length,
+          lockedLoaded: dedupedLocked.length,
           lockedTotal: totalLockedCount,
           isLoadingMore: false,
           isComplete: true,
@@ -227,8 +283,9 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
         });
       }
 
-      const mergedOrders = transformOrders([...allUnlockedOrders, ...deduplicatedLockedOrders]);
-      console.log(`[OrdersWithProgress] ✅ COMPLETE: ${allUnlockedOrders.length} unlocked + ${deduplicatedLockedOrders.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
+      const mergedOrders = [...transformedUnlocked, ...dedupedLocked];
+      plog(`pipeline total: fetch+transform=${(performance.now() - tFetchStart).toFixed(0)}ms, transform-only=${tTransformMs.toFixed(0)}ms, merged=${mergedOrders.length}`);
+      console.log(`[OrdersWithProgress] ✅ COMPLETE: ${transformedUnlocked.length} unlocked + ${dedupedLocked.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
 
       queryClient.setQueryData(["orders"], mergedOrders);
       return mergedOrders;
