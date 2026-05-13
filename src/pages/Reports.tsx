@@ -2817,6 +2817,8 @@ const Reports = () => {
               boxSizing: "border-box" as const,
               zIndex: 10000,
             };
+            const rangesOverlap = (aLeft: number, aWidth: number, bLeft: number, bWidth: number) =>
+              aLeft < bLeft + bWidth && bLeft < aLeft + aWidth;
 
             const rects: JSX.Element[] = [];
 
@@ -2842,12 +2844,18 @@ const Reports = () => {
               if (!slot.matched || pairedDelivery.has(i)) return;
               const widthPct = 100 / dTotal;
               const leftPct = widthPct * i;
+              const touchesSameOrderPickup = pickupSlots.some((pickupSlot, pickupIndex) => {
+                if (!pickupSlot.matched || pickupSlot.orderId !== slot.orderId) return false;
+                const pickupWidthPct = 100 / pTotal;
+                return rangesOverlap(leftPct, widthPct, pickupWidthPct * pickupIndex, pickupWidthPct);
+              });
               rects.push(
                 <div
                   key={`gold-d-${i}`}
                   className="absolute pointer-events-none"
                   style={{
                     ...overlayStyle,
+                    ...(touchesSameOrderPickup ? { borderBottom: 0 } : {}),
                     top: -3,
                     left: `calc(${leftPct}% - 3px)`,
                     width: `calc(${widthPct}% + 6px)`,
@@ -2862,12 +2870,18 @@ const Reports = () => {
               if (!slot.matched || pairedPickup.has(i)) return;
               const widthPct = 100 / pTotal;
               const leftPct = widthPct * i;
+              const touchesSameOrderDelivery = deliverySlots.some((deliverySlot, deliveryIndex) => {
+                if (!deliverySlot.matched || deliverySlot.orderId !== slot.orderId) return false;
+                const deliveryWidthPct = 100 / dTotal;
+                return rangesOverlap(leftPct, widthPct, deliveryWidthPct * deliveryIndex, deliveryWidthPct);
+              });
               rects.push(
                 <div
                   key={`gold-p-${i}`}
                   className="absolute pointer-events-none"
                   style={{
                     ...overlayStyle,
+                    ...(touchesSameOrderDelivery ? { borderTop: 0 } : {}),
                     top: 29,
                     left: `calc(${leftPct}% - 3px)`,
                     width: `calc(${widthPct}% + 6px)`,
