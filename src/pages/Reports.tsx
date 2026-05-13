@@ -557,13 +557,13 @@ const Reports = () => {
   // Auto-navigate calendar when load search finds an order outside the visible date window
   useEffect(() => {
     if (foundOrderMeta?.pickupDate) {
-      const loadDate = new Date(foundOrderMeta.pickupDate);
+      const loadDate = getOrderPickupDateForCarousel({ pickup_datetime: foundOrderMeta.pickupDate });
+      if (!loadDate) return;
       if (isNaN(loadDate.getTime())) return;
       const windowStart = addDays(selectedDateForWindow, -2);
       const windowEnd = addDays(selectedDateForWindow, 3);
-      const loadDateStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-      if (loadDateStart < windowStart || loadDateStart > windowEnd) {
-        setSelectedDateForWindow(addDays(loadDateStart, -1));
+      if (loadDate < windowStart || loadDate > windowEnd) {
+        setSelectedDateForWindow(addDays(loadDate, -1));
       }
     }
   }, [foundOrderMeta?.pickupDate]);
