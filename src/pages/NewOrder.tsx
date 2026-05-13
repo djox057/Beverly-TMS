@@ -1924,6 +1924,7 @@ const NewOrder = () => {
         po_number: pickupPoNumber || deliveryPoNumber || null,
         pu_number: pickupPuNumber || null,
         booked_by: profile?.full_name || "Unknown User",
+        client_request_id: clientRequestIdRef.current,
       };
 
       // Log order data for debugging
