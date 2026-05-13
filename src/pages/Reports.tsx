@@ -355,6 +355,13 @@ const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
   return false;
 };
 
+const getOrderPickupDateForCarousel = (order: any): Date | null => {
+  const pickupDatetime = order?.pickupStops?.[0]?.datetime || order?.pickupStop?.datetime || order?.pickup_datetime;
+  if (!pickupDatetime) return null;
+  const parsed = parseSimpleDateTime(pickupDatetime);
+  return new Date(parsed.year, parsed.month - 1, parsed.day);
+};
+
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
   const navigate = useNavigate();
@@ -550,13 +557,13 @@ const Reports = () => {
   // Auto-navigate calendar when load search finds an order outside the visible date window
   useEffect(() => {
     if (foundOrderMeta?.pickupDate) {
-      const loadDate = new Date(foundOrderMeta.pickupDate);
+      const loadDate = getOrderPickupDateForCarousel({ pickup_datetime: foundOrderMeta.pickupDate });
+      if (!loadDate) return;
       if (isNaN(loadDate.getTime())) return;
       const windowStart = addDays(selectedDateForWindow, -2);
       const windowEnd = addDays(selectedDateForWindow, 3);
-      const loadDateStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-      if (loadDateStart < windowStart || loadDateStart > windowEnd) {
-        setSelectedDateForWindow(loadDateStart);
+      if (loadDate < windowStart || loadDate > windowEnd) {
+        setSelectedDateForWindow(addDays(loadDate, -1));
       }
     }
   }, [foundOrderMeta?.pickupDate]);
@@ -575,26 +582,24 @@ const Reports = () => {
       return;
     }
     loadFilterWasActiveRef.current = true;
-    if (!foundOrderMeta?.pickupDate) return;
-    const loadDate = new Date(foundOrderMeta.pickupDate);
-    if (isNaN(loadDate.getTime())) return;
-    const targetStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-    targetStart.setDate(targetStart.getDate() - 1);
 
     const updates: Record<string, Date> = {};
     for (const group of (groupedReports || []) as any[]) {
       const dispatcherId = group?.dispatcherId;
       if (!dispatcherId || !Array.isArray(group?.trucks)) continue;
-      const matches = group.trucks.some((truck: any) =>
-        (truck?.allOrders || []).some((order: any) =>
+      let loadDate: Date | null = null;
+      for (const truck of group.trucks) {
+        const matchedOrder = (truck?.allOrders || []).find((order: any) =>
           orderMatchesLoadFilter(order, debouncedLoadNumberFilter),
-        ),
-      );
-      if (!matches) continue;
+        );
+        if (matchedOrder) {
+          loadDate = getOrderPickupDateForCarousel(matchedOrder);
+          break;
+        }
+      }
+      if (!loadDate) continue;
+      const targetStart = addDays(loadDate, -1);
       const currentStart = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
-      const currentEnd = addDays(currentStart, 5);
-      const loadDay = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-      if (loadDay >= currentStart && loadDay <= currentEnd) continue;
       if (isSameDay(currentStart, targetStart)) continue;
       updates[dispatcherId] = targetStart;
     }
