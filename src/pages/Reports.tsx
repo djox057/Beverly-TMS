@@ -2367,7 +2367,7 @@ const Reports = () => {
                 }}
               >
                 {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
-                  <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
+                  <div className="flex-1 p-0 overflow-hidden flex flex-row">
                     {allDeliveryOrders.flatMap((order) => {
                       // Get all delivery stops for this day
                       const dayStr = format(day, "yyyy-MM-dd");
@@ -2546,7 +2546,7 @@ const Reports = () => {
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                       <div
-                        className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
+                        className="flex-1 p-0 overflow-hidden flex flex-row"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {sameDayOrders.flatMap((order) => {
