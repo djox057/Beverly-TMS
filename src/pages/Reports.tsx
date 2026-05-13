@@ -563,7 +563,7 @@ const Reports = () => {
       const windowEnd = addDays(selectedDateForWindow, 3);
       const loadDateStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
       if (loadDateStart < windowStart || loadDateStart > windowEnd) {
-        setSelectedDateForWindow(loadDateStart);
+        setSelectedDateForWindow(addDays(loadDateStart, -1));
       }
     }
   }, [foundOrderMeta?.pickupDate]);
@@ -599,9 +599,6 @@ const Reports = () => {
       }
       if (!loadDate) continue;
       const targetStart = addDays(loadDate, -1);
-      const currentStart = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
-      const currentEnd = addDays(currentStart, 5);
-      if (loadDate >= currentStart && loadDate <= currentEnd) continue;
       if (isSameDay(currentStart, targetStart)) continue;
       updates[dispatcherId] = targetStart;
     }
