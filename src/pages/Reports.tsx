@@ -2783,9 +2783,9 @@ const Reports = () => {
             const dTotal = deliverySlots.length;
             const pTotal = pickupSlots.length;
 
-            // Pair matched delivery+pickup slots of the same order whose column ranges overlap
-            // so we can render ONE rectangle spanning both halves (no doubled middle border, both
-            // top and bottom edges preserved).
+            // Pair matched delivery+pickup slots only when their column ranges are identical.
+            // If one half has multiple stops, a wider paired rectangle would incorrectly outline
+            // neighboring stops from a different order.
             const pairedDelivery = new Map<number, { leftPct: number; widthPct: number; orderId: string }>();
             const pairedPickup = new Set<number>();
             if (dTotal > 0 && pTotal > 0) {
@@ -2801,10 +2801,8 @@ const Reports = () => {
                   const pWidth = 100 / pTotal;
                   const pLeft = pWidth * pi;
                   const pRight = pLeft + pWidth;
-                  if (pLeft < dRight && dLeft < pRight) {
-                    const leftPct = Math.min(dLeft, pLeft);
-                    const rightPct = Math.max(dRight, pRight);
-                    pairedDelivery.set(di, { leftPct, widthPct: rightPct - leftPct, orderId: d.orderId });
+                  if (Math.abs(pLeft - dLeft) < 0.01 && Math.abs(pRight - dRight) < 0.01) {
+                    pairedDelivery.set(di, { leftPct: dLeft, widthPct: dWidth, orderId: d.orderId });
                     pairedPickup.add(pi);
                     break;
                   }
