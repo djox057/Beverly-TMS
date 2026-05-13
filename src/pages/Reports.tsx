@@ -2287,6 +2287,25 @@ const Reports = () => {
 
       // Check if this day is today (Chicago time) - always use actual today for the red border
       const isToday = isSameDay(day, chicagoToday);
+      type LoadMatchSlot = { matched: boolean; orderId: string };
+      const buildLoadMatchSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): LoadMatchSlot[] => {
+        if (!debouncedLoadNumberFilter) return [];
+        const slots: LoadMatchSlot[] = [];
+        for (const list of sources) {
+          for (const order of list) {
+            const stopsForDay = (order[stopKey] || []).filter(
+              (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+            );
+            const matched = orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
+            for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
+          }
+        }
+        return slots;
+      };
+      const deliveryLoadMatchSlots = buildLoadMatchSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
+      const pickupLoadMatchSlots = buildLoadMatchSlots([sameDayOrders, allPickupOrders], "pickupStops");
+      const hasHighlightedLoadSlot =
+        deliveryLoadMatchSlots.some((slot) => slot.matched) || pickupLoadMatchSlots.some((slot) => slot.matched);
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
@@ -2308,7 +2327,7 @@ const Reports = () => {
           }}
         >
           {/* Red border overlay for today column */}
-          {isToday && (
+          {isToday && !hasHighlightedLoadSlot && (
             <div
               className="absolute"
               style={{
