@@ -562,25 +562,19 @@ const Reports = () => {
   }, [foundOrderMeta?.pickupDate]);
 
   // Auto-scroll each affected dispatcher's calendar carousel to show the matched load
-  // Map dispatcherId -> previous calendar start (or null if there was no prior entry)
-  const loadFilterCalendarOverridesRef = useRef<Map<string, Date | null>>(new Map());
+  const loadFilterWasActiveRef = useRef(false);
   useEffect(() => {
-    // When the load filter is cleared, revert any carousels we previously moved
-    if (debouncedLoadNumberFilter.trim().length < 3) {
-      const overrides = loadFilterCalendarOverridesRef.current;
-      if (overrides.size > 0) {
-        setCalendarDates((prev) => {
-          const next = { ...prev };
-          for (const [id, prevStart] of overrides) {
-            if (prevStart) next[id] = prevStart;
-            else delete next[id];
-          }
-          return next;
-        });
-        overrides.clear();
+    const hasLoadFilter = debouncedLoadNumberFilter.trim().length >= 3;
+    // When the load filter is cleared, return Reports to today's default calendar window.
+    if (!hasLoadFilter) {
+      if (loadFilterWasActiveRef.current) {
+        setSelectedDateForWindow(getChicagoToday());
+        setCalendarDates({});
       }
+      loadFilterWasActiveRef.current = false;
       return;
     }
+    loadFilterWasActiveRef.current = true;
     if (!foundOrderMeta?.pickupDate) return;
     const loadDate = new Date(foundOrderMeta.pickupDate);
     if (isNaN(loadDate.getTime())) return;
@@ -608,12 +602,6 @@ const Reports = () => {
     if (Object.keys(updates).length === 0) return;
 
     setCalendarDates((prev) => ({ ...prev, ...updates }));
-    for (const id of Object.keys(updates)) {
-      // Only record the first override so we restore back to pre-search state
-      if (!loadFilterCalendarOverridesRef.current.has(id)) {
-        loadFilterCalendarOverridesRef.current.set(id, calendarDates[id] || null);
-      }
-    }
     for (const [dispatcherId, newDate] of Object.entries(updates)) {
       const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
       loadDispatcherOrders(dispatcherId, newDate);
