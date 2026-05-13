@@ -2361,19 +2361,43 @@ const Reports = () => {
             // draw a SINGLE full-height overlay to avoid a doubled border in the middle.
             const dTotal = deliverySlots.length;
             const pTotal = pickupSlots.length;
-            const combinedKeys = new Set<string>(); // `${orderId}|${dIdx}|${pIdx}`
             const skipDelivery = new Set<number>();
             const skipPickup = new Set<number>();
-            const combined: { orderId: string; dIdx: number; pIdx: number }[] = [];
-            if (dTotal > 0 && pTotal > 0 && dTotal === pTotal) {
-              for (let i = 0; i < dTotal; i++) {
-                const d = deliverySlots[i];
-                const p = pickupSlots[i];
-                if (d.matched && p.matched && d.orderId === p.orderId) {
-                  combined.push({ orderId: d.orderId, dIdx: i, pIdx: i });
-                  skipDelivery.add(i);
-                  skipPickup.add(i);
-                  combinedKeys.add(`${d.orderId}|${i}|${i}`);
+            const combined: {
+              orderId: string;
+              leftPct: number;
+              widthPct: number;
+            }[] = [];
+            // For any matched order that has BOTH a delivery slot and a pickup slot
+            // in this cell whose column ranges overlap, collapse them into one
+            // full-height overlay to avoid the doubled border across the middle line.
+            if (dTotal > 0 && pTotal > 0) {
+              for (let di = 0; di < dTotal; di++) {
+                const d = deliverySlots[di];
+                if (!d.matched || skipDelivery.has(di)) continue;
+                const dWidth = 100 / dTotal;
+                const dLeft = dWidth * di;
+                const dRight = dLeft + dWidth;
+                for (let pi = 0; pi < pTotal; pi++) {
+                  const p = pickupSlots[pi];
+                  if (!p.matched || skipPickup.has(pi)) continue;
+                  if (p.orderId !== d.orderId) continue;
+                  const pWidth = 100 / pTotal;
+                  const pLeft = pWidth * pi;
+                  const pRight = pLeft + pWidth;
+                  // Visual overlap on the X axis
+                  if (pLeft < dRight && dLeft < pRight) {
+                    const leftPct = Math.min(dLeft, pLeft);
+                    const rightPct = Math.max(dRight, pRight);
+                    combined.push({
+                      orderId: d.orderId,
+                      leftPct,
+                      widthPct: rightPct - leftPct,
+                    });
+                    skipDelivery.add(di);
+                    skipPickup.add(pi);
+                    break;
+                  }
                 }
               }
             }
@@ -2410,13 +2434,11 @@ const Reports = () => {
 
             return (
               <>
-                {combined.map(({ orderId, dIdx, pIdx }) => {
+                {combined.map(({ orderId, leftPct, widthPct }, idx) => {
                   // Single full-cell overlay spanning both halves.
-                  const widthPct = 100 / dTotal;
-                  const leftPct = widthPct * dIdx;
                   return (
                     <div
-                      key={`gold-combined-${orderId}-${dIdx}-${pIdx}`}
+                      key={`gold-combined-${orderId}-${idx}`}
                       className="absolute pointer-events-none"
                       style={{
                         ...overlayStyle,
