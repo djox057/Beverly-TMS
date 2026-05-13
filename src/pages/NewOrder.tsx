@@ -1555,6 +1555,15 @@ const NewOrder = () => {
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
+    // Generate (or reuse) an idempotency key for this submit. Reused on retries
+    // so the server-side RPC dedupes via the unique (company_id, client_request_id) index.
+    if (!clientRequestIdRef.current) {
+      clientRequestIdRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    }
+
     // CRITICAL: Validate pickup/drop data before submission (unless pending from missing data confirmation)
     if (!pendingSubmit) {
       const missingData = validatePickupDropData();
