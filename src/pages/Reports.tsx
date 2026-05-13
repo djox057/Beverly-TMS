@@ -2356,6 +2356,31 @@ const Reports = () => {
               deliverySlots.some((s) => s.matched) || pickupSlots.some((s) => s.matched);
             if (!hasAny) return null;
 
+            // Connect matching pickup/delivery slots without widening the outline across unrelated stops.
+            const connectedDelivery = new Set<number>();
+            const connectedPickup = new Set<number>();
+            if (deliverySlots.length > 0 && pickupSlots.length > 0) {
+              for (let di = 0; di < deliverySlots.length; di++) {
+                const d = deliverySlots[di];
+                if (!d.matched || connectedDelivery.has(di)) continue;
+                const dWidth = 100 / deliverySlots.length;
+                const dLeft = dWidth * di;
+                const dRight = dLeft + dWidth;
+                for (let pi = 0; pi < pickupSlots.length; pi++) {
+                  const p = pickupSlots[pi];
+                  if (!p.matched || connectedPickup.has(pi) || p.orderId !== d.orderId) continue;
+                  const pWidth = 100 / pickupSlots.length;
+                  const pLeft = pWidth * pi;
+                  const pRight = pLeft + pWidth;
+                  if (pLeft < dRight && dLeft < pRight) {
+                    connectedDelivery.add(di);
+                    connectedPickup.add(pi);
+                    break;
+                  }
+                }
+              }
+            }
+
             const overlayStyle = {
               border: "3px solid hsl(var(--warning))",
               borderRadius: 4,
@@ -2364,19 +2389,22 @@ const Reports = () => {
               zIndex: 10000,
             } as const;
 
-            const renderHalf = (slots: Slot[], top: number, height: number) => {
+            const renderHalf = (slots: Slot[], top: number, height: number, connected: Set<number>, half: "top" | "bottom") => {
               const total = slots.length;
               if (total === 0) return null;
               return slots.map((slot, i) => {
                 if (!slot.matched) return null;
                 const widthPct = 100 / total;
                 const leftPct = widthPct * i;
+                const isConnected = connected.has(i);
                 return (
                   <div
                     key={`gold-half-${top}-${i}`}
                     className="absolute pointer-events-none"
                     style={{
                       ...overlayStyle,
+                      ...(isConnected && half === "top" ? { borderBottomWidth: 0 } : {}),
+                      ...(isConnected && half === "bottom" ? { borderTopWidth: 0 } : {}),
                       top,
                       left: `calc(${leftPct}% - 3px)`,
                       width: `calc(${widthPct}% + 6px)`,
@@ -2389,8 +2417,8 @@ const Reports = () => {
 
             return (
               <>
-                {renderHalf(deliverySlots, -3, 35)}
-                {renderHalf(pickupSlots, 29, 38)}
+                {renderHalf(deliverySlots, -3, 35, connectedDelivery, "top")}
+                {renderHalf(pickupSlots, 29, 38, connectedPickup, "bottom")}
               </>
             );
           })()}
