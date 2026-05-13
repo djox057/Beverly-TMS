@@ -582,26 +582,26 @@ const Reports = () => {
       return;
     }
     loadFilterWasActiveRef.current = true;
-    if (!foundOrderMeta?.pickupDate) return;
-    const loadDate = new Date(foundOrderMeta.pickupDate);
-    if (isNaN(loadDate.getTime())) return;
-    const targetStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-    targetStart.setDate(targetStart.getDate() - 1);
 
     const updates: Record<string, Date> = {};
     for (const group of (groupedReports || []) as any[]) {
       const dispatcherId = group?.dispatcherId;
       if (!dispatcherId || !Array.isArray(group?.trucks)) continue;
-      const matches = group.trucks.some((truck: any) =>
-        (truck?.allOrders || []).some((order: any) =>
+      let loadDate: Date | null = null;
+      for (const truck of group.trucks) {
+        const matchedOrder = (truck?.allOrders || []).find((order: any) =>
           orderMatchesLoadFilter(order, debouncedLoadNumberFilter),
-        ),
-      );
-      if (!matches) continue;
+        );
+        if (matchedOrder) {
+          loadDate = getOrderPickupDateForCarousel(matchedOrder);
+          break;
+        }
+      }
+      if (!loadDate) continue;
+      const targetStart = addDays(loadDate, -1);
       const currentStart = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
       const currentEnd = addDays(currentStart, 5);
-      const loadDay = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-      if (loadDay >= currentStart && loadDay <= currentEnd) continue;
+      if (loadDate >= currentStart && loadDate <= currentEnd) continue;
       if (isSameDay(currentStart, targetStart)) continue;
       updates[dispatcherId] = targetStart;
     }
