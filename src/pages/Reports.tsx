@@ -2378,17 +2378,15 @@ const Reports = () => {
                                 .length || 0),
                             0,
                           );
+                        const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                         return (
                           <div
                             key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                            style={
-                              totalCellsOnDay > 1
-                                ? {
-                                    width: `${100 / totalCellsOnDay}%`,
-                                  }
-                                : {}
-                            }
+                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                            style={{
+                              ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
+                              ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -2437,17 +2435,15 @@ const Reports = () => {
                                 .length || 0),
                             0,
                           );
+                        const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                         return (
                           <div
                             key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                            style={
-                              totalCellsOnDay > 1
-                                ? {
-                                    width: `${100 / totalCellsOnDay}%`,
-                                  }
-                                : {}
-                            }
+                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                            style={{
+                              ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
+                              ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
@@ -2570,17 +2566,15 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
+                            const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                             return (
                               <div
                                 key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                                style={
-                                  totalCellsOnDay > 1
-                                    ? {
-                                        width: `${100 / totalCellsOnDay}%`,
-                                      }
-                                    : {}
-                                }
+                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                                style={{
+                                  ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
+                                  ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -2632,17 +2626,15 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
+                            const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                             return (
                               <div
                                 key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                                style={
-                                  totalCellsOnDay > 1
-                                    ? {
-                                        width: `${100 / totalCellsOnDay}%`,
-                                      }
-                                    : {}
-                                }
+                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                                style={{
+                                  ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
+                                  ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
