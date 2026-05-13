@@ -2758,6 +2758,7 @@ export type Database = {
           broker_id: string | null
           broker_load_number: string | null
           canceled: boolean
+          client_request_id: string | null
           commodity: string | null
           company_id: string
           created_at: string
@@ -2871,6 +2872,7 @@ export type Database = {
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
+          client_request_id?: string | null
           commodity?: string | null
           company_id: string
           created_at?: string
@@ -2984,6 +2986,7 @@ export type Database = {
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
+          client_request_id?: string | null
           commodity?: string | null
           company_id?: string
           created_at?: string
