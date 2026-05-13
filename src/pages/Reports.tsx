@@ -355,6 +355,13 @@ const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
   return false;
 };
 
+const getOrderPickupDateForCarousel = (order: any): Date | null => {
+  const pickupDatetime = order?.pickupStops?.[0]?.datetime || order?.pickupStop?.datetime || order?.pickup_datetime;
+  if (!pickupDatetime) return null;
+  const parsed = parseSimpleDateTime(pickupDatetime);
+  return new Date(parsed.year, parsed.month - 1, parsed.day);
+};
+
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
   const navigate = useNavigate();
