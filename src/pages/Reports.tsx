@@ -2329,106 +2329,6 @@ const Reports = () => {
             />
           )}
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
-          {(() => {
-            if (!debouncedLoadNumberFilter) return null;
-            // Build per-stop slot info matching render order in the cell.
-            // Delivery half: allDeliveryOrders stops, then sameDayOrders stops.
-            // Pickup half: sameDayOrders stops, then allPickupOrders stops.
-            type Slot = { matched: boolean; orderId: string };
-            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): Slot[] => {
-              const slots: Slot[] = [];
-              for (const list of sources) {
-                for (const order of list) {
-                  const stopsForDay = (order[stopKey] || []).filter(
-                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                  );
-                  const matched =
-                    !!debouncedLoadNumberFilter &&
-                    orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
-                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
-                }
-              }
-              return slots;
-            };
-            const deliverySlots = buildSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
-            const pickupSlots = buildSlots([sameDayOrders, allPickupOrders], "pickupStops");
-            const hasAny =
-              deliverySlots.some((s) => s.matched) || pickupSlots.some((s) => s.matched);
-            if (!hasAny) return null;
-
-            // Connect matching pickup/delivery slots without widening the outline across unrelated stops.
-            const connectedDelivery = new Set<number>();
-            const connectedPickup = new Set<number>();
-            if (deliverySlots.length > 0 && pickupSlots.length > 0) {
-              for (let di = 0; di < deliverySlots.length; di++) {
-                const d = deliverySlots[di];
-                if (!d.matched || connectedDelivery.has(di)) continue;
-                const dWidth = 100 / deliverySlots.length;
-                const dLeft = dWidth * di;
-                const dRight = dLeft + dWidth;
-                for (let pi = 0; pi < pickupSlots.length; pi++) {
-                  const p = pickupSlots[pi];
-                  if (!p.matched || connectedPickup.has(pi) || p.orderId !== d.orderId) continue;
-                  const pWidth = 100 / pickupSlots.length;
-                  const pLeft = pWidth * pi;
-                  const pRight = pLeft + pWidth;
-                  if (pLeft < dRight && dLeft < pRight) {
-                    connectedDelivery.add(di);
-                    connectedPickup.add(pi);
-                    break;
-                  }
-                }
-              }
-            }
-
-            const overlayStyle = {
-              border: "3px solid hsl(var(--warning))",
-              borderRadius: 4,
-              boxShadow: "0 0 10px hsl(var(--warning) / 0.75)",
-              boxSizing: "border-box",
-              zIndex: 10000,
-            } as const;
-
-            const renderHalf = (
-              slots: Slot[],
-              top: number,
-              height: number,
-              connected: Set<number>,
-              half: "top" | "bottom",
-            ) => {
-              const total = slots.length;
-              if (total === 0) return null;
-              return slots.map((slot, i) => {
-                if (!slot.matched) return null;
-                const widthPct = 100 / total;
-                const leftPct = widthPct * i;
-                const isConnected = connected.has(i);
-                return (
-                  <div
-                    key={`gold-half-${top}-${i}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      ...overlayStyle,
-                      ...(isConnected && half === "top" ? { borderBottomWidth: 0 } : {}),
-                      ...(isConnected && half === "bottom" ? { borderTopWidth: 0 } : {}),
-                      top,
-                      left: `calc(${leftPct}% - 3px)`,
-                      width: `calc(${widthPct}% + 6px)`,
-                      height,
-                    }}
-                  />
-                );
-              });
-            };
-
-            return (
-              <>
-                {renderHalf(deliverySlots, -3, 35, connectedDelivery, "top")}
-                {renderHalf(pickupSlots, 29, 38, connectedPickup, "bottom")}
-              </>
-            );
-          })()}
-
           <div
             className="flex flex-row relative"
             style={{
@@ -2467,7 +2367,7 @@ const Reports = () => {
                 }}
               >
                 {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
-                  <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
+                  <div className="flex-1 p-0 overflow-hidden flex flex-row">
                     {allDeliveryOrders.flatMap((order) => {
                       // Get all delivery stops for this day
                       const dayStr = format(day, "yyyy-MM-dd");
@@ -2646,7 +2546,7 @@ const Reports = () => {
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                       <div
-                        className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
+                        className="flex-1 p-0 overflow-hidden flex flex-row"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {sameDayOrders.flatMap((order) => {
@@ -2854,6 +2754,130 @@ const Reports = () => {
               })()}
             </div>
           </div>
+          {/* Golden outline overlay for load# search match — rendered last so it always paints above today's red border */}
+          {(() => {
+            if (!debouncedLoadNumberFilter) return null;
+            type Slot = { matched: boolean; orderId: string };
+            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): Slot[] => {
+              const slots: Slot[] = [];
+              for (const list of sources) {
+                for (const order of list) {
+                  const stopsForDay = (order[stopKey] || []).filter(
+                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
+                  );
+                  const matched =
+                    !!debouncedLoadNumberFilter &&
+                    orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
+                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
+                }
+              }
+              return slots;
+            };
+            const deliverySlots = buildSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
+            const pickupSlots = buildSlots([sameDayOrders, allPickupOrders], "pickupStops");
+            if (!deliverySlots.some((s) => s.matched) && !pickupSlots.some((s) => s.matched)) return null;
+
+            const dTotal = deliverySlots.length;
+            const pTotal = pickupSlots.length;
+
+            // Pair matched delivery+pickup slots of the same order whose column ranges overlap
+            // so we can render ONE rectangle spanning both halves (no doubled middle border, both
+            // top and bottom edges preserved).
+            const pairedDelivery = new Map<number, { leftPct: number; widthPct: number; orderId: string }>();
+            const pairedPickup = new Set<number>();
+            if (dTotal > 0 && pTotal > 0) {
+              for (let di = 0; di < dTotal; di++) {
+                const d = deliverySlots[di];
+                if (!d.matched) continue;
+                const dWidth = 100 / dTotal;
+                const dLeft = dWidth * di;
+                const dRight = dLeft + dWidth;
+                for (let pi = 0; pi < pTotal; pi++) {
+                  const p = pickupSlots[pi];
+                  if (!p.matched || pairedPickup.has(pi) || p.orderId !== d.orderId) continue;
+                  const pWidth = 100 / pTotal;
+                  const pLeft = pWidth * pi;
+                  const pRight = pLeft + pWidth;
+                  if (pLeft < dRight && dLeft < pRight) {
+                    const leftPct = Math.min(dLeft, pLeft);
+                    const rightPct = Math.max(dRight, pRight);
+                    pairedDelivery.set(di, { leftPct, widthPct: rightPct - leftPct, orderId: d.orderId });
+                    pairedPickup.add(pi);
+                    break;
+                  }
+                }
+              }
+            }
+
+            const overlayStyle = {
+              border: "3px solid hsl(var(--warning))",
+              borderRadius: 4,
+              boxShadow: "0 0 10px hsl(var(--warning) / 0.75)",
+              boxSizing: "border-box" as const,
+              zIndex: 10000,
+            };
+
+            const rects: JSX.Element[] = [];
+
+            // Combined rectangles for paired same-order pickup+delivery slots
+            pairedDelivery.forEach(({ leftPct, widthPct, orderId }, di) => {
+              rects.push(
+                <div
+                  key={`gold-pair-${orderId}-${di}`}
+                  className="absolute pointer-events-none"
+                  style={{
+                    ...overlayStyle,
+                    top: -3,
+                    left: `calc(${leftPct}% - 3px)`,
+                    width: `calc(${widthPct}% + 6px)`,
+                    height: 70,
+                  }}
+                />,
+              );
+            });
+
+            // Standalone matched delivery slots (top half only)
+            deliverySlots.forEach((slot, i) => {
+              if (!slot.matched || pairedDelivery.has(i)) return;
+              const widthPct = 100 / dTotal;
+              const leftPct = widthPct * i;
+              rects.push(
+                <div
+                  key={`gold-d-${i}`}
+                  className="absolute pointer-events-none"
+                  style={{
+                    ...overlayStyle,
+                    top: -3,
+                    left: `calc(${leftPct}% - 3px)`,
+                    width: `calc(${widthPct}% + 6px)`,
+                    height: 38,
+                  }}
+                />,
+              );
+            });
+
+            // Standalone matched pickup slots (bottom half only)
+            pickupSlots.forEach((slot, i) => {
+              if (!slot.matched || pairedPickup.has(i)) return;
+              const widthPct = 100 / pTotal;
+              const leftPct = widthPct * i;
+              rects.push(
+                <div
+                  key={`gold-p-${i}`}
+                  className="absolute pointer-events-none"
+                  style={{
+                    ...overlayStyle,
+                    top: 29,
+                    left: `calc(${leftPct}% - 3px)`,
+                    width: `calc(${widthPct}% + 6px)`,
+                    height: 38,
+                  }}
+                />,
+              );
+            });
+
+            return <>{rects}</>;
+          })()}
         </td>
       );
     });
