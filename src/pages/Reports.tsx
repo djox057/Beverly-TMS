@@ -599,6 +599,7 @@ const Reports = () => {
       }
       if (!loadDate) continue;
       const targetStart = addDays(loadDate, -1);
+      const currentStart = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
       if (isSameDay(currentStart, targetStart)) continue;
       updates[dispatcherId] = targetStart;
     }
