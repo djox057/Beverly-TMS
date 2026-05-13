@@ -2155,6 +2155,8 @@ const NewOrder = () => {
       setBroker("");
 
       // Redirect to orders page
+      // Confirmed success: release the idempotency key so the next submit gets a fresh one.
+      clientRequestIdRef.current = null;
       navigate("/orders");
       setTruck("");
       setDriver1("");
