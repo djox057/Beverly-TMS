@@ -2844,25 +2844,46 @@ const Reports = () => {
               if (!slot.matched || pairedDelivery.has(i)) return;
               const widthPct = 100 / dTotal;
               const leftPct = widthPct * i;
-              const touchesSameOrderPickup = pickupSlots.some((pickupSlot, pickupIndex) => {
-                if (!pickupSlot.matched || pickupSlot.orderId !== slot.orderId) return false;
-                const pickupWidthPct = 100 / pTotal;
-                return rangesOverlap(leftPct, widthPct, pickupWidthPct * pickupIndex, pickupWidthPct);
+              // Compute horizontal sub-ranges where a same-order matched pickup overlaps
+              const pickupWidthPct = 100 / pTotal;
+              const overlapRanges: Array<[number, number]> = [];
+              pickupSlots.forEach((pickupSlot, pickupIndex) => {
+                if (!pickupSlot.matched || pickupSlot.orderId !== slot.orderId) return;
+                const pLeft = pickupWidthPct * pickupIndex;
+                const pRight = pLeft + pickupWidthPct;
+                const oLeft = Math.max(leftPct, pLeft);
+                const oRight = Math.min(leftPct + widthPct, pRight);
+                if (oRight > oLeft + 0.01) overlapRanges.push([oLeft, oRight]);
               });
-              rects.push(
-                <div
-                  key={`gold-d-${i}`}
-                  className="absolute pointer-events-none"
-                  style={{
-                    ...overlayStyle,
-                    ...(touchesSameOrderPickup ? { borderBottom: 0 } : {}),
-                    top: -3,
-                    left: `calc(${leftPct}% - 3px)`,
-                    width: `calc(${widthPct}% + 6px)`,
-                    height: 38,
-                  }}
-                />,
-              );
+              // Build segments: parts with overlap (no bottom border) and parts without (full border)
+              const segments: Array<{ left: number; width: number; touches: boolean }> = [];
+              let cursor = leftPct;
+              const sorted = [...overlapRanges].sort((a, b) => a[0] - b[0]);
+              for (const [oLeft, oRight] of sorted) {
+                if (oLeft > cursor + 0.01) segments.push({ left: cursor, width: oLeft - cursor, touches: false });
+                segments.push({ left: oLeft, width: oRight - oLeft, touches: true });
+                cursor = oRight;
+              }
+              if (cursor < leftPct + widthPct - 0.01) {
+                segments.push({ left: cursor, width: leftPct + widthPct - cursor, touches: false });
+              }
+              if (segments.length === 0) segments.push({ left: leftPct, width: widthPct, touches: false });
+              segments.forEach((seg, sIdx) => {
+                rects.push(
+                  <div
+                    key={`gold-d-${i}-${sIdx}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      ...overlayStyle,
+                      ...(seg.touches ? { borderBottom: 0, borderRadius: 0 } : {}),
+                      top: -3,
+                      left: `calc(${seg.left}% - 3px)`,
+                      width: `calc(${seg.width}% + 6px)`,
+                      height: 38,
+                    }}
+                  />,
+                );
+              });
             });
 
             // Standalone matched pickup slots (bottom half only)
@@ -2870,25 +2891,44 @@ const Reports = () => {
               if (!slot.matched || pairedPickup.has(i)) return;
               const widthPct = 100 / pTotal;
               const leftPct = widthPct * i;
-              const touchesSameOrderDelivery = deliverySlots.some((deliverySlot, deliveryIndex) => {
-                if (!deliverySlot.matched || deliverySlot.orderId !== slot.orderId) return false;
-                const deliveryWidthPct = 100 / dTotal;
-                return rangesOverlap(leftPct, widthPct, deliveryWidthPct * deliveryIndex, deliveryWidthPct);
+              const deliveryWidthPct = 100 / dTotal;
+              const overlapRanges: Array<[number, number]> = [];
+              deliverySlots.forEach((deliverySlot, deliveryIndex) => {
+                if (!deliverySlot.matched || deliverySlot.orderId !== slot.orderId) return;
+                const dLeft = deliveryWidthPct * deliveryIndex;
+                const dRight = dLeft + deliveryWidthPct;
+                const oLeft = Math.max(leftPct, dLeft);
+                const oRight = Math.min(leftPct + widthPct, dRight);
+                if (oRight > oLeft + 0.01) overlapRanges.push([oLeft, oRight]);
               });
-              rects.push(
-                <div
-                  key={`gold-p-${i}`}
-                  className="absolute pointer-events-none"
-                  style={{
-                    ...overlayStyle,
-                    ...(touchesSameOrderDelivery ? { borderTop: 0 } : {}),
-                    top: 29,
-                    left: `calc(${leftPct}% - 3px)`,
-                    width: `calc(${widthPct}% + 6px)`,
-                    height: 38,
-                  }}
-                />,
-              );
+              const segments: Array<{ left: number; width: number; touches: boolean }> = [];
+              let cursor = leftPct;
+              const sorted = [...overlapRanges].sort((a, b) => a[0] - b[0]);
+              for (const [oLeft, oRight] of sorted) {
+                if (oLeft > cursor + 0.01) segments.push({ left: cursor, width: oLeft - cursor, touches: false });
+                segments.push({ left: oLeft, width: oRight - oLeft, touches: true });
+                cursor = oRight;
+              }
+              if (cursor < leftPct + widthPct - 0.01) {
+                segments.push({ left: cursor, width: leftPct + widthPct - cursor, touches: false });
+              }
+              if (segments.length === 0) segments.push({ left: leftPct, width: widthPct, touches: false });
+              segments.forEach((seg, sIdx) => {
+                rects.push(
+                  <div
+                    key={`gold-p-${i}-${sIdx}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      ...overlayStyle,
+                      ...(seg.touches ? { borderTop: 0, borderRadius: 0 } : {}),
+                      top: 29,
+                      left: `calc(${seg.left}% - 3px)`,
+                      width: `calc(${seg.width}% + 6px)`,
+                      height: 38,
+                    }}
+                  />,
+                );
+              });
             });
 
             return <>{rects}</>;
