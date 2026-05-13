@@ -2334,8 +2334,9 @@ const Reports = () => {
             // Build per-stop slot info matching render order in the cell.
             // Delivery half: allDeliveryOrders stops, then sameDayOrders stops.
             // Pickup half: sameDayOrders stops, then allPickupOrders stops.
-            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops") => {
-              const slots: { matched: boolean }[] = [];
+            type Slot = { matched: boolean; orderId: string };
+            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): Slot[] => {
+              const slots: Slot[] = [];
               for (const list of sources) {
                 for (const order of list) {
                   const stopsForDay = (order[stopKey] || []).filter(
@@ -2344,7 +2345,7 @@ const Reports = () => {
                   const matched =
                     !!debouncedLoadNumberFilter &&
                     orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
-                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched });
+                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
                 }
               }
               return slots;
@@ -2354,36 +2355,81 @@ const Reports = () => {
             const hasAny =
               deliverySlots.some((s) => s.matched) || pickupSlots.some((s) => s.matched);
             if (!hasAny) return null;
-            const renderSlotOverlays = (slots: { matched: boolean }[], top: number) => {
+
+            // Identify matched orders that appear in BOTH halves AT THE SAME COLUMN
+            // (typical same-day pickup+delivery for one matched order). For those,
+            // draw a SINGLE full-height overlay to avoid a doubled border in the middle.
+            const dTotal = deliverySlots.length;
+            const pTotal = pickupSlots.length;
+            const combinedKeys = new Set<string>(); // `${orderId}|${dIdx}|${pIdx}`
+            const skipDelivery = new Set<number>();
+            const skipPickup = new Set<number>();
+            const combined: { orderId: string; dIdx: number; pIdx: number }[] = [];
+            if (dTotal > 0 && pTotal > 0 && dTotal === pTotal) {
+              for (let i = 0; i < dTotal; i++) {
+                const d = deliverySlots[i];
+                const p = pickupSlots[i];
+                if (d.matched && p.matched && d.orderId === p.orderId) {
+                  combined.push({ orderId: d.orderId, dIdx: i, pIdx: i });
+                  skipDelivery.add(i);
+                  skipPickup.add(i);
+                  combinedKeys.add(`${d.orderId}|${i}|${i}`);
+                }
+              }
+            }
+
+            const overlayStyle = {
+              border: "3px solid #fbbf24",
+              borderRadius: 4,
+              boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
+              zIndex: 101, // above today's red border (z=100)
+            } as const;
+
+            const renderHalf = (slots: Slot[], top: number, skip: Set<number>) => {
               const total = slots.length;
               if (total === 0) return null;
               return slots.map((slot, i) => {
-                if (!slot.matched) return null;
-                // Each slot occupies (100/total)% width; horizontal gap is space-x-0.5 (2px) between slots.
+                if (!slot.matched || skip.has(i)) return null;
                 const widthPct = 100 / total;
                 const leftPct = widthPct * i;
                 return (
                   <div
-                    key={`gold-${top}-${i}`}
+                    key={`gold-half-${top}-${i}`}
                     className="absolute pointer-events-none"
                     style={{
+                      ...overlayStyle,
                       top,
                       left: `calc(${leftPct}% - 3px)`,
                       width: `calc(${widthPct}% + 6px)`,
                       height: 38,
-                      border: "3px solid #fbbf24",
-                      borderRadius: 4,
-                      boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
-                      zIndex: 99,
                     }}
                   />
                 );
               });
             };
+
             return (
               <>
-                {renderSlotOverlays(deliverySlots, -3)}
-                {renderSlotOverlays(pickupSlots, 29)}
+                {combined.map(({ orderId, dIdx, pIdx }) => {
+                  // Single full-cell overlay spanning both halves.
+                  const widthPct = 100 / dTotal;
+                  const leftPct = widthPct * dIdx;
+                  return (
+                    <div
+                      key={`gold-combined-${orderId}-${dIdx}-${pIdx}`}
+                      className="absolute pointer-events-none"
+                      style={{
+                        ...overlayStyle,
+                        top: -3,
+                        left: `calc(${leftPct}% - 3px)`,
+                        width: `calc(${widthPct}% + 6px)`,
+                        height: 70,
+                      }}
+                    />
+                  );
+                })}
+                {renderHalf(deliverySlots, -3, skipDelivery)}
+                {renderHalf(pickupSlots, 29, skipPickup)}
               </>
             );
           })()}
