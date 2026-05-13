@@ -19,7 +19,7 @@ interface UseOrdersWithProgressOptions {
   dispatcherUserId?: string | null;
 }
 
-const LOCKED_BATCH_SIZE = 1000;
+const LOCKED_BATCH_SIZE = 2000;
 
 /**
  * Hook for Analytics page that loads orders with progress tracking.
@@ -179,7 +179,9 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
             totalLockedCount = lockedResponse.totalCount;
           }
           
-          hasMoreLocked = lockedResponse.hasMore && batchOrders.length === LOCKED_BATCH_SIZE;
+          // Trust server's hasMore flag — server may cap tail batches below
+          // LOCKED_BATCH_SIZE, so length-based termination would stop early.
+          hasMoreLocked = lockedResponse.hasMore && batchOrders.length > 0;
           lockedOffset += batchOrders.length;
           
           console.log(`[OrdersWithProgress] Locked batch: ${batchOrders.length} orders (total: ${allLockedOrders.length}/${totalLockedCount || '?'})`);

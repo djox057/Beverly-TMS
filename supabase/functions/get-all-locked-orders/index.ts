@@ -117,8 +117,10 @@ Deno.serve(async (req) => {
         bookedBy = body.bookedBy || null;
         dispatcherDriverIds = body.dispatcherDriverIds || [];
         offset = body.offset || 0;
-        const defaultLimit = offset >= 5000 ? 500 : (offset >= 3000 ? 750 : 1000);
-        limit = Math.min(body.limit || defaultLimit, 1000);
+        // Larger batches = fewer round-trips. Tail batches stay smaller to avoid
+        // statement timeouts on the deepest pages.
+        const defaultLimit = offset >= 10000 ? 1000 : (offset >= 6000 ? 1500 : 2000);
+        limit = Math.min(body.limit || defaultLimit, 2000);
       } catch {
         // No body or invalid JSON
       }

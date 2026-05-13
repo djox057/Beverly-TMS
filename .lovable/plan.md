@@ -1,52 +1,69 @@
-## The bug (very likely real, not a hunch)
+## Why Analytics is slow today
 
-In `src/utils/ordersFlatBatchFetch.ts`, `batchFetchIn()` fetches related rows like this:
+`src/pages/Analytics.tsx` (5,296 lines) loads via `useOrdersWithProgress`, which:
 
-```ts
-supabase.from(table).select(selectCols).in(column, batch)  // batch = 300 ids
+1. Calls `get-all-unlocked-orders` once (every unlocked order in one payload).
+2. Loops `get-all-locked-orders` in 1,000-row batches, up to 200 batches → potentially **200 round-trips** for locked history.
+3. Merges, dedupes, sorts, runs `transformOrders` on the full set.
+4. The page then runs ~25 `useMemo` aggregations (`dispatcherAnalytics`, `driverAnalytics`, `totals`, `fleetAverages`, `driverGrossRankings`, `qualifyingLoads`, `coveragePercent`, etc.) over every order in the browser.
+
+The bottleneck is the network round-trips + payload size + JS reductions over the entire orders table — not Postgres itself.
+
+## Yes — apply the lane-search pattern
+
+New edge function `analytics-summary` runs the entire pipeline server-side and returns only the numbers the page renders.
+
+```text
+Browser ──POST──► analytics-summary ──► Postgres aggregations
+        ◄─────── { dispatcherStats[], driverStats[],
+                   totals, fleetAverages, qualifyingLoads,
+                   weeklyHighRate, weeklyHighCut, rankings,
+                   coveragePercent, activeDriverNames }
 ```
 
-Supabase silently caps every query result at **1000 rows**. There is no `.order()` and no `.range()` pagination. So for `order_files`, each batch of 300 orders can return at most 1000 file rows — the rest are dropped without any error.
+Inside the function:
 
-Average file count per order grows with usage:
-- RC (1) + revised RC / ADDITIONAL (1–2) + BOL per pickup (1+) + POD per delivery (1+) ⇒ frequently 4–8+ files per order.
-- 300 orders × 4 files = 1200 rows → already truncated.
-- Older orders that have accumulated extra documents (revised RC uploaded later, multi-stop BOL/POD, additional attachments) push past the cap easily.
+- One SQL pass per metric group, using `GROUP BY` on `orders` joined to `drivers` / `profiles`, filtered by `pickup_datetime` / `delivery_datetime` window, `canceled = false`, optional `booked_by`, optional `dispatcher_id`.
+- All filtering and sorting in Postgres — return ready-to-render arrays.
+- Role enforcement (`isDispatchOnly`, dispatcher-only seeing own data, hidden bonuses for `dispatch`) decided from the JWT inside the function, never trusted from the body.
+- For per-order tabs ("Loads", "qualifying loads", high-rate, 50%-cut), return only the small filtered rows the UI shows — not the whole orders table.
 
-When the result is truncated, *which* category gets dropped is essentially arbitrary (depends on internal row order). That matches the user's symptom exactly: "for some loads RC isn't included in the invoice PDF, especially after ~10 days."
+## Frontend changes
 
-The downstream code is innocent:
-- `ordersTransform.ts` filters `orderFiles` by `file_category === "RC"` → empty array if the RC row was truncated away.
-- `invoiceGenerator.ts` passes `rcFiles` (now empty) to `merge-pdfs` → the edge function logs `Processing 0 RC file(s)` and produces an invoice without the RC.
+- New hook `useAnalyticsSummary({ dateRange, bookedBy, dispatcherUserId })` — single `supabase.functions.invoke("analytics-summary", …)` wrapped in React Query, `staleTime: 5 min`.
+- `Analytics.tsx` reads fields straight off `summary.*`; the 25 `useMemo` reducers go away.
+- Loading-progress UI ("X / Y locked") becomes a single skeleton/spinner.
+- `useOrdersRealtime` subscription stays, but now debounce-invalidates the `analytics-summary` query instead of patching an in-memory order list.
 
-Confirmation that this pattern is a known footgun in this codebase: `src/hooks/useLumperMissingRevisedRC.ts` already paginates `order_files` defensively with `ID_BATCH=100` and explicit `.range(from, from + PAGE_SIZE - 1)` loop, with a comment noting the 1000-row default. The invoice path was never updated to do the same.
+## Expected gains
 
-## Fix
+- One HTTP request instead of 1 unlocked + up to ~200 locked batches.
+- Response shrinks from megabytes of order JSON to tens of KB of aggregates.
+- All in-browser reductions disappear — first paint becomes near-instant after the response.
+- Realistic 5–15× faster initial load, matching the lane-search win.
 
-Make `batchFetchIn` (or at least the `order_files` call) page through results until exhausted, instead of trusting a single `.in()` call.
+## Risks / things to nail down before building
 
-### Edit `src/utils/ordersFlatBatchFetch.ts`
+1. **Coverage of every tab.** Need to enumerate every metric/column the current page reads from `orders` so the edge function returns all of them. Riskiest surfaces: the "Loads" tab, dispatcher detail popovers, driver detail popovers (per-order rows). Either paginate those server-side or keep a raw fetch only when the popover opens.
+2. **Salaries tab + payroll dialogs** still write back to `dispatcher_salary_payments` etc. — those mutations stay client-side, only the read aggregates move.
+3. **Date-window edge cases.** Chicago-time boundaries must be applied in the SQL window (use `AT TIME ZONE 'America/Chicago'`), not naïve UTC.
+4. **Realtime correctness.** Need a debounce so a burst of order edits doesn't refetch the summary 50× per minute.
 
-1. Change `batchFetchIn` to paginate per batch:
-   - Reduce per-batch id count to **100** for `order_files` and `pickup_drops` (the high-fanout children) to keep URLs short.
-   - For each batch, loop with `.order("id", { ascending: true }).range(from, from + 999)` until a page returns fewer than 1000 rows.
-   - Keep the simpler single-shot path for low-fanout tables (`order_transfers`, `recovery_history`) but still page if needed — easiest is to make pagination universal.
+## Suggested rollout
 
-2. Apply this paginated fetch to all four child tables to prevent the same class of bug recurring on `pickup_drops` (which can also exceed 1000 rows for large batches).
+1. Build `analytics-summary` covering the top-of-page totals + dispatcher table only (highest-traffic surface). Behind a flag `localStorage.analytics_v2 = "true"`.
+2. Verify numbers match current page across several date ranges and roles.
+3. Migrate Driver Analytics, Rankings, Salaries, and Loads tabs one at a time.
+4. Flip the flag default to on; remove `useOrdersWithProgress` from `Analytics.tsx`.
 
-### No other changes needed
+## Smaller wins we can ship first if you want a faster step
 
-- No DB migration.
-- `ordersTransform.ts`, `invoiceGenerator.ts`, and `merge-pdfs` are correct downstream of complete data.
-- The storage files themselves are not corrupted — the user's "corruption" hypothesis is a red herring; the files are simply never sent to the merge function.
+- Narrow the `select(...)` lists in `get-all-unlocked-orders` / `get-all-locked-orders` to only columns Analytics actually reads (smaller payload, faster JSON parse).
+- Run `transformOrders` per batch as it arrives instead of once on the merged array.
+- Increase locked batch size from 1,000 → 5,000 to cut round-trips ~5×.
 
-## Verification plan
+These are reversible and give noticeable improvement without the full rewrite.
 
-After the fix:
-1. Run invoice generation for a batch of older orders that previously dropped RCs.
-2. Check browser console: `Processing N RC file(s)` in `merge-pdfs` logs should equal the actual RC count.
-3. Spot-check the merged PDF for 2–3 affected loads.
+---
 
-## Risk / scope
-
-Tiny, isolated change in one helper. Slightly more requests for very large batches, but each is fast and parallelizable. No behavior change for small batches.
+Want me to start with the small wins, or go straight to the `analytics-summary` edge function (recommended for the 5–15× target)?
