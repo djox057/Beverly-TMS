@@ -2287,6 +2287,25 @@ const Reports = () => {
 
       // Check if this day is today (Chicago time) - always use actual today for the red border
       const isToday = isSameDay(day, chicagoToday);
+      type LoadMatchSlot = { matched: boolean; orderId: string };
+      const buildLoadMatchSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): LoadMatchSlot[] => {
+        if (!debouncedLoadNumberFilter) return [];
+        const slots: LoadMatchSlot[] = [];
+        for (const list of sources) {
+          for (const order of list) {
+            const stopsForDay = (order[stopKey] || []).filter(
+              (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+            );
+            const matched = orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
+            for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
+          }
+        }
+        return slots;
+      };
+      const deliveryLoadMatchSlots = buildLoadMatchSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
+      const pickupLoadMatchSlots = buildLoadMatchSlots([sameDayOrders, allPickupOrders], "pickupStops");
+      const hasHighlightedLoadSlot =
+        deliveryLoadMatchSlots.some((slot) => slot.matched) || pickupLoadMatchSlots.some((slot) => slot.matched);
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
@@ -2308,7 +2327,7 @@ const Reports = () => {
           }}
         >
           {/* Red border overlay for today column */}
-          {isToday && (
+          {isToday && !hasHighlightedLoadSlot && (
             <div
               className="absolute"
               style={{
@@ -2757,32 +2776,16 @@ const Reports = () => {
           {/* Golden outline overlay for load# search match — rendered last so it always paints above today's red border */}
           {(() => {
             if (!debouncedLoadNumberFilter) return null;
-            type Slot = { matched: boolean; orderId: string };
-            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): Slot[] => {
-              const slots: Slot[] = [];
-              for (const list of sources) {
-                for (const order of list) {
-                  const stopsForDay = (order[stopKey] || []).filter(
-                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                  );
-                  const matched =
-                    !!debouncedLoadNumberFilter &&
-                    orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
-                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
-                }
-              }
-              return slots;
-            };
-            const deliverySlots = buildSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
-            const pickupSlots = buildSlots([sameDayOrders, allPickupOrders], "pickupStops");
+            const deliverySlots = deliveryLoadMatchSlots;
+            const pickupSlots = pickupLoadMatchSlots;
             if (!deliverySlots.some((s) => s.matched) && !pickupSlots.some((s) => s.matched)) return null;
 
             const dTotal = deliverySlots.length;
             const pTotal = pickupSlots.length;
 
-            // Pair matched delivery+pickup slots of the same order whose column ranges overlap
-            // so we can render ONE rectangle spanning both halves (no doubled middle border, both
-            // top and bottom edges preserved).
+            // Pair matched delivery+pickup slots only when their column ranges are identical.
+            // If one half has multiple stops, a wider paired rectangle would incorrectly outline
+            // neighboring stops from a different order.
             const pairedDelivery = new Map<number, { leftPct: number; widthPct: number; orderId: string }>();
             const pairedPickup = new Set<number>();
             if (dTotal > 0 && pTotal > 0) {
@@ -2798,10 +2801,8 @@ const Reports = () => {
                   const pWidth = 100 / pTotal;
                   const pLeft = pWidth * pi;
                   const pRight = pLeft + pWidth;
-                  if (pLeft < dRight && dLeft < pRight) {
-                    const leftPct = Math.min(dLeft, pLeft);
-                    const rightPct = Math.max(dRight, pRight);
-                    pairedDelivery.set(di, { leftPct, widthPct: rightPct - leftPct, orderId: d.orderId });
+                  if (Math.abs(pLeft - dLeft) < 0.01 && Math.abs(pRight - dRight) < 0.01) {
+                    pairedDelivery.set(di, { leftPct: dLeft, widthPct: dWidth, orderId: d.orderId });
                     pairedPickup.add(pi);
                     break;
                   }
