@@ -24,6 +24,26 @@ const ORDER_COLUMNS = `
   bol_force_complete, pod_force_complete
 `;
 
+// Slim column list for Analytics page only - drops fields the page never reads.
+// Keeps everything transformOrders needs to compute totalFreightAmount(NoLumper),
+// totalDriverPay, mileage, dates, ids, and fallback names for archived orders.
+const ORDER_COLUMNS_ANALYTICS = `
+  id, locked, canceled, created_at,
+  pickup_datetime, delivery_datetime,
+  booked_by, internal_load_number, broker_load_number,
+  driver1_id, driver2_id, truck_id, trailer_id, company_id, booked_by_company_id,
+  freight_amount, driver_price,
+  detention, detention_driver, layover, layover_driver,
+  tonu, tonu_driver, extra_stop, extra_stop_driver,
+  lumper, lumper_driver, late_fee, late_fee_driver,
+  no_tracking_fee, no_tracking_fee_driver,
+  wrong_address_fee, wrong_address_fee_driver, escort_fee,
+  other_charges, other_charges_driver,
+  other_additionals, other_additionals_driver,
+  loaded_miles, dh_miles, additional_miles, mileage,
+  deleted_truck_number, deleted_driver1_name, deleted_driver2_name
+`;
+
 // Helper to split array into chunks
 function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -110,6 +130,7 @@ Deno.serve(async (req) => {
     let dispatcherDriverIds: string[] = [];
     let offset = 0;
     let limit = 1000;
+    let fields: "full" | "analytics" = "full";
     
     if (req.method === "POST") {
       try {
@@ -120,12 +141,13 @@ Deno.serve(async (req) => {
         // PostgREST caps responses at 1000 rows by default in this project,
         // so requesting more silently returns 1000 and breaks pagination.
         limit = Math.min(body.limit || 1000, 1000);
+        if (body.fields === "analytics") fields = "analytics";
       } catch {
         // No body or invalid JSON
       }
     }
 
-    console.log(`[get-all-locked-orders] Fetching batch: offset=${offset}, limit=${limit}`);
+    console.log(`[get-all-locked-orders] Fetching batch: offset=${offset}, limit=${limit}, fields=${fields}`);
 
     // Get total count (only on first request)
     let totalCount: number | null = null;
@@ -156,9 +178,10 @@ Deno.serve(async (req) => {
 
     // Stage 1: Fetch FLAT order columns only (no joins)
     const stage1Start = Date.now();
+    const orderColumns = fields === "analytics" ? ORDER_COLUMNS_ANALYTICS : ORDER_COLUMNS;
     let query = supabase
       .from("orders")
-      .select(ORDER_COLUMNS)
+      .select(orderColumns)
       .eq("locked", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -183,7 +206,8 @@ Deno.serve(async (req) => {
     const stage1Time = Date.now() - stage1Start;
     console.log(`[get-all-locked-orders] Stage 1 (flat orders): ${orders?.length || 0} in ${stage1Time}ms`);
 
-    // Stage 2: Batch fetch child relations (pickup_drops, order_files, order_transfers)
+    // Stage 2: Batch fetch child relations.
+    // In analytics mode we skip order_files + order_transfers entirely (heavy, unused).
     const orderIds = (orders || []).map((o: any) => o.id);
     const CHUNK_SIZE = 200; // Reduced from 500 to prevent URL length errors
     
@@ -191,25 +215,32 @@ Deno.serve(async (req) => {
       const stage2Start = Date.now();
       const chunks = chunk(orderIds, CHUNK_SIZE);
 
+      const pickupDropsSelect = fields === "analytics"
+        ? "order_id, type, city, state, datetime"
+        : "id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions, latitude, longitude";
+
+      const pickupDropsPromise = Promise.all(chunks.map(c =>
+        supabase.from("pickup_drops").select(pickupDropsSelect).in("order_id", c)
+      ));
+      const orderFilesPromise = fields === "analytics"
+        ? Promise.resolve([] as any[])
+        : Promise.all(chunks.map(c =>
+            supabase
+              .from("order_files")
+              .select("id, order_id, file_category, file_name, file_path")
+              .in("order_id", c)
+          ));
+      const orderTransfersPromise = fields === "analytics"
+        ? Promise.resolve([] as any[])
+        : Promise.all(chunks.map(c =>
+            supabase
+              .from("order_transfers")
+              .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude")
+              .in("order_id", c)
+          ));
+
       const [pickupDropsResults, orderFilesResults, orderTransfersResults] = await Promise.all([
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("pickup_drops")
-            .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions, latitude, longitude")
-            .in("order_id", c)
-        )),
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("order_files")
-            .select("id, order_id, file_category, file_name, file_path")
-            .in("order_id", c)
-        )),
-        Promise.all(chunks.map(c =>
-          supabase
-            .from("order_transfers")
-            .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude")
-            .in("order_id", c)
-        )),
+        pickupDropsPromise, orderFilesPromise, orderTransfersPromise,
       ]);
 
       const allPickupDrops = pickupDropsResults.flatMap(r => r.data || []);
@@ -253,15 +284,19 @@ Deno.serve(async (req) => {
     // Stage 3: Batch fetch entity relations (trucks, drivers, brokers, companies, trailers)
     const stage3Start = Date.now();
 
-    const truckIds = collectUniqueIds(orders || [], "truck_id", "original_truck_id");
-    const driverIds = collectUniqueIds(orders || [], "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
-    const brokerIds = collectUniqueIds(orders || [], "broker_id");
+    const truckIds = fields === "analytics"
+      ? collectUniqueIds(orders || [], "truck_id")
+      : collectUniqueIds(orders || [], "truck_id", "original_truck_id");
+    const driverIds = fields === "analytics"
+      ? collectUniqueIds(orders || [], "driver1_id", "driver2_id")
+      : collectUniqueIds(orders || [], "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
+    const brokerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "broker_id");
     const companyIds = collectUniqueIds(orders || [], "company_id", "booked_by_company_id");
-    const trailerIds = collectUniqueIds(orders || [], "trailer_id", "original_trailer_id");
+    const trailerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "trailer_id", "original_trailer_id");
 
     const [trucksMap, driversMap, brokersMap, companiesMap, trailersMap] = await Promise.all([
-      batchFetchById(supabase, "trucks", truckIds, "id, truck_number, company_id"),
-      batchFetchById(supabase, "drivers", driverIds, "id, name, company_id"),
+      batchFetchById(supabase, "trucks", truckIds, fields === "analytics" ? "id, truck_number" : "id, truck_number, company_id"),
+      batchFetchById(supabase, "drivers", driverIds, fields === "analytics" ? "id, name" : "id, name, company_id"),
       batchFetchById(supabase, "brokers", brokerIds, "id, name, mc_number, address"),
       batchFetchById(supabase, "companies", companyIds, "id, name"),
       batchFetchById(supabase, "trailers", trailerIds, "id, trailer_number"),
