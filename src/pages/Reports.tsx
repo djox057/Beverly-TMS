@@ -562,13 +562,26 @@ const Reports = () => {
   }, [foundOrderMeta?.pickupDate]);
 
   // Auto-scroll each affected dispatcher's calendar carousel to show the matched load
+  const loadFilterCalendarOverridesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    // When the load filter is cleared, revert any carousels we previously moved
+    if (debouncedLoadNumberFilter.trim().length < 3) {
+      const overridden = loadFilterCalendarOverridesRef.current;
+      if (overridden.size > 0) {
+        setCalendarDates((prev) => {
+          const next = { ...prev };
+          for (const id of overridden) delete next[id];
+          return next;
+        });
+        overridden.clear();
+      }
+      return;
+    }
     if (!foundOrderMeta?.pickupDate) return;
-    if (debouncedLoadNumberFilter.trim().length < 3) return;
     const loadDate = new Date(foundOrderMeta.pickupDate);
     if (isNaN(loadDate.getTime())) return;
     const targetStart = new Date(loadDate.getFullYear(), loadDate.getMonth(), loadDate.getDate());
-    targetStart.setDate(targetStart.getDate() - 2);
+    targetStart.setDate(targetStart.getDate() - 1);
 
     const updates: Record<string, Date> = {};
     for (const group of (groupedReports || []) as any[]) {
@@ -591,6 +604,7 @@ const Reports = () => {
     if (Object.keys(updates).length === 0) return;
 
     setCalendarDates((prev) => ({ ...prev, ...updates }));
+    for (const id of Object.keys(updates)) loadFilterCalendarOverridesRef.current.add(id);
     for (const [dispatcherId, newDate] of Object.entries(updates)) {
       const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
       loadDispatcherOrders(dispatcherId, newDate);
