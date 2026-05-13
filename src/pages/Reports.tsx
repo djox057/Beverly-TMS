@@ -2356,46 +2356,25 @@ const Reports = () => {
               deliverySlots.some((s) => s.matched) || pickupSlots.some((s) => s.matched);
             if (!hasAny) return null;
 
-            // Identify matched orders that appear in BOTH halves AT THE SAME COLUMN
-            // (typical same-day pickup+delivery for one matched order). For those,
-            // draw a SINGLE full-height overlay to avoid a doubled border in the middle.
-            const dTotal = deliverySlots.length;
-            const pTotal = pickupSlots.length;
-            const skipDelivery = new Set<number>();
-            const skipPickup = new Set<number>();
-            const combined: {
-              orderId: string;
-              leftPct: number;
-              widthPct: number;
-            }[] = [];
-            // For any matched order that has BOTH a delivery slot and a pickup slot
-            // in this cell whose column ranges overlap, collapse them into one
-            // full-height overlay to avoid the doubled border across the middle line.
-            if (dTotal > 0 && pTotal > 0) {
-              for (let di = 0; di < dTotal; di++) {
+            // Connect matching pickup/delivery slots without widening the outline across unrelated stops.
+            const connectedDelivery = new Set<number>();
+            const connectedPickup = new Set<number>();
+            if (deliverySlots.length > 0 && pickupSlots.length > 0) {
+              for (let di = 0; di < deliverySlots.length; di++) {
                 const d = deliverySlots[di];
-                if (!d.matched || skipDelivery.has(di)) continue;
-                const dWidth = 100 / dTotal;
+                if (!d.matched || connectedDelivery.has(di)) continue;
+                const dWidth = 100 / deliverySlots.length;
                 const dLeft = dWidth * di;
                 const dRight = dLeft + dWidth;
-                for (let pi = 0; pi < pTotal; pi++) {
+                for (let pi = 0; pi < pickupSlots.length; pi++) {
                   const p = pickupSlots[pi];
-                  if (!p.matched || skipPickup.has(pi)) continue;
-                  if (p.orderId !== d.orderId) continue;
-                  const pWidth = 100 / pTotal;
+                  if (!p.matched || connectedPickup.has(pi) || p.orderId !== d.orderId) continue;
+                  const pWidth = 100 / pickupSlots.length;
                   const pLeft = pWidth * pi;
                   const pRight = pLeft + pWidth;
-                  // Visual overlap on the X axis
                   if (pLeft < dRight && dLeft < pRight) {
-                    const leftPct = Math.min(dLeft, pLeft);
-                    const rightPct = Math.max(dRight, pRight);
-                    combined.push({
-                      orderId: d.orderId,
-                      leftPct,
-                      widthPct: rightPct - leftPct,
-                    });
-                    skipDelivery.add(di);
-                    skipPickup.add(pi);
+                    connectedDelivery.add(di);
+                    connectedPickup.add(pi);
                     break;
                   }
                 }
@@ -2403,29 +2382,39 @@ const Reports = () => {
             }
 
             const overlayStyle = {
-              border: "3px solid #fbbf24",
+              border: "3px solid hsl(var(--warning))",
               borderRadius: 4,
-              boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
-              zIndex: 101, // above today's red border (z=100)
+              boxShadow: "0 0 10px hsl(var(--warning) / 0.75)",
+              boxSizing: "border-box",
+              zIndex: 10000,
             } as const;
 
-            const renderHalf = (slots: Slot[], top: number, skip: Set<number>) => {
+            const renderHalf = (
+              slots: Slot[],
+              top: number,
+              height: number,
+              connected: Set<number>,
+              half: "top" | "bottom",
+            ) => {
               const total = slots.length;
               if (total === 0) return null;
               return slots.map((slot, i) => {
-                if (!slot.matched || skip.has(i)) return null;
+                if (!slot.matched) return null;
                 const widthPct = 100 / total;
                 const leftPct = widthPct * i;
+                const isConnected = connected.has(i);
                 return (
                   <div
                     key={`gold-half-${top}-${i}`}
                     className="absolute pointer-events-none"
                     style={{
                       ...overlayStyle,
+                      ...(isConnected && half === "top" ? { borderBottomWidth: 0 } : {}),
+                      ...(isConnected && half === "bottom" ? { borderTopWidth: 0 } : {}),
                       top,
                       left: `calc(${leftPct}% - 3px)`,
                       width: `calc(${widthPct}% + 6px)`,
-                      height: 38,
+                      height,
                     }}
                   />
                 );
@@ -2434,24 +2423,8 @@ const Reports = () => {
 
             return (
               <>
-                {combined.map(({ orderId, leftPct, widthPct }, idx) => {
-                  // Single full-cell overlay spanning both halves.
-                  return (
-                    <div
-                      key={`gold-combined-${orderId}-${idx}`}
-                      className="absolute pointer-events-none"
-                      style={{
-                        ...overlayStyle,
-                        top: -3,
-                        left: `calc(${leftPct}% - 3px)`,
-                        width: `calc(${widthPct}% + 6px)`,
-                        height: 70,
-                      }}
-                    />
-                  );
-                })}
-                {renderHalf(deliverySlots, -3, skipDelivery)}
-                {renderHalf(pickupSlots, 29, skipPickup)}
+                {renderHalf(deliverySlots, -3, 35, connectedDelivery, "top")}
+                {renderHalf(pickupSlots, 29, 38, connectedPickup, "bottom")}
               </>
             );
           })()}
@@ -2521,14 +2494,12 @@ const Reports = () => {
                                 .length || 0),
                             0,
                           );
-                        const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                         return (
                           <div
                             key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                             style={{
                               ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                              ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2578,14 +2549,12 @@ const Reports = () => {
                                 .length || 0),
                             0,
                           );
-                        const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                         return (
                           <div
                             key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                             style={{
                               ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                              ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2709,14 +2678,12 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
-                            const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                             return (
                               <div
                                 key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                                 style={{
                                   ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                                  ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2769,14 +2736,12 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
-                            const isLoadHighlighted = debouncedLoadNumberFilter && orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
                             return (
                               <div
                                 key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer ${isLoadHighlighted ? "z-[5]" : ""}`}
+                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
                                 style={{
                                   ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                                  ...(isLoadHighlighted ? { outline: "2px solid #fbbf24", outlineOffset: "2px" } : {}),
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
