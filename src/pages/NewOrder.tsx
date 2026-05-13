@@ -123,6 +123,11 @@ const NewOrder = () => {
 
   // Miles change tracking
   const autoCalcLoadedMilesRef = useRef<number | null>(null);
+  // Idempotency key for order creation. Generated once per logical submit and
+  // reused across retries so a network retry of the RPC never creates a duplicate
+  // order. Cleared only on confirmed success or explicit form reset; never in a
+  // catch/finally because an "ambiguous" failure may actually have inserted the row.
+  const clientRequestIdRef = useRef<string | null>(null);
   const autoCalcDhMilesRef = useRef<number | null>(null);
   const [showMilesChangeDialog, setShowMilesChangeDialog] = useState(false);
   const [milesChangeInfo, setMilesChangeInfo] = useState<any>(null);
@@ -1550,6 +1555,15 @@ const NewOrder = () => {
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
+    // Generate (or reuse) an idempotency key for this submit. Reused on retries
+    // so the server-side RPC dedupes via the unique (company_id, client_request_id) index.
+    if (!clientRequestIdRef.current) {
+      clientRequestIdRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    }
+
     // CRITICAL: Validate pickup/drop data before submission (unless pending from missing data confirmation)
     if (!pendingSubmit) {
       const missingData = validatePickupDropData();
@@ -1910,6 +1924,7 @@ const NewOrder = () => {
         po_number: pickupPoNumber || deliveryPoNumber || null,
         pu_number: pickupPuNumber || null,
         booked_by: profile?.full_name || "Unknown User",
+        client_request_id: clientRequestIdRef.current,
       };
 
       // Log order data for debugging
@@ -2140,6 +2155,8 @@ const NewOrder = () => {
       setBroker("");
 
       // Redirect to orders page
+      // Confirmed success: release the idempotency key so the next submit gets a fresh one.
+      clientRequestIdRef.current = null;
       navigate("/orders");
       setTruck("");
       setDriver1("");
