@@ -2776,24 +2776,8 @@ const Reports = () => {
           {/* Golden outline overlay for load# search match — rendered last so it always paints above today's red border */}
           {(() => {
             if (!debouncedLoadNumberFilter) return null;
-            type Slot = { matched: boolean; orderId: string };
-            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): Slot[] => {
-              const slots: Slot[] = [];
-              for (const list of sources) {
-                for (const order of list) {
-                  const stopsForDay = (order[stopKey] || []).filter(
-                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                  );
-                  const matched =
-                    !!debouncedLoadNumberFilter &&
-                    orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
-                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched, orderId: order.id });
-                }
-              }
-              return slots;
-            };
-            const deliverySlots = buildSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
-            const pickupSlots = buildSlots([sameDayOrders, allPickupOrders], "pickupStops");
+            const deliverySlots = deliveryLoadMatchSlots;
+            const pickupSlots = pickupLoadMatchSlots;
             if (!deliverySlots.some((s) => s.matched) && !pickupSlots.some((s) => s.matched)) return null;
 
             const dTotal = deliverySlots.length;
