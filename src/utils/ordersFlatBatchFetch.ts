@@ -2,24 +2,51 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Batch-fetch rows from a table using .in() queries with automatic batching
- * to avoid the Supabase 1000-row return limit.
+ * AND per-batch pagination to avoid the silent Supabase 1000-row return limit.
+ *
+ * Without explicit .range() pagination, every supabase query is implicitly
+ * capped at 1000 rows. For high-fanout child tables like order_files /
+ * pickup_drops, a batch of a few hundred order_ids can easily exceed that
+ * cap, silently dropping rows (e.g. RC files missing from invoice merges).
  */
 async function batchFetchIn(
   table: string,
   column: string,
   ids: string[],
   selectCols: string,
-  batchSize = 300
+  batchSize = 100
 ): Promise<any[]> {
   if (ids.length === 0) return [];
   const batches: string[][] = [];
   for (let i = 0; i < ids.length; i += batchSize) {
     batches.push(ids.slice(i, i + batchSize));
   }
+  const PAGE_SIZE = 1000;
   const results = await Promise.all(
-    batches.map(batch =>
-      supabase.from(table as any).select(selectCols).in(column, batch)
-    )
+    batches.map(async (batch) => {
+      let all: any[] = [];
+      let from = 0;
+      // Page until a returned page is shorter than PAGE_SIZE
+      // (id ordering keeps results stable across pages).
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await supabase
+          .from(table as any)
+          .select(selectCols)
+          .in(column, batch)
+          .order("id", { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) {
+          console.error(`[batchFetchIn] ${table} page error:`, error);
+          break;
+        }
+        const page = data || [];
+        all = all.concat(page);
+        if (page.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return { data: all };
+    })
   );
   return results.flatMap(r => r.data || []);
 }
