@@ -19,7 +19,7 @@ interface UseOrdersWithProgressOptions {
   dispatcherUserId?: string | null;
 }
 
-const LOCKED_BATCH_SIZE = 1000;
+const LOCKED_BATCH_SIZE = 2000;
 
 /**
  * Hook for Analytics page that loads orders with progress tracking.
