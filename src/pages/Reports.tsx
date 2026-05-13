@@ -2331,53 +2331,59 @@ const Reports = () => {
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
           {(() => {
             if (!debouncedLoadNumberFilter) return null;
-            const deliveryMatches = [...allDeliveryOrders, ...sameDayOrders].some(
-              (o: any) =>
-                orderMatchesLoadFilter(o, debouncedLoadNumberFilter) &&
-                (o.deliveryStops || []).some(
-                  (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                ),
-            );
-            const pickupMatches = [...allPickupOrders, ...sameDayOrders].some(
-              (o: any) =>
-                orderMatchesLoadFilter(o, debouncedLoadNumberFilter) &&
-                (o.pickupStops || []).some(
-                  (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                ),
-            );
-            if (!deliveryMatches && !pickupMatches) return null;
+            // Build per-stop slot info matching render order in the cell.
+            // Delivery half: allDeliveryOrders stops, then sameDayOrders stops.
+            // Pickup half: sameDayOrders stops, then allPickupOrders stops.
+            const buildSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops") => {
+              const slots: { matched: boolean }[] = [];
+              for (const list of sources) {
+                for (const order of list) {
+                  const stopsForDay = (order[stopKey] || []).filter(
+                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
+                  );
+                  const matched =
+                    !!debouncedLoadNumberFilter &&
+                    orderMatchesLoadFilter(order, debouncedLoadNumberFilter);
+                  for (let i = 0; i < stopsForDay.length; i++) slots.push({ matched });
+                }
+              }
+              return slots;
+            };
+            const deliverySlots = buildSlots([allDeliveryOrders, sameDayOrders], "deliveryStops");
+            const pickupSlots = buildSlots([sameDayOrders, allPickupOrders], "pickupStops");
+            const hasAny =
+              deliverySlots.some((s) => s.matched) || pickupSlots.some((s) => s.matched);
+            if (!hasAny) return null;
+            const renderSlotOverlays = (slots: { matched: boolean }[], top: number) => {
+              const total = slots.length;
+              if (total === 0) return null;
+              return slots.map((slot, i) => {
+                if (!slot.matched) return null;
+                // Each slot occupies (100/total)% width; horizontal gap is space-x-0.5 (2px) between slots.
+                const widthPct = 100 / total;
+                const leftPct = widthPct * i;
+                return (
+                  <div
+                    key={`gold-${top}-${i}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      top,
+                      left: `calc(${leftPct}% - 3px)`,
+                      width: `calc(${widthPct}% + 6px)`,
+                      height: 38,
+                      border: "3px solid #fbbf24",
+                      borderRadius: 4,
+                      boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
+                      zIndex: 99,
+                    }}
+                  />
+                );
+              });
+            };
             return (
               <>
-                {deliveryMatches && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      top: -3,
-                      left: -3,
-                      right: -3,
-                      height: 38,
-                      border: "3px solid #fbbf24",
-                      borderRadius: 4,
-                      boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
-                      zIndex: 99,
-                    }}
-                  />
-                )}
-                {pickupMatches && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      top: 29,
-                      left: -3,
-                      right: -3,
-                      height: 38,
-                      border: "3px solid #fbbf24",
-                      borderRadius: 4,
-                      boxShadow: "0 0 8px rgba(251, 191, 36, 0.6)",
-                      zIndex: 99,
-                    }}
-                  />
-                )}
+                {renderSlotOverlays(deliverySlots, -3)}
+                {renderSlotOverlays(pickupSlots, 29)}
               </>
             );
           })()}
