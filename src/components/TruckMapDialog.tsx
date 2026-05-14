@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
 
-const HOME_RADIUS_MILES = 300;
+const HOME_RADIUS_MILES = 125;
 const EARTH_RADIUS_MILES = 3958.8;
 
 const createRadiusCircle = (lng: number, lat: number, radiusMiles = HOME_RADIUS_MILES, points = 96) => {
