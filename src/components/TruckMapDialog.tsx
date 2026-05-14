@@ -405,7 +405,12 @@ export function TruckMapView({
         const homeLng = toFiniteCoordinate(homeLongitude);
         const hasHomeLocation = homeLat !== null && homeLng !== null;
         const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
-        const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+        // Mapbox's color parser requires comma-separated hsl(), not space-separated.
+        const toMapboxHsl = (token: string) => {
+          const parts = token.split(/\s+/).filter(Boolean);
+          return parts.length === 3 ? `hsl(${parts[0]}, ${parts[1]}, ${parts[2]})` : 'hsl(38, 92%, 50%)';
+        };
+        const warningColor = warningToken ? toMapboxHsl(warningToken) : 'hsl(38, 92%, 50%)';
 
         console.info('[TruckMapView] homeLocations', {
           count: hasHomeLocation ? 1 : 0,
