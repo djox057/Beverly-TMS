@@ -378,6 +378,19 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             }))
             .filter((home): home is { truck: TruckData; lat: number; lng: number } => home.lat !== null && home.lng !== null);
 
+          console.debug('[DispatcherFleetMapDialog] homeLocations', {
+            count: homeLocations.length,
+            coordinates: homeLocations.map(({ truck, lat, lng }) => ({
+              truckId: truck.id,
+              truckNumber: truck.truckNumber,
+              driverName: truck.driverName,
+              homeCity: truck.homeCity,
+              homeState: truck.homeState,
+              lat,
+              lng,
+            })),
+          });
+
           if (homeLocations.length > 0) {
             const radiusFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = homeLocations.map(({ truck, lat, lng }) => {
               const circle = createRadiusCircle(lng, lat);
