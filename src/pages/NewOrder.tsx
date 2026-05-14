@@ -2034,16 +2034,34 @@ const NewOrder = () => {
       if (validPickupDropData.length === 0) {
         throw new Error("No valid pickup/delivery locations found. Please ensure all locations have valid addresses.");
       }
-      console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
-      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
-      if (pickupDropError) {
+      // Idempotency guard: if a previous attempt already inserted pickup_drops for this
+      // order_id (RPC was retried after a network blip and returned the same id via
+      // client_request_id), skip re-insertion to avoid duplicate stop rows.
+      const { data: existingDrops, error: existingDropsError } = await supabase
+        .from("pickup_drops")
+        .select("id")
+        .eq("order_id", orderId)
+        .limit(1);
+      if (existingDropsError) {
+        console.error("❌ Pickup/drop existence check failed:", existingDropsError);
+        throw new Error(`Failed to verify pickup/delivery locations: ${existingDropsError.message}`);
+      }
+      if (existingDrops && existingDrops.length > 0) {
+        console.info(
+          `↩️ Skipping pickup_drops insert for order ${orderId} — rows already exist from a prior attempt.`,
+        );
+      } else {
+        console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
+        const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
+        if (pickupDropError) {
         console.error("❌ Pickup/drop insert error:", pickupDropError);
         console.error("Failed data:", validPickupDropData);
-        // Try to delete the orphaned order since pickup_drops failed
-        await supabase.from("orders").delete().eq("id", orderId);
-        throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
+          // Try to delete the orphaned order since pickup_drops failed
+          await supabase.from("orders").delete().eq("id", orderId);
+          throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
+        }
+        console.log(`✅ Successfully inserted ${validPickupDropData.length} pickup/drop locations`);
       }
-      console.log(`✅ Successfully inserted ${validPickupDropData.length} pickup/drop locations`);
 
       // Upload files if any (this happens AFTER pickup_drops are saved)
       const allFiles = [
