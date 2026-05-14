@@ -1682,6 +1682,10 @@ export const useReports = (options?: UseReportsOptions) => {
                 truck.driver1?.home_city && truck.driver1?.home_state
                   ? `${truck.driver1.home_city}, ${truck.driver1.home_state}`
                   : truck.driver1?.home_city || truck.driver1?.home_state || "—",
+              homeLatitude: truck.driver1?.home_latitude ?? null,
+              homeLongitude: truck.driver1?.home_longitude ?? null,
+              homeCity: truck.driver1?.home_city ?? null,
+              homeState: truck.driver1?.home_state ?? null,
               dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
               dispatcherId: truck.driver1?.dispatcher_id,
               status,
@@ -1999,6 +2003,10 @@ export const useReports = (options?: UseReportsOptions) => {
               driver.home_city && driver.home_state
                 ? `${driver.home_city}, ${driver.home_state}`
                 : driver.home_city || driver.home_state || "—",
+            homeLatitude: driver.home_latitude ?? null,
+            homeLongitude: driver.home_longitude ?? null,
+            homeCity: driver.home_city ?? null,
+            homeState: driver.home_state ?? null,
             dispatcher: driverDispatcherInfo?.full_name || driverDispatcherInfo?.email || "Unknown",
             dispatcherId: driver.dispatcher_id,
             status,
@@ -2333,6 +2341,10 @@ export const useReports = (options?: UseReportsOptions) => {
                 driver2Email: null,
                 trailerNumber: null,
                 home: homeString,
+                homeLatitude: realDriver?.home_latitude ?? null,
+                homeLongitude: realDriver?.home_longitude ?? null,
+                homeCity: homeCity ?? null,
+                homeState: homeState ?? null,
                 dispatcher: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
                 dispatcherId: offDutyDispatcherId,
                 // Get current dispatcher name for drivers in off-duty section
