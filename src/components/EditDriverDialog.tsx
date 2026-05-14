@@ -491,9 +491,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
       let homeLat: number | null = formData.home_latitude ? parseFloat(formData.home_latitude) : null;
       let homeLng: number | null = formData.home_longitude ? parseFloat(formData.home_longitude) : null;
+      const missingCoords = homeLat === null || homeLng === null;
       if (
-        homeFieldsChanged &&
         !latLngManuallyEdited &&
+        (homeFieldsChanged || missingCoords) &&
         formData.home_city.trim() &&
         formData.home_state.trim()
       ) {
