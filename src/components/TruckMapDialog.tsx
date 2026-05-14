@@ -87,6 +87,10 @@ interface TruckMapDialogProps {
   pickupAddresses?: string[]; // All pickup addresses for multi-stop loads
   deliveryAddresses?: string[]; // All delivery addresses for multi-stop loads
   completedDeliveryCount?: number; // Number of PODs uploaded (completed deliveries)
+  homeLatitude?: number | string | null;
+  homeLongitude?: number | string | null;
+  homeCity?: string | null;
+  homeState?: string | null;
   pickupDate?: string;
   pickupTime?: string;
   deliveryDate?: string;
@@ -323,6 +327,10 @@ export function TruckMapView({
   pickupAddresses,
   deliveryAddresses,
   completedDeliveryCount = 0,
+  homeLatitude,
+  homeLongitude,
+  homeCity,
+  homeState,
   pickupDate,
   pickupTime,
   deliveryDate,
