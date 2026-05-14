@@ -33,6 +33,10 @@ interface TruckData {
   shiftMinutes?: number;
   breakMinutes?: number;
   cycleMinutes?: number;
+  homeLatitude?: number | null;
+  homeLongitude?: number | null;
+  homeCity?: string | null;
+  homeState?: string | null;
   currentOrder?: {
     id: string;
     loadNumber: string;
