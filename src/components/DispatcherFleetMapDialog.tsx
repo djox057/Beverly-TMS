@@ -68,6 +68,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
   const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const homeMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const tokenRef = useRef<string>('');
   const initStartedRef = useRef(false);
   
