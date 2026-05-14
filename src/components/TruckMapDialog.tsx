@@ -591,7 +591,7 @@ export function TruckMapView({
       map.current?.remove();
       map.current = null;
     };
-  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), completedDeliveryCount, hasBOL, hasPOD, pickupArrived]);
+  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), completedDeliveryCount, homeLatitude, homeLongitude, homeCity, homeState, hasBOL, hasPOD, pickupArrived]);
 
   const drawRouteToDestination = async (
     mapInstance: mapboxgl.Map,
