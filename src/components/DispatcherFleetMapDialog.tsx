@@ -340,8 +340,9 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             bounds.extend(lngLat);
           });
 
-          // Add home markers for drivers with valid home coordinates
-          truckLocations.forEach(({ truck }) => {
+          // Add home markers for ALL drivers with valid home coordinates
+          // (not just those with current GPS location)
+          trucksRef.current.forEach((truck) => {
             const lat = truck.homeLatitude;
             const lng = truck.homeLongitude;
             if (
@@ -367,6 +368,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               .setLngLat([lng, lat])
               .addTo(newMap);
             homeMarkersRef.current.push(homeMarker);
+            bounds.extend([lng, lat]);
           });
 
           // Fit map to show all trucks
