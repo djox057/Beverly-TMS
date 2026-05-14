@@ -434,6 +434,20 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
                 'line-width': 2,
               },
             });
+
+            console.debug('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
+              featureCount: radiusFeatures.length,
+              features: radiusFeatures.map((f) => ({
+                id: (f.properties as { id?: string } | null)?.id,
+                ringPoints: f.geometry.coordinates[0]?.length ?? 0,
+                firstCoord: f.geometry.coordinates[0]?.[0],
+              })),
+            });
+          } else {
+            console.debug('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
+              featureCount: 0,
+              reason: 'homeLocations empty — radius source/layer not added',
+            });
           }
 
           // Add home markers for ALL drivers with valid home coordinates
