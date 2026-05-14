@@ -9,6 +9,32 @@ import { HosCircularTimer } from '@/components/HosCircularTimer';
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
 
+const HOME_RADIUS_MILES = 300;
+const EARTH_RADIUS_MILES = 3958.8;
+
+const createRadiusCircle = (lng: number, lat: number, radiusMiles = HOME_RADIUS_MILES, points = 96) => {
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180;
+  const angularDistance = radiusMiles / EARTH_RADIUS_MILES;
+  const coordinates: [number, number][] = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const bearing = (i / points) * 2 * Math.PI;
+    const pointLatRad = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+        Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const pointLngRad = lngRad + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLatRad),
+    );
+
+    coordinates.push([(pointLngRad * 180) / Math.PI, (pointLatRad * 180) / Math.PI]);
+  }
+
+  return coordinates;
+};
+
 async function getMapboxToken(): Promise<string> {
   if (cachedMapboxToken) return cachedMapboxToken;
   
