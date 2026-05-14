@@ -33,6 +33,10 @@ interface TruckData {
   shiftMinutes?: number;
   breakMinutes?: number;
   cycleMinutes?: number;
+  homeLatitude?: number | null;
+  homeLongitude?: number | null;
+  homeCity?: string | null;
+  homeState?: string | null;
   currentOrder?: {
     id: string;
     loadNumber: string;
@@ -64,6 +68,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
   const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const homeMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const tokenRef = useRef<string>('');
   const initStartedRef = useRef(false);
   
@@ -335,6 +340,35 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             bounds.extend(lngLat);
           });
 
+          // Add home markers for drivers with valid home coordinates
+          truckLocations.forEach(({ truck }) => {
+            const lat = truck.homeLatitude;
+            const lng = truck.homeLongitude;
+            if (
+              typeof lat !== 'number' || !Number.isFinite(lat) ||
+              typeof lng !== 'number' || !Number.isFinite(lng)
+            ) {
+              return;
+            }
+            const homeEl = document.createElement('div');
+            homeEl.style.cursor = 'default';
+            const homeLabel = [truck.homeCity, truck.homeState].filter(Boolean).join(', ');
+            homeEl.innerHTML = `
+              <div title="${truck.driverName}${homeLabel ? ' — ' + homeLabel : ''}" style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+              ">
+                <div style="font-size: 22px; line-height: 1;">🏠</div>
+              </div>
+            `;
+            const homeMarker = new mapboxgl.Marker(homeEl)
+              .setLngLat([lng, lat])
+              .addTo(newMap);
+            homeMarkersRef.current.push(homeMarker);
+          });
+
           // Fit map to show all trucks
           newMap.fitBounds(bounds, { padding: 60 });
           
@@ -379,6 +413,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       window.clearTimeout(timeout);
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
+      homeMarkersRef.current.forEach((m) => m.remove());
+      homeMarkersRef.current = [];
       map.current?.remove();
       map.current = null;
       initStartedRef.current = false;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { isValidUUID } from "@/utils/validation";
+import { geocodeDriverHome } from "@/utils/geocodeDriverHome";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -475,6 +476,38 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
     setIsSubmitting(true);
     try {
+      // Geocode only if home fields changed AND user did not manually edit lat/lng
+      const origAddress = driver.home_address || "";
+      const origCity = driver.home_city || "";
+      const origState = driver.home_state || "";
+      const origLat = driver.home_latitude?.toString() || "";
+      const origLng = driver.home_longitude?.toString() || "";
+      const homeFieldsChanged =
+        formData.home_address !== origAddress ||
+        formData.home_city !== origCity ||
+        formData.home_state !== origState;
+      const latLngManuallyEdited =
+        formData.home_latitude !== origLat || formData.home_longitude !== origLng;
+
+      let homeLat: number | null = formData.home_latitude ? parseFloat(formData.home_latitude) : null;
+      let homeLng: number | null = formData.home_longitude ? parseFloat(formData.home_longitude) : null;
+      if (
+        homeFieldsChanged &&
+        !latLngManuallyEdited &&
+        formData.home_city.trim() &&
+        formData.home_state.trim()
+      ) {
+        const geo = await geocodeDriverHome({
+          home_address: formData.home_address,
+          home_city: formData.home_city,
+          home_state: formData.home_state,
+        });
+        if (geo) {
+          homeLat = geo.lat;
+          homeLng = geo.lng;
+        }
+      }
+
       const { error } = await supabase
         .from("drivers")
         .update({
@@ -491,8 +524,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           home_address: formData.home_address || null,
           home_city: formData.home_city || null,
           home_state: formData.home_state || null,
-          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+          home_latitude: homeLat,
+          home_longitude: homeLng,
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
