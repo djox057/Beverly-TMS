@@ -413,6 +413,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       window.clearTimeout(timeout);
       markersRef.current.forEach(({ marker }) => marker.remove());
       markersRef.current.clear();
+      homeMarkersRef.current.forEach((m) => m.remove());
+      homeMarkersRef.current = [];
       map.current?.remove();
       map.current = null;
       initStartedRef.current = false;
