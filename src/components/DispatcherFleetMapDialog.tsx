@@ -9,6 +9,32 @@ import { HosCircularTimer } from '@/components/HosCircularTimer';
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
 
+const HOME_RADIUS_MILES = 300;
+const EARTH_RADIUS_MILES = 3958.8;
+
+const createRadiusCircle = (lng: number, lat: number, radiusMiles = HOME_RADIUS_MILES, points = 96) => {
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180;
+  const angularDistance = radiusMiles / EARTH_RADIUS_MILES;
+  const coordinates: [number, number][] = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const bearing = (i / points) * 2 * Math.PI;
+    const pointLatRad = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+        Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const pointLngRad = lngRad + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLatRad),
+    );
+
+    coordinates.push([(pointLngRad * 180) / Math.PI, (pointLatRad * 180) / Math.PI]);
+  }
+
+  return coordinates;
+};
+
 async function getMapboxToken(): Promise<string> {
   if (cachedMapboxToken) return cachedMapboxToken;
   
@@ -82,7 +108,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   // Create stable signature to detect real changes
   const trucksSignature = useMemo(() => {
     return trucks
-      .map((t) => t.id)
+      .map((t) => `${t.id}:${t.homeLatitude ?? ''}:${t.homeLongitude ?? ''}`)
       .sort()
       .join('|');
   }, [trucks]);
@@ -112,11 +138,13 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     setSelectedTruckId(null);
   }, []);
 
-  const hasCoords = (lat?: number | null, lng?: number | null) =>
-    typeof lat === 'number' &&
-    Number.isFinite(lat) &&
-    typeof lng === 'number' &&
-    Number.isFinite(lng);
+  const toFiniteCoordinate = (value?: number | string | null) => {
+    const numericValue = typeof value === 'string' ? Number(value) : value;
+    return typeof numericValue === 'number' && Number.isFinite(numericValue) ? numericValue : null;
+  };
+
+  const hasCoords = (lat?: number | string | null, lng?: number | string | null) =>
+    toFiniteCoordinate(lat) !== null && toFiniteCoordinate(lng) !== null;
 
   // Determine next stop based on order status (hasBOL means heading to delivery)
   const getNextStop = (order: TruckData['currentOrder']) => {
@@ -340,31 +368,86 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             bounds.extend(lngLat);
           });
 
+          const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+          const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+          const homeLocations = trucksRef.current
+            .map((truck) => ({
+              truck,
+              lat: toFiniteCoordinate(truck.homeLatitude),
+              lng: toFiniteCoordinate(truck.homeLongitude),
+            }))
+            .filter((home): home is { truck: TruckData; lat: number; lng: number } => home.lat !== null && home.lng !== null);
+
+          if (homeLocations.length > 0) {
+            const radiusFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = homeLocations.map(({ truck, lat, lng }) => {
+              const circle = createRadiusCircle(lng, lat);
+              circle.forEach((coordinate) => bounds.extend(coordinate));
+
+              return {
+                type: 'Feature',
+                properties: { id: truck.id },
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [circle],
+                },
+              };
+            });
+
+            newMap.addSource('driver-home-radius-zones', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: radiusFeatures,
+              },
+            });
+
+            newMap.addLayer({
+              id: 'driver-home-radius-zones-fill',
+              type: 'fill',
+              source: 'driver-home-radius-zones',
+              paint: {
+                'fill-color': warningColor,
+                'fill-opacity': 0.18,
+              },
+            });
+
+            newMap.addLayer({
+              id: 'driver-home-radius-zones-outline',
+              type: 'line',
+              source: 'driver-home-radius-zones',
+              paint: {
+                'line-color': warningColor,
+                'line-opacity': 0.8,
+                'line-width': 2,
+              },
+            });
+          }
+
           // Add home markers for ALL drivers with valid home coordinates
           // (not just those with current GPS location)
-          trucksRef.current.forEach((truck) => {
-            const lat = truck.homeLatitude;
-            const lng = truck.homeLongitude;
-            if (
-              typeof lat !== 'number' || !Number.isFinite(lat) ||
-              typeof lng !== 'number' || !Number.isFinite(lng)
-            ) {
-              return;
-            }
+          homeLocations.forEach(({ truck, lat, lng }) => {
             const homeEl = document.createElement('div');
             homeEl.style.cursor = 'default';
-            const homeLabel = [truck.homeCity, truck.homeState].filter(Boolean).join(', ');
-            homeEl.innerHTML = `
-              <div title="${truck.driverName}${homeLabel ? ' — ' + homeLabel : ''}" style="
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-              ">
-                <div style="font-size: 22px; line-height: 1;">🏠</div>
-              </div>
-            `;
-            const homeMarker = new mapboxgl.Marker(homeEl)
+            homeEl.style.pointerEvents = 'auto';
+            homeEl.title = `${truck.driverName}${truck.homeCity || truck.homeState ? ` — ${[truck.homeCity, truck.homeState].filter(Boolean).join(', ')}` : ''}`;
+
+            const badge = document.createElement('div');
+            badge.style.width = '34px';
+            badge.style.height = '34px';
+            badge.style.borderRadius = '9999px';
+            badge.style.background = warningColor;
+            badge.style.color = 'hsl(var(--warning-foreground))';
+            badge.style.border = '2px solid hsl(var(--background))';
+            badge.style.boxShadow = '0 2px 8px hsl(var(--foreground) / 0.35)';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.fontSize = '20px';
+            badge.style.lineHeight = '1';
+            badge.textContent = '🏠';
+            homeEl.appendChild(badge);
+
+            const homeMarker = new mapboxgl.Marker({ element: homeEl, anchor: 'center' })
               .setLngLat([lng, lat])
               .addTo(newMap);
             homeMarkersRef.current.push(homeMarker);
