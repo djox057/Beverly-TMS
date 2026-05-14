@@ -108,7 +108,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   // Create stable signature to detect real changes
   const trucksSignature = useMemo(() => {
     return trucks
-      .map((t) => t.id)
+      .map((t) => `${t.id}:${t.homeLatitude ?? ''}:${t.homeLongitude ?? ''}`)
       .sort()
       .join('|');
   }, [trucks]);
@@ -138,11 +138,13 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     setSelectedTruckId(null);
   }, []);
 
-  const hasCoords = (lat?: number | null, lng?: number | null) =>
-    typeof lat === 'number' &&
-    Number.isFinite(lat) &&
-    typeof lng === 'number' &&
-    Number.isFinite(lng);
+  const toFiniteCoordinate = (value?: number | string | null) => {
+    const numericValue = typeof value === 'string' ? Number(value) : value;
+    return typeof numericValue === 'number' && Number.isFinite(numericValue) ? numericValue : null;
+  };
+
+  const hasCoords = (lat?: number | string | null, lng?: number | string | null) =>
+    toFiniteCoordinate(lat) !== null && toFiniteCoordinate(lng) !== null;
 
   // Determine next stop based on order status (hasBOL means heading to delivery)
   const getNextStop = (order: TruckData['currentOrder']) => {
