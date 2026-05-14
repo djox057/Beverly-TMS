@@ -2142,7 +2142,7 @@ export const useReports = (options?: UseReportsOptions) => {
             const { data: realDriverData } = driverIds.length > 0 
               ? await supabase
                   .from("drivers")
-                  .select("id, name, phone, email, home_city, home_state, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, do_not_touch_hos")
+                  .select("id, name, phone, email, home_city, home_state, home_latitude, home_longitude, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, do_not_touch_hos")
                   .in("id", driverIds)
               : { data: [] };
             
