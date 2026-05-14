@@ -484,6 +484,21 @@ const Drivers = () => {
 
     setIsSubmitting(true);
     try {
+      // Auto-geocode home if user didn't manually type lat/lng
+      let homeLat: number | null = formData.home_latitude ? parseFloat(formData.home_latitude) : null;
+      let homeLng: number | null = formData.home_longitude ? parseFloat(formData.home_longitude) : null;
+      if ((homeLat === null || homeLng === null) && formData.home_city.trim() && formData.home_state.trim()) {
+        const geo = await geocodeDriverHome({
+          home_address: formData.home_address,
+          home_city: formData.home_city,
+          home_state: formData.home_state,
+        });
+        if (geo) {
+          homeLat = geo.lat;
+          homeLng = geo.lng;
+        }
+      }
+
       // Create driver record including home address
       const { data: driverData, error } = await supabase
         .from("drivers")
@@ -501,8 +516,8 @@ const Drivers = () => {
           home_address: formData.home_address || null,
           home_city: formData.home_city || null,
           home_state: formData.home_state || null,
-          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+          home_latitude: homeLat,
+          home_longitude: homeLng,
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
