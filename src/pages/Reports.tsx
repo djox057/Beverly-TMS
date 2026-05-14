@@ -4225,10 +4225,10 @@ const Reports = () => {
                                               shiftMinutes: truck.shiftMinutes,
                                               breakMinutes: truck.breakMinutes,
                                               cycleMinutes: truck.cycleMinutes,
-                                              homeLatitude: truck.driver1?.home_latitude ?? null,
-                                              homeLongitude: truck.driver1?.home_longitude ?? null,
-                                              homeCity: truck.driver1?.home_city ?? null,
-                                              homeState: truck.driver1?.home_state ?? null,
+                                              homeLatitude: truck.homeLatitude ?? truck.driver1?.home_latitude ?? null,
+                                              homeLongitude: truck.homeLongitude ?? truck.driver1?.home_longitude ?? null,
+                                              homeCity: truck.homeCity ?? truck.driver1?.home_city ?? null,
+                                              homeState: truck.homeState ?? truck.driver1?.home_state ?? null,
                                               currentOrder: currentOrder
                                                 ? {
                                                     id: currentOrder.id,
