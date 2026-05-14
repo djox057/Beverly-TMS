@@ -1,69 +1,68 @@
-## Why Analytics is slow today
+## Goal
 
-`src/pages/Analytics.tsx` (5,296 lines) loads via `useOrdersWithProgress`, which:
+Finish the half-implemented "driver home location" feature: auto-geocode a driver's home address on add/update, persist `home_latitude`/`home_longitude`, and show a 🏠 marker on the Reports fleet map.
 
-1. Calls `get-all-unlocked-orders` once (every unlocked order in one payload).
-2. Loops `get-all-locked-orders` in 1,000-row batches, up to 200 batches → potentially **200 round-trips** for locked history.
-3. Merges, dedupes, sorts, runs `transformOrders` on the full set.
-4. The page then runs ~25 `useMemo` aggregations (`dispatcherAnalytics`, `driverAnalytics`, `totals`, `fleetAverages`, `driverGrossRankings`, `qualifyingLoads`, `coveragePercent`, etc.) over every order in the browser.
+## Current state
 
-The bottleneck is the network round-trips + payload size + JS reductions over the entire orders table — not Postgres itself.
+- DB columns already exist on `drivers`: `home_address`, `home_city`, `home_state`, `home_latitude`, `home_longitude`.
+- `EditDriverDialog.tsx` and `Drivers.tsx` (Add Driver + Edit) write these fields, but `home_latitude`/`home_longitude` are only set via manual text inputs — never auto-geocoded.
+- `supabase/functions/calculate-mapbox-route` already supports `{ type: 'geocode', address }` and `src/utils/mapboxRouteCalculator.ts` exports `geocodeAddress(address)`.
+- Reports fleet map = `src/components/DispatcherFleetMapDialog.tsx` (renders truck markers + selected pickup/delivery marker). No home marker today.
 
-## Yes — apply the lane-search pattern
+## Changes
 
-New edge function `analytics-summary` runs the entire pipeline server-side and returns only the numbers the page renders.
+### 1. Geocode helper (new) — `src/utils/geocodeDriverHome.ts`
 
-```text
-Browser ──POST──► analytics-summary ──► Postgres aggregations
-        ◄─────── { dispatcherStats[], driverStats[],
-                   totals, fleetAverages, qualifyingLoads,
-                   weeklyHighRate, weeklyHighCut, rankings,
-                   coveragePercent, activeDriverNames }
+Single function:
 ```
+geocodeDriverHome({ home_address, home_city, home_state })
+  → { lat, lng } | null
+```
+- Requires at least `home_city` + `home_state`. Returns `null` otherwise.
+- Builds query string: `[home_address,] home_city, home_state` (skip address if blank).
+- Reuses `geocodeAddress()` from `mapboxRouteCalculator.ts`.
+- Swallows errors → returns `null` (so save never fails because of geocoding).
 
-Inside the function:
+### 2. Add Driver flow — `src/pages/Drivers.tsx` (Add path, ~line 500)
 
-- One SQL pass per metric group, using `GROUP BY` on `orders` joined to `drivers` / `profiles`, filtered by `pickup_datetime` / `delivery_datetime` window, `canceled = false`, optional `booked_by`, optional `dispatcher_id`.
-- All filtering and sorting in Postgres — return ready-to-render arrays.
-- Role enforcement (`isDispatchOnly`, dispatcher-only seeing own data, hidden bonuses for `dispatch`) decided from the JWT inside the function, never trusted from the body.
-- For per-order tabs ("Loads", "qualifying loads", high-rate, 50%-cut), return only the small filtered rows the UI shows — not the whole orders table.
+Before the `INSERT`:
+- If `home_city` and `home_state` are present, call `geocodeDriverHome(...)` once.
+- Use returned `{ lat, lng }` for `home_latitude`/`home_longitude` if user did not manually type values; otherwise prefer manual values (respect explicit input).
+- If geocoding returns null, save with `null` lat/lng (no blocking).
 
-## Frontend changes
+### 3. Edit Driver flow — two locations
 
-- New hook `useAnalyticsSummary({ dateRange, bookedBy, dispatcherUserId })` — single `supabase.functions.invoke("analytics-summary", …)` wrapped in React Query, `staleTime: 5 min`.
-- `Analytics.tsx` reads fields straight off `summary.*`; the 25 `useMemo` reducers go away.
-- Loading-progress UI ("X / Y locked") becomes a single skeleton/spinner.
-- `useOrdersRealtime` subscription stays, but now debounce-invalidates the `analytics-summary` query instead of patching an in-memory order list.
+- `src/components/EditDriverDialog.tsx` (~line 491, the `UPDATE`)
+- `src/pages/Drivers.tsx` Edit handler (~line 772)
 
-## Expected gains
+Logic in both:
+- Compare `home_address`/`home_city`/`home_state` against the original loaded values.
+- Re-geocode **only if** any of those three changed AND city+state are present AND user did not manually edit lat/lng in this session.
+- Track "user manually changed lat/lng" via the existing form inputs (compare current `formData.home_latitude/longitude` to initial values from `driver`).
+- If geocoding succeeds → overwrite lat/lng. If it fails → keep previous lat/lng.
 
-- One HTTP request instead of 1 unlocked + up to ~200 locked batches.
-- Response shrinks from megabytes of order JSON to tens of KB of aggregates.
-- All in-browser reductions disappear — first paint becomes near-instant after the response.
-- Realistic 5–15× faster initial load, matching the lane-search win.
+This guarantees: geocoding runs **once** per save, and **only** on add or when home address fields actually change.
 
-## Risks / things to nail down before building
+### 4. Reports fleet map — `src/components/DispatcherFleetMapDialog.tsx`
 
-1. **Coverage of every tab.** Need to enumerate every metric/column the current page reads from `orders` so the edge function returns all of them. Riskiest surfaces: the "Loads" tab, dispatcher detail popovers, driver detail popovers (per-order rows). Either paginate those server-side or keep a raw fetch only when the popover opens.
-2. **Salaries tab + payroll dialogs** still write back to `dispatcher_salary_payments` etc. — those mutations stay client-side, only the read aggregates move.
-3. **Date-window edge cases.** Chicago-time boundaries must be applied in the SQL window (use `AT TIME ZONE 'America/Chicago'`), not naïve UTC.
-4. **Realtime correctness.** Need a debounce so a burst of order edits doesn't refetch the summary 50× per minute.
+Extend `TruckData` interface (in this file + at the call site in `Reports.tsx` line 4174):
+- Add `homeLatitude?: number | null`, `homeLongitude?: number | null`.
 
-## Suggested rollout
+In `useReports.ts`, the home select already includes `home_city, home_state` — extend the selects at lines 889, 1752, 2145 to also pull `home_latitude, home_longitude`, and pass them through to the truck object consumed by the fleet map.
 
-1. Build `analytics-summary` covering the top-of-page totals + dispatcher table only (highest-traffic surface). Behind a flag `localStorage.analytics_v2 = "true"`.
-2. Verify numbers match current page across several date ranges and roles.
-3. Migrate Driver Analytics, Rankings, Salaries, and Loads tabs one at a time.
-4. Flip the flag default to on; remove `useOrdersWithProgress` from `Analytics.tsx`.
+Render in map init loop (alongside truck markers):
+- For each truck whose `driver1` has valid `homeLatitude/homeLongitude`, add a small 🏠 marker at those coords. Use a distinct, smaller styled element so it doesn't compete with the truck pin.
+- Markers stored in a separate `homeMarkersRef` (cleaned up alongside truck markers).
+- Do **not** auto-fitBounds to include homes (would zoom out too far). Only show.
 
-## Smaller wins we can ship first if you want a faster step
+### Out of scope
+- No retroactive backfill of existing drivers (geocoding fires only on next add/edit per spec).
+- No changes to `TruckMapDialog` (single-truck dialog) unless requested.
+- No changes to address parsing logic.
 
-- Narrow the `select(...)` lists in `get-all-unlocked-orders` / `get-all-locked-orders` to only columns Analytics actually reads (smaller payload, faster JSON parse).
-- Run `transformOrders` per batch as it arrives instead of once on the merged array.
-- Increase locked batch size from 1,000 → 5,000 to cut round-trips ~5×.
-
-These are reversible and give noticeable improvement without the full rewrite.
-
----
-
-Want me to start with the small wins, or go straight to the `analytics-summary` edge function (recommended for the 5–15× target)?
+### Validation
+- Add new driver with city+state → row has lat/lng populated.
+- Edit driver, change only phone → no geocode call (verify via network tab).
+- Edit driver, change `home_city` → geocode runs once, lat/lng updated.
+- Edit driver, manually type lat/lng → manual values preserved, no overwrite.
+- Reports fleet map shows 🏠 markers for drivers with home coords; absent for drivers without.
