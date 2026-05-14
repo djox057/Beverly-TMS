@@ -368,31 +368,86 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             bounds.extend(lngLat);
           });
 
+          const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+          const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+          const homeLocations = trucksRef.current
+            .map((truck) => ({
+              truck,
+              lat: toFiniteCoordinate(truck.homeLatitude),
+              lng: toFiniteCoordinate(truck.homeLongitude),
+            }))
+            .filter((home): home is { truck: TruckData; lat: number; lng: number } => home.lat !== null && home.lng !== null);
+
+          if (homeLocations.length > 0) {
+            const radiusFeatures = homeLocations.map(({ truck, lat, lng }) => {
+              const circle = createRadiusCircle(lng, lat);
+              circle.forEach((coordinate) => bounds.extend(coordinate));
+
+              return {
+                type: 'Feature',
+                properties: { id: truck.id },
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [circle],
+                },
+              };
+            });
+
+            newMap.addSource('driver-home-radius-zones', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: radiusFeatures,
+              },
+            });
+
+            newMap.addLayer({
+              id: 'driver-home-radius-zones-fill',
+              type: 'fill',
+              source: 'driver-home-radius-zones',
+              paint: {
+                'fill-color': warningColor,
+                'fill-opacity': 0.18,
+              },
+            });
+
+            newMap.addLayer({
+              id: 'driver-home-radius-zones-outline',
+              type: 'line',
+              source: 'driver-home-radius-zones',
+              paint: {
+                'line-color': warningColor,
+                'line-opacity': 0.8,
+                'line-width': 2,
+              },
+            });
+          }
+
           // Add home markers for ALL drivers with valid home coordinates
           // (not just those with current GPS location)
-          trucksRef.current.forEach((truck) => {
-            const lat = truck.homeLatitude;
-            const lng = truck.homeLongitude;
-            if (
-              typeof lat !== 'number' || !Number.isFinite(lat) ||
-              typeof lng !== 'number' || !Number.isFinite(lng)
-            ) {
-              return;
-            }
+          homeLocations.forEach(({ truck, lat, lng }) => {
             const homeEl = document.createElement('div');
             homeEl.style.cursor = 'default';
-            const homeLabel = [truck.homeCity, truck.homeState].filter(Boolean).join(', ');
-            homeEl.innerHTML = `
-              <div title="${truck.driverName}${homeLabel ? ' — ' + homeLabel : ''}" style="
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-              ">
-                <div style="font-size: 22px; line-height: 1;">🏠</div>
-              </div>
-            `;
-            const homeMarker = new mapboxgl.Marker(homeEl)
+            homeEl.style.pointerEvents = 'auto';
+            homeEl.title = `${truck.driverName}${truck.homeCity || truck.homeState ? ` — ${[truck.homeCity, truck.homeState].filter(Boolean).join(', ')}` : ''}`;
+
+            const badge = document.createElement('div');
+            badge.style.width = '34px';
+            badge.style.height = '34px';
+            badge.style.borderRadius = '9999px';
+            badge.style.background = warningColor;
+            badge.style.color = 'hsl(var(--warning-foreground))';
+            badge.style.border = '2px solid hsl(var(--background))';
+            badge.style.boxShadow = '0 2px 8px hsl(var(--foreground) / 0.35)';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.fontSize = '20px';
+            badge.style.lineHeight = '1';
+            badge.textContent = '🏠';
+            homeEl.appendChild(badge);
+
+            const homeMarker = new mapboxgl.Marker({ element: homeEl, anchor: 'center' })
               .setLngLat([lng, lat])
               .addTo(newMap);
             homeMarkersRef.current.push(homeMarker);
