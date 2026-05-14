@@ -8,6 +8,37 @@ import { supabase } from '@/integrations/supabase/client';
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
 
+const HOME_RADIUS_MILES = 300;
+const EARTH_RADIUS_MILES = 3958.8;
+
+const createRadiusCircle = (lng: number, lat: number, radiusMiles = HOME_RADIUS_MILES, points = 96) => {
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180;
+  const angularDistance = radiusMiles / EARTH_RADIUS_MILES;
+  const coordinates: [number, number][] = [];
+
+  for (let i = 0; i <= points; i += 1) {
+    const bearing = (i / points) * 2 * Math.PI;
+    const pointLatRad = Math.asin(
+      Math.sin(latRad) * Math.cos(angularDistance) +
+        Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const pointLngRad = lngRad + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLatRad),
+    );
+
+    coordinates.push([(pointLngRad * 180) / Math.PI, (pointLatRad * 180) / Math.PI]);
+  }
+
+  return coordinates;
+};
+
+const toFiniteCoordinate = (value?: number | string | null) => {
+  const numericValue = typeof value === 'string' ? Number(value) : value;
+  return typeof numericValue === 'number' && Number.isFinite(numericValue) ? numericValue : null;
+};
+
 async function getMapboxToken(): Promise<string> {
   if (cachedMapboxToken) return cachedMapboxToken;
   
@@ -56,6 +87,10 @@ interface TruckMapDialogProps {
   pickupAddresses?: string[]; // All pickup addresses for multi-stop loads
   deliveryAddresses?: string[]; // All delivery addresses for multi-stop loads
   completedDeliveryCount?: number; // Number of PODs uploaded (completed deliveries)
+  homeLatitude?: number | string | null;
+  homeLongitude?: number | string | null;
+  homeCity?: string | null;
+  homeState?: string | null;
   pickupDate?: string;
   pickupTime?: string;
   deliveryDate?: string;
@@ -292,6 +327,10 @@ export function TruckMapView({
   pickupAddresses,
   deliveryAddresses,
   completedDeliveryCount = 0,
+  homeLatitude,
+  homeLongitude,
+  homeCity,
+  homeState,
   pickupDate,
   pickupTime,
   deliveryDate,
@@ -361,6 +400,91 @@ export function TruckMapView({
 
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([truckLocation.longitude, truckLocation.latitude]);
+
+        const homeLat = toFiniteCoordinate(homeLatitude);
+        const homeLng = toFiniteCoordinate(homeLongitude);
+        const hasHomeLocation = homeLat !== null && homeLng !== null;
+        const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+        const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+
+        console.info('[TruckMapView] homeLocations', {
+          count: hasHomeLocation ? 1 : 0,
+          coordinates: hasHomeLocation
+            ? [{ truckId, truckNumber, homeCity, homeState, lat: homeLat, lng: homeLng }]
+            : [],
+        });
+
+        if (hasHomeLocation) {
+          const circle = createRadiusCircle(homeLng, homeLat);
+          circle.forEach((coordinate) => bounds.extend(coordinate));
+          bounds.extend([homeLng, homeLat]);
+
+          const addHomeRadiusLayer = () => {
+            if (!map.current || map.current.getSource('driver-home-radius-zone')) return;
+
+            map.current.addSource('driver-home-radius-zone', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: [{
+                  type: 'Feature',
+                  properties: { id: truckId },
+                  geometry: {
+                    type: 'Polygon',
+                    coordinates: [circle],
+                  },
+                }],
+              },
+            });
+
+            map.current.addLayer({
+              id: 'driver-home-radius-zone-fill',
+              type: 'fill',
+              source: 'driver-home-radius-zone',
+              paint: {
+                'fill-color': warningColor,
+                'fill-opacity': 0.18,
+              },
+            });
+
+            map.current.addLayer({
+              id: 'driver-home-radius-zone-outline',
+              type: 'line',
+              source: 'driver-home-radius-zone',
+              paint: {
+                'line-color': warningColor,
+                'line-opacity': 0.8,
+                'line-width': 2,
+              },
+            });
+          };
+
+          if (map.current.isStyleLoaded()) {
+            addHomeRadiusLayer();
+          } else {
+            map.current.once('load', addHomeRadiusLayer);
+          }
+
+          const homeEl = document.createElement('div');
+          homeEl.title = `${truckNumber} home${homeCity || homeState ? ` — ${[homeCity, homeState].filter(Boolean).join(', ')}` : ''}`;
+          homeEl.innerHTML = `
+            <div style="width:34px;height:34px;border-radius:9999px;background:${warningColor};color:hsl(var(--warning-foreground));border:2px solid hsl(var(--background));box-shadow:0 2px 8px hsl(var(--foreground) / 0.35);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;">🏠</div>
+          `;
+
+          new mapboxgl.Marker({ element: homeEl, anchor: 'center' })
+            .setLngLat([homeLng, homeLat])
+            .addTo(map.current);
+
+          console.info('[TruckMapView] driver-home-radius-zone features', {
+            featureCount: 1,
+            features: [{ id: truckId, ringPoints: circle.length, firstCoord: circle[0] }],
+          });
+        } else {
+          console.info('[TruckMapView] driver-home-radius-zone features', {
+            featureCount: 0,
+            reason: 'home location missing — radius source/layer not added',
+          });
+        }
 
         // Determine routing logic based on order status
         const shouldRouteToPickup = !hasBOL && !pickupArrived;
@@ -467,7 +591,7 @@ export function TruckMapView({
       map.current?.remove();
       map.current = null;
     };
-  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), completedDeliveryCount, hasBOL, hasPOD, pickupArrived]);
+  }, [locations, truckId, truckNumber, allPickupAddresses.join(','), allDeliveryAddresses.join(','), completedDeliveryCount, homeLatitude, homeLongitude, homeCity, homeState, hasBOL, hasPOD, pickupArrived]);
 
   const drawRouteToDestination = async (
     mapInstance: mapboxgl.Map,
