@@ -379,7 +379,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             .filter((home): home is { truck: TruckData; lat: number; lng: number } => home.lat !== null && home.lng !== null);
 
           if (homeLocations.length > 0) {
-            const radiusFeatures = homeLocations.map(({ truck, lat, lng }) => {
+            const radiusFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = homeLocations.map(({ truck, lat, lng }) => {
               const circle = createRadiusCircle(lng, lat);
               circle.forEach((coordinate) => bounds.extend(coordinate));
 
