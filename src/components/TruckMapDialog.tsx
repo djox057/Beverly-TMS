@@ -401,6 +401,91 @@ export function TruckMapView({
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([truckLocation.longitude, truckLocation.latitude]);
 
+        const homeLat = toFiniteCoordinate(homeLatitude);
+        const homeLng = toFiniteCoordinate(homeLongitude);
+        const hasHomeLocation = homeLat !== null && homeLng !== null;
+        const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+        const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+
+        console.debug('[TruckMapView] homeLocations', {
+          count: hasHomeLocation ? 1 : 0,
+          coordinates: hasHomeLocation
+            ? [{ truckId, truckNumber, homeCity, homeState, lat: homeLat, lng: homeLng }]
+            : [],
+        });
+
+        if (hasHomeLocation) {
+          const circle = createRadiusCircle(homeLng, homeLat);
+          circle.forEach((coordinate) => bounds.extend(coordinate));
+          bounds.extend([homeLng, homeLat]);
+
+          const addHomeRadiusLayer = () => {
+            if (!map.current || map.current.getSource('driver-home-radius-zone')) return;
+
+            map.current.addSource('driver-home-radius-zone', {
+              type: 'geojson',
+              data: {
+                type: 'FeatureCollection',
+                features: [{
+                  type: 'Feature',
+                  properties: { id: truckId },
+                  geometry: {
+                    type: 'Polygon',
+                    coordinates: [circle],
+                  },
+                }],
+              },
+            });
+
+            map.current.addLayer({
+              id: 'driver-home-radius-zone-fill',
+              type: 'fill',
+              source: 'driver-home-radius-zone',
+              paint: {
+                'fill-color': warningColor,
+                'fill-opacity': 0.18,
+              },
+            });
+
+            map.current.addLayer({
+              id: 'driver-home-radius-zone-outline',
+              type: 'line',
+              source: 'driver-home-radius-zone',
+              paint: {
+                'line-color': warningColor,
+                'line-opacity': 0.8,
+                'line-width': 2,
+              },
+            });
+          };
+
+          if (map.current.isStyleLoaded()) {
+            addHomeRadiusLayer();
+          } else {
+            map.current.once('load', addHomeRadiusLayer);
+          }
+
+          const homeEl = document.createElement('div');
+          homeEl.title = `${truckNumber} home${homeCity || homeState ? ` — ${[homeCity, homeState].filter(Boolean).join(', ')}` : ''}`;
+          homeEl.innerHTML = `
+            <div style="width:34px;height:34px;border-radius:9999px;background:${warningColor};color:hsl(var(--warning-foreground));border:2px solid hsl(var(--background));box-shadow:0 2px 8px hsl(var(--foreground) / 0.35);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;">🏠</div>
+          `;
+
+          new mapboxgl.Marker({ element: homeEl, anchor: 'center' })
+            .setLngLat([homeLng, homeLat])
+            .addTo(map.current);
+
+          console.debug('[TruckMapView] driver-home-radius-zone features', {
+            featureCount: 1,
+            features: [{ id: truckId, ringPoints: circle.length, firstCoord: circle[0] }],
+          });
+        } else {
+          console.debug('[TruckMapView] driver-home-radius-zone features', {
+            featureCount: 0,
+            reason: 'home location missing — radius source/layer not added',
+          });
+        }
+
         // Determine routing logic based on order status
         const shouldRouteToPickup = !hasBOL && !pickupArrived;
         // Route to delivery if BOL exists and there are still incomplete deliveries
