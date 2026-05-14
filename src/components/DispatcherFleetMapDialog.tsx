@@ -378,7 +378,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             }))
             .filter((home): home is { truck: TruckData; lat: number; lng: number } => home.lat !== null && home.lng !== null);
 
-          console.debug('[DispatcherFleetMapDialog] homeLocations', {
+          console.info('[DispatcherFleetMapDialog] homeLocations', {
             count: homeLocations.length,
             coordinates: homeLocations.map(({ truck, lat, lng }) => ({
               truckId: truck.id,
@@ -435,7 +435,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               },
             });
 
-            console.debug('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
+            console.info('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
               featureCount: radiusFeatures.length,
               features: radiusFeatures.map((f) => ({
                 id: (f.properties as { id?: string } | null)?.id,
@@ -444,7 +444,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               })),
             });
           } else {
-            console.debug('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
+            console.info('[DispatcherFleetMapDialog] driver-home-radius-zones features', {
               featureCount: 0,
               reason: 'homeLocations empty — radius source/layer not added',
             });
