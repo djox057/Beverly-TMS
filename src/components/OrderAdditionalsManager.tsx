@@ -463,8 +463,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
             <Input
               type="number"
               step="0.01"
+              min="0"
               placeholder="0.00"
               value={newCompanyAmount}
+              onKeyDown={handleNumericKeyDown}
               onChange={(e) => setNewCompanyAmount(e.target.value)}
               className="h-9"
               disabled={!selectedType}
@@ -479,11 +481,13 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 placeholder="0.00"
                 value={newDriverAmount}
+                onKeyDown={handleNumericKeyDown}
                 onChange={(e) => setNewDriverAmount(e.target.value)}
                 className="h-9"
-                disabled={!newCompanyAmount || parseFloat(newCompanyAmount) === 0}
+                disabled={!newCompanyAmount || parseFloat(newCompanyAmount) <= 0}
               />
             </div>
           )}
@@ -539,8 +543,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       <Input
                         type="number"
                         step="0.01"
+                        min="0"
                         placeholder="0.00"
                         value={editCompanyAmount}
+                        onKeyDown={handleNumericKeyDown}
                         onChange={(e) => setEditCompanyAmount(e.target.value)}
                         className="h-8 w-28"
                         autoFocus
@@ -554,11 +560,13 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                         <Input
                           type="number"
                           step="0.01"
+                          min="0"
                           placeholder="0.00"
                           value={editDriverAmount}
+                          onKeyDown={handleNumericKeyDown}
                           onChange={(e) => setEditDriverAmount(e.target.value)}
                           className="h-8 w-28"
-                          disabled={!editCompanyAmount || parseFloat(editCompanyAmount) === 0}
+                          disabled={!editCompanyAmount || parseFloat(editCompanyAmount) <= 0}
                         />
                       </div>
                     )}
