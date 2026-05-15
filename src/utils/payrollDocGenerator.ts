@@ -27,6 +27,7 @@ interface PayrollData {
   lostDayDates: string[]; // Array of date strings
   extraDaysAmount: number; // Additional amount earned from extra days
   dispatcherBonus?: number; // Monthly performance bonus (1st place $1000, etc.)
+  recoveryBonus?: number; // Bonus for loads finished by recovery drivers
   perDayRate?: number; // Per-workday rate for lost days calculation
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
@@ -75,6 +76,8 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   const hasNonSickDaysOff = nonSickDaysOff > 0;
   
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
+  const recoveryBonus = data.recoveryBonus ?? 0;
+  const hasRecoveryBonus = recoveryBonus > 0;
   
   // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
@@ -82,7 +85,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   const daysOffDeduction = nonSickDaysOff * perDayRate;
   
   // Calculate check amount
-  const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
+  const checkAmount = data.salary1Percent + data.bonus5Percent + recoveryBonus + data.foodAllowance + 
     extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0);
 
   // Format dates for display
