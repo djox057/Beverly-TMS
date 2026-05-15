@@ -227,6 +227,12 @@
   }
 }
 
+/* iOS safe-area: push fixed sidebar/navigation content below the notch */
+[data-sidebar="sidebar"] {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* Snowflake animation */
 @keyframes snowflake-sway {
   0%, 100% {
