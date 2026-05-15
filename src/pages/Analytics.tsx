@@ -324,6 +324,7 @@ const Analytics = () => {
     lostDayDates: string[];
     extraDaysAmount: number;
     dispatcherBonus: number;
+    recoveryBonus?: number;
     perDayRate: number;
     isDeletedUser?: boolean;
     futureMonthLabel?: string;
