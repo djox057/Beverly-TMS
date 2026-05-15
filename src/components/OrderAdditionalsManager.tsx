@@ -457,7 +457,9 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
           </div>
 
           <div className="space-y-1.5 w-28">
-            <Label className="text-xs">Broker paid</Label>
+            <Label className="text-xs">
+              {parseFloat(newCompanyAmount) < 0 ? "Carrier pays" : "Broker paid"}
+            </Label>
             <Input
               type="number"
               step="0.01"
@@ -473,7 +475,9 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
           {selectedTypeInfo?.hasDriver && (
             <div className="space-y-1.5 w-28">
-              <Label className="text-xs">Driver</Label>
+              <Label className="text-xs">
+                {parseFloat(newDriverAmount) < 0 ? "Driver pays" : "Driver"}
+              </Label>
               <Input
                 type="number"
                 step="0.01"
@@ -533,7 +537,9 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Broker paid:</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {parseFloat(editCompanyAmount) < 0 ? "Carrier pays:" : "Broker paid:"}
+                      </span>
                       <Input
                         type="number"
                         step="0.01"
@@ -548,7 +554,9 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                     </div>
                     {typeHasDriver(item.type) && (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Driver:</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {parseFloat(editDriverAmount) < 0 ? "Driver pays:" : "Driver:"}
+                        </span>
                         <Input
                           type="number"
                           step="0.01"
@@ -605,12 +613,16 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-4 flex-1 text-sm">
                     <span>
-                      <span className="text-muted-foreground">Broker paid:</span>{" "}
+                      <span className="text-muted-foreground">
+                        {parseFloat(item.companyAmount || "0") < 0 ? "Carrier pays:" : "Broker paid:"}
+                      </span>{" "}
                       <span className="font-medium">${parseFloat(item.companyAmount || "0").toFixed(2)}</span>
                     </span>
                     {typeHasDriver(item.type) && (
                       <span>
-                        <span className="text-muted-foreground">Driver:</span>{" "}
+                        <span className="text-muted-foreground">
+                          {parseFloat(item.driverAmount || "0") < 0 ? "Driver pays:" : "Driver:"}
+                        </span>{" "}
                         <span className="font-medium">${parseFloat(item.driverAmount || "0").toFixed(2)}</span>
                       </span>
                     )}
