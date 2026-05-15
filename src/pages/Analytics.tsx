@@ -4170,6 +4170,10 @@ const Analytics = () => {
 
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                             const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                            // Recovery bonus: same formula applied to recovery-driver loads only.
+                            // Shown as a separate sub-row below the dispatcher and added into fullTotal.
+                            const recoveryBonus =
+                              (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
@@ -4198,9 +4202,10 @@ const Analytics = () => {
                             const daysOffDeduction = nonSickLostDays * perDayRate;
                             const foodAllowance = hasFoodOffice(stat.office) ? 70 : 0;
 
-                            // Store base rate for carry-over calculations
+                            // Store base rate for carry-over calculations (includes recovery bonus so
+                            // bulk "Mark as paid" settles the full amount)
                             if (stat.userId) {
-                              calculatedSalaries[stat.userId] = baseRate;
+                              calculatedSalaries[stat.userId] = baseRate + recoveryBonus;
                             }
 
                             // Get payment info
@@ -4229,8 +4234,9 @@ const Analytics = () => {
                                 )
                               : 0;
                             const fullTotal = isDispatchOnly
-                              ? baseRate + extraDaysAmount + foodAllowance + adjustmentsTotal
+                              ? baseRate + recoveryBonus + extraDaysAmount + foodAllowance + adjustmentsTotal
                               : baseRate +
+                                recoveryBonus +
                                 extraDaysAmount -
                                 daysOffDeduction +
                                 foodAllowance +
