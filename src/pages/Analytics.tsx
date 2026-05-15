@@ -4263,9 +4263,9 @@ const Analytics = () => {
                               }
                             };
                             return (
+                              <React.Fragment key={stat.name}>
                               <TableRow
-                                key={stat.name}
-                                className={`${index === dispatcherStats.length - 1 ? "border-b" : ""} ${isChecked ? "bg-green-100 dark:bg-green-950/30" : ""}`}
+                                className={`${index === dispatcherStats.length - 1 && recoveryBonus === 0 ? "border-b" : ""} ${isChecked ? "bg-green-100 dark:bg-green-950/30" : ""}`}
                               >
                                 {/* Hide selection checkbox for dispatch-only users */}
                                 {!isDispatchOnly && (
