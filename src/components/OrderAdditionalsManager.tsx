@@ -406,6 +406,19 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
   const selectedTypeInfo = ADDITIONAL_TYPES.find((t) => t.value === selectedType);
 
+  // Types where the charge is a deduction (carrier pays out instead of receiving)
+  const DEDUCTION_TYPES: AdditionalType[] = [
+    "late_fee",
+    "no_tracking_fee",
+    "wrong_address_fee",
+    "other_charges",
+  ];
+  const isDeductionType = (type: AdditionalType) => DEDUCTION_TYPES.includes(type);
+  const companyLabel = (type: AdditionalType | "") =>
+    type && isDeductionType(type as AdditionalType) ? "Carrier pays" : "Broker paid";
+  const driverLabel = (type: AdditionalType | "") =>
+    type && isDeductionType(type as AdditionalType) ? "Driver pays" : "Driver";
+
   return (
     <div className="space-y-4">
       {/* Add new additional form - now ABOVE the list */}
@@ -457,7 +470,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
           </div>
 
           <div className="space-y-1.5 w-28">
-            <Label className="text-xs">Broker paid</Label>
+            <Label className="text-xs">{companyLabel(selectedType)}</Label>
             <Input
               type="number"
               step="0.01"
@@ -473,7 +486,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
           {selectedTypeInfo?.hasDriver && (
             <div className="space-y-1.5 w-28">
-              <Label className="text-xs">Driver</Label>
+              <Label className="text-xs">{driverLabel(selectedType)}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -533,7 +546,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-2 flex-1 flex-wrap">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">Broker paid:</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{companyLabel(item.type)}:</span>
                       <Input
                         type="number"
                         step="0.01"
@@ -548,7 +561,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                     </div>
                     {typeHasDriver(item.type) && (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Driver:</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{driverLabel(item.type)}:</span>
                         <Input
                           type="number"
                           step="0.01"
@@ -605,12 +618,12 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                   </Badge>
                   <div className="flex items-center gap-4 flex-1 text-sm">
                     <span>
-                      <span className="text-muted-foreground">Broker paid:</span>{" "}
+                      <span className="text-muted-foreground">{companyLabel(item.type)}:</span>{" "}
                       <span className="font-medium">${parseFloat(item.companyAmount || "0").toFixed(2)}</span>
                     </span>
                     {typeHasDriver(item.type) && (
                       <span>
-                        <span className="text-muted-foreground">Driver:</span>{" "}
+                        <span className="text-muted-foreground">{driverLabel(item.type)}:</span>{" "}
                         <span className="font-medium">${parseFloat(item.driverAmount || "0").toFixed(2)}</span>
                       </span>
                     )}
