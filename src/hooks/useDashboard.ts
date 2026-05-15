@@ -24,18 +24,16 @@ export interface RecentOrder {
 
 const fetchDashboardStats = async (): Promise<DashboardStats> => {
   const [activeOrdersRes, availableTrucksRes, assignedTrucksRes, totalBrokersRes] = await Promise.all([
-    // Active orders = not canceled and not yet delivered
+    // Active orders = total count of all orders
     supabase
       .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('canceled', false)
-      .neq('status', 'delivered'),
-    // Available trucks = active trucks with no primary driver assigned
+      .select('id', { count: 'exact', head: true }),
+    // Available trucks = active trucks that have a driver assigned
     supabase
       .from('trucks')
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true)
-      .is('driver1_id', null),
+      .not('driver1_id', 'is', null),
     // For "Active Drivers" (assigned to a truck): pull active trucks with their drivers
     supabase
       .from('trucks')
