@@ -26,6 +26,7 @@ interface PayrollPreviewDialogProps {
   lostDayDates: string[];
   extraDaysAmount: number;
   dispatcherBonus?: number;
+  recoveryBonus?: number;
   perDayRate?: number;
   onEmailSent: () => void;
   onAdjustmentsChanged?: () => void; // Called when adjustments are saved to DB
@@ -59,6 +60,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   lostDayDates,
   extraDaysAmount,
   dispatcherBonus = 0,
+  recoveryBonus = 0,
   perDayRate = 0,
   onEmailSent,
   onAdjustmentsChanged,
@@ -96,7 +98,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   // Excludes additionals, food allowance, extra/lost days, dispatcher bonus.
   const [adjustmentAmountMode, setAdjustmentAmountMode] = useState<"dollar" | "percent">("dollar");
   const [penaltyAmountMode, setPenaltyAmountMode] = useState<"dollar" | "percent">("dollar");
-  const percentBase = salary1Percent + bonus5Percent;
+  const percentBase = salary1Percent + bonus5Percent + recoveryBonus;
   const computeAmountFromInput = (raw: string, mode: "dollar" | "percent"): number => {
     const n = parseFloat(raw);
     if (isNaN(n)) return NaN;
@@ -192,7 +194,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
           .eq("id", (existing as any).id);
       } else {
         // Create a record with just additionals (not yet paid)
-        const baseRate = salary1Percent + bonus5Percent;
+        const baseRate = salary1Percent + bonus5Percent + recoveryBonus;
         const selectedPtoDates = Object.entries(ptoSelections).filter(([_, v]) => v).map(([d]) => d);
         const nonSickLostDays = Math.max(0, lostDays - selectedPtoDates.length);
         const daysOffDeduction = nonSickLostDays * perDayRate;
@@ -327,6 +329,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         payPeriod,
         salary1Percent,
         bonus5Percent,
+        recoveryBonus,
         foodAllowance,
         extraDays,
         lostDays,
@@ -533,6 +536,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         payPeriod,
         salary1Percent,
         bonus5Percent,
+        recoveryBonus,
         foodAllowance,
         extraDays,
         lostDays,
@@ -579,7 +583,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("user_id", dispatcherUserId);
 
       // Calculate the full total for paid_amount (salary + all components)
-      const baseRate = salary1Percent + bonus5Percent;
+      const baseRate = salary1Percent + bonus5Percent + recoveryBonus;
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;

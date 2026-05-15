@@ -27,6 +27,7 @@ interface PayrollData {
   lostDayDates: string[]; // Array of date strings
   extraDaysAmount: number; // Additional amount earned from extra days
   dispatcherBonus?: number; // Monthly performance bonus (1st place $1000, etc.)
+  recoveryBonus?: number; // Bonus for loads finished by recovery drivers
   perDayRate?: number; // Per-workday rate for lost days calculation
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
@@ -75,6 +76,8 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   const hasNonSickDaysOff = nonSickDaysOff > 0;
   
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
+  const recoveryBonus = data.recoveryBonus ?? 0;
+  const hasRecoveryBonus = recoveryBonus > 0;
   
   // Calculate amounts
   const perDayRate = data.perDayRate ?? 0;
@@ -82,7 +85,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
   const daysOffDeduction = nonSickDaysOff * perDayRate;
   
   // Calculate check amount
-  const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance + 
+  const checkAmount = data.salary1Percent + data.bonus5Percent + recoveryBonus + data.foodAllowance + 
     extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0);
 
   // Format dates for display
@@ -205,6 +208,39 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
       ],
     })
   );
+
+  // Recovery bonus row (only if > 0)
+  if (hasRecoveryBonus) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: "Recovery bonus", size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `$${recoveryBonus.toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
 
   // Food allowance row - white description, light blue amount, taller height (only if > 0)
   if (data.foodAllowance > 0) {

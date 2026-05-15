@@ -324,6 +324,7 @@ const Analytics = () => {
     lostDayDates: string[];
     extraDaysAmount: number;
     dispatcherBonus: number;
+    recoveryBonus?: number;
     perDayRate: number;
     isDeletedUser?: boolean;
     futureMonthLabel?: string;
@@ -4326,6 +4327,7 @@ const Analytics = () => {
                                                     payPeriod,
                                                     salary1Percent: stat.totalFreight * 0.01,
                                                     bonus5Percent: stat.cut * 0.05,
+                                                    recoveryBonus,
                                                     foodAllowance: foodAllowanceAmount,
                                                     extraDays,
                                                     lostDays,
@@ -4459,6 +4461,7 @@ const Analytics = () => {
                                                   payPeriod,
                                                   salary1Percent: stat.totalFreight * 0.01,
                                                   bonus5Percent: stat.cut * 0.05,
+                                                  recoveryBonus,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
                                                   lostDays,
@@ -5320,6 +5323,7 @@ const Analytics = () => {
             lostDayDates={isDispatchOnly ? [] : payrollPreviewData.lostDayDates}
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus}
+            recoveryBonus={payrollPreviewData.recoveryBonus}
             perDayRate={payrollPreviewData.perDayRate}
             previewOnly={isDispatchOnly}
             hideChargesAndExtraPay={isDispatchOnly}
