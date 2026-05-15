@@ -209,6 +209,39 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
     })
   );
 
+  // Recovery bonus row (only if > 0)
+  if (hasRecoveryBonus) {
+    tableRows.push(
+      new TableRow({
+        height: { value: TABLE_ROW_HEIGHT, rule: "atLeast" as const },
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: "Recovery bonus", size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            shading: { fill: LIGHT_BLUE_BG, type: ShadingType.CLEAR },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: `$${recoveryBonus.toFixed(2)}`, size: TABLE_SIZE })],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+          }),
+        ],
+      })
+    );
+  }
+
   // Food allowance row - white description, light blue amount, taller height (only if > 0)
   if (data.foodAllowance > 0) {
     tableRows.push(
