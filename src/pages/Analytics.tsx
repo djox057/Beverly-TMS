@@ -5222,6 +5222,8 @@ const Analytics = () => {
                           dispatcherStats.forEach((stat) => {
                             if (stat.userId) {
                               const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                              const recoveryBonus =
+                                (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
                               const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
                               const extraDays = extraDaysByUser[stat.userId] || 0;
                               const lostDays = lostDaysByUser[stat.userId] || 0;
@@ -5249,12 +5251,13 @@ const Analytics = () => {
 
                               const fullTotal =
                                 baseRate +
+                                recoveryBonus +
                                 extraDaysAmount -
                                 daysOffDeduction +
                                 foodAllowance +
                                 bonusAmt +
                                 adjustmentsTotal;
-                              calculatedSalaries[stat.userId] = baseRate; // Store base rate for salary-based carry-over
+                              calculatedSalaries[stat.userId] = baseRate + recoveryBonus; // Includes recovery bonus
                               adjustedSalaries[stat.userId] = fullTotal; // Full total for paid_amount
                             }
                           });
