@@ -23,47 +23,14 @@ export interface RecentOrder {
 }
 
 const fetchDashboardStats = async (): Promise<DashboardStats> => {
-  const [activeOrdersRes, availableTrucksRes, assignedTrucksRes, totalBrokersRes] = await Promise.all([
-    // Active orders = total count of all orders
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true }),
-    // Available trucks = active trucks that have a driver assigned
-    supabase
-      .from('trucks')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .not('driver1_id', 'is', null),
-    // For "Active Drivers" (assigned to a truck): pull active trucks with their drivers
-    supabase
-      .from('trucks')
-      .select('driver1_id, driver2_id')
-      .eq('is_active', true),
-    supabase.from('brokers').select('id', { count: 'exact', head: true }),
-  ]);
-
-  const driverIds = new Set<string>();
-  for (const t of (assignedTrucksRes.data || []) as Array<{ driver1_id: string | null; driver2_id: string | null }>) {
-    if (t.driver1_id) driverIds.add(t.driver1_id);
-    if (t.driver2_id) driverIds.add(t.driver2_id);
-  }
-
-  let activeAssignedDrivers = 0;
-  if (driverIds.size > 0) {
-    const ids = Array.from(driverIds);
-    const { count } = await supabase
-      .from('drivers')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .in('id', ids);
-    activeAssignedDrivers = count || 0;
-  }
-
+  const { data, error } = await supabase.rpc('get_dashboard_stats');
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
   return {
-    activeOrders: activeOrdersRes.count || 0,
-    availableTrucks: availableTrucksRes.count || 0,
-    activeDrivers: activeAssignedDrivers,
-    totalBrokers: totalBrokersRes.count || 0,
+    activeOrders: Number(row?.active_orders ?? 0),
+    availableTrucks: Number(row?.available_trucks ?? 0),
+    activeDrivers: Number(row?.active_drivers ?? 0),
+    totalBrokers: Number(row?.total_brokers ?? 0),
   };
 };
 

@@ -4518,6 +4518,15 @@ export type Database = {
           truck_number: string
         }[]
       }
+      get_dashboard_stats: {
+        Args: never
+        Returns: {
+          active_drivers: number
+          active_orders: number
+          available_trucks: number
+          total_brokers: number
+        }[]
+      }
       get_dispatcher_salary_penalties: {
         Args: { _month: string; _user_id: string }
         Returns: Json
