@@ -5060,6 +5060,44 @@ const Analytics = () => {
                                   )}
                                 </TableCell>
                               </TableRow>
+                              {recoveryBonus > 0 && (
+                                <TableRow
+                                  className={`${index === dispatcherStats.length - 1 ? "border-b" : ""} text-muted-foreground`}
+                                >
+                                  {!isDispatchOnly && <TableCell />}
+                                  <TableCell className="pl-8 text-sm italic">↳ Recovery bonus</TableCell>
+                                  <TableCell className="text-right text-sm">
+                                    $
+                                    {stat.recoveryFreight.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </TableCell>
+                                  {!isDispatchOnly && (
+                                    <TableCell className="text-right text-sm">
+                                      $
+                                      {stat.recoveryCut.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </TableCell>
+                                  )}
+                                  <TableCell />
+                                  <TableCell />
+                                  {!isDispatchOnly && <TableCell />}
+                                  {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableCell />}
+                                  {!isDispatchOnly && <TableCell />}
+                                  <TableCell className="text-right text-sm">
+                                    +$
+                                    {recoveryBonus.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </TableCell>
+                                  <TableCell />
+                                </TableRow>
+                              )}
+                              </React.Fragment>
                             );
                           });
                         })()}
