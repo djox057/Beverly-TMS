@@ -5323,6 +5323,7 @@ const Analytics = () => {
             lostDayDates={isDispatchOnly ? [] : payrollPreviewData.lostDayDates}
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus}
+            recoveryBonus={payrollPreviewData.recoveryBonus}
             perDayRate={payrollPreviewData.perDayRate}
             previewOnly={isDispatchOnly}
             hideChargesAndExtraPay={isDispatchOnly}
