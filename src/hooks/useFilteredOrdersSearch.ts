@@ -5,7 +5,7 @@ import { transformOrders } from "@/utils/ordersTransform";
 
 interface SearchFilters {
   companyId?: string;
-  loadNumberSuffix?: string;
+  truckCompanyId?: string;
   bookedBy?: string;
   truckId?: string;
   driverId?: string;
@@ -39,7 +39,7 @@ function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefine
     "orders",
     "filtered",
     filters.companyId,
-    filters.loadNumberSuffix,
+    filters.truckCompanyId,
     filters.bookedBy,
     filters.truckId,
     filters.driverId,

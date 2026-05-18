@@ -34,7 +34,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
-import { formatInternalLoadNumber, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -403,10 +403,9 @@ const Orders = () => {
       ? companies?.find(c => c.name === companyFilter)?.id 
       : undefined;
     
-    // Map truck company name to its load-number suffix (e.g. "-UE", "-AP").
-    // Filtering by load-number suffix instead of the driver's truck company.
-    const loadNumberSuffix = truckCompanyFilter !== "all-truck-companies"
-      ? getCompanySuffix(truckCompanyFilter) || undefined
+    // Find truck company ID from name
+    const truckCompanyId = truckCompanyFilter !== "all-truck-companies"
+      ? companies?.find(c => c.name === truckCompanyFilter)?.id
       : undefined;
     
     // Map UI filter values (names/numbers) to stable IDs from canonical tables.
@@ -426,7 +425,7 @@ const Orders = () => {
     // If a DB-backed filter is selected but we can't resolve its ID yet, don't query.
     // (Prevents calling search-orders with {} which returns unfiltered rows.)
     if (companyFilter !== "all-companies" && !companyId) return null;
-    if (truckCompanyFilter !== "all-truck-companies" && !loadNumberSuffix) return null;
+    if (truckCompanyFilter !== "all-truck-companies" && !truckCompanyId) return null;
     if (truckFilter !== "all-trucks" && !truckId) return null;
     if (driverFilter !== "all-drivers" && !driverId) return null;
     if (brokerFilter !== "all-brokers" && !brokerId) return null;
@@ -442,7 +441,7 @@ const Orders = () => {
     
     return {
       companyId,
-      loadNumberSuffix,
+      truckCompanyId,
       bookedBy: bookedByFilter !== "all-booked-by" && bookedByFilter !== "all-users" ? bookedByFilter : undefined,
       truckId,
       driverId,
@@ -548,13 +547,7 @@ const Orders = () => {
     
     // Full client-side filtering when server-side is not active
     const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
-    const matchesTruckCompany = (() => {
-      if (!truckCompanyFilter || truckCompanyFilter === "all-truck-companies") return true;
-      const suffix = getCompanySuffix(truckCompanyFilter);
-      if (!suffix) return false;
-      const iln = order.internalLoadNumber ? String(order.internalLoadNumber) : "";
-      return iln.toUpperCase().endsWith(`-${suffix}`);
-    })();
+    const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === "all-truck-companies" || order.driverCompanyName === truckCompanyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
