@@ -1214,9 +1214,9 @@ const Orders = () => {
                   {isFilteredLoading && (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   )}
-                  {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
+                  {hasActiveFilter && filteredOrders.length > 0 && !isFilteredLoading && (
                     <Badge variant="secondary">
-                      {filteredTotalCount !== null ? filteredTotalCount : filteredServerOrders.length}
+                      {filteredOrders.length}
                     </Badge>
                   )}
                 </div>
