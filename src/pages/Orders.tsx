@@ -1209,7 +1209,7 @@ const Orders = () => {
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col items-start gap-1">
-                <CardTitle className="shrink-0">All Loads</CardTitle>
+                <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
                 {isFilteredLoading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
