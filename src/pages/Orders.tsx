@@ -1218,7 +1218,7 @@ const Orders = () => {
                 )}
                 {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
                   <Badge variant="secondary">
-                    {filteredTotalCount !== null ? `${filteredServerOrders.length} of ${filteredTotalCount}` : filteredServerOrders.length} filtered
+                    {filteredTotalCount !== null ? filteredTotalCount : filteredServerOrders.length}
                   </Badge>
                 )}
               </div>
