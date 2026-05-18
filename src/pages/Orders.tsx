@@ -1205,10 +1205,10 @@ const Orders = () => {
           </div>
         </div>
 
-        <Card className="w-fit min-w-full">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-4">
-              <div className="relative shrink-0">
+        <Card className="w-full min-w-0 overflow-hidden">
+          <CardHeader className="overflow-hidden">
+            <div className="flex w-full min-w-0 items-start justify-between gap-4">
+              <div className="relative w-[120px] shrink-0">
                 <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
                 <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
                   {isFilteredLoading && (
@@ -1222,7 +1222,7 @@ const Orders = () => {
                 </div>
               </div>
 
-              <ScrollArea className="w-full">
+              <ScrollArea className="w-full min-w-0">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-4 pb-4">
                   {/* Column 1: Search - spans 2 rows on large screens */}
                   <div className="col-span-2 sm:col-span-1 lg:row-span-2 flex items-center">
@@ -1375,8 +1375,8 @@ const Orders = () => {
           </CardHeader>
           {/* Cache status removed - now using direct database queries */}
           <CardContent className="p-0">
-            <div className="p-2 md:p-6 overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-auto p-2 md:p-6">
+              <Table className="min-w-[2100px] table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[60px] min-w-[60px] max-w-[60px]">
