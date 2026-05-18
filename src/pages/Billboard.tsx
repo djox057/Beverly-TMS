@@ -10,6 +10,7 @@ const Billboard = () => {
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
+  const [recoveryDriverIds, setRecoveryDriverIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
     "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"
   >("rpm5");
@@ -49,6 +50,18 @@ const Billboard = () => {
       }
     };
     fetchManagerIds();
+
+    // Fetch recovery driver IDs to exclude their loads from dispatcher stats
+    const fetchRecoveryDrivers = async () => {
+      const { data: recDrivers } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("is_recovery", true);
+      if (recDrivers) {
+        setRecoveryDriverIds(new Set(recDrivers.map((d) => d.id)));
+      }
+    };
+    fetchRecoveryDrivers();
   }, []);
 
   const { weekStart, weekEnd } = useMemo(() => {
