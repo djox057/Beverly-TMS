@@ -515,7 +515,49 @@ const Orders = () => {
       const formattedInternalLoadNumber = order.internalLoadNumber ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName) : "";
       matchesSearch = (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) || formattedInternalLoadNumber.toLowerCase().includes(searchLower) || (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) || (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) || (order.driverName?.toLowerCase() || "").includes(searchLower) || (order.brokerName?.toLowerCase() || "").includes(searchLower) || (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
     }
-    
+
+    // Always evaluate date filters client-side so they apply even during active search
+    // (search results come from a load-number lookup that ignores date range).
+    let matchesDateAlways = true;
+    if (dateRange?.from && order.deliveryDate) {
+      let dateStr = order.deliveryDate.split(" - ")[0];
+      if (dateStr.includes(' ') && !dateStr.includes('T')) dateStr = dateStr.replace(' ', 'T');
+      const datePart = dateStr.split('T')[0];
+      if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [y, m, d] = datePart.split('-').map(Number);
+        const orderDateOnly = new Date(y, m - 1, d);
+        const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+        const toDateOnly = dateRange.to
+          ? new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
+          : fromDateOnly;
+        matchesDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+      } else {
+        matchesDateAlways = false;
+      }
+    } else if (dateRange?.from && !order.deliveryDate) {
+      matchesDateAlways = false;
+    }
+
+    let matchesPickupDateAlways = true;
+    if (pickupDateRange?.from && order.pickupDate) {
+      let dateStr = order.pickupDate.split(" - ")[0];
+      if (dateStr.includes(' ') && !dateStr.includes('T')) dateStr = dateStr.replace(' ', 'T');
+      const datePart = dateStr.split('T')[0];
+      if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [y, m, d] = datePart.split('-').map(Number);
+        const orderDateOnly = new Date(y, m - 1, d);
+        const fromDateOnly = new Date(pickupDateRange.from.getFullYear(), pickupDateRange.from.getMonth(), pickupDateRange.from.getDate());
+        const toDateOnly = pickupDateRange.to
+          ? new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate())
+          : fromDateOnly;
+        matchesPickupDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+      } else {
+        matchesPickupDateAlways = false;
+      }
+    } else if (pickupDateRange?.from && !order.pickupDate) {
+      matchesPickupDateAlways = false;
+    }
+
     // Skip most client-side filters when server-side filtering is active
     if (isServerFiltered) {
       // Only apply missingDocsFilter client-side since it requires file analysis
@@ -543,7 +585,7 @@ const Orders = () => {
           matchesMissingDocs = hasUpdateTracking(order.notes);
         }
       }
-      return matchesSearch && matchesMissingDocs;
+      return matchesSearch && matchesMissingDocs && matchesDateAlways && matchesPickupDateAlways;
     }
     
     // Full client-side filtering when server-side is not active
