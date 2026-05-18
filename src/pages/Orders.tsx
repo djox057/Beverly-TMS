@@ -1208,7 +1208,7 @@ const Orders = () => {
         <Card className="w-fit min-w-full">
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-start gap-1">
                 <CardTitle className="shrink-0">All Loads</CardTitle>
                 {isFilteredLoading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1217,7 +1217,7 @@ const Orders = () => {
                   </div>
                 )}
                 {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
-                  <Badge variant="secondary" className="ml-2">
+                  <Badge variant="secondary">
                     {filteredTotalCount !== null ? `${filteredServerOrders.length} of ${filteredTotalCount}` : filteredServerOrders.length} filtered
                   </Badge>
                 )}
