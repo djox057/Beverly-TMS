@@ -218,6 +218,10 @@ const Billboard = () => {
     const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number }> = {};
 
     thisMonthOrders.forEach((order) => {
+      // Exclude loads delivered by recovery drivers from dispatcher rankings
+      if ((order as any).driver1Id && recoveryDriverIds.has((order as any).driver1Id)) {
+        return;
+      }
       const dispatcher = order.bookedBy || "Unknown";
       if (!analytics[dispatcher]) {
         analytics[dispatcher] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
@@ -250,7 +254,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
@@ -359,6 +363,10 @@ const Billboard = () => {
       {};
 
     thisWeekOrders.forEach((order) => {
+      // Exclude loads delivered by recovery drivers from dispatcher rankings
+      if ((order as any).driver1Id && recoveryDriverIds.has((order as any).driver1Id)) {
+        return;
+      }
       const dispatcher = order.bookedBy || "Unknown";
       if (!analytics[dispatcher]) {
         analytics[dispatcher] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
@@ -392,7 +400,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
