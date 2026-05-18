@@ -1208,16 +1208,18 @@ const Orders = () => {
         <Card className="w-fit min-w-full">
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-col items-start gap-1">
+              <div className="relative shrink-0">
                 <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
-                {isFilteredLoading && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-                {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
-                  <Badge variant="secondary">
-                    {filteredTotalCount !== null ? filteredTotalCount : filteredServerOrders.length}
-                  </Badge>
-                )}
+                <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
+                  {isFilteredLoading && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
+                    <Badge variant="secondary">
+                      {filteredTotalCount !== null ? filteredTotalCount : filteredServerOrders.length}
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               <ScrollArea className="w-full">
