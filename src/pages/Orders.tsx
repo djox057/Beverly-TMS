@@ -1211,10 +1211,7 @@ const Orders = () => {
               <div className="flex flex-col items-start gap-1">
                 <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
                 {isFilteredLoading && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Searching...</span>
-                  </div>
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
                 {hasActiveFilter && filteredServerOrders.length > 0 && !isFilteredLoading && (
                   <Badge variant="secondary">
