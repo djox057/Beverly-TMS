@@ -10,6 +10,7 @@ const Billboard = () => {
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
+  const [recoveryDriverIds, setRecoveryDriverIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
     "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"
   >("rpm5");
@@ -49,6 +50,18 @@ const Billboard = () => {
       }
     };
     fetchManagerIds();
+
+    // Fetch recovery driver IDs to exclude their loads from dispatcher stats
+    const fetchRecoveryDrivers = async () => {
+      const { data: recDrivers } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("is_recovery", true);
+      if (recDrivers) {
+        setRecoveryDriverIds(new Set(recDrivers.map((d) => d.id)));
+      }
+    };
+    fetchRecoveryDrivers();
   }, []);
 
   const { weekStart, weekEnd } = useMemo(() => {
@@ -205,6 +218,10 @@ const Billboard = () => {
     const analytics: Record<string, { totalFreight: number; totalMiles: number; orderCount: number }> = {};
 
     thisMonthOrders.forEach((order) => {
+      // Exclude loads delivered by recovery drivers from dispatcher rankings
+      if ((order as any).driver1Id && recoveryDriverIds.has((order as any).driver1Id)) {
+        return;
+      }
       const dispatcher = order.bookedBy || "Unknown";
       if (!analytics[dispatcher]) {
         analytics[dispatcher] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
@@ -237,7 +254,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
@@ -346,6 +363,10 @@ const Billboard = () => {
       {};
 
     thisWeekOrders.forEach((order) => {
+      // Exclude loads delivered by recovery drivers from dispatcher rankings
+      if ((order as any).driver1Id && recoveryDriverIds.has((order as any).driver1Id)) {
+        return;
+      }
       const dispatcher = order.bookedBy || "Unknown";
       if (!analytics[dispatcher]) {
         analytics[dispatcher] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
@@ -379,7 +400,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds]);
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
