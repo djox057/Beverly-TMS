@@ -2737,7 +2737,7 @@ const Trips = () => {
 
       // Deductions section (rows 32-44 for Beverly Freight)
       const deductions = [
-        { row: 32, description: "Cargo Insurance", amount: 250.0 },
+        { row: 32, description: "Cargo Insurance", amount: 285.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
         { row: 34, description: "ELD", amount: 50.0 },
         { row: 35, description: "Pre-Pass", amount: 20.0 },
@@ -4714,7 +4714,7 @@ const Trips = () => {
       });
 
       const deductions = [
-        { offset: 0, desc: "Cargo Insurance", amt: 250 },
+        { offset: 0, desc: "Cargo Insurance", amt: 285 },
         { offset: 1, desc: "Trailer + Insurance", amt: 285 },
         { offset: 2, desc: "ELD", amt: 50 },
         { offset: 3, desc: "Pre-Pass", amt: 20 },
@@ -4820,7 +4820,7 @@ const Trips = () => {
       }
 
       const deductions = [
-        { offset: 0, desc: "Cargo Insurance", amt: 250 },
+        { offset: 0, desc: "Cargo Insurance", amt: 285 },
         { offset: 1, desc: "Trailer + Insurance", amt: 285 },
         { offset: 2, desc: "ELD", amt: 50 },
         { offset: 3, desc: "Pre-Pass", amt: 20 },
