@@ -224,17 +224,13 @@ const TurnoverList = () => {
                           {item.turnoverCount}
                         </TableCell>
                         <TableCell className="align-top pt-3">
-                          <div className="line-clamp-2 text-sm text-muted-foreground leading-snug">
-                            {isTruncated ? explanation.slice(0, 120) : explanation}
-                            {isTruncated && (
-                              <button
-                                className="text-primary ml-1 hover:underline font-medium"
-                                onClick={() => setDetailDispatcher(item)}
-                              >
-                                ...
-                              </button>
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDetailDispatcher(item)}
+                            className="line-clamp-2 text-sm text-muted-foreground leading-snug text-left hover:text-foreground cursor-pointer w-full"
+                          >
+                            {isTruncated ? `${explanation.slice(0, 120)}...` : explanation}
+                          </button>
                         </TableCell>
                       </TableRow>
                     );
