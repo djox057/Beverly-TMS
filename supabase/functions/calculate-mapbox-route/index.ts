@@ -14,27 +14,54 @@ interface RouteRequest {
 }
 
 async function geocodeAddress(address: string, mapboxToken: string): Promise<{ lat: number; lon: number } | null> {
+  const US_STATES = new Set([
+    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+    'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+    'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC','PR'
+  ]);
+
+  // Detect a trailing US state code in the input (e.g. "Centerville, MO" or "Centerville MO")
+  let stateCode: string | null = null;
+  const trimmed = address.trim();
+  const m = trimmed.match(/[,\s]+([A-Za-z]{2})\s*$/);
+  if (m && US_STATES.has(m[1].toUpperCase())) {
+    stateCode = m[1].toUpperCase();
+  }
+
   const encodedAddress = encodeURIComponent(address);
-  console.log('📍 Geocoding address with Mapbox:', address);
-  
+  console.log('📍 Geocoding address with Mapbox:', address, stateCode ? `(state filter: ${stateCode})` : '');
+
   const response = await fetch(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${mapboxToken}&limit=1&country=US`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${mapboxToken}&limit=5&country=US&types=place,locality,region,postcode,address`
   );
-  
+
   if (!response.ok) {
     console.error('📍 Geocoding failed with status:', response.status);
     return null;
   }
-  
+
   const data = await response.json();
-  
+
   if (data.features && data.features.length > 0) {
-    const [lon, lat] = data.features[0].center;
-    const placeName = data.features[0].place_name;
-    console.log('📍 Geocoded result:', placeName, '→', { lat, lon });
+    let chosen = data.features[0];
+    if (stateCode) {
+      const match = data.features.find((f: any) => {
+        if (f?.properties?.short_code?.toUpperCase?.() === `US-${stateCode}`) return true;
+        const ctx = Array.isArray(f?.context) ? f.context : [];
+        return ctx.some((c: any) => c?.short_code?.toUpperCase?.() === `US-${stateCode}`);
+      });
+      if (match) {
+        chosen = match;
+        console.log('📍 State filter matched feature:', match.place_name);
+      } else {
+        console.warn('📍 No feature matched state filter', stateCode, '— falling back to top result');
+      }
+    }
+    const [lon, lat] = chosen.center;
+    console.log('📍 Geocoded result:', chosen.place_name, '→', { lat, lon });
     return { lat, lon };
   }
-  
+
   console.warn('📍 No geocoding results for:', address);
   return null;
 }
