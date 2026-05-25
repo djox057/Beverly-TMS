@@ -95,12 +95,8 @@ Deno.serve(async (req) => {
     `[${invocationId}] Chicago=${weekday} ${yyyy}-${mm}-${dd} ${hour}:${minute} auth=${authMethod} force=${force}`,
   );
 
-  if (!force && weekday !== "Sat") {
-    return new Response(
-      JSON.stringify({ skipped: true, reason: "not-saturday", weekday, hour, minute }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  }
+  // Runs daily at 01:00 Chicago. We act for any date in afterhours_schedule
+  // that is today or tomorrow (Chicago) — so weekends AND holidays both work.
   if (!force && hour !== 1) {
     return new Response(
       JSON.stringify({ skipped: true, reason: "wrong-hour", weekday, hour, minute }),
@@ -115,22 +111,32 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Compute upcoming Sat/Sun in Chicago. When run on Sat 01:00, the
-    // upcoming weekend IS today (Sat) + tomorrow (Sun).
+    // Candidate dates: today and tomorrow in Chicago. We only act on the
+    // ones that actually have entries in afterhours_schedule.
     const todayChicago = `${yyyy}-${mm}-${dd}`;
-    // Build a UTC anchor at noon to avoid DST edge cases when adding 1 day.
-    const sat = new Date(`${todayChicago}T12:00:00Z`);
-    const sun = new Date(sat.getTime() + 24 * 60 * 60 * 1000);
-    const satStr = todayChicago;
-    const sunStr = sun.toISOString().split("T")[0];
-    const weekendDates = [satStr, sunStr];
+    const tomorrow = new Date(`${todayChicago}T12:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const candidateDates = [todayChicago, tomorrowStr];
 
-    // --- Fetch scheduled afterhours users for those dates ---
+    // --- Fetch scheduled afterhours users for candidate dates ---
     const { data: schedule, error: scheduleErr } = await supabase
       .from("afterhours_schedule")
       .select("user_id, scheduled_date")
-      .in("scheduled_date", weekendDates);
+      .in("scheduled_date", candidateDates);
     if (scheduleErr) throw scheduleErr;
+
+    // Only act for dates that are actually scheduled.
+    const weekendDates = [
+      ...new Set((schedule ?? []).map((s: any) => s.scheduled_date as string)),
+    ].sort();
+
+    if (weekendDates.length === 0) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "no-scheduled-dates", candidateDates }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const dateUsersMap = new Map<string, Set<string>>();
     const allUserIds = new Set<string>();
