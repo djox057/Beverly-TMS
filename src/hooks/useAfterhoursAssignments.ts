@@ -40,18 +40,35 @@ export const useAfterhoursAssignments = () => {
     try {
       setLoading(true);
 
-      // Find the upcoming weekend (next Saturday)
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
-      const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
-      const nextSaturday = new Date(today);
-      nextSaturday.setDate(today.getDate() + (dayOfWeek === 6 ? 0 : dayOfWeek === 0 ? -1 : daysUntilSat));
-      const nextSunday = new Date(nextSaturday);
-      nextSunday.setDate(nextSaturday.getDate() + 1);
+      // Build upcoming afterhours dates from afterhours_schedule (Chicago time).
+      // This includes weekends AND any scheduled holidays in the next ~9 days.
+      const chiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const todayStr = fmt(chiNow);
+      const endWindow = new Date(chiNow);
+      endWindow.setDate(endWindow.getDate() + 9);
+      const endStr = fmt(endWindow);
 
-      const satStr = nextSaturday.toISOString().split('T')[0];
-      const sunStr = nextSunday.toISOString().split('T')[0];
-      const dates = [satStr, sunStr];
+      const { data: upcomingSchedule, error: upcomingErr } = await supabase
+        .from('afterhours_schedule')
+        .select('scheduled_date')
+        .gte('scheduled_date', todayStr)
+        .lte('scheduled_date', endStr);
+      if (upcomingErr) throw upcomingErr;
+
+      let dates = [...new Set((upcomingSchedule || []).map((s: any) => s.scheduled_date as string))].sort();
+
+      // Fallback: if nothing scheduled, default to the upcoming Sat/Sun.
+      if (dates.length === 0) {
+        const dow = chiNow.getDay();
+        const daysUntilSat = (6 - dow + 7) % 7 || 7;
+        const nextSat = new Date(chiNow);
+        nextSat.setDate(chiNow.getDate() + (dow === 6 ? 0 : dow === 0 ? -1 : daysUntilSat));
+        const nextSun = new Date(nextSat);
+        nextSun.setDate(nextSat.getDate() + 1);
+        dates = [fmt(nextSat), fmt(nextSun)];
+      }
       setWeekendDates(dates);
 
       // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks
