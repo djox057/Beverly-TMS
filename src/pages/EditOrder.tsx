@@ -146,7 +146,12 @@ const EditOrder = () => {
   const [detention, setDetention] = useState("");
   const [layover, setLayover] = useState("");
   const [extraStop, setExtraStop] = useState("");
-  const [lumper, setLumper] = useState("");
+  // Lumper is now multi-entry, each with its own amount, optional reason, and receipt file.
+  // Derived legacy `lumper` total (sum) is computed below for backward compatibility.
+  const [lumperItems, setLumperItems] = useState<
+    { amount: number; reason: string; file_path: string | null; file_name: string | null }[]
+  >([]);
+  const [uploadingLumperIndex, setUploadingLumperIndex] = useState<number | null>(null);
   const [lateFee, setLateFee] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [tonu, setTonu] = useState("");
@@ -168,6 +173,83 @@ const EditOrder = () => {
   const [otherAdditionalsItems, setOtherAdditionalsItems] = useState<
     { amount: number; driverAmount: number; reason: string }[]
   >([]);
+
+  // Derived legacy lumper string (sum of all lumper_items.amount)
+  const lumperTotal = useMemo(
+    () => lumperItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    [lumperItems],
+  );
+  const lumper = lumperTotal ? String(lumperTotal) : "";
+
+  // Receipt handlers for individual lumper items (multi-entry, per-item file)
+  const handleUploadLumperReceipt = useCallback(
+    async (index: number, file: File) => {
+      if (!id) return;
+      setUploadingLumperIndex(index);
+      try {
+        const filePath = await uploadOrderFilePreserveName({
+          orderId: id,
+          folder: "LUMPER",
+          file,
+        });
+        setLumperItems((prev) =>
+          prev.map((it, i) =>
+            i === index ? { ...it, file_path: filePath, file_name: file.name } : it,
+          ),
+        );
+        toast({ title: "Receipt uploaded" });
+      } catch (err: any) {
+        console.error("[lumper] upload failed", err);
+        toast({
+          title: "Upload failed",
+          description: err?.message || "Could not upload receipt",
+          variant: "destructive",
+        });
+      } finally {
+        setUploadingLumperIndex(null);
+      }
+    },
+    [id],
+  );
+
+  const handleDeleteLumperReceipt = useCallback(
+    async (index: number) => {
+      const current = lumperItems[index];
+      if (!current?.file_path) return;
+      try {
+        await supabase.storage.from("order-files").remove([current.file_path]);
+      } catch (err) {
+        console.warn("[lumper] storage delete failed (continuing)", err);
+      }
+      setLumperItems((prev) =>
+        prev.map((it, i) =>
+          i === index ? { ...it, file_path: null, file_name: null } : it,
+        ),
+      );
+    },
+    [lumperItems],
+  );
+
+  const handleViewLumperReceipt = useCallback(
+    async (item: { file_path: string | null; file_name: string | null }) => {
+      if (!item.file_path) return;
+      const { signedUrl, error } = await getOrderFileSignedUrl({
+        id: "",
+        file_path: item.file_path,
+        file_name: item.file_name || null,
+      });
+      if (signedUrl) {
+        window.open(signedUrl, "_blank");
+      } else {
+        toast({
+          title: "Unable to open file",
+          description: error?.message || "File not found",
+          variant: "destructive",
+        });
+      }
+    },
+    [],
+  );
 
   // Derived legacy values (sums + combined reasons)
   const otherChargesTotal = useMemo(
@@ -659,7 +741,35 @@ const EditOrder = () => {
         setDetention((orderData as any).detention?.toString() || "");
         setLayover((orderData as any).layover?.toString() || "");
         setExtraStop((orderData as any).extra_stop?.toString() || "");
-        setLumper((orderData as any).lumper?.toString() || "");
+        // Load lumper_items (multi-entry). Fallback to legacy scalar `lumper`.
+        {
+          const itemsRaw = (orderData as any).lumper_items;
+          if (Array.isArray(itemsRaw) && itemsRaw.length > 0) {
+            setLumperItems(
+              itemsRaw.map((it: any) => ({
+                amount: Number(it?.amount) || 0,
+                reason: String(it?.reason || ""),
+                file_path: it?.file_path ?? null,
+                file_name: it?.file_name ?? null,
+              })),
+            );
+          } else {
+            const legacyAmount = Number((orderData as any).lumper) || 0;
+            const legacyPath = (orderData as any).lumper_revised_rc_path || null;
+            if (legacyAmount > 0) {
+              setLumperItems([
+                {
+                  amount: legacyAmount,
+                  reason: "",
+                  file_path: legacyPath,
+                  file_name: legacyPath ? legacyPath.split("/").pop() || "Receipt" : null,
+                },
+              ]);
+            } else {
+              setLumperItems([]);
+            }
+          }
+        }
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
@@ -2482,6 +2592,7 @@ const EditOrder = () => {
         layover: layover ? parseFloat(layover) : null,
         extra_stop: extraStop ? parseFloat(extraStop) : null,
         lumper: lumper ? parseFloat(lumper) : null,
+        lumper_items: lumperItems.length > 0 ? lumperItems : null,
         late_fee: lateFee ? parseFloat(lateFee) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
@@ -3603,8 +3714,12 @@ const EditOrder = () => {
                   setLayoverDriver={setLayoverDriver}
                   extraStop={extraStop}
                   setExtraStop={setExtraStop}
-                  lumper={lumper}
-                  setLumper={setLumper}
+                  lumperItems={lumperItems}
+                  setLumperItems={setLumperItems}
+                  onUploadLumperReceipt={handleUploadLumperReceipt}
+                  onDeleteLumperReceipt={handleDeleteLumperReceipt}
+                  onViewLumperReceipt={handleViewLumperReceipt}
+                  uploadingLumperIndex={uploadingLumperIndex}
                   lateFee={lateFee}
                   setLateFee={setLateFee}
                   lateFeeDriver={lateFeeDriver}
