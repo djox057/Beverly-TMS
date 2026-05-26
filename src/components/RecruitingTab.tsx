@@ -399,7 +399,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                             setPreviewRow(row);
                           }}
                         >
-                          <FileText className="h-4 w-4" />
+                          <Send className="h-4 w-4 text-muted-foreground hover:text-primary" />
                         </Button>
                       </TableCell>
                     </TableRow>
