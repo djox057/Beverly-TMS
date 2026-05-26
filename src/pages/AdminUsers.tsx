@@ -100,6 +100,31 @@ const AdminUsers = () => {
     }
   }, [hasRole]);
 
+  // Realtime: refresh user list when profiles or user_roles change
+  useEffect(() => {
+    if (!(hasRole('admin') || hasRole('accounting'))) return;
+
+    let scheduled = false;
+    const scheduleRefresh = () => {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(() => {
+        scheduled = false;
+        fetchUsers();
+      }, 500);
+    };
+
+    const channel = supabase
+      .channel('admin-users-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hasRole]);
+
   const fetchUsers = async () => {
     try {
       // Fetch profiles
