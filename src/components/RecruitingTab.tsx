@@ -542,3 +542,171 @@ function DatesCell({
     </TableCell>
   );
 }
+
+function AdjustmentsCell({
+  adjustments,
+  onChange,
+}: {
+  adjustments: PayrollAdjustment[];
+  onChange: (next: PayrollAdjustment[]) => void;
+}) {
+  const [type, setType] = useState<"addition" | "charge" | "penalty">("addition");
+  const [reason, setReason] = useState("");
+  const [amount, setAmount] = useState("");
+  const [applied, setApplied] = useState(true);
+
+  const netDelta = adjustments.reduce((s, a) => {
+    if (a.type === "addition") return s + a.amount;
+    if (a.type === "charge") return s - a.amount;
+    if (a.type === "penalty" && a.applied) return s - a.amount;
+    return s;
+  }, 0);
+
+  const handleAdd = () => {
+    if (!reason.trim()) {
+      toast.error("Enter a reason");
+      return;
+    }
+    const n = Number(amount);
+    if (!isFinite(n) || n < 0) {
+      toast.error("Invalid amount");
+      return;
+    }
+    const next: PayrollAdjustment = {
+      type,
+      reason: reason.trim(),
+      amount: n,
+      ...(type === "penalty" ? { applied } : {}),
+    };
+    onChange([...adjustments, next]);
+    setReason("");
+    setAmount("");
+    setApplied(true);
+  };
+
+  const handleRemove = (idx: number) => {
+    onChange(adjustments.filter((_, i) => i !== idx));
+  };
+
+  const togglePenalty = (idx: number) => {
+    onChange(
+      adjustments.map((a, i) =>
+        i === idx && a.type === "penalty" ? { ...a, applied: !a.applied } : a,
+      ),
+    );
+  };
+
+  return (
+    <TableCell className="text-right">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8">
+            {adjustments.length === 0 ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <span className={netDelta >= 0 ? "text-green-600" : "text-red-600"}>
+                {netDelta >= 0 ? "+" : ""}${netDelta.toFixed(2)}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-3" align="end">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Adjustments</p>
+            {adjustments.length === 0 && (
+              <p className="text-xs text-muted-foreground">None</p>
+            )}
+            {adjustments.map((a, i) => {
+              const sign =
+                a.type === "addition" ? "+" : a.type === "penalty" && !a.applied ? "" : "-";
+              const color =
+                a.type === "addition"
+                  ? "text-green-600"
+                  : a.type === "penalty" && !a.applied
+                    ? "text-muted-foreground"
+                    : "text-red-600";
+              const label =
+                a.type === "addition"
+                  ? "Extra"
+                  : a.type === "charge"
+                    ? "Charge"
+                    : a.applied
+                      ? "Penalty"
+                      : "Warning";
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+                  <span className="flex-1 truncate" title={a.reason}>{a.reason}</span>
+                  <span className={`tabular-nums ${color}`}>
+                    {sign}${a.amount.toFixed(2)}
+                  </span>
+                  {a.type === "penalty" && (
+                    <button
+                      className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                      onClick={() => togglePenalty(i)}
+                      title="Toggle applied"
+                    >
+                      {a.applied ? "applied" : "warn"}
+                    </button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemove(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              );
+            })}
+            <div className="border-t pt-2 mt-2 space-y-2">
+              <div className="flex gap-1">
+                {(["addition", "charge", "penalty"] as const).map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    variant={type === t ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-2 text-[10px] capitalize flex-1"
+                    onClick={() => setType(t)}
+                  >
+                    {t === "addition" ? "Extra" : t}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                placeholder="Reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="$ Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                <Button size="sm" className="h-7 px-3" onClick={handleAdd}>
+                  Add
+                </Button>
+              </div>
+              {type === "penalty" && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={applied}
+                    onChange={(e) => setApplied(e.target.checked)}
+                  />
+                  Deduct from check (uncheck for warning only)
+                </label>
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </TableCell>
+  );
+}
