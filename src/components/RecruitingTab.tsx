@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 type MonthOption = { value: string; label: string };
@@ -28,11 +27,9 @@ type PaymentRow = {
   with_card_days: number;
   without_card_days: number;
   food_allowance: number;
-  paid: boolean;
-  paid_amount: number | null;
-  calculated_salary: number | null;
-  is_checked: boolean;
   recruiter_name?: string | null;
+  extra_day_dates: string[];
+  lost_day_dates: string[];
 };
 
 const WITH_CARD_RATE = 65;
@@ -60,11 +57,9 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
   with_card_days: 0,
   without_card_days: 0,
   food_allowance: FOOD_ALLOWANCE,
-  paid: false,
-  paid_amount: null,
-  calculated_salary: null,
-  is_checked: false,
   recruiter_name: name,
+  extra_day_dates: [],
+  lost_day_dates: [],
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
@@ -106,7 +101,11 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       if (error) throw error;
       const map: Record<string, PaymentRow> = {};
       (data ?? []).forEach((row: any) => {
-        map[row.user_id] = row as PaymentRow;
+        map[row.user_id] = {
+          ...row,
+          extra_day_dates: row.extra_day_dates ?? [],
+          lost_day_dates: row.lost_day_dates ?? [],
+        } as PaymentRow;
       });
       return map;
     },
@@ -123,7 +122,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     const next: Record<string, PaymentRow> = {};
     recruiters.forEach((r) => {
       next[r.user_id] = paymentsData?.[r.user_id]
-        ? { ...paymentsData[r.user_id], recruiter_name: r.full_name }
+        ? {
+            ...paymentsData[r.user_id],
+            recruiter_name: r.full_name,
+            extra_days: (paymentsData[r.user_id].extra_day_dates ?? []).length,
+            lost_days: (paymentsData[r.user_id].lost_day_dates ?? []).length,
+          }
         : blankRow(r.user_id, selectedMonth, r.full_name);
     });
     setRows(next);
@@ -169,15 +173,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       user_id: row.user_id,
       month: row.month,
       base_salary: row.base_salary,
-      extra_days: row.extra_days,
-      lost_days: row.lost_days,
+      extra_days: row.extra_day_dates.length,
+      lost_days: row.lost_day_dates.length,
       with_card_days: row.with_card_days,
       without_card_days: row.without_card_days,
       food_allowance: row.food_allowance,
-      paid: row.paid,
-      paid_amount: row.paid_amount,
-      calculated_salary: row.calculated_salary,
-      is_checked: row.is_checked,
+      extra_day_dates: row.extra_day_dates,
+      lost_day_dates: row.lost_day_dates,
       recruiter_name: row.recruiter_name ?? null,
     };
     const { error } = await supabase
@@ -190,26 +192,41 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     return true;
   };
 
-  const updateField = async (userId: string, patch: Partial<PaymentRow>) => {
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const scheduleSave = (userId: string, row: PaymentRow, delay = 600) => {
+    const existing = saveTimers.current[userId];
+    if (existing) clearTimeout(existing);
+    saveTimers.current[userId] = setTimeout(() => {
+      saveRow(row);
+    }, delay);
+  };
+
+  const updateField = (userId: string, patch: Partial<PaymentRow>, delay = 600) => {
     const current = rows[userId];
     if (!current) return;
     const updated = { ...current, ...patch };
     setRows((p) => ({ ...p, [userId]: updated }));
-    await saveRow(updated);
+    scheduleSave(userId, updated, delay);
   };
 
-  const togglePaid = async (userId: string) => {
-    const r = rows[userId];
-    if (!r) return;
-    const salary = computeSalary(r);
-    const updated: PaymentRow = {
-      ...r,
-      paid: !r.paid,
-      paid_amount: !r.paid ? salary : null,
-      calculated_salary: !r.paid ? salary : null,
-    };
-    setRows((p) => ({ ...p, [userId]: updated }));
-    await saveRow(updated);
+  const addDayDate = (userId: string, field: "extra_day_dates" | "lost_day_dates", date: string) => {
+    const current = rows[userId];
+    if (!current) return;
+    if (current[field].includes(date)) {
+      toast.error("Date already added");
+      return;
+    }
+    const next = [...current[field], date].sort();
+    const counterField = field === "extra_day_dates" ? "extra_days" : "lost_days";
+    updateField(userId, { [field]: next, [counterField]: next.length } as any, 0);
+  };
+
+  const removeDayDate = (userId: string, field: "extra_day_dates" | "lost_day_dates", date: string) => {
+    const current = rows[userId];
+    if (!current) return;
+    const next = current[field].filter((d) => d !== date);
+    const counterField = field === "extra_day_dates" ? "extra_days" : "lost_days";
+    updateField(userId, { [field]: next, [counterField]: next.length } as any, 0);
   };
 
   const monthDisabled = !selectedMonth || selectedMonth === "all";
@@ -249,7 +266,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   <TableHead className="text-right w-[120px]">Without Card</TableHead>
                   <TableHead className="text-right w-[90px]">Food</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
-                  <TableHead className="text-right w-[110px]">Paid</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -262,25 +278,33 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell className="text-right">
                         <Input
-                          type="number"
-                          className="h-8 text-right"
-                          value={row.base_salary}
-                          onChange={(e) =>
-                            setRows((p) => ({
-                              ...p,
-                              [r.user_id]: { ...row, base_salary: Number(e.target.value) || 0 },
-                            }))
-                          }
-                          onBlur={() => saveRow(rows[r.user_id])}
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="—"
+                          className="h-8 text-right border-0 bg-transparent shadow-none focus-visible:ring-1 px-1"
+                          value={row.base_salary === 0 ? "" : String(row.base_salary)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^\d.]/g, "");
+                            const num = raw === "" ? 0 : Number(raw) || 0;
+                            updateField(r.user_id, { base_salary: num });
+                          }}
                         />
                       </TableCell>
-                      <CounterCell
-                        value={row.extra_days}
-                        onChange={(v) => updateField(r.user_id, { extra_days: v })}
+                      <DatesCell
+                        label="Extra Days"
+                        accent="text-green-600"
+                        sign="+"
+                        dates={row.extra_day_dates}
+                        onAdd={(d) => addDayDate(r.user_id, "extra_day_dates", d)}
+                        onRemove={(d) => removeDayDate(r.user_id, "extra_day_dates", d)}
                       />
-                      <CounterCell
-                        value={row.lost_days}
-                        onChange={(v) => updateField(r.user_id, { lost_days: v })}
+                      <DatesCell
+                        label="Days Off"
+                        accent="text-red-600"
+                        sign="-"
+                        dates={row.lost_day_dates}
+                        onAdd={(d) => addDayDate(r.user_id, "lost_day_dates", d)}
+                        onRemove={(d) => removeDayDate(r.user_id, "lost_day_dates", d)}
                       />
                       <CounterCell
                         value={row.with_card_days}
@@ -296,22 +320,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                       <TableCell className="text-right font-semibold">
                         ${salary.toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Checkbox checked={row.paid} onCheckedChange={() => togglePaid(r.user_id)} />
-                          {row.paid && row.paid_amount != null && (
-                            <span className="text-xs text-muted-foreground">
-                              ${Number(row.paid_amount).toFixed(0)}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
@@ -362,6 +376,72 @@ function CounterCell({
             >
               <Plus className="h-3 w-3" />
             </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </TableCell>
+  );
+}
+
+function DatesCell({
+  label,
+  accent,
+  sign,
+  dates,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  accent: string;
+  sign: "+" | "-";
+  dates: string[];
+  onAdd: (d: string) => void;
+  onRemove: (d: string) => void;
+}) {
+  const count = dates.length;
+  return (
+    <TableCell className={`text-right ${accent}`}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button className="cursor-pointer hover:underline font-medium">
+            {count > 0 ? `${sign}${count}` : 0}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-3" align="end">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            {dates.length === 0 && (
+              <p className="text-xs text-muted-foreground">No dates</p>
+            )}
+            {dates.map((d) => {
+              const [y, m, day] = d.split("-").map(Number);
+              return (
+                <div key={d} className="flex items-center justify-between">
+                  <span className="text-sm text-foreground">{`${m}/${day}`}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onRemove(d)}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
+            <div className="border-t pt-2 mt-2">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Add date</p>
+              <Input
+                type="date"
+                className="h-7 text-xs"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  onAdd(val);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </div>
         </PopoverContent>
       </Popover>

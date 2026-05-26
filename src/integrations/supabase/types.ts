@@ -3488,10 +3488,12 @@ export type Database = {
           base_salary: number
           calculated_salary: number | null
           created_at: string
+          extra_day_dates: string[]
           extra_days: number
           food_allowance: number
           id: string
           is_checked: boolean
+          lost_day_dates: string[]
           lost_days: number
           month: string
           paid: boolean
@@ -3507,10 +3509,12 @@ export type Database = {
           base_salary?: number
           calculated_salary?: number | null
           created_at?: string
+          extra_day_dates?: string[]
           extra_days?: number
           food_allowance?: number
           id?: string
           is_checked?: boolean
+          lost_day_dates?: string[]
           lost_days?: number
           month: string
           paid?: boolean
@@ -3526,10 +3530,12 @@ export type Database = {
           base_salary?: number
           calculated_salary?: number | null
           created_at?: string
+          extra_day_dates?: string[]
           extra_days?: number
           food_allowance?: number
           id?: string
           is_checked?: boolean
+          lost_day_dates?: string[]
           lost_days?: number
           month?: string
           paid?: boolean
