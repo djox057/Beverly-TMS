@@ -13,7 +13,7 @@ export interface UserProfile {
   individual_mode?: boolean;
 }
 
-export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard';
+export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
