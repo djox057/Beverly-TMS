@@ -45,6 +45,7 @@ import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
+import RecruitingTab from "@/components/RecruitingTab";
 import crownImage from "@/assets/crown.png";
 const isWeekday = (date: Date) => {
   const day = date.getDay();
