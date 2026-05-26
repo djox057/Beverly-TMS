@@ -3485,6 +3485,7 @@ export type Database = {
       }
       recruiter_salary_payments: {
         Row: {
+          adjustments: Json | null
           base_salary: number
           calculated_salary: number | null
           created_at: string
@@ -3506,6 +3507,7 @@ export type Database = {
           without_card_days: number
         }
         Insert: {
+          adjustments?: Json | null
           base_salary?: number
           calculated_salary?: number | null
           created_at?: string
@@ -3527,6 +3529,7 @@ export type Database = {
           without_card_days?: number
         }
         Update: {
+          adjustments?: Json | null
           base_salary?: number
           calculated_salary?: number | null
           created_at?: string

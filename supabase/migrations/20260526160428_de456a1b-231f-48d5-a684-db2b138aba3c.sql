@@ -1,0 +1,1 @@
+ALTER TABLE public.recruiter_salary_payments ADD COLUMN IF NOT EXISTS adjustments jsonb;

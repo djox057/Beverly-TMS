@@ -38,6 +38,14 @@ interface PayrollData {
   futureSalary1Percent?: number; // Salary 1% for next month
   futureBonus5Percent?: number; // Bonus 5% for next month
   office?: string; // Dispatcher's office for conditional logic
+  // Optional overrides used by non-dispatcher statements (e.g. recruiters)
+  departmentLabel?: string; // Default "Dispatch"
+  salary1Label?: string; // Default "Salary 1%"
+  bonus5Label?: string; // Default "Bonus 5%"
+  hideBonusRow?: boolean; // Hide the Bonus 5% row entirely
+  extraRows?: Array<{ label: string; amount: number }>; // Extra rows added before adjustments
+  extraDaysLabel?: string; // Default "Worked additional days"
+  daysOffLabel?: string; // Default "Days off"
 }
 
 interface GeneratePayrollPdfOptions {
@@ -89,7 +97,8 @@ export const generatePayrollPdf = async (
   
   const checkAmount = data.salary1Percent + data.bonus5Percent + recoveryBonus + data.foodAllowance +
     extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0) +
-    totalAdditions - totalCharges - totalAppliedPenalties;
+    totalAdditions - totalCharges - totalAppliedPenalties +
+    (data.extraRows ?? []).reduce((s, r) => s + r.amount, 0);
 
   const extraDatesText = data.extraDayDates.length > 0 
     ? data.extraDayDates.join(", ") 
@@ -145,7 +154,7 @@ export const generatePayrollPdf = async (
   doc.setFont("helvetica", "bold");
   doc.text("Department:", margin, y);
   doc.setFont("helvetica", "normal");
-  doc.text(" Dispatch", margin + 26, y);
+  doc.text(` ${data.departmentLabel ?? "Dispatch"}`, margin + 26, y);
   y += 6;
 
   doc.setFont("helvetica", "bold");
@@ -265,11 +274,18 @@ export const generatePayrollPdf = async (
   // Header row
   drawRow("Description", "Amount", GRAY_HEADER_BG, GRAY_HEADER_BG, true);
 
-  // Salary 1% row
-  drawRow("Salary 1%", `$${data.salary1Percent.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  // Salary row (label customizable)
+  drawRow(data.salary1Label ?? "Salary 1%", `$${data.salary1Percent.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
 
-  // Bonus 5% row
-  drawRow("Bonus 5%", `$${data.bonus5Percent.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  // Bonus row (optional)
+  if (!data.hideBonusRow) {
+    drawRow(data.bonus5Label ?? "Bonus 5%", `$${data.bonus5Percent.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  }
+
+  // Extra fixed rows (e.g. With Card / Without Card for recruiters)
+  for (const row of data.extraRows ?? []) {
+    drawRow(row.label, `$${row.amount.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
+  }
 
   // Recovery bonus row (only if > 0)
   if (hasRecoveryBonus) {
@@ -299,7 +315,7 @@ export const generatePayrollPdf = async (
   }
   if (regularExtraDayDates.length > 0) {
     drawRow(
-      `Worked additional days (${regularExtraDayDates.join(", ")})`, 
+      `${data.extraDaysLabel ?? "Worked additional days"} (${regularExtraDayDates.join(", ")})`,
       `$${(perDayRateForExtra * regularExtraDayDates.length).toFixed(2)}`, 
       "#FFFFFF", 
       LIGHT_BLUE_BG
@@ -324,7 +340,7 @@ export const generatePayrollPdf = async (
     // Otherwise, show full "Days off (dates)" format
     const daysOffLabel = hasSickDays 
       ? nonSickDaysOffText 
-      : `Days off (${nonSickDaysOffText})`;
+      : `${data.daysOffLabel ?? "Days off"} (${nonSickDaysOffText})`;
     
     drawRow(
       daysOffLabel, 
