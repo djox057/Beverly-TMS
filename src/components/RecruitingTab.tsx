@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Minus, Plus, XCircle } from "lucide-react";
+import { FileText, Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
+import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
+import { formatInTimeZone } from "date-fns-tz";
 
 type MonthOption = { value: string; label: string };
 
@@ -36,6 +38,25 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
+const CASCADE_HORIZON_MONTHS = 24;
+
+const currentChicagoMonth = () => formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM");
+
+const addMonths = (ym: string, n: number) => {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthRange = (from: string, to: string) => {
+  const list: string[] = [];
+  let cur = from;
+  while (cur <= to) {
+    list.push(cur);
+    cur = addMonths(cur, 1);
+  }
+  return list;
+};
 
 const isWeekday = (d: Date) => {
   const day = d.getDay();
@@ -67,6 +88,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+  const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
 
   // Fetch recruiters (users with role 'recruiting')
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
@@ -249,6 +271,64 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return next;
     });
     scheduleSave(userId, delay);
+    if (Object.prototype.hasOwnProperty.call(patch, "base_salary")) {
+      const newBase = Number((patch as any).base_salary) || 0;
+      void cascadeBaseSalary(userId, newBase);
+    }
+  };
+
+  const cascadeBaseSalary = async (userId: string, newBase: number) => {
+    const editedMonth = selectedMonth;
+    if (!editedMonth || editedMonth === "all") return;
+    const current = currentChicagoMonth();
+    const startCascade = editedMonth >= current ? addMonths(editedMonth, 1) : current;
+    const endCascade = addMonths(current, CASCADE_HORIZON_MONTHS);
+    if (startCascade > endCascade) return;
+    const targets = monthRange(startCascade, endCascade);
+    if (targets.length === 0) return;
+
+    const recruiterName = rowsRef.current[userId]?.recruiter_name ?? null;
+
+    const { error: updErr } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .update({ base_salary: newBase })
+      .eq("user_id", userId)
+      .in("month", targets);
+    if (updErr) {
+      console.error("cascade update failed", updErr);
+      return;
+    }
+
+    const { data: existing, error: selErr } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .select("month")
+      .eq("user_id", userId)
+      .in("month", targets);
+    if (selErr) {
+      console.error("cascade select failed", selErr);
+      return;
+    }
+    const existingSet = new Set((existing ?? []).map((r: any) => r.month));
+    const missing = targets.filter((m) => !existingSet.has(m));
+    if (missing.length > 0) {
+      const inserts = missing.map((m) => ({
+        user_id: userId,
+        month: m,
+        base_salary: newBase,
+        extra_days: 0,
+        lost_days: 0,
+        with_card_days: 0,
+        without_card_days: 0,
+        food_allowance: FOOD_ALLOWANCE,
+        extra_day_dates: [] as string[],
+        lost_day_dates: [] as string[],
+        recruiter_name: recruiterName,
+      }));
+      const { error: insErr } = await supabase
+        .from("recruiter_salary_payments" as any)
+        .insert(inserts);
+      if (insErr) console.error("cascade insert failed", insErr);
+    }
   };
 
   const addDayDate = (userId: string, field: "extra_day_dates" | "lost_day_dates", date: string) => {
@@ -274,6 +354,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const monthDisabled = !selectedMonth || selectedMonth === "all";
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -308,6 +389,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   <TableHead className="text-right w-[120px]">Without Card</TableHead>
                   <TableHead className="text-right w-[90px]">Food</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
+                  <TableHead className="text-right w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -364,12 +446,23 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                       <TableCell className="text-right font-semibold">
                         ${salary.toFixed(2)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Preview statement"
+                          onClick={() => setPreviewRow(row)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
@@ -380,6 +473,28 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         )}
       </CardContent>
     </Card>
+    {previewRow && (
+      <RecruiterStatementPreviewDialog
+        open={!!previewRow}
+        onOpenChange={(o) => !o && setPreviewRow(null)}
+        data={{
+          recruiterName: previewRow.recruiter_name ?? "Recruiter",
+          month: previewRow.month,
+          baseSalary: previewRow.base_salary,
+          workDaysInMonth,
+          perDayRate: workDaysInMonth > 0 ? previewRow.base_salary / workDaysInMonth : 0,
+          extraDayDates: previewRow.extra_day_dates,
+          lostDayDates: previewRow.lost_day_dates,
+          withCardDays: previewRow.with_card_days,
+          withoutCardDays: previewRow.without_card_days,
+          withCardRate: WITH_CARD_RATE,
+          withoutCardRate: WITHOUT_CARD_RATE,
+          foodAllowance: previewRow.food_allowance,
+          total: computeSalary(previewRow),
+        }}
+      />
+    )}
+    </>
   );
 }
 
