@@ -5280,6 +5280,11 @@ const Analytics = () => {
               )}
             </TabsContent>
           )}
+          {hasRole("admin") && (
+            <TabsContent value="recruiting" className="space-y-6">
+              <RecruitingTab monthOptions={monthOptions} />
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Bonuses Dialog */}
