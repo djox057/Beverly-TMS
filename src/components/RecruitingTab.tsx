@@ -142,7 +142,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       const next: Record<string, PaymentRow> = {};
       recruiters.forEach((r) => {
         const local = prev[r.user_id];
-        if (local && isDirty(r.user_id)) {
+        if (local && local.month === selectedMonth && isDirty(r.user_id)) {
           next[r.user_id] = { ...local, recruiter_name: r.full_name };
           return;
         }
@@ -157,8 +157,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             lost_days: (server.lost_day_dates ?? []).length,
             adjustments: server.adjustments ?? [],
           };
-        } else if (local) {
-          next[r.user_id] = { ...local, recruiter_name: r.full_name };
         } else {
           next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name);
         }
