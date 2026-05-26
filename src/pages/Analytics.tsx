@@ -2875,9 +2875,9 @@ const Analytics = () => {
               {!isDispatchOnly && <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>}
               {/* Show Salaries tab for admins/chicago_management OR for dispatch-only users (their own salary) */}
               {(canViewSalaries || isDispatchOnly) && (
-                <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>
+                <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
-              {roles.includes("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
+              {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
