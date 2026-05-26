@@ -306,6 +306,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   };
 
   const monthDisabled = !selectedMonth || selectedMonth === "all";
+  const showCardColumns = selectedRole === "recruiting";
 
   return (
     <>
