@@ -50,6 +50,10 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
+const AFTERHOURS_FOOD_ALLOWANCE = 50;
+
+const getFoodAllowance = (role: string) =>
+  role === "afterhours" ? AFTERHOURS_FOOD_ALLOWANCE : FOOD_ALLOWANCE;
 
 const isWeekday = (d: Date) => {
   const day = d.getDay();
@@ -63,7 +67,7 @@ const getWorkDaysInMonth = (year: number, monthIndex: number) => {
   return count;
 };
 
-const blankRow = (user_id: string, month: string, name: string): PaymentRow => ({
+const blankRow = (user_id: string, month: string, name: string, role: string): PaymentRow => ({
   user_id,
   month,
   base_salary: 0,
@@ -71,7 +75,7 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
   lost_days: 0,
   with_card_days: 0,
   without_card_days: 0,
-  food_allowance: FOOD_ALLOWANCE,
+  food_allowance: getFoodAllowance(role),
   recruiter_name: name,
   extra_day_dates: [],
   lost_day_dates: [],
@@ -174,7 +178,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             adjustments: server.adjustments ?? [],
           };
         } else {
-          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name);
+          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
         }
       });
       rowsRef.current = next;
