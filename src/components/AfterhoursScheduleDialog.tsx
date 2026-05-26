@@ -87,17 +87,19 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const fetchScheduleUsers = async () => {
     setLoading(true);
     try {
-      // Get users with dispatch, supervisor, manager, or maintenance role
+      // Get users with dispatch, supervisor, manager, maintenance, or afterhours role
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("user_id, role")
-        .in("role", ["dispatch", "supervisor", "manager", "maintenance"]);
+        .in("role", ["dispatch", "supervisor", "manager", "maintenance", "afterhours"]);
 
       if (roleError) throw roleError;
 
       if (roleData && roleData.length > 0) {
         const userIds = [...new Set(roleData.map((r) => r.user_id))];
-        const maintenanceUserIds = new Set(roleData.filter((r) => r.role === "maintenance").map((r) => r.user_id));
+        const maintenanceUserIds = new Set(
+          roleData.filter((r) => r.role === "maintenance" || r.role === "afterhours").map((r) => r.user_id),
+        );
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -145,7 +147,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         if (userIds.length > 0) {
           const [profilesRes, roleRes] = await Promise.all([
             supabase.from("profiles").select("user_id, email, full_name, office").in("user_id", userIds),
-            supabase.from("user_roles").select("user_id").in("user_id", userIds).eq("role", "maintenance"),
+            supabase.from("user_roles").select("user_id").in("user_id", userIds).in("role", ["maintenance", "afterhours"]),
           ]);
 
           if (profilesRes.error) console.error("Error fetching schedule profiles:", profilesRes.error);
