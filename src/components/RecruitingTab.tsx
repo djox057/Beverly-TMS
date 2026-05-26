@@ -38,7 +38,6 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
-const CASCADE_HORIZON_MONTHS = 24;
 
 const currentChicagoMonth = () => formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM");
 
@@ -271,64 +270,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return next;
     });
     scheduleSave(userId, delay);
-    if (Object.prototype.hasOwnProperty.call(patch, "base_salary")) {
-      const newBase = Number((patch as any).base_salary) || 0;
-      void cascadeBaseSalary(userId, newBase);
-    }
-  };
-
-  const cascadeBaseSalary = async (userId: string, newBase: number) => {
-    const editedMonth = selectedMonth;
-    if (!editedMonth || editedMonth === "all") return;
-    const current = currentChicagoMonth();
-    const startCascade = editedMonth >= current ? addMonths(editedMonth, 1) : current;
-    const endCascade = addMonths(current, CASCADE_HORIZON_MONTHS);
-    if (startCascade > endCascade) return;
-    const targets = monthRange(startCascade, endCascade);
-    if (targets.length === 0) return;
-
-    const recruiterName = rowsRef.current[userId]?.recruiter_name ?? null;
-
-    const { error: updErr } = await supabase
-      .from("recruiter_salary_payments" as any)
-      .update({ base_salary: newBase })
-      .eq("user_id", userId)
-      .in("month", targets);
-    if (updErr) {
-      console.error("cascade update failed", updErr);
-      return;
-    }
-
-    const { data: existing, error: selErr } = await supabase
-      .from("recruiter_salary_payments" as any)
-      .select("month")
-      .eq("user_id", userId)
-      .in("month", targets);
-    if (selErr) {
-      console.error("cascade select failed", selErr);
-      return;
-    }
-    const existingSet = new Set((existing ?? []).map((r: any) => r.month));
-    const missing = targets.filter((m) => !existingSet.has(m));
-    if (missing.length > 0) {
-      const inserts = missing.map((m) => ({
-        user_id: userId,
-        month: m,
-        base_salary: newBase,
-        extra_days: 0,
-        lost_days: 0,
-        with_card_days: 0,
-        without_card_days: 0,
-        food_allowance: FOOD_ALLOWANCE,
-        extra_day_dates: [] as string[],
-        lost_day_dates: [] as string[],
-        recruiter_name: recruiterName,
-      }));
-      const { error: insErr } = await supabase
-        .from("recruiter_salary_payments" as any)
-        .insert(inserts);
-      if (insErr) console.error("cascade insert failed", insErr);
-    }
   };
 
   const addDayDate = (userId: string, field: "extra_day_dates" | "lost_day_dates", date: string) => {
