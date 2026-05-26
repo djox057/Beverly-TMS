@@ -3952,7 +3952,7 @@ const Reports = () => {
               <Combobox
                 options={[
                   { value: "", label: "All companies" },
-                  ...companiesList.map((c: any) => ({ value: c.name, label: c.name })),
+                  ...companiesInOffice.map((name) => ({ value: name, label: name })),
                 ]}
                 value={companyFilter}
                 onValueChange={(v) => setCompanyFilter(v)}
