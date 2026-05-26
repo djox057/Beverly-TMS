@@ -11,6 +11,8 @@ import { FileText, Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
+import type { PayrollAdjustment } from "@/utils/payrollPdfGenerator";
+import { Trash2 } from "lucide-react";
 
 type MonthOption = { value: string; label: string };
 
@@ -32,6 +34,7 @@ type PaymentRow = {
   recruiter_name?: string | null;
   extra_day_dates: string[];
   lost_day_dates: string[];
+  adjustments: PayrollAdjustment[];
 };
 
 const WITH_CARD_RATE = 65;
@@ -62,6 +65,7 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
   recruiter_name: name,
   extra_day_dates: [],
   lost_day_dates: [],
+  adjustments: [],
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
@@ -108,6 +112,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           ...row,
           extra_day_dates: row.extra_day_dates ?? [],
           lost_day_dates: row.lost_day_dates ?? [],
+          adjustments: Array.isArray(row.adjustments) ? row.adjustments : [],
         } as PaymentRow;
       });
       return map;
@@ -150,6 +155,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             lost_day_dates: server.lost_day_dates ?? [],
             extra_days: (server.extra_day_dates ?? []).length,
             lost_days: (server.lost_day_dates ?? []).length,
+            adjustments: server.adjustments ?? [],
           };
         } else if (local) {
           next[r.user_id] = { ...local, recruiter_name: r.full_name };
@@ -194,13 +200,20 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
 
   const computeSalary = (r: PaymentRow) => {
     const perDay = workDaysInMonth > 0 ? r.base_salary / workDaysInMonth : 0;
+    const adjTotal = (r.adjustments ?? []).reduce((sum, a) => {
+      if (a.type === "addition") return sum + a.amount;
+      if (a.type === "charge") return sum - a.amount;
+      if (a.type === "penalty" && a.applied) return sum - a.amount;
+      return sum;
+    }, 0);
     return (
       r.base_salary +
       r.extra_days * perDay -
       r.lost_days * perDay +
       r.with_card_days * WITH_CARD_RATE +
       r.without_card_days * WITHOUT_CARD_RATE +
-      r.food_allowance
+      r.food_allowance +
+      adjTotal
     );
   };
 
@@ -217,6 +230,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       extra_day_dates: row.extra_day_dates,
       lost_day_dates: row.lost_day_dates,
       recruiter_name: row.recruiter_name ?? null,
+      adjustments: (row.adjustments ?? []).length > 0 ? row.adjustments : null,
     };
     const { error } = await supabase
       .from("recruiter_salary_payments" as any)
@@ -310,6 +324,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   <TableHead className="text-right w-[110px]">With Card</TableHead>
                   <TableHead className="text-right w-[120px]">Without Card</TableHead>
                   <TableHead className="text-right w-[90px]">Food</TableHead>
+                  <TableHead className="text-right w-[110px]">Adjustments</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
                   <TableHead className="text-right w-[60px]"></TableHead>
                 </TableRow>
@@ -365,6 +380,10 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         suffix={`×$${WITHOUT_CARD_RATE}`}
                       />
                       <TableCell className="text-right">${row.food_allowance}</TableCell>
+                      <AdjustmentsCell
+                        adjustments={row.adjustments ?? []}
+                        onChange={(adj) => updateField(r.user_id, { adjustments: adj }, 0)}
+                      />
                       <TableCell className="text-right font-semibold">
                         ${salary.toFixed(2)}
                       </TableCell>
@@ -384,7 +403,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
@@ -413,6 +432,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           withoutCardRate: WITHOUT_CARD_RATE,
           foodAllowance: previewRow.food_allowance,
           total: computeSalary(previewRow),
+          adjustments: previewRow.adjustments ?? [],
         }}
       />
     )}
