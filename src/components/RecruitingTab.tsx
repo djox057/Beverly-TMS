@@ -92,7 +92,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         .in("user_id", ids);
       if (profErr) throw profErr;
       return (profs ?? [])
-        .map((p: any) => ({ user_id: p.user_id, full_name: p.full_name || p.email || "Unknown" }))
+        .map((p: any) => ({ user_id: p.user_id, full_name: p.full_name || p.email || "Unknown", email: p.email }))
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
   });
