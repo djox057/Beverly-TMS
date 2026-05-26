@@ -336,6 +336,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         label="Extra Days"
                         accent="text-green-600"
                         sign="+"
+                        month={selectedMonth}
                         dates={row.extra_day_dates}
                         onAdd={(d) => addDayDate(r.user_id, "extra_day_dates", d)}
                         onRemove={(d) => removeDayDate(r.user_id, "extra_day_dates", d)}
@@ -344,6 +345,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         label="Days Off"
                         accent="text-red-600"
                         sign="-"
+                        month={selectedMonth}
                         dates={row.lost_day_dates}
                         onAdd={(d) => addDayDate(r.user_id, "lost_day_dates", d)}
                         onRemove={(d) => removeDayDate(r.user_id, "lost_day_dates", d)}
@@ -429,6 +431,7 @@ function DatesCell({
   label,
   accent,
   sign,
+  month,
   dates,
   onAdd,
   onRemove,
@@ -436,6 +439,7 @@ function DatesCell({
   label: string;
   accent: string;
   sign: "+" | "-";
+  month: string;
   dates: string[];
   onAdd: (d: string) => void;
   onRemove: (d: string) => void;
@@ -472,17 +476,8 @@ function DatesCell({
               );
             })}
             <div className="border-t pt-2 mt-2">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Add date</p>
-              <Input
-                type="date"
-                className="h-7 text-xs"
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) return;
-                  onAdd(val);
-                  e.target.value = "";
-                }}
-              />
+              <p className="text-xs font-medium text-muted-foreground mb-1">Add day</p>
+              <DayInput month={month} onPick={onAdd} />
             </div>
           </div>
         </PopoverContent>
