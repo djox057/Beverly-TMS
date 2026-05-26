@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, Trash2, Check, ChevronsUpDown, Pencil, Paperclip, Upload, Eye, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, ChevronsUpDown, Pencil, Paperclip, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Define the available additional types with their display names and database mapping
