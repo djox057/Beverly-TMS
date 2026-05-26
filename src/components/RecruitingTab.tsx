@@ -50,20 +50,12 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
+const AFTERHOURS_FOOD_ALLOWANCE = 50;
 
-const isWeekday = (d: Date) => {
-  const day = d.getDay();
-  return day !== 0 && day !== 6;
-};
+const getFoodAllowance = (role: string) =>
+  role === "afterhours" ? AFTERHOURS_FOOD_ALLOWANCE : FOOD_ALLOWANCE;
 
-const getWorkDaysInMonth = (year: number, monthIndex: number) => {
-  const days = new Date(year, monthIndex + 1, 0).getDate();
-  let count = 0;
-  for (let i = 1; i <= days; i++) if (isWeekday(new Date(year, monthIndex, i))) count++;
-  return count;
-};
-
-const blankRow = (user_id: string, month: string, name: string): PaymentRow => ({
+const blankRow = (user_id: string, month: string, name: string, role: string): PaymentRow => ({
   user_id,
   month,
   base_salary: 0,
@@ -71,7 +63,7 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
   lost_days: 0,
   with_card_days: 0,
   without_card_days: 0,
-  food_allowance: FOOD_ALLOWANCE,
+  food_allowance: getFoodAllowance(role),
   recruiter_name: name,
   extra_day_dates: [],
   lost_day_dates: [],
