@@ -422,7 +422,24 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       <RecruiterStatementPreviewDialog
         open={!!previewRow}
         onOpenChange={(o) => !o && setPreviewRow(null)}
+        onAdjustmentsChange={(next) => {
+          if (!previewRow) return;
+          setRows((prev) => {
+            const cur = prev[previewRow.user_id];
+            if (!cur) return prev;
+            const updated = { ...cur, adjustments: next };
+            const nextRows = { ...prev, [previewRow.user_id]: updated };
+            rowsRef.current = nextRows;
+            return nextRows;
+          });
+          lastSavedAt.current[previewRow.user_id] = Date.now();
+        }}
+        onSent={() => {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments", selectedMonth] });
+        }}
         data={{
+          userId: previewRow.user_id,
+          recruiterEmail: previewEmail,
           recruiterName: previewRow.recruiter_name ?? "Recruiter",
           month: previewRow.month,
           baseSalary: previewRow.base_salary,
