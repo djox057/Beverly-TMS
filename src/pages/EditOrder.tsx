@@ -146,7 +146,12 @@ const EditOrder = () => {
   const [detention, setDetention] = useState("");
   const [layover, setLayover] = useState("");
   const [extraStop, setExtraStop] = useState("");
-  const [lumper, setLumper] = useState("");
+  // Lumper is now multi-entry, each with its own amount, optional reason, and receipt file.
+  // Derived legacy `lumper` total (sum) is computed below for backward compatibility.
+  const [lumperItems, setLumperItems] = useState<
+    { amount: number; reason: string; file_path: string | null; file_name: string | null }[]
+  >([]);
+  const [uploadingLumperIndex, setUploadingLumperIndex] = useState<number | null>(null);
   const [lateFee, setLateFee] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [tonu, setTonu] = useState("");
