@@ -55,6 +55,18 @@ const AFTERHOURS_FOOD_ALLOWANCE = 50;
 const getFoodAllowance = (role: string) =>
   role === "afterhours" ? AFTERHOURS_FOOD_ALLOWANCE : FOOD_ALLOWANCE;
 
+const isWeekday = (d: Date) => {
+  const day = d.getDay();
+  return day !== 0 && day !== 6;
+};
+
+const getWorkDaysInMonth = (year: number, monthIndex: number) => {
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+  let count = 0;
+  for (let i = 1; i <= days; i++) if (isWeekday(new Date(year, monthIndex, i))) count++;
+  return count;
+};
+
 const blankRow = (user_id: string, month: string, name: string, role: string): PaymentRow => ({
   user_id,
   month,
