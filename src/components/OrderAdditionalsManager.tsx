@@ -1,4 +1,4 @@
-import { useState, useMemo, useImperativeHandle, forwardRef } from "react";
+import { useRef, useState, useMemo, useImperativeHandle, forwardRef } from "react";
 import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Plus, Trash2, Check, ChevronsUpDown, Pencil } from "lucide-react";
+import { Plus, Trash2, Check, ChevronsUpDown, Pencil, Paperclip, Upload, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Define the available additional types with their display names and database mapping
@@ -37,12 +37,19 @@ const ADDITIONAL_TYPES = [
 type AdditionalType = typeof ADDITIONAL_TYPES[number]["value"];
 
 // Types that allow multiple entries (one per reason)
-const MULTI_ENTRY_TYPES: AdditionalType[] = ["other_charges", "other_additionals"];
+const MULTI_ENTRY_TYPES: AdditionalType[] = ["other_charges", "other_additionals", "lumper"];
 
 export interface OtherItem {
   amount: number;
   driverAmount: number;
   reason: string;
+}
+
+export interface LumperItem {
+  amount: number;
+  reason: string;
+  file_path: string | null;
+  file_name: string | null;
 }
 
 export interface AdditionalItem {
@@ -77,8 +84,13 @@ interface OrderAdditionalsManagerProps {
   setLayoverDriver: (value: string) => void;
   extraStop: string;
   setExtraStop: (value: string) => void;
-  lumper: string;
-  setLumper: (value: string) => void;
+  // Lumper is now multi-entry, each with its own amount, optional reason, and file
+  lumperItems: LumperItem[];
+  setLumperItems: (items: LumperItem[]) => void;
+  onUploadLumperReceipt?: (index: number, file: File) => Promise<void>;
+  onDeleteLumperReceipt?: (index: number) => Promise<void>;
+  onViewLumperReceipt?: (item: LumperItem) => void;
+  uploadingLumperIndex?: number | null;
   lateFee: string;
   setLateFee: (value: string) => void;
   lateFeeDriver: string;
@@ -116,8 +128,12 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   setLayoverDriver,
   extraStop,
   setExtraStop,
-  lumper,
-  setLumper,
+  lumperItems,
+  setLumperItems,
+  onUploadLumperReceipt,
+  onDeleteLumperReceipt,
+  onViewLumperReceipt,
+  uploadingLumperIndex,
   lateFee,
   setLateFee,
   lateFeeDriver,
@@ -146,6 +162,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
   const [newDriverAmount, setNewDriverAmount] = useState("");
   const [newReason, setNewReason] = useState("");
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   // Track which item is in edit mode (use AdditionalItem.id as key)
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -162,8 +179,6 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
         return { company: layover, setCompany: setLayover, driver: layoverDriver, setDriver: setLayoverDriver };
       case "extra_stop":
         return { company: extraStop, setCompany: setExtraStop, driver: "", setDriver: () => {} };
-      case "lumper":
-        return { company: lumper, setCompany: setLumper, driver: "", setDriver: () => {} };
       case "late_fee":
         return { company: lateFee, setCompany: setLateFee, driver: lateFeeDriver, setDriver: setLateFeeDriver };
       case "no_tracking_fee":
@@ -188,19 +203,34 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
     ADDITIONAL_TYPES.forEach((typeInfo) => {
       if (MULTI_ENTRY_TYPES.includes(typeInfo.value)) {
-        const list = typeInfo.value === "other_charges" ? otherChargesItems : otherAdditionalsItems;
-        (list || []).forEach((it, idx) => {
-          if ((it.amount || 0) > 0 || (it.driverAmount || 0) > 0 || (it.reason || "").trim()) {
-            items.push({
-              id: `${typeInfo.value}-${idx}`,
-              type: typeInfo.value,
-              index: idx,
-              companyAmount: String(it.amount ?? ""),
-              driverAmount: String(it.driverAmount ?? ""),
-              reason: it.reason || "",
-            });
-          }
-        });
+        if (typeInfo.value === "lumper") {
+          (lumperItems || []).forEach((it, idx) => {
+            if ((it.amount || 0) > 0 || (it.reason || "").trim() || it.file_path) {
+              items.push({
+                id: `lumper-${idx}`,
+                type: "lumper",
+                index: idx,
+                companyAmount: String(it.amount ?? ""),
+                driverAmount: "",
+                reason: it.reason || "",
+              });
+            }
+          });
+        } else {
+          const list = typeInfo.value === "other_charges" ? otherChargesItems : otherAdditionalsItems;
+          (list || []).forEach((it, idx) => {
+            if ((it.amount || 0) > 0 || (it.driverAmount || 0) > 0 || (it.reason || "").trim()) {
+              items.push({
+                id: `${typeInfo.value}-${idx}`,
+                type: typeInfo.value,
+                index: idx,
+                companyAmount: String(it.amount ?? ""),
+                driverAmount: String(it.driverAmount ?? ""),
+                reason: it.reason || "",
+              });
+            }
+          });
+        }
       } else {
         const handlers = getSingleTypeHandlers(typeInfo.value);
         const companyVal = parseFloat(handlers.company) || 0;
@@ -219,7 +249,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
     return items;
   }, [
-    detention, detentionDriver, layover, layoverDriver, extraStop, lumper,
+    detention, detentionDriver, layover, layoverDriver, extraStop, lumperItems,
     lateFee, lateFeeDriver, noTrackingFee, noTrackingFeeDriver,
     wrongAddressFee, wrongAddressFeeDriver, tonu, tonuDriver,
     otherChargesItems, otherAdditionalsItems,
@@ -243,14 +273,26 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   const handleAddAdditional = (): boolean => {
     if (!selectedType || isLocked) return false;
 
-    const requiresReason = MULTI_ENTRY_TYPES.includes(selectedType);
+    const requiresReason =
+      MULTI_ENTRY_TYPES.includes(selectedType) && selectedType !== "lumper";
     if (requiresReason && !newReason.trim()) {
       return false;
     }
 
     if (!newCompanyAmount && !newDriverAmount) return false;
 
-    if (selectedType === "other_charges") {
+    if (selectedType === "lumper") {
+      const next: LumperItem[] = [
+        ...(lumperItems || []),
+        {
+          amount: parseFloat(newCompanyAmount) || 0,
+          reason: newReason.trim(),
+          file_path: null,
+          file_name: null,
+        },
+      ];
+      setLumperItems(next);
+    } else if (selectedType === "other_charges") {
       const next = [
         ...(otherChargesItems || []),
         {
@@ -293,7 +335,11 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     commitPendingAdditional: () => {
       if (!selectedType) return false;
       if (!newCompanyAmount && !newDriverAmount) return false;
-      if (MULTI_ENTRY_TYPES.includes(selectedType) && !newReason.trim()) {
+      if (
+        MULTI_ENTRY_TYPES.includes(selectedType) &&
+        selectedType !== "lumper" &&
+        !newReason.trim()
+      ) {
         return false;
       }
 
@@ -314,6 +360,14 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   const handleRemoveAdditional = (item: AdditionalItem) => {
     if (isLocked) return;
 
+    if (item.type === "lumper" && item.index !== undefined) {
+      // Best-effort delete of attached receipt
+      if ((lumperItems[item.index]?.file_path) && onDeleteLumperReceipt) {
+        void onDeleteLumperReceipt(item.index);
+      }
+      setLumperItems((lumperItems || []).filter((_, i) => i !== item.index));
+      return;
+    }
     if (item.type === "other_charges" && item.index !== undefined) {
       setOtherChargesItems((otherChargesItems || []).filter((_, i) => i !== item.index));
       return;
@@ -337,12 +391,23 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   };
 
   const handleSaveEdit = (item: AdditionalItem) => {
-    const requiresReason = MULTI_ENTRY_TYPES.includes(item.type);
+    const requiresReason = MULTI_ENTRY_TYPES.includes(item.type) && item.type !== "lumper";
     if (requiresReason && !editReason.trim()) {
       return;
     }
 
-    if (item.type === "other_charges" && item.index !== undefined) {
+    if (item.type === "lumper" && item.index !== undefined) {
+      const next = (lumperItems || []).map((it, i) =>
+        i === item.index
+          ? {
+              ...it,
+              amount: parseFloat(editCompanyAmount) || 0,
+              reason: editReason.trim(),
+            }
+          : it,
+      );
+      setLumperItems(next);
+    } else if (item.type === "other_charges" && item.index !== undefined) {
       const next = (otherChargesItems || []).map((it, i) =>
         i === item.index
           ? {
@@ -390,6 +455,11 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   };
 
   const getDisplayLabel = (item: AdditionalItem) => {
+    if (item.type === "lumper") {
+      const ordinal = (item.index ?? 0) + 1;
+      const base = `Lumper ${ordinal}`;
+      return item.reason?.trim() ? `${base} — ${item.reason.trim()}` : base;
+    }
     if (MULTI_ENTRY_TYPES.includes(item.type) && item.reason?.trim()) {
       return item.reason.trim();
     }
@@ -397,7 +467,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   };
 
   const typeRequiresReason = (type: AdditionalType) => {
-    return MULTI_ENTRY_TYPES.includes(type);
+    return MULTI_ENTRY_TYPES.includes(type) && type !== "lumper";
   };
 
   const typeHasDriver = (type: AdditionalType) => {
