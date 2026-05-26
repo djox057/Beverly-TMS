@@ -4701,6 +4701,7 @@ export type Database = {
         | "chicago_management"
         | "yard"
         | "recruiting"
+        | "claims"
       office_location:
         | "Čačak"
         | "KRAGUJEVAC"
@@ -4847,6 +4848,7 @@ export const Constants = {
         "chicago_management",
         "yard",
         "recruiting",
+        "claims",
       ],
       office_location: [
         "Čačak",
