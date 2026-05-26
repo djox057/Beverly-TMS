@@ -4742,14 +4742,11 @@ const Analytics = () => {
                                                 ))}
                                                 <div className="border-t pt-2 mt-2">
                                                   <p className="text-xs font-medium text-muted-foreground mb-1">
-                                                    Add date
+                                                    Add day
                                                   </p>
-                                                  <Input
-                                                    type="date"
-                                                    className="h-7 text-xs"
-                                                    onChange={async (e) => {
-                                                      const val = e.target.value;
-                                                      if (!val) return;
+                                                  <DayInput
+                                                    month={selectedMonth}
+                                                    onPick={async (val) => {
                                                       // Check if already exists
                                                       const existing =
                                                         extraRaw.includes(val) ||
@@ -4857,7 +4854,6 @@ const Analytics = () => {
                                                           [extraKey]: raw,
                                                         }));
                                                       }
-                                                      e.target.value = "";
                                                     }}
                                                   />
                                                 </div>
