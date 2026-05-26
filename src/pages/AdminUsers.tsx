@@ -591,6 +591,7 @@ const AdminUsers = () => {
                     <SelectItem value="chicago_management">Chicago Management</SelectItem>
                     <SelectItem value="yard">Yard</SelectItem>
                     <SelectItem value="recruiting">Recruiting</SelectItem>
+                    <SelectItem value="claims">Claims</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
@@ -690,6 +691,7 @@ const AdminUsers = () => {
                 <SelectItem value="chicago_management">Chicago Mgmt</SelectItem>
                 <SelectItem value="yard">Yard</SelectItem>
                 <SelectItem value="recruiting">Recruiting</SelectItem>
+                    <SelectItem value="claims">Claims</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
               </SelectContent>
             </Select>
@@ -812,6 +814,7 @@ const AdminUsers = () => {
                   <SelectItem value="chicago_management">Chicago Management</SelectItem>
                   <SelectItem value="yard">Yard</SelectItem>
                   <SelectItem value="recruiting">Recruiting</SelectItem>
+                    <SelectItem value="claims">Claims</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                 </SelectContent>
               </Select>
