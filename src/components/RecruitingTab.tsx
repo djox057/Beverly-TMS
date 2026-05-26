@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Minus, Plus, XCircle } from "lucide-react";
+import { FileText, Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
+import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
+import { formatInTimeZone } from "date-fns-tz";
 
 type MonthOption = { value: string; label: string };
 
@@ -36,6 +38,25 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
+const CASCADE_HORIZON_MONTHS = 24;
+
+const currentChicagoMonth = () => formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM");
+
+const addMonths = (ym: string, n: number) => {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthRange = (from: string, to: string) => {
+  const list: string[] = [];
+  let cur = from;
+  while (cur <= to) {
+    list.push(cur);
+    cur = addMonths(cur, 1);
+  }
+  return list;
+};
 
 const isWeekday = (d: Date) => {
   const day = d.getDay();
@@ -67,6 +88,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+  const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
 
   // Fetch recruiters (users with role 'recruiting')
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
