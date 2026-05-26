@@ -3946,7 +3946,7 @@ const Reports = () => {
                 searchPlaceholder="Search company..."
                 className="w-[180px]"
               />
-              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
+              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter || companyFilter) && (
                 <Button
                   variant="ghost"
                   size="sm"
