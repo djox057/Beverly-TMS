@@ -46,6 +46,7 @@ import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import RecruitingTab from "@/components/RecruitingTab";
+import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -4742,14 +4743,11 @@ const Analytics = () => {
                                                 ))}
                                                 <div className="border-t pt-2 mt-2">
                                                   <p className="text-xs font-medium text-muted-foreground mb-1">
-                                                    Add date
+                                                    Add day
                                                   </p>
-                                                  <Input
-                                                    type="date"
-                                                    className="h-7 text-xs"
-                                                    onChange={async (e) => {
-                                                      const val = e.target.value;
-                                                      if (!val) return;
+                                                  <DayInput
+                                                    month={selectedMonth}
+                                                    onPick={async (val) => {
                                                       // Check if already exists
                                                       const existing =
                                                         extraRaw.includes(val) ||
@@ -4857,7 +4855,6 @@ const Analytics = () => {
                                                           [extraKey]: raw,
                                                         }));
                                                       }
-                                                      e.target.value = "";
                                                     }}
                                                   />
                                                 </div>
@@ -4934,14 +4931,11 @@ const Analytics = () => {
                                                   {
                                                     <div className="border-t pt-2 mt-2">
                                                       <p className="text-xs font-medium text-muted-foreground mb-1">
-                                                        Add date
+                                                        Add day
                                                       </p>
-                                                      <Input
-                                                        type="date"
-                                                        className="h-7 text-xs"
-                                                        onChange={async (e) => {
-                                                          const val = e.target.value;
-                                                          if (!val) return;
+                                                      <DayInput
+                                                        month={selectedMonth}
+                                                        onPick={async (val) => {
                                                           if (rawDates.includes(val)) {
                                                             toast.error("Date already added");
                                                             return;
@@ -4976,7 +4970,6 @@ const Analytics = () => {
                                                             const updated = [...(prev[lookupKey] || []), val].sort();
                                                             return { ...prev, [lookupKey]: updated };
                                                           });
-                                                          e.target.value = "";
                                                         }}
                                                       />
                                                     </div>
