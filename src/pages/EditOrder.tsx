@@ -181,6 +181,76 @@ const EditOrder = () => {
   );
   const lumper = lumperTotal ? String(lumperTotal) : "";
 
+  // Receipt handlers for individual lumper items (multi-entry, per-item file)
+  const handleUploadLumperReceipt = useCallback(
+    async (index: number, file: File) => {
+      if (!id) return;
+      setUploadingLumperIndex(index);
+      try {
+        const filePath = await uploadOrderFilePreserveName({
+          orderId: id,
+          folder: "LUMPER",
+          file,
+        });
+        setLumperItems((prev) =>
+          prev.map((it, i) =>
+            i === index ? { ...it, file_path: filePath, file_name: file.name } : it,
+          ),
+        );
+        toast({ title: "Receipt uploaded" });
+      } catch (err: any) {
+        console.error("[lumper] upload failed", err);
+        toast({
+          title: "Upload failed",
+          description: err?.message || "Could not upload receipt",
+          variant: "destructive",
+        });
+      } finally {
+        setUploadingLumperIndex(null);
+      }
+    },
+    [id],
+  );
+
+  const handleDeleteLumperReceipt = useCallback(
+    async (index: number) => {
+      const current = lumperItems[index];
+      if (!current?.file_path) return;
+      try {
+        await supabase.storage.from("order-files").remove([current.file_path]);
+      } catch (err) {
+        console.warn("[lumper] storage delete failed (continuing)", err);
+      }
+      setLumperItems((prev) =>
+        prev.map((it, i) =>
+          i === index ? { ...it, file_path: null, file_name: null } : it,
+        ),
+      );
+    },
+    [lumperItems],
+  );
+
+  const handleViewLumperReceipt = useCallback(
+    async (item: { file_path: string | null; file_name: string | null }) => {
+      if (!item.file_path) return;
+      const { signedUrl, error } = await getOrderFileSignedUrl({
+        id: "",
+        file_path: item.file_path,
+        file_name: item.file_name || null,
+      });
+      if (signedUrl) {
+        window.open(signedUrl, "_blank");
+      } else {
+        toast({
+          title: "Unable to open file",
+          description: error?.message || "File not found",
+          variant: "destructive",
+        });
+      }
+    },
+    [],
+  );
+
   // Derived legacy values (sums + combined reasons)
   const otherChargesTotal = useMemo(
     () => otherChargesItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
