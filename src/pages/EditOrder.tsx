@@ -3643,8 +3643,12 @@ const EditOrder = () => {
                   setLayoverDriver={setLayoverDriver}
                   extraStop={extraStop}
                   setExtraStop={setExtraStop}
-                  lumper={lumper}
-                  setLumper={setLumper}
+                  lumperItems={lumperItems}
+                  setLumperItems={setLumperItems}
+                  onUploadLumperReceipt={handleUploadLumperReceipt}
+                  onDeleteLumperReceipt={handleDeleteLumperReceipt}
+                  onViewLumperReceipt={handleViewLumperReceipt}
+                  uploadingLumperIndex={uploadingLumperIndex}
                   lateFee={lateFee}
                   setLateFee={setLateFee}
                   lateFeeDriver={lateFeeDriver}
