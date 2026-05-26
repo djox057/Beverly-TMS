@@ -45,6 +45,7 @@ import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
+import RecruitingTab from "@/components/RecruitingTab";
 import crownImage from "@/assets/crown.png";
 const isWeekday = (date: Date) => {
   const day = date.getDay();
@@ -2875,6 +2876,7 @@ const Analytics = () => {
               {(canViewSalaries || isDispatchOnly) && (
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>
               )}
+              {hasRole("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
@@ -5277,6 +5279,11 @@ const Analytics = () => {
                   </div>
                 </div>
               )}
+            </TabsContent>
+          )}
+          {hasRole("admin") && (
+            <TabsContent value="recruiting" className="space-y-6">
+              <RecruitingTab monthOptions={monthOptions} />
             </TabsContent>
           )}
         </Tabs>

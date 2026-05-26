@@ -3483,6 +3483,66 @@ export type Database = {
           },
         ]
       }
+      recruiter_salary_payments: {
+        Row: {
+          base_salary: number
+          calculated_salary: number | null
+          created_at: string
+          extra_days: number
+          food_allowance: number
+          id: string
+          is_checked: boolean
+          lost_days: number
+          month: string
+          paid: boolean
+          paid_amount: number | null
+          paid_at: string | null
+          recruiter_name: string | null
+          updated_at: string
+          user_id: string
+          with_card_days: number
+          without_card_days: number
+        }
+        Insert: {
+          base_salary?: number
+          calculated_salary?: number | null
+          created_at?: string
+          extra_days?: number
+          food_allowance?: number
+          id?: string
+          is_checked?: boolean
+          lost_days?: number
+          month: string
+          paid?: boolean
+          paid_amount?: number | null
+          paid_at?: string | null
+          recruiter_name?: string | null
+          updated_at?: string
+          user_id: string
+          with_card_days?: number
+          without_card_days?: number
+        }
+        Update: {
+          base_salary?: number
+          calculated_salary?: number | null
+          created_at?: string
+          extra_days?: number
+          food_allowance?: number
+          id?: string
+          is_checked?: boolean
+          lost_days?: number
+          month?: string
+          paid?: boolean
+          paid_amount?: number | null
+          paid_at?: string | null
+          recruiter_name?: string | null
+          updated_at?: string
+          user_id?: string
+          with_card_days?: number
+          without_card_days?: number
+        }
+        Relationships: []
+      }
       repairs: {
         Row: {
           accounting_note: string | null
