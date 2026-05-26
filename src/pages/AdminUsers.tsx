@@ -34,7 +34,7 @@ interface User {
   phone_number: string | null;
   office: OfficeLocation;
   ext: string | null;
-  roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard')[];
+  roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting')[];
   created_at: string;
 }
 
@@ -49,7 +49,7 @@ const AdminUsers = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
+  const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
@@ -67,7 +67,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting'>('dispatch');
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -570,7 +570,7 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard') => {
+                <Select value={role} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting') => {
                   setRole(value);
                   setFormErrors(prev => ({ ...prev, role: undefined }));
                 }}>
@@ -792,7 +792,7 @@ const AdminUsers = () => {
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard') => setEditRole(value)}>
+              <Select value={editRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting') => setEditRole(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-type AppRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard';
+type AppRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
