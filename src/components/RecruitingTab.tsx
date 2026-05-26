@@ -365,12 +365,23 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                       <TableCell className="text-right font-semibold">
                         ${salary.toFixed(2)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Preview statement"
+                          onClick={() => setPreviewRow(row)}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
