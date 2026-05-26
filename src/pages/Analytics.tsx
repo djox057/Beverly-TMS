@@ -763,8 +763,10 @@ const Analytics = () => {
                 rawWeekendCountsMap[key] += 1;
                 weekendDatesMap[key].push(dateStr);
                 weekendRawDatesMap[key].push(record.scheduled_date);
-              } else {
-                // Weekday entries (and moving day) are always counted as extra days
+              } else if (isMovingDay) {
+                // Moving day is the only weekday entry that counts as an extra day.
+                // All other weekday entries in afterhours_schedule are treated as holidays
+                // and excluded from extra-day pay.
                 weekdayCountsMap[key] += 1;
                 weekdayDatesMap[key].push(dateStr);
                 weekdayRawDatesMap[key].push(record.scheduled_date);
