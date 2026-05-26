@@ -421,6 +421,8 @@ const AdminUsers = () => {
         return 'default';
       case 'yard':
         return 'default';
+      case 'recruiting':
+        return 'default';
       case 'dispatch':
         return 'secondary';
       case 'afterhours':
