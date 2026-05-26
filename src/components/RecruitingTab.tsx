@@ -11,7 +11,6 @@ import { FileText, Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
-import { formatInTimeZone } from "date-fns-tz";
 
 type MonthOption = { value: string; label: string };
 
@@ -38,24 +37,6 @@ type PaymentRow = {
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 70;
-
-const currentChicagoMonth = () => formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM");
-
-const addMonths = (ym: string, n: number) => {
-  const [y, m] = ym.split("-").map(Number);
-  const d = new Date(y, m - 1 + n, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
-
-const monthRange = (from: string, to: string) => {
-  const list: string[] = [];
-  let cur = from;
-  while (cur <= to) {
-    list.push(cur);
-    cur = addMonths(cur, 1);
-  }
-  return list;
-};
 
 const isWeekday = (d: Date) => {
   const day = d.getDay();
