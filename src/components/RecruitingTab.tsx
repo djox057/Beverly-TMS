@@ -11,6 +11,8 @@ import { FileText, Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
+import type { PayrollAdjustment } from "@/utils/payrollPdfGenerator";
+import { Trash2 } from "lucide-react";
 
 type MonthOption = { value: string; label: string };
 
@@ -32,6 +34,7 @@ type PaymentRow = {
   recruiter_name?: string | null;
   extra_day_dates: string[];
   lost_day_dates: string[];
+  adjustments: PayrollAdjustment[];
 };
 
 const WITH_CARD_RATE = 65;
@@ -62,6 +65,7 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
   recruiter_name: name,
   extra_day_dates: [],
   lost_day_dates: [],
+  adjustments: [],
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
@@ -108,6 +112,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           ...row,
           extra_day_dates: row.extra_day_dates ?? [],
           lost_day_dates: row.lost_day_dates ?? [],
+          adjustments: Array.isArray(row.adjustments) ? row.adjustments : [],
         } as PaymentRow;
       });
       return map;
@@ -150,6 +155,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             lost_day_dates: server.lost_day_dates ?? [],
             extra_days: (server.extra_day_dates ?? []).length,
             lost_days: (server.lost_day_dates ?? []).length,
+            adjustments: server.adjustments ?? [],
           };
         } else if (local) {
           next[r.user_id] = { ...local, recruiter_name: r.full_name };
@@ -194,13 +200,20 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
 
   const computeSalary = (r: PaymentRow) => {
     const perDay = workDaysInMonth > 0 ? r.base_salary / workDaysInMonth : 0;
+    const adjTotal = (r.adjustments ?? []).reduce((sum, a) => {
+      if (a.type === "addition") return sum + a.amount;
+      if (a.type === "charge") return sum - a.amount;
+      if (a.type === "penalty" && a.applied) return sum - a.amount;
+      return sum;
+    }, 0);
     return (
       r.base_salary +
       r.extra_days * perDay -
       r.lost_days * perDay +
       r.with_card_days * WITH_CARD_RATE +
       r.without_card_days * WITHOUT_CARD_RATE +
-      r.food_allowance
+      r.food_allowance +
+      adjTotal
     );
   };
 
@@ -217,6 +230,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       extra_day_dates: row.extra_day_dates,
       lost_day_dates: row.lost_day_dates,
       recruiter_name: row.recruiter_name ?? null,
+      adjustments: (row.adjustments ?? []).length > 0 ? row.adjustments : null,
     };
     const { error } = await supabase
       .from("recruiter_salary_payments" as any)
@@ -310,6 +324,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   <TableHead className="text-right w-[110px]">With Card</TableHead>
                   <TableHead className="text-right w-[120px]">Without Card</TableHead>
                   <TableHead className="text-right w-[90px]">Food</TableHead>
+                  <TableHead className="text-right w-[110px]">Adjustments</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
                   <TableHead className="text-right w-[60px]"></TableHead>
                 </TableRow>
@@ -365,6 +380,10 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         suffix={`×$${WITHOUT_CARD_RATE}`}
                       />
                       <TableCell className="text-right">${row.food_allowance}</TableCell>
+                      <AdjustmentsCell
+                        adjustments={row.adjustments ?? []}
+                        onChange={(adj) => updateField(r.user_id, { adjustments: adj }, 0)}
+                      />
                       <TableCell className="text-right font-semibold">
                         ${salary.toFixed(2)}
                       </TableCell>
@@ -384,7 +403,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
@@ -413,6 +432,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           withoutCardRate: WITHOUT_CARD_RATE,
           foodAllowance: previewRow.food_allowance,
           total: computeSalary(previewRow),
+          adjustments: previewRow.adjustments ?? [],
         }}
       />
     )}
@@ -515,6 +535,174 @@ function DatesCell({
             <div className="border-t pt-2 mt-2">
               <p className="text-xs font-medium text-muted-foreground mb-1">Add day</p>
               <DayInput month={month} onPick={onAdd} />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </TableCell>
+  );
+}
+
+function AdjustmentsCell({
+  adjustments,
+  onChange,
+}: {
+  adjustments: PayrollAdjustment[];
+  onChange: (next: PayrollAdjustment[]) => void;
+}) {
+  const [type, setType] = useState<"addition" | "charge" | "penalty">("addition");
+  const [reason, setReason] = useState("");
+  const [amount, setAmount] = useState("");
+  const [applied, setApplied] = useState(true);
+
+  const netDelta = adjustments.reduce((s, a) => {
+    if (a.type === "addition") return s + a.amount;
+    if (a.type === "charge") return s - a.amount;
+    if (a.type === "penalty" && a.applied) return s - a.amount;
+    return s;
+  }, 0);
+
+  const handleAdd = () => {
+    if (!reason.trim()) {
+      toast.error("Enter a reason");
+      return;
+    }
+    const n = Number(amount);
+    if (!isFinite(n) || n < 0) {
+      toast.error("Invalid amount");
+      return;
+    }
+    const next: PayrollAdjustment = {
+      type,
+      reason: reason.trim(),
+      amount: n,
+      ...(type === "penalty" ? { applied } : {}),
+    };
+    onChange([...adjustments, next]);
+    setReason("");
+    setAmount("");
+    setApplied(true);
+  };
+
+  const handleRemove = (idx: number) => {
+    onChange(adjustments.filter((_, i) => i !== idx));
+  };
+
+  const togglePenalty = (idx: number) => {
+    onChange(
+      adjustments.map((a, i) =>
+        i === idx && a.type === "penalty" ? { ...a, applied: !a.applied } : a,
+      ),
+    );
+  };
+
+  return (
+    <TableCell className="text-right">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8">
+            {adjustments.length === 0 ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <span className={netDelta >= 0 ? "text-green-600" : "text-red-600"}>
+                {netDelta >= 0 ? "+" : ""}${netDelta.toFixed(2)}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-3" align="end">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Adjustments</p>
+            {adjustments.length === 0 && (
+              <p className="text-xs text-muted-foreground">None</p>
+            )}
+            {adjustments.map((a, i) => {
+              const sign =
+                a.type === "addition" ? "+" : a.type === "penalty" && !a.applied ? "" : "-";
+              const color =
+                a.type === "addition"
+                  ? "text-green-600"
+                  : a.type === "penalty" && !a.applied
+                    ? "text-muted-foreground"
+                    : "text-red-600";
+              const label =
+                a.type === "addition"
+                  ? "Extra"
+                  : a.type === "charge"
+                    ? "Charge"
+                    : a.applied
+                      ? "Penalty"
+                      : "Warning";
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+                  <span className="flex-1 truncate" title={a.reason}>{a.reason}</span>
+                  <span className={`tabular-nums ${color}`}>
+                    {sign}${a.amount.toFixed(2)}
+                  </span>
+                  {a.type === "penalty" && (
+                    <button
+                      className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                      onClick={() => togglePenalty(i)}
+                      title="Toggle applied"
+                    >
+                      {a.applied ? "applied" : "warn"}
+                    </button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemove(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              );
+            })}
+            <div className="border-t pt-2 mt-2 space-y-2">
+              <div className="flex gap-1">
+                {(["addition", "charge", "penalty"] as const).map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    variant={type === t ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 px-2 text-[10px] capitalize flex-1"
+                    onClick={() => setType(t)}
+                  >
+                    {t === "addition" ? "Extra" : t}
+                  </Button>
+                ))}
+              </div>
+              <Input
+                placeholder="Reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="h-7 text-xs"
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="$ Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="h-7 text-xs"
+                />
+                <Button size="sm" className="h-7 px-3" onClick={handleAdd}>
+                  Add
+                </Button>
+              </div>
+              {type === "penalty" && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={applied}
+                    onChange={(e) => setApplied(e.target.checked)}
+                  />
+                  Deduct from check (uncheck for warning only)
+                </label>
+              )}
             </div>
           </div>
         </PopoverContent>
