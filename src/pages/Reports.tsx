@@ -3943,6 +3943,7 @@ const Reports = () => {
                     setTruckDriverFilter("");
                     setDispatchNameFilter("");
                     setLoadNumberFilter("");
+                    setCompanyFilter("");
                   }}
                 >
                   <X className="h-4 w-4" />
