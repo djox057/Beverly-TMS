@@ -2980,6 +2980,16 @@ const Reports = () => {
         );
       }
 
+      // Apply company filter (driver's company)
+      if (companyFilter) {
+        filtered = filtered
+          .map((group) => ({
+            ...group,
+            trucks: group.trucks.filter((truck) => truck.companyName === companyFilter),
+          }))
+          .filter((group) => group.trucks.length > 0);
+      }
+
       // Apply truck/driver and load number filters
       if (debouncedTruckDriverFilter || debouncedLoadNumberFilter) {
         filtered = filtered
@@ -3059,6 +3069,7 @@ const Reports = () => {
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
     debouncedLoadNumberFilter,
+    companyFilter,
     proximityMatchedTrucks,
   ]);
 
