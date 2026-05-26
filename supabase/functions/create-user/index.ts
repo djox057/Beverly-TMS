@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     }
 
     // Validate role
-    const validRoles = ['dispatch', 'afterhours', 'admin', 'manager', 'driver', 'safety', 'supervisor', 'accounting', 'maintenance', 'chicago_management', 'yard', 'recruiting']
+    const validRoles = ['dispatch', 'afterhours', 'admin', 'manager', 'driver', 'safety', 'supervisor', 'accounting', 'maintenance', 'chicago_management', 'yard', 'recruiting', 'claims']
     if (!validRoles.includes(role)) {
       throw new Error('Invalid role')
     }
