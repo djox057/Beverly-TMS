@@ -213,10 +213,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   }, [selectedMonth]);
 
   const computeSalary = (r: PaymentRow) => {
+    const withCard = showCardColumns ? r.with_card_days : 0;
+    const withoutCard = showCardColumns ? r.without_card_days : 0;
     const perDayBase =
       r.base_salary +
-      r.with_card_days * WITH_CARD_RATE +
-      r.without_card_days * WITHOUT_CARD_RATE;
+      withCard * WITH_CARD_RATE +
+      withoutCard * WITHOUT_CARD_RATE;
     const perDay = workDaysInMonth > 0 ? perDayBase / workDaysInMonth : 0;
     const adjTotal = (r.adjustments ?? []).reduce((sum, a) => {
       if (a.type === "addition") return sum + a.amount;
@@ -228,8 +230,8 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       r.base_salary +
       r.extra_days * perDay -
       r.lost_days * perDay +
-      r.with_card_days * WITH_CARD_RATE +
-      r.without_card_days * WITHOUT_CARD_RATE +
+      withCard * WITH_CARD_RATE +
+      withoutCard * WITHOUT_CARD_RATE +
       r.food_allowance +
       adjTotal
     );
