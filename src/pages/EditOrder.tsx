@@ -174,6 +174,13 @@ const EditOrder = () => {
     { amount: number; driverAmount: number; reason: string }[]
   >([]);
 
+  // Derived legacy lumper string (sum of all lumper_items.amount)
+  const lumperTotal = useMemo(
+    () => lumperItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    [lumperItems],
+  );
+  const lumper = lumperTotal ? String(lumperTotal) : "";
+
   // Derived legacy values (sums + combined reasons)
   const otherChargesTotal = useMemo(
     () => otherChargesItems.reduce((s, i) => s + (Number(i.amount) || 0), 0),
