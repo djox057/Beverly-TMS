@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FileText, Minus, Plus, XCircle } from "lucide-react";
+import { FileText, Minus, Plus, Send, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
