@@ -472,6 +472,28 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         )}
       </CardContent>
     </Card>
+    {previewRow && (
+      <RecruiterStatementPreviewDialog
+        open={!!previewRow}
+        onOpenChange={(o) => !o && setPreviewRow(null)}
+        data={{
+          recruiterName: previewRow.recruiter_name ?? "Recruiter",
+          month: previewRow.month,
+          baseSalary: previewRow.base_salary,
+          workDaysInMonth,
+          perDayRate: workDaysInMonth > 0 ? previewRow.base_salary / workDaysInMonth : 0,
+          extraDayDates: previewRow.extra_day_dates,
+          lostDayDates: previewRow.lost_day_dates,
+          withCardDays: previewRow.with_card_days,
+          withoutCardDays: previewRow.without_card_days,
+          withCardRate: WITH_CARD_RATE,
+          withoutCardRate: WITHOUT_CARD_RATE,
+          foodAllowance: previewRow.food_allowance,
+          total: computeSalary(previewRow),
+        }}
+      />
+    )}
+    </>
   );
 }
 
