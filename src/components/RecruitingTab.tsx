@@ -19,6 +19,7 @@ type MonthOption = { value: string; label: string };
 type Recruiter = {
   user_id: string;
   full_name: string;
+  email?: string | null;
 };
 
 type PaymentRow = {
@@ -73,6 +74,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const defaultMonth = monthOptions[0]?.value ?? "all";
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
   const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
+  const [previewEmail, setPreviewEmail] = useState<string | null>(null);
 
   // Fetch recruiters (users with role 'recruiting')
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
@@ -91,7 +93,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         .in("user_id", ids);
       if (profErr) throw profErr;
       return (profs ?? [])
-        .map((p: any) => ({ user_id: p.user_id, full_name: p.full_name || p.email || "Unknown" }))
+        .map((p: any) => ({ user_id: p.user_id, full_name: p.full_name || p.email || "Unknown", email: p.email }))
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
   });
@@ -391,7 +393,11 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                           size="icon"
                           className="h-8 w-8"
                           title="Preview statement"
-                          onClick={() => setPreviewRow(row)}
+                          onClick={async () => {
+                            await saveRow(row);
+                            setPreviewEmail(r.email ?? null);
+                            setPreviewRow(row);
+                          }}
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
@@ -416,7 +422,24 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       <RecruiterStatementPreviewDialog
         open={!!previewRow}
         onOpenChange={(o) => !o && setPreviewRow(null)}
+        onAdjustmentsChange={(next) => {
+          if (!previewRow) return;
+          setRows((prev) => {
+            const cur = prev[previewRow.user_id];
+            if (!cur) return prev;
+            const updated = { ...cur, adjustments: next };
+            const nextRows = { ...prev, [previewRow.user_id]: updated };
+            rowsRef.current = nextRows;
+            return nextRows;
+          });
+          lastSavedAt.current[previewRow.user_id] = Date.now();
+        }}
+        onSent={() => {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments", selectedMonth] });
+        }}
         data={{
+          userId: previewRow.user_id,
+          recruiterEmail: previewEmail,
           recruiterName: previewRow.recruiter_name ?? "Recruiter",
           month: previewRow.month,
           baseSalary: previewRow.base_salary,

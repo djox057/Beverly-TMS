@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Download, Loader2, Plus, Trash2, Send } from "lucide-react";
 import { generatePayrollPdf, PayrollAdjustment } from "@/utils/payrollPdfGenerator";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface RecruiterStatementData {
+  userId: string;
+  recruiterEmail?: string | null;
   recruiterName: string;
   month: string; // YYYY-MM
   baseSalary: number;
@@ -26,6 +32,8 @@ interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   data: RecruiterStatementData;
+  onAdjustmentsChange?: (next: PayrollAdjustment[]) => void;
+  onSent?: () => void;
 }
 
 const formatMonth = (m: string) => {
@@ -39,7 +47,11 @@ const toMMDD = (d: string) => {
   return `${m}/${day}`;
 };
 
-const buildPdf = async (data: RecruiterStatementData, previewOnly: boolean) => {
+const buildPdf = async (
+  data: RecruiterStatementData,
+  adjustments: PayrollAdjustment[],
+  previewOnly: boolean,
+) => {
   const extraRows: { label: string; amount: number }[] = [];
   if (data.withCardDays > 0) {
     extraRows.push({
@@ -67,7 +79,7 @@ const buildPdf = async (data: RecruiterStatementData, previewOnly: boolean) => {
       lostDayDates: data.lostDayDates.map(toMMDD),
       extraDaysAmount: data.extraDayDates.length * data.perDayRate,
       perDayRate: data.perDayRate,
-      adjustments: data.adjustments ?? [],
+      adjustments,
       departmentLabel: "Recruiting",
       salary1Label: "Base Salary",
       hideBonusRow: true,
@@ -78,10 +90,76 @@ const buildPdf = async (data: RecruiterStatementData, previewOnly: boolean) => {
   );
 };
 
-export default function RecruiterStatementPreviewDialog({ open, onOpenChange, data }: Props) {
+export default function RecruiterStatementPreviewDialog({
+  open,
+  onOpenChange,
+  data,
+  onAdjustmentsChange,
+  onSent,
+}: Props) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>(data.adjustments ?? []);
+  const [showAdjustmentsForm, setShowAdjustmentsForm] = useState(false);
+  const [isCheckedState, setIsCheckedState] = useState(false);
 
+  // Extra Pay / Charges form
+  const [newType, setNewType] = useState<"addition" | "charge">("addition");
+  const [newReason, setNewReason] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [amountMode, setAmountMode] = useState<"dollar" | "percent">("dollar");
+
+  // Penalty form
+  const [penReason, setPenReason] = useState("");
+  const [penAmount, setPenAmount] = useState("");
+  const [penApplied, setPenApplied] = useState(true);
+  const [penMode, setPenMode] = useState<"dollar" | "percent">("dollar");
+
+  const percentBase =
+    data.baseSalary +
+    data.withCardDays * data.withCardRate +
+    data.withoutCardDays * data.withoutCardRate;
+
+  const resolveAdjustments = (list: PayrollAdjustment[]): PayrollAdjustment[] =>
+    list.map((a) =>
+      a.percent != null ? { ...a, amount: (percentBase * a.percent) / 100 } : a,
+    );
+
+  const computeAmount = (raw: string, mode: "dollar" | "percent") => {
+    const n = parseFloat(raw);
+    if (isNaN(n)) return NaN;
+    return mode === "percent" ? (percentBase * n) / 100 : n;
+  };
+
+  // Sync local adjustments when dialog opens (so we get fresh server state)
+  useEffect(() => {
+    if (open) {
+      setAdjustments(data.adjustments ?? []);
+      setShowAdjustmentsForm(false);
+      setNewReason("");
+      setNewAmount("");
+      setPenReason("");
+      setPenAmount("");
+      setPenApplied(true);
+    }
+  }, [open, data.adjustments]);
+
+  // Load is_checked from server
+  useEffect(() => {
+    if (!open || !data.userId || !data.month) return;
+    (async () => {
+      const { data: row } = await supabase
+        .from("recruiter_salary_payments" as any)
+        .select("is_checked")
+        .eq("user_id", data.userId)
+        .eq("month", data.month)
+        .maybeSingle();
+      setIsCheckedState(((row as any)?.is_checked as boolean) || false);
+    })();
+  }, [open, data.userId, data.month]);
+
+  // Build / rebuild preview
   useEffect(() => {
     if (!open) return;
     let revoke: string | null = null;
@@ -89,14 +167,17 @@ export default function RecruiterStatementPreviewDialog({ open, onOpenChange, da
     (async () => {
       setLoading(true);
       try {
-        const blob = await buildPdf(data, true);
+        const blob = await buildPdf(data, resolveAdjustments(adjustments), true);
         const url = URL.createObjectURL(blob);
         if (cancelled) {
           URL.revokeObjectURL(url);
           return;
         }
         revoke = url;
-        setPdfUrl(url);
+        setPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
       } catch (err: any) {
         toast.error("Failed to generate preview: " + err.message);
       } finally {
@@ -105,14 +186,107 @@ export default function RecruiterStatementPreviewDialog({ open, onOpenChange, da
     })();
     return () => {
       cancelled = true;
-      if (revoke) URL.revokeObjectURL(revoke);
-      setPdfUrl(null);
     };
-  }, [open, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, data, adjustments]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const persistAdjustments = async (next: PayrollAdjustment[]) => {
+    setAdjustments(next);
+    onAdjustmentsChange?.(next);
+    const { error } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .update({ adjustments: next.length > 0 ? next : null })
+      .eq("user_id", data.userId)
+      .eq("month", data.month);
+    if (error) toast.error("Failed to save adjustments: " + error.message);
+  };
+
+  const handleAddAdjustment = () => {
+    if (!newReason.trim()) return toast.error("Enter a reason");
+    const amount = computeAmount(newAmount, amountMode);
+    if (isNaN(amount) || amount <= 0) return toast.error("Invalid amount");
+    const item: PayrollAdjustment = {
+      type: newType,
+      reason: newReason.trim(),
+      amount,
+      ...(amountMode === "percent" ? { percent: parseFloat(newAmount) } : {}),
+    };
+    persistAdjustments([...adjustments, item]);
+    setNewReason("");
+    setNewAmount("");
+  };
+
+  const handleAddPenalty = () => {
+    if (!penReason.trim()) return toast.error("Enter a reason");
+    const raw = penAmount.trim();
+    const amount = raw === "" ? 0 : computeAmount(penAmount, penMode);
+    if (isNaN(amount) || amount < 0) return toast.error("Invalid amount");
+    const item: PayrollAdjustment = {
+      type: "penalty",
+      reason: penReason.trim(),
+      amount,
+      applied: penApplied,
+      ...(raw !== "" && penMode === "percent" ? { percent: parseFloat(penAmount) } : {}),
+    };
+    persistAdjustments([...adjustments, item]);
+    setPenReason("");
+    setPenAmount("");
+    setPenApplied(true);
+  };
+
+  const handleRemove = (idx: number) =>
+    persistAdjustments(adjustments.filter((_, i) => i !== idx));
+
+  const handleTogglePenalty = (idx: number, applied: boolean) =>
+    persistAdjustments(
+      adjustments.map((a, i) =>
+        i === idx && a.type === "penalty" ? { ...a, applied } : a,
+      ),
+    );
+
+  const handleToggleChecked = async () => {
+    const next = !isCheckedState;
+    setIsCheckedState(next);
+    const { error } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .update({ is_checked: next })
+      .eq("user_id", data.userId)
+      .eq("month", data.month);
+    if (error) {
+      toast.error("Failed to update checked: " + error.message);
+      setIsCheckedState(!next);
+    }
+  };
+
+  const computeTotal = () => {
+    const resolved = resolveAdjustments(adjustments);
+    const adjTotal = resolved.reduce((s, a) => {
+      if (a.type === "addition") return s + a.amount;
+      if (a.type === "charge") return s - a.amount;
+      if (a.type === "penalty" && a.applied) return s - a.amount;
+      return s;
+    }, 0);
+    return (
+      data.baseSalary +
+      data.extraDayDates.length * data.perDayRate -
+      data.lostDayDates.length * data.perDayRate +
+      data.withCardDays * data.withCardRate +
+      data.withoutCardDays * data.withoutCardRate +
+      data.foodAllowance +
+      adjTotal
+    );
+  };
 
   const handleDownload = async () => {
     try {
-      const blob = await buildPdf(data, false);
+      const blob = await buildPdf(data, resolveAdjustments(adjustments), false);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -127,33 +301,369 @@ export default function RecruiterStatementPreviewDialog({ open, onOpenChange, da
     }
   };
 
+  const handleSend = async () => {
+    if (!data.recruiterEmail) {
+      toast.error("Recruiter has no email on file");
+      return;
+    }
+    setSending(true);
+    try {
+      const pdfBlob = await buildPdf(data, resolveAdjustments(adjustments), false);
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const pdfBytes = Array.from(new Uint8Array(arrayBuffer));
+      const { error: emailErr } = await supabase.functions.invoke("send-payroll-email", {
+        body: {
+          recipientEmail: data.recruiterEmail,
+          dispatcherName: data.recruiterName,
+          payPeriod: formatMonth(data.month),
+          pdfBytes,
+        },
+      });
+      if (emailErr) throw emailErr;
+
+      const total = computeTotal();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: updateErr } = await supabase
+        .from("recruiter_salary_payments" as any)
+        .update({
+          paid: true,
+          paid_amount: total,
+          calculated_salary: data.baseSalary,
+          paid_at: new Date().toISOString(),
+          adjustments: adjustments.length > 0 ? adjustments : null,
+        })
+        .eq("user_id", data.userId)
+        .eq("month", data.month);
+      if (updateErr) throw updateErr;
+
+      toast.success(`Statement sent to ${data.recruiterEmail}`);
+      onSent?.();
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to send: " + (err.message ?? "unknown error"));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const resolved = resolveAdjustments(adjustments);
+  const chargesAndExtras = resolved
+    .map((adj, index) => ({ adj, index }))
+    .filter((x) => x.adj.type === "addition" || x.adj.type === "charge");
+  const penalties = resolved
+    .map((adj, index) => ({ adj, index }))
+    .filter((x) => x.adj.type === "penalty");
+
+  const showRightPanel = showAdjustmentsForm || adjustments.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {data.recruiterName} — {formatMonth(data.month)}
+            Payroll Statement Preview - {data.recruiterName}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 border rounded overflow-hidden bg-muted">
-          {loading || !pdfUrl ? (
-            <div className="h-full flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex-1 min-h-0 flex gap-2">
+          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-gray-100">
+            {loading && !pdfUrl ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-[700px]"
+                title="Recruiter statement preview"
+                style={{ border: "none" }}
+              />
+            ) : null}
+          </div>
+
+          {!showAdjustmentsForm && adjustments.length === 0 && (
+            <Button
+              size="icon"
+              className="h-8 w-8 shrink-0 self-start"
+              onClick={() => setShowAdjustmentsForm(true)}
+              title="Add Extra Pay / Charge / Penalty"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+
+          {showRightPanel && (
+            <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add additional payments or deductions.
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0"
+                  onClick={() => setShowAdjustmentsForm(false)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+
+              {chargesAndExtras.length > 0 && (
+                <div className="space-y-2">
+                  {chargesAndExtras.map(({ adj, index }) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-2 rounded-md text-sm ${
+                        adj.type === "addition"
+                          ? "bg-green-50 dark:bg-green-900/20"
+                          : "bg-red-50 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate font-medium">{adj.reason}</p>
+                        <p className={adj.type === "addition" ? "text-green-600" : "text-red-600"}>
+                          {adj.type === "addition" ? "+" : "-"}${adj.amount.toFixed(2)}
+                          {adj.percent != null && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({adj.percent}% of base)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => handleRemove(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-2">
+                  <Button
+                    variant={newType === "addition" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewType("addition")}
+                  >
+                    Extra Pay
+                  </Button>
+                  <Button
+                    variant={newType === "charge" ? "destructive" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setNewType("charge")}
+                  >
+                    Charge
+                  </Button>
+                </div>
+
+                <Input
+                  placeholder="Reason"
+                  value={newReason}
+                  onChange={(e) => setNewReason(e.target.value)}
+                  className="h-8 text-sm"
+                />
+
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAmountMode((m) => (m === "dollar" ? "percent" : "dollar"))
+                      }
+                      className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      title={
+                        amountMode === "dollar"
+                          ? "Click to switch to % of base"
+                          : `Click to switch to $. Base: $${percentBase.toFixed(2)}`
+                      }
+                      tabIndex={-1}
+                    >
+                      {amountMode === "dollar" ? "$" : "%"}
+                    </button>
+                    <Input
+                      type="number"
+                      placeholder={amountMode === "dollar" ? "Amount" : "Percent"}
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      className="h-8 text-sm pl-8"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleAddAdjustment}
+                    disabled={!newReason.trim() || !newAmount}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Penalties */}
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-sm">Penalties</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Check the box to apply the deduction. Otherwise it will only show as a warning.
+                  </p>
+                </div>
+
+                {penalties.length > 0 && (
+                  <div className="space-y-2">
+                    {penalties.map(({ adj, index }) => (
+                      <div
+                        key={index}
+                        className={`flex items-start gap-2 p-2 rounded-md text-sm ${
+                          adj.applied
+                            ? "bg-red-50 dark:bg-red-900/20"
+                            : "bg-yellow-50 dark:bg-yellow-900/20"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={!!adj.applied}
+                          onCheckedChange={(c) => handleTogglePenalty(index, c as boolean)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-medium">{adj.reason}</p>
+                          {adj.applied ? (
+                            <p className="text-red-600">
+                              -${adj.amount.toFixed(2)}
+                              {adj.percent != null && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({adj.percent}% of base)
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="text-yellow-700 dark:text-yellow-500 text-xs">
+                              Warning only — would be ${adj.amount.toFixed(2)}
+                              {adj.percent != null && ` (${adj.percent}% of base)`}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          onClick={() => handleRemove(index)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-2">
+                  <Input
+                    placeholder="Reason"
+                    value={penReason}
+                    onChange={(e) => setPenReason(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPenMode((m) => (m === "dollar" ? "percent" : "dollar"))
+                        }
+                        className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title={
+                          penMode === "dollar"
+                            ? "Click to switch to % of base"
+                            : `Click to switch to $. Base: $${percentBase.toFixed(2)}`
+                        }
+                        tabIndex={-1}
+                      >
+                        {penMode === "dollar" ? "$" : "%"}
+                      </button>
+                      <Input
+                        type="number"
+                        placeholder={penMode === "dollar" ? "Amount" : "Percent"}
+                        value={penAmount}
+                        onChange={(e) => setPenAmount(e.target.value)}
+                        className="h-8 text-sm pl-8"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleAddPenalty}
+                      disabled={!penReason.trim() || !penAmount}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={penApplied}
+                      onCheckedChange={(c) => setPenApplied(c as boolean)}
+                    />
+                    <span>Apply as deduction (uncheck for warning only)</span>
+                  </label>
+                </div>
+              </div>
             </div>
-          ) : (
-            <iframe src={pdfUrl} title="Recruiter statement preview" className="w-full h-full" />
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-2" />
-            Download PDF
-          </Button>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <label
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer border transition-colors ${
+                  isCheckedState
+                    ? "bg-green-100 dark:bg-green-950/30 border-green-300 dark:border-green-800"
+                    : "border-input"
+                }`}
+              >
+                <Checkbox checked={isCheckedState} onCheckedChange={handleToggleChecked} />
+                <span className="text-sm font-medium">Checked</span>
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button onClick={handleSend} disabled={sending}>
+                {sending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send & Mark as Paid
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+          {data.recruiterEmail && (
+            <div className="flex justify-end w-full">
+              <span className="text-xs text-muted-foreground">{data.recruiterEmail}</span>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
