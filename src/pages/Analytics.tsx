@@ -2875,9 +2875,9 @@ const Analytics = () => {
               {!isDispatchOnly && <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>}
               {/* Show Salaries tab for admins/chicago_management OR for dispatch-only users (their own salary) */}
               {(canViewSalaries || isDispatchOnly) && (
-                <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>
+                <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
-              {roles.includes("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
+              {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
@@ -4018,7 +4018,7 @@ const Analytics = () => {
               <Card>
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-4">
-                    <CardTitle>{isDispatchOnly ? "My Salary" : "Salaries"}</CardTitle>
+                    <CardTitle>{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</CardTitle>
                     <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
                       <Select value={selectedMonth} onValueChange={handleMonthChange}>
                         <SelectTrigger className="w-full sm:w-64">

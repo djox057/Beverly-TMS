@@ -16,6 +16,15 @@ import { Trash2 } from "lucide-react";
 
 type MonthOption = { value: string; label: string };
 
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "recruiting", label: "Recruiting" },
+  { value: "accounting", label: "Accounting" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "claims", label: "Claims" },
+  { value: "safety", label: "Safety" },
+  { value: "afterhours", label: "After" },
+];
+
 type Recruiter = {
   user_id: string;
   full_name: string;
@@ -73,17 +82,18 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+  const [selectedRole, setSelectedRole] = useState<string>("recruiting");
   const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
   const [previewEmail, setPreviewEmail] = useState<string | null>(null);
 
-  // Fetch recruiters (users with role 'recruiting')
+  // Fetch users with the selected role
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
-    queryKey: ["recruiting-users"],
+    queryKey: ["recruiting-users", selectedRole],
     queryFn: async () => {
       const { data: roleRows, error: roleErr } = await supabase
         .from("user_roles")
         .select("user_id")
-        .eq("role", "recruiting" as any);
+        .eq("role", selectedRole as any);
       if (roleErr) throw roleErr;
       const ids = (roleRows ?? []).map((r: any) => r.user_id);
       if (ids.length === 0) return [];
@@ -298,7 +308,24 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <CardTitle>Recruiting</CardTitle>
+          <CardTitle className="flex flex-wrap items-center gap-1 text-base sm:text-lg">
+            {ROLE_OPTIONS.map((r, i) => (
+              <span key={r.value} className="flex items-center gap-1">
+                {i > 0 && <span className="text-muted-foreground/40">/</span>}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole(r.value)}
+                  className={
+                    selectedRole === r.value
+                      ? "text-foreground font-semibold"
+                      : "text-muted-foreground/50 hover:text-muted-foreground font-normal"
+                  }
+                >
+                  {r.label}
+                </button>
+              </span>
+            ))}
+          </CardTitle>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder="Select month" />
