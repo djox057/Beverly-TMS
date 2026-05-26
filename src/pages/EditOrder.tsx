@@ -671,7 +671,35 @@ const EditOrder = () => {
         setDetention((orderData as any).detention?.toString() || "");
         setLayover((orderData as any).layover?.toString() || "");
         setExtraStop((orderData as any).extra_stop?.toString() || "");
-        setLumper((orderData as any).lumper?.toString() || "");
+        // Load lumper_items (multi-entry). Fallback to legacy scalar `lumper`.
+        {
+          const itemsRaw = (orderData as any).lumper_items;
+          if (Array.isArray(itemsRaw) && itemsRaw.length > 0) {
+            setLumperItems(
+              itemsRaw.map((it: any) => ({
+                amount: Number(it?.amount) || 0,
+                reason: String(it?.reason || ""),
+                file_path: it?.file_path ?? null,
+                file_name: it?.file_name ?? null,
+              })),
+            );
+          } else {
+            const legacyAmount = Number((orderData as any).lumper) || 0;
+            const legacyPath = (orderData as any).lumper_revised_rc_path || null;
+            if (legacyAmount > 0) {
+              setLumperItems([
+                {
+                  amount: legacyAmount,
+                  reason: "",
+                  file_path: legacyPath,
+                  file_name: legacyPath ? legacyPath.split("/").pop() || "Receipt" : null,
+                },
+              ]);
+            } else {
+              setLumperItems([]);
+            }
+          }
+        }
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
