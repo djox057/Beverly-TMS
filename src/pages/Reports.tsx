@@ -532,6 +532,20 @@ const Reports = () => {
   // Use rawGroupedReports directly - progressive rendering handles tab switch performance.
   const groupedReports = rawGroupedReports;
 
+  // Companies that have at least 1 truck in the currently selected office
+  const companiesInOffice = useMemo(() => {
+    if (!groupedReports) return [];
+    const companies = new Set<string>();
+    groupedReports
+      .filter((group) => group.office === activeTab)
+      .forEach((group) => {
+        group.trucks.forEach((truck: any) => {
+          if (truck.companyName) companies.add(truck.companyName);
+        });
+      });
+    return Array.from(companies).sort();
+  }, [groupedReports, activeTab]);
+
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter: debouncedTruckDriverFilter,
