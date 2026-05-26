@@ -26,6 +26,8 @@ import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useCompanies } from "@/hooks/useCompanies";
+import { Combobox } from "@/components/ui/combobox";
 import {
   MapPin,
   AlertCircle,
@@ -384,6 +386,8 @@ const Reports = () => {
     setDispatchNameFilter,
     loadNumberFilter,
     setLoadNumberFilter,
+    companyFilter,
+    setCompanyFilter,
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
     debouncedLoadNumberFilter,
@@ -393,6 +397,7 @@ const Reports = () => {
 
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
+  const { data: companiesList = [] } = useCompanies();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
@@ -2975,6 +2980,16 @@ const Reports = () => {
         );
       }
 
+      // Apply company filter (driver's company)
+      if (companyFilter) {
+        filtered = filtered
+          .map((group) => ({
+            ...group,
+            trucks: group.trucks.filter((truck) => truck.companyName === companyFilter),
+          }))
+          .filter((group) => group.trucks.length > 0);
+      }
+
       // Apply truck/driver and load number filters
       if (debouncedTruckDriverFilter || debouncedLoadNumberFilter) {
         filtered = filtered
@@ -3054,6 +3069,7 @@ const Reports = () => {
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
     debouncedLoadNumberFilter,
+    companyFilter,
     proximityMatchedTrucks,
   ]);
 
@@ -3919,7 +3935,18 @@ const Reports = () => {
                   )}
                 </div>
               </div>
-              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
+              <Combobox
+                options={[
+                  { value: "", label: "All companies" },
+                  ...companiesList.map((c: any) => ({ value: c.name, label: c.name })),
+                ]}
+                value={companyFilter}
+                onValueChange={(v) => setCompanyFilter(v)}
+                placeholder="Company"
+                searchPlaceholder="Search company..."
+                className="w-[180px]"
+              />
+              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter || companyFilter) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -3927,6 +3954,7 @@ const Reports = () => {
                     setTruckDriverFilter("");
                     setDispatchNameFilter("");
                     setLoadNumberFilter("");
+                    setCompanyFilter("");
                   }}
                 >
                   <X className="h-4 w-4" />

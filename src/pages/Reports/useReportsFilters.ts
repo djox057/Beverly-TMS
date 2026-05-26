@@ -44,6 +44,10 @@ export function useReportsFilters() {
     return localStorage.getItem("reports-loadNumberFilter") || "";
   });
 
+  const [companyFilter, setCompanyFilter] = useState(() => {
+    return localStorage.getItem("reports-companyFilter") || "";
+  });
+
   // Persist filter values to localStorage
   useEffect(() => {
     localStorage.setItem("reports-showEmptyTrucks", JSON.stringify(showEmptyTrucks));
@@ -76,6 +80,10 @@ export function useReportsFilters() {
   useEffect(() => {
     localStorage.setItem("reports-loadNumberFilter", loadNumberFilter);
   }, [loadNumberFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-companyFilter", companyFilter);
+  }, [companyFilter]);
 
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
@@ -137,7 +145,9 @@ export function useReportsFilters() {
     setDispatchNameFilter,
     loadNumberFilter,
     setLoadNumberFilter,
-    
+    companyFilter,
+    setCompanyFilter,
+
     // Debounced values
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
@@ -155,6 +165,7 @@ export function useReportsFilters() {
     truckDriverFilter,
     dispatchNameFilter,
     loadNumberFilter,
+    companyFilter,
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
     debouncedLoadNumberFilter,
