@@ -3935,6 +3935,17 @@ const Reports = () => {
                   )}
                 </div>
               </div>
+              <Combobox
+                options={[
+                  { value: "", label: "All companies" },
+                  ...companiesList.map((c: any) => ({ value: c.name, label: c.name })),
+                ]}
+                value={companyFilter}
+                onValueChange={(v) => setCompanyFilter(v)}
+                placeholder="Company"
+                searchPlaceholder="Search company..."
+                className="w-[180px]"
+              />
               {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
                 <Button
                   variant="ghost"
