@@ -2522,6 +2522,7 @@ const EditOrder = () => {
         layover: layover ? parseFloat(layover) : null,
         extra_stop: extraStop ? parseFloat(extraStop) : null,
         lumper: lumper ? parseFloat(lumper) : null,
+        lumper_items: lumperItems.length > 0 ? lumperItems : null,
         late_fee: lateFee ? parseFloat(lateFee) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
