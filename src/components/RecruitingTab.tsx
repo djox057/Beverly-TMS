@@ -178,7 +178,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             adjustments: server.adjustments ?? [],
           };
         } else {
-          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name);
+          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
         }
       });
       rowsRef.current = next;
