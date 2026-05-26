@@ -155,10 +155,10 @@ Purpose Lumper fee`;
     // Update the order's lumper field in the database
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current lumper value and add to it
+    // Get current lumper value + items, append a new separate entry
     const { data: order, error: fetchError } = await supabaseAdmin
       .from("orders")
-      .select("lumper")
+      .select("lumper, lumper_items")
       .eq("id", orderId)
       .single();
 
@@ -167,12 +167,31 @@ Purpose Lumper fee`;
       throw new Error(`Failed to fetch order: ${fetchError.message}`);
     }
 
-    const currentLumper = order?.lumper || 0;
-    const newLumper = currentLumper + lumperAmount;
+    const currentLumper = Number(order?.lumper || 0);
+    const existingItemsRaw = Array.isArray(order?.lumper_items) ? order!.lumper_items : [];
+    const existingItems = existingItemsRaw.map((it: any) => ({
+      amount: Number(it?.amount || 0),
+      reason: typeof it?.reason === "string" ? it.reason : "",
+      file_path: it?.file_path ?? null,
+      file_name: it?.file_name ?? null,
+    }));
+
+    // Migrate legacy single lumper (no items yet) into first entry so the new
+    // request becomes a separate Lumper 2 instead of stacking into Lumper 1.
+    const itemsSum = existingItems.reduce((s, it) => s + (it.amount || 0), 0);
+    const seedItems = existingItems.length === 0 && currentLumper > 0
+      ? [{ amount: currentLumper, reason: "", file_path: null, file_name: null }]
+      : existingItems;
+
+    const newItems = [
+      ...seedItems,
+      { amount: lumperAmount, reason: "", file_path: null, file_name: null },
+    ];
+    const newLumper = newItems.reduce((s, it) => s + (it.amount || 0), 0);
 
     const { error: updateError } = await supabaseAdmin
       .from("orders")
-      .update({ lumper: newLumper })
+      .update({ lumper: newLumper, lumper_items: newItems })
       .eq("id", orderId);
 
     if (updateError) {
