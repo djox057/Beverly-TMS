@@ -99,10 +99,14 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       if (ids.length === 0) return [];
       const { data: profs, error: profErr } = await supabase
         .from("profiles")
-        .select("user_id, full_name, email")
+        .select("user_id, full_name, email, office")
         .in("user_id", ids);
       if (profErr) throw profErr;
-      return (profs ?? [])
+      let filtered = profs ?? [];
+      if (selectedRole === "safety") {
+        filtered = filtered.filter((p: any) => p.office != null && p.office !== "");
+      }
+      return filtered
         .map((p: any) => ({ user_id: p.user_id, full_name: p.full_name || p.email || "Unknown", email: p.email }))
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
     },
