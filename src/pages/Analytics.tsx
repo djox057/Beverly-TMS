@@ -2875,6 +2875,7 @@ const Analytics = () => {
               {(canViewSalaries || isDispatchOnly) && (
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>
               )}
+              {hasRole("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
