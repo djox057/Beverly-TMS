@@ -697,6 +697,76 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                         <span className="font-medium">${parseFloat(item.driverAmount || "0").toFixed(2)}</span>
                       </span>
                     )}
+                    {item.type === "lumper" && item.index !== undefined && (() => {
+                      const idx = item.index;
+                      const li = lumperItems[idx];
+                      const isUploading = uploadingLumperIndex === idx;
+                      if (li?.file_path) {
+                        return (
+                          <span className="flex items-center gap-1">
+                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                            <button
+                              type="button"
+                              onClick={() => onViewLumperReceipt?.(li)}
+                              className="text-xs underline text-foreground hover:text-primary truncate max-w-[160px]"
+                              title={li.file_name || "Receipt"}
+                            >
+                              {li.file_name || "Receipt"}
+                            </button>
+                            {!isLocked && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onDeleteLumperReceipt?.(idx)}
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                disabled={isUploading}
+                                title="Remove receipt"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </span>
+                        );
+                      }
+                      if (isLocked) {
+                        return (
+                          <span className="text-xs text-muted-foreground italic">No receipt</span>
+                        );
+                      }
+                      return (
+                        <>
+                          <input
+                            ref={(el) => { fileInputRefs.current[idx] = el; }}
+                            type="file"
+                            className="hidden"
+                            accept="image/*,application/pdf"
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (f && onUploadLumperReceipt) {
+                                await onUploadLumperReceipt(idx, f);
+                              }
+                              if (e.target) e.target.value = "";
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRefs.current[idx]?.click()}
+                            className="h-7 px-2 text-xs"
+                            disabled={isUploading}
+                          >
+                            {isUploading ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Upload receipt
+                          </Button>
+                        </>
+                      );
+                    })()}
                   </div>
                   {!isLocked && (
                     <div className="flex items-center gap-1">
