@@ -2795,6 +2795,7 @@ export type Database = {
           locked: boolean
           lumper: number | null
           lumper_driver: number | null
+          lumper_items: Json | null
           lumper_revised_rc_path: string | null
           mileage: number | null
           no_tracking_fee: number | null
@@ -2909,6 +2910,7 @@ export type Database = {
           locked?: boolean
           lumper?: number | null
           lumper_driver?: number | null
+          lumper_items?: Json | null
           lumper_revised_rc_path?: string | null
           mileage?: number | null
           no_tracking_fee?: number | null
@@ -3023,6 +3025,7 @@ export type Database = {
           locked?: boolean
           lumper?: number | null
           lumper_driver?: number | null
+          lumper_items?: Json | null
           lumper_revised_rc_path?: string | null
           mileage?: number | null
           no_tracking_fee?: number | null
