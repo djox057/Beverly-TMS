@@ -26,6 +26,8 @@ import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useCompanies } from "@/hooks/useCompanies";
+import { Combobox } from "@/components/ui/combobox";
 import {
   MapPin,
   AlertCircle,
@@ -384,6 +386,8 @@ const Reports = () => {
     setDispatchNameFilter,
     loadNumberFilter,
     setLoadNumberFilter,
+    companyFilter,
+    setCompanyFilter,
     debouncedTruckDriverFilter,
     debouncedDispatchNameFilter,
     debouncedLoadNumberFilter,
