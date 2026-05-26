@@ -393,7 +393,11 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                           size="icon"
                           className="h-8 w-8"
                           title="Preview statement"
-                          onClick={() => setPreviewRow(row)}
+                          onClick={async () => {
+                            await saveRow(row);
+                            setPreviewEmail(r.email ?? null);
+                            setPreviewRow(row);
+                          }}
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
