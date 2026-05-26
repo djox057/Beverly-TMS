@@ -1,0 +1,1 @@
+DELETE FROM public.recruiter_salary_payments;
