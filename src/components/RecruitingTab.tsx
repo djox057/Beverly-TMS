@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Minus, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { DayInput } from "@/components/DayInput";
 
 type MonthOption = { value: string; label: string };
 
@@ -63,6 +64,7 @@ const blankRow = (user_id: string, month: string, name: string): PaymentRow => (
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
+  const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
 
@@ -116,51 +118,70 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
-  const seededMonthRef = useRef<string | null>(null);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const lastSavedAt = useRef<Record<string, number>>({});
+
+  const isDirty = (userId: string) =>
+    !!saveTimers.current[userId] || Date.now() - (lastSavedAt.current[userId] ?? 0) < 1500;
 
   useEffect(() => {
     if (!recruiters.length || !selectedMonth || selectedMonth === "all") {
       setRows({});
-      seededMonthRef.current = null;
       return;
     }
-    // Only seed from server when month changes — never overwrite local edits afterwards.
-    if (seededMonthRef.current === selectedMonth) {
-      // Add rows for newly arrived recruiters only.
-      setRows((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        recruiters.forEach((r) => {
-          if (!next[r.user_id]) {
-            next[r.user_id] = paymentsData?.[r.user_id]
-              ? {
-                  ...paymentsData[r.user_id],
-                  recruiter_name: r.full_name,
-                  extra_days: (paymentsData[r.user_id].extra_day_dates ?? []).length,
-                  lost_days: (paymentsData[r.user_id].lost_day_dates ?? []).length,
-                }
-              : blankRow(r.user_id, selectedMonth, r.full_name);
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-      return;
-    }
-    const next: Record<string, PaymentRow> = {};
-    recruiters.forEach((r) => {
-      next[r.user_id] = paymentsData?.[r.user_id]
-        ? {
-            ...paymentsData[r.user_id],
+    // Merge server data into local rows. Skip users with in-flight edits so
+    // typing or recent saves never get clobbered by realtime refetches.
+    setRows((prev) => {
+      const next: Record<string, PaymentRow> = {};
+      recruiters.forEach((r) => {
+        const local = prev[r.user_id];
+        if (local && isDirty(r.user_id)) {
+          next[r.user_id] = { ...local, recruiter_name: r.full_name };
+          return;
+        }
+        const server = paymentsData?.[r.user_id];
+        if (server) {
+          next[r.user_id] = {
+            ...server,
             recruiter_name: r.full_name,
-            extra_days: (paymentsData[r.user_id].extra_day_dates ?? []).length,
-            lost_days: (paymentsData[r.user_id].lost_day_dates ?? []).length,
-          }
-        : blankRow(r.user_id, selectedMonth, r.full_name);
+            extra_day_dates: server.extra_day_dates ?? [],
+            lost_day_dates: server.lost_day_dates ?? [],
+            extra_days: (server.extra_day_dates ?? []).length,
+            lost_days: (server.lost_day_dates ?? []).length,
+          };
+        } else if (local) {
+          next[r.user_id] = { ...local, recruiter_name: r.full_name };
+        } else {
+          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name);
+        }
+      });
+      rowsRef.current = next;
+      return next;
     });
-    setRows(next);
-    seededMonthRef.current = selectedMonth;
   }, [recruiters, paymentsData, selectedMonth]);
+
+  // Realtime: refresh server data when anyone updates recruiter salaries.
+  useEffect(() => {
+    if (!selectedMonth || selectedMonth === "all") return;
+    const channel = supabase
+      .channel(`recruiter-salaries-${selectedMonth}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "recruiter_salary_payments",
+          filter: `month=eq.${selectedMonth}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments", selectedMonth] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedMonth, queryClient]);
 
   const workDaysInMonth = useMemo(() => {
     if (!selectedMonth || selectedMonth === "all") return 22;
@@ -205,13 +226,16 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     return true;
   };
 
-  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const scheduleSave = (userId: string, delay = 200) => {
     const existing = saveTimers.current[userId];
     if (existing) clearTimeout(existing);
-    saveTimers.current[userId] = setTimeout(() => {
+    saveTimers.current[userId] = setTimeout(async () => {
+      delete saveTimers.current[userId];
       const latest = rowsRef.current[userId];
-      if (latest) saveRow(latest);
+      if (latest) {
+        const ok = await saveRow(latest);
+        if (ok) lastSavedAt.current[userId] = Date.now();
+      }
     }, delay);
   };
 
