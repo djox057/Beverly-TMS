@@ -357,8 +357,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   <TableHead className="text-right w-[140px]">Base Salary</TableHead>
                   <TableHead className="text-right w-[100px]">Extra Days</TableHead>
                   <TableHead className="text-right w-[100px]">Lost Days</TableHead>
-                  <TableHead className="text-right w-[110px]">With Card</TableHead>
-                  <TableHead className="text-right w-[120px]">Without Card</TableHead>
+                  {showCardColumns && (
+                    <>
+                      <TableHead className="text-right w-[110px]">With Card</TableHead>
+                      <TableHead className="text-right w-[120px]">Without Card</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-right w-[90px]">Food</TableHead>
                   <TableHead className="text-right w-[110px]">Adjustments</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
@@ -405,16 +409,20 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         onAdd={(d) => addDayDate(r.user_id, "lost_day_dates", d)}
                         onRemove={(d) => removeDayDate(r.user_id, "lost_day_dates", d)}
                       />
-                      <CounterCell
-                        value={row.with_card_days}
-                        onChange={(v) => updateField(r.user_id, { with_card_days: v })}
-                        suffix={`×$${WITH_CARD_RATE}`}
-                      />
-                      <CounterCell
-                        value={row.without_card_days}
-                        onChange={(v) => updateField(r.user_id, { without_card_days: v })}
-                        suffix={`×$${WITHOUT_CARD_RATE}`}
-                      />
+                      {showCardColumns && (
+                        <>
+                          <CounterCell
+                            value={row.with_card_days}
+                            onChange={(v) => updateField(r.user_id, { with_card_days: v })}
+                            suffix={`×$${WITH_CARD_RATE}`}
+                          />
+                          <CounterCell
+                            value={row.without_card_days}
+                            onChange={(v) => updateField(r.user_id, { without_card_days: v })}
+                            suffix={`×$${WITHOUT_CARD_RATE}`}
+                          />
+                        </>
+                      )}
                       <TableCell className="text-right">${row.food_allowance}</TableCell>
                       <AdjustmentsCell
                         adjustments={row.adjustments ?? []}
@@ -443,7 +451,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground">
+                    <TableCell colSpan={showCardColumns ? 10 : 8} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
