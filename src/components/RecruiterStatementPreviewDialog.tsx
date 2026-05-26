@@ -19,6 +19,7 @@ export interface RecruiterStatementData {
   withoutCardRate: number;
   foodAllowance: number;
   total: number;
+  adjustments?: PayrollAdjustment[];
 }
 
 interface Props {
@@ -39,18 +40,16 @@ const toMMDD = (d: string) => {
 };
 
 const buildPdf = async (data: RecruiterStatementData, previewOnly: boolean) => {
-  const adjustments: PayrollAdjustment[] = [];
+  const extraRows: { label: string; amount: number }[] = [];
   if (data.withCardDays > 0) {
-    adjustments.push({
-      type: "addition",
-      reason: `With Card (${data.withCardDays} × $${data.withCardRate})`,
+    extraRows.push({
+      label: `With Card (${data.withCardDays} × $${data.withCardRate})`,
       amount: data.withCardDays * data.withCardRate,
     });
   }
   if (data.withoutCardDays > 0) {
-    adjustments.push({
-      type: "addition",
-      reason: `Without Card (${data.withoutCardDays} × $${data.withoutCardRate})`,
+    extraRows.push({
+      label: `Without Card (${data.withoutCardDays} × $${data.withoutCardRate})`,
       amount: data.withoutCardDays * data.withoutCardRate,
     });
   }
@@ -68,7 +67,12 @@ const buildPdf = async (data: RecruiterStatementData, previewOnly: boolean) => {
       lostDayDates: data.lostDayDates.map(toMMDD),
       extraDaysAmount: data.extraDayDates.length * data.perDayRate,
       perDayRate: data.perDayRate,
-      adjustments,
+      adjustments: data.adjustments ?? [],
+      departmentLabel: "Recruiting",
+      salary1Label: "Base Salary",
+      hideBonusRow: true,
+      extraRows,
+      extraDaysLabel: "Extra days",
     },
     { previewOnly },
   );
