@@ -2877,7 +2877,7 @@ const Analytics = () => {
               {(canViewSalaries || isDispatchOnly) && (
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Salaries"}</TabsTrigger>
               )}
-              {hasRole("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
+              {roles.includes("admin") && <TabsTrigger value="recruiting">Recruiting</TabsTrigger>}
             </TabsList>
             <Button variant="outline" onClick={() => navigate("/billboard")}>
               Billboard
@@ -5274,7 +5274,7 @@ const Analytics = () => {
               )}
             </TabsContent>
           )}
-          {hasRole("admin") && (
+          {roles.includes("admin") && (
             <TabsContent value="recruiting" className="space-y-6">
               <RecruitingTab monthOptions={monthOptions} />
             </TabsContent>
