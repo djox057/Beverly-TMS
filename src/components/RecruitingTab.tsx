@@ -354,6 +354,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const monthDisabled = !selectedMonth || selectedMonth === "all";
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-4">
