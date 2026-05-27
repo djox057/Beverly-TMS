@@ -26,14 +26,24 @@ const WIDE_NOTE_COLS: DailyReportColumn[] = [
   { key: "note", label: "Note", width: "1fr" },
 ];
 
-const OfficeTab = ({ office }: { office: string }) => (
+const OfficeTab = ({ office, date }: { office: string; date: Date }) => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
       columns={EMPTY_LATE_COLS}
       initialRows={10}
+      date={date}
+      office={office}
+      type="Empty & Late for delivery"
     />
-    <DailyReportTable title={`${office} — Home`} columns={HOME_COLS} initialRows={10} />
+    <DailyReportTable
+      title={`${office} — Home`}
+      columns={HOME_COLS}
+      initialRows={10}
+      date={date}
+      office={office}
+      type="Home"
+    />
   </div>
 );
 
@@ -109,21 +119,45 @@ const DailyReport = () => {
 
         {OFFICES.map((o) => (
           <TabsContent key={o} value={o} className="mt-4">
-            <OfficeTab office={o} />
+            <OfficeTab office={o} date={date} />
           </TabsContent>
         ))}
 
         <TabsContent value="MAINTENANCE" className="mt-4">
-          <DailyReportTable title="Maintenance" columns={WIDE_NOTE_COLS} initialRows={12} />
+          <DailyReportTable
+            title="Maintenance"
+            columns={WIDE_NOTE_COLS}
+            initialRows={10}
+            date={date}
+            type="Maintenance"
+          />
         </TabsContent>
         <TabsContent value="AFTERHOURS" className="mt-4">
-          <DailyReportTable title="After Hours" columns={WIDE_NOTE_COLS} initialRows={12} />
+          <DailyReportTable
+            title="After Hours"
+            columns={WIDE_NOTE_COLS}
+            initialRows={10}
+            date={date}
+            type="Afterhours"
+          />
         </TabsContent>
         <TabsContent value="RECOVERIES" className="mt-4">
-          <DailyReportTable title="Recoveries" columns={WIDE_NOTE_COLS} initialRows={10} />
+          <DailyReportTable
+            title="Recoveries"
+            columns={WIDE_NOTE_COLS}
+            initialRows={10}
+            date={date}
+            type="Recoveries"
+          />
         </TabsContent>
         <TabsContent value="NEW_DRIVER" className="mt-4">
-          <DailyReportTable title="New driver" columns={WIDE_NOTE_COLS} initialRows={10} />
+          <DailyReportTable
+            title="New driver"
+            columns={WIDE_NOTE_COLS}
+            initialRows={10}
+            date={date}
+            type="New driver"
+          />
         </TabsContent>
       </Tabs>
     </div>
