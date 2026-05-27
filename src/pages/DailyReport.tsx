@@ -17,12 +17,12 @@ const EMPTY_LATE_COLS: DailyReportColumn[] = [
 ];
 
 const HOME_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px" },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
 const WIDE_NOTE_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px" },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
@@ -31,8 +31,9 @@ const OfficeTab = ({ office }: { office: string }) => (
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
       columns={EMPTY_LATE_COLS}
+      initialRows={10}
     />
-    <DailyReportTable title={`${office} — Home`} columns={HOME_COLS} />
+    <DailyReportTable title={`${office} — Home`} columns={HOME_COLS} initialRows={10} />
   </div>
 );
 
@@ -82,7 +83,7 @@ const DailyReport = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 h-auto gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
               key={o}
@@ -101,6 +102,9 @@ const DailyReport = () => {
           <TabsTrigger value="RECOVERIES" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Recoveries
           </TabsTrigger>
+          <TabsTrigger value="NEW_DRIVER" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
+            New driver
+          </TabsTrigger>
         </TabsList>
 
         {OFFICES.map((o) => (
@@ -117,6 +121,9 @@ const DailyReport = () => {
         </TabsContent>
         <TabsContent value="RECOVERIES" className="mt-4">
           <DailyReportTable title="Recoveries" columns={WIDE_NOTE_COLS} initialRows={10} />
+        </TabsContent>
+        <TabsContent value="NEW_DRIVER" className="mt-4">
+          <DailyReportTable title="New driver" columns={WIDE_NOTE_COLS} initialRows={10} />
         </TabsContent>
       </Tabs>
     </div>
