@@ -1,0 +1,2 @@
+UPDATE public.orders SET broker_id = '8add367f-84b1-49a3-86f5-560fea3f1809' WHERE broker_id = '8eaca82c-c726-481a-9f82-a72eb5a9f894';
+DELETE FROM public.brokers WHERE id = '8eaca82c-c726-481a-9f82-a72eb5a9f894';
