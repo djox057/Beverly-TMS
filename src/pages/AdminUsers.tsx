@@ -770,6 +770,7 @@ const AdminUsers = () => {
                 <TableHead>Ext</TableHead>
                 <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Daily Report</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -794,6 +795,17 @@ const AdminUsers = () => {
                     ) : (
                       <Badge variant="outline">No role</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {user.daily_report_can_edit ? (
+                        <Badge variant="default">Edit</Badge>
+                      ) : user.daily_report_can_view ? (
+                        <Badge variant="secondary">View</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">None</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {new Date(user.created_at).toLocaleDateString()}
