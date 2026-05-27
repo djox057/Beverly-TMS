@@ -109,6 +109,8 @@ export interface DailyReportTableProps {
   type: string;
   /** Office name, if applicable (null for global tabs like Maintenance) */
   office?: string | null;
+  /** When true, disables editing (inputs, add/delete/color actions). */
+  readOnly?: boolean;
 }
 
 type Row = { __id: string; __persisted?: boolean; [key: string]: any };
@@ -127,6 +129,7 @@ export const DailyReportTable = ({
   date,
   type,
   office = null,
+  readOnly = false,
 }: DailyReportTableProps) => {
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
