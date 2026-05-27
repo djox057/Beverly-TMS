@@ -821,6 +821,48 @@ export type Database = {
           },
         ]
       }
+      daily_report_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          dispatcher_name: string | null
+          driver_name: string | null
+          id: string
+          note: string | null
+          office: string | null
+          truck: string | null
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          dispatcher_name?: string | null
+          driver_name?: string | null
+          id?: string
+          note?: string | null
+          office?: string | null
+          truck?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          dispatcher_name?: string | null
+          driver_name?: string | null
+          id?: string
+          note?: string | null
+          office?: string | null
+          truck?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       deleted_drivers: {
         Row: {
           agreement_start_date: string | null
