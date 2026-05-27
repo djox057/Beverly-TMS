@@ -395,7 +395,7 @@ export const DailyReportTable = ({
     }
   };
 
-  const gridTemplate = `${columns.map((c) => c.width).join(" ")} 32px`;
+  const gridTemplate = `${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
@@ -419,7 +419,7 @@ export const DailyReportTable = ({
         {rows.map((row) => (
           <div
             key={row.__id}
-            className="grid group hover:bg-muted/30"
+            className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((c) => (
@@ -472,9 +472,55 @@ export const DailyReportTable = ({
                 )}
               </div>
             ))}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary flex items-center justify-center transition-opacity"
+                  aria-label="Color row"
+                >
+                  <PaintBucket className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-2 text-xs" align="end">
+                <div className="space-y-1">
+                  {ROW_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setRowColor(row.__id, c.value)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-muted",
+                        row.color === c.value && "bg-muted"
+                      )}
+                    >
+                      <span className={cn("h-3 w-3 rounded-sm", c.swatch)} />
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                  {row.color && (
+                    <button
+                      type="button"
+                      onClick={() => setRowColor(row.__id, null)}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-muted text-muted-foreground border-t border-border mt-1 pt-1.5"
+                    >
+                      Clear color
+                    </button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <button
               type="button"
-              onClick={() => deleteRow(row.__id)}
+              onClick={() => {
+                const isEmpty =
+                  !row.__persisted && isRowEmpty(row) && !row.color;
+                if (isEmpty) {
+                  deleteRow(row.__id);
+                } else {
+                  setConfirmDeleteId(row.__id);
+                }
+              }}
               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive flex items-center justify-center transition-opacity"
               aria-label="Delete row"
             >
@@ -502,6 +548,30 @@ export const DailyReportTable = ({
           ))}
         </datalist>
       )}
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this row?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the entry. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteId) deleteRow(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
