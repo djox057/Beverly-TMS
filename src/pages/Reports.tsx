@@ -90,7 +90,7 @@ import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
 import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
-import weeklyPlanIcon from "@/assets/weekly-plan-icon.png";
+import { ClipboardList } from "lucide-react";
 import gasStationIcon from "@/assets/gas-station.png";
 import biohazardSignIcon from "@/assets/biohazard-sign.png";
 import tankerTruckIcon from "@/assets/tanker-truck.png";
@@ -103,9 +103,8 @@ import loadBarIcon from "@/assets/load_bar.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
-import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
+import { AddDailyReportRowDialog } from "@/components/AddDailyReportRowDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -930,10 +929,12 @@ const Reports = () => {
     driverName: string;
   } | null>(null);
 
-  // Weekly Plan dialog state
-  const [weeklyPlanDialog, setWeeklyPlanDialog] = useState<{
-    driverId: string;
-    driverName: string;
+  // Add Daily Report Row dialog state
+  const [addDailyReportDialog, setAddDailyReportDialog] = useState<{
+    truckNumber: string;
+    driverName: string | null;
+    dispatcherName: string | null;
+    office: string | null;
   } | null>(null);
   // Driver Problem dialog state
   const [problemDialog, setProblemDialog] = useState<{
@@ -3100,8 +3101,8 @@ const Reports = () => {
     return Array.from(ids);
   }, [groupedReports]);
 
-  // Weekly plans hook
-  const { hasPlan: hasWeeklyPlan } = useWeeklyPlans(allDriverIds);
+  // Weekly plans hook removed — no longer used.
+  const hasWeeklyPlan = (_id: string) => false;
 
   // Check for late pickups/deliveries using eta_minutes from trucks table
   // This runs client-side using already-loaded truck data (no additional API calls)
@@ -5625,46 +5626,32 @@ const Reports = () => {
                                                   </div>
                                                 )}
                                             </div>
-                                            {/* Weekly Plan Icon - Bottom Right Corner */}
-                                            {truck.driverId && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <button
-                                                    className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setWeeklyPlanDialog({
-                                                        driverId: truck.driverId,
-                                                        driverName: truck.driver || "Unknown Driver",
-                                                      });
-                                                    }}
-                                                  >
-                                                    <img
-                                                      src={weeklyPlanIcon}
-                                                      alt="Weekly Plan"
-                                                      className="h-4 w-4"
-                                                      style={{
-                                                        filter: (() => {
-                                                          const color = getWeeklyPlanIconColor(
-                                                            hasWeeklyPlan(truck.driverId),
-                                                          );
-                                                          if (color === "red") {
-                                                            return "invert(27%) sepia(94%) saturate(6193%) hue-rotate(356deg) brightness(103%) contrast(106%)";
-                                                          } else if (color === "yellow") {
-                                                            return "invert(79%) sepia(74%) saturate(1042%) hue-rotate(359deg) brightness(103%) contrast(106%)";
-                                                          }
-                                                          // Gray
-                                                          return "invert(50%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%)";
-                                                        })(),
-                                                      }}
-                                                    />
-                                                  </button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p className="text-xs">Weekly Plan</p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            )}
+                                            {/* Add Daily Report Row Icon - Bottom Right Corner */}
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors text-muted-foreground hover:text-primary"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAddDailyReportDialog({
+                                                      truckNumber: truck.truckNumber || "",
+                                                      driverName: truck.driver1Name || truck.driver || null,
+                                                      dispatcherName:
+                                                        (truck as any).currentDispatcherName ||
+                                                        (truck as any).originalDispatcherName ||
+                                                        truck.dispatcherName ||
+                                                        null,
+                                                      office: (group as any).office ?? null,
+                                                    });
+                                                  }}
+                                                >
+                                                  <ClipboardList className="h-4 w-4" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="text-xs">Add Daily Report Row</p>
+                                              </TooltipContent>
+                                            </Tooltip>
                                           </td>
                                           <td
                                             className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
@@ -7836,12 +7823,14 @@ const Reports = () => {
       {/* All Problems Dialog */}
       <AllProblemsDialog open={allProblemsDialogOpen} onOpenChange={setAllProblemsDialogOpen} />
 
-      {/* Weekly Plan Dialog */}
-      <WeeklyPlanDialog
-        open={!!weeklyPlanDialog}
-        onOpenChange={(open) => !open && setWeeklyPlanDialog(null)}
-        driverId={weeklyPlanDialog?.driverId || ""}
-        driverName={weeklyPlanDialog?.driverName || ""}
+      {/* Add Daily Report Row Dialog */}
+      <AddDailyReportRowDialog
+        open={!!addDailyReportDialog}
+        onOpenChange={(open) => !open && setAddDailyReportDialog(null)}
+        defaultTruckNumber={addDailyReportDialog?.truckNumber || ""}
+        defaultDriverName={addDailyReportDialog?.driverName || null}
+        defaultDispatcherName={addDailyReportDialog?.dispatcherName || null}
+        defaultOffice={addDailyReportDialog?.office || null}
       />
 
       {/* Edit Driver Dialog */}
