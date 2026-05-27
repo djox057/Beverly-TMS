@@ -270,6 +270,7 @@ export const DailyReportTable = ({
       office,
       driver_name: enriched.driver_name,
       dispatcher_name: enriched.dispatcher_name,
+      color: (row.color as string | null) ?? null,
     };
     for (const c of columns) payload[c.key] = (row[c.key] ?? "").trim() || null;
 
@@ -278,6 +279,7 @@ export const DailyReportTable = ({
         ...columns.map((c) => [c.key, row[c.key] ?? ""]),
         ["__driver", enriched.driver_name ?? ""],
         ["__dispatcher", enriched.dispatcher_name ?? ""],
+        ["__color", (row.color as string) ?? ""],
       ])
     );
 
