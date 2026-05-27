@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_report_entries ADD COLUMN IF NOT EXISTS color text;

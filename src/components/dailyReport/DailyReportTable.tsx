@@ -1,12 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, PaintBucket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Row color palette (value stored in DB as `color`, label shown to user)
+const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
+  { value: "orange", label: "Late", bg: "bg-orange-100 dark:bg-orange-950/40", swatch: "bg-orange-400" },
+  { value: "cyan", label: "No load", bg: "bg-cyan-100 dark:bg-cyan-950/40", swatch: "bg-cyan-400" },
+  { value: "yellow", label: "Problem", bg: "bg-yellow-100 dark:bg-yellow-950/40", swatch: "bg-yellow-400" },
+  { value: "red", label: "Recovery", bg: "bg-red-100 dark:bg-red-950/40", swatch: "bg-red-400" },
+  { value: "green", label: "Resolved", bg: "bg-green-100 dark:bg-green-950/40", swatch: "bg-green-500" },
+];
+const colorBg = (c?: string | null) => ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
 
 // Shared, lightweight cache of active truck numbers (refreshed on demand)
 let activeTruckNumbersCache: string[] | null = null;
