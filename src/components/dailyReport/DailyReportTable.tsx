@@ -351,6 +351,7 @@ export const DailyReportTable = ({
   };
 
   const addRow = () => setRows((prev) => [...prev, makeRow(columns)]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteRow = async (id: string) => {
     const row = rows.find((r) => r.__id === id);
     if (row?.__persisted) {
@@ -365,6 +366,33 @@ export const DailyReportTable = ({
       delete savedSnapshotRef.current[id];
     }
     setRows((prev) => prev.filter((r) => r.__id !== id));
+  };
+
+  const setRowColor = async (id: string, color: string | null) => {
+    setRows((prev) => prev.map((r) => (r.__id === id ? { ...r, color } : r)));
+    const row = rows.find((r) => r.__id === id);
+    if (!row) return;
+    if (row.__persisted) {
+      const { error } = await (supabase as any)
+        .from("daily_report_entries")
+        .update({ color })
+        .eq("id", id);
+      if (error) {
+        toast({ title: "Failed to save color", description: error.message, variant: "destructive" });
+        return;
+      }
+      // refresh snapshot color key
+      const snap = savedSnapshotRef.current[id];
+      if (snap) {
+        try {
+          const obj = JSON.parse(snap);
+          obj.__color = color ?? "";
+          savedSnapshotRef.current[id] = JSON.stringify(obj);
+        } catch {
+          /* noop */
+        }
+      }
+    }
   };
 
   const gridTemplate = `${columns.map((c) => c.width).join(" ")} 32px`;
