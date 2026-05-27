@@ -83,7 +83,7 @@ const DailyReport = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 h-auto gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
               key={o}
@@ -101,6 +101,9 @@ const DailyReport = () => {
           </TabsTrigger>
           <TabsTrigger value="RECOVERIES" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Recoveries
+          </TabsTrigger>
+          <TabsTrigger value="NEW_DRIVER" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
+            New driver
           </TabsTrigger>
         </TabsList>
 
