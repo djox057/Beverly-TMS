@@ -371,6 +371,12 @@ export const DailyReportTable = ({
 
   const addRow = () => setRows((prev) => [...prev, makeRow(columns)]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [noteEditor, setNoteEditor] = useState<{
+    rowId: string;
+    colKey: string;
+    colLabel: string;
+    value: string;
+  } | null>(null);
   const deleteRow = async (id: string) => {
     const row = rows.find((r) => r.__id === id);
     if (row?.__persisted) {
