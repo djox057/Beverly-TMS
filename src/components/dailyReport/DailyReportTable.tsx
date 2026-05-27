@@ -111,6 +111,10 @@ export interface DailyReportTableProps {
   office?: string | null;
   /** When true, disables editing (inputs, add/delete/color actions). */
   readOnly?: boolean;
+  /** When set, only rows whose truck column matches (case-insensitive substring) are shown. */
+  truckFilter?: string;
+  /** When set, only rows with this color are shown. */
+  colorFilter?: string | null;
 }
 
 type Row = { __id: string; __persisted?: boolean; [key: string]: any };
