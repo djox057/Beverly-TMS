@@ -10,9 +10,9 @@ export interface DailyReportPermissions {
 
 /**
  * Returns the current user's Daily Report permissions.
- * Admins always have full access. Managers/supervisors keep their existing
- * access for backwards compatibility. Other users get whatever was set in
- * `daily_report_permissions` by an admin.
+ * Admins always have full access. Every other role — including managers and
+ * supervisors — only gets access when an admin has explicitly granted it in
+ * `daily_report_permissions`.
  */
 export const useDailyReportPermissions = (): DailyReportPermissions => {
   const { user, hasRole, loading: authLoading } = useAuthContext();
