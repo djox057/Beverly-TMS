@@ -73,11 +73,11 @@ export const DailyReportTable = ({
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((c) => (
-              <div key={c.key} className="border-r border-border last:border-r-0">
+              <div key={c.key} className="border-r border-border last:border-r-0 overflow-hidden">
                 <Input
                   value={row[c.key] ?? ""}
                   onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
-                  className="h-8 border-0 rounded-none focus-visible:ring-1 focus-visible:ring-ring text-sm"
+                  className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                 />
               </div>
             ))}
