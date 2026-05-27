@@ -449,7 +449,7 @@ export const DailyReportTable = ({
             {c.label}
           </div>
         ))}
-        <div />
+        {!readOnly && <div />}
       </div>
       <div className="divide-y divide-border">
         {rows.map((row) => (
