@@ -5629,6 +5629,7 @@ const Reports = () => {
                                                 )}
                                             </div>
                                             {/* Add Daily Report Row Icon - Bottom Right Corner */}
+                                            {canEditDailyReport && (
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <button
@@ -5654,6 +5655,7 @@ const Reports = () => {
                                                 <p className="text-xs">Add Daily Report Row</p>
                                               </TooltipContent>
                                             </Tooltip>
+                                            )}
                                           </td>
                                           <td
                                             className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
