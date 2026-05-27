@@ -7,10 +7,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
+// Shared, lightweight cache of active truck numbers (refreshed on demand)
+let activeTruckNumbersCache: string[] | null = null;
+let activeTruckNumbersPromise: Promise<string[]> | null = null;
+const loadActiveTruckNumbers = async (): Promise<string[]> => {
+  if (activeTruckNumbersCache) return activeTruckNumbersCache;
+  if (activeTruckNumbersPromise) return activeTruckNumbersPromise;
+  activeTruckNumbersPromise = (async () => {
+    const { data, error } = await supabase
+      .from("trucks")
+      .select("truck_number")
+      .eq("is_active", true)
+      .order("truck_number");
+    if (error) {
+      console.error("active trucks load", error);
+      return [];
+    }
+    const nums = (data ?? [])
+      .map((t: any) => String(t.truck_number ?? "").trim())
+      .filter(Boolean);
+    activeTruckNumbersCache = nums;
+    return nums;
+  })();
+  return activeTruckNumbersPromise;
+};
+
 export interface DailyReportColumn {
   key: string;
   label: string;
   width: string; // e.g. "120px" or "1fr"
+  /** When true, render an autocomplete suggestion list (active trucks) */
+  autocompleteTrucks?: boolean;
 }
 
 export interface DailyReportTableProps {
@@ -47,46 +74,101 @@ export const DailyReportTable = ({
     Array.from({ length: initialRows }, () => makeRow(columns))
   );
   const savedSnapshotRef = useRef<Record<string, string>>({});
+  const [truckOptions, setTruckOptions] = useState<string[]>(
+    () => activeTruckNumbersCache ?? []
+  );
+  const datalistId = useRef(`trucks-dl-${Math.random().toString(36).slice(2)}`).current;
+
+  // Load active truck numbers once for autocomplete
+  useEffect(() => {
+    let cancelled = false;
+    if (columns.some((c) => c.autocompleteTrucks) && truckOptions.length === 0) {
+      loadActiveTruckNumbers().then((nums) => {
+        if (!cancelled) setTruckOptions(nums);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const dateStr = format(date, "yyyy-MM-dd");
 
-  // Load entries for current date/type/office
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      let q = supabase
-        .from("daily_report_entries")
-        .select("*")
-        .eq("date", dateStr)
-        .eq("type", type);
-      if (office === null) q = q.is("office", null);
-      else q = q.eq("office", office);
+  // Reusable loader (used by initial load and realtime refresh)
+  const reload = async () => {
+    let q = supabase
+      .from("daily_report_entries")
+      .select("*")
+      .eq("date", dateStr)
+      .eq("type", type);
+    if (office === null) q = q.is("office", null);
+    else q = q.eq("office", office);
 
-      const { data, error } = await q.order("created_at", { ascending: true });
-      if (cancelled) return;
-      if (error) {
-        console.error("daily_report load", error);
-        return;
-      }
-      const loaded: Row[] = (data ?? []).map((d: any) => {
-        const r: any = { __id: d.id, __persisted: true };
-        for (const c of columns) r[c.key] = (d as any)[c.key] ?? "";
-        savedSnapshotRef.current[d.id] = JSON.stringify(
-          Object.fromEntries(columns.map((c) => [c.key, (d as any)[c.key] ?? ""]))
-        );
-        return r as Row;
-      });
-      // Pad with empty rows up to initialRows
-      const padCount = Math.max(0, initialRows - loaded.length);
-      const padded = [
+    const { data, error } = await q.order("created_at", { ascending: true });
+    if (error) {
+      console.error("daily_report load", error);
+      return;
+    }
+    const loaded: Row[] = (data ?? []).map((d: any) => {
+      const r: any = { __id: d.id, __persisted: true };
+      for (const c of columns) r[c.key] = (d as any)[c.key] ?? "";
+      savedSnapshotRef.current[d.id] = JSON.stringify(
+        Object.fromEntries(columns.map((c) => [c.key, (d as any)[c.key] ?? ""]))
+      );
+      return r as Row;
+    });
+    setRows((prev) => {
+      // Preserve any locally-focused empty unsaved rows the user is typing in
+      const unsavedNonEmpty = prev.filter(
+        (r) => !r.__persisted && columns.some((c) => (r[c.key] ?? "").trim())
+      );
+      const padCount = Math.max(
+        0,
+        initialRows - loaded.length - unsavedNonEmpty.length
+      );
+      return [
         ...loaded,
+        ...unsavedNonEmpty,
         ...Array.from({ length: padCount }, () => makeRow(columns)),
       ];
-      setRows(padded);
-    };
-    load();
+    });
+  };
+
+  // Load + subscribe to realtime updates for current date/type/office
+  useEffect(() => {
+    reload();
+
+    const filter =
+      `date=eq.${dateStr}` +
+      (office === null ? "" : ""); // office/type filters applied client-side below
+
+    const channel = supabase
+      .channel(
+        `daily_report:${dateStr}:${type}:${office ?? "null"}:${Math.random()
+          .toString(36)
+          .slice(2)}`
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "daily_report_entries",
+          filter,
+        },
+        (payload: any) => {
+          const row = (payload.new ?? payload.old) as any;
+          if (!row) return;
+          if (row.type !== type) return;
+          if ((row.office ?? null) !== (office ?? null)) return;
+          reload();
+        }
+      )
+      .subscribe();
+
     return () => {
-      cancelled = true;
+      supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateStr, type, office]);
@@ -211,6 +293,8 @@ export const DailyReportTable = ({
                   value={row[c.key] ?? ""}
                   onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
                   onBlur={() => persistRow(row.__id)}
+                  list={c.autocompleteTrucks ? datalistId : undefined}
+                  autoComplete={c.autocompleteTrucks ? "off" : undefined}
                   className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                 />
               </div>
@@ -238,6 +322,13 @@ export const DailyReportTable = ({
           Add row
         </Button>
       </div>
+      {columns.some((c) => c.autocompleteTrucks) && (
+        <datalist id={datalistId}>
+          {truckOptions.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      )}
     </div>
   );
 };
