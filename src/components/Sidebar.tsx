@@ -290,7 +290,18 @@ export const Sidebar = () => {
     return filteredNav;
   };
 
-  const allNavigation = getFilteredNavigation();
+  const baseNavigation = getFilteredNavigation();
+  // Inject Daily Report just after Reports when the user has view permission
+  const allNavigation = (() => {
+    if (!canViewDailyReport) return baseNavigation;
+    if (baseNavigation.some((i) => i.href === "/daily-report")) return baseNavigation;
+    const idx = baseNavigation.findIndex((i) => i.href === "/reports");
+    const dailyItem = { name: "Daily Report", href: "/daily-report", icon: FileText };
+    if (idx === -1) return [...baseNavigation, dailyItem];
+    const next = [...baseNavigation];
+    next.splice(idx + 1, 0, dailyItem);
+    return next;
+  })();
 
   return (
     <SidebarPrimitive className="z-50">
