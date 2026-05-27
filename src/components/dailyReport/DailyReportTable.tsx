@@ -674,6 +674,52 @@ export const DailyReportTable = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog
+        open={noteEditor !== null}
+        onOpenChange={(open) => !open && setNoteEditor(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {noteEditor?.colLabel ?? "Note"}
+              {(() => {
+                const r = rows.find((x) => x.__id === noteEditor?.rowId);
+                const truckKey = columns.find((c) => c.autocompleteTrucks)?.key;
+                const truck = r && truckKey ? (r[truckKey] as string) : "";
+                return truck ? ` — Truck #${truck}` : "";
+              })()}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={noteEditor?.value ?? ""}
+            onChange={(e) =>
+              setNoteEditor((prev) => (prev ? { ...prev, value: e.target.value } : prev))
+            }
+            readOnly={readOnly}
+            rows={10}
+            className="text-sm"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteEditor(null)}>
+              {readOnly ? "Close" : "Cancel"}
+            </Button>
+            {!readOnly && (
+              <Button
+                onClick={async () => {
+                  if (!noteEditor) return;
+                  const { rowId, colKey, value } = noteEditor;
+                  updateCell(rowId, colKey, value);
+                  setNoteEditor(null);
+                  // Wait a tick so state updates before persist reads row
+                  setTimeout(() => persistRow(rowId), 0);
+                }}
+              >
+                Save
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
