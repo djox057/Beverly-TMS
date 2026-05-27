@@ -10,8 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
-import { Info, PaintBucket, Maximize2 } from "lucide-react";
-import { Popover as LegendPopover, PopoverContent as LegendPopoverContent, PopoverTrigger as LegendPopoverTrigger } from "@/components/ui/popover";
+import { Info, PaintBucket, Maximize2, HelpCircle } from "lucide-react";
 import { getChicagoToday } from "@/pages/Reports/helpers";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { Loader2 } from "lucide-react";
