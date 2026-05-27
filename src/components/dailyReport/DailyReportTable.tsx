@@ -1,12 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, PaintBucket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Row color palette (value stored in DB as `color`, label shown to user)
+const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
+  { value: "orange", label: "Late", bg: "bg-orange-100 dark:bg-orange-950/40", swatch: "bg-orange-400" },
+  { value: "cyan", label: "No load", bg: "bg-cyan-100 dark:bg-cyan-950/40", swatch: "bg-cyan-400" },
+  { value: "yellow", label: "Problem", bg: "bg-yellow-100 dark:bg-yellow-950/40", swatch: "bg-yellow-400" },
+  { value: "red", label: "Recovery", bg: "bg-red-100 dark:bg-red-950/40", swatch: "bg-red-400" },
+  { value: "green", label: "Resolved", bg: "bg-green-100 dark:bg-green-950/40", swatch: "bg-green-500" },
+];
+const colorBg = (c?: string | null) => ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
 
 // Shared, lightweight cache of active truck numbers (refreshed on demand)
 let activeTruckNumbersCache: string[] | null = null;
@@ -153,11 +173,13 @@ export const DailyReportTable = ({
       for (const c of columns) r[c.key] = (d as any)[c.key] ?? "";
       r.driver_name = (d.driver_name as string | null) ?? null;
       r.dispatcher_name = (d.dispatcher_name as string | null) ?? null;
+      r.color = (d.color as string | null) ?? null;
       savedSnapshotRef.current[d.id] = JSON.stringify(
         Object.fromEntries([
           ...columns.map((c) => [c.key, (d as any)[c.key] ?? ""]),
           ["__driver", (d.driver_name as string) ?? ""],
           ["__dispatcher", (d.dispatcher_name as string) ?? ""],
+          ["__color", (d.color as string) ?? ""],
         ])
       );
       return r as Row;
@@ -248,6 +270,7 @@ export const DailyReportTable = ({
       office,
       driver_name: enriched.driver_name,
       dispatcher_name: enriched.dispatcher_name,
+      color: (row.color as string | null) ?? null,
     };
     for (const c of columns) payload[c.key] = (row[c.key] ?? "").trim() || null;
 
@@ -256,6 +279,7 @@ export const DailyReportTable = ({
         ...columns.map((c) => [c.key, row[c.key] ?? ""]),
         ["__driver", enriched.driver_name ?? ""],
         ["__dispatcher", enriched.dispatcher_name ?? ""],
+        ["__color", (row.color as string) ?? ""],
       ])
     );
 
@@ -327,6 +351,7 @@ export const DailyReportTable = ({
   };
 
   const addRow = () => setRows((prev) => [...prev, makeRow(columns)]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const deleteRow = async (id: string) => {
     const row = rows.find((r) => r.__id === id);
     if (row?.__persisted) {
@@ -343,7 +368,65 @@ export const DailyReportTable = ({
     setRows((prev) => prev.filter((r) => r.__id !== id));
   };
 
-  const gridTemplate = `${columns.map((c) => c.width).join(" ")} 32px`;
+  const setRowColor = async (id: string, color: string | null) => {
+    setRows((prev) => prev.map((r) => (r.__id === id ? { ...r, color } : r)));
+    const row = rows.find((r) => r.__id === id);
+    if (!row) return;
+    if (row.__persisted) {
+      const { error } = await (supabase as any)
+        .from("daily_report_entries")
+        .update({ color })
+        .eq("id", id);
+      if (error) {
+        toast({ title: "Failed to save color", description: error.message, variant: "destructive" });
+        return;
+      }
+      // refresh snapshot color key
+      const snap = savedSnapshotRef.current[id];
+      if (snap) {
+        try {
+          const obj = JSON.parse(snap);
+          obj.__color = color ?? "";
+          savedSnapshotRef.current[id] = JSON.stringify(obj);
+        } catch {
+          /* noop */
+        }
+      }
+    } else if (color) {
+      // Insert a new row carrying just the color (and any text already typed)
+      const payload: Record<string, any> = {
+        date: dateStr,
+        type,
+        office,
+        color,
+      };
+      for (const c of columns) payload[c.key] = (row[c.key] ?? "").trim() || null;
+      const { data, error } = await (supabase as any)
+        .from("daily_report_entries")
+        .insert(payload)
+        .select()
+        .single();
+      if (error || !data) {
+        toast({ title: "Failed to save color", description: error?.message ?? "Unknown error", variant: "destructive" });
+        return;
+      }
+      savedSnapshotRef.current[(data as any).id] = JSON.stringify(
+        Object.fromEntries([
+          ...columns.map((c) => [c.key, row[c.key] ?? ""]),
+          ["__driver", ""],
+          ["__dispatcher", ""],
+          ["__color", color],
+        ])
+      );
+      setRows((prev) =>
+        prev.map((r) =>
+          r.__id === id ? { ...r, __id: (data as any).id, __persisted: true, color } : r
+        )
+      );
+    }
+  };
+
+  const gridTemplate = `${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
@@ -367,7 +450,7 @@ export const DailyReportTable = ({
         {rows.map((row) => (
           <div
             key={row.__id}
-            className="grid group hover:bg-muted/30"
+            className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((c) => (
@@ -420,9 +503,55 @@ export const DailyReportTable = ({
                 )}
               </div>
             ))}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary flex items-center justify-center transition-opacity"
+                  aria-label="Color row"
+                >
+                  <PaintBucket className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-2 text-xs" align="end">
+                <div className="space-y-1">
+                  {ROW_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setRowColor(row.__id, c.value)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-muted",
+                        row.color === c.value && "bg-muted"
+                      )}
+                    >
+                      <span className={cn("h-3 w-3 rounded-sm", c.swatch)} />
+                      <span>{c.label}</span>
+                    </button>
+                  ))}
+                  {row.color && (
+                    <button
+                      type="button"
+                      onClick={() => setRowColor(row.__id, null)}
+                      className="w-full text-left px-2 py-1 rounded hover:bg-muted text-muted-foreground border-t border-border mt-1 pt-1.5"
+                    >
+                      Clear color
+                    </button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <button
               type="button"
-              onClick={() => deleteRow(row.__id)}
+              onClick={() => {
+                const isEmpty =
+                  !row.__persisted && isRowEmpty(row) && !row.color;
+                if (isEmpty) {
+                  deleteRow(row.__id);
+                } else {
+                  setConfirmDeleteId(row.__id);
+                }
+              }}
               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive flex items-center justify-center transition-opacity"
               aria-label="Delete row"
             >
@@ -450,6 +579,30 @@ export const DailyReportTable = ({
           ))}
         </datalist>
       )}
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this row?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the entry. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDeleteId) deleteRow(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
