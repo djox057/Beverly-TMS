@@ -1,61 +1,31 @@
-## Daily Report — new page
+## Daily Report polish
 
-A standalone page that replicates the Beverly Daily Report xlsx as editable tables in the app. **UI only — no database changes, no save yet.** Entries reset on reload.
+UI-only refinements to `/daily-report`. No data/logic changes.
 
-### Routing & navigation
-- New route `/daily-report` registered in `src/App.tsx`, wrapped in `ProtectedRoute` with the same role gate as Home time (`supervisor`, `manager`, `admin`).
-- New sidebar entry **"Daily Report"** in `src/components/Sidebar.tsx`, inserted directly below the "Home time" (`/problems`) link, using the same role gate and a calendar/clipboard icon.
+### 1. Tabs span full width and are larger
+In `src/pages/DailyReport.tsx`:
+- Change `TabsList` to `grid w-full grid-cols-4 sm:grid-cols-7 h-auto` so the 7 tabs split the full row width on desktop and wrap to a 4-col grid on phones (no horizontal scroll).
+- Bump trigger size: `text-sm sm:text-base font-semibold py-2.5` and `w-full` so each tab fills its grid cell.
+- Allow wrapping inside a trigger for long labels (`whitespace-normal leading-tight`) so "BG 1st FLOOR" doesn't clip on mobile.
 
-### Page structure (`src/pages/DailyReport.tsx`)
-Header bar:
-- Title "Beverly Daily Report"
-- Date picker (shadcn `Calendar` in a `Popover`, defaulting to today in Chicago time) — purely cosmetic since nothing is persisted, but matches the xlsx DATE field and the requested behavior.
+### 2. Date picker — narrower + prev/next arrow buttons
+Replace the single wide `Popover` button with a compact 3-part control:
+```
+[‹]  [📅 05/19/2026]  [›]
+```
+- Two `Button variant="outline" size="icon"` (ChevronLeft / ChevronRight) that call `setDate(addDays(date, -1))` / `setDate(addDays(date, 1))` (`date-fns`).
+- Middle button keeps the popover + calendar, but width shrinks to fit content (`w-[150px]`, remove the `w-[220px]`).
+- Wrap the three in a `flex items-center gap-1` group.
 
-Tabs (shadcn `Tabs`, styled like Reports' office tabs):
-1. **CACAK**
-2. **KRAGUJEVAC**
-3. **BG 1st FLOOR**
-4. **BG 4th FLOOR**
-5. **Maintenance**
-6. **Afterhours**
-7. **Recoveries**
-
-### Office tab content (CACAK / KRAGUJEVAC / BG 1st / BG 4th)
-Two side-by-side editable tables matching the xlsx columns:
-- **Empty & Late for delivery** — columns: `Truck#`, `Note`
-- **Home** — columns: `Truck`, `Note`
-
-Each table:
-- Renders an `<input>` per cell (text), inline-editable.
-- Starts with ~10 blank rows; "+ Add row" button at the bottom appends a row.
-- Row delete (small trash icon) on hover.
-- Uses the project's `table-fixed` + absolute widths convention (per Core memory), small/compact styling consistent with Reports.
-
-### Maintenance tab
-Single table — columns: `Truck`, `Note` (wide note column, like the xlsx merged cells). Same add-row / delete-row controls.
-
-### Afterhours tab
-Single table — columns: `Truck`, `Note` (wide note column). Same controls.
-
-### Recoveries tab
-Single table — columns: `Truck`, `Note`. Same controls.
-
-### State management
-- All entries stored in component-local React state (`useState`) keyed by tab. **Not persisted** — refresh wipes everything (per user's "Prepare UI only, no save yet" choice).
-- Changing the date does **not** reset state in this phase; we'll wire per-date persistence when DB is approved.
-
-### Design / styling
-- Reuse semantic tokens from `index.css` — no hardcoded colors.
-- Table headers styled like Reports' section headers (muted background, small uppercase labels).
-- Mobile: tables become horizontally scrollable; tabs collapse to a horizontally scrollable strip.
-
-### Out of scope (explicit, per "no DB changes for now")
-- No Supabase table, no migration, no realtime, no edge function.
-- No autosave, no per-date persistence, no export to xlsx.
-- No data pulled from `trucks`/`orders` — operators type everything manually, exactly like the xlsx today.
+### 3. Fix input focus overflow inside table cells
+In `src/components/dailyReport/DailyReportTable.tsx`:
+- The shared `Input` applies `focus-visible:ring-2 ... ring-offset-2`, which paints a 2px ring + 2px offset that escapes the cell border (visible in screenshot 2).
+- Pass `focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30` on the cell `<Input>` and rely on a subtle background tint to indicate focus.
+- Also add `overflow-hidden` to each cell wrapper `<div>` as a belt-and-suspenders guard so any residual outline is clipped to the cell.
 
 ### Files touched
-- **New**: `src/pages/DailyReport.tsx`
-- **New**: `src/components/dailyReport/DailyReportTable.tsx` (small reusable editable table component used by all tabs)
-- **Edit**: `src/App.tsx` — register `/daily-report` route
-- **Edit**: `src/components/Sidebar.tsx` — add nav entry below "Home time"
+- `src/pages/DailyReport.tsx` — tabs layout + date picker with arrows.
+- `src/components/dailyReport/DailyReportTable.tsx` — input focus styling + cell overflow clipping.
+
+### Out of scope
+No persistence, no data wiring, no column changes.
