@@ -213,7 +213,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/daily-report" element={
-          <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
+          <ProtectedRoute>
             <Layout><DailyReport /></Layout>
           </ProtectedRoute>
         } />
