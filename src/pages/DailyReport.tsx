@@ -122,6 +122,9 @@ const DailyReport = () => {
         <TabsContent value="RECOVERIES" className="mt-4">
           <DailyReportTable title="Recoveries" columns={WIDE_NOTE_COLS} initialRows={10} />
         </TabsContent>
+        <TabsContent value="NEW_DRIVER" className="mt-4">
+          <DailyReportTable title="New driver" columns={WIDE_NOTE_COLS} initialRows={10} />
+        </TabsContent>
       </Tabs>
     </div>
   );
