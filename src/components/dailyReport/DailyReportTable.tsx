@@ -26,7 +26,7 @@ export interface DailyReportTableProps {
   office?: string | null;
 }
 
-type Row = Record<string, string> & { __id: string; __persisted?: boolean };
+type Row = { __id: string; __persisted?: boolean; [key: string]: any };
 
 const makeRow = (columns: DailyReportColumn[], id?: string): Row => {
   const r: any = { __id: id ?? crypto.randomUUID() };
@@ -132,7 +132,7 @@ export const DailyReportTable = ({
         );
         return;
       }
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("daily_report_entries")
         .update(payload)
         .eq("id", id);
@@ -143,7 +143,7 @@ export const DailyReportTable = ({
       savedSnapshotRef.current[id] = snapshotKey;
     } else {
       if (isRowEmpty(row)) return;
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("daily_report_entries")
         .insert(payload)
         .select()
