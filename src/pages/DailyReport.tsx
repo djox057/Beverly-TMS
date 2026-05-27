@@ -31,8 +31,9 @@ const OfficeTab = ({ office }: { office: string }) => (
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
       columns={EMPTY_LATE_COLS}
+      initialRows={10}
     />
-    <DailyReportTable title={`${office} — Home`} columns={HOME_COLS} />
+    <DailyReportTable title={`${office} — Home`} columns={HOME_COLS} initialRows={10} />
   </div>
 );
 
