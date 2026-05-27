@@ -7,9 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DailyReportTable, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
+import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
+import { Info, PaintBucket, Maximize2, HelpCircle } from "lucide-react";
 import { getChicagoToday } from "@/pages/Reports/helpers";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { Loader2 } from "lucide-react";
@@ -163,7 +164,54 @@ const DailyReport = () => {
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold text-foreground">Beverly Daily Report</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground">Beverly Daily Report</h1>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Legend">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-4 text-xs space-y-3">
+              <div>
+                <div className="font-semibold text-sm mb-2 text-foreground">Row colors</div>
+                <div className="space-y-1.5">
+                  {ROW_COLORS.map((c) => (
+                    <div key={c.value} className="flex items-center gap-2">
+                      <span className={cn("h-4 w-4 rounded-sm border border-border", c.swatch)} />
+                      <span className="text-foreground">{c.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-border pt-3">
+                <div className="font-semibold text-sm mb-2 text-foreground">Page controls</div>
+                <ul className="space-y-1.5 text-muted-foreground">
+                  <li><span className="text-foreground font-medium">Search truck #</span> — filters all tabs to rows for that truck and auto-switches to the office where it appears for the selected date.</li>
+                  <li><span className="text-foreground font-medium">Filter status</span> — shows only rows colored with the chosen status.</li>
+                  <li><span className="text-foreground font-medium">Calendar</span> — when searching by truck, dates without a match are greyed out.</li>
+                </ul>
+              </div>
+              <div className="border-t border-border pt-3">
+                <div className="font-semibold text-sm mb-2 text-foreground">Row icons</div>
+                <ul className="space-y-1.5 text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Shows the assigned driver and dispatcher for the truck.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Maximize2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Opens the note in a larger window to read or edit long text.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <PaintBucket className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Sets the row status color (Late, No load, Problem, Recovery, Resolved).</span>
+                  </li>
+                </ul>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />

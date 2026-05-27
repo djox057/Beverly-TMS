@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Info, PaintBucket } from "lucide-react";
+import { Plus, Trash2, Info, PaintBucket, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Row color palette (value stored in DB as `color`, label shown to user)
-const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
+export const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
   { value: "orange", label: "Late", bg: "bg-orange-400/80 dark:bg-orange-500/70", swatch: "bg-orange-400" },
   { value: "cyan", label: "No load", bg: "bg-cyan-400/80 dark:bg-cyan-500/70", swatch: "bg-cyan-400" },
   { value: "yellow", label: "Problem", bg: "bg-yellow-300/90 dark:bg-yellow-400/70", swatch: "bg-yellow-400" },
@@ -140,6 +148,10 @@ export const DailyReportTable = ({
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
   );
+  const rowsRef = useRef<Row[]>([]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   const savedSnapshotRef = useRef<Record<string, string>>({});
   const [truckOptions, setTruckOptions] = useState<string[]>(
     () => activeTruckNumbersCache ?? []
@@ -259,7 +271,9 @@ export const DailyReportTable = ({
   const isRowEmpty = (r: Row) => columns.every((c) => !((r[c.key] ?? "").trim()));
 
   const persistRow = async (id: string) => {
-    const row = rows.find((r) => r.__id === id);
+    const row = (rowsRef.current.length ? rowsRef.current : rows).find(
+      (r) => r.__id === id
+    );
     if (!row) return;
 
     // Enrich driver/dispatcher from active truck assignment when applicable.
@@ -363,6 +377,12 @@ export const DailyReportTable = ({
 
   const addRow = () => setRows((prev) => [...prev, makeRow(columns)]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [noteEditor, setNoteEditor] = useState<{
+    rowId: string;
+    colKey: string;
+    colLabel: string;
+    value: string;
+  } | null>(null);
   const deleteRow = async (id: string) => {
     const row = rows.find((r) => r.__id === id);
     if (row?.__persisted) {
@@ -526,13 +546,31 @@ export const DailyReportTable = ({
                       )}
                   </div>
                 ) : (
-                  <Input
-                    value={row[c.key] ?? ""}
-                    onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
-                    onBlur={() => !readOnly && persistRow(row.__id)}
-                    readOnly={readOnly}
-                    className="h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
-                  />
+                  <div className="relative h-8">
+                    <Input
+                      value={row[c.key] ?? ""}
+                      onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
+                      onBlur={() => !readOnly && persistRow(row.__id)}
+                      readOnly={readOnly}
+                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNoteEditor({
+                          rowId: row.__id,
+                          colKey: c.key,
+                          colLabel: c.label,
+                          value: (row[c.key] as string) ?? "",
+                        })
+                      }
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Expand ${c.label}`}
+                      title={`Open ${c.label}`}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -642,6 +680,58 @@ export const DailyReportTable = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog
+        open={noteEditor !== null}
+        onOpenChange={(open) => !open && setNoteEditor(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {noteEditor?.colLabel ?? "Note"}
+              {(() => {
+                const r = rows.find((x) => x.__id === noteEditor?.rowId);
+                const truckKey = columns.find((c) => c.autocompleteTrucks)?.key;
+                const truck = r && truckKey ? (r[truckKey] as string) : "";
+                return truck ? ` — Truck #${truck}` : "";
+              })()}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={noteEditor?.value ?? ""}
+            onChange={(e) =>
+              setNoteEditor((prev) => (prev ? { ...prev, value: e.target.value } : prev))
+            }
+            readOnly={readOnly}
+            rows={10}
+            className="text-sm"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteEditor(null)}>
+              {readOnly ? "Close" : "Cancel"}
+            </Button>
+            {!readOnly && (
+              <Button
+                onClick={async () => {
+                  if (!noteEditor) return;
+                  const { rowId, colKey, value } = noteEditor;
+                  // Update state and rowsRef synchronously so persistRow sees latest value
+                  setRows((prev) => {
+                    const next = prev.map((r) =>
+                      r.__id === rowId ? { ...r, [colKey]: value } : r
+                    );
+                    rowsRef.current = next;
+                    return next;
+                  });
+                  setNoteEditor(null);
+                  await persistRow(rowId);
+                }}
+              >
+                Save
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
