@@ -15,7 +15,7 @@ export interface DailyReportPermissions {
  * `daily_report_permissions`.
  */
 export const useDailyReportPermissions = (): DailyReportPermissions => {
-  const { user, hasRole, loading: authLoading } = useAuthContext();
+  const { user, roles, loading: authLoading } = useAuthContext();
   const [canView, setCanView] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,8 +32,10 @@ export const useDailyReportPermissions = (): DailyReportPermissions => {
         return;
       }
 
-      // Admins always have full access
-      if (hasRole("admin")) {
+      // Admins always have full access. Use exact role membership instead of
+      // `hasRole('admin')` because that helper treats manager/supervisor/
+      // accounting/chicago_management as admin for general access checks.
+      if (roles.includes("admin" as any)) {
         if (!cancelled) {
           setCanView(true);
           setCanEdit(true);
@@ -77,7 +79,7 @@ export const useDailyReportPermissions = (): DailyReportPermissions => {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [user?.id, authLoading, hasRole]);
+  }, [user?.id, authLoading, roles]);
 
   return { canView, canEdit, loading };
 };
