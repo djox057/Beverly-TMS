@@ -162,7 +162,6 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         doc.rect(x, y, w, h);
       };
 
-      const sectionsByKey: Record<string, Entry[]> = {};
       const get = (type: string, office: string | null) =>
         entries.filter((e) => e.type === type && (e.office ?? null) === office);
 
