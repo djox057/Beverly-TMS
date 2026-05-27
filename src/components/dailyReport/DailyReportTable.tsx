@@ -151,8 +151,14 @@ export const DailyReportTable = ({
     const loaded: Row[] = (data ?? []).map((d: any) => {
       const r: any = { __id: d.id, __persisted: true };
       for (const c of columns) r[c.key] = (d as any)[c.key] ?? "";
+      r.driver_name = (d.driver_name as string | null) ?? null;
+      r.dispatcher_name = (d.dispatcher_name as string | null) ?? null;
       savedSnapshotRef.current[d.id] = JSON.stringify(
-        Object.fromEntries(columns.map((c) => [c.key, (d as any)[c.key] ?? ""]))
+        Object.fromEntries([
+          ...columns.map((c) => [c.key, (d as any)[c.key] ?? ""]),
+          ["__driver", (d.driver_name as string) ?? ""],
+          ["__dispatcher", (d.dispatcher_name as string) ?? ""],
+        ])
       );
       return r as Row;
     });
