@@ -104,6 +104,7 @@ import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { AddDailyReportRowDialog } from "@/components/AddDailyReportRowDialog";
+import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
