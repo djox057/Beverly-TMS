@@ -5805,7 +5805,7 @@ const Reports = () => {
                                               <div className="flex flex-col items-center">
                                                 <div className="flex items-center w-[58px] justify-end">
                                                   <div className="text-xs text-[hsl(var(--info))] font-medium px-1 tabular-nums">
-                                                    {Math.round(truck.milesAway)}
+                                                    {truck.milesAway == null ? "—" : Math.round(truck.milesAway)}
                                                   </div>
                                                   {truck.totalMiles > 0 && (
                                                     <span className="text-xs text-muted-foreground font-medium tabular-nums">
