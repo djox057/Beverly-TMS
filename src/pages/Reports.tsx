@@ -90,7 +90,7 @@ import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
 import dotInspectionIcon from "@/assets/dot-inspection-icon.png";
-import weeklyPlanIcon from "@/assets/weekly-plan-icon.png";
+import { ClipboardList } from "lucide-react";
 import gasStationIcon from "@/assets/gas-station.png";
 import biohazardSignIcon from "@/assets/biohazard-sign.png";
 import tankerTruckIcon from "@/assets/tanker-truck.png";
@@ -103,9 +103,8 @@ import loadBarIcon from "@/assets/load_bar.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
-import { WeeklyPlanDialog, getWeeklyPlanIconColor } from "@/components/WeeklyPlanDialog";
+import { AddDailyReportRowDialog } from "@/components/AddDailyReportRowDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useWeeklyPlans } from "@/hooks/useWeeklyPlans";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -930,10 +929,12 @@ const Reports = () => {
     driverName: string;
   } | null>(null);
 
-  // Weekly Plan dialog state
-  const [weeklyPlanDialog, setWeeklyPlanDialog] = useState<{
-    driverId: string;
-    driverName: string;
+  // Add Daily Report Row dialog state
+  const [addDailyReportDialog, setAddDailyReportDialog] = useState<{
+    truckNumber: string;
+    driverName: string | null;
+    dispatcherName: string | null;
+    office: string | null;
   } | null>(null);
   // Driver Problem dialog state
   const [problemDialog, setProblemDialog] = useState<{
