@@ -145,17 +145,27 @@ const AdminUsers = () => {
 
       if (rolesError) throw rolesError;
 
+      // Fetch Daily Report permissions
+      const { data: permsData } = await supabase
+        .from('daily_report_permissions' as any)
+        .select('user_id, can_view, can_edit');
+      const permsMap = new Map<string, { can_view: boolean; can_edit: boolean }>();
+      ((permsData as any[]) || []).forEach((p) => permsMap.set(p.user_id, { can_view: !!p.can_view, can_edit: !!p.can_edit }));
+
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
           .map(r => r.role as 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'yard');
-        
+        const perm = permsMap.get(profile.user_id);
+        const isAdmin = userRoles.includes('admin' as any);
         return {
           ...profile,
           office: profile.office as OfficeLocation,
           ext: profile.ext as string | null,
           phone_number: (profile as any).phone_number as string | null,
-          roles: userRoles
+          roles: userRoles,
+          daily_report_can_view: isAdmin ? true : !!perm?.can_view,
+          daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
         };
       });
 
