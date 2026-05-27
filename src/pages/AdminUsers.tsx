@@ -924,6 +924,45 @@ const AdminUsers = () => {
               />
             </div>
 
+            <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Beverly Daily Report</p>
+                <p className="text-xs text-muted-foreground">
+                  {userToEdit?.roles.includes('admin')
+                    ? "Admins always have full access to the Daily Report."
+                    : "Control whether this user can see the Daily Report page (and the add-row button in Reports) and whether they can edit entries."}
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-daily-view" className="text-sm cursor-pointer">
+                  Can view Daily Report
+                </Label>
+                <Switch
+                  id="edit-daily-view"
+                  checked={editDailyView || editDailyEdit}
+                  onCheckedChange={(checked) => {
+                    setEditDailyView(checked);
+                    if (!checked) setEditDailyEdit(false);
+                  }}
+                  disabled={userToEdit?.roles.includes('admin')}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-daily-edit" className="text-sm cursor-pointer">
+                  Can edit Daily Report
+                </Label>
+                <Switch
+                  id="edit-daily-edit"
+                  checked={editDailyEdit}
+                  onCheckedChange={(checked) => {
+                    setEditDailyEdit(checked);
+                    if (checked) setEditDailyView(true);
+                  }}
+                  disabled={userToEdit?.roles.includes('admin')}
+                />
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
