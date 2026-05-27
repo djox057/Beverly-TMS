@@ -540,13 +540,31 @@ export const DailyReportTable = ({
                       )}
                   </div>
                 ) : (
-                  <Input
-                    value={row[c.key] ?? ""}
-                    onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
-                    onBlur={() => !readOnly && persistRow(row.__id)}
-                    readOnly={readOnly}
-                    className="h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
-                  />
+                  <div className="relative h-8">
+                    <Input
+                      value={row[c.key] ?? ""}
+                      onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
+                      onBlur={() => !readOnly && persistRow(row.__id)}
+                      readOnly={readOnly}
+                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNoteEditor({
+                          rowId: row.__id,
+                          colKey: c.key,
+                          colLabel: c.label,
+                          value: (row[c.key] as string) ?? "",
+                        })
+                      }
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Expand ${c.label}`}
+                      title={`Open ${c.label}`}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
