@@ -166,7 +166,9 @@ export const DailyReportTable = ({
     if (office === null) q = q.is("office", null);
     else q = q.eq("office", office);
 
-    const { data, error } = await q.order("created_at", { ascending: true });
+    const { data, error } = await q
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (error) {
       console.error("daily_report load", error);
       return;

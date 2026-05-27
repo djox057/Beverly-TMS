@@ -2,7 +2,6 @@ import { useState } from "react";
 import { FileDown } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -48,7 +47,8 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
       .from("daily_report_entries")
       .select("id, type, office, truck, note, color, created_at")
       .eq("date", dateStr)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
     if (error) throw error;
     return (data ?? []) as Entry[];
   };
@@ -63,176 +63,172 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 24;
 
-      const headerH = 28;
-      const topY = headerH + 8;
+      const headerH = 26;
+      const topY = headerH + 6;
       const bottomY = pageH - margin;
 
-      const NUM_COLS = 3;
-      const gap = 10;
-      const colW = (pageW - margin * 2 - gap * (NUM_COLS - 1)) / NUM_COLS;
-      const truckColW = 48;
-      const noteColW = colW - truckColW;
-
-      const SECTION_BAR_H = 14;
-      const TABLE_HEAD_H = 14;
-      const ROW_H = 13;
-      const SECTION_GAP = 8;
+      const SECTION_BAR_H = 13;
+      const TABLE_HEAD_H = 12;
 
       const drawPageHeader = () => {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
-        doc.text("Beverly Daily Report", pageW / 2, 22, { align: "center" });
+        doc.setTextColor(0);
+        doc.text("Beverly Daily Report", pageW / 2, 20, { align: "center" });
         doc.setFontSize(9);
-        doc.text(`DATE: ${format(date, "MM/dd/yyyy")}`, pageW - margin, 22, { align: "right" });
-      };
-      drawPageHeader();
-
-      let col = 0;
-      let cursorY = topY;
-
-      const colX = (c: number) => margin + c * (colW + gap);
-
-      // Build sections list
-      type Section = { title: string; rows: Entry[] };
-      const sections: Section[] = [];
-      for (const office of OFFICES) {
-        const empty = entries.filter(
-          (e) => e.office === office && e.type === "Empty & Late for delivery"
-        );
-        const home = entries.filter((e) => e.office === office && e.type === "Home");
-        if (empty.length) sections.push({ title: `${office} — Empty & Late`, rows: empty });
-        if (home.length) sections.push({ title: `${office} — Home`, rows: home });
-      }
-      const extras: Array<[string, string]> = [
-        ["Maintenance", "Maintenance"],
-        ["Recoveries", "Recoveries"],
-        ["New driver", "New driver"],
-      ];
-      if (includeAfterhours) extras.push(["After Hours", "Afterhours"]);
-      for (const [title, type] of extras) {
-        const r = entries.filter((e) => e.type === type);
-        if (r.length) sections.push({ title, rows: r });
-      }
-
-      const measureNoteLines = (note: string) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        const lines = doc.splitTextToSize(note || "", noteColW - 4) as string[];
-        return Math.max(1, lines.length);
+        doc.text(`DATE: ${format(date, "MM/dd/yyyy")}`, pageW - margin, 20, { align: "right" });
       };
 
-      const sectionHeight = (s: Section) => {
-        let h = SECTION_BAR_H + TABLE_HEAD_H;
-        for (const r of s.rows) {
-          const lines = measureNoteLines(r.note ?? "");
-          h += Math.max(ROW_H, lines * 10 + 4);
-        }
-        return h;
-      };
+      // Render a single section (title + table) inside the given box. Rows
+      // shrink-to-fit: row height is derived from box height so 15+ rows
+      // still fit cleanly within their cell.
+      const renderSection = (
+        title: string,
+        rows: Entry[],
+        x: number,
+        y: number,
+        w: number,
+        h: number
+      ) => {
+        const truckColW = Math.min(56, Math.max(40, w * 0.22));
+        const noteColW = w - truckColW;
 
-      const renderSection = (s: Section, x: number, y: number) => {
-        // Section title bar
-        doc.setFillColor(225, 225, 225);
-        doc.rect(x, y, colW, SECTION_BAR_H, "F");
+        // Title bar
+        doc.setFillColor(60, 60, 60);
+        doc.rect(x, y, w, SECTION_BAR_H, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
-        doc.setTextColor(0);
-        doc.text(s.title, x + 4, y + 10);
-        let yy = y + SECTION_BAR_H;
+        doc.setTextColor(255);
+        doc.text(title, x + 4, y + 9);
 
         // Table head
-        doc.setFillColor(195, 195, 195);
-        doc.rect(x, yy, colW, TABLE_HEAD_H, "F");
+        const headY = y + SECTION_BAR_H;
+        doc.setFillColor(220, 220, 220);
+        doc.rect(x, headY, w, TABLE_HEAD_H, "F");
         doc.setFontSize(8);
-        doc.text("Truck#", x + 4, yy + 10);
-        doc.text("Note", x + truckColW + 4, yy + 10);
-        yy += TABLE_HEAD_H;
+        doc.setTextColor(0);
+        doc.text("Truck#", x + 4, headY + 8.5);
+        doc.text("Note", x + truckColW + 4, headY + 8.5);
 
-        doc.setFont("helvetica", "normal");
-        doc.setDrawColor(200, 200, 200);
+        // Body
+        const bodyTop = headY + TABLE_HEAD_H;
+        const bodyH = h - SECTION_BAR_H - TABLE_HEAD_H;
+        const rowCount = Math.max(rows.length, 1);
+        // Cap row height so very short lists don't have huge empty rows
+        const rowH = Math.min(16, Math.max(10, bodyH / Math.max(rowCount, 1)));
+        const visibleRows = Math.min(rows.length, Math.floor(bodyH / rowH));
+
+        doc.setDrawColor(180, 180, 180);
         doc.setLineWidth(0.3);
+        doc.setFont("helvetica", "normal");
 
-        for (const r of s.rows) {
-          const lines = doc.splitTextToSize(r.note ?? "", noteColW - 4) as string[];
-          const rowH = Math.max(ROW_H, lines.length * 10 + 4);
+        let yy = bodyTop;
+        for (let i = 0; i < visibleRows; i++) {
+          const r = rows[i];
           const fill = r.color ? COLOR_FILL[r.color] : undefined;
           if (fill) {
             doc.setFillColor(fill[0], fill[1], fill[2]);
-            doc.rect(x, yy, colW, rowH, "F");
+            doc.rect(x, yy, w, rowH, "F");
           }
-          // borders
+          // cell borders
           doc.rect(x, yy, truckColW, rowH);
           doc.rect(x + truckColW, yy, noteColW, rowH);
-          doc.setFontSize(8);
+
+          // Truck number
+          doc.setFontSize(rowH >= 13 ? 8.5 : 7.5);
           doc.setTextColor(0);
-          doc.text(r.truck ?? "", x + truckColW / 2, yy + rowH / 2 + 3, { align: "center" });
-          doc.text(lines, x + truckColW + 3, yy + 10);
+          doc.text(r.truck ?? "", x + truckColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
+
+          // Note (truncate to fit width, single line within the row)
+          doc.setFontSize(rowH >= 13 ? 8 : 7);
+          const noteText = (r.note ?? "").replace(/\s+/g, " ").trim();
+          const fitted = (doc.splitTextToSize(noteText, noteColW - 6) as string[])[0] ?? "";
+          doc.text(fitted, x + truckColW + 3, yy + rowH / 2 + 2.5);
+
           yy += rowH;
         }
+
+        // If we had to clip rows, show a small "+N more" indicator
+        if (visibleRows < rows.length) {
+          const extra = rows.length - visibleRows;
+          doc.setFontSize(7);
+          doc.setTextColor(80);
+          doc.text(`+${extra} more…`, x + w - 4, y + h - 3, { align: "right" });
+        }
+
+        // Outer border around the section
+        doc.setDrawColor(120, 120, 120);
+        doc.setLineWidth(0.5);
+        doc.rect(x, y, w, h);
       };
 
-      // Lay out sections into columns
-      for (const s of sections) {
-        let h = sectionHeight(s);
-        const availableH = bottomY - cursorY;
+      const get = (type: string, office: string | null) =>
+        entries.filter((e) => e.type === type && (e.office ?? null) === office);
 
-        // If even an empty column can't fit it, we'll split. Simple split: render rows up to fit, then continue.
-        if (h <= availableH) {
-          renderSection(s, colX(col), cursorY);
-          cursorY += h + SECTION_GAP;
-          continue;
-        }
+      // === Page 1: 4 offices × (Empty&Late / Home) — 4 cols × 2 rows ===
+      drawPageHeader();
+      {
+        const cols = OFFICES.length;
+        const gap = 6;
+        const colW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
+        const rowGap = 8;
+        const availH = bottomY - topY;
+        const rowH = (availH - rowGap) / 2;
 
-        // Doesn't fit; move to next column / page
-        col++;
-        if (col >= NUM_COLS) {
-          doc.addPage();
-          drawPageHeader();
-          col = 0;
-        }
-        cursorY = topY;
-        const availH2 = bottomY - cursorY;
+        OFFICES.forEach((office, idx) => {
+          const x = margin + idx * (colW + gap);
+          renderSection(
+            `${office} — Empty & Late`,
+            get("Empty & Late for delivery", office),
+            x,
+            topY,
+            colW,
+            rowH
+          );
+          renderSection(
+            `${office} — Home`,
+            get("Home", office),
+            x,
+            topY + rowH + rowGap,
+            colW,
+            rowH
+          );
+        });
+      }
 
-        if (h <= availH2) {
-          renderSection(s, colX(col), cursorY);
-          cursorY += h + SECTION_GAP;
-          continue;
-        }
+      // === Page 2: 2 × 2 — Maintenance / After Hours | New driver / Recoveries ===
+      doc.addPage();
+      drawPageHeader();
+      {
+        const cols = 2;
+        const gap = 10;
+        const colW = (pageW - margin * 2 - gap) / cols;
+        const rowGap = 10;
+        const availH = bottomY - topY;
+        const rowH = (availH - rowGap) / 2;
 
-        // Still too tall — split rows across columns
-        let remaining = [...s.rows];
-        let titleSuffix = 0;
-        while (remaining.length) {
-          const availH = bottomY - cursorY;
-          let used = SECTION_BAR_H + TABLE_HEAD_H;
-          let count = 0;
-          for (const r of remaining) {
-            const lines = measureNoteLines(r.note ?? "");
-            const rh = Math.max(ROW_H, lines * 10 + 4);
-            if (used + rh > availH) break;
-            used += rh;
-            count++;
-          }
-          if (count === 0) {
-            // Move to next col/page
-            col++;
-            if (col >= NUM_COLS) {
-              doc.addPage();
-              drawPageHeader();
-              col = 0;
-            }
-            cursorY = topY;
-            continue;
-          }
-          const part: Section = {
-            title: titleSuffix === 0 ? s.title : `${s.title} (cont.)`,
-            rows: remaining.slice(0, count),
-          };
-          renderSection(part, colX(col), cursorY);
-          cursorY += sectionHeight(part) + SECTION_GAP;
-          remaining = remaining.slice(count);
-          titleSuffix++;
-        }
+        // Left column
+        renderSection("Maintenance", get("Maintenance", null), margin, topY, colW, rowH);
+        renderSection(
+          "After Hours",
+          includeAfterhours ? get("Afterhours", null) : [],
+          margin,
+          topY + rowH + rowGap,
+          colW,
+          rowH
+        );
+
+        // Right column
+        const rightX = margin + colW + gap;
+        renderSection("New Drivers", get("New driver", null), rightX, topY, colW, rowH);
+        renderSection(
+          "Recoveries",
+          get("Recoveries", null),
+          rightX,
+          topY + rowH + rowGap,
+          colW,
+          rowH
+        );
       }
 
       doc.save(`Beverly_Daily_Report_${format(date, "yyyy-MM-dd")}.pdf`);
