@@ -16,6 +16,8 @@ interface TruckLocation {
   latitude: number;
   longitude: number;
   location_timestamp: string;
+  isValid?: boolean;
+  ageMinutes?: number;
 }
 
 interface Coordinates {
@@ -168,11 +170,19 @@ Deno.serve(async (req) => {
     const samsaraLocations: TruckLocation[] = locationsData.locations || [];
     console.log(`📍 Got ${samsaraLocations.length} truck locations`);
 
-    // Build lookup map for O(1) access
+    // Build lookup map for O(1) access — only include FRESH locations.
+    // Stale samsara data (isValid=false, e.g. >30 min old) leads to wildly
+    // wrong distance calculations vs current order destinations.
     const locationMap = new Map<string, TruckLocation>();
+    let staleSkipped = 0;
     for (const loc of samsaraLocations) {
+      if (loc.isValid === false) {
+        staleSkipped++;
+        continue;
+      }
       locationMap.set(loc.truck_number, loc);
     }
+    console.log(`📍 ${locationMap.size} fresh locations usable, ${staleSkipped} stale skipped`);
 
     // ── Step 2: Fetch trucks with orders ──
     console.log('🚛 Step 2: Fetching trucks with orders...');
@@ -218,6 +228,13 @@ Deno.serve(async (req) => {
       const truckLocation = locationMap.get(truck.truck_number);
       if (!truckLocation) {
         skippedNoLocation++;
+        // No fresh location → clear miles_away so UI doesn't show stale value
+        allUpdates.push({
+          truckId: truck.id,
+          truckNumber: truck.truck_number,
+          miles_away: 0,
+          eta_minutes: null,
+        });
         continue;
       }
 
