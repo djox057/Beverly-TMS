@@ -463,7 +463,7 @@ export const DailyReportTable = ({
                       onBlur={() => persistRow(row.__id)}
                       list={datalistId}
                       autoComplete="off"
-                      className="h-8 border-0 rounded-none text-sm pr-7 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                     />
                     {((row[c.key] as string) ?? "").trim() &&
                       (row.driver_name || row.dispatcher_name) && (
@@ -498,7 +498,7 @@ export const DailyReportTable = ({
                     value={row[c.key] ?? ""}
                     onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
                     onBlur={() => persistRow(row.__id)}
-                    className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                    className="h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                   />
                 )}
               </div>
