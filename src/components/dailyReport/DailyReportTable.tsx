@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Shared, lightweight cache of active truck numbers (refreshed on demand)
 let activeTruckNumbersCache: string[] | null = null;
@@ -30,6 +31,43 @@ const loadActiveTruckNumbers = async (): Promise<string[]> => {
     return nums;
   })();
   return activeTruckNumbersPromise;
+};
+
+// Look up driver + dispatcher names for a given truck number (active trucks only).
+const enrichTruck = async (
+  truckNumber: string
+): Promise<{ driver_name: string | null; dispatcher_name: string | null }> => {
+  const num = truckNumber.trim();
+  if (!num) return { driver_name: null, dispatcher_name: null };
+
+  const { data: truck } = await supabase
+    .from("trucks")
+    .select("driver1_id")
+    .eq("truck_number", num)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!truck?.driver1_id) return { driver_name: null, dispatcher_name: null };
+
+  const { data: driver } = await supabase
+    .from("drivers")
+    .select("name, dispatcher_id")
+    .eq("id", truck.driver1_id)
+    .maybeSingle();
+
+  if (!driver) return { driver_name: null, dispatcher_name: null };
+
+  let dispatcher_name: string | null = null;
+  if (driver.dispatcher_id) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", driver.dispatcher_id)
+      .maybeSingle();
+    dispatcher_name = (prof?.full_name as string | null) ?? null;
+  }
+
+  return { driver_name: (driver.name as string | null) ?? null, dispatcher_name };
 };
 
 export interface DailyReportColumn {
@@ -184,15 +222,35 @@ export const DailyReportTable = ({
   const persistRow = async (id: string) => {
     const row = rows.find((r) => r.__id === id);
     if (!row) return;
+
+    // Enrich driver/dispatcher from active truck assignment when applicable.
+    const truckCol = columns.find((c) => c.autocompleteTrucks);
+    let enriched: { driver_name: string | null; dispatcher_name: string | null } = {
+      driver_name: (row.driver_name as string | null) ?? null,
+      dispatcher_name: (row.dispatcher_name as string | null) ?? null,
+    };
+    if (truckCol) {
+      const truckVal = ((row[truckCol.key] as string) ?? "").trim();
+      enriched = truckVal
+        ? await enrichTruck(truckVal)
+        : { driver_name: null, dispatcher_name: null };
+    }
+
     const payload: Record<string, any> = {
       date: dateStr,
       type,
       office,
+      driver_name: enriched.driver_name,
+      dispatcher_name: enriched.dispatcher_name,
     };
     for (const c of columns) payload[c.key] = (row[c.key] ?? "").trim() || null;
 
     const snapshotKey = JSON.stringify(
-      Object.fromEntries(columns.map((c) => [c.key, row[c.key] ?? ""]))
+      Object.fromEntries([
+        ...columns.map((c) => [c.key, row[c.key] ?? ""]),
+        ["__driver", enriched.driver_name ?? ""],
+        ["__dispatcher", enriched.dispatcher_name ?? ""],
+      ])
     );
 
     if (row.__persisted) {
@@ -223,6 +281,17 @@ export const DailyReportTable = ({
         return;
       }
       savedSnapshotRef.current[id] = snapshotKey;
+      setRows((prev) =>
+        prev.map((r) =>
+          r.__id === id
+            ? {
+                ...r,
+                driver_name: enriched.driver_name,
+                dispatcher_name: enriched.dispatcher_name,
+              }
+            : r
+        )
+      );
     } else {
       if (isRowEmpty(row)) return;
       const { data, error } = await (supabase as any)
@@ -237,7 +306,15 @@ export const DailyReportTable = ({
       savedSnapshotRef.current[(data as any).id] = snapshotKey;
       setRows((prev) =>
         prev.map((r) =>
-          r.__id === id ? { ...r, __id: (data as any).id, __persisted: true } : r
+          r.__id === id
+            ? {
+                ...r,
+                __id: (data as any).id,
+                __persisted: true,
+                driver_name: enriched.driver_name,
+                dispatcher_name: enriched.dispatcher_name,
+              }
+            : r
         )
       );
     }
@@ -289,14 +366,52 @@ export const DailyReportTable = ({
           >
             {columns.map((c) => (
               <div key={c.key} className="border-r border-border last:border-r-0 overflow-hidden">
-                <Input
-                  value={row[c.key] ?? ""}
-                  onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
-                  onBlur={() => persistRow(row.__id)}
-                  list={c.autocompleteTrucks ? datalistId : undefined}
-                  autoComplete={c.autocompleteTrucks ? "off" : undefined}
-                  className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
-                />
+                {c.autocompleteTrucks ? (
+                  <div className="relative h-8">
+                    <Input
+                      value={row[c.key] ?? ""}
+                      onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
+                      onBlur={() => persistRow(row.__id)}
+                      list={datalistId}
+                      autoComplete="off"
+                      className="h-8 border-0 rounded-none text-sm pr-7 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                    />
+                    {((row[c.key] as string) ?? "").trim() &&
+                      (row.driver_name || row.dispatcher_name) && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                              aria-label="Show driver and dispatcher"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-3 text-xs space-y-1.5" align="start">
+                            <div className="font-semibold text-foreground border-b border-border pb-1.5 mb-1">
+                              Truck #{row[c.key]}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Driver: </span>
+                              <span className="font-medium">{row.driver_name || "—"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Dispatcher: </span>
+                              <span className="font-medium">{row.dispatcher_name || "—"}</span>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                  </div>
+                ) : (
+                  <Input
+                    value={row[c.key] ?? ""}
+                    onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
+                    onBlur={() => persistRow(row.__id)}
+                    className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                  />
+                )}
               </div>
             ))}
             <button
