@@ -392,6 +392,37 @@ export const DailyReportTable = ({
           /* noop */
         }
       }
+    } else if (color) {
+      // Insert a new row carrying just the color (and any text already typed)
+      const payload: Record<string, any> = {
+        date: dateStr,
+        type,
+        office,
+        color,
+      };
+      for (const c of columns) payload[c.key] = (row[c.key] ?? "").trim() || null;
+      const { data, error } = await (supabase as any)
+        .from("daily_report_entries")
+        .insert(payload)
+        .select()
+        .single();
+      if (error || !data) {
+        toast({ title: "Failed to save color", description: error?.message ?? "Unknown error", variant: "destructive" });
+        return;
+      }
+      savedSnapshotRef.current[(data as any).id] = JSON.stringify(
+        Object.fromEntries([
+          ...columns.map((c) => [c.key, row[c.key] ?? ""]),
+          ["__driver", ""],
+          ["__dispatcher", ""],
+          ["__color", color],
+        ])
+      );
+      setRows((prev) =>
+        prev.map((r) =>
+          r.__id === id ? { ...r, __id: (data as any).id, __persisted: true, color } : r
+        )
+      );
     }
   };
 
