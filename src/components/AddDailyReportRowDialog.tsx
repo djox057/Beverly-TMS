@@ -40,7 +40,7 @@ type TypeOption = {
 };
 
 const TYPES: TypeOption[] = [
-  { value: "Empty & Late for delivery", label: "Empty & Late for delivery", perOffice: true },
+  { value: "Empty & Late for delivery", label: "Empty & Late", perOffice: true },
   { value: "Home", label: "Home", perOffice: true },
   { value: "Maintenance", label: "Maintenance", perOffice: false },
   { value: "Afterhours", label: "After Hours", perOffice: false },
