@@ -1,31 +1,22 @@
-## Daily Report polish
+## Root cause
 
-UI-only refinements to `/daily-report`. No data/logic changes.
+`useDailyReportPermissions` calls `hasRole("admin")` to auto-grant full access. But `hasRole` in `src/hooks/useAuth.ts` returns `true` for `admin` whenever the user has `manager`, `supervisor`, `accounting`, or `chicago_management` — that's the generic "manager-has-same-access-as-admin" override (lines 262–271). So every manager/supervisor was being treated as admin and getting full Daily Report access regardless of the `daily_report_permissions` row.
 
-### 1. Tabs span full width and are larger
-In `src/pages/DailyReport.tsx`:
-- Change `TabsList` to `grid w-full grid-cols-4 sm:grid-cols-7 h-auto` so the 7 tabs split the full row width on desktop and wrap to a 4-col grid on phones (no horizontal scroll).
-- Bump trigger size: `text-sm sm:text-base font-semibold py-2.5` and `w-full` so each tab fills its grid cell.
-- Allow wrapping inside a trigger for long labels (`whitespace-normal leading-tight`) so "BG 1st FLOOR" doesn't clip on mobile.
+Verified in DB: user "Test" (acccoc225@gmail.com) has role `manager` and `can_view=false, can_edit=false`, yet the hook was returning `canView=true, canEdit=true`.
 
-### 2. Date picker — narrower + prev/next arrow buttons
-Replace the single wide `Popover` button with a compact 3-part control:
-```
-[‹]  [📅 05/19/2026]  [›]
-```
-- Two `Button variant="outline" size="icon"` (ChevronLeft / ChevronRight) that call `setDate(addDays(date, -1))` / `setDate(addDays(date, 1))` (`date-fns`).
-- Middle button keeps the popover + calendar, but width shrinks to fit content (`w-[150px]`, remove the `w-[220px]`).
-- Wrap the three in a `flex items-center gap-1` group.
+## Fix
 
-### 3. Fix input focus overflow inside table cells
-In `src/components/dailyReport/DailyReportTable.tsx`:
-- The shared `Input` applies `focus-visible:ring-2 ... ring-offset-2`, which paints a 2px ring + 2px offset that escapes the cell border (visible in screenshot 2).
-- Pass `focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30` on the cell `<Input>` and rely on a subtle background tint to indicate focus.
-- Also add `overflow-hidden` to each cell wrapper `<div>` as a belt-and-suspenders guard so any residual outline is clipped to the cell.
+Change `useDailyReportPermissions` to check the exact role array (not `hasRole`), so only users with the literal `admin` role bypass the permissions table.
 
-### Files touched
-- `src/pages/DailyReport.tsx` — tabs layout + date picker with arrows.
-- `src/components/dailyReport/DailyReportTable.tsx` — input focus styling + cell overflow clipping.
+### Steps
 
-### Out of scope
-No persistence, no data wiring, no column changes.
+1. **`src/hooks/useDailyReportPermissions.ts`**
+   - Pull `roles` from `useAuthContext()` instead of `hasRole`.
+   - Replace `if (hasRole("admin"))` with `if (roles.includes("admin"))`.
+   - Update the effect dependency list accordingly.
+
+No DB or other component changes needed — `Sidebar`, `Reports`, `DailyReport`, and `AdminUsers` already consume the hook (or, in AdminUsers' case, check `roles.includes('admin')` directly, which is already correct).
+
+## Result
+
+Managers / supervisors / accounting / chicago_management users will only see the Daily Report sidebar link, Add‑Row button, and page contents when an admin has explicitly toggled `can_view` / `can_edit` for them in User Management. Admins retain automatic full access.
