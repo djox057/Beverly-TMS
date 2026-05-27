@@ -866,6 +866,30 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_report_permissions: {
+        Row: {
+          can_edit: boolean
+          can_view: boolean
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          can_edit?: boolean
+          can_view?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          can_edit?: boolean
+          can_view?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       deleted_drivers: {
         Row: {
           agreement_start_date: string | null
