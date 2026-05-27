@@ -271,7 +271,9 @@ export const DailyReportTable = ({
   const isRowEmpty = (r: Row) => columns.every((c) => !((r[c.key] ?? "").trim()));
 
   const persistRow = async (id: string) => {
-    const row = rows.find((r) => r.__id === id);
+    const row = (rowsRef.current.length ? rowsRef.current : rows).find(
+      (r) => r.__id === id
+    );
     if (!row) return;
 
     // Enrich driver/dispatcher from active truck assignment when applicable.
