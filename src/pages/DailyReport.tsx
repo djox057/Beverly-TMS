@@ -7,9 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DailyReportTable, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
+import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
+import { Info, PaintBucket, Maximize2 } from "lucide-react";
+import { Popover as LegendPopover, PopoverContent as LegendPopoverContent, PopoverTrigger as LegendPopoverTrigger } from "@/components/ui/popover";
 import { getChicagoToday } from "@/pages/Reports/helpers";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { Loader2 } from "lucide-react";
