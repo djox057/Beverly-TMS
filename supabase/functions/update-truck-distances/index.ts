@@ -86,7 +86,6 @@ function findCurrentOrder(orders: any[]): any | null {
 // ═══════════════════════════════════════════════════════════
 function isZeroMilesTruck(truckStatus: string | null, currentOrder: any | null): boolean {
   if (!currentOrder) return true;
-  if (truckStatus === 'Maintenance' || truckStatus === 'Available') return true;
   const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === 'POD');
   if (hasPOD) return true;
   return false;
@@ -259,10 +258,9 @@ Deno.serve(async (req) => {
         allUpdates.push({
           truckId: truck.id,
           truckNumber: truck.truck_number,
-          miles_away: 0,
+          miles_away: null,
           eta_minutes: null,
         });
-        zeroMilesCount++;
         continue;
       }
 
