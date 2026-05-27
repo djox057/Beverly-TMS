@@ -28,7 +28,7 @@ interface Coordinates {
 interface TruckUpdatePayload {
   truckId: string;
   truckNumber: string;
-  miles_away: number;
+  miles_away: number | null;
   eta_minutes: number | null;
 }
 
@@ -228,11 +228,12 @@ Deno.serve(async (req) => {
       const truckLocation = locationMap.get(truck.truck_number);
       if (!truckLocation) {
         skippedNoLocation++;
-        // No fresh location → clear miles_away so UI doesn't show stale value
+        // No fresh location → null out miles_away so UI hides it instead of
+        // showing a value computed against outdated GPS coords.
         allUpdates.push({
           truckId: truck.id,
           truckNumber: truck.truck_number,
-          miles_away: 0,
+          miles_away: null,
           eta_minutes: null,
         });
         continue;
