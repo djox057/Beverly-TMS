@@ -714,10 +714,16 @@ export const DailyReportTable = ({
                 onClick={async () => {
                   if (!noteEditor) return;
                   const { rowId, colKey, value } = noteEditor;
-                  updateCell(rowId, colKey, value);
+                  // Update state and rowsRef synchronously so persistRow sees latest value
+                  setRows((prev) => {
+                    const next = prev.map((r) =>
+                      r.__id === rowId ? { ...r, [colKey]: value } : r
+                    );
+                    rowsRef.current = next;
+                    return next;
+                  });
                   setNoteEditor(null);
-                  // Wait a tick so state updates before persist reads row
-                  setTimeout(() => persistRow(rowId), 0);
+                  await persistRow(rowId);
                 }}
               >
                 Save
