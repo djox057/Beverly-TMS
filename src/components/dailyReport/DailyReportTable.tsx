@@ -462,8 +462,9 @@ export const DailyReportTable = ({
                   <div className="relative h-8">
                     <Input
                       value={row[c.key] ?? ""}
-                      onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
-                      onBlur={() => persistRow(row.__id)}
+                      onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
+                      onBlur={() => !readOnly && persistRow(row.__id)}
+                      readOnly={readOnly}
                       list={datalistId}
                       autoComplete="off"
                       className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
@@ -499,13 +500,15 @@ export const DailyReportTable = ({
                 ) : (
                   <Input
                     value={row[c.key] ?? ""}
-                    onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
-                    onBlur={() => persistRow(row.__id)}
+                    onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
+                    onBlur={() => !readOnly && persistRow(row.__id)}
+                    readOnly={readOnly}
                     className="h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                   />
                 )}
               </div>
             ))}
+            {!readOnly && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -544,6 +547,8 @@ export const DailyReportTable = ({
                 </div>
               </PopoverContent>
             </Popover>
+            )}
+            {!readOnly && (
             <button
               type="button"
               onClick={() => {
@@ -560,9 +565,11 @@ export const DailyReportTable = ({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
+            )}
           </div>
         ))}
       </div>
+      {!readOnly && (
       <div className="px-2 py-1.5 border-t border-border bg-muted/30">
         <Button
           type="button"
@@ -575,6 +582,7 @@ export const DailyReportTable = ({
           Add row
         </Button>
       </div>
+      )}
       {columns.some((c) => c.autocompleteTrucks) && (
         <datalist id={datalistId}>
           {truckOptions.map((n) => (
