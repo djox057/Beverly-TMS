@@ -148,6 +148,10 @@ export const DailyReportTable = ({
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
   );
+  const rowsRef = useRef<Row[]>([]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   const savedSnapshotRef = useRef<Record<string, string>>({});
   const [truckOptions, setTruckOptions] = useState<string[]>(
     () => activeTruckNumbersCache ?? []
