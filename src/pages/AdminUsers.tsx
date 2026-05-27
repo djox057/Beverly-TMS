@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut, Search, Microscope } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -36,6 +37,8 @@ interface User {
   ext: string | null;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims')[];
   created_at: string;
+  daily_report_can_view: boolean;
+  daily_report_can_edit: boolean;
 }
 
 const AdminUsers = () => {
