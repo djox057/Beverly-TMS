@@ -87,18 +87,18 @@ const DailyReport = () => {
             <TabsTrigger
               key={o}
               value={o}
-              className="w-full text-sm sm:text-base font-semibold py-2.5 whitespace-normal leading-tight"
+              className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight"
             >
               {o}
             </TabsTrigger>
           ))}
-          <TabsTrigger value="MAINTENANCE" className="w-full text-sm sm:text-base font-semibold py-2.5 whitespace-normal leading-tight">
+          <TabsTrigger value="MAINTENANCE" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Maintenance
           </TabsTrigger>
-          <TabsTrigger value="AFTERHOURS" className="w-full text-sm sm:text-base font-semibold py-2.5 whitespace-normal leading-tight">
+          <TabsTrigger value="AFTERHOURS" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Afterhours
           </TabsTrigger>
-          <TabsTrigger value="RECOVERIES" className="w-full text-sm sm:text-base font-semibold py-2.5 whitespace-normal leading-tight">
+          <TabsTrigger value="RECOVERIES" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Recoveries
           </TabsTrigger>
         </TabsList>
