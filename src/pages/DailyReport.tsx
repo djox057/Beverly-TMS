@@ -17,12 +17,12 @@ const EMPTY_LATE_COLS: DailyReportColumn[] = [
 ];
 
 const HOME_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px" },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
 const WIDE_NOTE_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px" },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
