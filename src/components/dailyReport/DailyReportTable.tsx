@@ -429,7 +429,9 @@ export const DailyReportTable = ({
     }
   };
 
-  const gridTemplate = `${columns.map((c) => c.width).join(" ")} 28px 28px`;
+  const gridTemplate = readOnly
+    ? columns.map((c) => c.width).join(" ")
+    : `${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
