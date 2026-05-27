@@ -20,11 +20,11 @@ import {
 
 // Row color palette (value stored in DB as `color`, label shown to user)
 const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
-  { value: "orange", label: "Late", bg: "bg-orange-100 dark:bg-orange-950/40", swatch: "bg-orange-400" },
-  { value: "cyan", label: "No load", bg: "bg-cyan-100 dark:bg-cyan-950/40", swatch: "bg-cyan-400" },
-  { value: "yellow", label: "Problem", bg: "bg-yellow-100 dark:bg-yellow-950/40", swatch: "bg-yellow-400" },
-  { value: "red", label: "Recovery", bg: "bg-red-100 dark:bg-red-950/40", swatch: "bg-red-400" },
-  { value: "green", label: "Resolved", bg: "bg-green-100 dark:bg-green-950/40", swatch: "bg-green-500" },
+  { value: "orange", label: "Late", bg: "bg-orange-400/80 dark:bg-orange-500/70", swatch: "bg-orange-400" },
+  { value: "cyan", label: "No load", bg: "bg-cyan-400/80 dark:bg-cyan-500/70", swatch: "bg-cyan-400" },
+  { value: "yellow", label: "Problem", bg: "bg-yellow-300/90 dark:bg-yellow-400/70", swatch: "bg-yellow-400" },
+  { value: "red", label: "Recovery", bg: "bg-red-500/80 dark:bg-red-600/70", swatch: "bg-red-500" },
+  { value: "green", label: "Resolved", bg: "bg-green-500/80 dark:bg-green-600/70", swatch: "bg-green-500" },
 ];
 const colorBg = (c?: string | null) => ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
 
@@ -463,7 +463,7 @@ export const DailyReportTable = ({
                       onBlur={() => persistRow(row.__id)}
                       list={datalistId}
                       autoComplete="off"
-                      className="h-8 border-0 rounded-none text-sm pr-7 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                     />
                     {((row[c.key] as string) ?? "").trim() &&
                       (row.driver_name || row.dispatcher_name) && (
@@ -498,7 +498,7 @@ export const DailyReportTable = ({
                     value={row[c.key] ?? ""}
                     onChange={(e) => updateCell(row.__id, c.key, e.target.value)}
                     onBlur={() => persistRow(row.__id)}
-                    className="h-8 border-0 rounded-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                    className="h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                   />
                 )}
               </div>
