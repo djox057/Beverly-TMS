@@ -937,6 +937,7 @@ const Reports = () => {
     dispatcherName: string | null;
     office: string | null;
   } | null>(null);
+  const { canEdit: canEditDailyReport } = useDailyReportPermissions();
   // Driver Problem dialog state
   const [problemDialog, setProblemDialog] = useState<{
     driverId: string;
