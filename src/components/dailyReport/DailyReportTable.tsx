@@ -134,6 +134,8 @@ export const DailyReportTable = ({
   type,
   office = null,
   readOnly = false,
+  truckFilter = "",
+  colorFilter = null,
 }: DailyReportTableProps) => {
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
@@ -439,6 +441,21 @@ export const DailyReportTable = ({
     ? columns.map((c) => c.width).join(" ")
     : `${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
+  const truckColKey = columns.find((c) => c.autocompleteTrucks)?.key;
+  const filtering = !!truckFilter.trim() || !!colorFilter;
+  const truckFilterNorm = truckFilter.trim().toLowerCase();
+  const visibleRows = filtering
+    ? rows.filter((r) => {
+        if (!r.__persisted) return false;
+        if (truckFilterNorm && truckColKey) {
+          const v = String(r[truckColKey] ?? "").toLowerCase();
+          if (!v.includes(truckFilterNorm)) return false;
+        }
+        if (colorFilter && (r.color ?? null) !== colorFilter) return false;
+        return true;
+      })
+    : rows;
+
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
       {title && (
@@ -458,7 +475,10 @@ export const DailyReportTable = ({
         {!readOnly && <div />}
       </div>
       <div className="divide-y divide-border">
-        {rows.map((row) => (
+        {visibleRows.length === 0 && filtering && (
+          <div className="px-3 py-4 text-xs text-muted-foreground text-center">No matching rows</div>
+        )}
+        {visibleRows.map((row) => (
           <div
             key={row.__id}
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
