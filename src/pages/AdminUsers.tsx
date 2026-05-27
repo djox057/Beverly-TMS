@@ -57,6 +57,8 @@ const AdminUsers = () => {
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
+  const [editDailyView, setEditDailyView] = useState(false);
+  const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -338,6 +340,8 @@ const AdminUsers = () => {
     setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
+    setEditDailyView(user.daily_report_can_view);
+    setEditDailyEdit(user.daily_report_can_edit);
     setIsEditDialogOpen(true);
   };
 
@@ -366,7 +370,28 @@ const AdminUsers = () => {
       if (data?.error) {
         throw new Error(data.error);
       }
-      
+
+      // Persist Daily Report permissions (skip for admins — they always have access)
+      const isAdminUser = userToEdit.roles.includes('admin');
+      if (!isAdminUser) {
+        const view = editDailyView || editDailyEdit; // edit implies view
+        const { error: permError } = await (supabase as any)
+          .from('daily_report_permissions')
+          .upsert(
+            {
+              user_id: userToEdit.user_id,
+              can_view: view,
+              can_edit: editDailyEdit,
+              updated_by: profile?.user_id ?? null,
+            },
+            { onConflict: 'user_id' }
+          );
+        if (permError) {
+          console.error('Error updating Daily Report permissions:', permError);
+          throw new Error(permError.message || 'Failed to save Daily Report permissions');
+        }
+      }
+
       await fetchUsers();
       setIsEditDialogOpen(false);
       setUserToEdit(null);
