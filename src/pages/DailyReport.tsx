@@ -12,17 +12,17 @@ import { getChicagoToday } from "@/pages/Reports/helpers";
 const OFFICES = ["CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR"] as const;
 
 const EMPTY_LATE_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck#", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
 const HOME_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck#", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
 const WIDE_NOTE_COLS: DailyReportColumn[] = [
-  { key: "truck", label: "Truck#", width: "110px" },
+  { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
