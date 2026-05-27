@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyReportTable, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
+import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { getChicagoToday } from "@/pages/Reports/helpers";
 
@@ -160,6 +161,7 @@ const DailyReport = () => {
           />
         </TabsContent>
       </Tabs>
+      <ExportDailyReportPdf date={date} />
     </div>
   );
 };
