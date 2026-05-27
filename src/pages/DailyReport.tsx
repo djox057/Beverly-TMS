@@ -9,6 +9,8 @@ import { DailyReportTable, type DailyReportColumn } from "@/components/dailyRepo
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { getChicagoToday } from "@/pages/Reports/helpers";
+import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
+import { Loader2 } from "lucide-react";
 
 const OFFICES = ["CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR"] as const;
 
@@ -27,7 +29,7 @@ const WIDE_NOTE_COLS: DailyReportColumn[] = [
   { key: "note", label: "Note", width: "1fr" },
 ];
 
-const OfficeTab = ({ office, date }: { office: string; date: Date }) => (
+const OfficeTab = ({ office, date, readOnly }: { office: string; date: Date; readOnly: boolean }) => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
@@ -36,6 +38,7 @@ const OfficeTab = ({ office, date }: { office: string; date: Date }) => (
       date={date}
       office={office}
       type="Empty & Late for delivery"
+      readOnly={readOnly}
     />
     <DailyReportTable
       title={`${office} — Home`}
@@ -44,6 +47,7 @@ const OfficeTab = ({ office, date }: { office: string; date: Date }) => (
       date={date}
       office={office}
       type="Home"
+      readOnly={readOnly}
     />
   </div>
 );
@@ -51,6 +55,30 @@ const OfficeTab = ({ office, date }: { office: string; date: Date }) => (
 const DailyReport = () => {
   const [date, setDate] = useState<Date>(() => getChicagoToday());
   const [activeTab, setActiveTab] = useState<string>("CACAK");
+  const { canView, canEdit, loading } = useDailyReportPermissions();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!canView) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-destructive mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">
+            You don't have permission to view the Beverly Daily Report.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const readOnly = !canEdit;
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
@@ -120,7 +148,7 @@ const DailyReport = () => {
 
         {OFFICES.map((o) => (
           <TabsContent key={o} value={o} className="mt-4">
-            <OfficeTab office={o} date={date} />
+            <OfficeTab office={o} date={date} readOnly={readOnly} />
           </TabsContent>
         ))}
 
@@ -131,6 +159,7 @@ const DailyReport = () => {
             initialRows={10}
             date={date}
             type="Maintenance"
+            readOnly={readOnly}
           />
         </TabsContent>
         <TabsContent value="AFTERHOURS" className="mt-4">
@@ -140,6 +169,7 @@ const DailyReport = () => {
             initialRows={10}
             date={date}
             type="Afterhours"
+            readOnly={readOnly}
           />
         </TabsContent>
         <TabsContent value="RECOVERIES" className="mt-4">
@@ -149,6 +179,7 @@ const DailyReport = () => {
             initialRows={10}
             date={date}
             type="Recoveries"
+            readOnly={readOnly}
           />
         </TabsContent>
         <TabsContent value="NEW_DRIVER" className="mt-4">
@@ -158,6 +189,7 @@ const DailyReport = () => {
             initialRows={10}
             date={date}
             type="New driver"
+            readOnly={readOnly}
           />
         </TabsContent>
       </Tabs>

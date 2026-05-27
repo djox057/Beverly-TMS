@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
+import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
@@ -73,7 +74,6 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Daily Report", href: "/daily-report", icon: FileText, roles: ['supervisor', 'manager', 'admin'] },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours', 'yard'] },
@@ -88,6 +88,7 @@ export const Sidebar = () => {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
+  const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
   const [showAcknowledgeDialog, setShowAcknowledgeDialog] = useState(false);
@@ -289,7 +290,18 @@ export const Sidebar = () => {
     return filteredNav;
   };
 
-  const allNavigation = getFilteredNavigation();
+  const baseNavigation = getFilteredNavigation();
+  // Inject Daily Report just after Reports when the user has view permission
+  const allNavigation = (() => {
+    if (!canViewDailyReport) return baseNavigation;
+    if (baseNavigation.some((i) => i.href === "/daily-report")) return baseNavigation;
+    const idx = baseNavigation.findIndex((i) => i.href === "/reports");
+    const dailyItem = { name: "Daily Report", href: "/daily-report", icon: FileText };
+    if (idx === -1) return [...baseNavigation, dailyItem];
+    const next = [...baseNavigation];
+    next.splice(idx + 1, 0, dailyItem);
+    return next;
+  })();
 
   return (
     <SidebarPrimitive className="z-50">

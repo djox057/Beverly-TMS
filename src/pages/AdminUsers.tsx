@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut, Search, Microscope } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
@@ -36,6 +37,8 @@ interface User {
   ext: string | null;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims')[];
   created_at: string;
+  daily_report_can_view: boolean;
+  daily_report_can_edit: boolean;
 }
 
 const AdminUsers = () => {
@@ -54,6 +57,8 @@ const AdminUsers = () => {
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
+  const [editDailyView, setEditDailyView] = useState(false);
+  const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -142,17 +147,27 @@ const AdminUsers = () => {
 
       if (rolesError) throw rolesError;
 
+      // Fetch Daily Report permissions
+      const { data: permsData } = await supabase
+        .from('daily_report_permissions' as any)
+        .select('user_id, can_view, can_edit');
+      const permsMap = new Map<string, { can_view: boolean; can_edit: boolean }>();
+      ((permsData as any[]) || []).forEach((p) => permsMap.set(p.user_id, { can_view: !!p.can_view, can_edit: !!p.can_edit }));
+
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
           .map(r => r.role as 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'yard');
-        
+        const perm = permsMap.get(profile.user_id);
+        const isAdmin = userRoles.includes('admin' as any);
         return {
           ...profile,
           office: profile.office as OfficeLocation,
           ext: profile.ext as string | null,
           phone_number: (profile as any).phone_number as string | null,
-          roles: userRoles
+          roles: userRoles,
+          daily_report_can_view: isAdmin ? true : !!perm?.can_view,
+          daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
         };
       });
 
@@ -325,6 +340,8 @@ const AdminUsers = () => {
     setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
+    setEditDailyView(user.daily_report_can_view);
+    setEditDailyEdit(user.daily_report_can_edit);
     setIsEditDialogOpen(true);
   };
 
@@ -353,7 +370,28 @@ const AdminUsers = () => {
       if (data?.error) {
         throw new Error(data.error);
       }
-      
+
+      // Persist Daily Report permissions (skip for admins — they always have access)
+      const isAdminUser = userToEdit.roles.includes('admin');
+      if (!isAdminUser) {
+        const view = editDailyView || editDailyEdit; // edit implies view
+        const { error: permError } = await (supabase as any)
+          .from('daily_report_permissions')
+          .upsert(
+            {
+              user_id: userToEdit.user_id,
+              can_view: view,
+              can_edit: editDailyEdit,
+              updated_by: profile?.user_id ?? null,
+            },
+            { onConflict: 'user_id' }
+          );
+        if (permError) {
+          console.error('Error updating Daily Report permissions:', permError);
+          throw new Error(permError.message || 'Failed to save Daily Report permissions');
+        }
+      }
+
       await fetchUsers();
       setIsEditDialogOpen(false);
       setUserToEdit(null);
@@ -732,6 +770,7 @@ const AdminUsers = () => {
                 <TableHead>Ext</TableHead>
                 <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Daily Report</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -756,6 +795,17 @@ const AdminUsers = () => {
                     ) : (
                       <Badge variant="outline">No role</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {user.daily_report_can_edit ? (
+                        <Badge variant="default">Edit</Badge>
+                      ) : user.daily_report_can_view ? (
+                        <Badge variant="secondary">View</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">None</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {new Date(user.created_at).toLocaleDateString()}
@@ -789,7 +839,7 @@ const AdminUsers = () => {
               ))}
               {filteredUsers.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     {users.length === 0 ? "No users found" : "No users match the current filters"}
                   </TableCell>
                 </TableRow>
@@ -884,6 +934,45 @@ const AdminUsers = () => {
                 onChange={(e) => setEditExt(e.target.value)}
                 placeholder="e.g. 101"
               />
+            </div>
+
+            <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Beverly Daily Report</p>
+                <p className="text-xs text-muted-foreground">
+                  {userToEdit?.roles.includes('admin')
+                    ? "Admins always have full access to the Daily Report."
+                    : "Control whether this user can see the Daily Report page (and the add-row button in Reports) and whether they can edit entries."}
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-daily-view" className="text-sm cursor-pointer">
+                  Can view Daily Report
+                </Label>
+                <Switch
+                  id="edit-daily-view"
+                  checked={editDailyView || editDailyEdit}
+                  onCheckedChange={(checked) => {
+                    setEditDailyView(checked);
+                    if (!checked) setEditDailyEdit(false);
+                  }}
+                  disabled={userToEdit?.roles.includes('admin')}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-daily-edit" className="text-sm cursor-pointer">
+                  Can edit Daily Report
+                </Label>
+                <Switch
+                  id="edit-daily-edit"
+                  checked={editDailyEdit}
+                  onCheckedChange={(checked) => {
+                    setEditDailyEdit(checked);
+                    if (checked) setEditDailyView(true);
+                  }}
+                  disabled={userToEdit?.roles.includes('admin')}
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

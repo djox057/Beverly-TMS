@@ -104,6 +104,7 @@ import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
 import { AddDailyReportRowDialog } from "@/components/AddDailyReportRowDialog";
+import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
@@ -936,6 +937,7 @@ const Reports = () => {
     dispatcherName: string | null;
     office: string | null;
   } | null>(null);
+  const { canEdit: canEditDailyReport } = useDailyReportPermissions();
   // Driver Problem dialog state
   const [problemDialog, setProblemDialog] = useState<{
     driverId: string;
@@ -5627,6 +5629,7 @@ const Reports = () => {
                                                 )}
                                             </div>
                                             {/* Add Daily Report Row Icon - Bottom Right Corner */}
+                                            {canEditDailyReport && (
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <button
@@ -5652,6 +5655,7 @@ const Reports = () => {
                                                 <p className="text-xs">Add Daily Report Row</p>
                                               </TooltipContent>
                                             </Tooltip>
+                                            )}
                                           </td>
                                           <td
                                             className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
