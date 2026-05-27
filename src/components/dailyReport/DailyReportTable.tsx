@@ -501,7 +501,7 @@ export const DailyReportTable = ({
         {visibleRows.map((row) => (
           <div
             key={row.__id}
-            className={cn("grid group dark:hover:bg-muted/30", colorBg(row.color as string | null))}
+            className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((c) => (
@@ -523,7 +523,7 @@ export const DailyReportTable = ({
                           <PopoverTrigger asChild>
                             <button
                               type="button"
-                              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground dark:hover:text-primary"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
                               aria-label="Show driver and dispatcher"
                             >
                               <Info className="h-3.5 w-3.5" />
@@ -564,7 +564,7 @@ export const DailyReportTable = ({
                           value: (row[c.key] as string) ?? "",
                         })
                       }
-                      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground dark:hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label={`Expand ${c.label}`}
                       title={`Open ${c.label}`}
                     >
@@ -579,7 +579,7 @@ export const DailyReportTable = ({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground dark:hover:text-primary flex items-center justify-center transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary flex items-center justify-center transition-opacity"
                   aria-label="Color row"
                 >
                   <PaintBucket className="h-3.5 w-3.5" />
@@ -593,7 +593,7 @@ export const DailyReportTable = ({
                       type="button"
                       onClick={() => setRowColor(row.__id, c.value)}
                       className={cn(
-                        "w-full flex items-center gap-2 px-2 py-1 rounded dark:hover:bg-muted",
+                        "w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-muted",
                         row.color === c.value && "bg-muted"
                       )}
                     >
@@ -605,7 +605,7 @@ export const DailyReportTable = ({
                     <button
                       type="button"
                       onClick={() => setRowColor(row.__id, null)}
-                      className="w-full text-left px-2 py-1 rounded dark:hover:bg-muted text-muted-foreground border-t border-border mt-1 pt-1.5"
+                      className="w-full text-left px-2 py-1 rounded hover:bg-muted text-muted-foreground border-t border-border mt-1 pt-1.5"
                     >
                       Clear color
                     </button>
@@ -626,7 +626,7 @@ export const DailyReportTable = ({
                   setConfirmDeleteId(row.__id);
                 }
               }}
-              className="opacity-0 group-hover:opacity-100 text-muted-foreground dark:hover:text-destructive flex items-center justify-center transition-opacity"
+              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive flex items-center justify-center transition-opacity"
               aria-label="Delete row"
             >
               <Trash2 className="h-3.5 w-3.5" />

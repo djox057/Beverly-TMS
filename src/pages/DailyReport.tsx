@@ -225,7 +225,7 @@ const DailyReport = () => {
               <button
                 type="button"
                 onClick={() => setTruckQuery("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:hover:text-foreground"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
