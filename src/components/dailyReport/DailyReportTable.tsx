@@ -173,11 +173,13 @@ export const DailyReportTable = ({
       for (const c of columns) r[c.key] = (d as any)[c.key] ?? "";
       r.driver_name = (d.driver_name as string | null) ?? null;
       r.dispatcher_name = (d.dispatcher_name as string | null) ?? null;
+      r.color = (d.color as string | null) ?? null;
       savedSnapshotRef.current[d.id] = JSON.stringify(
         Object.fromEntries([
           ...columns.map((c) => [c.key, (d as any)[c.key] ?? ""]),
           ["__driver", (d.driver_name as string) ?? ""],
           ["__dispatcher", (d.dispatcher_name as string) ?? ""],
+          ["__color", (d.color as string) ?? ""],
         ])
       );
       return r as Row;
