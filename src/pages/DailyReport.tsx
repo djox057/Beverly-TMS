@@ -1,18 +1,38 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, addDays } from "date-fns";
-import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DailyReportTable, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { getChicagoToday } from "@/pages/Reports/helpers";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const OFFICES = ["CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR"] as const;
+
+const COLOR_FILTERS = [
+  { value: "orange", label: "Late" },
+  { value: "cyan", label: "No load" },
+  { value: "yellow", label: "Problem" },
+  { value: "red", label: "Recovery" },
+  { value: "green", label: "Resolved" },
+] as const;
+
+const typeToTab = (type: string, office: string | null): string | null => {
+  if (office) return office;
+  if (type === "Maintenance") return "MAINTENANCE";
+  if (type === "Afterhours") return "AFTERHOURS";
+  if (type === "Recoveries") return "RECOVERIES";
+  if (type === "New driver") return "NEW_DRIVER";
+  return null;
+};
 
 const EMPTY_LATE_COLS: DailyReportColumn[] = [
   { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
@@ -29,7 +49,19 @@ const WIDE_NOTE_COLS: DailyReportColumn[] = [
   { key: "note", label: "Note", width: "1fr" },
 ];
 
-const OfficeTab = ({ office, date, readOnly }: { office: string; date: Date; readOnly: boolean }) => (
+const OfficeTab = ({
+  office,
+  date,
+  readOnly,
+  truckFilter,
+  colorFilter,
+}: {
+  office: string;
+  date: Date;
+  readOnly: boolean;
+  truckFilter: string;
+  colorFilter: string | null;
+}) => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
@@ -39,6 +71,8 @@ const OfficeTab = ({ office, date, readOnly }: { office: string; date: Date; rea
       office={office}
       type="Empty & Late for delivery"
       readOnly={readOnly}
+      truckFilter={truckFilter}
+      colorFilter={colorFilter}
     />
     <DailyReportTable
       title={`${office} — Home`}
@@ -48,6 +82,8 @@ const OfficeTab = ({ office, date, readOnly }: { office: string; date: Date; rea
       office={office}
       type="Home"
       readOnly={readOnly}
+      truckFilter={truckFilter}
+      colorFilter={colorFilter}
     />
   </div>
 );
@@ -56,6 +92,50 @@ const DailyReport = () => {
   const [date, setDate] = useState<Date>(() => getChicagoToday());
   const [activeTab, setActiveTab] = useState<string>("CACAK");
   const { canView, canEdit, loading } = useDailyReportPermissions();
+  const [truckQuery, setTruckQuery] = useState("");
+  const [colorFilter, setColorFilter] = useState<string | null>(null);
+  const [matchByDate, setMatchByDate] = useState<Map<string, string>>(new Map());
+
+  // When truck query is set, fetch all dates/offices where this truck appears
+  useEffect(() => {
+    const q = truckQuery.trim();
+    if (!q) {
+      setMatchByDate(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("daily_report_entries")
+        .select("date, office, type, truck")
+        .ilike("truck", `%${q}%`);
+      if (cancelled || error || !data) return;
+      const map = new Map<string, string>();
+      for (const r of data as any[]) {
+        const tab = typeToTab(r.type, r.office ?? null);
+        if (!tab || !r.date) continue;
+        if (!map.has(r.date)) map.set(r.date, tab);
+      }
+      setMatchByDate(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [truckQuery]);
+
+  // Auto-switch tab when the selected date has the matching truck in another office
+  useEffect(() => {
+    if (!truckQuery.trim()) return;
+    const key = format(date, "yyyy-MM-dd");
+    const tab = matchByDate.get(key);
+    if (tab && tab !== activeTab) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, matchByDate, truckQuery]);
+
+  const dateDisabled = useMemo(() => {
+    if (!truckQuery.trim()) return undefined;
+    return (d: Date) => !matchByDate.has(format(d, "yyyy-MM-dd"));
+  }, [truckQuery, matchByDate]);
 
   if (loading) {
     return (
@@ -84,7 +164,43 @@ const DailyReport = () => {
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-foreground">Beverly Daily Report</h1>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={truckQuery}
+              onChange={(e) => setTruckQuery(e.target.value)}
+              placeholder="Search truck #"
+              className="h-9 w-44 pl-7 pr-7 text-sm"
+            />
+            {truckQuery && (
+              <button
+                type="button"
+                onClick={() => setTruckQuery("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Select
+            value={colorFilter ?? "__all"}
+            onValueChange={(v) => setColorFilter(v === "__all" ? null : v)}
+          >
+            <SelectTrigger className="h-9 w-36 text-sm">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All statuses</SelectItem>
+              {COLOR_FILTERS.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon"
@@ -107,6 +223,7 @@ const DailyReport = () => {
                 onSelect={(d) => d && setDate(d)}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
+                disabled={dateDisabled}
               />
             </PopoverContent>
           </Popover>
@@ -118,6 +235,7 @@ const DailyReport = () => {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
+          </div>
         </div>
       </div>
 
@@ -148,7 +266,13 @@ const DailyReport = () => {
 
         {OFFICES.map((o) => (
           <TabsContent key={o} value={o} className="mt-4">
-            <OfficeTab office={o} date={date} readOnly={readOnly} />
+            <OfficeTab
+              office={o}
+              date={date}
+              readOnly={readOnly}
+              truckFilter={truckQuery}
+              colorFilter={colorFilter}
+            />
           </TabsContent>
         ))}
 
@@ -160,6 +284,8 @@ const DailyReport = () => {
             date={date}
             type="Maintenance"
             readOnly={readOnly}
+            truckFilter={truckQuery}
+            colorFilter={colorFilter}
           />
         </TabsContent>
         <TabsContent value="AFTERHOURS" className="mt-4">
@@ -170,6 +296,8 @@ const DailyReport = () => {
             date={date}
             type="Afterhours"
             readOnly={readOnly}
+            truckFilter={truckQuery}
+            colorFilter={colorFilter}
           />
         </TabsContent>
         <TabsContent value="RECOVERIES" className="mt-4">
@@ -180,6 +308,8 @@ const DailyReport = () => {
             date={date}
             type="Recoveries"
             readOnly={readOnly}
+            truckFilter={truckQuery}
+            colorFilter={colorFilter}
           />
         </TabsContent>
         <TabsContent value="NEW_DRIVER" className="mt-4">
@@ -190,6 +320,8 @@ const DailyReport = () => {
             date={date}
             type="New driver"
             readOnly={readOnly}
+            truckFilter={truckQuery}
+            colorFilter={colorFilter}
           />
         </TabsContent>
       </Tabs>
