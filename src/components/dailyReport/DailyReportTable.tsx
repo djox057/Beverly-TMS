@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Row color palette (value stored in DB as `color`, label shown to user)
-const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
+export const ROW_COLORS: { value: string; label: string; bg: string; swatch: string }[] = [
   { value: "orange", label: "Late", bg: "bg-orange-400/80 dark:bg-orange-500/70", swatch: "bg-orange-400" },
   { value: "cyan", label: "No load", bg: "bg-cyan-400/80 dark:bg-cyan-500/70", swatch: "bg-cyan-400" },
   { value: "yellow", label: "Problem", bg: "bg-yellow-300/90 dark:bg-yellow-400/70", swatch: "bg-yellow-400" },
