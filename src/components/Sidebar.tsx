@@ -74,6 +74,7 @@ const navigation = [
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Home time", href: "/problems", icon: FileText, roles: ['supervisor', 'manager', 'admin'] },
+  { name: "Daily Report", href: "/daily-report", icon: FileText, roles: ['supervisor', 'manager', 'admin'] },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours', 'yard'] },

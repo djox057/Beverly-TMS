@@ -37,6 +37,7 @@ import EfsRequests from "./pages/EfsRequests";
 import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
+import DailyReport from "./pages/DailyReport";
 import Billboard from "./pages/Billboard";
 import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
@@ -209,6 +210,11 @@ const AppContent = () => {
         <Route path="/problems" element={
           <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
             <Layout><Problems /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/daily-report" element={
+          <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
+            <Layout><DailyReport /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/billboard" element={
