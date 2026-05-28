@@ -63,6 +63,8 @@ serve(async (req) => {
 
     const apiKey1 = Deno.env.get('SAMSARA_API_KEY_1');
     const apiKey2 = Deno.env.get('SAMSARA_API_KEY_2');
+    const apiKey3 = Deno.env.get('SAMSARA_API_KEY_3');
+    const apiKey4 = Deno.env.get('SAMSARA_API_KEY_4');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
