@@ -65,6 +65,7 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
+  { name: "BG Loads", href: "/bg-loads", icon: FileText },
   { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management', 'yard', 'afterhours'] },
   { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management', 'safety', 'dispatch'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
