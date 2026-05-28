@@ -338,7 +338,7 @@ const DailyReport = () => {
               value={o}
               className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight"
             >
-              {o}
+              {officeLabel(o)}
             </TabsTrigger>
           ))}
           <TabsTrigger value="MAINTENANCE" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
@@ -357,6 +357,21 @@ const DailyReport = () => {
             Safety
           </TabsTrigger>
         </TabsList>
+
+        {/* Hidden combined view shown only while a status filter is active */}
+        <TabsContent value="__FILTER" className="mt-4">
+          {colorFilter && (
+            <FilteredStatusTable
+              date={date}
+              colorFilter={colorFilter}
+              filterLabel={
+                COLOR_FILTERS.find((c) => c.value === colorFilter)?.label ??
+                colorFilter
+              }
+              truckFilter={truckQuery}
+            />
+          )}
+        </TabsContent>
 
         {OFFICES.map((o) => (
           <TabsContent key={o} value={o} className="mt-4">
