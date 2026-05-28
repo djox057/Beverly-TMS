@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route, TrendingUp, TrendingDown, Minus, Repeat } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -43,6 +43,30 @@ interface TriHaulCombo {
 
 type TriSortKey = "intermediate" | "leg1_freight" | "leg1_rpm" | "leg2_freight" | "leg2_rpm" | "total_freight" | "total_miles" | "combined_rpm";
 
+interface DeepLane {
+  broker_id: string;
+  broker_name: string;
+  broker_mc: string;
+  pickup_city: string;
+  pickup_state: string;
+  delivery_city: string;
+  delivery_state: string;
+  load_count: number;
+  avg_freight: number;
+  avg_miles: number;
+  avg_rpm: number;
+  last30_rpm: number;
+  prior30_rpm: number;
+  last30_count: number;
+  prior30_count: number;
+  trend_pct: number | null;
+  expected_rpm: number;
+  expected_rate: number;
+  order_ids: string[];
+}
+
+type DeepSortKey = "lane" | "broker_name" | "load_count" | "avg_rpm" | "last30_rpm" | "trend_pct" | "expected_rate";
+
 export default function BeverlyHeatmapLane() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -59,6 +83,10 @@ export default function BeverlyHeatmapLane() {
   const [triHaulMode, setTriHaulMode] = useState(false);
   const [triSort, setTriSort] = useState<{ key: TriSortKey; dir: "asc" | "desc" }>({ key: "total_freight", dir: "desc" });
   const [selectedTriCombo, setSelectedTriCombo] = useState<TriHaulCombo | null>(null);
+  const [deepMode, setDeepMode] = useState(false);
+  const [deepScope, setDeepScope] = useState<"global" | "filtered">("global");
+  const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
+  const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
@@ -135,6 +163,96 @@ export default function BeverlyHeatmapLane() {
     },
     enabled: hasCoords && !triHaulMode,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Deep search query
+  const deepEnabled = deepMode && (deepScope === "global" || hasCoords);
+  const { data: deepData, isLoading: isLoadingDeep } = useQuery({
+    queryKey: ["heatmap-lane-deep", deepScope, pickupCoords, deliveryCoords, startDateStr, endDateStr],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("lane-deep-search", {
+        body: {
+          scope: deepScope,
+          pickup: deepScope === "filtered" ? pickupCoords : null,
+          delivery: deepScope === "filtered" ? deliveryCoords : null,
+          dateFrom: startDateStr ?? null,
+          dateTo: endDateStr ?? null,
+          minRepeats: 3,
+        },
+      });
+      if (error) throw error;
+      return data as { lanes: DeepLane[]; truncated: boolean; scanned: number };
+    },
+    enabled: deepEnabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const sortedDeep = useMemo(() => {
+    if (!deepData?.lanes) return [];
+    const rows = [...deepData.lanes];
+    const { key, dir } = deepSort;
+    rows.sort((a, b) => {
+      let cmp = 0;
+      switch (key) {
+        case "lane":
+          cmp = `${a.pickup_city},${a.pickup_state}→${a.delivery_city},${a.delivery_state}`
+            .localeCompare(`${b.pickup_city},${b.pickup_state}→${b.delivery_city},${b.delivery_state}`);
+          break;
+        case "broker_name": cmp = a.broker_name.localeCompare(b.broker_name); break;
+        case "load_count": cmp = a.load_count - b.load_count; break;
+        case "avg_rpm": cmp = a.avg_rpm - b.avg_rpm; break;
+        case "last30_rpm": cmp = a.last30_rpm - b.last30_rpm; break;
+        case "trend_pct": cmp = (a.trend_pct ?? -999) - (b.trend_pct ?? -999); break;
+        case "expected_rate": cmp = a.expected_rate - b.expected_rate; break;
+      }
+      return dir === "asc" ? cmp : -cmp;
+    });
+    return rows;
+  }, [deepData?.lanes, deepSort]);
+
+  const handleDeepSort = (key: DeepSortKey) => {
+    setDeepSort(prev => prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
+  };
+  const DeepSortIcon = ({ columnKey }: { columnKey: DeepSortKey }) => {
+    if (deepSort.key !== columnKey) return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
+    return deepSort.dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 ml-1" /> : <ArrowDown className="h-3.5 w-3.5 ml-1" />;
+  };
+
+  // Order details for selected deep lane (reuse same shape as broker dialog)
+  const deepDialogOrderIds = selectedDeepLane?.order_ids || [];
+  const { data: deepOrderDetails = [], isLoading: isLoadingDeepOrders } = useQuery({
+    queryKey: ["heatmap-lane-deep-orders", deepDialogOrderIds],
+    queryFn: async () => {
+      if (deepDialogOrderIds.length === 0) return [];
+      const allDetails: { id: string; broker_load_number: string | null; freight_amount: number | null; loaded_miles: number | null; pickup_datetime: string | null; pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[] }[] = [];
+      for (let i = 0; i < deepDialogOrderIds.length; i += 200) {
+        const chunk = deepDialogOrderIds.slice(i, i + 200);
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("id, broker_load_number, freight_amount, loaded_miles, pickup_datetime")
+          .in("id", chunk);
+        if (!orders) continue;
+        const oids = orders.map((o: any) => o.id);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, city, state, type")
+          .in("order_id", oids)
+          .order("sequence_number", { ascending: true });
+        const pdMap = new Map<string, { city: string | null; state: string | null; stop_type: string | null }[]>();
+        for (const pd of pds || []) {
+          if (!pdMap.has(pd.order_id)) pdMap.set(pd.order_id, []);
+          pdMap.get(pd.order_id)!.push({ city: pd.city, state: pd.state, stop_type: pd.type });
+        }
+        for (const o of orders) {
+          allDetails.push({ ...(o as any), pickup_drops: pdMap.get(o.id) || [] });
+        }
+      }
+      // newest first
+      allDetails.sort((a, b) => (b.pickup_datetime || "").localeCompare(a.pickup_datetime || ""));
+      return allDetails;
+    },
+    enabled: deepDialogOrderIds.length > 0,
+    staleTime: 0,
   });
 
   // Tri-haul query
