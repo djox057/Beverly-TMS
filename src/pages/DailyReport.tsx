@@ -64,7 +64,11 @@ const OfficeTab = ({
   readOnly: boolean;
   truckFilter: string;
   colorFilter: string | null;
-}) => (
+}) => {
+  // When a specific status is selected, aggregate rows across ALL offices
+  // (in addition to applying the color filter client-side).
+  const ignoreOffice = !!colorFilter;
+  return (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
       title={`${office} — Empty & Late for delivery`}
@@ -76,6 +80,7 @@ const OfficeTab = ({
       readOnly={readOnly}
       truckFilter={truckFilter}
       colorFilter={colorFilter}
+      ignoreOffice={ignoreOffice}
     />
     <DailyReportTable
       title={`${office} — Home`}
@@ -87,9 +92,11 @@ const OfficeTab = ({
       readOnly={readOnly}
       truckFilter={truckFilter}
       colorFilter={colorFilter}
+      ignoreOffice={ignoreOffice}
     />
   </div>
-);
+  );
+};
 
 const DailyReport = () => {
   const [date, setDate] = useState<Date>(() => getChicagoToday());
