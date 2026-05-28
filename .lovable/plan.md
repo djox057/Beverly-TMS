@@ -1,35 +1,34 @@
-# Fix "—" for miles away — keep stale values up to 24h, no badges
+Root cause found: the GPS for truck 20768 is good, but the destination coordinate saved for its Cartersville, GA delivery is invalid:
 
-## Root cause (confirmed via live data)
+```text
+Truck GPS:      34.443785, -84.915464  (near Cartersville/Rome, GA)
+Delivery stop:  64.635868, -153.180997 (Alaska)
+Displayed:      4497 miles away
+```
 
-`update-truck-distances` currently overwrites `trucks.miles_away` with `NULL` whenever Samsara's last GPS ping for that truck is older than 30 minutes. For Čačak right now, 16 trucks fall into this bucket and render as "—", even though they had a perfectly good value an hour ago.
+Plan:
 
-A secondary contributor: the `adapter-trucks` React Query has `staleTime: 300_000` (5 min) and no `refetchOnWindowFocus`, so even when the DB has fresh values, the browser keeps showing old NULLs for several minutes.
+1. **Prevent bad distance writes in `update-truck-distances`**
+   - Validate pickup/delivery coordinates before calculating `miles_away`.
+   - Reject coordinates outside the continental U.S.
+   - Reject coordinates that do not match the stop’s state when a state is present.
+   - If destination coordinates are invalid, do not calculate a large fake number; clear `miles_away`/`eta_minutes` for that truck instead of showing 4000+.
 
-## Plan
+2. **Prevent new bad coordinates from being saved**
+   - Add coordinate validation around geocoding in `NewOrder.tsx` and `EditOrder.tsx`.
+   - If Mapbox returns a coordinate outside the stop’s state, discard it instead of saving it to `pickup_drops`.
+   - This keeps addresses like “a, Cartersville, GA” from being saved as Alaska coordinates.
 
-### 1. Stop nuking `miles_away` for short-term stale GPS (server)
-File: `supabase/functions/update-truck-distances/index.ts`
+3. **Clean existing bad data**
+   - Run a migration/update to null out existing `pickup_drops.latitude/longitude` values that are outside the stop’s state or outside normal U.S. bounds.
+   - This will remove the bad Alaska coordinate from the current Cartersville load.
 
-- Add a new column `trucks.miles_away_updated_at timestamptz` (migration with GRANTs).
-- On every successful recompute, set `miles_away = X` AND `miles_away_updated_at = now()`.
-- When Samsara returns no fresh location for a truck:
-  - If the existing `miles_away_updated_at` is within the last 24 hours → leave `miles_away` and `eta_minutes` untouched (skip the update entirely).
-  - If older than 24 hours OR null → set `miles_away = NULL` (current behavior, so genuinely abandoned trucks still clear out).
+4. **Force affected miles-away values to refresh safely**
+   - Clear `trucks.miles_away`/`eta_minutes` for trucks whose current active stop coordinates are invalid, including truck 20768.
+   - Next scheduled distance run will calculate only when valid destination coordinates exist, so bad 4000+ values won’t return.
 
-No UI badge, no sentinel — the dispatcher just sees the last known number for up to 24h.
+Technical details:
 
-### 2. Make the browser pick up fresh values quickly (client)
-File: `src/hooks/useReportsDateWindowAdapter.ts`
-
-- Lower `adapter-trucks` `staleTime` from `300_000` → `60_000`.
-- Add `refetchOnWindowFocus: true` on that query so coming back to the tab pulls the latest cron output.
-
-That's it — no UI changes, no schema-visible labels, and the "—" only appears for trucks that haven't had a valid GPS-derived distance in the past 24 hours.
-
-## Technical notes
-
-- Migration: `ALTER TABLE public.trucks ADD COLUMN miles_away_updated_at timestamptz;` (no new table, so no extra GRANTs needed — `trucks` already has them).
-- Backfill: `UPDATE public.trucks SET miles_away_updated_at = now() WHERE miles_away IS NOT NULL;` so the next stale-GPS run doesn't immediately wipe everything.
-- The 30-min Samsara freshness threshold in `samsara-locations` stays as-is — we just no longer punish the dispatcher view for it.
-- `useTrucks` (global) is unchanged; only the Reports adapter query is tuned.
+- No UI badges or labels will be added.
+- The 24-hour stale-value behavior stays for missing/stale GPS.
+- The new validation targets destination-stop coordinate quality, which is separate from GPS freshness.
