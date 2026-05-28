@@ -799,6 +799,11 @@ export default function BeverlyHeatmap() {
         <TabsContent value="lane">
           <BeverlyHeatmapLane />
         </TabsContent>
+        {canDeepSearch && (
+          <TabsContent value="deep-search">
+            <BeverlyHeatmapDeepSearch />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
