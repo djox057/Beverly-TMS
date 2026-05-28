@@ -59,7 +59,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const externalServiceUrl = Deno.env.get('DISTANCE_SERVICE_URL');
 
-    const truckLocations = await fetchSamsaraLocations(apiKeys);
+    if (apiKeys.length === 0) {
       throw new Error('Samsara API keys not configured');
     }
 
@@ -67,7 +67,7 @@ serve(async (req) => {
 
     // Step 1: Fetch all truck locations from Samsara
     console.log('📍 Step 1: Fetching truck locations from Samsara...');
-    const truckLocations = await fetchSamsaraLocations([apiKey1, apiKey2]);
+    const truckLocations = await fetchSamsaraLocations(apiKeys);
     console.log(`✅ Got ${truckLocations.size} truck locations from Samsara`);
 
     // Step 2: Fetch trucks with active orders and their destination coordinates
