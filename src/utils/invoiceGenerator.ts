@@ -502,42 +502,51 @@ export const generateInvoicePDF = async (
       doc.text("TOTAL:", 164, yPosition + 5);
       doc.text(formatCurrency(finalTotal), 184, yPosition + 5);
 
-      // Notice section
-      yPosition += 30;
-      doc.setTextColor(255, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text("NOTICE OF ASSIGMENT", 105, yPosition, { align: "center" });
+      // Notice section — skipped for BG Prime Inc
+      const isBgPrime = derivedCompany === "BG Prime Inc";
+      if (!isBgPrime) {
+        yPosition += 30;
+        doc.setTextColor(255, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("NOTICE OF ASSIGMENT", 105, yPosition, { align: "center" });
 
-      yPosition += 6;
-      doc.setFont("helvetica", "normal");
-      doc.text("This invoice is assigned to, owned by and only payable to:", 105, yPosition, { align: "center" });
+        yPosition += 6;
+        doc.setFont("helvetica", "normal");
+        doc.text("This invoice is assigned to, owned by and only payable to:", 105, yPosition, { align: "center" });
 
-      yPosition += 8;
-      doc.setFont("helvetica", "bold");
-      doc.text("Capital Depot INC", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("606 Potter Road", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("Des Plaines IL 60016", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("847-470-1687", 105, yPosition, { align: "center" });
+        yPosition += 8;
+        doc.setFont("helvetica", "bold");
+        doc.text("Capital Depot INC", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("606 Potter Road", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("Des Plaines IL 60016", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("847-470-1687", 105, yPosition, { align: "center" });
 
-      yPosition += 8;
-      doc.setFont("helvetica", "normal");
-      doc.text("ACH Payments to be sent to:", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("Account name: Capital Depot INC", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("Routing Number: 071000013", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("Account Number: 522702898", 105, yPosition, { align: "center" });
-      yPosition += 5;
-      doc.text("Remittance address: AR@capitaldepot.com", 105, yPosition, { align: "center" });
+        yPosition += 8;
+        doc.setFont("helvetica", "normal");
+        doc.text("ACH Payments to be sent to:", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("Account name: Capital Depot INC", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("Routing Number: 071000013", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("Account Number: 522702898", 105, yPosition, { align: "center" });
+        yPosition += 5;
+        doc.text("Remittance address: AR@capitaldepot.com", 105, yPosition, { align: "center" });
+      }
 
       // Footer
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(8);
-      doc.text("Beverly Trucking Software", 105, 280, { align: "center" });
+      if (isBgPrime) {
+        doc.setTextColor(0, 0, 255);
+        doc.text("Beverly Trucking Software", 105, 280, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      } else {
+        doc.text("Beverly Trucking Software", 105, 280, { align: "center" });
+      }
       doc.text("Page 1 Of 1", 190, 280);
 
       // Get PDF bytes and collect RC/POD/Additional files for this order
