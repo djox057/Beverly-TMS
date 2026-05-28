@@ -7,14 +7,23 @@ import { ROW_COLORS } from "./DailyReportTable";
 const colorBg = (c?: string | null) =>
   ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
 
-const TYPE_LABELS: Record<string, string> = {
+const SECTION_LABELS: Record<string, string> = {
   "Empty & Late for delivery": "Empty & Late",
   Home: "Home",
+};
+
+// Types without an office act as their own "office" group.
+const TYPE_AS_OFFICE: Record<string, string> = {
   Maintenance: "Maintenance",
   Afterhours: "Afterhours",
   Recoveries: "Recoveries",
   "New driver": "New driver",
   Safety: "Safety",
+};
+
+const officeDisplay = (office: string | null, type: string): string => {
+  if (office) return office === "CACAK" ? "ČAČAK" : office;
+  return TYPE_AS_OFFICE[type] ?? type;
 };
 
 interface Row {
@@ -88,7 +97,7 @@ export const FilteredStatusTable = ({
       </div>
       <div
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
-        style={{ gridTemplateColumns: "140px 110px 140px 90px 1fr" }}
+        style={{ gridTemplateColumns: "160px 110px 120px 90px 1fr" }}
       >
         <div className="px-2 py-1.5 border-r border-border">Office</div>
         <div className="px-2 py-1.5 border-r border-border">Truck#</div>
@@ -106,16 +115,16 @@ export const FilteredStatusTable = ({
           <div
             key={r.id}
             className={cn("grid text-sm", colorBg(r.color))}
-            style={{ gridTemplateColumns: "140px 110px 140px 90px 1fr" }}
+            style={{ gridTemplateColumns: "160px 110px 120px 90px 1fr" }}
           >
             <div className="px-2 py-1.5 border-r border-border truncate font-medium">
-              {r.office ?? "—"}
+              {officeDisplay(r.office, r.type)}
             </div>
             <div className="px-2 py-1.5 border-r border-border truncate">
               {r.truck ?? ""}
             </div>
             <div className="px-2 py-1.5 border-r border-border truncate">
-              {TYPE_LABELS[r.type] ?? r.type}
+              {SECTION_LABELS[r.type] ?? ""}
             </div>
             <div className="px-2 py-1.5 border-r border-border truncate">
               {r.home_date ?? ""}
