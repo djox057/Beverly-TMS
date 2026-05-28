@@ -237,10 +237,6 @@ export default function BeverlyHeatmapDeepSearch() {
       )}
 
       {!isLoadingDeep && deepData && deepData.lanes.length === 0 && (
-          Enter pickup and/or delivery, click Geocode, then results will filter to that lane.
-        </div>
-      )}
-      {!isLoadingDeep && deepData && deepData.lanes.length === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           No repeat lanes (≥3 loads) found.
         </div>
