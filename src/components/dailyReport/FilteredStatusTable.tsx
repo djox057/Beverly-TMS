@@ -109,6 +109,7 @@ export const FilteredStatusTable = ({
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
         style={{ gridTemplateColumns: gridCols }}
       >
+        <div className="px-1 py-1.5 border-r border-border text-center">#</div>
         <div className="px-2 py-1.5 border-r border-border">Office</div>
         <div className="px-2 py-1.5 border-r border-border">Truck#</div>
         {showDate && (
