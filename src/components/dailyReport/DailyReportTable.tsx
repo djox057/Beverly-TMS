@@ -517,7 +517,7 @@ export const DailyReportTable = ({
                       readOnly={readOnly}
                       list={datalistId}
                       autoComplete="off"
-                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                      className="h-8 border-0 rounded-none text-sm px-1 pr-6 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                     />
                     {((row[c.key] as string) ?? "").trim() &&
                       (row.driver_name || row.dispatcher_name) && (
@@ -568,7 +568,10 @@ export const DailyReportTable = ({
                       placeholder={c.mmddDate ? "MM/DD" : undefined}
                       inputMode={c.mmddDate ? "numeric" : undefined}
                       maxLength={c.mmddDate ? 5 : undefined}
-                      className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                      className={cn(
+                        "h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30",
+                        c.mmddDate ? "px-1 text-center" : "pr-7"
+                      )}
                     />
                     {!c.mmddDate && (
                     <button
