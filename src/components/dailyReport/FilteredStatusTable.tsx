@@ -51,7 +51,7 @@ export const FilteredStatusTable = ({
   const [rows, setRows] = useState<Row[]>([]);
   const dateStr = format(date, "yyyy-MM-dd");
 
-  const showSectionAndDate = !colorFilter || colorFilter === "home_time";
+  const showSectionAndDate = colorFilter === "home_time";
 
   useEffect(() => {
     let cancelled = false;
