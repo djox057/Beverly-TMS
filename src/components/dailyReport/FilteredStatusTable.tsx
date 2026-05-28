@@ -97,8 +97,8 @@ export const FilteredStatusTable = ({
 
   const showDate = colorFilter === "home_time";
   const gridCols = showDate
-    ? "160px 110px 90px 1fr"
-    : "160px 110px 1fr";
+    ? "32px 160px 110px 90px 1fr"
+    : "32px 160px 110px 1fr";
 
   return (
     <div className="border border-border rounded-md overflow-hidden bg-card">
@@ -109,6 +109,7 @@ export const FilteredStatusTable = ({
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
         style={{ gridTemplateColumns: gridCols }}
       >
+        <div className="px-1 py-1.5 border-r border-border text-center">#</div>
         <div className="px-2 py-1.5 border-r border-border">Office</div>
         <div className="px-2 py-1.5 border-r border-border">Truck#</div>
         {showDate && (
@@ -122,12 +123,15 @@ export const FilteredStatusTable = ({
             No matching rows
           </div>
         )}
-        {visible.map((r) => (
+        {visible.map((r, i) => (
           <div
             key={r.id}
             className={cn("grid text-sm", colorBg(r.color))}
             style={{ gridTemplateColumns: gridCols }}
           >
+            <div className="px-1 py-1.5 border-r border-border text-center text-xs text-muted-foreground">
+              {i + 1}
+            </div>
             <div className="px-2 py-1.5 border-r border-border truncate font-medium">
               {officeDisplay(r.office, r.type)}
             </div>

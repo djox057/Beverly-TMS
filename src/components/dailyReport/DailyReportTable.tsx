@@ -466,8 +466,8 @@ export const DailyReportTable = ({
   };
 
   const gridTemplate = readOnly
-    ? columns.map((c) => c.width).join(" ")
-    : `${columns.map((c) => c.width).join(" ")} 28px 28px`;
+    ? `32px ${columns.map((c) => c.width).join(" ")}`
+    : `32px ${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   const truckColKey = columns.find((c) => c.autocompleteTrucks)?.key;
   const filtering = !!truckFilter.trim() || !!colorFilter;
@@ -505,6 +505,7 @@ export const DailyReportTable = ({
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
         style={{ gridTemplateColumns: gridTemplate }}
       >
+        <div className="px-1 py-1.5 border-r border-border text-center">#</div>
         {columns.map((c) => (
           <div key={c.key} className="px-2 py-1.5 border-r border-border last:border-r-0">
             {c.label}
@@ -532,6 +533,9 @@ export const DailyReportTable = ({
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
             style={{ gridTemplateColumns: gridTemplate }}
           >
+            <div className="px-1 py-1.5 border-r border-border text-center text-xs text-muted-foreground">
+              {idx + 1}
+            </div>
             {columns.map((c) => (
               <div key={c.key} className="border-r border-border last:border-r-0 overflow-hidden">
                 {c.autocompleteTrucks ? (() => {
