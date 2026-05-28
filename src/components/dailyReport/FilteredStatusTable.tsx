@@ -51,6 +51,8 @@ export const FilteredStatusTable = ({
   const [rows, setRows] = useState<Row[]>([]);
   const dateStr = format(date, "yyyy-MM-dd");
 
+  const showSectionAndDate = !colorFilter || colorFilter === "home_time";
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -95,6 +97,10 @@ export const FilteredStatusTable = ({
     ? rows.filter((r) => (r.truck ?? "").toLowerCase().includes(truckNorm))
     : rows;
 
+  const gridColumns = showSectionAndDate
+    ? "160px 110px 120px 90px 1fr"
+    : "180px 120px 1fr";
+
   return (
     <div className="border border-border rounded-md overflow-hidden bg-card">
       <div className="px-3 py-2 bg-muted text-xs font-semibold uppercase tracking-wide text-foreground border-b border-border">
@@ -102,12 +108,16 @@ export const FilteredStatusTable = ({
       </div>
       <div
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
-        style={{ gridTemplateColumns: "160px 110px 120px 90px 1fr" }}
+        style={{ gridTemplateColumns: gridColumns }}
       >
         <div className="px-2 py-1.5 border-r border-border">Office</div>
         <div className="px-2 py-1.5 border-r border-border">Truck#</div>
-        <div className="px-2 py-1.5 border-r border-border">Section</div>
-        <div className="px-2 py-1.5 border-r border-border">Date</div>
+        {showSectionAndDate && (
+          <>
+            <div className="px-2 py-1.5 border-r border-border">Section</div>
+            <div className="px-2 py-1.5 border-r border-border">Date</div>
+          </>
+        )}
         <div className="px-2 py-1.5">Note</div>
       </div>
       <div className="divide-y divide-border">
@@ -120,7 +130,7 @@ export const FilteredStatusTable = ({
           <div
             key={r.id}
             className={cn("grid text-sm", colorBg(r.color))}
-            style={{ gridTemplateColumns: "160px 110px 120px 90px 1fr" }}
+            style={{ gridTemplateColumns: gridColumns }}
           >
             <div className="px-2 py-1.5 border-r border-border truncate font-medium">
               {officeDisplay(r.office, r.type)}
@@ -128,12 +138,16 @@ export const FilteredStatusTable = ({
             <div className="px-2 py-1.5 border-r border-border truncate">
               {r.truck ?? ""}
             </div>
-            <div className="px-2 py-1.5 border-r border-border truncate">
-              {SECTION_LABELS[r.type] ?? ""}
-            </div>
-            <div className="px-2 py-1.5 border-r border-border truncate">
-              {r.home_date ?? ""}
-            </div>
+            {showSectionAndDate && (
+              <>
+                <div className="px-2 py-1.5 border-r border-border truncate">
+                  {SECTION_LABELS[r.type] ?? ""}
+                </div>
+                <div className="px-2 py-1.5 border-r border-border truncate">
+                  {r.home_date ?? ""}
+                </div>
+              </>
+            )}
             <div className="px-2 py-1.5 truncate">{r.note ?? ""}</div>
           </div>
         ))}
