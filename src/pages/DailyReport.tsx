@@ -317,7 +317,17 @@ const DailyReport = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          // Clicking any tab while a status filter is active clears the filter
+          if (colorFilter && v !== "__FILTER") {
+            setColorFilter(null);
+          }
+          setActiveTab(v);
+        }}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-4 sm:grid-cols-9 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
