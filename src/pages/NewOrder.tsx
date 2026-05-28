@@ -295,14 +295,9 @@ const NewOrder = () => {
   const canSelectBgPrime = !driver1 || (!!bgPrimeCompany && driverCompanyId === bgPrimeCompany.id);
 
   const filteredCompanies = companies?.filter((c) => {
-    if (baseBookingCompanyNames.includes(c.name)) {
-      if (c.name === "BG Prime Inc" && !canSelectBgPrime) return false;
-      return true;
-    }
-    // Include the driver's company so it can be auto-selected even if it's
-    // not one of the default booking entities.
-    if (driverCompanyId && c.id === driverCompanyId && !canSelectBgPrime) return true;
-    return false;
+    if (!baseBookingCompanyNames.includes(c.name)) return false;
+    if (c.name === "BG Prime Inc" && !canSelectBgPrime) return false;
+    return true;
   });
 
   // If a driver whose company is NOT BG Prime is selected while
@@ -310,9 +305,10 @@ const NewOrder = () => {
   useEffect(() => {
     if (!driver1 || !driverCompanyId || !bgPrimeCompany) return;
     if (bookedByCompany === bgPrimeCompany.id && driverCompanyId !== bgPrimeCompany.id) {
-      setBookedByCompany(driverCompanyId);
+      const bfPrime = companies?.find((c) => c.name === "BF Prime LLC");
+      if (bfPrime) setBookedByCompany(bfPrime.id);
     }
-  }, [driver1, driverCompanyId, bgPrimeCompany?.id, bookedByCompany]);
+  }, [driver1, driverCompanyId, bgPrimeCompany?.id, bookedByCompany, companies]);
 
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(
     driverCompanyId,
