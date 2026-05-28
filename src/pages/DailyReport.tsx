@@ -32,6 +32,7 @@ const COLOR_FILTERS = [
   { value: "yellow", label: "Problem" },
   { value: "red", label: "Recovery" },
   { value: "green", label: "Resolved" },
+  { value: "home_time", label: "Home time" },
 ] as const;
 
 const typeToTab = (type: string, office: string | null): string | null => {
