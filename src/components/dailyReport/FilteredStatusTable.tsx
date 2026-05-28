@@ -146,7 +146,6 @@ export const FilteredStatusTable = ({
             <div className="px-2 py-1.5 truncate">{r.note ?? ""}</div>
           </div>
         ))}
-        ))}
       </div>
     </div>
   );
