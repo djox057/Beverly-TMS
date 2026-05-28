@@ -891,6 +891,65 @@ export default function BeverlyHeatmapLane() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Deep Search Lane Dialog */}
+      <Dialog open={!!selectedDeepLane} onOpenChange={(open) => { if (!open) setSelectedDeepLane(null); }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDeepLane && (
+                <>
+                  {selectedDeepLane.pickup_city}, {selectedDeepLane.pickup_state} → {selectedDeepLane.delivery_city}, {selectedDeepLane.delivery_state}
+                  {" — "}
+                  {selectedDeepLane.broker_name} ({selectedDeepLane.order_ids.length} loads)
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {isLoadingDeepOrders ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">Loading orders...</div>
+          ) : deepOrderDetails.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">No orders found.</div>
+          ) : (
+            <div className="overflow-x-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[100px]">Pickup Date</TableHead>
+                    <TableHead className="w-[130px]">Broker Load #</TableHead>
+                    <TableHead className="w-[260px]">Lane</TableHead>
+                    <TableHead className="text-right w-[100px]">Freight</TableHead>
+                    <TableHead className="text-right w-[80px]">Miles</TableHead>
+                    <TableHead className="text-right w-[70px]">RPM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deepOrderDetails.map(order => {
+                    const miles = Number(order.loaded_miles) || 0;
+                    const freight = Number(order.freight_amount) || 0;
+                    const pickups = order.pickup_drops.filter(s => s.stop_type === "pickup");
+                    const deliveries = order.pickup_drops.filter(s => s.stop_type === "delivery");
+                    const p = pickups[0];
+                    const d = deliveries[deliveries.length - 1];
+                    const lane = `${p ? `${p.city || "?"}, ${p.state || "?"}` : "?"} → ${d ? `${d.city || "?"}, ${d.state || "?"}` : "?"}`;
+                    const date = order.pickup_datetime ? format(new Date(order.pickup_datetime), "MMM d, yyyy") : "—";
+                    return (
+                      <TableRow key={order.id} className="hover:bg-transparent">
+                        <TableCell className="text-sm">{date}</TableCell>
+                        <TableCell className="font-mono text-sm">{order.broker_load_number || "—"}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{lane}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmt(freight)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtMiles(miles)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{fmtRpm(miles > 0 ? freight / miles : 0)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
