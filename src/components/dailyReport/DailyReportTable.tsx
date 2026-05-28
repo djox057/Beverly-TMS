@@ -125,6 +125,8 @@ export interface DailyReportTableProps {
   truckFilter?: string;
   /** When set, only rows with this color are shown. */
   colorFilter?: string | null;
+  /** When true, ignore the `office` filter when loading rows (cross-office view). */
+  ignoreOffice?: boolean;
 }
 
 type Row = { __id: string; __persisted?: boolean; [key: string]: any };
@@ -146,6 +148,7 @@ export const DailyReportTable = ({
   readOnly = false,
   truckFilter = "",
   colorFilter = null,
+  ignoreOffice = false,
 }: DailyReportTableProps) => {
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
@@ -183,8 +186,10 @@ export const DailyReportTable = ({
       .select("*")
       .eq("date", dateStr)
       .eq("type", type);
-    if (office === null) q = q.is("office", null);
-    else q = q.eq("office", office);
+    if (!ignoreOffice) {
+      if (office === null) q = q.is("office", null);
+      else q = q.eq("office", office);
+    }
 
     const { data, error } = await q
       .order("created_at", { ascending: true })
@@ -236,7 +241,7 @@ export const DailyReportTable = ({
 
     const channel = supabase
       .channel(
-        `daily_report:${dateStr}:${type}:${office ?? "null"}:${Math.random()
+        `daily_report:${dateStr}:${type}:${ignoreOffice ? "any" : office ?? "null"}:${Math.random()
           .toString(36)
           .slice(2)}`
       )
@@ -252,7 +257,7 @@ export const DailyReportTable = ({
           const row = (payload.new ?? payload.old) as any;
           if (!row) return;
           if (row.type !== type) return;
-          if ((row.office ?? null) !== (office ?? null)) return;
+          if (!ignoreOffice && (row.office ?? null) !== (office ?? null)) return;
           reload();
         }
       )
@@ -262,7 +267,7 @@ export const DailyReportTable = ({
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateStr, type, office]);
+  }, [dateStr, type, office, ignoreOffice]);
 
   const updateCell = (id: string, key: string, value: string) => {
     setRows((prev) =>
