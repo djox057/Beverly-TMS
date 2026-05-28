@@ -20,6 +20,7 @@ interface UseOrdersProgressiveOptions {
   bookedBy?: string | null;
   dispatcherUserId?: string | null;
   currentPage?: number;
+  excludeBookedByCompanyId?: string | null;
 }
 
 /**
@@ -37,8 +38,9 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const currentPage = options?.currentPage ?? 1;
+  const excludeBookedByCompanyId = options?.excludeBookedByCompanyId ?? null;
 
-  const hasFilters = Boolean(bookedBy || dispatcherUserId);
+  const hasFilters = Boolean(bookedBy || dispatcherUserId || excludeBookedByCompanyId);
   
   // Subscribe to real-time updates
   useOrdersRealtime();
@@ -65,7 +67,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Fetch both unlocked and locked counts
   const countsQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId] 
+      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
       : ["orders-counts"],
     queryFn: async () => {
       console.log("[OrdersProgressive] Fetching total counts...");
@@ -85,12 +87,22 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         return query;
       };
 
+      const applyExclusion = (query: any) => {
+        if (excludeBookedByCompanyId) {
+          return query.or(
+            `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+          );
+        }
+        return query;
+      };
+
       // Get unlocked count
       let unlockedCountQuery = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("locked", false);
       unlockedCountQuery = buildFilter(unlockedCountQuery);
+      unlockedCountQuery = applyExclusion(unlockedCountQuery);
       
       // Get locked count
       let lockedCountQuery = supabase
@@ -98,6 +110,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         .select("id", { count: "exact", head: true })
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
+      lockedCountQuery = applyExclusion(lockedCountQuery);
 
       const [unlockedResult, lockedResult] = await Promise.all([
         unlockedCountQuery,
@@ -187,6 +200,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
               limit: unlockedLimit,
               offset: globalOffset,
+              excludeBookedByCompanyId,
             },
           }).then(result => ({ type: 'unlocked', ...result }))
         );
@@ -204,6 +218,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
               limit: lockedLimit,
               offset: lockedOffset,
+              excludeBookedByCompanyId,
             },
           }).then(result => ({ type: 'locked', ...result }))
         );
@@ -233,12 +248,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     } finally {
       setIsLoadingPage(false);
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds]);
+  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, excludeBookedByCompanyId]);
 
   // Query for the current page - dynamically loads the page the user is viewing
   const currentPageQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId] 
+      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
       : ["orders", "page", currentPage],
     queryFn: () => fetchPage(currentPage, unlockedCount, lockedCount),
     refetchOnWindowFocus: false,
@@ -326,13 +341,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Also update the TanStack Query cache for this page so the memo picks it up
       const updatedPageData = loadedPagesRef.current.get(foundPage);
       const pageQueryKey = hasFilters
-        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId]
+        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
         : ["orders", "page", foundPage];
       queryClient.setQueryData(pageQueryKey, updatedPageData);
       // Trigger re-render by bumping loadedPages state
       setLoadedPages(prev => new Set(prev));
     }
-  }, [hasFilters, bookedBy, dispatcherUserId, queryClient]);
+  }, [hasFilters, bookedBy, dispatcherUserId, queryClient, excludeBookedByCompanyId]);
 
   return {
     data: currentPageOrders,
