@@ -1513,6 +1513,14 @@ const BgLoads = () => {
                     className="w-full"
                   />
 
+                  {/* Column 2 Row 2: Delivery Date */}
+                  <DateRangePicker
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                    placeholder="Filter by delivery date"
+                    className="w-full"
+                  />
+
                   {/* Column 3 Row 1: Trucks */}
                   <Combobox
                     value={truckFilter}
@@ -1599,13 +1607,7 @@ const BgLoads = () => {
                     className="w-full"
                   />
 
-                  {/* Column 2 Row 2: Delivery Date */}
-                  <DateRangePicker
-                    date={dateRange}
-                    onDateChange={setDateRange}
-                    placeholder="Filter by delivery date"
-                    className="w-full"
-                  />
+                  {/* Column 3 Row 2: Drivers */}
 
                   {/* Column 3 Row 2: Drivers */}
                   <Combobox
