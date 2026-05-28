@@ -526,7 +526,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       if (error) throw error;
       return data || [];
     },
-    staleTime: 300000,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
     enabled: globalEnabled,
   });
 
