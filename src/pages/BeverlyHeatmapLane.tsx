@@ -414,12 +414,12 @@ export default function BeverlyHeatmapLane() {
       )}
 
       {/* No results */}
-      {!triHaulMode && !deepMode && hasCoords && !isLoading && laneData && laneData.overall?.count === 0 && (
+      {!triHaulMode && hasCoords && !isLoading && laneData && laneData.overall?.count === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">No loads found for this lane.</div>
       )}
 
       {/* Broker breakdown table */}
-      {!triHaulMode && !deepMode && sorted.length > 0 && (
+      {!triHaulMode && sorted.length > 0 && (
         <div className="overflow-x-auto border rounded-lg">
           <Table className="table-fixed">
             <TableHeader>
