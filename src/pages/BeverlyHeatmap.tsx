@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
 import BeverlyHeatmapBrokers from "./BeverlyHeatmapBrokers";
 import BeverlyHeatmapLane from "./BeverlyHeatmapLane";
+import BeverlyHeatmapDeepSearch from "./BeverlyHeatmapDeepSearch";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -162,6 +163,7 @@ export default function BeverlyHeatmap() {
   const { hasRole } = useAuthContext();
   const canRecompute = hasRole("admin") || hasRole("manager");
   const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("manager") && !hasRole("chicago_management");
+  const canDeepSearch = hasRole("admin") || hasRole("manager") || hasRole("supervisor");
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isRecomputing, setIsRecomputing] = useState(false);
@@ -577,6 +579,7 @@ export default function BeverlyHeatmap() {
           {!isDispatchOnly && <TabsTrigger value="facilities">Facilities</TabsTrigger>}
           {!isDispatchOnly && <TabsTrigger value="brokers">Brokers</TabsTrigger>}
           <TabsTrigger value="lane">Lane</TabsTrigger>
+          {canDeepSearch && <TabsTrigger value="deep-search">Deep Search</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="heatmap">
