@@ -46,6 +46,7 @@ const TYPES: TypeOption[] = [
   { value: "Afterhours", label: "After Hours", perOffice: false },
   { value: "Recoveries", label: "Recoveries", perOffice: false },
   { value: "New driver", label: "New driver", perOffice: false },
+  { value: "Safety", label: "Safety", perOffice: false },
 ];
 
 const COLORS = [
