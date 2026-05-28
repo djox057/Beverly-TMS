@@ -171,7 +171,7 @@ serve(async (req) => {
       .select('id, truck_number');
 
     if (trucksError) throw trucksError;
-
+    const apiKeys = [apiKey1, apiKey2, apiKey3, apiKey4].filter(Boolean) as string[];
     // --- Fetch from Samsara with 15s AbortController per call ---
     const apiKeys = [apiKey1, apiKey2];
     const allVehicles: any[] = [];
