@@ -88,7 +88,10 @@ export const FilteredStatusTable = ({
       cancelled = true;
       supabase.removeChannel(ch);
     };
-  }, [dateStr, colorFilter]);
+  const truckNorm = truckFilter.trim().toLowerCase();
+  const visible = truckNorm
+    ? rows.filter((r) => (r.truck ?? "").toLowerCase().includes(truckNorm))
+    : rows;
 
   const showDate = colorFilter === "home_time";
   const gridCols = showDate
