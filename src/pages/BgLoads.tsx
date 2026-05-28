@@ -217,7 +217,8 @@ const BgLoads = () => {
     !hasRole("accounting") &&
     !hasRole("supervisor");
   const [searchTerm, setSearchTerm] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("all-companies");
+  const BG_COMPANY_NAME = "BG Prime Inc";
+  const [companyFilter, setCompanyFilter] = useState(BG_COMPANY_NAME);
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
   // For dispatch-only users, auto-select themselves as the default filter
   const [bookedByFilter, setBookedByFilter] = useState(() =>
@@ -280,7 +281,7 @@ const BgLoads = () => {
         try {
           const state = JSON.parse(savedState);
           setSearchTerm(state.searchTerm || "");
-          setCompanyFilter(state.companyFilter || "all-companies");
+          setCompanyFilter(BG_COMPANY_NAME);
           setTruckCompanyFilter(state.truckCompanyFilter || "all-truck-companies");
           setBookedByFilter(state.bookedByFilter || "all-booked-by");
           setMissingDocsFilter(state.missingDocsFilter || "all");
@@ -1531,24 +1532,7 @@ const BgLoads = () => {
                     className="w-full"
                   />
 
-                  {/* Column 4 Row 1: Companies */}
-                  <Combobox
-                    value={companyFilter}
-                    onValueChange={setCompanyFilter}
-                    placeholder="All Companies"
-                    searchPlaceholder="Search companies..."
-                    options={[
-                      {
-                        value: "all-companies",
-                        label: "All Companies",
-                      },
-                      ...uniqueCompanies.map((company) => ({
-                        value: company,
-                        label: company,
-                      })),
-                    ]}
-                    className="w-full"
-                  />
+                   {/* Company filter locked to BG Prime Inc on this page */}
 
                   {/* Column 5 Row 1: Users - hidden for dispatch-only users */}
                   {!isDispatchOnly && (
