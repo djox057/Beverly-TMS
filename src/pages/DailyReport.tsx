@@ -73,24 +73,10 @@ const OfficeTab = ({
   truckFilter: string;
   colorFilter: string | null;
 }) => {
-  // When a specific status is selected, replace the office's two tables with
-  // a single combined table named after the active filter.
-  if (colorFilter) {
-    const label =
-      COLOR_FILTERS.find((c) => c.value === colorFilter)?.label ?? colorFilter;
-    return (
-      <FilteredStatusTable
-        date={date}
-        colorFilter={colorFilter}
-        filterLabel={label}
-        truckFilter={truckFilter}
-      />
-    );
-  }
   return (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
-      title={`${office} — Empty & Late for delivery`}
+      title={`${officeLabel(office)} — Empty & Late for delivery`}
       columns={EMPTY_LATE_COLS}
       initialRows={10}
       date={date}
@@ -101,7 +87,7 @@ const OfficeTab = ({
       colorFilter={colorFilter}
     />
     <DailyReportTable
-      title={`${office} — Home`}
+      title={`${officeLabel(office)} — Home`}
       columns={HOME_COLS}
       initialRows={10}
       date={date}
