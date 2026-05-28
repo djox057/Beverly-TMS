@@ -59,10 +59,6 @@ export default function BeverlyHeatmapLane() {
   const [triHaulMode, setTriHaulMode] = useState(false);
   const [triSort, setTriSort] = useState<{ key: TriSortKey; dir: "asc" | "desc" }>({ key: "total_freight", dir: "desc" });
   const [selectedTriCombo, setSelectedTriCombo] = useState<TriHaulCombo | null>(null);
-  const [deepMode, setDeepMode] = useState(false);
-  const [deepScope, setDeepScope] = useState<"global" | "filtered">("global");
-  const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
-  const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
