@@ -484,6 +484,16 @@ export const DailyReportTable = ({
       })
     : rows;
 
+  // When aggregating across offices, sort so rows from the same office cluster
+  // together; we'll inject a small header row before each office group.
+  const renderedRows = ignoreOffice
+    ? [...visibleRows].sort((a, b) => {
+        const ao = (a.office ?? "") as string;
+        const bo = (b.office ?? "") as string;
+        return ao.localeCompare(bo);
+      })
+    : visibleRows;
+
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
       {title && (
