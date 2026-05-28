@@ -24,6 +24,8 @@ interface Body {
   scope?: "global" | "filtered";
   pickup?: Coord | null;
   delivery?: Coord | null;
+  pickupRadius?: number | null;
+  deliveryRadius?: number | null;
   dateFrom?: string | null;
   dateTo?: string | null;
   minRepeats?: number;
@@ -72,6 +74,8 @@ Deno.serve(async (req) => {
     const scope = body.scope === "filtered" ? "filtered" : "global";
     const pickup = body.pickup ?? null;
     const delivery = body.delivery ?? null;
+    const pickupRadius = Math.max(0.1, Number(body.pickupRadius) || 1);
+    const deliveryRadius = Math.max(0.1, Number(body.deliveryRadius) || 1);
     const minRepeats = Math.max(2, Math.min(20, Number(body.minRepeats) || 3));
     const dateFrom = body.dateFrom || null;
     const dateTo = body.dateTo || null;
@@ -157,8 +161,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter by entered pickup/delivery if scope === filtered (1 mi tolerance)
-    const FILTER_RADIUS = 1;
     // Window for trend: dateTo or today is the anchor; last 30 / prior 30
     const anchorDate = dateTo ? new Date(dateTo) : new Date();
     const last30Start = new Date(anchorDate); last30Start.setUTCDate(last30Start.getUTCDate() - 30);
@@ -179,8 +181,8 @@ Deno.serve(async (req) => {
       const ep = endpoints.get(o.id);
       if (!ep) continue;
       if (scope === "filtered") {
-        if (pickup && haversine(pickup.lat, pickup.lng, ep.pLat, ep.pLng) > FILTER_RADIUS) continue;
-        if (delivery && haversine(delivery.lat, delivery.lng, ep.dLat, ep.dLng) > FILTER_RADIUS) continue;
+        if (pickup && haversine(pickup.lat, pickup.lng, ep.pLat, ep.pLng) > pickupRadius) continue;
+        if (delivery && haversine(delivery.lat, delivery.lng, ep.dLat, ep.dLng) > deliveryRadius) continue;
       }
       const pk = cellKey(ep.pLat, ep.pLng);
       const dk = cellKey(ep.dLat, ep.dLng);
