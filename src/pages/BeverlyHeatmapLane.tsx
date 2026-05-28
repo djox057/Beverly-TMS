@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route, TrendingUp, TrendingDown, Minus, Repeat } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -42,30 +42,6 @@ interface TriHaulCombo {
 }
 
 type TriSortKey = "intermediate" | "leg1_freight" | "leg1_rpm" | "leg2_freight" | "leg2_rpm" | "total_freight" | "total_miles" | "combined_rpm";
-
-interface DeepLane {
-  broker_id: string;
-  broker_name: string;
-  broker_mc: string;
-  pickup_city: string;
-  pickup_state: string;
-  delivery_city: string;
-  delivery_state: string;
-  load_count: number;
-  avg_freight: number;
-  avg_miles: number;
-  avg_rpm: number;
-  last30_rpm: number;
-  prior30_rpm: number;
-  last30_count: number;
-  prior30_count: number;
-  trend_pct: number | null;
-  expected_rpm: number;
-  expected_rate: number;
-  order_ids: string[];
-}
-
-type DeepSortKey = "lane" | "broker_name" | "load_count" | "avg_rpm" | "last30_rpm" | "trend_pct" | "expected_rate";
 
 export default function BeverlyHeatmapLane() {
   const [pickupAddress, setPickupAddress] = useState("");
