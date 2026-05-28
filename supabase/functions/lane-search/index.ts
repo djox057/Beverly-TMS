@@ -27,6 +27,7 @@ interface Body {
   deliveryRadius?: number;
   dateFrom?: string | null;
   dateTo?: string | null;
+  weekendsOnly?: boolean;
 }
 
 function bbox(c: Coord, miles: number) {
@@ -83,6 +84,7 @@ Deno.serve(async (req) => {
     const deliveryRadius = Math.max(0, Math.min(450, Number(body.deliveryRadius) || 60));
     const dateFrom = body.dateFrom || null;
     const dateTo = body.dateTo || null;
+    const weekendsOnly = body.weekendsOnly === true;
 
     if (!pickup && !delivery) {
       return new Response(JSON.stringify({ error: "pickup or delivery required" }), {
@@ -167,10 +169,30 @@ Deno.serve(async (req) => {
       if (data) orders.push(...(data as any[]));
     }
 
+    // Optional: filter to weekend pickups only (Sat/Sun)
+    let filteredOrders = orders;
+    if (weekendsOnly) {
+      // Need pickup_datetime for day-of-week check — re-fetch minimal field if missing
+      const idsForDt = orders.map(o => o.id);
+      const dtMap = new Map<string, string | null>();
+      for (let i = 0; i < idsForDt.length; i += 200) {
+        const chunk = idsForDt.slice(i, i + 200);
+        const { data } = await db.from("orders").select("id, pickup_datetime").in("id", chunk);
+        for (const r of data || []) dtMap.set(r.id, (r as any).pickup_datetime);
+      }
+      filteredOrders = orders.filter(o => {
+        const dt = dtMap.get(o.id);
+        if (!dt) return false;
+        const d = new Date(dt);
+        const dow = d.getUTCDay();
+        return dow === 0 || dow === 6;
+      });
+    }
+
     // Aggregate by broker
     const agg = new Map<string, { name: string; mc: string; freight: number; miles: number; count: number; orderIds: string[] }>();
     let totalFreight = 0, totalMiles = 0;
-    for (const o of orders) {
+    for (const o of filteredOrders) {
       const f = Number(o.freight_amount) || 0;
       const m = Number(o.loaded_miles) || 0;
       totalFreight += f; totalMiles += m;
@@ -200,7 +222,7 @@ Deno.serve(async (req) => {
       order_ids: s.orderIds,
     }));
 
-    const count = orders.length;
+    const count = filteredOrders.length;
     return new Response(JSON.stringify({
       overall: {
         count,
