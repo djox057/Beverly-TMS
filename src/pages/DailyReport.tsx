@@ -32,6 +32,7 @@ const typeToTab = (type: string, office: string | null): string | null => {
   if (type === "Afterhours") return "AFTERHOURS";
   if (type === "Recoveries") return "RECOVERIES";
   if (type === "New driver") return "NEW_DRIVER";
+  if (type === "Safety") return "SAFETY";
   return null;
 };
 
@@ -289,7 +290,7 @@ const DailyReport = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 h-auto gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-9 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
               key={o}
@@ -310,6 +311,9 @@ const DailyReport = () => {
           </TabsTrigger>
           <TabsTrigger value="NEW_DRIVER" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             New driver
+          </TabsTrigger>
+          <TabsTrigger value="SAFETY" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
+            Safety
           </TabsTrigger>
         </TabsList>
 
@@ -368,6 +372,18 @@ const DailyReport = () => {
             initialRows={10}
             date={date}
             type="New driver"
+            readOnly={readOnly}
+            truckFilter={truckQuery}
+            colorFilter={colorFilter}
+          />
+        </TabsContent>
+        <TabsContent value="SAFETY" className="mt-4">
+          <DailyReportTable
+            title="Safety"
+            columns={WIDE_NOTE_COLS}
+            initialRows={10}
+            date={date}
+            type="Safety"
             readOnly={readOnly}
             truckFilter={truckQuery}
             colorFilter={colorFilter}
