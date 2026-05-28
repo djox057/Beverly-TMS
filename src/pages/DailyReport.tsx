@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
+import { FilteredStatusTable } from "@/components/dailyReport/FilteredStatusTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { Info, PaintBucket, Maximize2, HelpCircle } from "lucide-react";
@@ -65,9 +66,20 @@ const OfficeTab = ({
   truckFilter: string;
   colorFilter: string | null;
 }) => {
-  // When a specific status is selected, aggregate rows across ALL offices
-  // (in addition to applying the color filter client-side).
-  const ignoreOffice = !!colorFilter;
+  // When a specific status is selected, replace the office's two tables with
+  // a single combined table named after the active filter.
+  if (colorFilter) {
+    const label =
+      COLOR_FILTERS.find((c) => c.value === colorFilter)?.label ?? colorFilter;
+    return (
+      <FilteredStatusTable
+        date={date}
+        colorFilter={colorFilter}
+        filterLabel={label}
+        truckFilter={truckFilter}
+      />
+    );
+  }
   return (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
@@ -80,7 +92,6 @@ const OfficeTab = ({
       readOnly={readOnly}
       truckFilter={truckFilter}
       colorFilter={colorFilter}
-      ignoreOffice={ignoreOffice}
     />
     <DailyReportTable
       title={`${office} — Home`}
@@ -92,7 +103,6 @@ const OfficeTab = ({
       readOnly={readOnly}
       truckFilter={truckFilter}
       colorFilter={colorFilter}
-      ignoreOffice={ignoreOffice}
     />
   </div>
   );
