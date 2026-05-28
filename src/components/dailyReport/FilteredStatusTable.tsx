@@ -54,11 +54,16 @@ export const FilteredStatusTable = ({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("daily_report_entries")
         .select("id, type, office, truck, note, home_date, color, created_at")
-        .eq("date", dateStr)
-        .eq("color", colorFilter)
+        .eq("date", dateStr);
+      if (colorFilter === "home_time") {
+        q = q.eq("type", "Home");
+      } else {
+        q = q.eq("color", colorFilter).neq("type", "Home");
+      }
+      const { data, error } = await q
         .order("office", { ascending: true })
         .order("type", { ascending: true })
         .order("created_at", { ascending: true });
