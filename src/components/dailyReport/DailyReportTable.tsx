@@ -508,7 +508,11 @@ export const DailyReportTable = ({
           >
             {columns.map((c) => (
               <div key={c.key} className="border-r border-border last:border-r-0 overflow-hidden">
-                {c.autocompleteTrucks ? (
+                {c.autocompleteTrucks ? (() => {
+                  const hasInfo =
+                    !!((row[c.key] as string) ?? "").trim() &&
+                    !!(row.driver_name || row.dispatcher_name);
+                  return (
                   <div className="relative h-8">
                     <Input
                       value={row[c.key] ?? ""}
@@ -517,10 +521,12 @@ export const DailyReportTable = ({
                       readOnly={readOnly}
                       list={datalistId}
                       autoComplete="off"
-                      className="h-8 border-0 rounded-none text-sm px-1 pr-6 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
+                      className={cn(
+                        "h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30",
+                        hasInfo ? "px-1 pr-5" : "px-1"
+                      )}
                     />
-                    {((row[c.key] as string) ?? "").trim() &&
-                      (row.driver_name || row.dispatcher_name) && (
+                    {hasInfo && (
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
@@ -545,9 +551,10 @@ export const DailyReportTable = ({
                             </div>
                           </PopoverContent>
                         </Popover>
-                      )}
+                    )}
                   </div>
-                ) : (
+                  );
+                })() : (
                   <div className="relative h-8">
                     <Input
                       value={row[c.key] ?? ""}
@@ -570,7 +577,7 @@ export const DailyReportTable = ({
                       maxLength={c.mmddDate ? 5 : undefined}
                       className={cn(
                         "h-8 border-0 rounded-none text-sm bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30",
-                        c.mmddDate ? "px-1 text-center" : "pr-7"
+                        c.mmddDate ? "px-0.5 text-center" : "pl-3 pr-7"
                       )}
                     />
                     {!c.mmddDate && (
