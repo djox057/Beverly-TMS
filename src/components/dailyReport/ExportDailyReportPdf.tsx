@@ -201,8 +201,9 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
 
         OFFICES.forEach((office, idx) => {
           const x = margin + idx * (colW + gap);
+          const label = office === "CACAK" ? "ČAČAK" : office;
           renderSection(
-            `${office} — Empty & Late`,
+            `${label} — Empty & Late`,
             get("Empty & Late for delivery", office),
             x,
             topY,
@@ -210,7 +211,7 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             rowH
           );
           renderSection(
-            `${office} — Home`,
+            `${label} — Home`,
             get("Home", office),
             x,
             topY + rowH + rowGap,
