@@ -92,9 +92,10 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         h: number,
         showDate = false
       ) => {
+        const numColW = 16;
         const truckColW = Math.min(45, Math.max(32, w * 0.18));
         const dateColW = showDate ? 48 : 0;
-        const noteColW = w - truckColW - dateColW;
+        const noteColW = w - numColW - truckColW - dateColW;
 
         // Title bar
         doc.setFillColor(60, 60, 60);
@@ -110,12 +111,13 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         doc.rect(x, headY, w, TABLE_HEAD_H, "F");
         doc.setFontSize(8);
         doc.setTextColor(0);
-        doc.text("Truck#", x + 4, headY + 8.5);
+        doc.text("#", x + numColW / 2, headY + 8.5, { align: "center" });
+        doc.text("Truck#", x + numColW + 4, headY + 8.5);
         if (showDate) {
-          doc.text("Date", x + truckColW + 3, headY + 8.5);
-          doc.text("Note", x + truckColW + dateColW + 4, headY + 8.5);
+          doc.text("Date", x + numColW + truckColW + 3, headY + 8.5);
+          doc.text("Note", x + numColW + truckColW + dateColW + 4, headY + 8.5);
         } else {
-          doc.text("Note", x + truckColW + 4, headY + 8.5);
+          doc.text("Note", x + numColW + truckColW + 4, headY + 8.5);
         }
 
         // Body
@@ -139,25 +141,31 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             doc.rect(x, yy, w, rowH, "F");
           }
           // cell borders
-          doc.rect(x, yy, truckColW, rowH);
+          doc.rect(x, yy, numColW, rowH);
+          doc.rect(x + numColW, yy, truckColW, rowH);
           if (showDate) {
-            doc.rect(x + truckColW, yy, dateColW, rowH);
-            doc.rect(x + truckColW + dateColW, yy, noteColW, rowH);
+            doc.rect(x + numColW + truckColW, yy, dateColW, rowH);
+            doc.rect(x + numColW + truckColW + dateColW, yy, noteColW, rowH);
           } else {
-            doc.rect(x + truckColW, yy, noteColW, rowH);
+            doc.rect(x + numColW + truckColW, yy, noteColW, rowH);
           }
+
+          // Row number
+          doc.setFontSize(rowH >= 13 ? 7.5 : 6.5);
+          doc.setTextColor(90);
+          doc.text(String(i + 1), x + numColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
 
           // Truck number
           doc.setFontSize(rowH >= 13 ? 8.5 : 7.5);
           doc.setTextColor(0);
-          doc.text(r.truck ?? "", x + truckColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
+          doc.text(r.truck ?? "", x + numColW + truckColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
 
           // Date (Home only)
           if (showDate) {
             doc.setFontSize(rowH >= 13 ? 8 : 7);
             doc.text(
               r.home_date ?? "",
-              x + truckColW + dateColW / 2,
+              x + numColW + truckColW + dateColW / 2,
               yy + rowH / 2 + 2.5,
               { align: "center" }
             );
@@ -167,7 +175,7 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
           doc.setFontSize(rowH >= 13 ? 8 : 7);
           const noteText = (r.note ?? "").replace(/\s+/g, " ").trim();
           const fitted = (doc.splitTextToSize(noteText, noteColW - 6) as string[])[0] ?? "";
-          doc.text(fitted, x + truckColW + dateColW + 3, yy + rowH / 2 + 2.5);
+          doc.text(fitted, x + numColW + truckColW + dateColW + 3, yy + rowH / 2 + 2.5);
 
           yy += rowH;
         }
