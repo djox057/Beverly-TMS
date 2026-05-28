@@ -104,6 +104,8 @@ export interface DailyReportColumn {
   width: string; // e.g. "120px" or "1fr"
   /** When true, render an autocomplete suggestion list (active trucks) */
   autocompleteTrucks?: boolean;
+  /** When true, mask input to MM/DD format and hide the expand-note button */
+  mmddDate?: boolean;
 }
 
 export interface DailyReportTableProps {
@@ -549,11 +551,26 @@ export const DailyReportTable = ({
                   <div className="relative h-8">
                     <Input
                       value={row[c.key] ?? ""}
-                      onChange={(e) => !readOnly && updateCell(row.__id, c.key, e.target.value)}
+                      onChange={(e) => {
+                        if (readOnly) return;
+                        let v = e.target.value;
+                        if (c.mmddDate) {
+                          // Allow only digits, auto-insert slash after 2 digits, max MM/DD
+                          const digits = v.replace(/\D/g, "").slice(0, 4);
+                          v = digits.length <= 2
+                            ? digits
+                            : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                        }
+                        updateCell(row.__id, c.key, v);
+                      }}
                       onBlur={() => !readOnly && persistRow(row.__id)}
                       readOnly={readOnly}
+                      placeholder={c.mmddDate ? "MM/DD" : undefined}
+                      inputMode={c.mmddDate ? "numeric" : undefined}
+                      maxLength={c.mmddDate ? 5 : undefined}
                       className="h-8 border-0 rounded-none text-sm pr-7 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-accent/30"
                     />
+                    {!c.mmddDate && (
                     <button
                       type="button"
                       onClick={() =>
@@ -570,6 +587,7 @@ export const DailyReportTable = ({
                     >
                       <Maximize2 className="h-3.5 w-3.5" />
                     </button>
+                    )}
                   </div>
                 )}
               </div>
