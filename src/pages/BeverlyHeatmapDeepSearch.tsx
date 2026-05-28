@@ -42,6 +42,8 @@ type DeepSortKey = "lane" | "broker_name" | "load_count" | "avg_rpm" | "last30_r
 export default function BeverlyHeatmapDeepSearch() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [pickupRadius, setPickupRadius] = useState<string>("1");
+  const [deliveryRadius, setDeliveryRadius] = useState<string>("1");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -80,7 +82,11 @@ export default function BeverlyHeatmapDeepSearch() {
   };
 
   const handleSearch = async () => {
-    if (!pickupAddress.trim() && !deliveryAddress.trim()) return;
+    if (!pickupAddress.trim() && !deliveryAddress.trim()) {
+      setPickupCoords(null);
+      setDeliveryCoords(null);
+      return;
+    }
     setIsGeocoding(true);
     const [pCoords, dCoords] = await Promise.all([
       pickupAddress.trim() ? geocodeAddress(pickupAddress) : Promise.resolve(null),
@@ -94,14 +100,18 @@ export default function BeverlyHeatmapDeepSearch() {
   const hasCoords = pickupCoords != null || deliveryCoords != null;
 
   const { data: deepData, isLoading: isLoadingDeep } = useQuery({
-    queryKey: ["heatmap-deep-search", pickupCoords, deliveryCoords, startDateStr, endDateStr],
+    queryKey: ["heatmap-deep-search", pickupCoords, deliveryCoords, pickupRadius, deliveryRadius, startDateStr, endDateStr],
     queryFn: async () => {
       const scope = hasCoords ? "filtered" : "global";
+      const pRad = Math.max(0.1, Number(pickupRadius) || 1);
+      const dRad = Math.max(0.1, Number(deliveryRadius) || 1);
       const { data, error } = await supabase.functions.invoke("lane-deep-search", {
         body: {
           scope,
           pickup: hasCoords ? pickupCoords : null,
           delivery: hasCoords ? deliveryCoords : null,
+          pickupRadius: pRad,
+          deliveryRadius: dRad,
           dateFrom: startDateStr ?? null,
           dateTo: endDateStr ?? null,
           minRepeats: 3,
