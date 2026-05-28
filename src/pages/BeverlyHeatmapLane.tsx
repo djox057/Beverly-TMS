@@ -460,11 +460,19 @@ export default function BeverlyHeatmapLane() {
         />
         <Button
           variant={triHaulMode ? "default" : "outline"}
-          onClick={() => setTriHaulMode(v => !v)}
+          onClick={() => { setTriHaulMode(v => !v); if (deepMode) setDeepMode(false); }}
           title="Find best 2-leg routes A→X→B"
         >
           <Route className="h-4 w-4 mr-1" />
           TRI-HAUL
+        </Button>
+        <Button
+          variant={deepMode ? "default" : "outline"}
+          onClick={() => { setDeepMode(v => !v); if (triHaulMode) setTriHaulMode(false); }}
+          title="Find repeat broker lanes (contract candidates) with rate trend"
+        >
+          <Repeat className="h-4 w-4 mr-1" />
+          DEEP SEARCH
         </Button>
         <Button onClick={handleSearch} disabled={isGeocoding || (!pickupAddress.trim() && !deliveryAddress.trim())}>
           <Search className="h-4 w-4 mr-1" />
@@ -478,6 +486,19 @@ export default function BeverlyHeatmapLane() {
           {!hasBothCoords && hasCoords && (
             <span className="ml-1 text-destructive">Enter both pickup and delivery, then click Search.</span>
           )}
+        </div>
+      )}
+
+      {deepMode && (
+        <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+          <span>
+            Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
+          </span>
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="font-medium">Scope:</span>
+            <Button size="sm" variant={deepScope === "global" ? "default" : "outline"} onClick={() => setDeepScope("global")}>All lanes</Button>
+            <Button size="sm" variant={deepScope === "filtered" ? "default" : "outline"} onClick={() => setDeepScope("filtered")} disabled={!hasCoords}>Filter by pickup/delivery</Button>
+          </div>
         </div>
       )}
 
