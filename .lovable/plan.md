@@ -1,34 +1,66 @@
-Root cause found: the GPS for truck 20768 is good, but the destination coordinate saved for its Cartersville, GA delivery is invalid:
+## Goal
 
-```text
-Truck GPS:      34.443785, -84.915464  (near Cartersville/Rome, GA)
-Delivery stop:  64.635868, -153.180997 (Alaska)
-Displayed:      4497 miles away
+Add a third mode to the Lane tab (alongside the current single-lane search and TRI-HAUL) called **DEEP SEARCH**. It finds (broker × lane) pairs we've run repeatedly so you can target contract pricing, and it shows whether the rate on that lane is trending up or down with an expected next-period rate.
+
+## UI changes — `src/pages/BeverlyHeatmapLane.tsx`
+
+1. Add a third toggle button next to TRI-HAUL: **DEEP SEARCH** (icon: `Repeat` or `TrendingUp`). The three modes are mutually exclusive.
+2. When DEEP SEARCH is active, show:
+   - A **Scope** toggle: `All lanes (global)` ↔ `Filter by entered pickup/delivery` (uses the same pickup/delivery inputs but as exact-lane filter, not radius).
+   - The minimum-repeats slider is fixed at **3** (no UI control needed; mention in helper text).
+   - Pickup/Delivery radius inputs are hidden — exact matching uses a fixed 1 mile tolerance on both ends.
+3. Results table columns:
+   - Pickup (city, ST) → Delivery (city, ST)
+   - Broker (name + MC)
+   - Loads (count in window)
+   - Avg Rate, Avg Miles, Avg RPM (overall in window)
+   - Last 30d Avg RPM
+   - Prior 30d Avg RPM
+   - Trend (↑ / ↓ / →, % change, colored: green up / red down / muted flat)
+   - Expected next rate (projected $/load = last-30 avg RPM × avg miles, plus projected RPM)
+   - Row click → existing-style dialog listing the individual loads (load #, stops, $ , miles).
+4. Sortable columns (loads, avg RPM, trend %, expected). Default sort: loads desc.
+5. Empty/loading states matching existing patterns.
+
+## Backend — new edge function `supabase/functions/lane-deep-search/index.ts`
+
+Request body:
+```ts
+{
+  scope: "global" | "filtered",
+  pickup?: { lat, lng } | null,   // required when scope === "filtered" (at least one of pickup/delivery)
+  delivery?: { lat, lng } | null,
+  dateFrom?: string | null,        // overall window used for the table
+  dateTo?: string | null,
+  minRepeats?: number              // default 3
+}
 ```
 
-Plan:
+Auth: same pattern as `lane-search` (Bearer token, any role in `user_roles`).
 
-1. **Prevent bad distance writes in `update-truck-distances`**
-   - Validate pickup/delivery coordinates before calculating `miles_away`.
-   - Reject coordinates outside the continental U.S.
-   - Reject coordinates that do not match the stop’s state when a state is present.
-   - If destination coordinates are invalid, do not calculate a large fake number; clear `miles_away`/`eta_minutes` for that truck instead of showing 4000+.
+Algorithm:
+1. Pull all non-canceled orders in the date range that have a `broker_id`, joined with their `pickup_drops` (need first pickup + last delivery lat/lng/city/state). Paginate / chunk `.in()` at 200 like other functions.
+2. For each order build a lane key by snapping the first pickup and last delivery to a ~1-mile grid: `round(lat * 69)` & `round(lng * 69 * cos(lat))` → integer cell on each end. This is the "<1 mile radius" exact match.
+3. Group by `(broker_id, pickupCell, deliveryCell)`. Keep groups with `count >= minRepeats`.
+4. For each group compute:
+   - `avg_freight`, `avg_miles`, `avg_rpm` over window
+   - `last30_rpm` (orders with pickup in last 30 days of window), `prior30_rpm` (the 30 days before that)
+   - `trend_pct = (last30_rpm - prior30_rpm) / prior30_rpm` when both > 0
+   - `expected_rate = last30_rpm * avg_miles` (fallback to overall avg_rpm when last30 missing)
+   - Representative pickup/delivery city+state (mode of stops in the group)
+   - `order_ids` for the dialog
+5. If `scope === "filtered"`, before grouping discard orders whose first pickup is >1 mi from the provided pickup coord (if given) and/or last delivery >1 mi from delivery coord.
+6. Return `{ lanes: [...] }` sorted by count desc, capped at e.g. 500.
 
-2. **Prevent new bad coordinates from being saved**
-   - Add coordinate validation around geocoding in `NewOrder.tsx` and `EditOrder.tsx`.
-   - If Mapbox returns a coordinate outside the stop’s state, discard it instead of saving it to `pickup_drops`.
-   - This keeps addresses like “a, Cartersville, GA” from being saved as Alaska coordinates.
+Performance: same cost-aware approach as `lane-search` — bbox prefilter on pickup_drops when scope is filtered; for global, paginate orders by date range (this is the heavy path — document the cost and cap to e.g. 5000 orders before grouping, surfacing a warning in the response if truncated).
 
-3. **Clean existing bad data**
-   - Run a migration/update to null out existing `pickup_drops.latitude/longitude` values that are outside the stop’s state or outside normal U.S. bounds.
-   - This will remove the bad Alaska coordinate from the current Cartersville load.
+## Frontend wiring
 
-4. **Force affected miles-away values to refresh safely**
-   - Clear `trucks.miles_away`/`eta_minutes` for trucks whose current active stop coordinates are invalid, including truck 20768.
-   - Next scheduled distance run will calculate only when valid destination coordinates exist, so bad 4000+ values won’t return.
+- New `useQuery` keyed on `["heatmap-lane-deep", scope, pickupCoords, deliveryCoords, startDateStr, endDateStr]` calling `supabase.functions.invoke("lane-deep-search", { body })`, enabled only when `deepMode === true` and (scope === "global" || hasCoords).
+- Reuse the existing dialog component — feed it `order_ids` from the clicked row.
 
-Technical details:
+## Out of scope
 
-- No UI badges or labels will be added.
-- The 24-hour stale-value behavior stays for missing/stale GPS.
-- The new validation targets destination-stop coordinate quality, which is separate from GPS freshness.
+- No DB migrations or new tables (computed live, matches existing Lane patterns).
+- No changes to `lane-search` or `lane-trihaul`.
+- No new memory entry needed unless behavior turns out to be sensitive — can add post-implementation if useful.
