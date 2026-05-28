@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
     let offset = 0;
     let limit = 1000;
     let fields: "full" | "analytics" = "full";
+    let excludeBookedByCompanyId: string | null = null;
     
     if (req.method === "POST") {
       try {
@@ -142,6 +143,7 @@ Deno.serve(async (req) => {
         // so requesting more silently returns 1000 and breaks pagination.
         limit = Math.min(body.limit || 1000, 1000);
         if (body.fields === "analytics") fields = "analytics";
+        excludeBookedByCompanyId = body.excludeBookedByCompanyId || null;
       } catch {
         // No body or invalid JSON
       }
@@ -165,6 +167,11 @@ Deno.serve(async (req) => {
         countQuery = countQuery.eq("booked_by", bookedBy);
       } else if (dispatcherDriverIds.length > 0) {
         countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+      }
+      if (excludeBookedByCompanyId) {
+        countQuery = countQuery.or(
+          `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+        );
       }
 
       const { count, error: countError } = await countQuery;
@@ -194,6 +201,11 @@ Deno.serve(async (req) => {
       query = query.eq("booked_by", bookedBy);
     } else if (dispatcherDriverIds.length > 0) {
       query = query.in("driver1_id", dispatcherDriverIds);
+    }
+    if (excludeBookedByCompanyId) {
+      query = query.or(
+        `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+      );
     }
 
     const { data: orders, error: fetchError } = await query;
