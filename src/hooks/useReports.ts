@@ -2051,7 +2051,7 @@ export const useReports = (options?: UseReportsOptions) => {
             hasMultipleOrders: (driverOrders.length || 0) > 1,
             lost_day_notes: [],
             milesAway: 0,
-            totalMiles: currentOrder?.loaded_miles || 0,
+            totalMiles: (allSortedOrders.find((o) => !o.order_files?.some((f: any) => f.file_category === 'POD'))?.loaded_miles) ?? currentOrder?.loaded_miles ?? 0,
             goingYard: driver.going_yard || false,
           };
         });
@@ -2378,7 +2378,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 hasMultipleOrders: (driverOrders.length || 0) > 1,
                 lost_day_notes: [],
                 milesAway: truckData?.miles_away ?? null,
-                totalMiles: currentOrder?.loaded_miles || 0,
+                totalMiles: (allSortedOrders.find((o) => !o.order_files?.some((f: any) => f.file_category === 'POD'))?.loaded_miles) ?? currentOrder?.loaded_miles ?? 0,
                 goingYard: false,
                 isOffDutyDriver: true,
               };
