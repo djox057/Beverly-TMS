@@ -198,7 +198,7 @@ export function AddDailyReportRowDialog({
                 <SelectContent>
                   {OFFICES.map((o) => (
                     <SelectItem key={o} value={o}>
-                      {o}
+                      {o === "CACAK" ? "ČAČAK" : o}
                     </SelectItem>
                   ))}
                 </SelectContent>

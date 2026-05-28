@@ -19,6 +19,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const OFFICES = ["CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR"] as const;
 
+// Display label for an office code (DB still stores the original value).
+export const officeLabel = (o: string | null | undefined): string => {
+  if (!o) return "";
+  if (o === "CACAK") return "ČAČAK";
+  return o;
+};
+
 const COLOR_FILTERS = [
   { value: "orange", label: "Late" },
   { value: "cyan", label: "No load" },
@@ -66,24 +73,10 @@ const OfficeTab = ({
   truckFilter: string;
   colorFilter: string | null;
 }) => {
-  // When a specific status is selected, replace the office's two tables with
-  // a single combined table named after the active filter.
-  if (colorFilter) {
-    const label =
-      COLOR_FILTERS.find((c) => c.value === colorFilter)?.label ?? colorFilter;
-    return (
-      <FilteredStatusTable
-        date={date}
-        colorFilter={colorFilter}
-        filterLabel={label}
-        truckFilter={truckFilter}
-      />
-    );
-  }
   return (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <DailyReportTable
-      title={`${office} — Empty & Late for delivery`}
+      title={`${officeLabel(office)} — Empty & Late for delivery`}
       columns={EMPTY_LATE_COLS}
       initialRows={10}
       date={date}
@@ -94,7 +87,7 @@ const OfficeTab = ({
       colorFilter={colorFilter}
     />
     <DailyReportTable
-      title={`${office} — Home`}
+      title={`${officeLabel(office)} — Home`}
       columns={HOME_COLS}
       initialRows={10}
       date={date}
@@ -111,10 +104,27 @@ const OfficeTab = ({
 const DailyReport = () => {
   const [date, setDate] = useState<Date>(() => getChicagoToday());
   const [activeTab, setActiveTab] = useState<string>("CACAK");
+  const [prevTab, setPrevTab] = useState<string>("CACAK");
   const { canView, canEdit, loading } = useDailyReportPermissions();
   const [truckQuery, setTruckQuery] = useState("");
   const [colorFilter, setColorFilter] = useState<string | null>(null);
   const [matchByDate, setMatchByDate] = useState<Map<string, string>>(new Map());
+
+  // When a status filter is active, switch to a hidden combined tab and
+  // remember the user's prior tab so we can restore it on clear.
+  useEffect(() => {
+    if (colorFilter) {
+      if (activeTab !== "__FILTER") {
+        setPrevTab(activeTab);
+        setActiveTab("__FILTER");
+      }
+    } else {
+      if (activeTab === "__FILTER") {
+        setActiveTab(prevTab || "CACAK");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorFilter]);
 
   // When truck query is set, fetch all dates/offices where this truck appears
   useEffect(() => {
@@ -314,7 +324,7 @@ const DailyReport = () => {
               value={o}
               className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight"
             >
-              {o}
+              {officeLabel(o)}
             </TabsTrigger>
           ))}
           <TabsTrigger value="MAINTENANCE" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
@@ -333,6 +343,21 @@ const DailyReport = () => {
             Safety
           </TabsTrigger>
         </TabsList>
+
+        {/* Hidden combined view shown only while a status filter is active */}
+        <TabsContent value="__FILTER" className="mt-4">
+          {colorFilter && (
+            <FilteredStatusTable
+              date={date}
+              colorFilter={colorFilter}
+              filterLabel={
+                COLOR_FILTERS.find((c) => c.value === colorFilter)?.label ??
+                colorFilter
+              }
+              truckFilter={truckQuery}
+            />
+          )}
+        </TabsContent>
 
         {OFFICES.map((o) => (
           <TabsContent key={o} value={o} className="mt-4">
