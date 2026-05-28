@@ -579,7 +579,7 @@ export default function BeverlyHeatmap() {
           {!isDispatchOnly && <TabsTrigger value="facilities">Facilities</TabsTrigger>}
           {!isDispatchOnly && <TabsTrigger value="brokers">Brokers</TabsTrigger>}
           <TabsTrigger value="lane">Lane</TabsTrigger>
-          {canDeepSearch && <TabsTrigger value="deep-search">Deep Search</TabsTrigger>}
+          {canDeepSearch && <TabsTrigger value="deep-search">Dedicated lanes</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="heatmap">
