@@ -42,6 +42,7 @@ const EMPTY_LATE_COLS: DailyReportColumn[] = [
 
 const HOME_COLS: DailyReportColumn[] = [
   { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
+  { key: "home_date", label: "Date", width: "60px" },
   { key: "note", label: "Note", width: "1fr" },
 ];
 
