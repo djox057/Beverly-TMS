@@ -2217,7 +2217,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             hasMultipleOrders: (driverOrders.length || 0) > 1,
             lost_day_notes: [],
             milesAway: truck?.miles_away ?? null,
-            totalMiles: currentOrder?.loaded_miles || 0,
+            totalMiles: (sortedOrders.find((o: any) => !o.order_files?.some((f: any) => f.file_category === 'POD'))?.loaded_miles) ?? currentOrder?.loaded_miles ?? 0,
             goingYard: false,
             isOffDutyDriver: true,
             dot_inspection_date: truck?.dot_inspection_date || null,
