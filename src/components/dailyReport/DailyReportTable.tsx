@@ -527,6 +527,7 @@ export const DailyReportTable = ({
             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-muted/70 text-muted-foreground border-y border-border">
               {(row.office as string | null) ?? "—"}
             </div>
+          )}
           <div
             key={row.__id}
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
@@ -535,7 +536,6 @@ export const DailyReportTable = ({
             <div className="px-1 py-1.5 border-r border-border text-center text-xs text-muted-foreground">
               {idx + 1}
             </div>
-          >
             {columns.map((c) => (
               <div key={c.key} className="border-r border-border last:border-r-0 overflow-hidden">
                 {c.autocompleteTrucks ? (() => {
