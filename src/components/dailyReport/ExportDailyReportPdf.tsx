@@ -209,7 +209,8 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
 
         OFFICES.forEach((office, idx) => {
           const x = margin + idx * (colW + gap);
-          const label = office === "CACAK" ? "ČAČAK" : office;
+          // jsPDF's built-in Helvetica lacks Č; keep ASCII in the PDF.
+          const label = office;
           renderSection(
             `${label} — Empty & Late`,
             get("Empty & Late for delivery", office),
