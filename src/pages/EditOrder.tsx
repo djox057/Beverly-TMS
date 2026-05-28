@@ -67,6 +67,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
 import { toZonedTime } from "date-fns-tz";
 import { geocodeAddress } from "@/utils/mapboxRouteCalculator";
+import { isValidStopCoordinate } from "@/utils/coordinateValidation";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
 import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDialog";
 import { EditTransferDialog, EditTransferData } from "@/components/EditTransferDialog";
@@ -2781,11 +2782,28 @@ const EditOrder = () => {
               if (!latitude || !longitude) {
                 const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
                 const coords = await geocodeAddress(fullAddress);
-                if (coords) {
+                if (coords && isValidStopCoordinate(coords.lat, coords.lon, item.state)) {
                   latitude = coords.lat;
                   longitude = coords.lon;
                   console.log(`📍 Geocoded at submission: ${fullAddress} -> ${latitude}, ${longitude}`);
+                } else if (coords) {
+                  console.warn(
+                    `📍 Rejected geocode at submission (out of state/US bounds): ${fullAddress} -> ${coords.lat}, ${coords.lon}`,
+                  );
                 }
+              }
+
+              // Reject any pre-existing coordinates that don't match the stop's state.
+              if (
+                latitude != null &&
+                longitude != null &&
+                !isValidStopCoordinate(latitude, longitude, item.state)
+              ) {
+                console.warn(
+                  `📍 Dropping invalid pre-existing coords for ${item.type} (${item.city}, ${item.state}): ${latitude}, ${longitude}`,
+                );
+                latitude = null;
+                longitude = null;
               }
 
               return {

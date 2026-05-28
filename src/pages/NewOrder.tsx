@@ -38,6 +38,7 @@ import {
   calculateRouteFromCoords,
   calculateMultiStopRouteFromCoords,
 } from "@/utils/mapboxRouteCalculator";
+import { isValidStopCoordinate } from "@/utils/coordinateValidation";
 import { toZonedTime } from "date-fns-tz";
 import {
   AlertDialog,
@@ -445,7 +446,7 @@ const NewOrder = () => {
           const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
 
           const coords = await geocodeAddress(fullAddress);
-          if (coords) {
+          if (coords && isValidStopCoordinate(coords.lat, coords.lon, item.state)) {
             const index = updatedItems.findIndex((i) => i.id === item.id);
             if (index !== -1) {
               updatedItems[index] = {
@@ -456,6 +457,10 @@ const NewOrder = () => {
               hasUpdates = true;
               console.log(`📍 Geocoded ${item.type}: ${fullAddress} -> ${coords.lat}, ${coords.lon}`);
             }
+          } else if (coords) {
+            console.warn(
+              `📍 Rejected geocode (out of state/US bounds) for ${item.type} ${fullAddress} -> ${coords.lat}, ${coords.lon}`,
+            );
           }
         }
 
@@ -2000,11 +2005,28 @@ const NewOrder = () => {
             if (!latitude || !longitude) {
               const fullAddress = [item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", ");
               const coords = await geocodeAddress(fullAddress);
-              if (coords) {
+              if (coords && isValidStopCoordinate(coords.lat, coords.lon, item.state)) {
                 latitude = coords.lat;
                 longitude = coords.lon;
                 console.log(`📍 Geocoded at submission: ${fullAddress} -> ${latitude}, ${longitude}`);
+              } else if (coords) {
+                console.warn(
+                  `📍 Rejected geocode at submission (out of state/US bounds): ${fullAddress} -> ${coords.lat}, ${coords.lon}`,
+                );
               }
+            }
+
+            // Also reject any pre-existing coordinates that don't match the stop's state.
+            if (
+              latitude != null &&
+              longitude != null &&
+              !isValidStopCoordinate(latitude, longitude, item.state)
+            ) {
+              console.warn(
+                `📍 Dropping invalid pre-existing coords for ${item.type} (${item.city}, ${item.state}): ${latitude}, ${longitude}`,
+              );
+              latitude = null;
+              longitude = null;
             }
 
             return {
