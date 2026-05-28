@@ -8,13 +8,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route, CalendarIcon } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 
 
@@ -336,12 +339,46 @@ export default function BeverlyHeatmapLane() {
             />
           </div>
         </div>
-        <DateRangePicker
-          date={dateRange}
-          onDateChange={setDateRange}
-          placeholder="Pickup date range"
-          className="w-[260px]"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn("w-[260px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>
+                ) : format(dateRange.from, "LLL dd, y")
+              ) : (
+                <span>Pickup date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="flex items-center justify-between gap-2 p-2 border-b">
+              <span className="text-xs text-muted-foreground">Pickup date range</span>
+              <Button
+                size="sm"
+                variant={weekendsOnly ? "default" : "outline"}
+                onClick={() => setWeekendsOnly(v => !v)}
+                className="h-7 text-xs"
+                title="Only include loads with Saturday or Sunday pickup"
+              >
+                Weekends only
+              </Button>
+            </div>
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={dateRange?.from}
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
         <Button
           variant={triHaulMode ? "default" : "outline"}
           onClick={() => setTriHaulMode(v => !v)}
@@ -349,13 +386,6 @@ export default function BeverlyHeatmapLane() {
         >
           <Route className="h-4 w-4 mr-1" />
           TRI-HAUL
-        </Button>
-        <Button
-          variant={weekendsOnly ? "default" : "outline"}
-          onClick={() => setWeekendsOnly(v => !v)}
-          title="Only include loads with Saturday or Sunday pickup"
-        >
-          Weekends only
         </Button>
         <Button onClick={handleSearch} disabled={isGeocoding || (!pickupAddress.trim() && !deliveryAddress.trim())}>
           <Search className="h-4 w-4 mr-1" />
