@@ -221,39 +221,66 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         });
       }
 
-      // === Page 2: 2 × 2 — Maintenance / After Hours | New driver / Recoveries ===
+      // === Page 2 ===
+      // Row 1: Maintenance | New Drivers (2 cols)
+      // Row 2: After Hours | Recoveries | Safety (3 cols) when afterhours included
+      //        Recoveries | Safety (2 cols) when afterhours excluded
       doc.addPage();
       drawPageHeader();
       {
-        const cols = 2;
         const gap = 10;
-        const colW = (pageW - margin * 2 - gap) / cols;
         const rowGap = 10;
         const availH = bottomY - topY;
         const rowH = (availH - rowGap) / 2;
 
-        // Left column
-        renderSection("Maintenance", get("Maintenance", null), margin, topY, colW, rowH);
+        // Row 1 — always 2 columns
+        const topCols = 2;
+        const topColW = (pageW - margin * 2 - gap * (topCols - 1)) / topCols;
+        renderSection("Maintenance", get("Maintenance", null), margin, topY, topColW, rowH);
         renderSection(
-          "After Hours",
-          includeAfterhours ? get("Afterhours", null) : [],
-          margin,
-          topY + rowH + rowGap,
-          colW,
+          "New Drivers",
+          get("New driver", null),
+          margin + topColW + gap,
+          topY,
+          topColW,
           rowH
         );
 
-        // Right column
-        const rightX = margin + colW + gap;
-        renderSection("New Drivers", get("New driver", null), rightX, topY, colW, rowH);
-        renderSection(
-          "Recoveries",
-          get("Recoveries", null),
-          rightX,
-          topY + rowH + rowGap,
-          colW,
-          rowH
-        );
+        // Row 2 — 3 cols if afterhours included, otherwise 2 (no afterhours table at all)
+        const bottomY2 = topY + rowH + rowGap;
+        if (includeAfterhours) {
+          const botCols = 3;
+          const botColW = (pageW - margin * 2 - gap * (botCols - 1)) / botCols;
+          renderSection("After Hours", get("Afterhours", null), margin, bottomY2, botColW, rowH);
+          renderSection(
+            "Recoveries",
+            get("Recoveries", null),
+            margin + (botColW + gap),
+            bottomY2,
+            botColW,
+            rowH
+          );
+          renderSection(
+            "Safety",
+            get("Safety", null),
+            margin + (botColW + gap) * 2,
+            bottomY2,
+            botColW,
+            rowH
+          );
+        } else {
+          const botCols = 2;
+          const botColW = (pageW - margin * 2 - gap * (botCols - 1)) / botCols;
+          renderSection("Recoveries", get("Recoveries", null), margin, bottomY2, botColW, rowH);
+          renderSection(
+            "Safety",
+            get("Safety", null),
+            margin + botColW + gap,
+            bottomY2,
+            botColW,
+            rowH
+          );
+        }
       }
 
       doc.save(`Beverly_Daily_Report_${format(date, "yyyy-MM-dd")}.pdf`);
