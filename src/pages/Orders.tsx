@@ -496,6 +496,7 @@ const Orders = () => {
       deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
       pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
       pickupDateTo: pickupDateRange?.to ? formatDateNoTz(pickupDateRange.to, true) : undefined,
+      excludeBookedByCompanyId: EXCLUDED_BOOKED_BY_COMPANY_ID,
     };
   }, [
     hasActiveFilter,
