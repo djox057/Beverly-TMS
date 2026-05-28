@@ -104,6 +104,8 @@ export interface DailyReportColumn {
   width: string; // e.g. "120px" or "1fr"
   /** When true, render an autocomplete suggestion list (active trucks) */
   autocompleteTrucks?: boolean;
+  /** When true, mask input to MM/DD format and hide the expand-note button */
+  mmddDate?: boolean;
 }
 
 export interface DailyReportTableProps {
