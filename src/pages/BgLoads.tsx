@@ -1608,8 +1608,6 @@ const BgLoads = () => {
                   />
 
                   {/* Column 3 Row 2: Drivers */}
-
-                  {/* Column 3 Row 2: Drivers */}
                   <Combobox
                     value={driverFilter}
                     onValueChange={setDriverFilter}
