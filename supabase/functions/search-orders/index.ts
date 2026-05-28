@@ -20,6 +20,7 @@ interface SearchFilters {
   pickupDateFrom?: string;
   pickupDateTo?: string;
   locked?: boolean; // true = only locked, false = only unlocked, undefined = both
+  excludeBookedByCompanyId?: string;
 }
 
 Deno.serve(async (req) => {
@@ -243,6 +244,13 @@ Deno.serve(async (req) => {
     // Booked by filter
     if (filters.bookedBy) {
       query = query.eq("booked_by", filters.bookedBy);
+    }
+
+    // Exclude a specific booked-by company entirely (e.g. BG Prime Inc on /orders)
+    if (filters.excludeBookedByCompanyId) {
+      query = query.or(
+        `booked_by_company_id.neq.${filters.excludeBookedByCompanyId},booked_by_company_id.is.null`
+      );
     }
 
     // Truck filter
