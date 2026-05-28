@@ -19,6 +19,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const OFFICES = ["CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR"] as const;
 
+// Display label for an office code (DB still stores the original value).
+export const officeLabel = (o: string | null | undefined): string => {
+  if (!o) return "";
+  if (o === "CACAK") return "ČAČAK";
+  return o;
+};
+
 const COLOR_FILTERS = [
   { value: "orange", label: "Late" },
   { value: "cyan", label: "No load" },
@@ -111,10 +118,27 @@ const OfficeTab = ({
 const DailyReport = () => {
   const [date, setDate] = useState<Date>(() => getChicagoToday());
   const [activeTab, setActiveTab] = useState<string>("CACAK");
+  const [prevTab, setPrevTab] = useState<string>("CACAK");
   const { canView, canEdit, loading } = useDailyReportPermissions();
   const [truckQuery, setTruckQuery] = useState("");
   const [colorFilter, setColorFilter] = useState<string | null>(null);
   const [matchByDate, setMatchByDate] = useState<Map<string, string>>(new Map());
+
+  // When a status filter is active, switch to a hidden combined tab and
+  // remember the user's prior tab so we can restore it on clear.
+  useEffect(() => {
+    if (colorFilter) {
+      if (activeTab !== "__FILTER") {
+        setPrevTab(activeTab);
+        setActiveTab("__FILTER");
+      }
+    } else {
+      if (activeTab === "__FILTER") {
+        setActiveTab(prevTab || "CACAK");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorFilter]);
 
   // When truck query is set, fetch all dates/offices where this truck appears
   useEffect(() => {
