@@ -97,8 +97,8 @@ export const FilteredStatusTable = ({
 
   const showDate = colorFilter === "home_time";
   const gridCols = showDate
-    ? "160px 110px 90px 1fr"
-    : "160px 110px 1fr";
+    ? "32px 160px 110px 90px 1fr"
+    : "32px 160px 110px 1fr";
 
   return (
     <div className="border border-border rounded-md overflow-hidden bg-card">

@@ -466,8 +466,8 @@ export const DailyReportTable = ({
   };
 
   const gridTemplate = readOnly
-    ? columns.map((c) => c.width).join(" ")
-    : `${columns.map((c) => c.width).join(" ")} 28px 28px`;
+    ? `32px ${columns.map((c) => c.width).join(" ")}`
+    : `32px ${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   const truckColKey = columns.find((c) => c.autocompleteTrucks)?.key;
   const filtering = !!truckFilter.trim() || !!colorFilter;
