@@ -513,10 +513,20 @@ export const DailyReportTable = ({
         {!readOnly && <div />}
       </div>
       <div className="divide-y divide-border">
-        {visibleRows.length === 0 && filtering && (
+        {renderedRows.length === 0 && filtering && (
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">No matching rows</div>
         )}
-        {visibleRows.map((row) => (
+        {renderedRows.map((row, idx) => {
+          const prev = idx > 0 ? renderedRows[idx - 1] : null;
+          const showOfficeHeader =
+            ignoreOffice && (!prev || (prev.office ?? "") !== (row.office ?? ""));
+          return (
+          <div key={row.__id + "__wrap"}>
+          {showOfficeHeader && (
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-muted/70 text-muted-foreground border-y border-border">
+              {(row.office as string | null) ?? "—"}
+            </div>
+          )}
           <div
             key={row.__id}
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
