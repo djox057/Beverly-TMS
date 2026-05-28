@@ -59,7 +59,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const externalServiceUrl = Deno.env.get('DISTANCE_SERVICE_URL');
 
-    if (!apiKey1 || !apiKey2) {
+    const truckLocations = await fetchSamsaraLocations(apiKeys);
       throw new Error('Samsara API keys not configured');
     }
 
