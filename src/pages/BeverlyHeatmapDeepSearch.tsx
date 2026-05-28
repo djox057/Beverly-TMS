@@ -46,8 +46,8 @@ export default function BeverlyHeatmapDeepSearch() {
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [deepScope, setDeepScope] = useState<"global" | "filtered">("global");
   const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
+  const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
   const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
