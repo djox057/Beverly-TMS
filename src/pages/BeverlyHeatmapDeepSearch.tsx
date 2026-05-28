@@ -92,16 +92,17 @@ export default function BeverlyHeatmapDeepSearch() {
   };
 
   const hasCoords = pickupCoords != null || deliveryCoords != null;
+  const hasCoords = pickupCoords != null || deliveryCoords != null;
 
-  const deepEnabled = deepScope === "global" || hasCoords;
   const { data: deepData, isLoading: isLoadingDeep } = useQuery({
-    queryKey: ["heatmap-deep-search", deepScope, pickupCoords, deliveryCoords, startDateStr, endDateStr],
+    queryKey: ["heatmap-deep-search", pickupCoords, deliveryCoords, startDateStr, endDateStr],
     queryFn: async () => {
+      const scope = hasCoords ? "filtered" : "global";
       const { data, error } = await supabase.functions.invoke("lane-deep-search", {
         body: {
-          scope: deepScope,
-          pickup: deepScope === "filtered" ? pickupCoords : null,
-          delivery: deepScope === "filtered" ? deliveryCoords : null,
+          scope,
+          pickup: hasCoords ? pickupCoords : null,
+          delivery: hasCoords ? deliveryCoords : null,
           dateFrom: startDateStr ?? null,
           dateTo: endDateStr ?? null,
           minRepeats: 3,
@@ -110,10 +111,9 @@ export default function BeverlyHeatmapDeepSearch() {
       if (error) throw error;
       return data as { lanes: DeepLane[]; truncated: boolean; scanned: number };
     },
-    enabled: deepEnabled,
+    enabled: true,
     staleTime: 5 * 60 * 1000,
   });
-
   const sortedDeep = useMemo(() => {
     if (!deepData?.lanes) return [];
     const rows = [...deepData.lanes];
