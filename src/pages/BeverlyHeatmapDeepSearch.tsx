@@ -48,7 +48,6 @@ export default function BeverlyHeatmapDeepSearch() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
   const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
-  const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
