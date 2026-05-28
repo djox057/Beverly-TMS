@@ -204,6 +204,7 @@ export const DailyReportTable = ({
       r.driver_name = (d.driver_name as string | null) ?? null;
       r.dispatcher_name = (d.dispatcher_name as string | null) ?? null;
       r.color = (d.color as string | null) ?? null;
+      r.office = (d.office as string | null) ?? null;
       savedSnapshotRef.current[d.id] = JSON.stringify(
         Object.fromEntries([
           ...columns.map((c) => [c.key, (d as any)[c.key] ?? ""]),
@@ -483,6 +484,16 @@ export const DailyReportTable = ({
       })
     : rows;
 
+  // When aggregating across offices, sort so rows from the same office cluster
+  // together; we'll inject a small header row before each office group.
+  const renderedRows = ignoreOffice
+    ? [...visibleRows].sort((a, b) => {
+        const ao = (a.office ?? "") as string;
+        const bo = (b.office ?? "") as string;
+        return ao.localeCompare(bo);
+      })
+    : visibleRows;
+
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
       {title && (
@@ -502,10 +513,20 @@ export const DailyReportTable = ({
         {!readOnly && <div />}
       </div>
       <div className="divide-y divide-border">
-        {visibleRows.length === 0 && filtering && (
+        {renderedRows.length === 0 && filtering && (
           <div className="px-3 py-4 text-xs text-muted-foreground text-center">No matching rows</div>
         )}
-        {visibleRows.map((row) => (
+        {renderedRows.map((row, idx) => {
+          const prev = idx > 0 ? renderedRows[idx - 1] : null;
+          const showOfficeHeader =
+            ignoreOffice && (!prev || (prev.office ?? "") !== (row.office ?? ""));
+          return (
+          <div key={row.__id + "__wrap"}>
+          {showOfficeHeader && (
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-muted/70 text-muted-foreground border-y border-border">
+              {(row.office as string | null) ?? "—"}
+            </div>
+          )}
           <div
             key={row.__id}
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
@@ -666,7 +687,9 @@ export const DailyReportTable = ({
             </button>
             )}
           </div>
-        ))}
+          </div>
+          );
+        })}
       </div>
       {!readOnly && (
       <div className="px-2 py-1.5 border-t border-border bg-muted/30">
