@@ -96,8 +96,6 @@ Deno.serve(async (req) => {
     const orders: Ord[] = [];
     const PAGE = 1000;
     let offset = 0;
-    const MAX_ORDERS = 8000;
-    let truncated = false;
     while (true) {
       let q = db
         .from("orders")
@@ -110,7 +108,6 @@ Deno.serve(async (req) => {
       if (error) throw error;
       if (!data || data.length === 0) break;
       orders.push(...(data as any[]));
-      if (orders.length >= MAX_ORDERS) { truncated = true; break; }
       if (data.length < PAGE) break;
       offset += PAGE;
     }
@@ -258,7 +255,7 @@ Deno.serve(async (req) => {
     result.sort((a, b) => b.load_count - a.load_count);
     const capped = result.slice(0, 500);
 
-    return new Response(JSON.stringify({ lanes: capped, truncated, scanned: orders.length }), {
+    return new Response(JSON.stringify({ lanes: capped, truncated: false, scanned: orders.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
