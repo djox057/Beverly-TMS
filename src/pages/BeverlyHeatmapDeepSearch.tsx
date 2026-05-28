@@ -92,7 +92,6 @@ export default function BeverlyHeatmapDeepSearch() {
   };
 
   const hasCoords = pickupCoords != null || deliveryCoords != null;
-  const hasCoords = pickupCoords != null || deliveryCoords != null;
 
   const { data: deepData, isLoading: isLoadingDeep } = useQuery({
     queryKey: ["heatmap-deep-search", pickupCoords, deliveryCoords, startDateStr, endDateStr],
@@ -219,17 +218,9 @@ export default function BeverlyHeatmapDeepSearch() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
-        <span>
-          Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
-        </span>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="font-medium">Scope:</span>
-          <Button size="sm" variant={deepScope === "global" ? "default" : "outline"} onClick={() => setDeepScope("global")}>All lanes</Button>
-          <Button size="sm" variant={deepScope === "filtered" ? "default" : "outline"} onClick={() => setDeepScope("filtered")} disabled={!hasCoords}>Filter by pickup/delivery</Button>
-        </div>
+      <div className="text-xs text-muted-foreground">
+        Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles. Leave pickup/delivery blank for all lanes; enter either to filter.
       </div>
-
       {hasCoords && (
         <div className="flex gap-2 flex-wrap">
           {pickupCoords && (
@@ -245,12 +236,7 @@ export default function BeverlyHeatmapDeepSearch() {
         </div>
       )}
 
-      {isLoadingDeep && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Scanning lanes... this may take a moment.</div>
-      )}
-
-      {deepScope === "filtered" && !hasCoords && !isGeocoding && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
+      {!isLoadingDeep && deepData && deepData.lanes.length === 0 && (
           Enter pickup and/or delivery, click Geocode, then results will filter to that lane.
         </div>
       )}
