@@ -123,12 +123,15 @@ export const FilteredStatusTable = ({
             No matching rows
           </div>
         )}
-        {visible.map((r) => (
+        {visible.map((r, i) => (
           <div
             key={r.id}
             className={cn("grid text-sm", colorBg(r.color))}
             style={{ gridTemplateColumns: gridCols }}
           >
+            <div className="px-1 py-1.5 border-r border-border text-center text-xs text-muted-foreground">
+              {i + 1}
+            </div>
             <div className="px-2 py-1.5 border-r border-border truncate font-medium">
               {officeDisplay(r.office, r.type)}
             </div>
@@ -142,6 +145,7 @@ export const FilteredStatusTable = ({
             )}
             <div className="px-2 py-1.5 truncate">{r.note ?? ""}</div>
           </div>
+        ))}
         ))}
       </div>
     </div>
