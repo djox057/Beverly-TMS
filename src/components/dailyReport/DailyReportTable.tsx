@@ -505,6 +505,7 @@ export const DailyReportTable = ({
         className="grid bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border"
         style={{ gridTemplateColumns: gridTemplate }}
       >
+        <div className="px-1 py-1.5 border-r border-border text-center">#</div>
         {columns.map((c) => (
           <div key={c.key} className="px-2 py-1.5 border-r border-border last:border-r-0">
             {c.label}
