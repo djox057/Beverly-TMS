@@ -191,6 +191,9 @@ Deno.serve(async (req) => {
         id,
         truck_number,
         status,
+        miles_away,
+        eta_minutes,
+        miles_away_updated_at,
         orders!orders_truck_id_fkey(
           id,
           load_number,
@@ -222,13 +225,28 @@ Deno.serve(async (req) => {
     let skippedNoDestCoords = 0;
     let zeroMilesCount = 0;
     let calculatedCount = 0;
+    let preservedStale = 0;
+
+    const STALE_PRESERVE_MS = 24 * 60 * 60 * 1000; // keep last value up to 24h
+    const now = Date.now();
 
     for (const truck of trucks || []) {
       const truckLocation = locationMap.get(truck.truck_number);
       if (!truckLocation) {
         skippedNoLocation++;
-        // No fresh location → null out miles_away so UI hides it instead of
-        // showing a value computed against outdated GPS coords.
+        // No fresh GPS. If we have a recent (<24h) miles_away value, leave it
+        // alone so dispatchers keep seeing the last known distance. Only clear
+        // out if the cached value is missing or older than 24h.
+        const lastUpdatedRaw = (truck as any).miles_away_updated_at;
+        const lastUpdatedMs = lastUpdatedRaw ? new Date(lastUpdatedRaw).getTime() : 0;
+        const hasRecentValue =
+          (truck as any).miles_away !== null &&
+          lastUpdatedMs > 0 &&
+          now - lastUpdatedMs < STALE_PRESERVE_MS;
+        if (hasRecentValue) {
+          preservedStale++;
+          continue;
+        }
         allUpdates.push({
           truckId: truck.id,
           truckNumber: truck.truck_number,
@@ -282,7 +300,7 @@ Deno.serve(async (req) => {
       console.log(`✅ ${truck.truck_number}: ${roadMiles} mi (${etaMinutes} min) → ${dest.desc}`);
     }
 
-    console.log(`🧮 Classification: ${zeroMilesCount} zero-miles, ${calculatedCount} calculated, ${skippedNoLocation} no location, ${skippedNoDestCoords} no dest coords`);
+    console.log(`🧮 Classification: ${zeroMilesCount} zero-miles, ${calculatedCount} calculated, ${skippedNoLocation} no location (${preservedStale} preserved <24h), ${skippedNoDestCoords} no dest coords`);
 
     // ── Step 4: Batch DB updates ──
     console.log(`💾 Step 4: Updating ${allUpdates.length} trucks in DB (batches of ${DB_BATCH_SIZE})...`);
@@ -294,9 +312,16 @@ Deno.serve(async (req) => {
 
       const results = await Promise.all(
         batch.map(async (update) => {
+          const patch: Record<string, unknown> = {
+            miles_away: update.miles_away,
+            eta_minutes: update.eta_minutes,
+          };
+          if (update.miles_away !== null) {
+            patch.miles_away_updated_at = new Date().toISOString();
+          }
           const { error } = await supabase
             .from('trucks')
-            .update({ miles_away: update.miles_away, eta_minutes: update.eta_minutes })
+            .update(patch)
             .eq('id', update.truckId);
           return { truckNumber: update.truckNumber, error };
         })
