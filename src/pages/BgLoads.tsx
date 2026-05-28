@@ -89,7 +89,7 @@ const getStatusBadge = (status: string) => {
       return <Badge variant="secondary">{status}</Badge>;
   }
 };
-const Orders = () => {
+const BgLoads = () => {
   useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile, roles } = useAuthContext();
@@ -161,8 +161,8 @@ const Orders = () => {
         : undefined,
       currentPage,
     };
-    localStorage.setItem("ordersFilterState", JSON.stringify(filterState));
-    localStorage.setItem("returnToOrders", "true");
+    localStorage.setItem("bgLoadsFilterState", JSON.stringify(filterState));
+    localStorage.setItem("returnToBgLoads", "true");
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
 
@@ -273,9 +273,9 @@ const Orders = () => {
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
-    const shouldRestore = localStorage.getItem("returnToOrders");
+    const shouldRestore = localStorage.getItem("returnToBgLoads");
     if (shouldRestore === "true") {
-      const savedState = localStorage.getItem("ordersFilterState");
+      const savedState = localStorage.getItem("bgLoadsFilterState");
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
@@ -308,8 +308,8 @@ const Orders = () => {
         }
       }
       // Clear the flags
-      localStorage.removeItem("returnToOrders");
-      localStorage.removeItem("ordersFilterState");
+      localStorage.removeItem("returnToBgLoads");
+      localStorage.removeItem("bgLoadsFilterState");
     }
   }, []);
 
@@ -1422,7 +1422,7 @@ const Orders = () => {
     <div className="h-full w-full">
       <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-none">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Loads</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">BG Loads</h1>
           <div className="flex flex-wrap gap-2">
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
@@ -1476,7 +1476,7 @@ const Orders = () => {
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <div className="relative shrink-0">
-                <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
+                <CardTitle className="shrink-0 whitespace-nowrap">All BG Loads</CardTitle>
                 <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
                   {isFilteredLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   {hasActiveFilter && filteredOrders.length > 0 && !isFilteredLoading && (
@@ -3024,4 +3024,4 @@ const Orders = () => {
     </div>
   );
 };
-export default Orders;
+export default BgLoads;
