@@ -46,7 +46,6 @@ export default function BeverlyHeatmapDeepSearch() {
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [deepScope, setDeepScope] = useState<"global" | "filtered">("global");
   const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
   const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
 
@@ -94,15 +93,15 @@ export default function BeverlyHeatmapDeepSearch() {
 
   const hasCoords = pickupCoords != null || deliveryCoords != null;
 
-  const deepEnabled = deepScope === "global" || hasCoords;
   const { data: deepData, isLoading: isLoadingDeep } = useQuery({
-    queryKey: ["heatmap-deep-search", deepScope, pickupCoords, deliveryCoords, startDateStr, endDateStr],
+    queryKey: ["heatmap-deep-search", pickupCoords, deliveryCoords, startDateStr, endDateStr],
     queryFn: async () => {
+      const scope = hasCoords ? "filtered" : "global";
       const { data, error } = await supabase.functions.invoke("lane-deep-search", {
         body: {
-          scope: deepScope,
-          pickup: deepScope === "filtered" ? pickupCoords : null,
-          delivery: deepScope === "filtered" ? deliveryCoords : null,
+          scope,
+          pickup: hasCoords ? pickupCoords : null,
+          delivery: hasCoords ? deliveryCoords : null,
           dateFrom: startDateStr ?? null,
           dateTo: endDateStr ?? null,
           minRepeats: 3,
@@ -111,10 +110,9 @@ export default function BeverlyHeatmapDeepSearch() {
       if (error) throw error;
       return data as { lanes: DeepLane[]; truncated: boolean; scanned: number };
     },
-    enabled: deepEnabled,
+    enabled: true,
     staleTime: 5 * 60 * 1000,
   });
-
   const sortedDeep = useMemo(() => {
     if (!deepData?.lanes) return [];
     const rows = [...deepData.lanes];
@@ -220,17 +218,9 @@ export default function BeverlyHeatmapDeepSearch() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
-        <span>
-          Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
-        </span>
-        <div className="flex items-center gap-1 ml-auto">
-          <span className="font-medium">Scope:</span>
-          <Button size="sm" variant={deepScope === "global" ? "default" : "outline"} onClick={() => setDeepScope("global")}>All lanes</Button>
-          <Button size="sm" variant={deepScope === "filtered" ? "default" : "outline"} onClick={() => setDeepScope("filtered")} disabled={!hasCoords}>Filter by pickup/delivery</Button>
-        </div>
+      <div className="text-xs text-muted-foreground">
+        Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles. Leave pickup/delivery blank for all lanes; enter either to filter.
       </div>
-
       {hasCoords && (
         <div className="flex gap-2 flex-wrap">
           {pickupCoords && (
@@ -246,15 +236,6 @@ export default function BeverlyHeatmapDeepSearch() {
         </div>
       )}
 
-      {isLoadingDeep && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Scanning lanes... this may take a moment.</div>
-      )}
-
-      {deepScope === "filtered" && !hasCoords && !isGeocoding && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Enter pickup and/or delivery, click Geocode, then results will filter to that lane.
-        </div>
-      )}
       {!isLoadingDeep && deepData && deepData.lanes.length === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           No repeat lanes (≥3 loads) found.
