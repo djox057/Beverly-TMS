@@ -92,8 +92,8 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         h: number,
         showDate = false
       ) => {
-        const truckColW = Math.min(56, Math.max(40, w * 0.22));
-        const dateColW = showDate ? 36 : 0;
+        const truckColW = Math.min(45, Math.max(32, w * 0.18));
+        const dateColW = showDate ? 48 : 0;
         const noteColW = w - truckColW - dateColW;
 
         // Title bar
