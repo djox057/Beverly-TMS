@@ -282,14 +282,38 @@ const NewOrder = () => {
   });
 
   // Allowed booking entities for "Booked by company" dropdown
-  const filteredCompanies = companies?.filter(
-    (c) => c.name === "BF Prime LLC" || c.name === "Beverly Freight Inc" || c.name === "BG Prime Inc",
-  );
+  const baseBookingCompanyNames = ["BF Prime LLC", "Beverly Freight Inc", "BG Prime Inc"];
+  const bgPrimeCompany = companies?.find((c) => c.name === "BG Prime Inc");
 
   // Get company_id from selected driver1 (not from truck)
   const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
   const driverCompanyId = selectedDriver1?.company_id;
   const driverCompanyName = companies?.find((c) => c.id === driverCompanyId)?.name;
+
+  // BG Prime Inc can only be booked when no driver is selected, or when the
+  // selected driver's company IS BG Prime Inc.
+  const canSelectBgPrime = !driver1 || (!!bgPrimeCompany && driverCompanyId === bgPrimeCompany.id);
+
+  const filteredCompanies = companies?.filter((c) => {
+    if (baseBookingCompanyNames.includes(c.name)) {
+      if (c.name === "BG Prime Inc" && !canSelectBgPrime) return false;
+      return true;
+    }
+    // Include the driver's company so it can be auto-selected even if it's
+    // not one of the default booking entities.
+    if (driverCompanyId && c.id === driverCompanyId && !canSelectBgPrime) return true;
+    return false;
+  });
+
+  // If a driver whose company is NOT BG Prime is selected while
+  // "Booked by Company" is BG Prime Inc, switch booking company to driver's company.
+  useEffect(() => {
+    if (!driver1 || !driverCompanyId || !bgPrimeCompany) return;
+    if (bookedByCompany === bgPrimeCompany.id && driverCompanyId !== bgPrimeCompany.id) {
+      setBookedByCompany(driverCompanyId);
+    }
+  }, [driver1, driverCompanyId, bgPrimeCompany?.id, bookedByCompany]);
+
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(
     driverCompanyId,
     driverCompanyName,
