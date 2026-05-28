@@ -42,8 +42,8 @@ type DeepSortKey = "lane" | "broker_name" | "load_count" | "avg_rpm" | "last30_r
 export default function BeverlyHeatmapDeepSearch() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [pickupRadius, setPickupRadius] = useState<string>("1");
-  const [deliveryRadius, setDeliveryRadius] = useState<string>("1");
+  const [pickupRadius, setPickupRadius] = useState<string>("60");
+  const [deliveryRadius, setDeliveryRadius] = useState<string>("60");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -307,13 +307,13 @@ export default function BeverlyHeatmapDeepSearch() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedDeep.map(l => {
+                {sortedDeep.map((l, idx) => {
                   const trend = l.trend_pct;
                   const trendColor = trend == null ? "text-muted-foreground" : trend > 0.02 ? "text-emerald-600" : trend < -0.02 ? "text-red-600" : "text-muted-foreground";
                   const TrendIcon = trend == null ? Minus : trend > 0.02 ? TrendingUp : trend < -0.02 ? TrendingDown : Minus;
                   return (
                     <TableRow
-                      key={`${l.broker_id}-${l.pickup_city}-${l.delivery_city}`}
+                      key={`${l.broker_id}-${l.pickup_city}-${l.pickup_state}-${l.delivery_city}-${l.delivery_state}-${idx}`}
                       className="hover:bg-muted/30 cursor-pointer"
                       onClick={() => setSelectedDeepLane(l)}
                     >
