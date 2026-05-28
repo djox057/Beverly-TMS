@@ -531,108 +531,15 @@ export default function BeverlyHeatmapLane() {
       )}
 
       {/* Prompt to search */}
-      {!hasCoords && !isGeocoding && !triHaulMode && !deepMode && (
+      {!hasCoords && !isGeocoding && !triHaulMode && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           Enter pickup and/or delivery locations to search lane history.
         </div>
       )}
-      {triHaulMode && !hasBothCoords && !isGeocoding && !deepMode && (
+      {triHaulMode && !hasBothCoords && !isGeocoding && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           Enter both pickup and delivery locations, then click Search.
         </div>
-      )}
-
-      {/* Deep Search prompts / results */}
-      {deepMode && deepScope === "filtered" && !hasCoords && !isGeocoding && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Enter pickup and/or delivery, click Search, then results will filter to that lane.
-        </div>
-      )}
-      {deepMode && !isLoadingDeep && deepData && deepData.lanes.length === 0 && (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          No repeat lanes (≥3 loads) found{deepData.truncated ? " in the first batch scanned" : ""}.
-        </div>
-      )}
-      {deepMode && deepData && deepData.lanes.length > 0 && (
-        <>
-          {deepData.truncated && (
-            <div className="text-xs text-amber-600">
-              Scan was capped at {deepData.scanned.toLocaleString()} loads. Narrow the date range for full coverage.
-            </div>
-          )}
-          <div className="overflow-x-auto border rounded-lg">
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[260px] cursor-pointer select-none" onClick={() => handleDeepSort("lane")}>
-                    <span className="inline-flex items-center">Lane <DeepSortIcon columnKey="lane" /></span>
-                  </TableHead>
-                  <TableHead className="w-[200px] cursor-pointer select-none" onClick={() => handleDeepSort("broker_name")}>
-                    <span className="inline-flex items-center">Broker <DeepSortIcon columnKey="broker_name" /></span>
-                  </TableHead>
-                  <TableHead className="text-center w-[70px] cursor-pointer select-none" onClick={() => handleDeepSort("load_count")}>
-                    <span className="inline-flex items-center justify-center w-full">Loads <DeepSortIcon columnKey="load_count" /></span>
-                  </TableHead>
-                  <TableHead className="text-right w-[100px]">Avg $</TableHead>
-                  <TableHead className="text-right w-[80px]">Avg Mi</TableHead>
-                  <TableHead className="text-right w-[80px] cursor-pointer select-none" onClick={() => handleDeepSort("avg_rpm")}>
-                    <span className="inline-flex items-center justify-end w-full">Avg RPM <DeepSortIcon columnKey="avg_rpm" /></span>
-                  </TableHead>
-                  <TableHead className="text-right w-[90px] cursor-pointer select-none" onClick={() => handleDeepSort("last30_rpm")}>
-                    <span className="inline-flex items-center justify-end w-full">Last 30 RPM <DeepSortIcon columnKey="last30_rpm" /></span>
-                  </TableHead>
-                  <TableHead className="text-right w-[90px]">Prior 30 RPM</TableHead>
-                  <TableHead className="text-center w-[110px] cursor-pointer select-none" onClick={() => handleDeepSort("trend_pct")}>
-                    <span className="inline-flex items-center justify-center w-full">Trend <DeepSortIcon columnKey="trend_pct" /></span>
-                  </TableHead>
-                  <TableHead className="text-right w-[120px] cursor-pointer select-none" onClick={() => handleDeepSort("expected_rate")}>
-                    <span className="inline-flex items-center justify-end w-full">Expected $ <DeepSortIcon columnKey="expected_rate" /></span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedDeep.map(l => {
-                  const trend = l.trend_pct;
-                  const trendColor = trend == null ? "text-muted-foreground" : trend > 0.02 ? "text-emerald-600" : trend < -0.02 ? "text-red-600" : "text-muted-foreground";
-                  const TrendIcon = trend == null ? Minus : trend > 0.02 ? TrendingUp : trend < -0.02 ? TrendingDown : Minus;
-                  return (
-                    <TableRow
-                      key={`${l.broker_id}-${l.pickup_city}-${l.delivery_city}`}
-                      className="hover:bg-muted/30 cursor-pointer"
-                      onClick={() => setSelectedDeepLane(l)}
-                    >
-                      <TableCell className="text-sm whitespace-nowrap">
-                        {l.pickup_city}, {l.pickup_state} → {l.delivery_city}, {l.delivery_state}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="font-medium truncate">{l.broker_name}</div>
-                        {l.broker_mc && <div className="text-xs text-muted-foreground">MC {l.broker_mc}</div>}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary" className="font-mono">{l.load_count}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm font-mono">{fmt(l.avg_freight)}</TableCell>
-                      <TableCell className="text-right text-sm font-mono">{fmtMiles(l.avg_miles)}</TableCell>
-                      <TableCell className="text-right text-sm font-mono">{fmtRpm(l.avg_rpm)}</TableCell>
-                      <TableCell className="text-right text-sm font-mono">{fmtRpm(l.last30_rpm)}</TableCell>
-                      <TableCell className="text-right text-sm font-mono text-muted-foreground">{fmtRpm(l.prior30_rpm)}</TableCell>
-                      <TableCell className="text-center text-sm">
-                        <span className={`inline-flex items-center gap-1 font-mono ${trendColor}`}>
-                          <TrendIcon className="h-3.5 w-3.5" />
-                          {trend == null ? "—" : `${(trend * 100).toFixed(1)}%`}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right text-sm font-mono font-semibold">
-                        {fmt(l.expected_rate)}
-                        <div className="text-xs text-muted-foreground font-normal">{fmtRpm(l.expected_rpm)}/mi</div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </>
       )}
 
       {/* Orders Dialog */}
