@@ -207,6 +207,16 @@ export default function BeverlyHeatmapDeepSearch() {
             onKeyDown={e => e.key === "Enter" && handleSearch()}
           />
         </div>
+        <div className="w-[90px] space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">PU radius (mi)</label>
+          <Input
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={pickupRadius}
+            onChange={e => setPickupRadius(e.target.value)}
+          />
+        </div>
         <div className="flex-1 min-w-[200px] space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Delivery Location (optional)</label>
           <Input
@@ -216,20 +226,30 @@ export default function BeverlyHeatmapDeepSearch() {
             onKeyDown={e => e.key === "Enter" && handleSearch()}
           />
         </div>
+        <div className="w-[90px] space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">DEL radius (mi)</label>
+          <Input
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={deliveryRadius}
+            onChange={e => setDeliveryRadius(e.target.value)}
+          />
+        </div>
         <DateRangePicker
           date={dateRange}
           onDateChange={setDateRange}
           placeholder="Pickup date range"
           className="w-[260px]"
         />
-        <Button onClick={handleSearch} disabled={isGeocoding || (!pickupAddress.trim() && !deliveryAddress.trim())}>
+        <Button onClick={handleSearch} disabled={isGeocoding}>
           <Search className="h-4 w-4 mr-1" />
-          {isGeocoding ? "Geocoding..." : "Geocode"}
+          {isGeocoding ? "Geocoding..." : "Search"}
         </Button>
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Deep Search: surfaces broker × exact-lane pairs (≤1 mi on both ends) with ≥3 loads in window. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles. Leave pickup/delivery blank for all lanes; enter either to filter.
+        Deep Search: surfaces broker × exact-lane pairs with ≥3 loads in window. Leave pickup/delivery blank to scan all lanes; enter either (with its mile radius) to filter. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
       </div>
       {hasCoords && (
         <div className="flex gap-2 flex-wrap">
