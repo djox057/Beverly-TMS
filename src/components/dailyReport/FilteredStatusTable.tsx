@@ -127,9 +127,9 @@ export const FilteredStatusTable = ({
           <div
             key={r.id}
             className={cn("grid text-sm", colorBg(r.color))}
+            style={{ gridTemplateColumns: gridCols }}
+          >
             <div className="px-1 py-1.5 border-r border-border text-center text-xs font-light text-foreground/80">
-              {i + 1}
-            </div>
               {i + 1}
             </div>
             <div className="px-2 py-1.5 border-r border-border truncate font-medium">
