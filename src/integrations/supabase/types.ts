@@ -829,6 +829,7 @@ export type Database = {
           date: string
           dispatcher_name: string | null
           driver_name: string | null
+          home_date: string | null
           id: string
           note: string | null
           office: string | null
@@ -843,6 +844,7 @@ export type Database = {
           date: string
           dispatcher_name?: string | null
           driver_name?: string | null
+          home_date?: string | null
           id?: string
           note?: string | null
           office?: string | null
@@ -857,6 +859,7 @@ export type Database = {
           date?: string
           dispatcher_name?: string | null
           driver_name?: string | null
+          home_date?: string | null
           id?: string
           note?: string | null
           office?: string | null

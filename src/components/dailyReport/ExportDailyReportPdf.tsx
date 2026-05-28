@@ -35,6 +35,7 @@ interface Entry {
   note: string | null;
   color: string | null;
   created_at: string;
+  home_date: string | null;
 }
 
 export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
@@ -45,7 +46,7 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
     const dateStr = format(date, "yyyy-MM-dd");
     const { data, error } = await supabase
       .from("daily_report_entries")
-      .select("id, type, office, truck, note, color, created_at")
+        .select("id, type, office, truck, note, color, created_at, home_date")
       .eq("date", dateStr)
       .order("created_at", { ascending: true })
       .order("id", { ascending: true });
@@ -88,10 +89,12 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         x: number,
         y: number,
         w: number,
-        h: number
+        h: number,
+        showDate = false
       ) => {
         const truckColW = Math.min(56, Math.max(40, w * 0.22));
-        const noteColW = w - truckColW;
+        const dateColW = showDate ? 36 : 0;
+        const noteColW = w - truckColW - dateColW;
 
         // Title bar
         doc.setFillColor(60, 60, 60);
@@ -108,7 +111,12 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         doc.setFontSize(8);
         doc.setTextColor(0);
         doc.text("Truck#", x + 4, headY + 8.5);
-        doc.text("Note", x + truckColW + 4, headY + 8.5);
+        if (showDate) {
+          doc.text("Date", x + truckColW + 3, headY + 8.5);
+          doc.text("Note", x + truckColW + dateColW + 4, headY + 8.5);
+        } else {
+          doc.text("Note", x + truckColW + 4, headY + 8.5);
+        }
 
         // Body
         const bodyTop = headY + TABLE_HEAD_H;
@@ -132,18 +140,34 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
           }
           // cell borders
           doc.rect(x, yy, truckColW, rowH);
-          doc.rect(x + truckColW, yy, noteColW, rowH);
+          if (showDate) {
+            doc.rect(x + truckColW, yy, dateColW, rowH);
+            doc.rect(x + truckColW + dateColW, yy, noteColW, rowH);
+          } else {
+            doc.rect(x + truckColW, yy, noteColW, rowH);
+          }
 
           // Truck number
           doc.setFontSize(rowH >= 13 ? 8.5 : 7.5);
           doc.setTextColor(0);
           doc.text(r.truck ?? "", x + truckColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
 
+          // Date (Home only)
+          if (showDate) {
+            doc.setFontSize(rowH >= 13 ? 8 : 7);
+            doc.text(
+              r.home_date ?? "",
+              x + truckColW + dateColW / 2,
+              yy + rowH / 2 + 2.5,
+              { align: "center" }
+            );
+          }
+
           // Note (truncate to fit width, single line within the row)
           doc.setFontSize(rowH >= 13 ? 8 : 7);
           const noteText = (r.note ?? "").replace(/\s+/g, " ").trim();
           const fitted = (doc.splitTextToSize(noteText, noteColW - 6) as string[])[0] ?? "";
-          doc.text(fitted, x + truckColW + 3, yy + rowH / 2 + 2.5);
+          doc.text(fitted, x + truckColW + dateColW + 3, yy + rowH / 2 + 2.5);
 
           yy += rowH;
         }
@@ -191,7 +215,8 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             x,
             topY + rowH + rowGap,
             colW,
-            rowH
+            rowH,
+            true
           );
         });
       }
