@@ -249,7 +249,7 @@ export default function BeverlyHeatmapDeepSearch() {
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Deep Search: surfaces broker × exact-lane pairs with ≥3 loads in window. Leave pickup/delivery blank to scan all lanes; enter either (with its mile radius) to filter. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
+        Dedicated lanes: surfaces broker × exact-lane pairs with ≥3 loads in window. Leave pickup/delivery blank to scan all lanes; enter either (with its mile radius) to filter. Trend compares last 30 days vs prior 30 days; expected rate = last-30 RPM × avg miles.
       </div>
       {hasCoords && (
         <div className="flex gap-2 flex-wrap">
