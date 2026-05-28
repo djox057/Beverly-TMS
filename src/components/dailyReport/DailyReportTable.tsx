@@ -204,6 +204,7 @@ export const DailyReportTable = ({
       r.driver_name = (d.driver_name as string | null) ?? null;
       r.dispatcher_name = (d.dispatcher_name as string | null) ?? null;
       r.color = (d.color as string | null) ?? null;
+      r.office = (d.office as string | null) ?? null;
       savedSnapshotRef.current[d.id] = JSON.stringify(
         Object.fromEntries([
           ...columns.map((c) => [c.key, (d as any)[c.key] ?? ""]),
