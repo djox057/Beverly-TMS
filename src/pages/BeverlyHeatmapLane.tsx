@@ -519,15 +519,18 @@ export default function BeverlyHeatmapLane() {
       )}
 
       {/* Loading */}
-      {isLoading && hasCoords && !triHaulMode && (
+      {isLoading && hasCoords && !triHaulMode && !deepMode && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">Loading lane data...</div>
       )}
-      {isLoadingTri && hasBothCoords && triHaulMode && (
+      {isLoadingTri && hasBothCoords && triHaulMode && !deepMode && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">Loading tri-haul combos...</div>
+      )}
+      {isLoadingDeep && deepMode && (
+        <div className="flex items-center justify-center py-12 text-muted-foreground">Scanning lanes... this may take a moment.</div>
       )}
 
       {/* Overall summary */}
-      {!triHaulMode && laneData?.overall && (
+      {!triHaulMode && !deepMode && laneData?.overall && (
         <Card>
           <CardContent className="pt-4">
             <div className="grid grid-cols-4 gap-4 text-center">
@@ -553,12 +556,12 @@ export default function BeverlyHeatmapLane() {
       )}
 
       {/* No results */}
-      {!triHaulMode && hasCoords && !isLoading && laneData && laneData.overall?.count === 0 && (
+      {!triHaulMode && !deepMode && hasCoords && !isLoading && laneData && laneData.overall?.count === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">No loads found for this lane.</div>
       )}
 
       {/* Broker breakdown table */}
-      {!triHaulMode && sorted.length > 0 && (
+      {!triHaulMode && !deepMode && sorted.length > 0 && (
         <div className="overflow-x-auto border rounded-lg">
           <Table className="table-fixed">
             <TableHeader>
