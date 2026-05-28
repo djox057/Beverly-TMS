@@ -533,7 +533,7 @@ export const DailyReportTable = ({
             className={cn("grid group hover:bg-muted/30", colorBg(row.color as string | null))}
             style={{ gridTemplateColumns: gridTemplate }}
           >
-            <div className="px-1 py-1.5 border-r border-border text-center text-xs text-muted-foreground">
+            <div className="px-1 py-1.5 border-r border-border text-center text-xs font-light text-foreground/80">
               {idx + 1}
             </div>
             {columns.map((c) => (
