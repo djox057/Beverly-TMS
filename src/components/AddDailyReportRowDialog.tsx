@@ -216,7 +216,7 @@ export function AddDailyReportRowDialog({
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {homeDate ? format(homeDate, "yyyy/MM/dd") : "Pick a date"}
+                    {homeDate ? format(homeDate, "MM/dd/yyyy") : "Pick a date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
