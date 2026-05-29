@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { differenceInDays } from "date-fns";
 import type { Tenure } from "@/utils/tenureCalculator";
@@ -17,6 +18,30 @@ export interface DriverCompanyHistoryRow {
 const toDatePart = (iso: string): string => iso.slice(0, 10);
 
 export const useDriverCompanyHistory = (driverId: string | null) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!driverId) return;
+    const channel = supabase
+      .channel(`driver-company-history-${driverId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_company_history",
+          filter: `driver_id=eq.${driverId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["driver-company-history", driverId] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [driverId, queryClient]);
+
   return useQuery({
     queryKey: ["driver-company-history", driverId],
     queryFn: async (): Promise<Tenure[]> => {
