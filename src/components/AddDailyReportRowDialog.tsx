@@ -126,7 +126,7 @@ export function AddDailyReportRowDialog({
         color: color || null,
         driver_name: defaultDriverName || null,
         dispatcher_name: defaultDispatcherName || null,
-        home_date: type === "Home" && homeDate ? format(homeDate, "yyyy-MM-dd") : null,
+        home_date: type === "Home" && homeDate ? format(homeDate, "MM/dd") : null,
       };
       const { error } = await (supabase as any)
         .from("daily_report_entries")
