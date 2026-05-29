@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAssignmentHistory } from "@/hooks/useAssignmentHistory";
+import { useDriverCompanyHistory } from "@/hooks/useDriverCompanyHistory";
 import { calculateTenures, calculateCombinedDriverTenures, Tenure } from "@/utils/tenureCalculator";
 import { TenureList } from "@/components/TenureCard";
 import { Loader2 } from "lucide-react";
@@ -23,6 +24,9 @@ export const AssignmentHistoryDialog = ({
   onOpenChange,
 }: AssignmentHistoryDialogProps) => {
   const { data: history, isLoading } = useAssignmentHistory(entityType, entityId);
+  const { data: companyTenures = [], isLoading: companyLoading } = useDriverCompanyHistory(
+    entityType === 'driver' ? entityId : null
+  );
 
   // Calculate tenures based on entity type
   const { driverTenures, trailerTenures, truckTenures, dispatcherTenures } = useMemo(() => {
@@ -48,6 +52,22 @@ export const AssignmentHistoryDialog = ({
         entityType={tenureEntityType}
         emptyMessage={`No ${tenureEntityType} history found`}
       />
+    </ScrollArea>
+  );
+
+  const renderCompanyContent = () => (
+    <ScrollArea className="h-[400px] pr-4">
+      {companyLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <TenureList
+          tenures={companyTenures}
+          entityType="company"
+          emptyMessage="No company history found"
+        />
+      )}
     </ScrollArea>
   );
 
@@ -87,10 +107,11 @@ export const AssignmentHistoryDialog = ({
       case 'driver':
         return (
           <Tabs defaultValue="trucks" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="trucks">Truck Tenures</TabsTrigger>
               <TabsTrigger value="trailers">Trailer Tenures</TabsTrigger>
               <TabsTrigger value="dispatcher">Dispatcher</TabsTrigger>
+              <TabsTrigger value="companies">Companies</TabsTrigger>
             </TabsList>
             <TabsContent value="trucks" className="mt-4">
               {renderTenureContent(truckTenures, 'truck')}
@@ -100,6 +121,9 @@ export const AssignmentHistoryDialog = ({
             </TabsContent>
             <TabsContent value="dispatcher" className="mt-4">
               {renderTenureContent(dispatcherTenures, 'dispatcher')}
+            </TabsContent>
+            <TabsContent value="companies" className="mt-4">
+              {renderCompanyContent()}
             </TabsContent>
           </Tabs>
         );
