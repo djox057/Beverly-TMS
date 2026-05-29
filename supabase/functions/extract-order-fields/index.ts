@@ -366,8 +366,9 @@ Return ONLY valid JSON. No markdown, no explanations.`;
       const yyyy = Number(m[1]);
       const mm = Number(m[2]);
       const dd = Number(m[3]);
-      const candidates = [yyyy, yyyy + 1, yyyy - 1, currentYear, nextYear, currentYear - 1];
-      for (const y of candidates) {
+      const yearCandidates = [yyyy, yyyy + 1, yyyy - 1, currentYear, nextYear, currentYear - 1];
+      // 1) Try original MM/DD with adjacent years
+      for (const y of yearCandidates) {
         const ok = tryDate(y, mm, dd);
         if (ok) {
           if (ok !== stop.date) {
@@ -375,6 +376,17 @@ Return ONLY valid JSON. No markdown, no explanations.`;
           }
           stop.date = ok;
           return stop;
+        }
+      }
+      // 2) Try swapping day<->month (DD/MM European format) with adjacent years
+      if (dd >= 1 && dd <= 12 && mm >= 1 && mm <= 31) {
+        for (const y of yearCandidates) {
+          const ok = tryDate(y, dd, mm);
+          if (ok) {
+            console.log(`Date ${stop.date} out of ±15d window; recovered via day/month swap to ${ok}`);
+            stop.date = ok;
+            return stop;
+          }
         }
       }
       console.log(`Date ${stop.date} out of ±15d window and no adjacent year fits; clearing.`);
