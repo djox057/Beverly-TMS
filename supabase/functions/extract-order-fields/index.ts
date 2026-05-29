@@ -104,6 +104,16 @@ serve(async (req) => {
     const currentMonth = now.getMonth() + 1; // 1-12
     const nextYear = currentYear + 1;
 
+    // Allowed date window: ±15 days from today (Chicago/local server date)
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const minAllowedDate = new Date(todayMidnight.getTime() - 15 * MS_PER_DAY);
+    const maxAllowedDate = new Date(todayMidnight.getTime() + 15 * MS_PER_DAY);
+    const fmtYmd = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const minAllowedStr = fmtYmd(minAllowedDate);
+    const maxAllowedStr = fmtYmd(maxAllowedDate);
+
     const systemPrompt = `Extract shipping/logistics data from this PDF. Use OCR if needed.
 
 ## CRITICAL FIELDS TO EXTRACT:
@@ -146,6 +156,13 @@ US logistics documents use MM/DD/YYYY format (Month/Day/Year). You MUST parse da
 
 ## YEAR INFERENCE RULES (VERY IMPORTANT):
 Today's date is ${currentMonth}/${now.getDate()}/${currentYear}. Current month is ${currentMonth}.
+
+## DATE WINDOW CONSTRAINT (HARD LIMIT):
+Pickup and delivery dates MUST fall within ±15 days of today.
+Allowed range: ${minAllowedStr} to ${maxAllowedStr} (inclusive).
+- When inferring the year for ambiguous dates, choose the year that places the date INSIDE this window.
+- If a parsed date would fall OUTSIDE this window, try the adjacent year first. If still outside, OMIT the date field rather than returning an out-of-range value.
+
 When the year is missing OR only 2 digits (like "25"):
 - If the extracted month is ${currentMonth} or later months of the current year, use ${currentYear}
 - If we are in late year (month >= 10) and the extracted month is early (1-3), use ${nextYear}
