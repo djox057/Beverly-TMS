@@ -61,6 +61,7 @@ export default function BeverlyHeatmapLane() {
   const [selectedBroker, setSelectedBroker] = useState<BrokerStat | null>(null);
   const [triHaulMode, setTriHaulMode] = useState(false);
   const [weekendsOnly, setWeekendsOnly] = useState(false);
+  const [milesFilter, setMilesFilter] = useState<"under650" | "over650" | null>(null);
   const [triSort, setTriSort] = useState<{ key: TriSortKey; dir: "asc" | "desc" }>({ key: "total_freight", dir: "desc" });
   const [selectedTriCombo, setSelectedTriCombo] = useState<TriHaulCombo | null>(null);
 
@@ -118,7 +119,7 @@ export default function BeverlyHeatmapLane() {
 
   // Fetch matching orders based on coordinates
   const { data: laneData, isLoading } = useQuery({
-    queryKey: ["heatmap-lane", pickupCoords, deliveryCoords, startDateStr, endDateStr, pickupRadius, deliveryRadius, weekendsOnly],
+    queryKey: ["heatmap-lane", pickupCoords, deliveryCoords, startDateStr, endDateStr, pickupRadius, deliveryRadius, weekendsOnly, milesFilter],
     queryFn: async () => {
       if (!pickupCoords && !deliveryCoords) return null;
       const { data, error } = await supabase.functions.invoke("lane-search", {
@@ -130,6 +131,7 @@ export default function BeverlyHeatmapLane() {
           dateFrom: startDateStr ?? null,
           dateTo: endDateStr ?? null,
           weekendsOnly,
+          milesFilter,
         },
       });
       if (error) throw error;
