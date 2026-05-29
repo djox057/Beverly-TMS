@@ -1,36 +1,24 @@
-## Goal
-One-time data backfill into `driver_company_history` for the week **2026-05-18 → 2026-05-24** (Chicago), inferring each driver's company from the suffix of their earliest load that week.
+## Problem
 
-## Suffix → Company mapping
-Mirrors `create_order_with_unique_load_number`:
+PDF shows pickup `6/1/26` (US MM/DD/YY = June 1, 2026). Today is May 29, 2026, so June 1 is well within the ±15‑day window we already enforce. The AI still extracted it as **Jan 6, 2026** — interpreting the date as DD/MM (European) instead of MM/DD.
 
-- `BFU` → "bf prime united"
-- `BFP` → "bf prime"
-- `BF`  → "beverly freight"
-- `UE`  → "united enterprise"
-- `BG`  → "bg prime"
-- `AP`  → "ap silver"
+The current post‑validation in `supabase/functions/extract-order-fields/index.ts` only tries adjacent **years** when a date falls outside the ±15‑day window. Jan 6 2026 is outside the window in every year (2025/2026/2027), so the date currently gets cleared instead of being recovered as June 1.
 
-Resolved to `companies.id` via `ILIKE '%...%'` on `companies.name`.
+## Fix
 
-## Logic (single SQL insert)
+Update only `supabase/functions/extract-order-fields/index.ts`:
 
-1. For every driver appearing as `driver1_id` or `driver2_id` on a non-canceled order with `pickup_datetime` in `[2026-05-18, 2026-05-25)` Chicago, pick that driver's **earliest** such order (by `pickup_datetime`, tiebreak `created_at`).
-2. Extract suffix after `-` from `internal_load_number` (skip orders without a recognized suffix).
-3. Map suffix → company. Skip drivers whose suffix doesn't match any known company.
-4. **Only insert** for drivers with zero existing rows in `driver_company_history` (per user choice).
-5. Insert one closed row:
-   - `started_at = 2026-05-18 00:00:00 America/Chicago`
-   - `ended_at   = 2026-05-24 23:59:59 America/Chicago`
-   - `company_name_snapshot = companies.name`
-   - `changed_by = NULL`, `changed_by_name_snapshot = 'Backfill 5/18–5/24'`
+1. **Strengthen the prompt** — make the US `MM/DD/YYYY` rule even more explicit and add an instruction: "If your MM/DD interpretation produces a date outside the ±15‑day window, try swapping day and month before discarding."
 
-No schema changes. No code changes. No trigger changes.
+2. **Smarter post‑validation (`clampDate`)** — when the parsed date is outside the ±15‑day window:
+   - First try adjacent years (current behavior).
+   - **New:** then try swapping day↔month (and adjacent years of that swap) to recover DD/MM-formatted dates from European brokers. Only accept if the swapped date is valid (e.g. day ≤ 12 for month) and lands inside the window.
+   - Only clear the date if nothing fits.
 
-## Out of scope
-- Drivers who already have any history rows (left untouched).
-- Drivers with no load that week, or whose loads have an unrecognized/missing suffix.
-- Team-driver dedup beyond "earliest load wins" — driver2 is included independently and will get their own row from their earliest load that week.
+3. Keep the ±15‑day window logic and everything else unchanged.
 
-## Verification
-After insert, return a count and a sample (driver name, company, suffix) so you can spot-check before we move on.
+No DB changes, no other files touched.
+
+### Expected result for the attached PDF
+- Pickup `6/1/26` → MM/DD → June 1 2026 → inside window → kept as `2026-06-01`.
+- A European-formatted `01/06/26` (June 1) → MM/DD says Jan 6 (outside window) → swap → June 1 (inside window) → kept as `2026-06-01`.

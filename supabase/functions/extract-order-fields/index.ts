@@ -162,6 +162,7 @@ Pickup and delivery dates MUST fall within ±15 days of today.
 Allowed range: ${minAllowedStr} to ${maxAllowedStr} (inclusive).
 - When inferring the year for ambiguous dates, choose the year that places the date INSIDE this window.
 - If a parsed date would fall OUTSIDE this window, try the adjacent year first. If still outside, OMIT the date field rather than returning an out-of-range value.
+- If your US MM/DD interpretation produces a date OUTSIDE the ±15-day window, the document may be in DD/MM format (European broker). Try swapping day and month — if that lands INSIDE the window, use the swapped date.
 
 When the year is missing OR only 2 digits (like "25"):
 - If the extracted month is ${currentMonth} or later months of the current year, use ${currentYear}
