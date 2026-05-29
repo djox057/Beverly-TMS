@@ -162,6 +162,7 @@ Pickup and delivery dates MUST fall within ±15 days of today.
 Allowed range: ${minAllowedStr} to ${maxAllowedStr} (inclusive).
 - When inferring the year for ambiguous dates, choose the year that places the date INSIDE this window.
 - If a parsed date would fall OUTSIDE this window, try the adjacent year first. If still outside, OMIT the date field rather than returning an out-of-range value.
+- If your US MM/DD interpretation produces a date OUTSIDE the ±15-day window, the document may be in DD/MM format (European broker). Try swapping day and month — if that lands INSIDE the window, use the swapped date.
 
 When the year is missing OR only 2 digits (like "25"):
 - If the extracted month is ${currentMonth} or later months of the current year, use ${currentYear}
@@ -365,8 +366,9 @@ Return ONLY valid JSON. No markdown, no explanations.`;
       const yyyy = Number(m[1]);
       const mm = Number(m[2]);
       const dd = Number(m[3]);
-      const candidates = [yyyy, yyyy + 1, yyyy - 1, currentYear, nextYear, currentYear - 1];
-      for (const y of candidates) {
+      const yearCandidates = [yyyy, yyyy + 1, yyyy - 1, currentYear, nextYear, currentYear - 1];
+      // 1) Try original MM/DD with adjacent years
+      for (const y of yearCandidates) {
         const ok = tryDate(y, mm, dd);
         if (ok) {
           if (ok !== stop.date) {
@@ -374,6 +376,17 @@ Return ONLY valid JSON. No markdown, no explanations.`;
           }
           stop.date = ok;
           return stop;
+        }
+      }
+      // 2) Try swapping day<->month (DD/MM European format) with adjacent years
+      if (dd >= 1 && dd <= 12 && mm >= 1 && mm <= 31) {
+        for (const y of yearCandidates) {
+          const ok = tryDate(y, dd, mm);
+          if (ok) {
+            console.log(`Date ${stop.date} out of ±15d window; recovered via day/month swap to ${ok}`);
+            stop.date = ok;
+            return stop;
+          }
         }
       }
       console.log(`Date ${stop.date} out of ±15d window and no adjacent year fits; clearing.`);
