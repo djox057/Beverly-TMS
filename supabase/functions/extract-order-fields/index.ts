@@ -140,7 +140,10 @@ For EACH location extract:
 - shipper: Company name at this location
 
 ### 3. LOAD DETAILS:
-- freightAmount: TOTAL payment amount (not line items) - number only
+- freightAmount: TOTAL payment amount (the GRAND TOTAL the carrier will be paid) - number only.
+  CRITICAL: Always use the final "Total Cost" / "Total" / "Grand Total" / "Total Pay" / "Total Amount" row at the BOTTOM of the rate breakdown table, which INCLUDES all accessorials and fees (e.g., GPS Tracking, Fuel Surcharge, Detention, Lumper, Layover, Tolls, etc.).
+  Do NOT return only the "Line Haul" / "Net Line Haul" / "Flat Rate" / "Base Rate" subtotal — that excludes accessorials.
+  Example: if the table shows "Net Line Haul USD 850.00", "GPS Tracking USD 100.00", "Total Cost USD 950.00", freightAmount MUST be 950, NOT 850.
 - mileage: Total miles - number only
 - commodity: Description (max 4 words)
 - weight: Weight in pounds - number only
