@@ -209,6 +209,29 @@ export function AddDailyReportRowDialog({
             </div>
           )}
 
+          {type === "Home" && (
+            <div className="space-y-1.5">
+              <Label>Date of coming out</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {homeDate ? format(homeDate, "MM/dd/yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={homeDate}
+                    onSelect={(d) => setHomeDate(d)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label>Truck #</Label>
             <Input
