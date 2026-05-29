@@ -1627,22 +1627,42 @@ const Trips = () => {
 
       const companyName = driver?.companies?.name || "";
 
+      // Override company based on driver_company_history for the statement week.
+      // The historical company assignment determines which template to use, not the driver's current company.
+      let resolvedCompanyName = companyName;
+      try {
+        const { data: historyRows } = await supabase
+          .from("driver_company_history")
+          .select("company_name_snapshot, started_at, ended_at")
+          .eq("driver_id", firstOrder.driver1Id)
+          .lte("started_at", weekEndDate.toISOString())
+          .or(`ended_at.is.null,ended_at.gte.${weekStartDate.toISOString()}`)
+          .order("started_at", { ascending: false })
+          .limit(1);
+        const snapshot = historyRows?.[0]?.company_name_snapshot;
+        if (snapshot) {
+          resolvedCompanyName = snapshot;
+        }
+      } catch (e) {
+        console.warn("driver_company_history lookup failed; falling back to current company", e);
+      }
+
       // Check if driver is a company driver - use company driver template regardless of company
       if (driver?.is_company_driver) {
         await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-      } else if (companyName === "BF Prime United LLC") {
+      } else if (resolvedCompanyName === "BF Prime United LLC") {
         await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (
-        companyName === "BF Prime Drivers LLC" ||
-        companyName === "BF Prime Trucks LLC" ||
-        companyName === "BF Prime LLC"
+        resolvedCompanyName === "BF Prime Drivers LLC" ||
+        resolvedCompanyName === "BF Prime Trucks LLC" ||
+        resolvedCompanyName === "BF Prime LLC"
       ) {
         await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-      } else if (companyName === "Beverly Freight Inc") {
+      } else if (resolvedCompanyName === "Beverly Freight Inc") {
         await exportBeverlyFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-      } else if (companyName === "BG Prime Inc") {
+      } else if (resolvedCompanyName === "BG Prime Inc") {
         await exportBGPrimeIncTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-      } else if (companyName === "United Enterprise Solutions INC") {
+      } else if (resolvedCompanyName === "United Enterprise Solutions INC") {
         await exportUnitedEnterpriseSolutionsTemplate(
           week,
           weekStartDate,
@@ -1651,7 +1671,7 @@ const Trips = () => {
           driver,
           scheduledDeductions,
         );
-      } else if (companyName === "AP Silver Trans LLC") {
+      } else if (resolvedCompanyName === "AP Silver Trans LLC") {
         await exportAPSilverTransTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else {
         // Use the old export method for other companies
