@@ -360,15 +360,35 @@ export default function BeverlyHeatmapLane() {
           <PopoverContent className="w-auto p-0" align="start">
             <div className="flex items-center justify-between gap-2 p-2 border-b">
               <span className="text-xs text-muted-foreground">Pickup date range</span>
-              <Button
-                size="sm"
-                variant={weekendsOnly ? "default" : "outline"}
-                onClick={() => setWeekendsOnly(v => !v)}
-                className="h-7 text-xs"
-                title="Only include loads with Saturday or Sunday pickup"
-              >
-                Weekends only
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="default"
+                  variant={weekendsOnly ? "default" : "outline"}
+                  onClick={() => setWeekendsOnly(v => !v)}
+                  className="h-10 px-4 text-sm"
+                  title="Only include loads with Saturday or Sunday pickup"
+                >
+                  Weekends only
+                </Button>
+                <Button
+                  size="default"
+                  variant={milesFilter === "under650" ? "default" : "outline"}
+                  onClick={() => setMilesFilter(v => v === "under650" ? null : "under650")}
+                  className="h-10 px-4 text-sm"
+                  title="Only include loads under 650 miles"
+                >
+                  &lt;650mi
+                </Button>
+                <Button
+                  size="default"
+                  variant={milesFilter === "over650" ? "default" : "outline"}
+                  onClick={() => setMilesFilter(v => v === "over650" ? null : "over650")}
+                  className="h-10 px-4 text-sm"
+                  title="Only include loads at or above 650 miles"
+                >
+                  &gt;650mi
+                </Button>
+              </div>
             </div>
             <Calendar
               initialFocus
