@@ -86,6 +86,7 @@ export function AddDailyReportRowDialog({
   const [note, setNote] = useState("");
   const [color, setColor] = useState("");
   const [saving, setSaving] = useState(false);
+  const [homeDate, setHomeDate] = useState<Date | undefined>(undefined);
 
   // Reset on open
   useEffect(() => {
@@ -100,6 +101,7 @@ export function AddDailyReportRowDialog({
     setTruck(defaultTruckNumber);
     setNote("");
     setColor("");
+    setHomeDate(undefined);
   }, [open, defaultTruckNumber, defaultOffice]);
 
   const currentType = TYPES.find((t) => t.value === type) ?? TYPES[0];
@@ -124,6 +126,7 @@ export function AddDailyReportRowDialog({
         color: color || null,
         driver_name: defaultDriverName || null,
         dispatcher_name: defaultDispatcherName || null,
+        home_date: type === "Home" && homeDate ? format(homeDate, "yyyy-MM-dd") : null,
       };
       const { error } = await (supabase as any)
         .from("daily_report_entries")
