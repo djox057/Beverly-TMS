@@ -350,6 +350,39 @@ Return ONLY valid JSON. No markdown, no explanations.`;
     extractedData.pickups = extractedData.pickups.map(fixTimeRange);
     extractedData.deliveries = extractedData.deliveries.map(fixTimeRange);
 
+    // Enforce ±15 day window on dates. If out of range, try adjacent year; else clear.
+    const clampDate = (stop: PickupDeliveryStop) => {
+      if (!stop.date) return stop;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(stop.date);
+      if (!m) return stop;
+      const tryDate = (yyyy: number, mm: number, dd: number) => {
+        const d = new Date(yyyy, mm - 1, dd);
+        if (d >= minAllowedDate && d <= maxAllowedDate) {
+          return `${yyyy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+        }
+        return null;
+      };
+      const yyyy = Number(m[1]);
+      const mm = Number(m[2]);
+      const dd = Number(m[3]);
+      const candidates = [yyyy, yyyy + 1, yyyy - 1, currentYear, nextYear, currentYear - 1];
+      for (const y of candidates) {
+        const ok = tryDate(y, mm, dd);
+        if (ok) {
+          if (ok !== stop.date) {
+            console.log(`Date ${stop.date} out of ±15d window; adjusted to ${ok}`);
+          }
+          stop.date = ok;
+          return stop;
+        }
+      }
+      console.log(`Date ${stop.date} out of ±15d window and no adjacent year fits; clearing.`);
+      stop.date = undefined;
+      return stop;
+    };
+    extractedData.pickups = extractedData.pickups.map(clampDate);
+    extractedData.deliveries = extractedData.deliveries.map(clampDate);
+
     // Validation: at least 1 pickup and 1 delivery
     if (extractedData.pickups.length === 0 || extractedData.deliveries.length === 0) {
       console.warn("Missing pickups or deliveries, attempting auto-correction...");
