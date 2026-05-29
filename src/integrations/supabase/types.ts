@@ -1464,6 +1464,57 @@ export type Database = {
           },
         ]
       }
+      driver_company_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name_snapshot: string | null
+          company_id: string | null
+          company_name_snapshot: string | null
+          created_at: string
+          driver_id: string
+          ended_at: string | null
+          id: string
+          started_at: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          driver_id: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          driver_id?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_company_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_company_history_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_drug_tests: {
         Row: {
           created_at: string
