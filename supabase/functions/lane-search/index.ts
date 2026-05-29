@@ -28,6 +28,7 @@ interface Body {
   dateFrom?: string | null;
   dateTo?: string | null;
   weekendsOnly?: boolean;
+  milesFilter?: "under650" | "over650" | null;
 }
 
 function bbox(c: Coord, miles: number) {
@@ -85,6 +86,9 @@ Deno.serve(async (req) => {
     const dateFrom = body.dateFrom || null;
     const dateTo = body.dateTo || null;
     const weekendsOnly = body.weekendsOnly === true;
+    const milesFilter = body.milesFilter === "under650" || body.milesFilter === "over650"
+      ? body.milesFilter
+      : null;
 
     if (!pickup && !delivery) {
       return new Response(JSON.stringify({ error: "pickup or delivery required" }), {
@@ -186,6 +190,13 @@ Deno.serve(async (req) => {
         const d = new Date(dt);
         const dow = d.getUTCDay();
         return dow === 0 || dow === 6;
+      });
+    }
+
+    if (milesFilter) {
+      filteredOrders = filteredOrders.filter(o => {
+        const m = Number(o.loaded_miles) || 0;
+        return milesFilter === "under650" ? m > 0 && m < 650 : m >= 650;
       });
     }
 
