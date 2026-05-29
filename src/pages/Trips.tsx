@@ -1631,11 +1631,12 @@ const Trips = () => {
       // The historical company assignment determines which template to use, not the driver's current company.
       let resolvedCompanyName = companyName;
       try {
+        // Use the company active at the start of the statement week.
         const { data: historyRows } = await supabase
           .from("driver_company_history")
           .select("company_name_snapshot, started_at, ended_at")
           .eq("driver_id", firstOrder.driver1Id)
-          .lte("started_at", weekEndDate.toISOString())
+          .lte("started_at", weekStartDate.toISOString())
           .or(`ended_at.is.null,ended_at.gte.${weekStartDate.toISOString()}`)
           .order("started_at", { ascending: false })
           .limit(1);
