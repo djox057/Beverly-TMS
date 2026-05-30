@@ -1163,11 +1163,15 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
-      bookedByCompanyName: order.bookedByCompanyName || order.booked_by_company?.name || null,
+      bookedByCompanyName:
+        order.bookedByCompanyName ||
+        order.booked_by_company?.name ||
+        companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
+        null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
-  }, []);
+  }, [companiesList]);
 
   // Force complete handler
   const handleForceComplete = async (type: "BOL" | "POD", orderId: string) => {
