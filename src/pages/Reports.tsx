@@ -6586,6 +6586,11 @@ const Reports = () => {
                 <div className="text-sm text-muted-foreground font-normal">
                   Truck {zoomedLoad?.truckNumber} • {zoomedLoad?.driverNames}
                 </div>
+                {zoomedLoad?.bookedByCompanyName && (
+                  <div className="text-sm text-muted-foreground font-normal">
+                    Booked by: {zoomedLoad.bookedByCompanyName}
+                  </div>
+                )}
               </div>
               <Button
                 variant="outline"
