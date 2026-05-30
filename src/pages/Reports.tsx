@@ -1163,6 +1163,7 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
+      bookedByCompanyName: order.bookedByCompanyName || order.booked_by_company?.name || null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
