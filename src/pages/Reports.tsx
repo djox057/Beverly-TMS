@@ -804,6 +804,7 @@ const Reports = () => {
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
+    bookedByCompanyName?: string | null;
   } | null>(null);
 
   // Additional files popover state
