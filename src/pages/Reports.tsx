@@ -804,6 +804,7 @@ const Reports = () => {
     driverPay: number;
     canceled: boolean;
     bookedBy: string;
+    bookedByCompanyName?: string | null;
   } | null>(null);
 
   // Additional files popover state
@@ -1162,6 +1163,7 @@ const Reports = () => {
       driverPay,
       canceled: order.canceled || false,
       bookedBy: order.booked_by || "",
+      bookedByCompanyName: order.bookedByCompanyName || order.booked_by_company?.name || null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
@@ -6586,6 +6588,11 @@ const Reports = () => {
                 <div className="text-sm text-muted-foreground font-normal">
                   Truck {zoomedLoad?.truckNumber} • {zoomedLoad?.driverNames}
                 </div>
+                {zoomedLoad?.bookedByCompanyName && (
+                  <div className="text-sm text-muted-foreground font-normal">
+                    Booked by: {zoomedLoad.bookedByCompanyName}
+                  </div>
+                )}
               </div>
               <Button
                 variant="outline"
