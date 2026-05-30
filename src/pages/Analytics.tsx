@@ -3046,24 +3046,20 @@ const Analytics = () => {
                       <p className="text-lg sm:text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
                     </div>
 
-                    {!isDispatchOnly && (
-                      <div className="text-center">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Comm.</p>
-                        <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
-                          $
-                          {totalCut.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </p>
-                      </div>
-                    )}
-                    {!isDispatchOnly && (
-                      <div className="text-center col-span-2 sm:col-span-1">
-                        <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Comm. %</p>
-                        <p className="text-lg sm:text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
-                      </div>
-                    )}
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Comm.</p>
+                      <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
+                        $
+                        {totalCut.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="text-center col-span-2 sm:col-span-1">
+                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Comm. %</p>
+                      <p className="text-lg sm:text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+                    </div>
                   </div>
 
                   {/* Expandable Extra Stats */}
@@ -3188,22 +3184,18 @@ const Analytics = () => {
                             </TableHead>
                           )}
 
-                          {!isDispatchOnly && (
-                            <TableHead
-                              className="text-right cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort("cut")}
-                            >
-                              Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
-                            </TableHead>
-                          )}
-                          {!isDispatchOnly && (
-                            <TableHead
-                              className="text-right cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleSort("cutPercent")}
-                            >
-                              Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
-                            </TableHead>
-                          )}
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("cut")}
+                          >
+                            Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
+                          <TableHead
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleSort("cutPercent")}
+                          >
+                            Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
+                          </TableHead>
                           <TableHead
                             className="text-right cursor-pointer hover:bg-muted/50"
                             onClick={() => handleSort("avgTrucks")}
@@ -3295,18 +3287,14 @@ const Analytics = () => {
                                 <TableCell className="text-right">{stat.avgDhMiles.toFixed(0)}</TableCell>
                               )}
 
-                              {!isDispatchOnly && (
-                                <TableCell className="text-right">
-                                  $
-                                  {stat.cut.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </TableCell>
-                              )}
-                              {!isDispatchOnly && (
-                                <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                              )}
+                              <TableCell className="text-right">
+                                $
+                                {stat.cut.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
                               <TableCell className="text-right">
                                 {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
                               </TableCell>
