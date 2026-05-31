@@ -121,6 +121,7 @@ import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -365,7 +366,8 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 };
 
 const Reports = () => {
-  const { profile, hasRole, roles } = useAuthContext();
+  const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
+  const { individualMode } = useIndividualMode();
   const navigate = useNavigate();
 
   // Use consolidated filter hook
@@ -461,15 +463,34 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list - values must match database enum values
-  const offices = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  // For afterhours users in Individual Mode whose office is one of the BG floors,
+  // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
+  // all of their assigned trucks across both floors are visible in one place.
+  const useCombinedBgTab =
+    getPrimaryRole() === "afterhours" &&
+    individualMode &&
+    (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
+  const offices = useCombinedBgTab
+    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
+    : ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+
+  // Map the virtual "BG" tab to the real underlying office values.
+  const expandOffice = useCallback(
+    (tab: string): string[] =>
+      tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab],
+    [useCombinedBgTab],
+  );
 
   // Display names for offices (uppercase for UI consistency)
   const getOfficeDisplayName = (office: string) => {
-    return office === "Čačak" ? "ČAČAK" : office;
+    if (office === "Čačak") return "ČAČAK";
+    if (office === "BG") return "BG";
+    return office;
   };
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
+    if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
     }
@@ -501,7 +522,9 @@ const Reports = () => {
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
-    priorityOffice: activeTab,
+    // When the virtual "BG" tab is active, do not constrain by a single office
+    // value; the individual-mode driver-id scope already narrows correctly.
+    priorityOffice: activeTab === "BG" && useCombinedBgTab ? null : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
@@ -537,14 +560,14 @@ const Reports = () => {
     if (!groupedReports) return [];
     const companies = new Set<string>();
     groupedReports
-      .filter((group) => group.office === activeTab)
+      .filter((group) => expandOffice(activeTab).includes(group.office))
       .forEach((group) => {
         group.trucks.forEach((truck: any) => {
           if (truck.companyName) companies.add(truck.companyName);
         });
       });
     return Array.from(companies).sort();
-  }, [groupedReports, activeTab]);
+  }, [groupedReports, activeTab, expandOffice]);
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
@@ -2994,7 +3017,8 @@ const Reports = () => {
   const filterReportsByOffice = useMemo(() => {
     return (office: string) => {
       if (!groupedReports) return [];
-      let filtered = groupedReports.filter((group) => group.office === office);
+      const allowed = expandOffice(office);
+      let filtered = groupedReports.filter((group) => allowed.includes(group.office));
 
       // Apply dispatch name filter
       if (debouncedDispatchNameFilter) {
@@ -3094,6 +3118,7 @@ const Reports = () => {
     debouncedLoadNumberFilter,
     companyFilter,
     proximityMatchedTrucks,
+    expandOffice,
   ]);
 
   // Collect all driver IDs for weekly plans hook
@@ -4008,7 +4033,7 @@ const Reports = () => {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-              <TabsList className="grid grid-cols-5 flex-1">
+              <TabsList className={cn("grid flex-1", offices.length === 4 ? "grid-cols-4" : "grid-cols-5")}>
                 {offices.map((office) => (
                   <TabsTrigger key={office} value={office} className="text-xs sm:text-sm">
                     {getOfficeDisplayName(office)}
