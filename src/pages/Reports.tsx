@@ -366,7 +366,7 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 };
 
 const Reports = () => {
-  const { profile, hasRole, roles } = useAuthContext();
+  const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { individualMode } = useIndividualMode();
   const navigate = useNavigate();
 
@@ -466,11 +466,8 @@ const Reports = () => {
   // For afterhours users in Individual Mode whose office is one of the BG floors,
   // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
   // all of their assigned trucks across both floors are visible in one place.
-  const isAfterhoursPrimary = roles?.includes?.("afterhours") && !roles?.some?.((r: string) =>
-    ["admin", "manager", "supervisor", "safety", "dispatch", "accounting"].includes(r),
-  );
   const useCombinedBgTab =
-    !!isAfterhoursPrimary &&
+    getPrimaryRole() === "afterhours" &&
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
   const offices = useCombinedBgTab
