@@ -427,7 +427,20 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
   
   // Check if we're viewing a different office than user's own
-  const isViewingOtherOffice = !!(userOffice && priorityOffice && userOffice !== priorityOffice);
+  // BG 1st floor and BG 4th floor are treated as the same office here, so a
+  // user whose own office is one BG floor isn't blocked from viewing the other.
+  const BG_FLOORS = new Set(["BG 1st floor", "BG 4th floor"]);
+  const sameBgPair =
+    !!userOffice &&
+    !!priorityOffice &&
+    BG_FLOORS.has(userOffice) &&
+    BG_FLOORS.has(priorityOffice);
+  const isViewingOtherOffice = !!(
+    userOffice &&
+    priorityOffice &&
+    userOffice !== priorityOffice &&
+    !sameBgPair
+  );
   
   // Determine if we're viewing a non-user office in Individual Mode
   // In this case, we should show a message instead of loading data
