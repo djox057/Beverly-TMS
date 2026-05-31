@@ -463,15 +463,37 @@ const Reports = () => {
   // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list - values must match database enum values
-  const offices = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  // For afterhours users in Individual Mode whose office is one of the BG floors,
+  // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
+  // all of their assigned trucks across both floors are visible in one place.
+  const isAfterhoursPrimary = roles?.includes?.("afterhours") && !roles?.some?.((r: string) =>
+    ["admin", "manager", "supervisor", "safety", "dispatch", "accounting"].includes(r),
+  );
+  const useCombinedBgTab =
+    !!isAfterhoursPrimary &&
+    individualMode &&
+    (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
+  const offices = useCombinedBgTab
+    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
+    : ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+
+  // Map the virtual "BG" tab to the real underlying office values.
+  const expandOffice = useCallback(
+    (tab: string): string[] =>
+      tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab],
+    [useCombinedBgTab],
+  );
 
   // Display names for offices (uppercase for UI consistency)
   const getOfficeDisplayName = (office: string) => {
-    return office === "Čačak" ? "ČAČAK" : office;
+    if (office === "Čačak") return "ČAČAK";
+    if (office === "BG") return "BG";
+    return office;
   };
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
+    if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
     }
