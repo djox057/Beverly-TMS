@@ -367,6 +367,7 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 
 const Reports = () => {
   const { profile, hasRole, roles } = useAuthContext();
+  const { individualMode } = useIndividualMode();
   const navigate = useNavigate();
 
   // Use consolidated filter hook
