@@ -3020,7 +3020,8 @@ const Reports = () => {
   const filterReportsByOffice = useMemo(() => {
     return (office: string) => {
       if (!groupedReports) return [];
-      let filtered = groupedReports.filter((group) => group.office === office);
+      const allowed = expandOffice(office);
+      let filtered = groupedReports.filter((group) => allowed.includes(group.office));
 
       // Apply dispatch name filter
       if (debouncedDispatchNameFilter) {
