@@ -3121,6 +3121,7 @@ const Reports = () => {
     debouncedLoadNumberFilter,
     companyFilter,
     proximityMatchedTrucks,
+    expandOffice,
   ]);
 
   // Collect all driver IDs for weekly plans hook
