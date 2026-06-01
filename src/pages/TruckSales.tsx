@@ -66,10 +66,10 @@ const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "driver", label: "Driver", width: "w-[200px]" },
   { key: "price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
   { key: "terms", label: "Terms", width: "w-[100px]", align: "text-right" },
-  { key: "status", label: "Status", width: "w-[210px]" },
+  { key: "status", label: "Status", width: "w-[50px]" },
 ];
 
-const TOTAL_W = 1650;
+const TOTAL_W = 1500;
 
 type StatusDef = { value: string; label: string; bg: string; text: string };
 
