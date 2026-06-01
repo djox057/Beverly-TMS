@@ -107,6 +107,7 @@ const TruckSales = () => {
 
   const allowed = ALLOWED.some((r) => hasRole(r as any));
   const canEdit = allowed;
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["truck-sales"],
@@ -143,6 +144,12 @@ const TruckSales = () => {
     });
   }, [data]);
 
+  useEffect(() => {
+    if (!selectedCompany && grouped.length > 0) {
+      setSelectedCompany(grouped[0].name);
+    }
+  }, [grouped, selectedCompany]);
+
   const updateTruck = async (id: string, patch: Partial<TruckRow>) => {
     // Optimistic
     queryClient.setQueryData<TruckRow[]>(["truck-sales"], (prev) =>
@@ -164,16 +171,38 @@ const TruckSales = () => {
 
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
-      {!isLoading &&
-        grouped.map((group) => (
-          <Card key={group.name}>
+      {!isLoading && grouped.length > 0 && (() => {
+        const active =
+          grouped.find((g) => g.name === selectedCompany) || grouped[0];
+        return (
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{group.name}</span>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <CardTitle className="flex flex-wrap items-center gap-1 text-base sm:text-lg">
+                  {grouped.map((g, i) => (
+                    <span key={g.name} className="flex items-center gap-1">
+                      {i > 0 && (
+                        <span className="text-muted-foreground/40">/</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCompany(g.name)}
+                        className={
+                          active.name === g.name
+                            ? "text-foreground font-semibold"
+                            : "text-muted-foreground/50 hover:text-muted-foreground font-normal"
+                        }
+                      >
+                        {g.name}
+                      </button>
+                    </span>
+                  ))}
+                </CardTitle>
                 <span className="text-sm font-normal text-muted-foreground">
-                  {group.trucks.length} truck{group.trucks.length === 1 ? "" : "s"}
+                  {active.trucks.length} truck
+                  {active.trucks.length === 1 ? "" : "s"}
                 </span>
-              </CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -188,7 +217,7 @@ const TruckSales = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {group.trucks.map((t) => {
+                    {active.trucks.map((t) => {
                       const driverName =
                         [t.driver1?.first_name, t.driver1?.last_name]
                           .filter(Boolean)
@@ -343,7 +372,8 @@ const TruckSales = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+        );
+      })()}
     </div>
   );
 };
