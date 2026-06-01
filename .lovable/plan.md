@@ -1,43 +1,49 @@
-## Goal
+## Truck Sales — split by truck company
 
-Give the `recruiting` and `claims` roles read access to Trucks, Trailers, Drivers (and their files) at the same permission level as `dispatch`, with tailored sidebar navigation.
+Rework `/truck-sales` to mirror the styling of the Analytics "Other Salaries" tab (Card + `Table` with `table-fixed` and absolute pixel widths), grouped into one section per truck-owning company (`trucks.company_id`). Trucks without a company go under an "Unassigned" section.
 
-## Sidebar navigation (`src/components/Sidebar.tsx`)
+### Database
 
-Add explicit branches in `getFilteredNavigation()`:
+Add the missing fields on `public.trucks` (existing: `truck_number`, `model`). New columns:
 
-- **`recruiting`** sees:
-  - Trucks, Trailers, Drivers
-  - Fleets, Reports
-  - Truck Sales (already wired)
-  - Hides: New Load, Loads, BG Loads, and everything else
-- **`claims`** sees only:
-  - Loads, BG Loads
-  - Trucks, Trailers, Drivers
+| Column | Type | Notes |
+|---|---|---|
+| `make` | text | nullable |
+| `transmission` | text | nullable (e.g. Automatic / Manual) |
+| `year` | int | nullable |
+| `miles` | int | odometer reading, nullable |
+| `engine` | text | nullable |
+| `has_apu_webasto` | boolean | default false |
+| `has_inverter` | boolean | default false |
+| `has_fridge` | boolean | default false |
+| `sale_price_week` | numeric(10,2) | nullable |
+| `sale_terms` | text | nullable, free-form |
 
-Also remove `recruiting` / `claims` from any unintended branches (e.g. they currently fall through to `filteredNav` and would see Brokers/Fleets/Reports/Analytics/etc.). The new explicit branches replace that fallback.
+Migration also re-asserts GRANTs already present on `public.trucks` for any new dependent operations — no RLS policy changes (existing trucks policies cover read/update for the involved roles).
 
-## File access (Truck/Trailer/Driver file managers)
+### Page rewrite — `src/pages/TruckSales.tsx`
 
-File managers gate by `hasRole('dispatch')` etc. for upload/delete buttons. Extend the read-side checks (and any view-files gates) to include `recruiting` and `claims`. Upload/delete stays restricted to existing roles — task says "see them and access their files", interpreted as view + download, matching what `dispatch` can do on the read path.
+- Fetch `trucks` (active only) joined with `companies(name)` and `driver1:drivers!driver1_id(first_name,last_name)`.
+- Group rows by `company_id`; sort companies alphabetically; render one Card per company with the company name as the header and a truck count.
+- Inside each Card, render a `Table` with `table-fixed` and these columns (absolute widths, mirroring Other Salaries):
+  - Truck # · Make · Model · Transmission · Year · Miles · Engine · APU/Webasto · Inverter · Fridge · Driver · Price/week · Terms
+- Equipment flags render as Yes/No badges (green/muted). Driver name = `driver1` full name or em-dash. Price formatted as USD currency. Miles formatted with thousands separators.
+- Inline editing for users with role `admin`, `manager`, `chicago_management`, or `recruiting`:
+  - Text fields (make, model, transmission, engine, terms): click-to-edit input
+  - Numeric (year, miles, sale_price_week): numeric input
+  - Booleans (apu_webasto, inverter, fridge): toggle switch
+  - On blur / toggle change → `supabase.from('trucks').update(...)` + optimistic React Query cache patch, then invalidate
+- Read-only roles see the same grid without inputs (plain text + Yes/No badges).
+- Empty company sections are not rendered.
 
-Files audited:
-- `src/components/TruckFilesManager.tsx`
-- `src/components/TrailerFilesManager.tsx`
-- `src/components/DriverFilesManager.tsx`
-- `src/pages/Drivers.tsx`, `src/pages/Trucks.tsx`, `src/pages/Trailers.tsx` — confirm no route-level role gate excludes them (currently none do).
+### Out of scope
 
-## hasRole helper (`src/hooks/useAuth.ts`)
+- No sidebar/route changes (page + role gating already in place).
+- No file uploads or sales workflow beyond price/terms fields.
+- No edits to Analytics or Other Salaries.
 
-`dispatch` only matches itself today, so no change needed there. `recruiting` and `claims` will continue to match exactly. No privilege escalation is added — only sidebar visibility and file-manager visibility gates are widened.
+### Technical notes
 
-## Out of scope
-
-- No DB / RLS changes. Existing policies for `trucks`, `trailers`, `drivers` and storage already allow authenticated reads; if a specific RLS rule turns out to gate by role, I'll surface it during build and propose a migration.
-- No edit/create/delete capabilities granted to `recruiting` or `claims`.
-- The existing `Truck Sales` access for `recruiting` remains.
-
-## Verification
-
-- Sign-in simulations per role (sidebar snapshot) — confirm visible items match spec.
-- Open Drivers/Trucks/Trailers as each role, open a record's Files tab, confirm list + download work and upload/delete buttons remain hidden.
+- Group-by uses `trucks.company_id` (per user choice), not `driver1.company_id` — the "truck company source" memory applies to display elsewhere, not to ownership-based sales grouping.
+- Follow Table layout standard (`table-fixed` + px widths) and design tokens only.
+- Use existing `useAuth` `hasRole` for edit gating.
