@@ -6623,6 +6623,11 @@ const Reports = () => {
                     Booked by: {zoomedLoad.bookedByCompanyName}
                   </div>
                 )}
+                {zoomedLoad?.brokerName && (
+                  <div className="text-sm text-muted-foreground font-normal">
+                    Broker: {zoomedLoad.brokerName}
+                  </div>
+                )}
               </div>
               <Button
                 variant="outline"
