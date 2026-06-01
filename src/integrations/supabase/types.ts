@@ -4418,8 +4418,6 @@ export type Database = {
           oil_change_date: string | null
           plate: string | null
           plate_expiration_date: string | null
-          sale_price_week: number | null
-          sale_terms: string | null
           status: string | null
           termination_date: string | null
           tires_swap_date: string | null
@@ -4459,8 +4457,6 @@ export type Database = {
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
-          sale_price_week?: number | null
-          sale_terms?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null
@@ -4500,8 +4496,6 @@ export type Database = {
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
-          sale_price_week?: number | null
-          sale_terms?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null

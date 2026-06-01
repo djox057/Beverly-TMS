@@ -31,28 +31,35 @@ type TruckRow = {
   has_apu_webasto: boolean;
   has_inverter: boolean;
   has_fridge: boolean;
-  sale_price_week: number | null;
-  sale_terms: string | null;
   company_id: string | null;
   companies: { name: string | null } | null;
-  driver1: { first_name: string | null; last_name: string | null } | null;
+  driver1:
+    | {
+        first_name: string | null;
+        last_name: string | null;
+        weekly_payment: number | null;
+        weeks_count: number | null;
+      }
+    | null;
 };
 
 const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "truck_number", label: "Truck #", width: "w-[90px]" },
   { key: "make", label: "Make", width: "w-[110px]" },
   { key: "model", label: "Model", width: "w-[110px]" },
-  { key: "transmission", label: "Transmission", width: "w-[120px]" },
+  { key: "transmission", label: "Transmission", width: "w-[130px]" },
   { key: "year", label: "Year", width: "w-[80px]", align: "text-right" },
-  { key: "miles", label: "Miles", width: "w-[100px]", align: "text-right" },
+  { key: "miles", label: "Miles", width: "w-[110px]", align: "text-right" },
   { key: "engine", label: "Engine", width: "w-[120px]" },
-  { key: "has_apu_webasto", label: "APU/Webasto", width: "w-[110px]", align: "text-center" },
+  { key: "has_apu_webasto", label: "APU/Webasto", width: "w-[120px]", align: "text-center" },
   { key: "has_inverter", label: "Inverter", width: "w-[90px]", align: "text-center" },
   { key: "has_fridge", label: "Fridge", width: "w-[80px]", align: "text-center" },
-  { key: "driver", label: "Driver", width: "w-[180px]" },
-  { key: "sale_price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
-  { key: "sale_terms", label: "Terms", width: "" },
+  { key: "driver", label: "Driver", width: "w-[200px]" },
+  { key: "price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
+  { key: "terms", label: "Terms", width: "w-[100px]", align: "text-right" },
 ];
+
+const TOTAL_W = 1440;
 
 const formatMiles = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("en-US").format(n);
@@ -82,11 +89,12 @@ function EditableText({
     <Input
       type={type}
       value={local}
+      placeholder="—"
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => {
         if (local !== (value == null ? "" : String(value))) onSave(local);
       }}
-      className={`h-8 text-sm bg-transparent border-0 shadow-none rounded-none px-1 focus-visible:ring-0 focus-visible:bg-muted/40 hover:bg-muted/30 transition-colors ${className}`}
+      className={`h-8 text-sm bg-transparent border-0 shadow-none rounded-none px-1 focus-visible:ring-0 focus-visible:bg-muted/40 hover:bg-muted/30 transition-colors placeholder:text-muted-foreground ${className}`}
     />
   );
 }
@@ -117,10 +125,10 @@ const TruckSales = () => {
         .from("trucks")
         .select(
           `id, truck_number, make, model, transmission, year, miles, engine,
-           has_apu_webasto, has_inverter, has_fridge, sale_price_week, sale_terms,
+           has_apu_webasto, has_inverter, has_fridge,
            company_id,
            companies:company_id ( name ),
-           driver1:drivers!trucks_driver1_id_fkey ( first_name, last_name )`
+           driver1:drivers!trucks_driver1_id_fkey ( first_name, last_name, weekly_payment, weeks_count )`
         )
         .eq("is_active", true)
         .order("truck_number", { ascending: true });
@@ -132,16 +140,15 @@ const TruckSales = () => {
   const grouped = useMemo(() => {
     const map = new Map<string, { name: string; trucks: TruckRow[] }>();
     (data || []).forEach((t) => {
-      const key = t.company_id || "__unassigned__";
-      const name = t.companies?.name || "Unassigned";
+      if (!t.company_id || !t.companies?.name) return;
+      const key = t.company_id;
+      const name = t.companies.name;
       if (!map.has(key)) map.set(key, { name, trucks: [] });
       map.get(key)!.trucks.push(t);
     });
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.name === "Unassigned") return 1;
-      if (b.name === "Unassigned") return -1;
-      return a.name.localeCompare(b.name);
-    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }, [data]);
 
   useEffect(() => {
@@ -206,11 +213,14 @@ const TruckSales = () => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table className="table-fixed min-w-[1500px]">
+                <Table className="table-fixed" style={{ minWidth: TOTAL_W }}>
                   <TableHeader>
                     <TableRow>
                       {COLS.map((c) => (
-                        <TableHead key={c.key} className={`${c.width} ${c.align || ""}`}>
+                        <TableHead
+                          key={c.key}
+                          className={`${c.width} ${c.align || ""} whitespace-nowrap`}
+                        >
                           {c.label}
                         </TableHead>
                       ))}
@@ -222,9 +232,11 @@ const TruckSales = () => {
                         [t.driver1?.first_name, t.driver1?.last_name]
                           .filter(Boolean)
                           .join(" ") || "—";
+                      const priceWeek = t.driver1?.weekly_payment ?? null;
+                      const weeksCount = t.driver1?.weeks_count ?? null;
                       return (
                         <TableRow key={t.id}>
-                          <TableCell className="font-medium">{t.truck_number}</TableCell>
+                          <TableCell className="font-medium w-[90px]">{t.truck_number}</TableCell>
                           <TableCell>
                             {canEdit ? (
                               <EditableText
@@ -336,33 +348,9 @@ const TruckSales = () => {
                             )}
                           </TableCell>
                           <TableCell>{driverName}</TableCell>
+                          <TableCell className="text-right">{formatUSD(priceWeek)}</TableCell>
                           <TableCell className="text-right">
-                            {canEdit ? (
-                              <EditableText
-                                type="number"
-                                value={t.sale_price_week}
-                                onSave={(v) =>
-                                  updateTruck(t.id, {
-                                    sale_price_week: v === "" ? null : Number(v),
-                                  })
-                                }
-                                className="text-right"
-                              />
-                            ) : (
-                              formatUSD(t.sale_price_week)
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {canEdit ? (
-                              <EditableText
-                                value={t.sale_terms}
-                                onSave={(v) =>
-                                  updateTruck(t.id, { sale_terms: v || null })
-                                }
-                              />
-                            ) : (
-                              t.sale_terms || "—"
-                            )}
+                            {weeksCount == null ? "—" : `${weeksCount} wk${weeksCount === 1 ? "" : "s"}`}
                           </TableCell>
                         </TableRow>
                       );
