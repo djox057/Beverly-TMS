@@ -27,6 +27,7 @@ import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
 import {
   MapPin,
@@ -400,6 +401,7 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
   const { data: companiesList = [] } = useCompanies();
+  const { data: brokersList = [] } = useBrokers();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
@@ -1192,11 +1194,15 @@ const Reports = () => {
         order.booked_by_company?.name ||
         companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
         null,
-      brokerName: order.brokerName || order.broker?.name || null,
+      brokerName:
+        order.brokerName ||
+        order.broker?.name ||
+        brokersList.find((b: any) => b.id === order.broker_id)?.name ||
+        null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
-  }, [companiesList]);
+  }, [companiesList, brokersList]);
 
   // Force complete handler
   const handleForceComplete = async (type: "BOL" | "POD", orderId: string) => {
