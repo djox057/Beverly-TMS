@@ -828,6 +828,7 @@ const Reports = () => {
     canceled: boolean;
     bookedBy: string;
     bookedByCompanyName?: string | null;
+    brokerName?: string | null;
   } | null>(null);
 
   // Additional files popover state
