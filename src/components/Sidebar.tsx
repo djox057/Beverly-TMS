@@ -26,7 +26,8 @@ import {
   UserCircle,
   CreditCard,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  DollarSign
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -81,6 +82,7 @@ const navigation = [
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management', 'dispatch'] },
+  { name: "Truck Sales", href: "/truck-sales", icon: DollarSign, roles: ['manager', 'admin', 'recruiting', 'chicago_management'] },
 ];
 
 export const Sidebar = () => {
