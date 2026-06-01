@@ -1,32 +1,43 @@
-# Fix: Reports misses realtime updates when not open
+## Goal
 
-## Problem
+Give the `recruiting` and `claims` roles read access to Trucks, Trailers, Drivers (and their files) at the same permission level as `dispatch`, with tailored sidebar navigation.
 
-The `useOrdersRealtime` hook only runs while `useOrders` is mounted (Orders page, etc.), and even when running, it only patches the `["orders"]` React Query cache. The Reports page uses its own independent queries (`["reports", "priority"]`, `["reports", "full"]`) with a 5-minute `staleTime` and no realtime subscription. Result: if someone creates an order while Reports is closed (or on another tab), Reports doesn't see it until the staleTime expires or the user manually refreshes.
+## Sidebar navigation (`src/components/Sidebar.tsx`)
 
-## Fix
+Add explicit branches in `getFilteredNavigation()`:
 
-Add a small app-level realtime hook mounted once in `AppContent` (App.tsx) — runs for the entire authenticated session regardless of the active route — that listens to `orders`, `pickup_drops`, and `order_transfers` and invalidates the `["reports"]` query family (debounced ~1s to coalesce bursts).
+- **`recruiting`** sees:
+  - Trucks, Trailers, Drivers
+  - Fleets, Reports
+  - Truck Sales (already wired)
+  - Hides: New Load, Loads, BG Loads, and everything else
+- **`claims`** sees only:
+  - Loads, BG Loads
+  - Trucks, Trailers, Drivers
 
-### Changes
+Also remove `recruiting` / `claims` from any unintended branches (e.g. they currently fall through to `filteredNav` and would see Brokers/Fleets/Reports/Analytics/etc.). The new explicit branches replace that fallback.
 
-1. **New hook `src/hooks/useReportsRealtime.ts`**
-   - Subscribes once to `postgres_changes` on `orders`, `pickup_drops`, `order_transfers`.
-   - On any event, schedules a debounced (1s) `queryClient.invalidateQueries({ queryKey: ["reports"], exact: false })`.
-   - Cleans up channel on unmount.
-   - Uses a unique channel name (`reports-realtime-global`) to avoid collision with `useOrdersRealtime`'s `orders-realtime-global`.
+## File access (Truck/Trailer/Driver file managers)
 
-2. **`src/App.tsx`**
-   - Import and call `useReportsRealtime()` inside `AppContent` alongside `useRealtimeTokenRefresh()`.
+File managers gate by `hasRole('dispatch')` etc. for upload/delete buttons. Extend the read-side checks (and any view-files gates) to include `recruiting` and `claims`. Upload/delete stays restricted to existing roles — task says "see them and access their files", interpreted as view + download, matching what `dispatch` can do on the read path.
 
-### Why this approach
+Files audited:
+- `src/components/TruckFilesManager.tsx`
+- `src/components/TrailerFilesManager.tsx`
+- `src/components/DriverFilesManager.tsx`
+- `src/pages/Drivers.tsx`, `src/pages/Trucks.tsx`, `src/pages/Trailers.tsx` — confirm no route-level role gate excludes them (currently none do).
 
-- Doesn't touch the existing `useOrdersRealtime` (Orders page keeps its surgical cache patching).
-- Reports already refetches efficiently via its priority/background queries, so invalidation is the simplest correct trigger — no need to manually merge a new order into the complex reports data shape.
-- Debounce prevents an avalanche when many related rows change at once (e.g., creating an order with multiple pickup_drops).
-- Mounting in `AppContent` (inside `AuthProvider`) ensures the subscription is active whenever the user is logged in, on any route.
+## hasRole helper (`src/hooks/useAuth.ts`)
 
-### Out of scope
+`dispatch` only matches itself today, so no change needed there. `recruiting` and `claims` will continue to match exactly. No privilege escalation is added — only sidebar visibility and file-manager visibility gates are widened.
 
-- No changes to `useReports.ts`, `useOrders.ts`, or any UI code.
-- No DB / RLS / publication changes (orders/pickup_drops/order_transfers are already in `supabase_realtime`, as evidenced by the working `useOrdersRealtime`).
+## Out of scope
+
+- No DB / RLS changes. Existing policies for `trucks`, `trailers`, `drivers` and storage already allow authenticated reads; if a specific RLS rule turns out to gate by role, I'll surface it during build and propose a migration.
+- No edit/create/delete capabilities granted to `recruiting` or `claims`.
+- The existing `Truck Sales` access for `recruiting` remains.
+
+## Verification
+
+- Sign-in simulations per role (sidebar snapshot) — confirm visible items match spec.
+- Open Drivers/Trucks/Trailers as each role, open a record's Files tab, confirm list + download work and upload/delete buttons remain hidden.
