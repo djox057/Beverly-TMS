@@ -1191,6 +1191,7 @@ const Reports = () => {
         order.booked_by_company?.name ||
         companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
         null,
+      brokerName: order.brokerName || order.broker?.name || null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
     };
