@@ -15,6 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 const ALLOWED = ["manager", "admin", "recruiting", "chicago_management"] as const;
@@ -32,6 +39,7 @@ type TruckRow = {
   has_inverter: boolean;
   has_fridge: boolean;
   company_id: string | null;
+  truck_sales_status: string | null;
   companies: { name: string | null } | null;
   driver1:
     | {
@@ -57,9 +65,28 @@ const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "driver", label: "Driver", width: "w-[200px]" },
   { key: "price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
   { key: "terms", label: "Terms", width: "w-[100px]", align: "text-right" },
+  { key: "status", label: "Status", width: "w-[210px]" },
 ];
 
-const TOTAL_W = 1440;
+const TOTAL_W = 1650;
+
+type StatusDef = { value: string; label: string; bg: string; text: string };
+
+// Colors mirror the reference sheet. Use solid hex + readable text color.
+const STATUS_OPTIONS: StatusDef[] = [
+  { value: "READY", label: "READY", bg: "#00FF00", text: "#000000" },
+  { value: "DRIVERS_ON_ROAD", label: "DRIVERS ON ROAD", bg: "#FF0000", text: "#FFFFFF" },
+  { value: "RECOVERY", label: "RECOVERY", bg: "#FF9900", text: "#000000" },
+  { value: "SHOP", label: "SHOP", bg: "#FFFF00", text: "#000000" },
+  { value: "BACK_UP_TRUCKS", label: "BACK UP TRUCKS", bg: "#FF00FF", text: "#FFFFFF" },
+  { value: "NOT_FOR_USED", label: "NOT FOR USED", bg: "#000000", text: "#FFFFFF" },
+  { value: "NEW_DRIVER", label: "NEW DRIVER", bg: "#FFFFFF", text: "#000000" },
+  { value: "NEW_TRUCK", label: "NEW TRUCK", bg: "#00FFFF", text: "#000000" },
+  { value: "DRIVER_LEFT_TRUCK", label: "DRIVER LEFT TRUCK ON LOT FOR A FEW DAYS", bg: "#38761D", text: "#FFFFFF" },
+  { value: "SUB_UNIT", label: "SUB UNIT", bg: "#93C47D", text: "#000000" },
+];
+
+const STATUS_MAP = new Map(STATUS_OPTIONS.map((s) => [s.value, s]));
 
 const formatMiles = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("en-US").format(n);
@@ -126,7 +153,7 @@ const TruckSales = () => {
         .select(
           `id, truck_number, make, model, transmission, year, miles, engine,
            has_apu_webasto, has_inverter, has_fridge,
-           company_id,
+           company_id, truck_sales_status,
            companies:company_id ( name ),
            driver1:drivers!trucks_driver1_id_fkey ( first_name, last_name, weekly_payment, weeks_count )`
         )
@@ -234,8 +261,18 @@ const TruckSales = () => {
                           .join(" ") || "—";
                       const priceWeek = t.driver1?.weekly_payment ?? null;
                       const weeksCount = t.driver1?.weeks_count ?? null;
+                      const status = t.truck_sales_status
+                        ? STATUS_MAP.get(t.truck_sales_status) || null
+                        : null;
+                      const rowStyle = status
+                        ? { backgroundColor: status.bg, color: status.text }
+                        : undefined;
                       return (
-                        <TableRow key={t.id}>
+                        <TableRow
+                          key={t.id}
+                          style={rowStyle}
+                          className={status ? "hover:opacity-90" : undefined}
+                        >
                           <TableCell className="font-medium w-[90px]">{t.truck_number}</TableCell>
                           <TableCell>
                             {canEdit ? (
@@ -351,6 +388,41 @@ const TruckSales = () => {
                           <TableCell className="text-right">{formatUSD(priceWeek)}</TableCell>
                           <TableCell className="text-right">
                             {weeksCount == null ? "—" : `${weeksCount} wk${weeksCount === 1 ? "" : "s"}`}
+                          </TableCell>
+                          <TableCell>
+                            {canEdit ? (
+                              <Select
+                                value={t.truck_sales_status ?? "__none__"}
+                                onValueChange={(v) =>
+                                  updateTruck(t.id, {
+                                    truck_sales_status: v === "__none__" ? null : v,
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  className="h-8 text-xs bg-transparent border-0 shadow-none rounded-none px-1 focus:ring-0"
+                                  style={status ? { color: status.text } : undefined}
+                                >
+                                  <SelectValue placeholder="—" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">— None —</SelectItem>
+                                  {STATUS_OPTIONS.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>
+                                      <span className="inline-flex items-center gap-2">
+                                        <span
+                                          className="inline-block w-3 h-3 rounded-sm border border-border"
+                                          style={{ backgroundColor: s.bg }}
+                                        />
+                                        {s.label}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              status?.label || "—"
+                            )}
                           </TableCell>
                         </TableRow>
                       );
