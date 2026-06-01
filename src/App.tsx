@@ -90,6 +90,7 @@ const prefetchData = async () => {
 const AppContent = () => {
   useRealtimeTokenRefresh();
   useReportsRealtime();
+  useTruckSalesRealtime();
 
   useEffect(() => {
     prefetchData();
