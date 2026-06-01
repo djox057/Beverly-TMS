@@ -390,7 +390,7 @@ const TruckSales = () => {
                           <TableCell className="text-right">
                             {weeksCount == null ? "—" : `${weeksCount} wk${weeksCount === 1 ? "" : "s"}`}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             {canEdit ? (
                               <Select
                                 value={t.truck_sales_status ?? "__none__"}
@@ -401,10 +401,10 @@ const TruckSales = () => {
                                 }
                               >
                                 <SelectTrigger
-                                  className="h-8 text-xs bg-transparent border-0 shadow-none rounded-none px-1 focus:ring-0"
+                                  className="h-8 w-full justify-center bg-transparent border-0 shadow-none rounded-none px-1 focus:ring-0"
                                   style={status ? { color: status.text } : undefined}
                                 >
-                                  <SelectValue placeholder="—" />
+                                  <PaintBucket size={16} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__none__">— None —</SelectItem>
@@ -422,7 +422,11 @@ const TruckSales = () => {
                                 </SelectContent>
                               </Select>
                             ) : (
-                              status?.label || "—"
+                              status ? (
+                                <span title={status.label} className="inline-flex justify-center">
+                                  <PaintBucket size={16} style={{ color: status.text }} />
+                                </span>
+                              ) : "—"
                             )}
                           </TableCell>
                         </TableRow>
