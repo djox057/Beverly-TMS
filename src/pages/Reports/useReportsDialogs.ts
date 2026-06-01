@@ -48,6 +48,8 @@ export interface ZoomedLoadState {
   bolForceComplete?: boolean;
   podForceComplete?: boolean;
   orderFiles?: any[];
+  bookedByCompanyName?: string | null;
+  brokerName?: string | null;
 }
 
 export interface CashAdvanceDialogState {
