@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { PaintBucket } from "lucide-react";
 
 const ALLOWED = ["manager", "admin", "recruiting", "chicago_management"] as const;
 
