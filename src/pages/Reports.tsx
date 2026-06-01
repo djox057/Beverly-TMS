@@ -401,6 +401,7 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
   const { data: companiesList = [] } = useCompanies();
+  const { data: brokersList = [] } = useBrokers();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
