@@ -94,7 +94,7 @@ function EditableText({
       onBlur={() => {
         if (local !== (value == null ? "" : String(value))) onSave(local);
       }}
-      className={`h-8 text-sm bg-transparent border-0 shadow-none rounded-none px-1 focus-visible:ring-0 focus-visible:bg-muted/40 hover:bg-muted/30 transition-colors placeholder:text-muted-foreground ${className}`}
+      className={`h-8 text-sm bg-transparent border-0 shadow-none rounded-none px-1 focus-visible:ring-0 focus-visible:bg-muted/40 hover:bg-muted/30 transition-colors placeholder:text-muted-foreground [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${className}`}
     />
   );
 }
