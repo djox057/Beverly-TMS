@@ -1,49 +1,61 @@
-## Truck Sales — split by truck company
+## Goal
 
-Rework `/truck-sales` to mirror the styling of the Analytics "Other Salaries" tab (Card + `Table` with `table-fixed` and absolute pixel widths), grouped into one section per truck-owning company (`trucks.company_id`). Trucks without a company go under an "Unassigned" section.
+Provide a reusable Python script that reads `Copy of Truck Sales .xlsx` (or any sheet with the same column layout) and emits SQL `UPDATE` statements you can paste into the Supabase SQL editor — for trucks (specs + APU/Inverter/Fridge flags) and for the assigned driver (weekly_payment + weeks_count).
 
-### Database
+## Deliverable
 
-Add the missing fields on `public.trucks` (existing: `truck_number`, `model`). New columns:
+A single file: `scripts/truck_sales_to_sql.py`
 
-| Column | Type | Notes |
+Usage:
+```
+python scripts/truck_sales_to_sql.py "Copy of Truck Sales .xlsx" > backfill.sql
+```
+
+Optional flags:
+- `--sheet "Beverly Freight"` — pick a specific sheet (default: first sheet)
+- `--no-drivers` — skip driver UPDATEs, emit truck UPDATEs only
+- `--no-trucks` — skip truck UPDATEs, emit driver UPDATEs only
+
+## Column mapping (spreadsheet → DB)
+
+| Sheet column | Target | Normalization |
 |---|---|---|
-| `make` | text | nullable |
-| `transmission` | text | nullable (e.g. Automatic / Manual) |
-| `year` | int | nullable |
-| `miles` | int | odometer reading, nullable |
-| `engine` | text | nullable |
-| `has_apu_webasto` | boolean | default false |
-| `has_inverter` | boolean | default false |
-| `has_fridge` | boolean | default false |
-| `sale_price_week` | numeric(10,2) | nullable |
-| `sale_terms` | text | nullable, free-form |
+| Truck # (col A) | `trucks.truck_number` (match key) | trim, strip trailing `.0` from numeric values, keep as text |
+| Make | `trucks.make` | trim, collapse spaces, UPPERCASE |
+| Model | `trucks.model` | trim, collapse spaces, UPPERCASE, strip trailing `.0` |
+| Transmission | `trucks.transmission` | anything containing "auto" → `Automatic` |
+| YEAR | `trucks.year` | integer; blank → `NULL` |
+| Miles | `trucks.miles` | integer; blank → `NULL` |
+| Engine | `trucks.engine` | trim, collapse spaces, UPPERCASE |
+| APU / WEBASTO | `trucks.has_apu_webasto` | `NO`/`/`/blank → false, else true |
+| INVERTER | `trucks.has_inverter` | same rule |
+| FRIDGE | `trucks.has_fridge` | same rule |
+| Price (week) | `drivers.weekly_payment` (via `trucks.driver1_id`) | numeric; `/` or blank → skip |
+| Terms | `drivers.weeks_count` (via `trucks.driver1_id`) | parse `Ny Mm` → `N*52 + round(M*52/12)` weeks; `/` or blank → skip |
 
-Migration also re-asserts GRANTs already present on `public.trucks` for any new dependent operations — no RLS policy changes (existing trucks policies cover read/update for the involved roles).
+Driver Name, Insurance, Notes are ignored (driver assignment is handled elsewhere; insurance/notes have no matching columns).
 
-### Page rewrite — `src/pages/TruckSales.tsx`
+## SQL output shape
 
-- Fetch `trucks` (active only) joined with `companies(name)` and `driver1:drivers!driver1_id(first_name,last_name)`.
-- Group rows by `company_id`; sort companies alphabetically; render one Card per company with the company name as the header and a truck count.
-- Inside each Card, render a `Table` with `table-fixed` and these columns (absolute widths, mirroring Other Salaries):
-  - Truck # · Make · Model · Transmission · Year · Miles · Engine · APU/Webasto · Inverter · Fridge · Driver · Price/week · Terms
-- Equipment flags render as Yes/No badges (green/muted). Driver name = `driver1` full name or em-dash. Price formatted as USD currency. Miles formatted with thousands separators.
-- Inline editing for users with role `admin`, `manager`, `chicago_management`, or `recruiting`:
-  - Text fields (make, model, transmission, engine, terms): click-to-edit input
-  - Numeric (year, miles, sale_price_week): numeric input
-  - Booleans (apu_webasto, inverter, fridge): toggle switch
-  - On blur / toggle change → `supabase.from('trucks').update(...)` + optimistic React Query cache patch, then invalidate
-- Read-only roles see the same grid without inputs (plain text + Yes/No badges).
-- Empty company sections are not rendered.
+For each non-empty data row:
 
-### Out of scope
+```sql
+UPDATE trucks
+SET make='…', model='…', transmission='…', year=…, miles=…, engine='…',
+    has_apu_webasto=…, has_inverter=…, has_fridge=…
+WHERE truck_number='…';
 
-- No sidebar/route changes (page + role gating already in place).
-- No file uploads or sales workflow beyond price/terms fields.
-- No edits to Analytics or Other Salaries.
+UPDATE drivers
+SET weekly_payment=…, weeks_count=…
+WHERE id = (SELECT driver1_id FROM trucks WHERE truck_number='…')
+  AND id IS NOT NULL;
+```
 
-### Technical notes
+Single-quotes inside values are escaped (`'` → `''`). Empty/marker rows (e.g. "ONLY NEW UNITS", fully blank rows) are skipped.
 
-- Group-by uses `trucks.company_id` (per user choice), not `driver1.company_id` — the "truck company source" memory applies to display elsewhere, not to ownership-based sales grouping.
-- Follow Table layout standard (`table-fixed` + px widths) and design tokens only.
-- Use existing `useAuth` `hasRole` for edit gating.
+## Technical notes
+
+- Dependency: `openpyxl` only (`python -m pip install openpyxl`).
+- Header row is row 1; data starts at row 2.
+- Script is pure stdout — no DB connection — so it's safe to review the SQL before running.
+- Output is deterministic in sheet order so diffs are reviewable.
