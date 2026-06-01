@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { PaintBucket } from "lucide-react";
+import { Warehouse } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format as formatDate } from "date-fns";
 
 const ALLOWED = ["manager", "admin", "recruiting", "chicago_management"] as const;
 
