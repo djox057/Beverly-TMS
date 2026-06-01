@@ -45,7 +45,7 @@ type TruckRow = {
 
 const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "truck_number", label: "Truck #", width: "w-[90px]" },
-  { key: "make", label: "Make", width: "w-[127px]" },
+  { key: "make", label: "Make", width: "w-[140px]" },
   { key: "model", label: "Model", width: "w-[110px]" },
   { key: "transmission", label: "Transmission", width: "w-[130px]" },
   { key: "year", label: "Year", width: "w-[80px]", align: "text-right" },
