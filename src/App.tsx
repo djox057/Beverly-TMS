@@ -12,6 +12,7 @@ import { Layout } from "./components/Layout";
 import { supabase } from "./integrations/supabase/client";
 import { useRealtimeTokenRefresh } from "./hooks/useRealtimeTokenRefresh";
 import { useReportsRealtime } from "./hooks/useReportsRealtime";
+import { useTruckSalesRealtime } from "./hooks/useTruckSalesRealtime";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
