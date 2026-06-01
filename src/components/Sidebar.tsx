@@ -230,7 +230,7 @@ export const Sidebar = () => {
     // Supervisor role: all pages + Alerts (full access)
     if (primaryRole === 'supervisor') {
       return [
-        ...filteredNav,
+        ...filteredNav.filter(item => item.href !== '/truck-sales'),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
     }
@@ -249,7 +249,7 @@ export const Sidebar = () => {
     // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
     if (primaryRole === 'accounting') {
       return [
-        ...filteredNav.filter(item => item.href !== '/analytics' && item.href !== '/beverly-heatmap'),
+        ...filteredNav.filter(item => item.href !== '/analytics' && item.href !== '/beverly-heatmap' && item.href !== '/truck-sales'),
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
