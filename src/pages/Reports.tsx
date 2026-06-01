@@ -27,6 +27,7 @@ import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
 import {
   MapPin,
