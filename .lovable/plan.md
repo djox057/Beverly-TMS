@@ -1,21 +1,32 @@
+# Fix: Reports misses realtime updates when not open
+
 ## Problem
 
-In the Reports Load Info dialog, the "Booked by: {company}" line is missing for some loads (e.g. load `10335-BFP` shows only the Broker line). The render block in `src/pages/Reports.tsx` already places "Booked by" above "Broker", but it's gated on `zoomedLoad.bookedByCompanyName`, which resolves to `null` when the underlying order has no `booked_by_company_id` (and no joined `booked_by_company` object) — even though the frozen internal load number suffix (`-BFP`, `-BF`, etc.) already encodes the booking entity.
+The `useOrdersRealtime` hook only runs while `useOrders` is mounted (Orders page, etc.), and even when running, it only patches the `["orders"]` React Query cache. The Reports page uses its own independent queries (`["reports", "priority"]`, `["reports", "full"]`) with a 5-minute `staleTime` and no realtime subscription. Result: if someone creates an order while Reports is closed (or on another tab), Reports doesn't see it until the staleTime expires or the user manually refreshes.
 
 ## Fix
 
-In `src/pages/Reports.tsx`, extend the `bookedByCompanyName` fallback chain in `getLoadDetailsForZoom` (around line 1192) to also resolve the legal entity from the internal load number suffix using the existing `getCompanyNameFromSuffix` helper from `src/utils/formatInternalLoadNumber.ts`.
+Add a small app-level realtime hook mounted once in `AppContent` (App.tsx) — runs for the entire authenticated session regardless of the active route — that listens to `orders`, `pickup_drops`, and `order_transfers` and invalidates the `["reports"]` query family (debounced ~1s to coalesce bursts).
 
-New resolution order:
-1. `order.bookedByCompanyName`
-2. `order.booked_by_company?.name`
-3. `companiesList.find(c => c.id === order.booked_by_company_id)?.name`
-4. `getCompanyNameFromSuffix(order.internal_load_number)` (new)
+### Changes
 
-The existing render block at lines 6628–6637 already shows Booked by above Broker, so no JSX changes are needed — only the data resolver. Import `getCompanyNameFromSuffix` at the top of `Reports.tsx`.
+1. **New hook `src/hooks/useReportsRealtime.ts`**
+   - Subscribes once to `postgres_changes` on `orders`, `pickup_drops`, `order_transfers`.
+   - On any event, schedules a debounced (1s) `queryClient.invalidateQueries({ queryKey: ["reports"], exact: false })`.
+   - Cleans up channel on unmount.
+   - Uses a unique channel name (`reports-realtime-global`) to avoid collision with `useOrdersRealtime`'s `orders-realtime-global`.
 
-## Scope
+2. **`src/App.tsx`**
+   - Import and call `useReportsRealtime()` inside `AppContent` alongside `useRealtimeTokenRefresh()`.
 
-- Edit only `src/pages/Reports.tsx`.
-- No DB / edge function changes.
-- No change to Broker rendering.
+### Why this approach
+
+- Doesn't touch the existing `useOrdersRealtime` (Orders page keeps its surgical cache patching).
+- Reports already refetches efficiently via its priority/background queries, so invalidation is the simplest correct trigger — no need to manually merge a new order into the complex reports data shape.
+- Debounce prevents an avalanche when many related rows change at once (e.g., creating an order with multiple pickup_drops).
+- Mounting in `AppContent` (inside `AuthProvider`) ensures the subscription is active whenever the user is logged in, on any route.
+
+### Out of scope
+
+- No changes to `useReports.ts`, `useOrders.ts`, or any UI code.
+- No DB / RLS / publication changes (orders/pickup_drops/order_transfers are already in `supabase_realtime`, as evidenced by the working `useOrdersRealtime`).
