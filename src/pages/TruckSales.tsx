@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Warehouse } from "lucide-react";
+import { Warehouse, PaintBucket } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -73,10 +73,9 @@ const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
   { key: "terms", label: "Terms", width: "w-[100px]", align: "text-right" },
   { key: "status", label: "Status", width: "w-[60px]", align: "text-center" },
-  { key: "yard", label: "Yard", width: "w-[60px]", align: "text-center" },
 ];
 
-const TOTAL_W = 1560;
+const TOTAL_W = 1500;
 
 type StatusDef = { value: string; label: string; bg: string; text: string };
 
@@ -305,7 +304,60 @@ const TruckSales = () => {
                           style={rowStyle}
                           className={status ? "hover:opacity-90" : undefined}
                         >
-                          <TableCell className="font-medium w-[90px]">{t.truck_number}</TableCell>
+                          <TableCell className="font-medium w-[90px]">
+                            <div className="flex items-center gap-1.5">
+                              <span>{t.truck_number}</span>
+                              {(() => {
+                                const ya = yardActionsByTruck?.get(t.truck_number) || [];
+                                if (ya.length === 0) return null;
+                                return (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        title={`${ya.length} yard arrival${ya.length === 1 ? "" : "s"}`}
+                                        className="relative inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 transition-colors"
+                                      >
+                                        <Warehouse size={14} />
+                                        {ya.length > 1 && (
+                                          <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-1 text-[9px] font-semibold rounded-full bg-amber-600 text-white flex items-center justify-center">
+                                            {ya.length}
+                                          </span>
+                                        )}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="start" className="w-80 p-3 space-y-3" style={{ color: "hsl(var(--foreground))", backgroundColor: "hsl(var(--popover))" }}>
+                                      <div className="text-xs font-semibold uppercase text-muted-foreground">
+                                        Yard arrivals · Truck {t.truck_number}
+                                      </div>
+                                      {ya.map((a: any) => {
+                                        const dn = [a.drivers?.first_name, a.drivers?.last_name].filter(Boolean).join(" ");
+                                        const when = a.arrival_datetime || a.created_at;
+                                        const typeLabel: Record<string, string> = {
+                                          maintenance: "Maintenance",
+                                          return_truck: "Return Truck",
+                                          safety: "Safety",
+                                          recovery: "Recovery",
+                                        };
+                                        return (
+                                          <div key={a.id} className="text-sm border border-border rounded-md p-2 space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className="font-medium">{typeLabel[a.action_type] || a.action_type}</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {when ? formatDate(new Date(when), "MMM d, HH:mm") : "—"}
+                                              </span>
+                                            </div>
+                                            {dn && <div className="text-xs text-muted-foreground">Driver: {dn}</div>}
+                                            {a.comment && <div className="text-xs whitespace-pre-wrap">{a.comment}</div>}
+                                          </div>
+                                        );
+                                      })}
+                                    </PopoverContent>
+                                  </Popover>
+                                );
+                              })()}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {canEdit ? (
                               <EditableText
@@ -435,20 +487,14 @@ const TruckSales = () => {
                                   className="h-8 w-8 mx-auto justify-center bg-transparent border-0 shadow-none p-0 focus:ring-0 [&>svg]:hidden"
                                   title={status?.label ?? "Set status"}
                                 >
-                                  <span
-                                    className="inline-block w-4 h-4 rounded-full border border-black/20 shadow-sm"
-                                    style={{ backgroundColor: status?.bg ?? "transparent", borderStyle: status ? "solid" : "dashed" }}
-                                  />
+                                  <PaintBucket size={18} style={{ color: status?.bg ?? "currentColor" }} fill={status?.bg ?? "none"} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__none__">— None —</SelectItem>
                                   {STATUS_OPTIONS.map((s) => (
                                     <SelectItem key={s.value} value={s.value}>
                                       <span className="inline-flex items-center gap-2">
-                                        <span
-                                          className="inline-block w-3 h-3 rounded-full border border-border"
-                                          style={{ backgroundColor: s.bg }}
-                                        />
+                                        <PaintBucket size={14} style={{ color: s.bg }} fill={s.bg} />
                                         {s.label}
                                       </span>
                                     </SelectItem>
@@ -457,64 +503,9 @@ const TruckSales = () => {
                               </Select>
                             ) : (
                               status ? (
-                                <span
-                                  title={status.label}
-                                  className="inline-block w-4 h-4 rounded-full border border-black/20 shadow-sm"
-                                  style={{ backgroundColor: status.bg }}
-                                />
+                                <PaintBucket size={18} style={{ color: status.bg }} fill={status.bg} aria-label={status.label} />
                               ) : "—"
                             )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {(() => {
-                              const ya = yardActionsByTruck?.get(t.truck_number) || [];
-                              if (ya.length === 0) return <span className="text-muted-foreground/60">—</span>;
-                              return (
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <button
-                                      type="button"
-                                      title={`${ya.length} yard arrival${ya.length === 1 ? "" : "s"}`}
-                                      className="relative inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 transition-colors"
-                                    >
-                                      <Warehouse size={16} />
-                                      {ya.length > 1 && (
-                                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-semibold rounded-full bg-amber-600 text-white flex items-center justify-center">
-                                          {ya.length}
-                                        </span>
-                                      )}
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent align="end" className="w-80 p-3 space-y-3" style={{ color: "hsl(var(--foreground))", backgroundColor: "hsl(var(--popover))" }}>
-                                    <div className="text-xs font-semibold uppercase text-muted-foreground">
-                                      Yard arrivals · Truck {t.truck_number}
-                                    </div>
-                                    {ya.map((a: any) => {
-                                      const dn = [a.drivers?.first_name, a.drivers?.last_name].filter(Boolean).join(" ");
-                                      const when = a.arrival_datetime || a.created_at;
-                                      const typeLabel: Record<string, string> = {
-                                        maintenance: "Maintenance",
-                                        return_truck: "Return Truck",
-                                        safety: "Safety",
-                                        recovery: "Recovery",
-                                      };
-                                      return (
-                                        <div key={a.id} className="text-sm border border-border rounded-md p-2 space-y-1">
-                                          <div className="flex items-center justify-between gap-2">
-                                            <span className="font-medium">{typeLabel[a.action_type] || a.action_type}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              {when ? formatDate(new Date(when), "MMM d, HH:mm") : "—"}
-                                            </span>
-                                          </div>
-                                          {dn && <div className="text-xs text-muted-foreground">Driver: {dn}</div>}
-                                          {a.comment && <div className="text-xs whitespace-pre-wrap">{a.comment}</div>}
-                                        </div>
-                                      );
-                                    })}
-                                  </PopoverContent>
-                                </Popover>
-                              );
-                            })()}
                           </TableCell>
                         </TableRow>
                       );
