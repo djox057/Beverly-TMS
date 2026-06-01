@@ -86,7 +86,7 @@ function EditableText({
       onBlur={() => {
         if (local !== (value == null ? "" : String(value))) onSave(local);
       }}
-      className={`h-8 text-sm ${className}`}
+      className={`h-8 text-sm bg-transparent border-0 shadow-none rounded-none px-1 focus-visible:ring-0 focus-visible:bg-muted/40 hover:bg-muted/30 transition-colors ${className}`}
     />
   );
 }
