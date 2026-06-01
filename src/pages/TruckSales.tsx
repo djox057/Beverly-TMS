@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { PaintBucket } from "lucide-react";
+import { Warehouse } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format as formatDate } from "date-fns";
 
 const ALLOWED = ["manager", "admin", "recruiting", "chicago_management"] as const;
 
@@ -66,10 +72,11 @@ const COLS: { key: string; label: string; width: string; align?: string }[] = [
   { key: "driver", label: "Driver", width: "w-[200px]" },
   { key: "price_week", label: "Price (week)", width: "w-[120px]", align: "text-right" },
   { key: "terms", label: "Terms", width: "w-[100px]", align: "text-right" },
-  { key: "status", label: "Status", width: "w-[50px]" },
+  { key: "status", label: "Status", width: "w-[60px]", align: "text-center" },
+  { key: "yard", label: "Yard", width: "w-[60px]", align: "text-center" },
 ];
 
-const TOTAL_W = 1500;
+const TOTAL_W = 1560;
 
 type StatusDef = { value: string; label: string; bg: string; text: string };
 
@@ -162,6 +169,30 @@ const TruckSales = () => {
         .order("truck_number", { ascending: true });
       if (error) throw error;
       return (data || []) as unknown as TruckRow[];
+    },
+  });
+
+  const { data: yardActionsByTruck } = useQuery({
+    enabled: allowed,
+    queryKey: ["truck-sales-yard-actions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("driver_yard_actions")
+        .select(
+          `id, action_type, comment, arrival_datetime, created_at, is_checked, truck_number,
+           drivers:driver_id ( first_name, last_name )`
+        )
+        .eq("is_checked", false)
+        .not("truck_number", "is", null);
+      if (error) throw error;
+      const map = new Map<string, any[]>();
+      (data || []).forEach((a: any) => {
+        const key = a.truck_number;
+        if (!key) return;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(a);
+      });
+      return map;
     },
   });
 
@@ -401,10 +432,13 @@ const TruckSales = () => {
                                 }
                               >
                                 <SelectTrigger
-                                  className="h-8 w-full justify-center bg-transparent border-0 shadow-none rounded-none px-1 focus:ring-0"
-                                  style={status ? { color: status.text } : undefined}
+                                  className="h-8 w-8 mx-auto justify-center bg-transparent border-0 shadow-none p-0 focus:ring-0 [&>svg]:hidden"
+                                  title={status?.label ?? "Set status"}
                                 >
-                                  <PaintBucket size={16} />
+                                  <span
+                                    className="inline-block w-4 h-4 rounded-full border border-black/20 shadow-sm"
+                                    style={{ backgroundColor: status?.bg ?? "transparent", borderStyle: status ? "solid" : "dashed" }}
+                                  />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__none__">— None —</SelectItem>
@@ -412,7 +446,7 @@ const TruckSales = () => {
                                     <SelectItem key={s.value} value={s.value}>
                                       <span className="inline-flex items-center gap-2">
                                         <span
-                                          className="inline-block w-3 h-3 rounded-sm border border-border"
+                                          className="inline-block w-3 h-3 rounded-full border border-border"
                                           style={{ backgroundColor: s.bg }}
                                         />
                                         {s.label}
@@ -423,11 +457,64 @@ const TruckSales = () => {
                               </Select>
                             ) : (
                               status ? (
-                                <span title={status.label} className="inline-flex justify-center">
-                                  <PaintBucket size={16} style={{ color: status.text }} />
-                                </span>
+                                <span
+                                  title={status.label}
+                                  className="inline-block w-4 h-4 rounded-full border border-black/20 shadow-sm"
+                                  style={{ backgroundColor: status.bg }}
+                                />
                               ) : "—"
                             )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {(() => {
+                              const ya = yardActionsByTruck?.get(t.truck_number) || [];
+                              if (ya.length === 0) return <span className="text-muted-foreground/60">—</span>;
+                              return (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button
+                                      type="button"
+                                      title={`${ya.length} yard arrival${ya.length === 1 ? "" : "s"}`}
+                                      className="relative inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 transition-colors"
+                                    >
+                                      <Warehouse size={16} />
+                                      {ya.length > 1 && (
+                                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-semibold rounded-full bg-amber-600 text-white flex items-center justify-center">
+                                          {ya.length}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent align="end" className="w-80 p-3 space-y-3" style={{ color: "hsl(var(--foreground))", backgroundColor: "hsl(var(--popover))" }}>
+                                    <div className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Yard arrivals · Truck {t.truck_number}
+                                    </div>
+                                    {ya.map((a: any) => {
+                                      const dn = [a.drivers?.first_name, a.drivers?.last_name].filter(Boolean).join(" ");
+                                      const when = a.arrival_datetime || a.created_at;
+                                      const typeLabel: Record<string, string> = {
+                                        maintenance: "Maintenance",
+                                        return_truck: "Return Truck",
+                                        safety: "Safety",
+                                        recovery: "Recovery",
+                                      };
+                                      return (
+                                        <div key={a.id} className="text-sm border border-border rounded-md p-2 space-y-1">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="font-medium">{typeLabel[a.action_type] || a.action_type}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {when ? formatDate(new Date(when), "MMM d, HH:mm") : "—"}
+                                            </span>
+                                          </div>
+                                          {dn && <div className="text-xs text-muted-foreground">Driver: {dn}</div>}
+                                          {a.comment && <div className="text-xs whitespace-pre-wrap">{a.comment}</div>}
+                                        </div>
+                                      );
+                                    })}
+                                  </PopoverContent>
+                                </Popover>
+                              );
+                            })()}
                           </TableCell>
                         </TableRow>
                       );

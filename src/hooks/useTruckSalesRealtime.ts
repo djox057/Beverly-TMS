@@ -23,6 +23,7 @@ export function useTruckSalesRealtime() {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["truck-sales"], exact: false });
+        queryClient.invalidateQueries({ queryKey: ["truck-sales-yard-actions"], exact: false });
       }, 1000);
     };
 
@@ -31,6 +32,7 @@ export function useTruckSalesRealtime() {
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, scheduleInvalidate)
       .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, scheduleInvalidate)
       .on("postgres_changes", { event: "*", schema: "public", table: "companies" }, scheduleInvalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "driver_yard_actions" }, scheduleInvalidate)
       .subscribe();
 
     channelRef.current = channel;
