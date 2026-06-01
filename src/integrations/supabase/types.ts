@@ -4397,14 +4397,20 @@ export type Database = {
           dot_inspection_date: string | null
           driver1_id: string | null
           driver2_id: string | null
+          engine: string | null
           eta_minutes: number | null
           fuel_level: number | null
+          has_apu_webasto: boolean
+          has_fridge: boolean
+          has_inverter: boolean
           id: string
           insurance_expiration_date: string | null
           ipass: string | null
           is_active: boolean
           left_by_driver_id: string | null
           maintenance_check_date: string | null
+          make: string | null
+          miles: number | null
           miles_away: number | null
           miles_away_updated_at: string | null
           model: string | null
@@ -4412,14 +4418,18 @@ export type Database = {
           oil_change_date: string | null
           plate: string | null
           plate_expiration_date: string | null
+          sale_price_week: number | null
+          sale_terms: string | null
           status: string | null
           termination_date: string | null
           tires_swap_date: string | null
           trailer_id: string | null
+          transmission: string | null
           truck_number: string
           truck_type: string | null
           updated_at: string
           vin: string | null
+          year: number | null
         }
         Insert: {
           company_id?: string | null
@@ -4428,14 +4438,20 @@ export type Database = {
           dot_inspection_date?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          engine?: string | null
           eta_minutes?: number | null
           fuel_level?: number | null
+          has_apu_webasto?: boolean
+          has_fridge?: boolean
+          has_inverter?: boolean
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
+          make?: string | null
+          miles?: number | null
           miles_away?: number | null
           miles_away_updated_at?: string | null
           model?: string | null
@@ -4443,14 +4459,18 @@ export type Database = {
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          sale_price_week?: number | null
+          sale_terms?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null
           trailer_id?: string | null
+          transmission?: string | null
           truck_number: string
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
+          year?: number | null
         }
         Update: {
           company_id?: string | null
@@ -4459,14 +4479,20 @@ export type Database = {
           dot_inspection_date?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          engine?: string | null
           eta_minutes?: number | null
           fuel_level?: number | null
+          has_apu_webasto?: boolean
+          has_fridge?: boolean
+          has_inverter?: boolean
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
+          make?: string | null
+          miles?: number | null
           miles_away?: number | null
           miles_away_updated_at?: string | null
           model?: string | null
@@ -4474,14 +4500,18 @@ export type Database = {
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          sale_price_week?: number | null
+          sale_terms?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null
           trailer_id?: string | null
+          transmission?: string | null
           truck_number?: string
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
+          year?: number | null
         }
         Relationships: [
           {
