@@ -4424,6 +4424,7 @@ export type Database = {
           trailer_id: string | null
           transmission: string | null
           truck_number: string
+          truck_sales_status: string | null
           truck_type: string | null
           updated_at: string
           vin: string | null
@@ -4463,6 +4464,7 @@ export type Database = {
           trailer_id?: string | null
           transmission?: string | null
           truck_number: string
+          truck_sales_status?: string | null
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
@@ -4502,6 +4504,7 @@ export type Database = {
           trailer_id?: string | null
           transmission?: string | null
           truck_number?: string
+          truck_sales_status?: string | null
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
