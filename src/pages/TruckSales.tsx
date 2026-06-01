@@ -172,6 +172,30 @@ const TruckSales = () => {
     },
   });
 
+  const { data: yardActionsByTruck } = useQuery({
+    enabled: allowed,
+    queryKey: ["truck-sales-yard-actions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("driver_yard_actions")
+        .select(
+          `id, action_type, comment, arrival_datetime, created_at, is_checked, truck_number,
+           drivers:driver_id ( first_name, last_name )`
+        )
+        .eq("is_checked", false)
+        .not("truck_number", "is", null);
+      if (error) throw error;
+      const map = new Map<string, any[]>();
+      (data || []).forEach((a: any) => {
+        const key = a.truck_number;
+        if (!key) return;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(a);
+      });
+      return map;
+    },
+  });
+
   const grouped = useMemo(() => {
     const map = new Map<string, { name: string; trucks: TruckRow[] }>();
     (data || []).forEach((t) => {
