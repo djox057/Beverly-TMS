@@ -289,7 +289,19 @@ export const Sidebar = () => {
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
       ];
     }
-    
+
+    // Recruiting: Trucks/Trailers/Drivers + Fleets + Reports + Truck Sales
+    if (primaryRole === 'recruiting') {
+      const recruitingPages = ['/trucks', '/trailers', '/drivers', '/fleets', '/reports', '/truck-sales'];
+      return filteredNav.filter(item => recruitingPages.includes(item.href));
+    }
+
+    // Claims: Loads, BG Loads, Trucks, Trailers, Drivers only
+    if (primaryRole === 'claims') {
+      const claimsPages = ['/orders', '/bg-loads', '/trucks', '/trailers', '/drivers'];
+      return filteredNav.filter(item => claimsPages.includes(item.href));
+    }
+
     return filteredNav;
   };
 
