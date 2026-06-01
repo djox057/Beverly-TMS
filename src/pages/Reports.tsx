@@ -168,7 +168,7 @@ import {
   collectTruckAlerts,
   collectDriverAlerts,
 } from "./Reports/helpers";
-import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, getCompanyNameFromSuffix } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
 interface EditingState {
   truckId: string;
@@ -1193,6 +1193,7 @@ const Reports = () => {
         order.bookedByCompanyName ||
         order.booked_by_company?.name ||
         companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
+        getCompanyNameFromSuffix(order.internal_load_number) ||
         null,
       brokerName:
         order.brokerName ||
