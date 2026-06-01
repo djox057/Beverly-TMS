@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Warehouse, PaintBucket } from "lucide-react";
+import { Warehouse } from "lucide-react";
+import paintBucketAsset from "@/assets/paint-bucket.png.asset.json";
 import {
   Popover,
   PopoverContent,
@@ -487,14 +488,43 @@ const TruckSales = () => {
                                   className="h-8 w-8 mx-auto justify-center bg-transparent border-0 shadow-none p-0 focus:ring-0 [&>svg]:hidden"
                                   title={status?.label ?? "Set status"}
                                 >
-                                  <PaintBucket size={18} style={{ color: status?.bg ?? "currentColor" }} fill={status?.bg ?? "none"} />
+                                  <span
+                                    aria-hidden
+                                    className="inline-block w-[20px] h-[20px]"
+                                    style={{
+                                      backgroundColor: status?.bg ?? "hsl(var(--muted-foreground))",
+                                      WebkitMaskImage: `url(${paintBucketAsset.url})`,
+                                      maskImage: `url(${paintBucketAsset.url})`,
+                                      WebkitMaskRepeat: "no-repeat",
+                                      maskRepeat: "no-repeat",
+                                      WebkitMaskSize: "contain",
+                                      maskSize: "contain",
+                                      WebkitMaskPosition: "center",
+                                      maskPosition: "center",
+                                      opacity: status ? 1 : 0.4,
+                                    }}
+                                  />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__none__">— None —</SelectItem>
                                   {STATUS_OPTIONS.map((s) => (
                                     <SelectItem key={s.value} value={s.value}>
                                       <span className="inline-flex items-center gap-2">
-                                        <PaintBucket size={14} style={{ color: s.bg }} fill={s.bg} />
+                                      <span
+                                        aria-hidden
+                                        className="inline-block w-4 h-4"
+                                        style={{
+                                          backgroundColor: s.bg,
+                                          WebkitMaskImage: `url(${paintBucketAsset.url})`,
+                                          maskImage: `url(${paintBucketAsset.url})`,
+                                          WebkitMaskRepeat: "no-repeat",
+                                          maskRepeat: "no-repeat",
+                                          WebkitMaskSize: "contain",
+                                          maskSize: "contain",
+                                          WebkitMaskPosition: "center",
+                                          maskPosition: "center",
+                                        }}
+                                      />
                                         {s.label}
                                       </span>
                                     </SelectItem>
@@ -503,7 +533,22 @@ const TruckSales = () => {
                               </Select>
                             ) : (
                               status ? (
-                                <PaintBucket size={18} style={{ color: status.bg }} fill={status.bg} aria-label={status.label} />
+                                <span
+                                  title={status.label}
+                                  aria-label={status.label}
+                                  className="inline-block w-[20px] h-[20px]"
+                                  style={{
+                                    backgroundColor: status.bg,
+                                    WebkitMaskImage: `url(${paintBucketAsset.url})`,
+                                    maskImage: `url(${paintBucketAsset.url})`,
+                                    WebkitMaskRepeat: "no-repeat",
+                                    maskRepeat: "no-repeat",
+                                    WebkitMaskSize: "contain",
+                                    maskSize: "contain",
+                                    WebkitMaskPosition: "center",
+                                    maskPosition: "center",
+                                  }}
+                                />
                               ) : "—"
                             )}
                           </TableCell>
