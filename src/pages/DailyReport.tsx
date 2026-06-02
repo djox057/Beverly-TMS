@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { format, addDays } from "date-fns";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { FilteredStatusTable } from "@/components/dailyReport/FilteredStatusTable";
+import { TruckSearchAllOfficesTable } from "@/components/dailyReport/TruckSearchAllOfficesTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { Info, PaintBucket, Maximize2, HelpCircle } from "lucide-react";
@@ -34,16 +35,6 @@ const COLOR_FILTERS = [
   { value: "green", label: "Resolved" },
   { value: "home_time", label: "Home time" },
 ] as const;
-
-const typeToTab = (type: string, office: string | null): string | null => {
-  if (office) return office;
-  if (type === "Maintenance") return "MAINTENANCE";
-  if (type === "Afterhours") return "AFTERHOURS";
-  if (type === "Recoveries") return "RECOVERIES";
-  if (type === "New driver") return "NEW_DRIVER";
-  if (type === "Safety") return "SAFETY";
-  return null;
-};
 
 const EMPTY_LATE_COLS: DailyReportColumn[] = [
   { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
@@ -109,7 +100,6 @@ const DailyReport = () => {
   const { canView, canEdit, loading } = useDailyReportPermissions();
   const [truckQuery, setTruckQuery] = useState("");
   const [colorFilter, setColorFilter] = useState<string | null>(null);
-  const [matchByDate, setMatchByDate] = useState<Map<string, string>>(new Map());
 
   // When a status filter is active, switch to a hidden combined tab and
   // remember the user's prior tab so we can restore it on clear.
@@ -127,46 +117,20 @@ const DailyReport = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colorFilter]);
 
-  // When truck query is set, fetch all dates/offices where this truck appears
+  // When truck query is active (and no status filter), show a hidden combined
+  // view with rows from ALL offices/types/dates, grouped by office then date.
   useEffect(() => {
-    const q = truckQuery.trim();
-    if (!q) {
-      setMatchByDate(new Map());
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("daily_report_entries")
-        .select("date, office, type, truck")
-        .ilike("truck", `%${q}%`);
-      if (cancelled || error || !data) return;
-      const map = new Map<string, string>();
-      for (const r of data as any[]) {
-        const tab = typeToTab(r.type, r.office ?? null);
-        if (!tab || !r.date) continue;
-        if (!map.has(r.date)) map.set(r.date, tab);
+    if (colorFilter) return; // status filter takes precedence
+    if (truckQuery.trim()) {
+      if (activeTab !== "__TRUCK_SEARCH") {
+        setPrevTab(activeTab === "__TRUCK_SEARCH" ? prevTab : activeTab);
+        setActiveTab("__TRUCK_SEARCH");
       }
-      setMatchByDate(map);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [truckQuery]);
-
-  // Auto-switch tab when the selected date has the matching truck in another office
-  useEffect(() => {
-    if (!truckQuery.trim()) return;
-    const key = format(date, "yyyy-MM-dd");
-    const tab = matchByDate.get(key);
-    if (tab && tab !== activeTab) setActiveTab(tab);
+    } else if (activeTab === "__TRUCK_SEARCH") {
+      setActiveTab(prevTab || "CACAK");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, matchByDate, truckQuery]);
-
-  const dateDisabled = useMemo(() => {
-    if (!truckQuery.trim()) return undefined;
-    return (d: Date) => !matchByDate.has(format(d, "yyyy-MM-dd"));
-  }, [truckQuery, matchByDate]);
+  }, [truckQuery, colorFilter]);
 
   if (loading) {
     return (
@@ -301,7 +265,6 @@ const DailyReport = () => {
                 onSelect={(d) => d && setDate(d)}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}
-                disabled={dateDisabled}
               />
             </PopoverContent>
           </Popover>
@@ -320,9 +283,13 @@ const DailyReport = () => {
       <Tabs
         value={activeTab}
         onValueChange={(v) => {
-          // Clicking any tab while a status filter is active clears the filter
+          // Clicking any tab while a status filter is active clears it
           if (colorFilter && v !== "__FILTER") {
             setColorFilter(null);
+          }
+          // Clicking any tab while a truck search is active clears it
+          if (truckQuery.trim() && v !== "__TRUCK_SEARCH") {
+            setTruckQuery("");
           }
           setActiveTab(v);
         }}
@@ -367,6 +334,12 @@ const DailyReport = () => {
               }
               truckFilter={truckQuery}
             />
+          )}
+        </TabsContent>
+
+        <TabsContent value="__TRUCK_SEARCH" className="mt-4">
+          {truckQuery.trim() && (
+            <TruckSearchAllOfficesTable truckQuery={truckQuery} />
           )}
         </TabsContent>
 
