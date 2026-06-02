@@ -5584,6 +5584,7 @@ const Trips = () => {
                                   weekTotal.freightAmount,
                                   "freightAmount",
                                   weekTotal.miles,
+                                  weekTotal.driverPay,
                                 )
                               }
                             >
@@ -6004,6 +6005,7 @@ const Trips = () => {
                                                 Number(order.totalFreightAmountNoLumper) || 0,
                                                 "freightAmount",
                                                 Number(order.mileage) || 0,
+                                                Number(order.totalDriverPay) || 0,
                                               );
                                             }}
                                           >
