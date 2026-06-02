@@ -1968,48 +1968,10 @@ const NewOrder = () => {
         );
       }
 
-      // Retry helper for transient network failures (e.g. "Failed to fetch" when the
-      // response was dropped). Safe to retry because the RPC is idempotent via
-      // (company_id, client_request_id) and the pickup_drops insert is guarded by an
-      // existence check above.
-      const isTransientNetworkError = (err: any) => {
-        const msg = String(err?.message || err || "").toLowerCase();
-        return (
-          err instanceof TypeError ||
-          msg.includes("failed to fetch") ||
-          msg.includes("networkerror") ||
-          msg.includes("network request failed") ||
-          msg.includes("load failed")
-        );
-      };
-      const withRetry = async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
-        const delays = [400, 1200, 2500];
-        let lastErr: any;
-        for (let attempt = 0; attempt <= delays.length; attempt++) {
-          try {
-            const out = await fn();
-            if (attempt > 0) {
-              console.info(`↩️ ${label} succeeded after ${attempt} retry attempt(s)`);
-            }
-            return out;
-          } catch (err) {
-            lastErr = err;
-            if (attempt === delays.length || !isTransientNetworkError(err)) {
-              throw err;
-            }
-            console.warn(`⚠️ ${label} transient network error, retrying in ${delays[attempt]}ms`, err);
-            await new Promise((r) => setTimeout(r, delays[attempt]));
-          }
-        }
-        throw lastErr;
-      };
-
       // Use the atomic function to create order with unique internal load number
-      const { data: result, error: rpcError } = (await withRetry("create_order RPC", async () =>
-        await supabase.rpc("create_order_with_unique_load_number", {
-          order_data: orderData,
-        }),
-      )) as {
+      const { data: result, error: rpcError } = (await supabase.rpc("create_order_with_unique_load_number", {
+        order_data: orderData,
+      })) as {
         data: {
           id: string;
           internal_load_number: number;
@@ -2075,11 +2037,7 @@ const NewOrder = () => {
             }
 
             // Also reject any pre-existing coordinates that don't match the stop's state.
-            if (
-              latitude != null &&
-              longitude != null &&
-              !isValidStopCoordinate(latitude, longitude, item.state)
-            ) {
+            if (latitude != null && longitude != null && !isValidStopCoordinate(latitude, longitude, item.state)) {
               console.warn(
                 `📍 Dropping invalid pre-existing coords for ${item.type} (${item.city}, ${item.state}): ${latitude}, ${longitude}`,
               );
@@ -2129,17 +2087,13 @@ const NewOrder = () => {
         throw new Error(`Failed to verify pickup/delivery locations: ${existingDropsError.message}`);
       }
       if (existingDrops && existingDrops.length > 0) {
-        console.info(
-          `↩️ Skipping pickup_drops insert for order ${orderId} — rows already exist from a prior attempt.`,
-        );
+        console.info(`↩️ Skipping pickup_drops insert for order ${orderId} — rows already exist from a prior attempt.`);
       } else {
         console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
-        const { error: pickupDropError } = await withRetry("pickup_drops insert", async () =>
-          await supabase.from("pickup_drops").insert(validPickupDropData),
-        );
+        const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
         if (pickupDropError) {
-        console.error("❌ Pickup/drop insert error:", pickupDropError);
-        console.error("Failed data:", validPickupDropData);
+          console.error("❌ Pickup/drop insert error:", pickupDropError);
+          console.error("Failed data:", validPickupDropData);
           // Try to delete the orphaned order since pickup_drops failed
           await supabase.from("orders").delete().eq("id", orderId);
           throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
@@ -2256,10 +2210,10 @@ const NewOrder = () => {
       setBrokerLoadNumber("");
       setBroker("");
 
-      // Redirect to reports page
+      // Redirect to orders page
       // Confirmed success: release the idempotency key so the next submit gets a fresh one.
       clientRequestIdRef.current = null;
-      navigate("/reports");
+      navigate("/orders");
       setTruck("");
       setDriver1("");
       setDriver2("");
@@ -2469,7 +2423,6 @@ const NewOrder = () => {
                   </div>
                 )}
               </div>
-
             </div>
 
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
@@ -2683,7 +2636,7 @@ const NewOrder = () => {
                     companies?.find((c) => c.id === bookedByCompany)?.name !== "BG Prime Inc" && (
                       <Alert variant="destructive" className="mt-2">
                         <AlertDescription>
-                          Warning: Truck company is BG Prime Inc but Booked by Company is{" "}
+                          Warning: Operatiing company is BG Prime Inc but Booked by Company is{" "}
                           {companies?.find((c) => c.id === bookedByCompany)?.name}.
                         </AlertDescription>
                       </Alert>
