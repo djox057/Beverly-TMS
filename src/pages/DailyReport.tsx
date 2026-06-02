@@ -120,10 +120,11 @@ const DailyReport = () => {
 
   // When truck query is active (and no status filter), show a hidden combined
   // view with rows from ALL offices/types/dates, grouped by office then date.
+  // Skip auto-switch when on the HOME_TIME tab so search stays local there.
   useEffect(() => {
     if (colorFilter) return; // status filter takes precedence
     if (truckQuery.trim()) {
-      if (activeTab !== "__TRUCK_SEARCH") {
+      if (activeTab !== "__TRUCK_SEARCH" && activeTab !== "HOME_TIME") {
         setPrevTab(activeTab === "__TRUCK_SEARCH" ? prevTab : activeTab);
         setActiveTab("__TRUCK_SEARCH");
       }
@@ -131,7 +132,7 @@ const DailyReport = () => {
       setActiveTab(prevTab || "CACAK");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [truckQuery, colorFilter]);
+  }, [truckQuery, colorFilter, activeTab]);
 
   if (loading) {
     return (
