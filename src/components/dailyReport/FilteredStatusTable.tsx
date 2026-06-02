@@ -35,6 +35,7 @@ interface Row {
   home_date: string | null;
   color: string | null;
   created_at: string;
+  driver_name: string | null;
 }
 
 export const FilteredStatusTable = ({
@@ -56,7 +57,7 @@ export const FilteredStatusTable = ({
     const load = async () => {
       let q = supabase
         .from("daily_report_entries")
-        .select("id, type, office, truck, note, home_date, color, created_at")
+        .select("id, type, office, truck, note, home_date, color, created_at, driver_name")
         .eq("date", dateStr);
       if (colorFilter === "home_time") {
         q = q.eq("type", "Home");
@@ -92,7 +93,11 @@ export const FilteredStatusTable = ({
 
   const truckNorm = truckFilter.trim().toLowerCase();
   const visible = truckNorm
-    ? rows.filter((r) => (r.truck ?? "").toLowerCase().includes(truckNorm))
+    ? rows.filter(
+        (r) =>
+          (r.truck ?? "").toLowerCase().includes(truckNorm) ||
+          (r.driver_name ?? "").toLowerCase().includes(truckNorm)
+      )
     : rows;
 
   const showDate = colorFilter === "home_time";
