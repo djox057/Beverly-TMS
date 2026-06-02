@@ -120,10 +120,11 @@ const DailyReport = () => {
 
   // When truck query is active (and no status filter), show a hidden combined
   // view with rows from ALL offices/types/dates, grouped by office then date.
+  // Skip auto-switch when on the HOME_TIME tab so search stays local there.
   useEffect(() => {
     if (colorFilter) return; // status filter takes precedence
     if (truckQuery.trim()) {
-      if (activeTab !== "__TRUCK_SEARCH") {
+      if (activeTab !== "__TRUCK_SEARCH" && activeTab !== "HOME_TIME") {
         setPrevTab(activeTab === "__TRUCK_SEARCH" ? prevTab : activeTab);
         setActiveTab("__TRUCK_SEARCH");
       }
@@ -131,7 +132,7 @@ const DailyReport = () => {
       setActiveTab(prevTab || "CACAK");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [truckQuery, colorFilter]);
+  }, [truckQuery, colorFilter, activeTab]);
 
   if (loading) {
     return (
@@ -227,57 +228,61 @@ const DailyReport = () => {
               </button>
             )}
           </div>
-          <Select
-            value={colorFilter ?? "__all"}
-            onValueChange={(v) => setColorFilter(v === "__all" ? null : v)}
-          >
-            <SelectTrigger className="h-9 w-36 text-sm">
-              <SelectValue placeholder="Filter status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">All statuses</SelectItem>
-              {COLOR_FILTERS.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setDate((d) => addDays(d, -1))}
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="font-normal px-3">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(date, "MM/dd/yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(d) => d && setDate(d)}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setDate((d) => addDays(d, 1))}
-            aria-label="Next day"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          </div>
+          {activeTab !== "HOME_TIME" && (
+            <>
+              <Select
+                value={colorFilter ?? "__all"}
+                onValueChange={(v) => setColorFilter(v === "__all" ? null : v)}
+              >
+                <SelectTrigger className="h-9 w-36 text-sm">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">All statuses</SelectItem>
+                  {COLOR_FILTERS.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDate((d) => addDays(d, -1))}
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="font-normal px-3">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, "MM/dd/yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDate((d) => addDays(d, 1))}
+                  aria-label="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -288,8 +293,9 @@ const DailyReport = () => {
           if (colorFilter && v !== "__FILTER") {
             setColorFilter(null);
           }
-          // Clicking any tab while a truck search is active clears it
-          if (truckQuery.trim() && v !== "__TRUCK_SEARCH") {
+          // Clicking any tab while a truck search is active clears it,
+          // unless switching to HOME_TIME where search stays local.
+          if (truckQuery.trim() && v !== "__TRUCK_SEARCH" && v !== "HOME_TIME") {
             setTruckQuery("");
           }
           setActiveTab(v);
@@ -420,7 +426,7 @@ const DailyReport = () => {
           />
         </TabsContent>
         <TabsContent value="HOME_TIME" className="mt-4">
-          <HomeTimeTable />
+          <HomeTimeTable truckFilter={truckQuery} />
         </TabsContent>
       </Tabs>
       <ExportDailyReportPdf date={date} />
