@@ -1,49 +1,39 @@
-## Truck Sales — split by truck company
+## Problem
 
-Rework `/truck-sales` to mirror the styling of the Analytics "Other Salaries" tab (Card + `Table` with `table-fixed` and absolute pixel widths), grouped into one section per truck-owning company (`trucks.company_id`). Trucks without a company go under an "Unassigned" section.
+When creating a new order, the UI sometimes shows "Failed to fetch" even though the order is fully saved on the server. This is a network/timeout error on the client where the request actually reached Supabase and the RPC committed, but the response never made it back to the browser.
 
-### Database
+The good news: `create_order_with_unique_load_number` is already idempotent — it locks per `company_id` and dedupes on `(company_id, client_request_id)`. The client already generates `clientRequestIdRef.current` once and reuses it. So retrying the exact same call returns the same order id and internal load number instead of creating a duplicate.
 
-Add the missing fields on `public.trucks` (existing: `truck_number`, `model`). New columns:
+What's missing is the actual retry. Today, the moment the fetch throws `TypeError: Failed to fetch`, we go straight into the `catch` block and toast an error — even though the order is safely in the DB.
 
-| Column | Type | Notes |
-|---|---|---|
-| `make` | text | nullable |
-| `transmission` | text | nullable (e.g. Automatic / Manual) |
-| `year` | int | nullable |
-| `miles` | int | odometer reading, nullable |
-| `engine` | text | nullable |
-| `has_apu_webasto` | boolean | default false |
-| `has_inverter` | boolean | default false |
-| `has_fridge` | boolean | default false |
-| `sale_price_week` | numeric(10,2) | nullable |
-| `sale_terms` | text | nullable, free-form |
+## Plan
 
-Migration also re-asserts GRANTs already present on `public.trucks` for any new dependent operations — no RLS policy changes (existing trucks policies cover read/update for the involved roles).
+Add transparent retry-on-network-error to the order submit flow in `src/pages/NewOrder.tsx`.
 
-### Page rewrite — `src/pages/TruckSales.tsx`
+1. Add a small helper inside `handleSubmit` (or co-located in the file) that detects "transient" network failures and retries:
+  - Triggers on: `TypeError` whose message includes "Failed to fetch" / "NetworkError" / "network", or Supabase errors with no `code` and a network-style message.
+  - Up to 3 attempts, with short backoff (e.g. 400ms, 1200ms).
+  - Keeps `clientRequestIdRef.current` unchanged across retries so the RPC dedupes correctly.
+2. Wrap the `supabase.rpc("create_order_with_unique_load_number", ...)` call with this helper. On a retried success, log it (`console.info("↩️ RPC retry succeeded after network blip")`) so it's visible in the console but invisible to the user.
+3. Wrap the follow-up `supabase.from("pickup_drops").insert(...)` with the same helper. The existing "skip if rows already exist for this order_id" guard at lines 2084–2096 already makes this safe to retry.
+4. Leave business-logic errors (RLS violations, validation errors, RPC exceptions like `unique_violation` that aren't the idempotency case, etc.) untouched — they should still surface immediately as toasts.
+5. Verify the existing toast wording for the non-retryable case so users still see a meaningful message when something truly fails after all retries.
 
-- Fetch `trucks` (active only) joined with `companies(name)` and `driver1:drivers!driver1_id(first_name,last_name)`.
-- Group rows by `company_id`; sort companies alphabetically; render one Card per company with the company name as the header and a truck count.
-- Inside each Card, render a `Table` with `table-fixed` and these columns (absolute widths, mirroring Other Salaries):
-  - Truck # · Make · Model · Transmission · Year · Miles · Engine · APU/Webasto · Inverter · Fridge · Driver · Price/week · Terms
-- Equipment flags render as Yes/No badges (green/muted). Driver name = `driver1` full name or em-dash. Price formatted as USD currency. Miles formatted with thousands separators.
-- Inline editing for users with role `admin`, `manager`, `chicago_management`, or `recruiting`:
-  - Text fields (make, model, transmission, engine, terms): click-to-edit input
-  - Numeric (year, miles, sale_price_week): numeric input
-  - Booleans (apu_webasto, inverter, fridge): toggle switch
-  - On blur / toggle change → `supabase.from('trucks').update(...)` + optimistic React Query cache patch, then invalidate
-- Read-only roles see the same grid without inputs (plain text + Yes/No badges).
-- Empty company sections are not rendered.
+## Out of scope
 
-### Out of scope
+- No DB / RPC changes — the server side is already correct (advisory lock + idempotency key).
+- No change to duplicate-stop / missing-data dialogs or to file-upload error handling beyond what's described above.
+- No change to other forms that call other RPCs.
 
-- No sidebar/route changes (page + role gating already in place).
-- No file uploads or sales workflow beyond price/terms fields.
-- No edits to Analytics or Other Salaries.
+## Why this fixes it
 
-### Technical notes
+The "Failed to fetch" message is purely a client-side symptom of a dropped response. With idempotency already in place, a silent retry will either:
 
-- Group-by uses `trucks.company_id` (per user choice), not `driver1.company_id` — the "truck company source" memory applies to display elsewhere, not to ownership-based sales grouping.
-- Follow Table layout standard (`table-fixed` + px widths) and design tokens only.
-- Use existing `useAuth` `hasRole` for edit gating.
+- recover the original successful insert (returning the same `id` + `internal_load_number`), or
+- legitimately fail again, in which case we show the existing error toast.
+
+Either way the user stops seeing false-failure toasts on orders that were actually created.
+
+&nbsp;
+
+Also add rederect after you create new order navigate user to /reports page

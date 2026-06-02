@@ -1968,10 +1968,48 @@ const NewOrder = () => {
         );
       }
 
+      // Retry helper for transient network failures (e.g. "Failed to fetch" when the
+      // response was dropped). Safe to retry because the RPC is idempotent via
+      // (company_id, client_request_id) and the pickup_drops insert is guarded by an
+      // existence check above.
+      const isTransientNetworkError = (err: any) => {
+        const msg = String(err?.message || err || "").toLowerCase();
+        return (
+          err instanceof TypeError ||
+          msg.includes("failed to fetch") ||
+          msg.includes("networkerror") ||
+          msg.includes("network request failed") ||
+          msg.includes("load failed")
+        );
+      };
+      const withRetry = async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+        const delays = [400, 1200, 2500];
+        let lastErr: any;
+        for (let attempt = 0; attempt <= delays.length; attempt++) {
+          try {
+            const out = await fn();
+            if (attempt > 0) {
+              console.info(`↩️ ${label} succeeded after ${attempt} retry attempt(s)`);
+            }
+            return out;
+          } catch (err) {
+            lastErr = err;
+            if (attempt === delays.length || !isTransientNetworkError(err)) {
+              throw err;
+            }
+            console.warn(`⚠️ ${label} transient network error, retrying in ${delays[attempt]}ms`, err);
+            await new Promise((r) => setTimeout(r, delays[attempt]));
+          }
+        }
+        throw lastErr;
+      };
+
       // Use the atomic function to create order with unique internal load number
-      const { data: result, error: rpcError } = (await supabase.rpc("create_order_with_unique_load_number", {
-        order_data: orderData,
-      })) as {
+      const { data: result, error: rpcError } = (await withRetry("create_order RPC", async () =>
+        await supabase.rpc("create_order_with_unique_load_number", {
+          order_data: orderData,
+        }),
+      )) as {
         data: {
           id: string;
           internal_load_number: number;
@@ -2096,7 +2134,9 @@ const NewOrder = () => {
         );
       } else {
         console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
-        const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
+        const { error: pickupDropError } = await withRetry("pickup_drops insert", async () =>
+          await supabase.from("pickup_drops").insert(validPickupDropData),
+        );
         if (pickupDropError) {
         console.error("❌ Pickup/drop insert error:", pickupDropError);
         console.error("Failed data:", validPickupDropData);
@@ -2216,10 +2256,10 @@ const NewOrder = () => {
       setBrokerLoadNumber("");
       setBroker("");
 
-      // Redirect to orders page
+      // Redirect to reports page
       // Confirmed success: release the idempotency key so the next submit gets a fresh one.
       clientRequestIdRef.current = null;
-      navigate("/orders");
+      navigate("/reports");
       setTruck("");
       setDriver1("");
       setDriver2("");
