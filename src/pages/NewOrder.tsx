@@ -2256,10 +2256,10 @@ const NewOrder = () => {
       setBrokerLoadNumber("");
       setBroker("");
 
-      // Redirect to orders page
+      // Redirect to reports page
       // Confirmed success: release the idempotency key so the next submit gets a fresh one.
       clientRequestIdRef.current = null;
-      navigate("/orders");
+      navigate("/reports");
       setTruck("");
       setDriver1("");
       setDriver2("");
