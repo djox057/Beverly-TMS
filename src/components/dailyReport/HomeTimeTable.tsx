@@ -18,53 +18,40 @@ interface Row {
   date: string;
   office: string | null;
   truck: string | null;
+  driver_name: string | null;
   note: string | null;
   home_date: string | null;
   color: string | null;
   created_at: string;
 }
 
-interface AnyRow {
-  truck: string | null;
-}
+const fmtMMDD = (s: string | null | undefined) => {
+  if (!s) return "";
+  try {
+    return format(parseISO(s), "MM/dd");
+  } catch {
+    return s;
+  }
+};
 
 export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
-  const [trucks, setTrucks] = useState<string[]>([]);
   const [homeRows, setHomeRows] = useState<Row[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const [allRes, homeRes] = await Promise.all([
-        supabase
-          .from("daily_report_entries")
-          .select("truck")
-          .not("truck", "is", null),
-        supabase
-          .from("daily_report_entries")
-          .select("id, date, office, truck, note, home_date, color, created_at")
-          .eq("type", "Home")
-          .not("truck", "is", null)
-          .order("date", { ascending: false })
-          .order("created_at", { ascending: true }),
-      ]);
+      const homeRes = await supabase
+        .from("daily_report_entries")
+        .select(
+          "id, date, office, truck, driver_name, note, home_date, color, created_at"
+        )
+        .eq("type", "Home")
+        .not("driver_name", "is", null)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: true });
       if (cancelled) return;
-      if (allRes.error) console.error("home time all", allRes.error);
       if (homeRes.error) console.error("home time home", homeRes.error);
-      const set = new Set<string>();
-      for (const r of (allRes.data ?? []) as AnyRow[]) {
-        const t = String(r.truck ?? "").trim();
-        if (t) set.add(t);
-      }
-      setTrucks(
-        Array.from(set).sort((a, b) => {
-          const na = Number(a);
-          const nb = Number(b);
-          if (!isNaN(na) && !isNaN(nb)) return na - nb;
-          return a.localeCompare(b);
-        })
-      );
       setHomeRows((homeRes.data ?? []) as Row[]);
     };
     load();
@@ -82,31 +69,43 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
     };
   }, []);
 
-  const homeByTruck = useMemo(() => {
+  const homeByDriver = useMemo(() => {
     const map = new Map<string, Row[]>();
     for (const r of homeRows) {
-      const t = String(r.truck ?? "").trim();
-      if (!t) continue;
-      const arr = map.get(t) ?? [];
+      const d = String(r.driver_name ?? "").trim();
+      if (!d) continue;
+      const arr = map.get(d) ?? [];
       arr.push(r);
-      map.set(t, arr);
+      map.set(d, arr);
     }
     return map;
   }, [homeRows]);
 
+  const drivers = useMemo(
+    () => Array.from(homeByDriver.keys()).sort((a, b) => a.localeCompare(b)),
+    [homeByDriver]
+  );
+
   const filtered = useMemo(() => {
     const q = (truckFilter ?? "").trim().toLowerCase();
-    if (!q) return trucks;
-    return trucks.filter((t) => t.toLowerCase().includes(q));
-  }, [trucks, truckFilter]);
+    if (!q) return drivers;
+    return drivers.filter((d) => {
+      if (d.toLowerCase().includes(q)) return true;
+      const rows = homeByDriver.get(d) ?? [];
+      return rows.some((r) =>
+        String(r.truck ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [drivers, homeByDriver, truckFilter]);
 
-  const gridCols = "32px 110px 140px 90px 1fr";
+  const gridCols = "32px 70px 90px 140px 70px 1fr";
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
-          Home time — {filtered.length} truck{filtered.length === 1 ? "" : "s"}
+          Home time — {filtered.length} driver
+          {filtered.length === 1 ? "" : "s"}
           {(truckFilter ?? "").trim() && (
             <span className="font-normal text-muted-foreground ml-1">
               (filtered)
@@ -117,18 +116,18 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
       <div className="border border-border rounded-md overflow-hidden bg-card divide-y divide-border">
         {filtered.length === 0 && (
           <div className="p-4 text-center text-sm text-muted-foreground">
-            No trucks found.
+            No drivers found.
           </div>
         )}
-        {filtered.map((truck) => {
-          const isOpen = !!expanded[truck];
-          const rows = homeByTruck.get(truck) ?? [];
+        {filtered.map((driver) => {
+          const isOpen = !!expanded[driver];
+          const rows = homeByDriver.get(driver) ?? [];
           return (
-            <div key={truck}>
+            <div key={driver}>
               <button
                 type="button"
                 onClick={() =>
-                  setExpanded((s) => ({ ...s, [truck]: !s[truck] }))
+                  setExpanded((s) => ({ ...s, [driver]: !s[driver] }))
                 }
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/60 transition-colors"
               >
@@ -138,7 +137,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
                 <span className="font-semibold text-sm text-foreground">
-                  Truck #{truck}
+                  {driver}
                 </span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {rows.length} Home row{rows.length === 1 ? "" : "s"}
@@ -146,12 +145,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
               </button>
               {isOpen && (
                 <div className="border-t border-border bg-background">
-                  {rows.length === 0 ? (
-                    <div className="p-3 text-xs text-muted-foreground">
-                      No Home rows for this truck.
-                    </div>
-                  ) : (
-                    <>
+                  <>
                       <div
                         className="grid bg-muted/40 text-xs font-medium text-muted-foreground border-b border-border"
                         style={{ gridTemplateColumns: gridCols }}
@@ -161,6 +155,9 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
                         </div>
                         <div className="px-2 py-1.5 border-r border-border">
                           Date
+                        </div>
+                        <div className="px-2 py-1.5 border-r border-border">
+                          Truck#
                         </div>
                         <div className="px-2 py-1.5 border-r border-border">
                           Office
@@ -181,22 +178,16 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
                               {i + 1}
                             </div>
                             <div className="px-2 py-1.5 border-r border-border truncate">
-                              {(() => {
-                                try {
-                                  return format(
-                                    parseISO(r.date),
-                                    "EEE, MM/dd/yyyy"
-                                  );
-                                } catch {
-                                  return r.date;
-                                }
-                              })()}
+                              {fmtMMDD(r.date)}
+                            </div>
+                            <div className="px-2 py-1.5 border-r border-border truncate">
+                              {r.truck ?? ""}
                             </div>
                             <div className="px-2 py-1.5 border-r border-border truncate">
                               {officeDisplay(r.office)}
                             </div>
                             <div className="px-2 py-1.5 border-r border-border truncate">
-                              {r.home_date ?? ""}
+                              {fmtMMDD(r.home_date)}
                             </div>
                             <div className="px-2 py-1.5 whitespace-pre-wrap break-words">
                               {r.note ?? ""}
@@ -204,8 +195,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
                           </div>
                         ))}
                       </div>
-                    </>
-                  )}
+                  </>
                 </div>
               )}
             </div>
