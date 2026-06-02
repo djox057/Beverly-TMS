@@ -28,11 +28,10 @@ interface AnyRow {
   truck: string | null;
 }
 
-export const HomeTimeTable = () => {
+export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
   const [trucks, setTrucks] = useState<string[]>([]);
   const [homeRows, setHomeRows] = useState<Row[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -96,10 +95,10 @@ export const HomeTimeTable = () => {
   }, [homeRows]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = (truckFilter ?? "").trim().toLowerCase();
     if (!q) return trucks;
     return trucks.filter((t) => t.toLowerCase().includes(q));
-  }, [trucks, search]);
+  }, [trucks, truckFilter]);
 
   const gridCols = "32px 110px 140px 90px 1fr";
 
@@ -107,14 +106,13 @@ export const HomeTimeTable = () => {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
-          Home time — {trucks.length} truck{trucks.length === 1 ? "" : "s"}
+          Home time — {filtered.length} truck{filtered.length === 1 ? "" : "s"}
+          {(truckFilter ?? "").trim() && (
+            <span className="font-normal text-muted-foreground ml-1">
+              (filtered)
+            </span>
+          )}
         </h2>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter truck #"
-          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-sm"
-        />
       </div>
       <div className="border border-border rounded-md overflow-hidden bg-card divide-y divide-border">
         {filtered.length === 0 && (
