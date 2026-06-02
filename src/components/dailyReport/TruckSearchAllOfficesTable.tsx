@@ -87,32 +87,31 @@ export const TruckSearchAllOfficesTable = ({
     };
   }, [q]);
 
-  // Group by office (label) then by date.
+  // Group by date (newest first) then by office/section.
   const grouped = useMemo(() => {
-    const officeMap = new Map<
+    const dateMap = new Map<
       string,
-      { label: string; dateMap: Map<string, Row[]> }
+      Map<string, { label: string; items: Row[] }>
     >();
     for (const r of rows) {
-      const key = officeKey(r.office, r.type);
-      const label = officeDisplay(r.office, r.type);
-      let entry = officeMap.get(key);
-      if (!entry) {
-        entry = { label, dateMap: new Map() };
-        officeMap.set(key, entry);
+      const oKey = officeKey(r.office, r.type);
+      const oLabel = officeDisplay(r.office, r.type);
+      let officeMap = dateMap.get(r.date);
+      if (!officeMap) {
+        officeMap = new Map();
+        dateMap.set(r.date, officeMap);
       }
-      const dList = entry.dateMap.get(r.date) ?? [];
-      dList.push(r);
-      entry.dateMap.set(r.date, dList);
+      const entry = officeMap.get(oKey) ?? { label: oLabel, items: [] };
+      entry.items.push(r);
+      officeMap.set(oKey, entry);
     }
-    return Array.from(officeMap.entries())
-      .sort((a, b) => a[1].label.localeCompare(b[1].label))
-      .map(([key, val]) => ({
-        key,
-        label: val.label,
-        dates: Array.from(val.dateMap.entries())
-          .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-          .map(([date, items]) => ({ date, items })),
+    return Array.from(dateMap.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, officeMap]) => ({
+        date,
+        offices: Array.from(officeMap.entries())
+          .sort((a, b) => a[1].label.localeCompare(b[1].label))
+          .map(([key, val]) => ({ key, label: val.label, items: val.items })),
       }));
   }, [rows]);
 
@@ -125,24 +124,27 @@ export const TruckSearchAllOfficesTable = ({
           No rows found for truck "{q}"
         </div>
       )}
-      {grouped.map((office) => (
+      {grouped.map(({ date, offices }) => (
         <div
-          key={office.key}
+          key={date}
           className="border border-border rounded-md overflow-hidden bg-card"
         >
           <div className="px-3 py-2 bg-primary/10 text-sm font-bold uppercase tracking-wide text-foreground border-b border-border">
-            {office.label}
+            {(() => {
+              try {
+                return format(parseISO(date), "EEE, MM/dd/yyyy");
+              } catch {
+                return date;
+              }
+            })()}
           </div>
-          {office.dates.map(({ date, items }) => (
-            <div key={date} className="border-b border-border last:border-b-0">
+          {offices.map((office) => (
+            <div
+              key={office.key}
+              className="border-b border-border last:border-b-0"
+            >
               <div className="px-3 py-1.5 bg-muted text-xs font-semibold text-foreground border-b border-border">
-                {(() => {
-                  try {
-                    return format(parseISO(date), "EEE, MM/dd/yyyy");
-                  } catch {
-                    return date;
-                  }
-                })()}
+                {office.label}
               </div>
               <div
                 className="grid bg-muted/40 text-xs font-medium text-muted-foreground border-b border-border"
@@ -157,7 +159,7 @@ export const TruckSearchAllOfficesTable = ({
                 <div className="px-2 py-1.5">Note</div>
               </div>
               <div className="divide-y divide-border">
-                {items.map((r, i) => (
+                {office.items.map((r, i) => (
                   <div
                     key={r.id}
                     className={cn("grid text-sm", colorBg(r.color))}
