@@ -59,7 +59,7 @@ export const TruckSearchAllOfficesTable = ({
       const { data, error } = await supabase
         .from("daily_report_entries")
         .select("id, date, type, office, truck, note, home_date, color, created_at, driver_name")
-        .ilike("truck", `%${q}%`)
+        .or(`truck.ilike.%${q}%,driver_name.ilike.%${q}%`)
         .order("date", { ascending: false })
         .order("office", { ascending: true })
         .order("type", { ascending: true })

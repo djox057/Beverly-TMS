@@ -477,7 +477,8 @@ export const DailyReportTable = ({
         if (!r.__persisted) return false;
         if (truckFilterNorm && truckColKey) {
           const v = String(r[truckColKey] ?? "").toLowerCase();
-          if (!v.includes(truckFilterNorm)) return false;
+          const dn = String(r.driver_name ?? "").toLowerCase();
+          if (!v.includes(truckFilterNorm) && !dn.includes(truckFilterNorm)) return false;
         }
         if (colorFilter && (r.color ?? null) !== colorFilter) return false;
         return true;
