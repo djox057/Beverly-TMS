@@ -2638,6 +2638,16 @@ const NewOrder = () => {
                     }
                     searchPlaceholder="Search companies..."
                   />
+                  {driverCompanyName === "BG Prime Inc" &&
+                    bookedByCompany &&
+                    companies?.find((c) => c.id === bookedByCompany)?.name !== "BG Prime Inc" && (
+                      <Alert variant="destructive" className="mt-2">
+                        <AlertDescription>
+                          Warning: Truck company is BG Prime Inc but Booked by Company is{" "}
+                          {companies?.find((c) => c.id === bookedByCompany)?.name}.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                 </div>
 
                 <div className="space-y-2">
