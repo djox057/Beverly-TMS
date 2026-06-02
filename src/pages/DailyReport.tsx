@@ -296,7 +296,7 @@ const DailyReport = () => {
         }}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-9 h-auto gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-10 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
               key={o}
