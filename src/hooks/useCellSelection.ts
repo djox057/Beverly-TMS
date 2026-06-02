@@ -5,18 +5,27 @@ export interface SelectedCell {
   value: number;
   type: "driverPay" | "freightAmount" | "miles";
   rowMiles?: number; // Miles associated with this row (for freight/driver pay selections)
+  rowDriverPay?: number; // Driver pay associated with this row (for freight selections to compute commission)
+  rowFreight?: number; // Freight associated with this row (for driver pay selections to compute commission)
 }
 
 export const useCellSelection = () => {
   const [selectedCells, setSelectedCells] = useState<Map<string, SelectedCell>>(new Map());
 
-  const toggleCell = useCallback((id: string, value: number, type: "driverPay" | "freightAmount" | "miles", rowMiles?: number) => {
+  const toggleCell = useCallback((
+    id: string,
+    value: number,
+    type: "driverPay" | "freightAmount" | "miles",
+    rowMiles?: number,
+    rowDriverPay?: number,
+    rowFreight?: number,
+  ) => {
     setSelectedCells((prev) => {
       const newMap = new Map(prev);
       if (newMap.has(id)) {
         newMap.delete(id);
       } else {
-        newMap.set(id, { id, value, type, rowMiles });
+        newMap.set(id, { id, value, type, rowMiles, rowDriverPay, rowFreight });
       }
       return newMap;
     });

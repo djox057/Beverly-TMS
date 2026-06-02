@@ -28,6 +28,13 @@ const SummaryCard = ({
   const totalMiles = directMiles > 0 ? directMiles : associatedMiles;
   const rpm = totalMiles > 0 ? sum / totalMiles : 0;
 
+  // Commission only meaningful for Freight Amt selections.
+  // Comm = Freight - DriverPay (per row), summed across selected cells.
+  const isFreight = cells.some((c) => c.type === "freightAmount");
+  const totalRowDriverPay = cells.reduce((acc, c) => acc + (c.rowDriverPay || 0), 0);
+  const commission = isFreight ? sum - totalRowDriverPay : 0;
+  const commPct = isFreight && sum > 0 ? (commission / sum) * 100 : 0;
+
   return (
     <div className="bg-card border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
       <div className="flex items-center justify-between mb-2">
@@ -59,6 +66,17 @@ const SummaryCard = ({
             {rpm > 0 ? `$${rpm.toFixed(2)}` : "—"}
           </span>
         </div>
+        {isFreight && (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Comm:</span>
+            <span className="text-sm font-semibold text-pink-600 dark:text-pink-400">
+              {formatCurrency(commission)}
+              <span className="text-xs text-muted-foreground ml-1">
+                ({commPct.toFixed(2)}%)
+              </span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
