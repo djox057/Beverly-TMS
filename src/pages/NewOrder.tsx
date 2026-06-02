@@ -2005,8 +2005,8 @@ const NewOrder = () => {
       };
 
       // Use the atomic function to create order with unique internal load number
-      const { data: result, error: rpcError } = (await withRetry("create_order RPC", () =>
-        supabase.rpc("create_order_with_unique_load_number", {
+      const { data: result, error: rpcError } = (await withRetry("create_order RPC", async () =>
+        await supabase.rpc("create_order_with_unique_load_number", {
           order_data: orderData,
         }),
       )) as {
@@ -2134,8 +2134,8 @@ const NewOrder = () => {
         );
       } else {
         console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
-        const { error: pickupDropError } = await withRetry("pickup_drops insert", () =>
-          supabase.from("pickup_drops").insert(validPickupDropData),
+        const { error: pickupDropError } = await withRetry("pickup_drops insert", async () =>
+          await supabase.from("pickup_drops").insert(validPickupDropData),
         );
         if (pickupDropError) {
         console.error("❌ Pickup/drop insert error:", pickupDropError);
