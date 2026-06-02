@@ -282,21 +282,22 @@ const DailyReport = () => {
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          // Clicking any tab while a status filter is active clears it
-          if (colorFilter && v !== "__FILTER") {
-            setColorFilter(null);
-          }
-          // Clicking any tab while a truck search is active clears it
-          if (truckQuery.trim() && v !== "__TRUCK_SEARCH") {
-            setTruckQuery("");
-          }
-          setActiveTab(v);
-        }}
-        className="w-full"
-      >
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            // Clicking any tab while a status filter is active clears it
+            if (colorFilter && v !== "__FILTER") {
+              setColorFilter(null);
+            }
+            // Clicking any tab while a truck search is active clears it,
+            // unless switching to HOME_TIME where search stays local.
+            if (truckQuery.trim() && v !== "__TRUCK_SEARCH" && v !== "HOME_TIME") {
+              setTruckQuery("");
+            }
+            setActiveTab(v);
+          }}
+          className="w-full"
+        >
         <TabsList className="grid w-full grid-cols-4 sm:grid-cols-10 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
