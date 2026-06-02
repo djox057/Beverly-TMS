@@ -2631,16 +2631,26 @@ const NewOrder = () => {
                     }
                     searchPlaceholder="Search companies..."
                   />
-                  {driverCompanyName === "BG Prime Inc" &&
-                    bookedByCompany &&
-                    companies?.find((c) => c.id === bookedByCompany)?.name !== "BG Prime Inc" && (
-                      <Alert variant="destructive" className="mt-2">
-                        <AlertDescription>
-                          Warning: Operatiing company is BG Prime Inc but Booked by Company is{" "}
-                          {companies?.find((c) => c.id === bookedByCompany)?.name}.
-                        </AlertDescription>
-                      </Alert>
-                    )}
+                  {(() => {
+                    const operatingCompanyNames = ["BG Prime Inc", "BF Prime LLC", "Beverly Freight Inc"];
+                    const bookedByName = companies?.find((c) => c.id === bookedByCompany)?.name;
+                    if (
+                      driverCompanyName &&
+                      bookedByCompany &&
+                      operatingCompanyNames.includes(driverCompanyName) &&
+                      bookedByName !== driverCompanyName
+                    ) {
+                      return (
+                        <Alert variant="destructive" className="mt-2">
+                          <AlertDescription>
+                            Warning: Operating company is {driverCompanyName} but Booked by Company is{" "}
+                            {bookedByName}.
+                          </AlertDescription>
+                        </Alert>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="space-y-2">
