@@ -214,7 +214,7 @@ const DailyReport = () => {
             <Input
               value={truckQuery}
               onChange={(e) => setTruckQuery(e.target.value)}
-              placeholder="Search truck #"
+              placeholder="Search truck # or driver"
               className="h-9 w-44 pl-7 pr-7 text-sm"
             />
             {truckQuery && (
