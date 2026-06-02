@@ -228,76 +228,80 @@ const DailyReport = () => {
               </button>
             )}
           </div>
-          <Select
-            value={colorFilter ?? "__all"}
-            onValueChange={(v) => setColorFilter(v === "__all" ? null : v)}
-          >
-            <SelectTrigger className="h-9 w-36 text-sm">
-              <SelectValue placeholder="Filter status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">All statuses</SelectItem>
-              {COLOR_FILTERS.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setDate((d) => addDays(d, -1))}
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="font-normal px-3">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(date, "MM/dd/yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(d) => d && setDate(d)}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setDate((d) => addDays(d, 1))}
-            aria-label="Next day"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          </div>
+          {activeTab !== "HOME_TIME" && (
+            <>
+              <Select
+                value={colorFilter ?? "__all"}
+                onValueChange={(v) => setColorFilter(v === "__all" ? null : v)}
+              >
+                <SelectTrigger className="h-9 w-36 text-sm">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">All statuses</SelectItem>
+                  {COLOR_FILTERS.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDate((d) => addDays(d, -1))}
+                  aria-label="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="font-normal px-3">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, "MM/dd/yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDate((d) => addDays(d, 1))}
+                  aria-label="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => {
-            // Clicking any tab while a status filter is active clears it
-            if (colorFilter && v !== "__FILTER") {
-              setColorFilter(null);
-            }
-            // Clicking any tab while a truck search is active clears it,
-            // unless switching to HOME_TIME where search stays local.
-            if (truckQuery.trim() && v !== "__TRUCK_SEARCH" && v !== "HOME_TIME") {
-              setTruckQuery("");
-            }
-            setActiveTab(v);
-          }}
-          className="w-full"
-        >
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          // Clicking any tab while a status filter is active clears it
+          if (colorFilter && v !== "__FILTER") {
+            setColorFilter(null);
+          }
+          // Clicking any tab while a truck search is active clears it,
+          // unless switching to HOME_TIME where search stays local.
+          if (truckQuery.trim() && v !== "__TRUCK_SEARCH" && v !== "HOME_TIME") {
+            setTruckQuery("");
+          }
+          setActiveTab(v);
+        }}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-4 sm:grid-cols-10 h-auto gap-1 p-1">
           {OFFICES.map((o) => (
             <TabsTrigger
@@ -422,7 +426,7 @@ const DailyReport = () => {
           />
         </TabsContent>
         <TabsContent value="HOME_TIME" className="mt-4">
-          <HomeTimeTable />
+          <HomeTimeTable truckFilter={truckQuery} />
         </TabsContent>
       </Tabs>
       <ExportDailyReportPdf date={date} />
