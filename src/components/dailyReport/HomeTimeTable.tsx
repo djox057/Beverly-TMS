@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { CalendarIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ROW_COLORS } from "./DailyReportTable";
@@ -13,8 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 
 const colorBg = (c?: string | null) =>
@@ -46,18 +45,93 @@ const fmtMMDD = (s: string | null | undefined) => {
   }
 };
 
-type DateMode = "all" | "weekly" | "monthly" | "custom";
-
 const CHICAGO_TZ = "America/Chicago";
 
 const toChicagoDateStr = (d: Date) =>
   format(toZonedTime(d, CHICAGO_TZ), "yyyy-MM-dd");
 
+// Monday-start week, weeksAgo=0 -> current week
+const getWeekStartDate = (weeksAgo: number) => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - diff - weeksAgo * 7);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+};
+
+const generateWeekOptions = () => {
+  const weeks: { value: string; label: string }[] = [];
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  for (let i = -1; i < 52; i++) {
+    const start = getWeekStartDate(i);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    weeks.push({
+      value: i.toString(),
+      label:
+        i === -1 ? "Next Week" :
+        i === 0 ? "This Week" :
+        i === 1 ? "Last Week" :
+        `${fmt(start)} - ${fmt(end)}`,
+    });
+  }
+  return weeks;
+};
+
+const generateMonthOptions = () => {
+  const months: { value: string; label: string; start: Date; end: Date }[] = [];
+  const today = new Date();
+  for (let i = -1; i < 12; i++) {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    months.push({
+      value: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`,
+      label: start.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      start,
+      end,
+    });
+  }
+  return months;
+};
+
 export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
   const [homeRows, setHomeRows] = useState<Row[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [dateMode, setDateMode] = useState<DateMode>("all");
-  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [selectedWeek, setSelectedWeek] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+
+  const weekOptions = useMemo(() => generateWeekOptions(), []);
+  const monthOptions = useMemo(() => generateMonthOptions(), []);
+
+  const handleWeekChange = (value: string) => {
+    setSelectedWeek(value);
+    setSelectedMonth("all");
+    if (value === "all") {
+      setDateRange(undefined);
+    } else {
+      const start = getWeekStartDate(parseInt(value));
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      setDateRange({ from: start, to: end });
+    }
+  };
+
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(value);
+    setSelectedWeek("all");
+    if (value === "all") {
+      setDateRange(undefined);
+    } else {
+      const m = monthOptions.find((x) => x.value === value);
+      if (m) setDateRange({ from: m.start, to: m.end });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -91,25 +165,12 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
   }, []);
 
   const homeByDriver = useMemo(() => {
-    // Compute date range based on selected mode (Chicago time).
-    const todayStr = toChicagoDateStr(new Date());
+    // Compute date range (Chicago) from the active selection.
     let fromStr: string | null = null;
     let toStr: string | null = null;
-    if (dateMode === "weekly") {
-      const d = new Date();
-      d.setDate(d.getDate() - 6);
-      fromStr = toChicagoDateStr(d);
-      toStr = todayStr;
-    } else if (dateMode === "monthly") {
-      const d = new Date();
-      d.setDate(d.getDate() - 29);
-      fromStr = toChicagoDateStr(d);
-      toStr = todayStr;
-    } else if (dateMode === "custom") {
-      if (customRange?.from) fromStr = toChicagoDateStr(customRange.from);
-      if (customRange?.to) toStr = toChicagoDateStr(customRange.to);
-      else if (customRange?.from) toStr = fromStr;
-    }
+    if (dateRange?.from) fromStr = toChicagoDateStr(dateRange.from);
+    if (dateRange?.to) toStr = toChicagoDateStr(dateRange.to);
+    else if (dateRange?.from) toStr = fromStr;
 
     const inRange = (r: Row) => {
       if (!fromStr && !toStr) return true;
@@ -130,7 +191,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
       map.set(d, arr);
     }
     return map;
-  }, [homeRows, dateMode, customRange]);
+  }, [homeRows, dateRange]);
 
   const drivers = useMemo(
     () =>
@@ -169,51 +230,58 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
             </span>
           )}
         </h2>
-        <div className="flex items-center gap-2">
-          <Select
-            value={dateMode}
-            onValueChange={(v) => setDateMode(v as DateMode)}
-          >
-            <SelectTrigger className="h-8 w-[160px] text-xs">
-              <SelectValue />
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center">
+          <Select value={selectedWeek} onValueChange={handleWeekChange}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="All time weekly" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All time</SelectItem>
-              <SelectItem value="weekly">Weekly (last 7d)</SelectItem>
-              <SelectItem value="monthly">Monthly (last 30d)</SelectItem>
-              <SelectItem value="custom">Custom range</SelectItem>
+              <SelectItem value="all">All time weekly</SelectItem>
+              {weekOptions.map((w) => (
+                <SelectItem key={w.value} value={w.value}>
+                  {w.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          {dateMode === "custom" && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-8 text-xs justify-start font-normal",
-                    !customRange?.from && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                  {customRange?.from
-                    ? customRange.to
-                      ? `${format(customRange.from, "MM/dd/yy")} – ${format(customRange.to, "MM/dd/yy")}`
-                      : format(customRange.from, "MM/dd/yy")
-                    : "Pick a range"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={setCustomRange}
-                  numberOfMonths={2}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
+
+          <Select value={selectedMonth} onValueChange={handleMonthChange}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="All time monthly" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All time monthly</SelectItem>
+              {monthOptions.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DateRangePicker
+            date={dateRange}
+            onDateChange={(range) => {
+              setDateRange(range);
+              setSelectedWeek("all");
+              setSelectedMonth("all");
+            }}
+            placeholder="Custom date range"
+            className="w-full sm:w-64"
+          />
+
+          {dateRange && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDateRange(undefined);
+                setSelectedWeek("all");
+                setSelectedMonth("all");
+              }}
+            >
+              Clear Filter
+            </Button>
           )}
         </div>
       </div>
