@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { format, addDays } from "date-fns";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,16 +35,6 @@ const COLOR_FILTERS = [
   { value: "green", label: "Resolved" },
   { value: "home_time", label: "Home time" },
 ] as const;
-
-const typeToTab = (type: string, office: string | null): string | null => {
-  if (office) return office;
-  if (type === "Maintenance") return "MAINTENANCE";
-  if (type === "Afterhours") return "AFTERHOURS";
-  if (type === "Recoveries") return "RECOVERIES";
-  if (type === "New driver") return "NEW_DRIVER";
-  if (type === "Safety") return "SAFETY";
-  return null;
-};
 
 const EMPTY_LATE_COLS: DailyReportColumn[] = [
   { key: "truck", label: "Truck#", width: "110px", autocompleteTrucks: true },
@@ -110,7 +100,6 @@ const DailyReport = () => {
   const { canView, canEdit, loading } = useDailyReportPermissions();
   const [truckQuery, setTruckQuery] = useState("");
   const [colorFilter, setColorFilter] = useState<string | null>(null);
-  const [matchByDate, setMatchByDate] = useState<Map<string, string>>(new Map());
 
   // When a status filter is active, switch to a hidden combined tab and
   // remember the user's prior tab so we can restore it on clear.
