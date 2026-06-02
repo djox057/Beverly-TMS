@@ -38,6 +38,7 @@ interface Row {
   home_date: string | null;
   color: string | null;
   created_at: string;
+  driver_name: string | null;
 }
 
 export const TruckSearchAllOfficesTable = ({
@@ -57,7 +58,7 @@ export const TruckSearchAllOfficesTable = ({
     const load = async () => {
       const { data, error } = await supabase
         .from("daily_report_entries")
-        .select("id, date, type, office, truck, note, home_date, color, created_at")
+        .select("id, date, type, office, truck, note, home_date, color, created_at, driver_name")
         .ilike("truck", `%${q}%`)
         .order("date", { ascending: false })
         .order("office", { ascending: true })
@@ -115,7 +116,7 @@ export const TruckSearchAllOfficesTable = ({
       }));
   }, [rows]);
 
-  const gridCols = "32px 110px 140px 90px 1fr";
+  const gridCols = "32px 110px 160px 140px 90px 1fr";
 
   return (
     <div className="space-y-4">
@@ -154,6 +155,7 @@ export const TruckSearchAllOfficesTable = ({
                   #
                 </div>
                 <div className="px-2 py-1.5 border-r border-border">Truck#</div>
+                <div className="px-2 py-1.5 border-r border-border">Driver</div>
                 <div className="px-2 py-1.5 border-r border-border">Section</div>
                 <div className="px-2 py-1.5 border-r border-border">Home date</div>
                 <div className="px-2 py-1.5">Note</div>
@@ -170,6 +172,9 @@ export const TruckSearchAllOfficesTable = ({
                     </div>
                     <div className="px-2 py-1.5 border-r border-border truncate">
                       {r.truck ?? ""}
+                    </div>
+                    <div className="px-2 py-1.5 border-r border-border truncate">
+                      {r.driver_name ?? ""}
                     </div>
                     <div className="px-2 py-1.5 border-r border-border truncate">
                       {SECTION_LABELS[r.type] ?? r.type}
