@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DailyReportTable, ROW_COLORS, type DailyReportColumn } from "@/components/dailyReport/DailyReportTable";
 import { FilteredStatusTable } from "@/components/dailyReport/FilteredStatusTable";
 import { TruckSearchAllOfficesTable } from "@/components/dailyReport/TruckSearchAllOfficesTable";
+import { HomeTimeTable } from "@/components/dailyReport/HomeTimeTable";
 import { ExportDailyReportPdf } from "@/components/dailyReport/ExportDailyReportPdf";
 import { cn } from "@/lib/utils";
 import { Info, PaintBucket, Maximize2, HelpCircle } from "lucide-react";
@@ -320,6 +321,9 @@ const DailyReport = () => {
           <TabsTrigger value="SAFETY" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
             Safety
           </TabsTrigger>
+          <TabsTrigger value="HOME_TIME" className="w-full text-xs sm:text-sm font-semibold py-2 whitespace-normal leading-tight">
+            Home time
+          </TabsTrigger>
         </TabsList>
 
         {/* Hidden combined view shown only while a status filter is active */}
@@ -414,6 +418,9 @@ const DailyReport = () => {
             truckFilter={truckQuery}
             colorFilter={colorFilter}
           />
+        </TabsContent>
+        <TabsContent value="HOME_TIME" className="mt-4">
+          <HomeTimeTable />
         </TabsContent>
       </Tabs>
       <ExportDailyReportPdf date={date} />
