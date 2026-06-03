@@ -197,46 +197,40 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
       const get = (type: string, office: string | null) =>
         entries.filter((e) => e.type === type && (e.office ?? null) === office);
 
-      // Helper: render a page of two offices side-by-side (empty&late top, home bottom)
-      const renderOfficePage = (offices: readonly string[]) => {
+      // Helper: render a single-office page (Empty & Late on top, Home below)
+      const renderOfficePage = (office: string) => {
         drawPageHeader();
-        const cols = offices.length;
-        const gap = 10;
-        const colW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
         const rowGap = 10;
         const availH = bottomY - topY;
         const rowH = (availH - rowGap) / 2;
+        const w = pageW - margin * 2;
 
-        offices.forEach((office, idx) => {
-          const x = margin + idx * (colW + gap);
-          renderSection(
-            `${office} — Empty & Late`,
-            get("Empty & Late for delivery", office),
-            x,
-            topY,
-            colW,
-            rowH
-          );
-          renderSection(
-            `${office} — Home`,
-            get("Home", office),
-            x,
-            topY + rowH + rowGap,
-            colW,
-            rowH,
-            true
-          );
-        });
+        renderSection(
+          `${office} — Empty & Late`,
+          get("Empty & Late for delivery", office),
+          margin,
+          topY,
+          w,
+          rowH
+        );
+        renderSection(
+          `${office} — Home`,
+          get("Home", office),
+          margin,
+          topY + rowH + rowGap,
+          w,
+          rowH,
+          true
+        );
       };
 
-      // === Page 1: CACAK + KRAGUJEVAC ===
-      renderOfficePage(["CACAK", "KRAGUJEVAC"]);
+      // === One page per office ===
+      OFFICES.forEach((office, idx) => {
+        if (idx > 0) doc.addPage();
+        renderOfficePage(office);
+      });
 
-      // === Page 2: BG 1st FLOOR + BG 4th FLOOR ===
-      doc.addPage();
-      renderOfficePage(["BG 1st FLOOR", "BG 4th FLOOR"]);
-
-      // === Page 3: Others ===
+      // === Final page: Others ===
       doc.addPage();
       drawPageHeader();
       {
