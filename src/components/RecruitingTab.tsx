@@ -80,6 +80,7 @@ const blankRow = (user_id: string, month: string, name: string, role: string): P
   extra_day_dates: [],
   lost_day_dates: [],
   adjustments: [],
+  is_checked: false,
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
