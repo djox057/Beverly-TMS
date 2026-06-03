@@ -271,23 +271,18 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         const gap = 10;
         const rowGap = 10;
         const availH = bottomY - topY;
-        const rowH = (availH - rowGap) / 2;
+        const rowH = (availH - rowGap * 2) / 3;
+        const fullW = pageW - margin * 2;
 
-        // Row 1 — always 2 columns
-        const topCols = 2;
-        const topColW = (pageW - margin * 2 - gap * (topCols - 1)) / topCols;
-        renderSection("Maintenance", get("Maintenance", null), margin, topY, topColW, rowH);
-        renderSection(
-          "New Drivers",
-          get("New driver", null),
-          margin + topColW + gap,
-          topY,
-          topColW,
-          rowH
-        );
+        // Row 1 — Maintenance (full width)
+        renderSection("Maintenance", get("Maintenance", null), margin, topY, fullW, rowH);
 
-        // Row 2 — 3 cols if afterhours included, otherwise 2 (no afterhours table at all)
-        const bottomY2 = topY + rowH + rowGap;
+        // Row 2 — New Drivers (full width)
+        const row2Y = topY + rowH + rowGap;
+        renderSection("New Drivers", get("New driver", null), margin, row2Y, fullW, rowH);
+
+        // Row 3 — 3 cols if afterhours included, otherwise 2
+        const bottomY2 = row2Y + rowH + rowGap;
         if (includeAfterhours) {
           const botCols = 3;
           const botColW = (pageW - margin * 2 - gap * (botCols - 1)) / botCols;
