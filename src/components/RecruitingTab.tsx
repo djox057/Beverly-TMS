@@ -45,6 +45,7 @@ type PaymentRow = {
   extra_day_dates: string[];
   lost_day_dates: string[];
   adjustments: PayrollAdjustment[];
+  is_checked: boolean;
 };
 
 const WITH_CARD_RATE = 65;
