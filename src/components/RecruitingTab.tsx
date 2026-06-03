@@ -178,6 +178,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             extra_days: (server.extra_day_dates ?? []).length,
             lost_days: (server.lost_day_dates ?? []).length,
             adjustments: server.adjustments ?? [],
+            is_checked: server.is_checked ?? false,
           };
         } else {
           next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
