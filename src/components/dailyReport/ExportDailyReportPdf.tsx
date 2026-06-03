@@ -80,9 +80,10 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         doc.text(`DATE: ${format(date, "MM/dd/yyyy")}`, pageW - margin, 20, { align: "right" });
       };
 
-      // Render a single section (title + table) inside the given box. Rows
-      // shrink-to-fit: row height is derived from box height so 15+ rows
-      // still fit cleanly within their cell.
+      // Render a single section (title + table) inside the given box. Notes
+      // wrap onto multiple lines; row heights are computed per-row. If the
+      // overall content exceeds the available height, lines per row are
+      // progressively capped until everything fits.
       const renderSection = (
         title: string,
         rows: Entry[],
@@ -123,18 +124,49 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
         // Body
         const bodyTop = headY + TABLE_HEAD_H;
         const bodyH = h - SECTION_BAR_H - TABLE_HEAD_H;
-        const rowCount = Math.max(rows.length, 1);
-        // Cap row height so very short lists don't have huge empty rows
-        const rowH = Math.min(16, Math.max(10, bodyH / Math.max(rowCount, 1)));
-        const visibleRows = Math.min(rows.length, Math.floor(bodyH / rowH));
 
         doc.setDrawColor(180, 180, 180);
         doc.setLineWidth(0.3);
         doc.setFont("helvetica", "normal");
 
+        // Compute wrapped note lines per row, then derive row heights.
+        // Try maxLines = 4, shrink down until everything fits in bodyH.
+        const noteFontSize = 8;
+        const lineH = 9; // per-line vertical space in pt
+        const vPad = 4;  // total vertical padding inside a row
+        const minRowH = 10;
+
+        doc.setFontSize(noteFontSize);
+        const wrappedAll: string[][] = rows.map((r) => {
+          const noteText = (r.note ?? "").replace(/\s+/g, " ").trim();
+          return doc.splitTextToSize(noteText, noteColW - 6) as string[];
+        });
+
+        let maxLines = 4;
+        let visibleRows = rows.length;
+        let rowHeights: number[] = [];
+        while (maxLines >= 1) {
+          rowHeights = wrappedAll.map((lines) => {
+            const used = Math.min(lines.length || 1, maxLines);
+            return Math.max(minRowH, used * lineH + vPad);
+          });
+          // Determine how many rows fit
+          let total = 0;
+          visibleRows = 0;
+          for (let i = 0; i < rowHeights.length; i++) {
+            if (total + rowHeights[i] > bodyH) break;
+            total += rowHeights[i];
+            visibleRows++;
+          }
+          if (visibleRows === rows.length) break;
+          maxLines--;
+        }
+        if (maxLines < 1) maxLines = 1;
+
         let yy = bodyTop;
         for (let i = 0; i < visibleRows; i++) {
           const r = rows[i];
+          const rowH = rowHeights[i];
           const fill = r.color ? COLOR_FILL[r.color] : undefined;
           if (fill) {
             doc.setFillColor(fill[0], fill[1], fill[2]);
@@ -151,18 +183,18 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
           }
 
           // Row number
-          doc.setFontSize(rowH >= 13 ? 7.5 : 6.5);
+          doc.setFontSize(7.5);
           doc.setTextColor(90);
           doc.text(String(i + 1), x + numColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
 
           // Truck number
-          doc.setFontSize(rowH >= 13 ? 8.5 : 7.5);
+          doc.setFontSize(8.5);
           doc.setTextColor(0);
           doc.text(r.truck ?? "", x + numColW + truckColW / 2, yy + rowH / 2 + 2.5, { align: "center" });
 
           // Date (Home only)
           if (showDate) {
-            doc.setFontSize(rowH >= 13 ? 8 : 7);
+            doc.setFontSize(8);
             doc.text(
               r.home_date ?? "",
               x + numColW + truckColW + dateColW / 2,
@@ -171,11 +203,13 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             );
           }
 
-          // Note (truncate to fit width, single line within the row)
-          doc.setFontSize(rowH >= 13 ? 8 : 7);
-          const noteText = (r.note ?? "").replace(/\s+/g, " ").trim();
-          const fitted = (doc.splitTextToSize(noteText, noteColW - 6) as string[])[0] ?? "";
-          doc.text(fitted, x + numColW + truckColW + dateColW + 3, yy + rowH / 2 + 2.5);
+          // Note (wrapped, top-aligned within the row)
+          doc.setFontSize(noteFontSize);
+          const lines = wrappedAll[i].slice(0, maxLines);
+          const noteX = x + numColW + truckColW + dateColW + 3;
+          for (let li = 0; li < lines.length; li++) {
+            doc.text(lines[li], noteX, yy + vPad / 2 + 6 + li * lineH);
+          }
 
           yy += rowH;
         }
