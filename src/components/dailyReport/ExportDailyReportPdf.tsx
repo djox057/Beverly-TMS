@@ -197,22 +197,20 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
       const get = (type: string, office: string | null) =>
         entries.filter((e) => e.type === type && (e.office ?? null) === office);
 
-      // === Page 1: 4 offices × (Empty&Late / Home) — 4 cols × 2 rows ===
-      drawPageHeader();
-      {
-        const cols = OFFICES.length;
-        const gap = 6;
+      // Helper: render a page of two offices side-by-side (empty&late top, home bottom)
+      const renderOfficePage = (offices: readonly string[]) => {
+        drawPageHeader();
+        const cols = offices.length;
+        const gap = 10;
         const colW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
-        const rowGap = 8;
+        const rowGap = 10;
         const availH = bottomY - topY;
         const rowH = (availH - rowGap) / 2;
 
-        OFFICES.forEach((office, idx) => {
+        offices.forEach((office, idx) => {
           const x = margin + idx * (colW + gap);
-          // jsPDF's built-in Helvetica lacks Č; keep ASCII in the PDF.
-          const label = office;
           renderSection(
-            `${label} — Empty & Late`,
+            `${office} — Empty & Late`,
             get("Empty & Late for delivery", office),
             x,
             topY,
@@ -220,7 +218,7 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             rowH
           );
           renderSection(
-            `${label} — Home`,
+            `${office} — Home`,
             get("Home", office),
             x,
             topY + rowH + rowGap,
@@ -229,12 +227,16 @@ export const ExportDailyReportPdf = ({ date }: { date: Date }) => {
             true
           );
         });
-      }
+      };
 
-      // === Page 2 ===
-      // Row 1: Maintenance | New Drivers (2 cols)
-      // Row 2: After Hours | Recoveries | Safety (3 cols) when afterhours included
-      //        Recoveries | Safety (2 cols) when afterhours excluded
+      // === Page 1: CACAK + KRAGUJEVAC ===
+      renderOfficePage(["CACAK", "KRAGUJEVAC"]);
+
+      // === Page 2: BG 1st FLOOR + BG 4th FLOOR ===
+      doc.addPage();
+      renderOfficePage(["BG 1st FLOOR", "BG 4th FLOOR"]);
+
+      // === Page 3: Others ===
       doc.addPage();
       drawPageHeader();
       {
