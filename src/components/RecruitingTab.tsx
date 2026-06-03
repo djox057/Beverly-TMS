@@ -439,7 +439,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   if (!row) return null;
                   const salary = computeSalary(row);
                   return (
-                    <TableRow key={r.user_id}>
+                    <TableRow key={r.user_id} className={row.is_checked ? "bg-green-100 dark:bg-green-950/30" : ""}>
+                      <TableCell className="w-[40px]">
+                        <Checkbox
+                          checked={row.is_checked}
+                          onCheckedChange={() => toggleChecked(r.user_id, row.is_checked)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell className="text-right">
                         <Input
