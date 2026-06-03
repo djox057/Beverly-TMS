@@ -114,7 +114,6 @@ export const generateRecruiterStatementPdf = (data: RecruiterStatementData): Blo
     `Without Card (${data.withoutCardDays} × ${fmt$(data.withoutCardRate)})`,
     fmt$(withoutCardAmt),
   );
-  row("Food Allowance", fmt$(data.foodAllowance));
   divider();
 
   y += 6;
