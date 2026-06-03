@@ -49,11 +49,10 @@ type PaymentRow = {
 
 const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
-const FOOD_ALLOWANCE = 70;
-const AFTERHOURS_FOOD_ALLOWANCE = 50;
+const FOOD_ALLOWANCE = 0;
+const AFTERHOURS_FOOD_ALLOWANCE = 0;
 
-const getFoodAllowance = (role: string) =>
-  role === "afterhours" ? AFTERHOURS_FOOD_ALLOWANCE : FOOD_ALLOWANCE;
+const getFoodAllowance = (role: string) => 0;
 
 const isWeekday = (d: Date) => {
   const day = d.getDay();
@@ -236,7 +235,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       r.lost_days * perDay +
       withCard * WITH_CARD_RATE +
       withoutCard * WITHOUT_CARD_RATE +
-      r.food_allowance +
       adjTotal
     );
   };
@@ -369,7 +367,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                       <TableHead className="text-right w-[120px]">Without Card</TableHead>
                     </>
                   )}
-                  <TableHead className="text-right w-[90px]">Food</TableHead>
                   <TableHead className="text-right w-[110px]">Adjustments</TableHead>
                   <TableHead className="text-right w-[120px]">Salary</TableHead>
                   <TableHead className="text-right w-[60px]"></TableHead>
@@ -429,7 +426,6 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                           />
                         </>
                       )}
-                      <TableCell className="text-right">${row.food_allowance}</TableCell>
                       <AdjustmentsCell
                         adjustments={row.adjustments ?? []}
                         onChange={(adj) => updateField(r.user_id, { adjustments: adj }, 0)}
@@ -457,7 +453,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={showCardColumns ? 10 : 8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={showCardColumns ? 9 : 7} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
