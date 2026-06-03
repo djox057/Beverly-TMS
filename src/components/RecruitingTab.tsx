@@ -520,7 +520,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={showCardColumns ? 9 : 7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={showCardColumns ? 10 : 8} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
