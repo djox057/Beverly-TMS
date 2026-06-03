@@ -279,7 +279,6 @@ export default function RecruiterStatementPreviewDialog({
       data.lostDayDates.length * data.perDayRate +
       data.withCardDays * data.withCardRate +
       data.withoutCardDays * data.withoutCardRate +
-      data.foodAllowance +
       adjTotal
     );
   };
