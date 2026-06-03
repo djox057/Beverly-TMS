@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileText, Minus, Plus, Send, XCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
@@ -45,6 +46,7 @@ type PaymentRow = {
   extra_day_dates: string[];
   lost_day_dates: string[];
   adjustments: PayrollAdjustment[];
+  is_checked: boolean;
 };
 
 const WITH_CARD_RATE = 65;
@@ -79,6 +81,7 @@ const blankRow = (user_id: string, month: string, name: string, role: string): P
   extra_day_dates: [],
   lost_day_dates: [],
   adjustments: [],
+  is_checked: false,
 });
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
@@ -132,6 +135,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           extra_day_dates: row.extra_day_dates ?? [],
           lost_day_dates: row.lost_day_dates ?? [],
           adjustments: Array.isArray(row.adjustments) ? row.adjustments : [],
+          is_checked: row.is_checked ?? false,
         } as PaymentRow;
       });
       return map;
@@ -175,6 +179,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             extra_days: (server.extra_day_dates ?? []).length,
             lost_days: (server.lost_day_dates ?? []).length,
             adjustments: server.adjustments ?? [],
+            is_checked: server.is_checked ?? false,
           };
         } else {
           next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
@@ -277,6 +282,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       lost_day_dates: row.lost_day_dates,
       recruiter_name: row.recruiter_name ?? null,
       adjustments: (row.adjustments ?? []).length > 0 ? row.adjustments : null,
+      is_checked: row.is_checked,
     };
     const { error } = await supabase
       .from("recruiter_salary_payments" as any)
@@ -286,6 +292,36 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return false;
     }
     return true;
+  };
+
+  const toggleChecked = async (userId: string, currentChecked: boolean) => {
+    if (!selectedMonth || selectedMonth === "all") return;
+    const nextChecked = !currentChecked;
+    setRows((prev) => {
+      const cur = prev[userId];
+      if (!cur) return prev;
+      const updated = { ...cur, is_checked: nextChecked };
+      const next = { ...prev, [userId]: updated };
+      rowsRef.current = next;
+      return next;
+    });
+    const { error } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .update({ is_checked: nextChecked })
+      .eq("user_id", userId)
+      .eq("month", selectedMonth);
+    if (error) {
+      toast.error("Failed to update checked status");
+      // revert on error
+      setRows((prev) => {
+        const cur = prev[userId];
+        if (!cur) return prev;
+        const updated = { ...cur, is_checked: currentChecked };
+        const next = { ...prev, [userId]: updated };
+        rowsRef.current = next;
+        return next;
+      });
+    }
   };
 
   const scheduleSave = (userId: string, delay = 200) => {
@@ -381,6 +417,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Recruiter</TableHead>
                   <TableHead className="text-right w-[140px]">Base Salary</TableHead>
                   <TableHead className="text-right w-[100px]">Extra Days</TableHead>
@@ -402,7 +439,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                   if (!row) return null;
                   const salary = computeSalary(row);
                   return (
-                    <TableRow key={r.user_id}>
+                    <TableRow key={r.user_id} className={row.is_checked ? "bg-green-100 dark:bg-green-950/30" : ""}>
+                      <TableCell className="w-[40px]">
+                        <Checkbox
+                          checked={row.is_checked}
+                          onCheckedChange={() => toggleChecked(r.user_id, row.is_checked)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{r.full_name}</TableCell>
                       <TableCell className="text-right">
                         <Input
@@ -477,7 +520,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                 })}
                 {recruiters.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={showCardColumns ? 9 : 7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={showCardColumns ? 10 : 8} className="text-center text-muted-foreground">
                       No recruiters found.
                     </TableCell>
                   </TableRow>
