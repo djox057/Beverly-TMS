@@ -417,6 +417,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Recruiter</TableHead>
                   <TableHead className="text-right w-[140px]">Base Salary</TableHead>
                   <TableHead className="text-right w-[100px]">Extra Days</TableHead>
