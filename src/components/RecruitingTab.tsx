@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileText, Minus, Plus, Send, XCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { DayInput } from "@/components/DayInput";
 import RecruiterStatementPreviewDialog from "@/components/RecruiterStatementPreviewDialog";
