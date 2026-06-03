@@ -208,6 +208,30 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     };
   }, [selectedMonth, queryClient]);
 
+  // Realtime: refresh the recruiter list when role assignments or profiles change.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`recruiting-users-${selectedRole}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_roles" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["recruiting-users", selectedRole] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["recruiting-users", selectedRole] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedRole, queryClient]);
+
   const workDaysInMonth = useMemo(() => {
     if (!selectedMonth || selectedMonth === "all") return 22;
     const [y, m] = selectedMonth.split("-").map(Number);
