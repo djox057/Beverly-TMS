@@ -112,7 +112,14 @@ export const useAuth = () => {
         .eq('user_id', userId);
 
       if (error) throw error;
-      setRoles(data?.map(r => r.role as UserRole) || []);
+      const raw = (data?.map(r => r.role as UserRole) || []);
+      // Safety role inherits ALL permissions of Accounting. Inject 'accounting'
+      // into the effective roles array so every `roles.includes('accounting')`
+      // and `hasRole('accounting')` check across the app passes for Safety users.
+      const effective = raw.includes('safety') && !raw.includes('accounting')
+        ? [...raw, 'accounting' as UserRole]
+        : raw;
+      setRoles(effective);
     } catch (error) {
       console.error('Error fetching user roles:', error);
       setRoles([]);
@@ -284,11 +291,12 @@ export const useAuth = () => {
   const getPrimaryRole = (): UserRole | null => {
     if (roles.length === 0) return null;
     if (roles.includes('admin')) return 'admin';
+    // Safety is displayed as 'safety' even though it inherits accounting permissions.
+    if (roles.includes('safety')) return 'safety';
     if (roles.includes('accounting')) return 'accounting';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('supervisor')) return 'supervisor';
     if (roles.includes('chicago_management')) return 'chicago_management';
-    if (roles.includes('safety')) return 'safety';
     if (roles.includes('maintenance')) return 'maintenance';
     if (roles.includes('dispatch')) return 'dispatch';
     if (roles.includes('afterhours')) return 'afterhours';
