@@ -281,6 +281,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       lost_day_dates: row.lost_day_dates,
       recruiter_name: row.recruiter_name ?? null,
       adjustments: (row.adjustments ?? []).length > 0 ? row.adjustments : null,
+      is_checked: row.is_checked,
     };
     const { error } = await supabase
       .from("recruiter_salary_payments" as any)
@@ -290,6 +291,36 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return false;
     }
     return true;
+  };
+
+  const toggleChecked = async (userId: string, currentChecked: boolean) => {
+    if (!selectedMonth || selectedMonth === "all") return;
+    const nextChecked = !currentChecked;
+    setRows((prev) => {
+      const cur = prev[userId];
+      if (!cur) return prev;
+      const updated = { ...cur, is_checked: nextChecked };
+      const next = { ...prev, [userId]: updated };
+      rowsRef.current = next;
+      return next;
+    });
+    const { error } = await supabase
+      .from("recruiter_salary_payments" as any)
+      .update({ is_checked: nextChecked })
+      .eq("user_id", userId)
+      .eq("month", selectedMonth);
+    if (error) {
+      toast.error("Failed to update checked status");
+      // revert on error
+      setRows((prev) => {
+        const cur = prev[userId];
+        if (!cur) return prev;
+        const updated = { ...cur, is_checked: currentChecked };
+        const next = { ...prev, [userId]: updated };
+        rowsRef.current = next;
+        return next;
+      });
+    }
   };
 
   const scheduleSave = (userId: string, delay = 200) => {
