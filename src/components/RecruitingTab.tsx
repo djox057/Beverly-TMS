@@ -134,6 +134,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           extra_day_dates: row.extra_day_dates ?? [],
           lost_day_dates: row.lost_day_dates ?? [],
           adjustments: Array.isArray(row.adjustments) ? row.adjustments : [],
+          is_checked: row.is_checked ?? false,
         } as PaymentRow;
       });
       return map;
