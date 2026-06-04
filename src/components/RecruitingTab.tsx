@@ -92,6 +92,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const [selectedRole, setSelectedRole] = useState<string>("recruiting");
   const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
   const [previewEmail, setPreviewEmail] = useState<string | null>(null);
+  const [baseSalaryEditing, setBaseSalaryEditing] = useState<Record<string, string>>({});
 
   // Fetch users with the selected role
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
@@ -547,11 +548,32 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                           inputMode="decimal"
                           placeholder="—"
                           className="h-8 text-right border-0 bg-transparent shadow-none focus-visible:ring-1 px-1"
-                          value={row.base_salary === 0 ? "" : String(row.base_salary)}
+                          value={
+                            baseSalaryEditing[r.user_id] !== undefined
+                              ? baseSalaryEditing[r.user_id]
+                              : row.base_salary === 0
+                                ? ""
+                                : String(row.base_salary)
+                          }
                           onChange={(e) => {
-                            const raw = e.target.value.replace(/[^\d.]/g, "");
-                            const num = raw === "" ? 0 : Number(raw) || 0;
+                            let raw = e.target.value.replace(/[^\d.]/g, "");
+                            // keep only the first decimal point
+                            const firstDot = raw.indexOf(".");
+                            if (firstDot !== -1) {
+                              raw =
+                                raw.slice(0, firstDot + 1) +
+                                raw.slice(firstDot + 1).replace(/\./g, "");
+                            }
+                            setBaseSalaryEditing((prev) => ({ ...prev, [r.user_id]: raw }));
+                            const num = raw === "" || raw === "." ? 0 : Number(raw) || 0;
                             updateField(r.user_id, { base_salary: num });
+                          }}
+                          onBlur={() => {
+                            setBaseSalaryEditing((prev) => {
+                              const next = { ...prev };
+                              delete next[r.user_id];
+                              return next;
+                            });
                           }}
                         />
                       </TableCell>
