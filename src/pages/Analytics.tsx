@@ -4275,7 +4275,7 @@ const Analytics = () => {
                             const ptoCount = stat.userId ? ptoDaysByUser[stat.userId] || 0 : 0;
                             const nonSickLostDays = Math.max(0, lostDays - ptoCount);
                             const daysOffDeduction = nonSickLostDays * perDayRate;
-                            const foodAllowance = hasFoodOffice(stat.office) ? 70 : 0;
+                            const foodAllowance = getFoodAllowance(stat.office, stat.userId);
 
                             // Store base rate for carry-over calculations (includes recovery bonus so
                             // bulk "Mark as paid" settles the full amount)
