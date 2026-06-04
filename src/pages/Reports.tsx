@@ -1361,11 +1361,13 @@ const Reports = () => {
     }
   };
 
-  const handleUploadDocument = async () => {
+  const handleUploadDocument = async (weightOverride?: number) => {
     if (!uploadFiles.length || !zoomedLoad?.orderId) return;
 
+    const effectiveWeight = weightOverride ?? pendingBolWeight;
+
     // For BOL uploads, require a weight value first. If not yet provided, open the weight dialog.
-    if (uploadDocType === "BOL" && pendingBolWeight == null) {
+    if (uploadDocType === "BOL" && effectiveWeight == null) {
       setBolWeightDialogOpen(true);
       return;
     }
@@ -1460,14 +1462,14 @@ const Reports = () => {
       });
 
       // BOL-specific: persist weight_bol and surface weight warnings
-      if (uploadDocType === "BOL" && pendingBolWeight != null) {
-        await supabase.from("orders").update({ weight_bol: pendingBolWeight }).eq("id", zoomedLoad.orderId);
+      if (uploadDocType === "BOL" && effectiveWeight != null) {
+        await supabase.from("orders").update({ weight_bol: effectiveWeight }).eq("id", zoomedLoad.orderId);
 
         // Update local zoomedLoad weightBol so the alert in the dialog reflects the new value
-        setZoomedLoad((prev) => (prev ? { ...prev, weightBol: pendingBolWeight } : prev));
+        setZoomedLoad((prev) => (prev ? { ...prev, weightBol: effectiveWeight } : prev));
 
         const weightRc = zoomedLoad.weightRc ?? null;
-        const warning = getWeightDiscrepancyWarning(pendingBolWeight, weightRc);
+        const warning = getWeightDiscrepancyWarning(effectiveWeight, weightRc);
         if (warning) {
           toast({
             title: "Check RC weight",
@@ -1475,18 +1477,8 @@ const Reports = () => {
             variant: "destructive",
           });
         }
-        if (pendingBolWeight >= SCALE_TICKET_THRESHOLD_LBS) {
-          const hasAdditional = (zoomedLoad.orderFiles || []).some(
-            (f: any) => (f.file_category || "").toUpperCase() === "ADDITIONAL",
-          );
-          if (!hasAdditional) {
-            toast({
-              title: "Scale ticket required",
-              description: `BOL weight is ${pendingBolWeight.toLocaleString()} lbs (≥ ${SCALE_TICKET_THRESHOLD_LBS.toLocaleString()}). Please upload a scale ticket as an Additional file.`,
-              variant: "destructive",
-            });
-          }
-        }
+        // Note: scale ticket reminder is surfaced via the grid indicator (needsScaleTicket),
+        // so we don't block the BOL upload or show an error toast here.
       }
 
       // Clear module-level cache for this order, then refetch adapter query
