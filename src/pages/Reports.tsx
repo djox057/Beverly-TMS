@@ -7966,6 +7966,21 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <WeightBolDialog
+        open={bolWeightDialogOpen}
+        defaultValue={pendingBolWeight ?? zoomedLoad?.weightBol ?? null}
+        onCancel={() => {
+          setBolWeightDialogOpen(false);
+        }}
+        onConfirm={(w) => {
+          setPendingBolWeight(w);
+          setBolWeightDialogOpen(false);
+          // Resume the upload now that we have the weight
+          setTimeout(() => {
+            handleUploadDocument();
+          }, 0);
+        }}
+      />
     </>
   );
 };
