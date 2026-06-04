@@ -732,6 +732,7 @@ function DatesCell({
   dates,
   onAdd,
   onRemove,
+  pto,
 }: {
   label: string;
   accent: string;
@@ -740,27 +741,60 @@ function DatesCell({
   dates: string[];
   onAdd: (d: string) => void;
   onRemove: (d: string) => void;
+  pto?: {
+    selected: string[];
+    onToggle: (date: string) => void;
+    yearUsed: number;
+    yearMax: number;
+  };
 }) {
   const count = dates.length;
+  const ptoMonthCount = pto ? dates.filter((d) => pto.selected.includes(d)).length : 0;
+  const remainingPto = pto ? Math.max(0, pto.yearMax - pto.yearUsed) : 0;
   return (
     <TableCell className={`text-right ${accent}`}>
       <Popover>
         <PopoverTrigger asChild>
           <button className="cursor-pointer hover:underline font-medium">
             {count > 0 ? `${sign}${count}` : 0}
+            {pto && ptoMonthCount > 0 && (
+              <span className="ml-1 text-[10px] text-green-600">({ptoMonthCount} PTO)</span>
+            )}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-56 p-3" align="end">
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            {pto && (
+              <p className="text-[10px] text-muted-foreground">
+                {remainingPto} of {pto.yearMax} PTO days remaining this year.
+              </p>
+            )}
             {dates.length === 0 && (
               <p className="text-xs text-muted-foreground">No dates</p>
             )}
             {dates.map((d) => {
               const [y, m, day] = d.split("-").map(Number);
+              const isPto = pto ? pto.selected.includes(d) : false;
+              const canTogglePtoOn = pto ? isPto || remainingPto > 0 : false;
               return (
-                <div key={d} className="flex items-center justify-between">
-                  <span className="text-sm text-foreground">{`${m}/${day}`}</span>
+                <div key={d} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-foreground flex-1">{`${m}/${day}`}</span>
+                  {pto && (
+                    <label
+                      className={`flex items-center gap-1 text-[10px] ${canTogglePtoOn ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                      title={isPto ? "Marked as PTO" : canTogglePtoOn ? "Mark as PTO" : "No PTO days remaining this year"}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={isPto}
+                        disabled={!canTogglePtoOn}
+                        onChange={() => pto.onToggle(d)}
+                      />
+                      <span className={isPto ? "text-green-600 font-medium" : "text-muted-foreground"}>PTO</span>
+                    </label>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
