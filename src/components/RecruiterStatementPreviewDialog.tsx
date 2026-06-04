@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Download, Loader2, Plus, Trash2, Send, AlertCircle } from "lucide-react";
+import { Download, Loader2, Plus, Trash2, Send } from "lucide-react";
 import { generatePayrollPdf, PayrollAdjustment } from "@/utils/payrollPdfGenerator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +37,6 @@ interface Props {
   data: RecruiterStatementData;
   onAdjustmentsChange?: (next: PayrollAdjustment[]) => void;
   onSent?: () => void;
-  onPtoChanged?: (userId: string, ptoCount: number) => void;
 }
 
 const formatMonth = (m: string) => {
@@ -55,7 +54,6 @@ const buildPdf = async (
   data: RecruiterStatementData,
   adjustments: PayrollAdjustment[],
   previewOnly: boolean,
-  overrides?: { sickDayDates?: string[]; usedPtoDaysYearly?: number },
 ) => {
   const extraRows: { label: string; amount: number }[] = [];
   if (data.withCardDays > 0) {
@@ -70,9 +68,6 @@ const buildPdf = async (
       amount: data.withoutCardDays * data.withoutCardRate,
     });
   }
-
-  const sickDayDates = overrides?.sickDayDates ?? data.sickDayDates ?? [];
-  const usedPtoDaysYearly = overrides?.usedPtoDaysYearly ?? data.usedPtoDaysYearly;
 
   return generatePayrollPdf(
     {
@@ -93,9 +88,9 @@ const buildPdf = async (
       hideBonusRow: true,
       extraRows,
       extraDaysLabel: "Extra days",
-      sickDayDates: sickDayDates.map(toMMDD),
+      sickDayDates: (data.sickDayDates ?? []).map(toMMDD),
       totalSickDaysAvailable: data.totalSickDaysAvailable,
-      usedPtoDaysYearly,
+      usedPtoDaysYearly: data.usedPtoDaysYearly,
     },
     { previewOnly },
   );
@@ -107,7 +102,6 @@ export default function RecruiterStatementPreviewDialog({
   data,
   onAdjustmentsChange,
   onSent,
-  onPtoChanged,
 }: Props) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -115,15 +109,6 @@ export default function RecruiterStatementPreviewDialog({
   const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>(data.adjustments ?? []);
   const [showAdjustmentsForm, setShowAdjustmentsForm] = useState(false);
   const [isCheckedState, setIsCheckedState] = useState(false);
-
-  // PTO state — reuses dispatcher_sick_days table (keyed by user_id only)
-  const MAX_PTO_DAYS = data.totalSickDaysAvailable ?? 3;
-  const [ptoSelectedDates, setPtoSelectedDates] = useState<string[]>([]); // YYYY-MM-DD (this month)
-  const [yearlyPtoUsed, setYearlyPtoUsed] = useState<number>(0);
-  const ptoYear = (() => {
-    const y = parseInt(data.month.split("-")[0], 10);
-    return Number.isFinite(y) ? y : new Date().getFullYear();
-  })();
 
   // Extra Pay / Charges form
   const [newType, setNewType] = useState<"addition" | "charge">("addition");
@@ -166,30 +151,6 @@ export default function RecruiterStatementPreviewDialog({
     }
   }, [open, data.adjustments]);
 
-  // Load PTO state when dialog opens
-  useEffect(() => {
-    if (!open || !data.userId || !data.month) return;
-    let cancelled = false;
-    (async () => {
-      const { data: rows, error } = await supabase
-        .from("dispatcher_sick_days" as any)
-        .select("sick_date")
-        .eq("user_id", data.userId)
-        .eq("year", ptoYear);
-      if (cancelled) return;
-      if (error) {
-        console.error("Error loading PTO:", error);
-        return;
-      }
-      const all = (rows ?? []).map((r: any) => r.sick_date as string);
-      setYearlyPtoUsed(all.length);
-      setPtoSelectedDates(all.filter((d) => d.substring(0, 7) === data.month));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, data.userId, data.month, ptoYear]);
-
   // Load is_checked from server
   useEffect(() => {
     if (!open || !data.userId || !data.month) return;
@@ -212,10 +173,7 @@ export default function RecruiterStatementPreviewDialog({
     (async () => {
       setLoading(true);
       try {
-        const blob = await buildPdf(data, resolveAdjustments(adjustments), true, {
-          sickDayDates: ptoSelectedDates,
-          usedPtoDaysYearly: yearlyPtoUsed,
-        });
+        const blob = await buildPdf(data, resolveAdjustments(adjustments), true);
         const url = URL.createObjectURL(blob);
         if (cancelled) {
           URL.revokeObjectURL(url);
@@ -236,7 +194,7 @@ export default function RecruiterStatementPreviewDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, adjustments, ptoSelectedDates, yearlyPtoUsed]);
+  }, [open, data, adjustments]);
 
   useEffect(() => {
     return () => {
@@ -299,47 +257,6 @@ export default function RecruiterStatementPreviewDialog({
       ),
     );
 
-  const handlePtoToggle = async (date: string, checked: boolean) => {
-    const isCurrentlySelected = ptoSelectedDates.includes(date);
-    if (checked === isCurrentlySelected) return;
-    if (checked && yearlyPtoUsed >= MAX_PTO_DAYS) {
-      toast.error(`Maximum ${MAX_PTO_DAYS} PTO days per year`);
-      return;
-    }
-    const nextSelected = checked
-      ? [...ptoSelectedDates, date].sort()
-      : ptoSelectedDates.filter((d) => d !== date);
-    const nextYearly = checked ? yearlyPtoUsed + 1 : Math.max(0, yearlyPtoUsed - 1);
-    setPtoSelectedDates(nextSelected);
-    setYearlyPtoUsed(nextYearly);
-    try {
-      if (checked) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const { error } = await supabase.from("dispatcher_sick_days" as any).insert({
-          user_id: data.userId,
-          sick_date: date,
-          year: ptoYear,
-          created_by: user?.id ?? null,
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("dispatcher_sick_days" as any)
-          .delete()
-          .eq("user_id", data.userId)
-          .eq("sick_date", date);
-        if (error) throw error;
-      }
-      onPtoChanged?.(data.userId, nextSelected.length);
-    } catch (err: any) {
-      setPtoSelectedDates(ptoSelectedDates);
-      setYearlyPtoUsed(yearlyPtoUsed);
-      toast.error("Failed to save PTO: " + (err?.message || "unknown"));
-    }
-  };
-
   const handleToggleChecked = async () => {
     const next = !isCheckedState;
     setIsCheckedState(next);
@@ -362,12 +279,10 @@ export default function RecruiterStatementPreviewDialog({
       if (a.type === "penalty" && a.applied) return s - a.amount;
       return s;
     }, 0);
-    const ptoCount = ptoSelectedDates.length;
-    const nonPtoLostDays = Math.max(0, data.lostDayDates.length - ptoCount);
     return (
       data.baseSalary +
       data.extraDayDates.length * data.perDayRate -
-      nonPtoLostDays * data.perDayRate +
+      data.lostDayDates.length * data.perDayRate +
       data.withCardDays * data.withCardRate +
       data.withoutCardDays * data.withoutCardRate +
       adjTotal
@@ -376,10 +291,7 @@ export default function RecruiterStatementPreviewDialog({
 
   const handleDownload = async () => {
     try {
-      const blob = await buildPdf(data, resolveAdjustments(adjustments), false, {
-        sickDayDates: ptoSelectedDates,
-        usedPtoDaysYearly: yearlyPtoUsed,
-      });
+      const blob = await buildPdf(data, resolveAdjustments(adjustments), false);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -401,10 +313,7 @@ export default function RecruiterStatementPreviewDialog({
     }
     setSending(true);
     try {
-      const pdfBlob = await buildPdf(data, resolveAdjustments(adjustments), false, {
-        sickDayDates: ptoSelectedDates,
-        usedPtoDaysYearly: yearlyPtoUsed,
-      });
+      const pdfBlob = await buildPdf(data, resolveAdjustments(adjustments), false);
       const arrayBuffer = await pdfBlob.arrayBuffer();
       const pdfBytes = Array.from(new Uint8Array(arrayBuffer));
       const { error: emailErr } = await supabase.functions.invoke("send-payroll-email", {
@@ -451,9 +360,7 @@ export default function RecruiterStatementPreviewDialog({
     .map((adj, index) => ({ adj, index }))
     .filter((x) => x.adj.type === "penalty");
 
-  const hasLostDays = data.lostDayDates.length > 0;
-  const showRightPanel = showAdjustmentsForm || adjustments.length > 0 || hasLostDays;
-  const remainingPtoDays = Math.max(0, MAX_PTO_DAYS - yearlyPtoUsed);
+  const showRightPanel = showAdjustmentsForm || adjustments.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -493,65 +400,6 @@ export default function RecruiterStatementPreviewDialog({
 
           {showRightPanel && (
             <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
-              {hasLostDays && (
-                <>
-                  <div>
-                    <h3 className="font-semibold text-sm">Mark as PTO</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PTO days don't reduce salary. {remainingPtoDays} of {MAX_PTO_DAYS} remaining this year.
-                    </p>
-                  </div>
-
-                  {remainingPtoDays <= 0 && ptoSelectedDates.length === 0 && (
-                    <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
-                      <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
-                      <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                        No PTO days remaining for this year.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Days off:</p>
-                    {data.lostDayDates.map((date) => {
-                      const isPto = ptoSelectedDates.includes(date);
-                      return (
-                        <div key={date} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`recruiter-pto-${date}`}
-                            checked={isPto}
-                            onCheckedChange={(c) => handlePtoToggle(date, c as boolean)}
-                            disabled={!isPto && remainingPtoDays <= 0}
-                          />
-                          <Label
-                            htmlFor={`recruiter-pto-${date}`}
-                            className="text-sm cursor-pointer"
-                          >
-                            {toMMDD(date)} {isPto && <span className="text-green-600">(PTO)</span>}
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {!showAdjustmentsForm && adjustments.length === 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setShowAdjustmentsForm(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Extra Pay / Charge / Penalty
-                    </Button>
-                  )}
-
-                  {(showAdjustmentsForm || adjustments.length > 0) && <div className="border-t" />}
-                </>
-              )}
-
-              {(showAdjustmentsForm || adjustments.length > 0) && (
-              <>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
@@ -775,8 +623,6 @@ export default function RecruiterStatementPreviewDialog({
                   </label>
                 </div>
               </div>
-              </>
-              )}
             </div>
           )}
         </div>
