@@ -4423,7 +4423,7 @@ const EditOrder = () => {
                         type="file"
                         multiple
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setBolFiles(e.target.files)}
+                        onChange={(e) => handleSetBolFiles(e.target.files)}
                         className="hidden"
                       />
                       <p className="text-xs text-green-600">Bill of lading documents</p>
