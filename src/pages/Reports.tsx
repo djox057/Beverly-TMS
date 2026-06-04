@@ -6756,6 +6756,39 @@ const Reports = () => {
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
 
+          {zoomedLoad && needsScaleTicket(zoomedLoad.weightBol, zoomedLoad.orderFiles) && (
+            <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-md border-2 border-yellow-500 bg-yellow-500/10">
+              <div className="flex items-center gap-2 text-sm">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <span className="font-medium">
+                  Scale ticket missing — BOL weight is {zoomedLoad.weightBol?.toLocaleString()} lbs (≥ 30,000).
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  if (!zoomedLoad?.orderId) return;
+                  const { data } = await supabase
+                    .from("orders")
+                    .select("scale_steer_axle, scale_drive_axle, scale_trailer_axle, scale_gross")
+                    .eq("id", zoomedLoad.orderId)
+                    .maybeSingle();
+                  setScaleTicketDefaults({
+                    steerAxle: (data as any)?.scale_steer_axle ?? null,
+                    driveAxle: (data as any)?.scale_drive_axle ?? null,
+                    trailerAxle: (data as any)?.scale_trailer_axle ?? null,
+                    gross: (data as any)?.scale_gross ?? null,
+                  });
+                  setScaleTicketDialogOpen(true);
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Scale Ticket
+              </Button>
+            </div>
+          )}
+
           <div className="grid md:grid-cols-2 gap-6 mt-4">
             {/* Pickup Stops Column */}
             <div className="space-y-4">
