@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Download, Loader2, Plus, Trash2, Send } from "lucide-react";
+import { Download, Loader2, Plus, Trash2, Send, AlertCircle } from "lucide-react";
 import { generatePayrollPdf, PayrollAdjustment } from "@/utils/payrollPdfGenerator";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,7 @@ interface Props {
   data: RecruiterStatementData;
   onAdjustmentsChange?: (next: PayrollAdjustment[]) => void;
   onSent?: () => void;
+  onPtoChanged?: (userId: string, ptoCount: number) => void;
 }
 
 const formatMonth = (m: string) => {
@@ -54,6 +55,7 @@ const buildPdf = async (
   data: RecruiterStatementData,
   adjustments: PayrollAdjustment[],
   previewOnly: boolean,
+  overrides?: { sickDayDates?: string[]; usedPtoDaysYearly?: number },
 ) => {
   const extraRows: { label: string; amount: number }[] = [];
   if (data.withCardDays > 0) {
@@ -68,6 +70,9 @@ const buildPdf = async (
       amount: data.withoutCardDays * data.withoutCardRate,
     });
   }
+
+  const sickDayDates = overrides?.sickDayDates ?? data.sickDayDates ?? [];
+  const usedPtoDaysYearly = overrides?.usedPtoDaysYearly ?? data.usedPtoDaysYearly;
 
   return generatePayrollPdf(
     {
@@ -88,9 +93,9 @@ const buildPdf = async (
       hideBonusRow: true,
       extraRows,
       extraDaysLabel: "Extra days",
-      sickDayDates: (data.sickDayDates ?? []).map(toMMDD),
+      sickDayDates: sickDayDates.map(toMMDD),
       totalSickDaysAvailable: data.totalSickDaysAvailable,
-      usedPtoDaysYearly: data.usedPtoDaysYearly,
+      usedPtoDaysYearly,
     },
     { previewOnly },
   );
@@ -102,6 +107,7 @@ export default function RecruiterStatementPreviewDialog({
   data,
   onAdjustmentsChange,
   onSent,
+  onPtoChanged,
 }: Props) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +115,15 @@ export default function RecruiterStatementPreviewDialog({
   const [adjustments, setAdjustments] = useState<PayrollAdjustment[]>(data.adjustments ?? []);
   const [showAdjustmentsForm, setShowAdjustmentsForm] = useState(false);
   const [isCheckedState, setIsCheckedState] = useState(false);
+
+  // PTO state — reuses dispatcher_sick_days table (keyed by user_id only)
+  const MAX_PTO_DAYS = data.totalSickDaysAvailable ?? 3;
+  const [ptoSelectedDates, setPtoSelectedDates] = useState<string[]>([]); // YYYY-MM-DD (this month)
+  const [yearlyPtoUsed, setYearlyPtoUsed] = useState<number>(0);
+  const ptoYear = (() => {
+    const y = parseInt(data.month.split("-")[0], 10);
+    return Number.isFinite(y) ? y : new Date().getFullYear();
+  })();
 
   // Extra Pay / Charges form
   const [newType, setNewType] = useState<"addition" | "charge">("addition");
@@ -151,6 +166,30 @@ export default function RecruiterStatementPreviewDialog({
     }
   }, [open, data.adjustments]);
 
+  // Load PTO state when dialog opens
+  useEffect(() => {
+    if (!open || !data.userId || !data.month) return;
+    let cancelled = false;
+    (async () => {
+      const { data: rows, error } = await supabase
+        .from("dispatcher_sick_days" as any)
+        .select("sick_date")
+        .eq("user_id", data.userId)
+        .eq("year", ptoYear);
+      if (cancelled) return;
+      if (error) {
+        console.error("Error loading PTO:", error);
+        return;
+      }
+      const all = (rows ?? []).map((r: any) => r.sick_date as string);
+      setYearlyPtoUsed(all.length);
+      setPtoSelectedDates(all.filter((d) => d.substring(0, 7) === data.month));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, data.userId, data.month, ptoYear]);
+
   // Load is_checked from server
   useEffect(() => {
     if (!open || !data.userId || !data.month) return;
@@ -173,7 +212,10 @@ export default function RecruiterStatementPreviewDialog({
     (async () => {
       setLoading(true);
       try {
-        const blob = await buildPdf(data, resolveAdjustments(adjustments), true);
+        const blob = await buildPdf(data, resolveAdjustments(adjustments), true, {
+          sickDayDates: ptoSelectedDates,
+          usedPtoDaysYearly: yearlyPtoUsed,
+        });
         const url = URL.createObjectURL(blob);
         if (cancelled) {
           URL.revokeObjectURL(url);
@@ -194,7 +236,7 @@ export default function RecruiterStatementPreviewDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, adjustments]);
+  }, [open, data, adjustments, ptoSelectedDates, yearlyPtoUsed]);
 
   useEffect(() => {
     return () => {
@@ -279,10 +321,12 @@ export default function RecruiterStatementPreviewDialog({
       if (a.type === "penalty" && a.applied) return s - a.amount;
       return s;
     }, 0);
+    const ptoCount = ptoSelectedDates.length;
+    const nonPtoLostDays = Math.max(0, data.lostDayDates.length - ptoCount);
     return (
       data.baseSalary +
       data.extraDayDates.length * data.perDayRate -
-      data.lostDayDates.length * data.perDayRate +
+      nonPtoLostDays * data.perDayRate +
       data.withCardDays * data.withCardRate +
       data.withoutCardDays * data.withoutCardRate +
       adjTotal
@@ -291,7 +335,10 @@ export default function RecruiterStatementPreviewDialog({
 
   const handleDownload = async () => {
     try {
-      const blob = await buildPdf(data, resolveAdjustments(adjustments), false);
+      const blob = await buildPdf(data, resolveAdjustments(adjustments), false, {
+        sickDayDates: ptoSelectedDates,
+        usedPtoDaysYearly: yearlyPtoUsed,
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -313,7 +360,10 @@ export default function RecruiterStatementPreviewDialog({
     }
     setSending(true);
     try {
-      const pdfBlob = await buildPdf(data, resolveAdjustments(adjustments), false);
+      const pdfBlob = await buildPdf(data, resolveAdjustments(adjustments), false, {
+        sickDayDates: ptoSelectedDates,
+        usedPtoDaysYearly: yearlyPtoUsed,
+      });
       const arrayBuffer = await pdfBlob.arrayBuffer();
       const pdfBytes = Array.from(new Uint8Array(arrayBuffer));
       const { error: emailErr } = await supabase.functions.invoke("send-payroll-email", {
