@@ -5238,6 +5238,22 @@ const EditOrder = () => {
           }
         }
       />
+      <WeightBolDialog
+        open={weightBolDialogOpen}
+        defaultValue={weightBol}
+        onCancel={() => {
+          setWeightBolDialogOpen(false);
+          // Clear BOL files if user cancels without entering weight
+          if (weightBol == null) {
+            setBolFiles(null);
+            if (bolFileInputRef.current) bolFileInputRef.current.value = "";
+          }
+        }}
+        onConfirm={(w) => {
+          setWeightBol(w);
+          setWeightBolDialogOpen(false);
+        }}
+      />
     </div>
   );
 };
