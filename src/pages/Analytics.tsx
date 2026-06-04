@@ -290,6 +290,57 @@ const Analytics = () => {
     const upper = office.toUpperCase();
     return upper === "ČAČAK" || upper === "KRAGUJEVAC";
   };
+  // Prorate the $70 food allowance based on the user's profile creation date
+  // within the selected month. If created before the month, full $70. If after, $0.
+  // Otherwise: $70 * (working days from creation to end of month / total working days in month).
+  const getFoodAllowance = (
+    office?: string | null,
+    userId?: string | null,
+  ): number => {
+    if (!hasFoodOffice(office)) return 0;
+    const base = 70;
+    if (!selectedMonth || selectedMonth === "all" || !selectedMonth.includes("-"))
+      return base;
+    const [yStr, mStr] = selectedMonth.split("-");
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+    if (isNaN(year) || isNaN(month)) return base;
+    const createdStr = userId ? dispatcherProfiles[userId]?.created_at : null;
+    if (!createdStr) return base;
+    const created = new Date(createdStr);
+    if (isNaN(created.getTime())) return base;
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    if (created <= monthStart) return base;
+    if (created > monthEnd) return 0;
+    const totalWorkDays = getWorkDaysInMonth(year, month - 1);
+    if (totalWorkDays <= 0) return base;
+    const startDay = created.getDate();
+    let userWorkDays = 0;
+    for (let day = startDay; day <= monthEnd.getDate(); day++) {
+      const d = new Date(year, month - 1, day);
+      if (isWeekday(d)) userWorkDays++;
+    }
+    const fixedHolidays = [
+      { m: 0, d: 1 },
+      { m: 5, d: 19 },
+      { m: 6, d: 4 },
+      { m: 10, d: 11 },
+      { m: 11, d: 25 },
+    ];
+    fixedHolidays.forEach((h) => {
+      if (h.m !== month - 1) return;
+      const actual = new Date(year, h.m, h.d);
+      let observed = actual;
+      if (actual.getDay() === 6) observed = new Date(year, h.m, h.d - 1);
+      if (actual.getDay() === 0) observed = new Date(year, h.m, h.d + 1);
+      if (observed.getMonth() !== h.m) return;
+      if (!isWeekday(observed)) return;
+      if (observed.getDate() >= startDay) userWorkDays--;
+    });
+    if (userWorkDays < 0) userWorkDays = 0;
+    return Math.round(((base * userWorkDays) / totalWorkDays) * 100) / 100;
+  };
   const [prevMonthPayments, setPrevMonthPayments] = useState<
     Record<
       string,
