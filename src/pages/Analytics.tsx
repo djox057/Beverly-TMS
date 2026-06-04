@@ -4394,7 +4394,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceAmount = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceAmount = getFoodAllowance(stat.office, stat.userId);
                                                 downloadPayrollDoc(
                                                   {
                                                     employeeName: stat.name,
