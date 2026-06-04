@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,44 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
     };
   }, [previews]);
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
+    active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0,
+  });
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Don't hijack drag when interacting with iframe/links
+    if (target.closest("iframe") || target.closest("a")) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    dragState.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = "grabbing";
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragState.current;
+    if (!s.active) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = s.scrollLeft - (e.clientX - s.startX);
+    el.scrollTop = s.scrollTop - (e.clientY - s.startY);
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragState.current.active = false;
+    const el = scrollRef.current;
+    if (el) {
+      el.style.cursor = "grab";
+      try { el.releasePointerCapture(e.pointerId); } catch {}
+    }
+  };
+
   const handleConfirm = () => {
     const num = parseFloat(value);
     if (isNaN(num) || num < 0) return;
@@ -69,7 +107,15 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
           />
         </div>
         {previews.length > 0 && (
-          <div className="space-y-2 max-h-[60vh] overflow-auto rounded-md border p-2 bg-muted/30">
+          <div
+            ref={scrollRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            style={{ cursor: "grab", touchAction: "none" }}
+            className="space-y-2 max-h-[60vh] overflow-auto rounded-md border p-2 bg-muted/30 select-none"
+          >
             <div className="text-xs font-medium text-muted-foreground">
               Uploaded BOL{previews.length > 1 ? "s" : ""} ({previews.length})
             </div>
@@ -80,7 +126,7 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
                 <div key={i} className="space-y-1">
                   <div className="text-xs text-muted-foreground truncate">{file.name}</div>
                   {isImage ? (
-                    <img src={url} alt={file.name} className="max-h-[50vh] w-auto mx-auto rounded border" />
+                    <img src={url} alt={file.name} draggable={false} className="max-h-[50vh] w-auto mx-auto rounded border pointer-events-none" />
                   ) : isPdf ? (
                     <iframe src={url} title={file.name} className="w-full h-[50vh] rounded border bg-background" />
                   ) : (
