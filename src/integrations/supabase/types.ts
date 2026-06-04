@@ -2977,6 +2977,10 @@ export type Database = {
           recovery_freight_amount: number | null
           recovery_miles: number | null
           reference_number: string | null
+          scale_drive_axle: number | null
+          scale_gross: number | null
+          scale_steer_axle: number | null
+          scale_trailer_axle: number | null
           status: string | null
           tonu: number | null
           tonu_driver: number | null
@@ -3094,6 +3098,10 @@ export type Database = {
           recovery_freight_amount?: number | null
           recovery_miles?: number | null
           reference_number?: string | null
+          scale_drive_axle?: number | null
+          scale_gross?: number | null
+          scale_steer_axle?: number | null
+          scale_trailer_axle?: number | null
           status?: string | null
           tonu?: number | null
           tonu_driver?: number | null
@@ -3211,6 +3219,10 @@ export type Database = {
           recovery_freight_amount?: number | null
           recovery_miles?: number | null
           reference_number?: string | null
+          scale_drive_axle?: number | null
+          scale_gross?: number | null
+          scale_steer_axle?: number | null
+          scale_trailer_axle?: number | null
           status?: string | null
           tonu?: number | null
           tonu_driver?: number | null
