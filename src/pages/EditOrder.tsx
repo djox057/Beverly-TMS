@@ -1694,6 +1694,14 @@ const EditOrder = () => {
   };
 
   // File drag and drop handlers
+  // Wrapper for BOL file selection — prompts for BOL weight whenever files are added
+  const handleSetBolFiles = (files: FileList | null) => {
+    setBolFiles(files);
+    if (files && files.length > 0) {
+      setWeightBolDialogOpen(true);
+    }
+  };
+
   const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
       rc: setRcFiles,
