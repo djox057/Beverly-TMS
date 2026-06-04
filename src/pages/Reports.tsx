@@ -1363,6 +1363,12 @@ const Reports = () => {
   const handleUploadDocument = async () => {
     if (!uploadFiles.length || !zoomedLoad?.orderId) return;
 
+    // For BOL uploads, require a weight value first. If not yet provided, open the weight dialog.
+    if (uploadDocType === "BOL" && pendingBolWeight == null) {
+      setBolWeightDialogOpen(true);
+      return;
+    }
+
     setIsUploading(true);
     try {
       const {
