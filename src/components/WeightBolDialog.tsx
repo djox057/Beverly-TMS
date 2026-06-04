@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,10 @@ interface WeightBolDialogProps {
   onCancel: () => void;
   onConfirm: (weight: number) => void;
   defaultValue?: number | null;
+  files?: File[] | FileList | null;
 }
 
-export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue }: WeightBolDialogProps) => {
+export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files }: WeightBolDialogProps) => {
   const [value, setValue] = useState<string>("");
 
   useEffect(() => {
@@ -19,6 +20,22 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue }: Wei
       setValue(defaultValue != null ? String(defaultValue) : "");
     }
   }, [open, defaultValue]);
+
+  const fileArray = useMemo<File[]>(() => {
+    if (!files) return [];
+    return Array.isArray(files) ? files : Array.from(files);
+  }, [files]);
+
+  const previews = useMemo(() => {
+    if (!open || fileArray.length === 0) return [];
+    return fileArray.map((f) => ({ file: f, url: URL.createObjectURL(f) }));
+  }, [open, fileArray]);
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [previews]);
 
   const handleConfirm = () => {
     const num = parseFloat(value);
@@ -28,7 +45,7 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue }: Wei
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Enter BOL Weight</DialogTitle>
           <DialogDescription>
@@ -51,6 +68,31 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue }: Wei
             placeholder="e.g. 28000"
           />
         </div>
+        {previews.length > 0 && (
+          <div className="space-y-2 max-h-[60vh] overflow-auto rounded-md border p-2 bg-muted/30">
+            <div className="text-xs font-medium text-muted-foreground">
+              Uploaded BOL{previews.length > 1 ? "s" : ""} ({previews.length})
+            </div>
+            {previews.map(({ file, url }, i) => {
+              const isImage = file.type.startsWith("image/");
+              const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="text-xs text-muted-foreground truncate">{file.name}</div>
+                  {isImage ? (
+                    <img src={url} alt={file.name} className="max-h-[50vh] w-auto mx-auto rounded border" />
+                  ) : isPdf ? (
+                    <iframe src={url} title={file.name} className="w-full h-[50vh] rounded border bg-background" />
+                  ) : (
+                    <a href={url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+                      Open file
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
           <Button onClick={handleConfirm} disabled={!value || isNaN(parseFloat(value))}>

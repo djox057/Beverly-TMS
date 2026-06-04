@@ -7996,6 +7996,7 @@ const Reports = () => {
       <WeightBolDialog
         open={bolWeightDialogOpen}
         defaultValue={pendingBolWeight ?? zoomedLoad?.weightBol ?? null}
+        files={uploadDocType === "BOL" ? uploadFiles : null}
         onCancel={() => {
           setBolWeightDialogOpen(false);
         }}
