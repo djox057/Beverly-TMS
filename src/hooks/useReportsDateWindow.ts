@@ -178,7 +178,7 @@ const fetchOrdersForDateWindow = async (
         is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
         freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
         tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-        bol_force_complete, pod_force_complete
+        bol_force_complete, pod_force_complete, weight_bol
       `)
       .eq("locked", false)
       .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
@@ -277,7 +277,7 @@ const fetchLockedOrdersForDateWindow = async (
           is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
           freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
           tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-          bol_force_complete, pod_force_complete
+          bol_force_complete, pod_force_complete, weight_bol
         `)
         .eq("locked", true)
         .eq("canceled", false)
@@ -371,7 +371,7 @@ const fetchGapFillOrders = async (
         is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
         freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
         tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-        bol_force_complete, pod_force_complete
+        bol_force_complete, pod_force_complete, weight_bol
       `)
       .eq("locked", true)
       .eq("canceled", false)  // ADDED: exclude canceled
