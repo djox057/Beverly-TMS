@@ -673,6 +673,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           foodAllowance: previewRow.food_allowance,
           total: computeSalary(previewRow),
           adjustments: previewRow.adjustments ?? [],
+          sickDayDates: getMonthPto(previewRow.user_id),
+          totalSickDaysAvailable: MAX_PTO_DAYS_PER_YEAR,
+          usedPtoDaysYearly: getYearPtoCount(previewRow.user_id),
         }}
       />
     )}
