@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useEffect, useState as useStateReact } from "react";
 
 interface TerminatedDriver {
   id: string;
@@ -42,6 +43,33 @@ const TurnoverList = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
+  const [lastTrucksByDriver, setLastTrucksByDriver] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    const driverIds = detailDispatcher?.drivers.map((d) => d.id) || [];
+    if (driverIds.length === 0) return;
+    const missing = driverIds.filter((id) => !(id in lastTrucksByDriver));
+    if (missing.length === 0) return;
+    (async () => {
+      const { data } = await supabase
+        .from("assignment_history")
+        .select("driver1_id, driver2_id, changed_at, trucks:truck_id(truck_number)")
+        .or(missing.map((id) => `driver1_id.eq.${id},driver2_id.eq.${id}`).join(","))
+        .order("changed_at", { ascending: false });
+      const map: Record<string, string | null> = {};
+      for (const id of missing) map[id] = null;
+      for (const row of (data as any[]) || []) {
+        const truckNum = row.trucks?.truck_number || null;
+        if (!truckNum) continue;
+        for (const id of missing) {
+          if ((row.driver1_id === id || row.driver2_id === id) && !map[id]) {
+            map[id] = truckNum;
+          }
+        }
+      }
+      setLastTrucksByDriver((prev) => ({ ...prev, ...map }));
+    })();
+  }, [detailDispatcher, lastTrucksByDriver]);
 
   // Fetch offices
   const { data: offices } = useQuery({
@@ -253,6 +281,7 @@ const TurnoverList = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[90px]">Truck#</TableHead>
                 <TableHead>Driver</TableHead>
                 <TableHead className="w-[120px]">Termination Date</TableHead>
                 <TableHead>Notes</TableHead>
@@ -261,6 +290,9 @@ const TurnoverList = () => {
             <TableBody>
               {detailDispatcher?.drivers.map((driver) => (
                 <TableRow key={driver.id}>
+                  <TableCell className="font-mono text-sm">
+                    {lastTrucksByDriver[driver.id] ?? "—"}
+                  </TableCell>
                   <TableCell className="font-medium">{driver.name}</TableCell>
                   <TableCell>
                     {driver.termination_date
