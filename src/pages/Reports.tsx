@@ -991,6 +991,14 @@ const Reports = () => {
   const [pendingBolWeight, setPendingBolWeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  // Scale ticket dialog state (Reports load zoom dialog)
+  const [scaleTicketDialogOpen, setScaleTicketDialogOpen] = useState(false);
+  const [scaleTicketDefaults, setScaleTicketDefaults] = useState<{
+    steerAxle: number | null;
+    driveAxle: number | null;
+    trailerAxle: number | null;
+    gross: number | null;
+  }>({ steerAxle: null, driveAxle: null, trailerAxle: null, gross: null });
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
