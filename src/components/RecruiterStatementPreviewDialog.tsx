@@ -299,6 +299,47 @@ export default function RecruiterStatementPreviewDialog({
       ),
     );
 
+  const handlePtoToggle = async (date: string, checked: boolean) => {
+    const isCurrentlySelected = ptoSelectedDates.includes(date);
+    if (checked === isCurrentlySelected) return;
+    if (checked && yearlyPtoUsed >= MAX_PTO_DAYS) {
+      toast.error(`Maximum ${MAX_PTO_DAYS} PTO days per year`);
+      return;
+    }
+    const nextSelected = checked
+      ? [...ptoSelectedDates, date].sort()
+      : ptoSelectedDates.filter((d) => d !== date);
+    const nextYearly = checked ? yearlyPtoUsed + 1 : Math.max(0, yearlyPtoUsed - 1);
+    setPtoSelectedDates(nextSelected);
+    setYearlyPtoUsed(nextYearly);
+    try {
+      if (checked) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const { error } = await supabase.from("dispatcher_sick_days" as any).insert({
+          user_id: data.userId,
+          sick_date: date,
+          year: ptoYear,
+          created_by: user?.id ?? null,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("dispatcher_sick_days" as any)
+          .delete()
+          .eq("user_id", data.userId)
+          .eq("sick_date", date);
+        if (error) throw error;
+      }
+      onPtoChanged?.(data.userId, nextSelected.length);
+    } catch (err: any) {
+      setPtoSelectedDates(ptoSelectedDates);
+      setYearlyPtoUsed(yearlyPtoUsed);
+      toast.error("Failed to save PTO: " + (err?.message || "unknown"));
+    }
+  };
+
   const handleToggleChecked = async () => {
     const next = !isCheckedState;
     setIsCheckedState(next);
