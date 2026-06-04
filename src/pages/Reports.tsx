@@ -133,6 +133,7 @@ import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS, needsScaleTicket } from "@/components/WeightBolDialog";
+import { ScaleTicketDialog } from "@/components/ScaleTicketDialog";
 import {
   getCompanyBackgroundColor,
   getChicagoToday,
