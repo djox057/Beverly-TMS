@@ -231,7 +231,12 @@ const TurnoverList = () => {
                     <TableHead className="w-[200px]">Dispatcher</TableHead>
                     <TableHead className="w-[120px]">Office</TableHead>
                     <TableHead className="w-[100px] text-center">Turnovers</TableHead>
-                    <TableHead>Explanation</TableHead>
+                    <TableHead className="flex items-center justify-between">
+                      <span>Explanation</span>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Total turnovers: {turnoverData.reduce((sum, item) => sum + item.turnoverCount, 0)}
+                      </span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
