@@ -832,6 +832,8 @@ const Reports = () => {
     bookedBy: string;
     bookedByCompanyName?: string | null;
     brokerName?: string | null;
+    weightRc?: number | null;
+    weightBol?: number | null;
   } | null>(null);
 
   // Additional files popover state
