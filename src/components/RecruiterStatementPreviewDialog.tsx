@@ -26,6 +26,9 @@ export interface RecruiterStatementData {
   foodAllowance: number;
   total: number;
   adjustments?: PayrollAdjustment[];
+  sickDayDates?: string[]; // YYYY-MM-DD dates marked as PTO (this month)
+  totalSickDaysAvailable?: number; // Yearly PTO cap (e.g. 3)
+  usedPtoDaysYearly?: number; // Total PTO used this year
 }
 
 interface Props {
@@ -85,6 +88,9 @@ const buildPdf = async (
       hideBonusRow: true,
       extraRows,
       extraDaysLabel: "Extra days",
+      sickDayDates: (data.sickDayDates ?? []).map(toMMDD),
+      totalSickDaysAvailable: data.totalSickDaysAvailable,
+      usedPtoDaysYearly: data.usedPtoDaysYearly,
     },
     { previewOnly },
   );

@@ -53,6 +53,7 @@ const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 0;
 const AFTERHOURS_FOOD_ALLOWANCE = 0;
+const MAX_PTO_DAYS_PER_YEAR = 3;
 
 const getFoodAllowance = (role: string) => 0;
 
@@ -150,6 +151,89 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   }, [rows]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedAt = useRef<Record<string, number>>({});
+
+  // PTO state: userId -> all YYYY-MM-DD PTO dates for the selected year.
+  // Reuses the existing dispatcher_sick_days table (keyed by user_id only).
+  const [ptoByUser, setPtoByUser] = useState<Record<string, string[]>>({});
+
+  const selectedYear = useMemo(() => {
+    if (!selectedMonth || selectedMonth === "all") return null;
+    const y = parseInt(selectedMonth.split("-")[0], 10);
+    return Number.isFinite(y) ? y : null;
+  }, [selectedMonth]);
+
+  // Fetch PTO days for the year for visible users
+  useEffect(() => {
+    if (!selectedYear || recruiters.length === 0) {
+      setPtoByUser({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const ids = recruiters.map((r) => r.user_id);
+      const { data, error } = await supabase
+        .from("dispatcher_sick_days" as any)
+        .select("user_id, sick_date")
+        .in("user_id", ids)
+        .eq("year", selectedYear);
+      if (cancelled) return;
+      if (error) {
+        console.error("Error fetching PTO days:", error);
+        return;
+      }
+      const map: Record<string, string[]> = {};
+      (data ?? []).forEach((r: any) => {
+        if (!map[r.user_id]) map[r.user_id] = [];
+        map[r.user_id].push(r.sick_date);
+      });
+      setPtoByUser(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedYear, recruiters]);
+
+  const getMonthPto = (userId: string): string[] =>
+    (ptoByUser[userId] ?? []).filter((d) => d.substring(0, 7) === selectedMonth);
+  const getYearPtoCount = (userId: string) => (ptoByUser[userId] ?? []).length;
+
+  const togglePto = async (userId: string, date: string) => {
+    if (!selectedYear) return;
+    const current = ptoByUser[userId] ?? [];
+    const isOn = current.includes(date);
+    if (!isOn && current.length >= MAX_PTO_DAYS_PER_YEAR) {
+      toast.error(`Maximum ${MAX_PTO_DAYS_PER_YEAR} PTO days per year`);
+      return;
+    }
+    // Optimistic update
+    const next = isOn ? current.filter((d) => d !== date) : [...current, date].sort();
+    setPtoByUser((prev) => ({ ...prev, [userId]: next }));
+    try {
+      if (isOn) {
+        const { error } = await supabase
+          .from("dispatcher_sick_days" as any)
+          .delete()
+          .eq("user_id", userId)
+          .eq("sick_date", date);
+        if (error) throw error;
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const { error } = await supabase.from("dispatcher_sick_days" as any).insert({
+          user_id: userId,
+          sick_date: date,
+          year: selectedYear,
+          created_by: user?.id ?? null,
+        });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      // Revert
+      setPtoByUser((prev) => ({ ...prev, [userId]: current }));
+      toast.error("Failed to save PTO: " + (err?.message || "unknown"));
+    }
+  };
 
   const isDirty = (userId: string) =>
     !!saveTimers.current[userId] || Date.now() - (lastSavedAt.current[userId] ?? 0) < 1500;
@@ -258,10 +342,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       if (a.type === "penalty" && a.applied) return sum - a.amount;
       return sum;
     }, 0);
+    // PTO days don't reduce salary
+    const ptoCount = getMonthPto(r.user_id).length;
+    const nonPtoLostDays = Math.max(0, r.lost_days - ptoCount);
     return (
       r.base_salary +
       r.extra_days * perDay -
-      r.lost_days * perDay +
+      nonPtoLostDays * perDay +
       withCard * WITH_CARD_RATE +
       withoutCard * WITHOUT_CARD_RATE +
       adjTotal
@@ -367,6 +454,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     const next = current[field].filter((d) => d !== date);
     const counterField = field === "extra_day_dates" ? "extra_days" : "lost_days";
     updateField(userId, { [field]: next, [counterField]: next.length } as any, 0);
+    // If the removed lost-day was marked as PTO, also remove the PTO entry.
+    if (field === "lost_day_dates") {
+      const ptoList = ptoByUser[userId] ?? [];
+      if (ptoList.includes(date)) {
+        togglePto(userId, date);
+      }
+    }
   };
 
   const monthDisabled = !selectedMonth || selectedMonth === "all";
@@ -478,6 +572,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         dates={row.lost_day_dates}
                         onAdd={(d) => addDayDate(r.user_id, "lost_day_dates", d)}
                         onRemove={(d) => removeDayDate(r.user_id, "lost_day_dates", d)}
+                        pto={{
+                          selected: getMonthPto(r.user_id),
+                          onToggle: (d) => togglePto(r.user_id, d),
+                          yearUsed: getYearPtoCount(r.user_id),
+                          yearMax: MAX_PTO_DAYS_PER_YEAR,
+                        }}
                       />
                       {showCardColumns && (
                         <>
@@ -573,6 +673,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           foodAllowance: previewRow.food_allowance,
           total: computeSalary(previewRow),
           adjustments: previewRow.adjustments ?? [],
+          sickDayDates: getMonthPto(previewRow.user_id),
+          totalSickDaysAvailable: MAX_PTO_DAYS_PER_YEAR,
+          usedPtoDaysYearly: getYearPtoCount(previewRow.user_id),
         }}
       />
     )}
@@ -632,6 +735,7 @@ function DatesCell({
   dates,
   onAdd,
   onRemove,
+  pto,
 }: {
   label: string;
   accent: string;
@@ -640,27 +744,60 @@ function DatesCell({
   dates: string[];
   onAdd: (d: string) => void;
   onRemove: (d: string) => void;
+  pto?: {
+    selected: string[];
+    onToggle: (date: string) => void;
+    yearUsed: number;
+    yearMax: number;
+  };
 }) {
   const count = dates.length;
+  const ptoMonthCount = pto ? dates.filter((d) => pto.selected.includes(d)).length : 0;
+  const remainingPto = pto ? Math.max(0, pto.yearMax - pto.yearUsed) : 0;
   return (
     <TableCell className={`text-right ${accent}`}>
       <Popover>
         <PopoverTrigger asChild>
           <button className="cursor-pointer hover:underline font-medium">
             {count > 0 ? `${sign}${count}` : 0}
+            {pto && ptoMonthCount > 0 && (
+              <span className="ml-1 text-[10px] text-green-600">({ptoMonthCount} PTO)</span>
+            )}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-56 p-3" align="end">
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            {pto && (
+              <p className="text-[10px] text-muted-foreground">
+                {remainingPto} of {pto.yearMax} PTO days remaining this year.
+              </p>
+            )}
             {dates.length === 0 && (
               <p className="text-xs text-muted-foreground">No dates</p>
             )}
             {dates.map((d) => {
               const [y, m, day] = d.split("-").map(Number);
+              const isPto = pto ? pto.selected.includes(d) : false;
+              const canTogglePtoOn = pto ? isPto || remainingPto > 0 : false;
               return (
-                <div key={d} className="flex items-center justify-between">
-                  <span className="text-sm text-foreground">{`${m}/${day}`}</span>
+                <div key={d} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-foreground flex-1">{`${m}/${day}`}</span>
+                  {pto && (
+                    <label
+                      className={`flex items-center gap-1 text-[10px] ${canTogglePtoOn ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                      title={isPto ? "Marked as PTO" : canTogglePtoOn ? "Mark as PTO" : "No PTO days remaining this year"}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={isPto}
+                        disabled={!canTogglePtoOn}
+                        onChange={() => pto.onToggle(d)}
+                      />
+                      <span className={isPto ? "text-green-600 font-medium" : "text-muted-foreground"}>PTO</span>
+                    </label>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
