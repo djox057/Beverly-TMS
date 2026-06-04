@@ -5058,7 +5058,7 @@ const Analytics = () => {
                                 )}
                                 {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                                   <TableCell className="text-right">
-                                    {hasFoodOffice(stat.office) ? "$70" : "$0"}
+                                    ${getFoodAllowance(stat.office, stat.userId).toFixed(2)}
                                   </TableCell>
                                 )}
                                 {!isDispatchOnly && (
