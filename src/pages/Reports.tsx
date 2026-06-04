@@ -2573,7 +2573,7 @@ const Reports = () => {
                         const isFirstDeliveryOfOrder =
                           !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
                         const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
+                          isFirstDeliveryOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                         return (
                           <div
                             key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2641,7 +2641,7 @@ const Reports = () => {
                         const isFirstDeliveryOfOrder =
                           !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
                         const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
+                          isFirstDeliveryOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                         return (
                           <div
                             key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2783,7 +2783,7 @@ const Reports = () => {
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
                             const showScaleTicketWarning =
-                              isFirstPickupOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
+                              isFirstPickupOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2854,7 +2854,7 @@ const Reports = () => {
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
                             const showScaleTicketWarning =
-                              isFirstPickupOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
+                              isFirstPickupOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
