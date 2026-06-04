@@ -53,6 +53,7 @@ const WITH_CARD_RATE = 65;
 const WITHOUT_CARD_RATE = 130;
 const FOOD_ALLOWANCE = 0;
 const AFTERHOURS_FOOD_ALLOWANCE = 0;
+const MAX_PTO_DAYS_PER_YEAR = 3;
 
 const getFoodAllowance = (role: string) => 0;
 
@@ -150,6 +151,89 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   }, [rows]);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const lastSavedAt = useRef<Record<string, number>>({});
+
+  // PTO state: userId -> all YYYY-MM-DD PTO dates for the selected year.
+  // Reuses the existing dispatcher_sick_days table (keyed by user_id only).
+  const [ptoByUser, setPtoByUser] = useState<Record<string, string[]>>({});
+
+  const selectedYear = useMemo(() => {
+    if (!selectedMonth || selectedMonth === "all") return null;
+    const y = parseInt(selectedMonth.split("-")[0], 10);
+    return Number.isFinite(y) ? y : null;
+  }, [selectedMonth]);
+
+  // Fetch PTO days for the year for visible users
+  useEffect(() => {
+    if (!selectedYear || recruiters.length === 0) {
+      setPtoByUser({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const ids = recruiters.map((r) => r.user_id);
+      const { data, error } = await supabase
+        .from("dispatcher_sick_days" as any)
+        .select("user_id, sick_date")
+        .in("user_id", ids)
+        .eq("year", selectedYear);
+      if (cancelled) return;
+      if (error) {
+        console.error("Error fetching PTO days:", error);
+        return;
+      }
+      const map: Record<string, string[]> = {};
+      (data ?? []).forEach((r: any) => {
+        if (!map[r.user_id]) map[r.user_id] = [];
+        map[r.user_id].push(r.sick_date);
+      });
+      setPtoByUser(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedYear, recruiters]);
+
+  const getMonthPto = (userId: string): string[] =>
+    (ptoByUser[userId] ?? []).filter((d) => d.substring(0, 7) === selectedMonth);
+  const getYearPtoCount = (userId: string) => (ptoByUser[userId] ?? []).length;
+
+  const togglePto = async (userId: string, date: string) => {
+    if (!selectedYear) return;
+    const current = ptoByUser[userId] ?? [];
+    const isOn = current.includes(date);
+    if (!isOn && current.length >= MAX_PTO_DAYS_PER_YEAR) {
+      toast.error(`Maximum ${MAX_PTO_DAYS_PER_YEAR} PTO days per year`);
+      return;
+    }
+    // Optimistic update
+    const next = isOn ? current.filter((d) => d !== date) : [...current, date].sort();
+    setPtoByUser((prev) => ({ ...prev, [userId]: next }));
+    try {
+      if (isOn) {
+        const { error } = await supabase
+          .from("dispatcher_sick_days" as any)
+          .delete()
+          .eq("user_id", userId)
+          .eq("sick_date", date);
+        if (error) throw error;
+      } else {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const { error } = await supabase.from("dispatcher_sick_days" as any).insert({
+          user_id: userId,
+          sick_date: date,
+          year: selectedYear,
+          created_by: user?.id ?? null,
+        });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      // Revert
+      setPtoByUser((prev) => ({ ...prev, [userId]: current }));
+      toast.error("Failed to save PTO: " + (err?.message || "unknown"));
+    }
+  };
 
   const isDirty = (userId: string) =>
     !!saveTimers.current[userId] || Date.now() - (lastSavedAt.current[userId] ?? 0) < 1500;
@@ -258,10 +342,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       if (a.type === "penalty" && a.applied) return sum - a.amount;
       return sum;
     }, 0);
+    // PTO days don't reduce salary
+    const ptoCount = getMonthPto(r.user_id).length;
+    const nonPtoLostDays = Math.max(0, r.lost_days - ptoCount);
     return (
       r.base_salary +
       r.extra_days * perDay -
-      r.lost_days * perDay +
+      nonPtoLostDays * perDay +
       withCard * WITH_CARD_RATE +
       withoutCard * WITHOUT_CARD_RATE +
       adjTotal
