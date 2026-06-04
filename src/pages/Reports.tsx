@@ -1510,6 +1510,7 @@ const Reports = () => {
       setUploadDialogOpen(false);
       setUploadFiles([]);
       setUploadDocType("");
+      setPendingBolWeight(null);
     } catch (error: any) {
       console.error("Upload error:", error);
       toast({
