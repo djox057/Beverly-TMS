@@ -1993,6 +1993,18 @@ const NewOrder = () => {
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
+      // Save RC weight (extracted from RC at creation time) — kept separate from weight_bol
+      {
+        const wRc = weight ? parseFloat(weight) : NaN;
+        if (!isNaN(wRc) && wRc > 0) {
+          const { error: weightErr } = await supabase
+            .from("orders")
+            .update({ weight_rc: wRc })
+            .eq("id", orderId);
+          if (weightErr) console.error("Failed to save weight_rc:", weightErr);
+        }
+      }
+
       // CRITICAL: Insert pickup/drop locations IMMEDIATELY after order creation
       // This must happen before file uploads to prevent orphaned orders if uploads fail/timeout
       if (pickupsDrops.length === 0) {

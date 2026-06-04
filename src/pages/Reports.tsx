@@ -131,6 +131,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS, needsScaleTicket } from "@/components/WeightBolDialog";
 import {
   getCompanyBackgroundColor,
   getChicagoToday,
@@ -831,6 +832,8 @@ const Reports = () => {
     bookedBy: string;
     bookedByCompanyName?: string | null;
     brokerName?: string | null;
+    weightRc?: number | null;
+    weightBol?: number | null;
   } | null>(null);
 
   // Additional files popover state
@@ -981,6 +984,9 @@ const Reports = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  // Pending BOL weight prompt (Reports BOL upload flow)
+  const [bolWeightDialogOpen, setBolWeightDialogOpen] = useState(false);
+  const [pendingBolWeight, setPendingBolWeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
@@ -1202,6 +1208,8 @@ const Reports = () => {
         null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
+      weightRc: order.weight_rc ?? order.weightRc ?? null,
+      weightBol: order.weight_bol ?? order.weightBol ?? null,
     };
   }, [companiesList, brokersList]);
 
@@ -1355,6 +1363,12 @@ const Reports = () => {
   const handleUploadDocument = async () => {
     if (!uploadFiles.length || !zoomedLoad?.orderId) return;
 
+    // For BOL uploads, require a weight value first. If not yet provided, open the weight dialog.
+    if (uploadDocType === "BOL" && pendingBolWeight == null) {
+      setBolWeightDialogOpen(true);
+      return;
+    }
+
     setIsUploading(true);
     try {
       const {
@@ -1444,6 +1458,36 @@ const Reports = () => {
         description: `${uploadFiles.length} file${uploadFiles.length > 1 ? "s" : ""} uploaded successfully`,
       });
 
+      // BOL-specific: persist weight_bol and surface weight warnings
+      if (uploadDocType === "BOL" && pendingBolWeight != null) {
+        await supabase.from("orders").update({ weight_bol: pendingBolWeight }).eq("id", zoomedLoad.orderId);
+
+        // Update local zoomedLoad weightBol so the alert in the dialog reflects the new value
+        setZoomedLoad((prev) => (prev ? { ...prev, weightBol: pendingBolWeight } : prev));
+
+        const weightRc = zoomedLoad.weightRc ?? null;
+        const warning = getWeightDiscrepancyWarning(pendingBolWeight, weightRc);
+        if (warning) {
+          toast({
+            title: "Check RC weight",
+            description: warning,
+            variant: "destructive",
+          });
+        }
+        if (pendingBolWeight >= SCALE_TICKET_THRESHOLD_LBS) {
+          const hasAdditional = (zoomedLoad.orderFiles || []).some(
+            (f: any) => (f.file_category || "").toUpperCase() === "ADDITIONAL",
+          );
+          if (!hasAdditional) {
+            toast({
+              title: "Scale ticket required",
+              description: `BOL weight is ${pendingBolWeight.toLocaleString()} lbs (≥ ${SCALE_TICKET_THRESHOLD_LBS.toLocaleString()}). Please upload a scale ticket as an Additional file.`,
+              variant: "destructive",
+            });
+          }
+        }
+      }
+
       // Clear module-level cache for this order, then refetch adapter query
       invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
       queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
@@ -1466,6 +1510,7 @@ const Reports = () => {
       setUploadDialogOpen(false);
       setUploadFiles([]);
       setUploadDocType("");
+      setPendingBolWeight(null);
     } catch (error: any) {
       console.error("Upload error:", error);
       toast({
@@ -7921,6 +7966,21 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <WeightBolDialog
+        open={bolWeightDialogOpen}
+        defaultValue={pendingBolWeight ?? zoomedLoad?.weightBol ?? null}
+        onCancel={() => {
+          setBolWeightDialogOpen(false);
+        }}
+        onConfirm={(w) => {
+          setPendingBolWeight(w);
+          setBolWeightDialogOpen(false);
+          // Resume the upload now that we have the weight
+          setTimeout(() => {
+            handleUploadDocument();
+          }, 0);
+        }}
+      />
     </>
   );
 };

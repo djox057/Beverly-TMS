@@ -2984,6 +2984,8 @@ export type Database = {
           truck_id: string | null
           updated_at: string
           weight: number | null
+          weight_bol: number | null
+          weight_rc: number | null
           wrong_address_fee: number | null
           wrong_address_fee_driver: number | null
         }
@@ -3099,6 +3101,8 @@ export type Database = {
           truck_id?: string | null
           updated_at?: string
           weight?: number | null
+          weight_bol?: number | null
+          weight_rc?: number | null
           wrong_address_fee?: number | null
           wrong_address_fee_driver?: number | null
         }
@@ -3214,6 +3218,8 @@ export type Database = {
           truck_id?: string | null
           updated_at?: string
           weight?: number | null
+          weight_bol?: number | null
+          weight_rc?: number | null
           wrong_address_fee?: number | null
           wrong_address_fee_driver?: number | null
         }

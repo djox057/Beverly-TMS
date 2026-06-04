@@ -60,6 +60,7 @@ import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowA
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS } from "@/components/WeightBolDialog";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -358,6 +359,9 @@ const EditOrder = () => {
   const [bolFiles, setBolFiles] = useState<FileList | null>(null);
   const [podFiles, setPodFiles] = useState<FileList | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
+  const [weightBol, setWeightBol] = useState<number | null>(null);
+  const [weightRcLoaded, setWeightRcLoaded] = useState<number | null>(null);
+  const [weightBolDialogOpen, setWeightBolDialogOpen] = useState(false);
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -842,6 +846,8 @@ const EditOrder = () => {
         );
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
+        setWeightRcLoaded((orderData as any).weight_rc ?? null);
+        setWeightBol((orderData as any).weight_bol ?? null);
         setReferenceNumber((orderData as any).reference_number || "");
         setPoNumber((orderData as any).po_number || "");
         setPuNumber((orderData as any).pu_number || "");
@@ -1688,10 +1694,18 @@ const EditOrder = () => {
   };
 
   // File drag and drop handlers
+  // Wrapper for BOL file selection — prompts for BOL weight whenever files are added
+  const handleSetBolFiles = (files: FileList | null) => {
+    setBolFiles(files);
+    if (files && files.length > 0) {
+      setWeightBolDialogOpen(true);
+    }
+  };
+
   const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
       rc: setRcFiles,
-      bol: setBolFiles,
+      bol: handleSetBolFiles as any,
       pod: setPodFiles,
       additional: setAdditionalFiles,
       email: setEmailFiles,
@@ -2619,6 +2633,7 @@ const EditOrder = () => {
         mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0) || null,
         commodity: commodity || null,
         weight: weight ? parseFloat(weight) : null,
+        weight_bol: weightBol,
         reference_number: referenceNumber || null,
         po_number: poNumber || null,
         pu_number: puNumber || null,
@@ -2913,6 +2928,28 @@ const EditOrder = () => {
         title: "Success",
         description: "Load updated successfully",
       });
+
+      // BOL weight warnings — only when BOL was uploaded in this save
+      if (bolUploaded && weightBol != null) {
+        const warning = getWeightDiscrepancyWarning(weightBol, weightRcLoaded);
+        if (warning) {
+          toast({
+            title: "Check RC weight",
+            description: warning,
+            variant: "destructive",
+          });
+        }
+        if (weightBol >= SCALE_TICKET_THRESHOLD_LBS) {
+          const hasAdditional = existingFiles.some((f: any) => (f.file_category || "").toUpperCase() === "ADDITIONAL");
+          if (!hasAdditional) {
+            toast({
+              title: "Scale ticket required",
+              description: `BOL weight is ${weightBol.toLocaleString()} lbs (≥ ${SCALE_TICKET_THRESHOLD_LBS.toLocaleString()}). Please upload a scale ticket as an Additional file.`,
+              variant: "destructive",
+            });
+          }
+        }
+      }
 
       // Update original delivery date if it was changed to prevent duplicate notes
       if (dateWasChanged && newDeliveryDatetime) {
@@ -4409,7 +4446,7 @@ const EditOrder = () => {
                         type="file"
                         multiple
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setBolFiles(e.target.files)}
+                        onChange={(e) => handleSetBolFiles(e.target.files)}
                         className="hidden"
                       />
                       <p className="text-xs text-green-600">Bill of lading documents</p>
@@ -5200,6 +5237,22 @@ const EditOrder = () => {
             newLoadedMiles: 0,
           }
         }
+      />
+      <WeightBolDialog
+        open={weightBolDialogOpen}
+        defaultValue={weightBol}
+        onCancel={() => {
+          setWeightBolDialogOpen(false);
+          // Clear BOL files if user cancels without entering weight
+          if (weightBol == null) {
+            setBolFiles(null);
+            if (bolFileInputRef.current) bolFileInputRef.current.value = "";
+          }
+        }}
+        onConfirm={(w) => {
+          setWeightBol(w);
+          setWeightBolDialogOpen(false);
+        }}
       />
     </div>
   );
