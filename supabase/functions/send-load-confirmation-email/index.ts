@@ -133,17 +133,20 @@ const handler = async (req: Request): Promise<Response> => {
             IMPORTANT – LOAD SECURITY REQUIREMENT
           </p>
           <p style="font-size: 14px; color: #333; margin-bottom: 8px;">
-            If you are hauling any type of beverages or food products, the following is mandatory:
+            For all loads, the following is mandatory:
           </p>
           <ul style="font-size: 14px; color: #333; margin-bottom: 12px; padding-left: 20px;">
             <li>A padlock and seal must be applied immediately after leaving the shipper</li>
             <li>You must take a clear photo as proof after sealing the trailer</li>
             <li>You must also take a photo before arriving at the receiver to confirm the seal is intact</li>
+            <li>You must send the BOL (Bill of Lading) before leaving the shipper</li>
+            <li>You must send the signed POD (Proof of Delivery) before leaving the receiver</li>
           </ul>
           <p style="font-size: 14px; color: #333; margin-bottom: 8px;">Additionally:</p>
           <ul style="font-size: 14px; color: #333; margin-bottom: 12px; padding-left: 20px;">
             <li>The seal number must be verified and match documentation</li>
             <li>Drivers are responsible for ensuring the trailer remains properly secured at all times</li>
+            <li>All loads weighing more than 30,000 lbs must be scaled</li>
           </ul>
           <p style="font-size: 14px; color: #333; margin-bottom: 8px;">
             Failure to follow these procedures will result in a penalty, especially in cases where:
