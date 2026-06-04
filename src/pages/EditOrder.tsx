@@ -60,6 +60,7 @@ import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowA
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS } from "@/components/WeightBolDialog";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
