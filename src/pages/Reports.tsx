@@ -8069,6 +8069,32 @@ const Reports = () => {
           }, 0);
         }}
       />
+      <ScaleTicketDialog
+        open={scaleTicketDialogOpen}
+        onOpenChange={setScaleTicketDialogOpen}
+        orderId={zoomedLoad?.orderId ?? null}
+        defaultValues={scaleTicketDefaults}
+        onUploaded={(uploadedFiles) => {
+          if (zoomedLoad?.orderId) {
+            invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
+            queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
+          }
+          setZoomedLoad((prev) => {
+            if (!prev) return prev;
+            const newFiles = uploadedFiles.map((f, i) => ({
+              id: `temp-scale-${Date.now()}-${i}`,
+              file_name: f.file_name,
+              file_path: f.file_path,
+              file_category: f.file_category,
+            }));
+            return {
+              ...prev,
+              orderFiles: [...prev.orderFiles, ...newFiles],
+              documents: [...new Set([...prev.documents, "ADDITIONAL"])],
+            };
+          });
+        }}
+      />
     </>
   );
 };
