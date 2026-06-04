@@ -1205,6 +1205,8 @@ const Reports = () => {
         null,
       bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
       podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
+      weightRc: order.weight_rc ?? order.weightRc ?? null,
+      weightBol: order.weight_bol ?? order.weightBol ?? null,
     };
   }, [companiesList, brokersList]);
 
