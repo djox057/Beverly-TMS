@@ -92,6 +92,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const [selectedRole, setSelectedRole] = useState<string>("recruiting");
   const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
   const [previewEmail, setPreviewEmail] = useState<string | null>(null);
+  const [baseSalaryEditing, setBaseSalaryEditing] = useState<Record<string, string>>({});
 
   // Fetch users with the selected role
   const { data: recruiters = [] } = useQuery<Recruiter[]>({
