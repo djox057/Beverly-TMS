@@ -66,6 +66,7 @@ import {
   Building2,
   HeartPulse,
   FileWarning,
+  AlertTriangle,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -2761,6 +2762,10 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
+                            const isFirstPickupOfOrder =
+                              !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
+                            const showScaleTicketWarning =
+                              isFirstPickupOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2776,6 +2781,15 @@ const Reports = () => {
                                   if (loadDetails) setZoomedLoad(loadDetails);
                                 }}
                               >
+                                {showScaleTicketWarning && (
+                                  <div
+                                    className="absolute top-0 right-0 z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none"
+                                    style={{ width: 12, height: 12 }}
+                                    title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
+                                  >
+                                    <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
+                                  </div>
+                                )}
                                 <div
                                   className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
                                 >
@@ -2819,6 +2833,10 @@ const Reports = () => {
                                   ).length || 0),
                                 0,
                               );
+                            const isFirstPickupOfOrder =
+                              !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
+                            const showScaleTicketWarning =
+                              isFirstPickupOfOrder && needsScaleTicket(order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2834,6 +2852,15 @@ const Reports = () => {
                                   if (loadDetails) setZoomedLoad(loadDetails);
                                 }}
                               >
+                                {showScaleTicketWarning && (
+                                  <div
+                                    className="absolute top-0 right-0 z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none"
+                                    style={{ width: 12, height: 12 }}
+                                    title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
+                                  >
+                                    <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
+                                  </div>
+                                )}
                                 <div
                                   className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
                                 >
