@@ -187,7 +187,7 @@ export const ScaleTicketDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Upload Scale Ticket</DialogTitle>
           <DialogDescription>
@@ -195,7 +195,7 @@ export const ScaleTicketDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-2">
+        <div className="space-y-3 py-2 flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="steer">Steer axle (lbs) <span className="text-muted-foreground text-xs">≤ 12,000</span></Label>
@@ -316,7 +316,7 @@ export const ScaleTicketDialog = ({
           </div>
 
           {previews.length > 0 && (
-            <div className="space-y-2 max-h-[40vh] overflow-auto rounded-md border p-2 bg-muted/30">
+            <div className="space-y-2 flex-1 min-h-0 overflow-auto rounded-md border p-2 bg-muted/30">
               <div className="text-xs font-medium text-muted-foreground">
                 Preview ({previews.length})
               </div>
@@ -325,19 +325,19 @@ export const ScaleTicketDialog = ({
                 const isPdf =
                   file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
                 return (
-                  <div key={i} className="space-y-1">
+                  <div key={i} className="space-y-1 h-full flex flex-col min-h-0">
                     <div className="text-xs text-muted-foreground truncate">{file.name}</div>
                     {isImage ? (
                       <img
                         src={url}
                         alt={file.name}
-                        className="max-h-[30vh] mx-auto rounded border bg-background"
+                        className="flex-1 min-h-0 w-auto max-w-full mx-auto rounded border bg-background object-contain"
                       />
                     ) : isPdf ? (
                       <iframe
                         src={url}
                         title={file.name}
-                        className="w-full h-[30vh] rounded border bg-background"
+                        className="w-full flex-1 min-h-0 rounded border bg-background"
                       />
                     ) : (
                       <a
