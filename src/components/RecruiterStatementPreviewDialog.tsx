@@ -775,6 +775,8 @@ export default function RecruiterStatementPreviewDialog({
                   </label>
                 </div>
               </div>
+              </>
+              )}
             </div>
           )}
         </div>
