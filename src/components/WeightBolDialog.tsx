@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,37 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
     onConfirm(num);
   };
 
+  // Drag-to-pan handlers for BOL previews
+  const dragStateRef = useRef<{ el: HTMLElement; startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
+
+  const handlePanMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const el = e.currentTarget;
+    dragStateRef.current = {
+      el,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+    el.style.cursor = "grabbing";
+    e.preventDefault();
+  };
+
+  const handlePanMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const s = dragStateRef.current;
+    if (!s) return;
+    s.el.scrollLeft = s.scrollLeft - (e.clientX - s.startX);
+    s.el.scrollTop = s.scrollTop - (e.clientY - s.startY);
+  };
+
+  const handlePanEnd = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragStateRef.current) {
+      dragStateRef.current.el.style.cursor = "grab";
+      dragStateRef.current = null;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
       <DialogContent className="max-w-2xl">
@@ -80,9 +111,36 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
                 <div key={i} className="space-y-1">
                   <div className="text-xs text-muted-foreground truncate">{file.name}</div>
                   {isImage ? (
-                    <img src={url} alt={file.name} className="max-h-[50vh] w-auto mx-auto rounded border" />
+                    <div
+                      className="max-h-[50vh] overflow-auto rounded border bg-background select-none"
+                      style={{ cursor: "grab" }}
+                      onMouseDown={handlePanMouseDown}
+                      onMouseMove={handlePanMouseMove}
+                      onMouseUp={handlePanEnd}
+                      onMouseLeave={handlePanEnd}
+                    >
+                      <img
+                        src={url}
+                        alt={file.name}
+                        draggable={false}
+                        className="max-w-none mx-auto pointer-events-none"
+                      />
+                    </div>
                   ) : isPdf ? (
-                    <iframe src={url} title={file.name} className="w-full h-[50vh] rounded border bg-background" />
+                    <div
+                      className="h-[50vh] overflow-auto rounded border bg-background select-none relative"
+                      style={{ cursor: "grab" }}
+                      onMouseDown={handlePanMouseDown}
+                      onMouseMove={handlePanMouseMove}
+                      onMouseUp={handlePanEnd}
+                      onMouseLeave={handlePanEnd}
+                    >
+                      <iframe
+                        src={url}
+                        title={file.name}
+                        className="w-full h-full bg-background pointer-events-none"
+                      />
+                    </div>
                   ) : (
                     <a href={url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
                       Open file
