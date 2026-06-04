@@ -21,7 +21,8 @@ const ORDER_COLUMNS = `
   other_additionals, other_additionals_driver, other_additionals_reason,
   additional_miles, booked_by, paid, invoiced,
   original_truck_id, original_trailer_id,
-  bol_force_complete, pod_force_complete
+  bol_force_complete, pod_force_complete,
+  weight_rc, weight_bol
 `;
 
 // Slim column list for Analytics page only - drops fields the page never reads.
