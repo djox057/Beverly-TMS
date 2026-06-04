@@ -266,13 +266,15 @@ export const ScaleTicketDialog = ({
             </div>
           )}
 
-          <div className="space-y-1">
+          <div className={files.length ? "space-y-1 flex-1 min-h-0 flex flex-col" : "space-y-1"}>
             <Label>Scale ticket file</Label>
             <div
-              className={`border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors ${
-                isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-              }`}
-              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-md cursor-pointer transition-colors ${
+                files.length ? "flex-1 min-h-0 flex flex-col overflow-hidden p-2" : "p-4 text-center"
+              } ${isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+              onClick={() => {
+                if (!files.length) fileInputRef.current?.click();
+              }}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -297,12 +299,63 @@ export const ScaleTicketDialog = ({
                 }
               }}
             >
-              <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
-              <div className="mt-2 text-sm text-muted-foreground">
-                {files.length
-                  ? files.map((f) => f.name).join(", ")
-                  : "Click to select or drag & drop scale ticket file(s)"}
-              </div>
+              {files.length === 0 ? (
+                <>
+                  <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Click to select or drag & drop scale ticket file(s)
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-auto">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground truncate flex-1">
+                      {files.map((f) => f.name).join(", ")}
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                    >
+                      Replace
+                    </button>
+                  </div>
+                  {previews.map(({ file, url }, i) => {
+                    const isImage = file.type.startsWith("image/");
+                    const isPdf =
+                      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+                    return (
+                      <div key={i} className="flex-1 min-h-0 flex flex-col">
+                        {isImage ? (
+                          <img
+                            src={url}
+                            alt={file.name}
+                            className="flex-1 min-h-0 w-auto max-w-full mx-auto rounded border bg-background object-contain"
+                          />
+                        ) : isPdf ? (
+                          <iframe
+                            src={url}
+                            title={file.name}
+                            className="w-full flex-1 min-h-0 rounded border bg-background"
+                          />
+                        ) : (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-primary underline"
+                          >
+                            Open file
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -314,46 +367,6 @@ export const ScaleTicketDialog = ({
               />
             </div>
           </div>
-
-          {previews.length > 0 && (
-            <div className="space-y-2 flex-1 min-h-0 overflow-auto rounded-md border p-2 bg-muted/30">
-              <div className="text-xs font-medium text-muted-foreground">
-                Preview ({previews.length})
-              </div>
-              {previews.map(({ file, url }, i) => {
-                const isImage = file.type.startsWith("image/");
-                const isPdf =
-                  file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-                return (
-                  <div key={i} className="space-y-1 h-full flex flex-col min-h-0">
-                    <div className="text-xs text-muted-foreground truncate">{file.name}</div>
-                    {isImage ? (
-                      <img
-                        src={url}
-                        alt={file.name}
-                        className="flex-1 min-h-0 w-auto max-w-full mx-auto rounded border bg-background object-contain"
-                      />
-                    ) : isPdf ? (
-                      <iframe
-                        src={url}
-                        title={file.name}
-                        className="w-full flex-1 min-h-0 rounded border bg-background"
-                      />
-                    ) : (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary underline"
-                      >
-                        Open file
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <DialogFooter>
