@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +47,7 @@ export const ScaleTicketDialog = ({
   const [gross, setGross] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -58,6 +59,35 @@ export const ScaleTicketDialog = ({
       setFiles([]);
     }
   }, [open, defaultValues?.steerAxle, defaultValues?.driveAxle, defaultValues?.trailerAxle, defaultValues?.gross]);
+
+  const previews = useMemo(() => {
+    if (!open || files.length === 0) return [];
+    return files.map((f) => ({ file: f, url: URL.createObjectURL(f) }));
+  }, [open, files]);
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [previews]);
+
+  const LEGAL_LIMITS = {
+    steer: 12000,
+    drive: 34000,
+    trailer: 34000,
+    gross: 80000,
+  };
+
+  const checkOver = (s: string, limit: number) => {
+    const n = parseFloat(s);
+    return !isNaN(n) && n > limit;
+  };
+
+  const overSteer = checkOver(steer, LEGAL_LIMITS.steer);
+  const overDrive = checkOver(drive, LEGAL_LIMITS.drive);
+  const overTrailer = checkOver(trailer, LEGAL_LIMITS.trailer);
+  const overGross = checkOver(gross, LEGAL_LIMITS.gross);
+  const anyOver = overSteer || overDrive || overTrailer || overGross;
 
   const parseNum = (s: string): number | null => {
     const t = s.trim();
@@ -157,7 +187,7 @@ export const ScaleTicketDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload Scale Ticket</DialogTitle>
           <DialogDescription>
@@ -168,7 +198,7 @@ export const ScaleTicketDialog = ({
         <div className="space-y-3 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="steer">Steer axle (lbs)</Label>
+              <Label htmlFor="steer">Steer axle (lbs) <span className="text-muted-foreground text-xs">≤ 12,000</span></Label>
               <Input
                 id="steer"
                 type="number"
@@ -176,10 +206,14 @@ export const ScaleTicketDialog = ({
                 value={steer}
                 onChange={(e) => setSteer(e.target.value)}
                 placeholder="0"
+                className={overSteer ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {overSteer && (
+                <p className="text-xs text-destructive">Above legal limit (12,000 lb)</p>
+              )}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="drive">Drive axle (lbs)</Label>
+              <Label htmlFor="drive">Drive axle (lbs) <span className="text-muted-foreground text-xs">≤ 34,000</span></Label>
               <Input
                 id="drive"
                 type="number"
@@ -187,10 +221,14 @@ export const ScaleTicketDialog = ({
                 value={drive}
                 onChange={(e) => setDrive(e.target.value)}
                 placeholder="0"
+                className={overDrive ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {overDrive && (
+                <p className="text-xs text-destructive">Above legal limit (34,000 lb)</p>
+              )}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="trailer">Trailer axle (lbs)</Label>
+              <Label htmlFor="trailer">Trailer axle (lbs) <span className="text-muted-foreground text-xs">≤ 34,000</span></Label>
               <Input
                 id="trailer"
                 type="number"
@@ -198,10 +236,14 @@ export const ScaleTicketDialog = ({
                 value={trailer}
                 onChange={(e) => setTrailer(e.target.value)}
                 placeholder="0"
+                className={overTrailer ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {overTrailer && (
+                <p className="text-xs text-destructive">Above legal limit (34,000 lb)</p>
+              )}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="gross">Gross (lbs)</Label>
+              <Label htmlFor="gross">Gross (lbs) <span className="text-muted-foreground text-xs">≤ 80,000</span></Label>
               <Input
                 id="gross"
                 type="number"
@@ -209,21 +251,57 @@ export const ScaleTicketDialog = ({
                 value={gross}
                 onChange={(e) => setGross(e.target.value)}
                 placeholder="0"
+                className={overGross ? "border-destructive focus-visible:ring-destructive" : ""}
               />
+              {overGross && (
+                <p className="text-xs text-destructive">Above legal limit (80,000 lb)</p>
+              )}
             </div>
           </div>
+
+          {anyOver && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>One or more weights exceed federal legal limits (Steer 12,000 / Drive 34,000 / Trailer 34,000 / Gross 80,000 lb).</span>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label>Scale ticket file</Label>
             <div
-              className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              className={`border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors ${
+                isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+              }`}
               onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                if (e.dataTransfer.files?.length) {
+                  setFiles(Array.from(e.dataTransfer.files));
+                }
+              }}
             >
               <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
               <div className="mt-2 text-sm text-muted-foreground">
                 {files.length
                   ? files.map((f) => f.name).join(", ")
-                  : "Click to select scale ticket file(s)"}
+                  : "Click to select or drag & drop scale ticket file(s)"}
               </div>
               <input
                 ref={fileInputRef}
@@ -236,6 +314,46 @@ export const ScaleTicketDialog = ({
               />
             </div>
           </div>
+
+          {previews.length > 0 && (
+            <div className="space-y-2 max-h-[40vh] overflow-auto rounded-md border p-2 bg-muted/30">
+              <div className="text-xs font-medium text-muted-foreground">
+                Preview ({previews.length})
+              </div>
+              {previews.map(({ file, url }, i) => {
+                const isImage = file.type.startsWith("image/");
+                const isPdf =
+                  file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="text-xs text-muted-foreground truncate">{file.name}</div>
+                    {isImage ? (
+                      <img
+                        src={url}
+                        alt={file.name}
+                        className="max-h-[30vh] mx-auto rounded border bg-background"
+                      />
+                    ) : isPdf ? (
+                      <iframe
+                        src={url}
+                        title={file.name}
+                        className="w-full h-[30vh] rounded border bg-background"
+                      />
+                    ) : (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary underline"
+                      >
+                        Open file
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
