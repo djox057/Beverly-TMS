@@ -127,18 +127,11 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
                       />
                     </div>
                   ) : isPdf ? (
-                    <div
-                      className="h-[50vh] overflow-auto rounded border bg-background select-none relative"
-                      style={{ cursor: "grab" }}
-                      onMouseDown={handlePanMouseDown}
-                      onMouseMove={handlePanMouseMove}
-                      onMouseUp={handlePanEnd}
-                      onMouseLeave={handlePanEnd}
-                    >
+                    <div className="h-[50vh] rounded border bg-background relative">
                       <iframe
                         src={url}
                         title={file.name}
-                        className="w-full h-full bg-background pointer-events-none"
+                        className="w-full h-full bg-background"
                       />
                     </div>
                   ) : (
