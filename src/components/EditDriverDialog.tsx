@@ -1033,11 +1033,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
                 {canViewSensitiveData && (
                   <>
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-4">
-                        🔒 Sensitive Information (Managers/Admins Only)
-                      </p>
-                    </div>
+                    <div className="border-t pt-4" />
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -1057,29 +1053,21 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Company Name</Label>
+                          <Label>Driver's Company Name</Label>
                           <Input
                             value={formData.company_name}
                             onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                            placeholder="Company Name"
+                            placeholder="Bob's Company"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Company Address</Label>
+                          <Label>Driver's Company Address</Label>
                           <Input
                             value={formData.company_address}
                             onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
                             placeholder="Company Address"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>MC Number</Label>
-                          <Input
-                            value={formData.mc_number}
-                            onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                            placeholder="MC Number"
                           />
                         </div>
                       </div>

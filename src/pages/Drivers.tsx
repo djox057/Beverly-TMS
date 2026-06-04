@@ -1776,11 +1776,7 @@ const Drivers = () => {
 
                     {canViewSensitiveData && (
                       <>
-                        <div className="border-t pt-4">
-                          <p className="text-sm font-medium text-muted-foreground mb-4">
-                            🔒 Sensitive Information (Managers/Admins Only)
-                          </p>
-                        </div>
+                        <div className="border-t pt-4" />
 
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -1814,9 +1810,9 @@ const Drivers = () => {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="company_name">Company Name</Label>
+                              <Label htmlFor="company_name">Driver's Company Name</Label>
                               <Input
                                 id="company_name"
                                 value={formData.company_name}
@@ -1826,11 +1822,11 @@ const Drivers = () => {
                                     company_name: e.target.value,
                                   })
                                 }
-                                placeholder="Company Name"
+                                placeholder="Bob's Company"
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="company_address">Company Address</Label>
+                              <Label htmlFor="company_address">Driver's Company Address</Label>
                               <Input
                                 id="company_address"
                                 value={formData.company_address}
@@ -1841,20 +1837,6 @@ const Drivers = () => {
                                   })
                                 }
                                 placeholder="Company Address"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="mc_number">FEIN #</Label>
-                              <Input
-                                id="mc_number"
-                                value={formData.mc_number}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    mc_number: e.target.value,
-                                  })
-                                }
-                                placeholder="MC Number"
                               />
                             </div>
                           </div>
@@ -2875,11 +2857,7 @@ const Drivers = () => {
 
                 {canViewSensitiveData && (
                   <>
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-4">
-                        🔒 Sensitive Information (Managers/Admins Only)
-                      </p>
-                    </div>
+                    <div className="border-t pt-4" />
 
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -2913,9 +2891,9 @@ const Drivers = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="edit_company_name">Company Name</Label>
+                          <Label htmlFor="edit_company_name">Driver's Company Name</Label>
                           <Input
                             id="edit_company_name"
                             value={formData.company_name}
@@ -2925,11 +2903,11 @@ const Drivers = () => {
                                 company_name: e.target.value,
                               })
                             }
-                            placeholder="Company Name"
+                            placeholder="Bob's Company"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit_company_address">Company Address</Label>
+                          <Label htmlFor="edit_company_address">Driver's Company Address</Label>
                           <Input
                             id="edit_company_address"
                             value={formData.company_address}
@@ -2940,20 +2918,6 @@ const Drivers = () => {
                               })
                             }
                             placeholder="Company Address"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit_mc_number">FEIN #</Label>
-                          <Input
-                            id="edit_mc_number"
-                            value={formData.mc_number}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                mc_number: e.target.value,
-                              })
-                            }
-                            placeholder="MC Number"
                           />
                         </div>
                       </div>
