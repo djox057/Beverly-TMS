@@ -7995,9 +7995,9 @@ const Reports = () => {
         onConfirm={(w) => {
           setPendingBolWeight(w);
           setBolWeightDialogOpen(false);
-          // Resume the upload now that we have the weight
+          // Resume the upload now that we have the weight (pass directly to avoid stale state)
           setTimeout(() => {
-            handleUploadDocument();
+            handleUploadDocument(w);
           }, 0);
         }}
       />
