@@ -984,6 +984,9 @@ const Reports = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  // Pending BOL weight prompt (Reports BOL upload flow)
+  const [bolWeightDialogOpen, setBolWeightDialogOpen] = useState(false);
+  const [pendingBolWeight, setPendingBolWeight] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
