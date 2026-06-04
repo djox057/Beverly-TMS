@@ -539,10 +539,10 @@ const Drivers = () => {
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
-          straps: formData.straps,
-          load_bars: formData.load_bars,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
           cents_per_mile:
             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
           note: formData.note || null,
@@ -778,8 +778,11 @@ const Drivers = () => {
       const origLat = editingDriver.home_latitude?.toString() || "";
       const origLng = editingDriver.home_longitude?.toString() || "";
       const homeFieldsChanged =
-        formData.home_address !== origAddress || formData.home_city !== origCity || formData.home_state !== origState;
-      const latLngManuallyEdited = formData.home_latitude !== origLat || formData.home_longitude !== origLng;
+        formData.home_address !== origAddress ||
+        formData.home_city !== origCity ||
+        formData.home_state !== origState;
+      const latLngManuallyEdited =
+        formData.home_latitude !== origLat || formData.home_longitude !== origLng;
 
       let homeLat: number | null = formData.home_latitude ? parseFloat(formData.home_latitude) : null;
       let homeLng: number | null = formData.home_longitude ? parseFloat(formData.home_longitude) : null;
@@ -838,11 +841,11 @@ const Drivers = () => {
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
           do_not_touch_hos: formData.do_not_touch_hos || false,
-          straps: formData.straps,
-          load_bars: formData.load_bars,
-          cents_per_mile:
-            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile:
+             formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
@@ -1773,11 +1776,7 @@ const Drivers = () => {
 
                     {canViewSensitiveData && (
                       <>
-                        <div className="border-t pt-4">
-                          <p className="text-sm font-medium text-muted-foreground mb-4">
-                            🔒 Sensitive Information (Managers/Admins Only)
-                          </p>
-                        </div>
+                        <div className="border-t pt-4" />
 
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -1796,7 +1795,7 @@ const Drivers = () => {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="fuel_card_number">Fuel Card#(Last 4)</Label>
+                              <Label htmlFor="fuel_card_number">Fuel Card #</Label>
                               <Input
                                 id="fuel_card_number"
                                 value={formData.fuel_card_number}
@@ -1811,9 +1810,9 @@ const Drivers = () => {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="company_name">Company Name</Label>
+                              <Label htmlFor="company_name">Driver's Company Name</Label>
                               <Input
                                 id="company_name"
                                 value={formData.company_name}
@@ -1823,11 +1822,11 @@ const Drivers = () => {
                                     company_name: e.target.value,
                                   })
                                 }
-                                placeholder="Company Name"
+                                placeholder="Bob's Company"
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="company_address">Company Address</Label>
+                              <Label htmlFor="company_address">Driver's Company Address</Label>
                               <Input
                                 id="company_address"
                                 value={formData.company_address}
@@ -1838,20 +1837,6 @@ const Drivers = () => {
                                   })
                                 }
                                 placeholder="Company Address"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="mc_number">FEIN #</Label>
-                              <Input
-                                id="mc_number"
-                                value={formData.mc_number}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    mc_number: e.target.value,
-                                  })
-                                }
-                                placeholder="MC Number"
                               />
                             </div>
                           </div>
@@ -2122,9 +2107,7 @@ const Drivers = () => {
                           checked={formData.hazmat}
                           onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
                         />
-                        <Label htmlFor="add_hazmat" className="cursor-pointer">
-                          Hazmat
-                        </Label>
+                        <Label htmlFor="add_hazmat" className="cursor-pointer">Hazmat</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -2132,9 +2115,7 @@ const Drivers = () => {
                           checked={formData.tanker}
                           onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
                         />
-                        <Label htmlFor="add_tanker" className="cursor-pointer">
-                          Tanker
-                        </Label>
+                        <Label htmlFor="add_tanker" className="cursor-pointer">Tanker</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -2142,9 +2123,7 @@ const Drivers = () => {
                           checked={formData.twic}
                           onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
                         />
-                        <Label htmlFor="add_twic" className="cursor-pointer">
-                          TWIC
-                        </Label>
+                        <Label htmlFor="add_twic" className="cursor-pointer">TWIC</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -2152,9 +2131,7 @@ const Drivers = () => {
                           checked={formData.citizen}
                           onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
                         />
-                        <Label htmlFor="add_citizen" className="cursor-pointer">
-                          Citizen
-                        </Label>
+                        <Label htmlFor="add_citizen" className="cursor-pointer">Citizen</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -2162,37 +2139,31 @@ const Drivers = () => {
                           checked={formData.criminal}
                           onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                         />
-                        <Label htmlFor="add_criminal" className="cursor-pointer">
-                          Criminal
-                        </Label>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="add_straps">Straps</Label>
-                        <Input
-                          id="add_straps"
-                          type="number"
-                          min={0}
-                          value={formData.straps}
-                          onChange={(e) =>
-                            setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="add_load_bars">Load Bars</Label>
-                        <Input
-                          id="add_load_bars"
-                          type="number"
-                          min={0}
-                          value={formData.load_bars}
-                          onChange={(e) =>
-                            setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })
-                          }
-                        />
-                      </div>
-                    </div>
+                         <Label htmlFor="add_criminal" className="cursor-pointer">Criminal</Label>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4 mt-2">
+                       <div className="space-y-2">
+                         <Label htmlFor="add_straps">Straps</Label>
+                         <Input
+                           id="add_straps"
+                           type="number"
+                           min={0}
+                           value={formData.straps}
+                           onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="add_load_bars">Load Bars</Label>
+                         <Input
+                           id="add_load_bars"
+                           type="number"
+                           min={0}
+                           value={formData.load_bars}
+                           onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                         />
+                       </div>
+                     </div>
                   </form>
                 </TabsContent>
 
@@ -2886,11 +2857,7 @@ const Drivers = () => {
 
                 {canViewSensitiveData && (
                   <>
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-4">
-                        🔒 Sensitive Information (Managers/Admins Only)
-                      </p>
-                    </div>
+                    <div className="border-t pt-4" />
 
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -2909,7 +2876,7 @@ const Drivers = () => {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit_fuel_card_number">Fuel Card#(Last 4)</Label>
+                          <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
                           <Input
                             id="edit_fuel_card_number"
                             value={formData.fuel_card_number}
@@ -2924,9 +2891,9 @@ const Drivers = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="edit_company_name">Company Name</Label>
+                          <Label htmlFor="edit_company_name">Driver's Company Name</Label>
                           <Input
                             id="edit_company_name"
                             value={formData.company_name}
@@ -2936,11 +2903,11 @@ const Drivers = () => {
                                 company_name: e.target.value,
                               })
                             }
-                            placeholder="Company Name"
+                            placeholder="Bob's Company"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit_company_address">Company Address</Label>
+                          <Label htmlFor="edit_company_address">Driver's Company Address</Label>
                           <Input
                             id="edit_company_address"
                             value={formData.company_address}
@@ -2951,20 +2918,6 @@ const Drivers = () => {
                               })
                             }
                             placeholder="Company Address"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit_mc_number">FEIN #</Label>
-                          <Input
-                            id="edit_mc_number"
-                            value={formData.mc_number}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                mc_number: e.target.value,
-                              })
-                            }
-                            placeholder="MC Number"
                           />
                         </div>
                       </div>
@@ -3245,9 +3198,7 @@ const Drivers = () => {
                       checked={formData.hazmat}
                       onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
                     />
-                    <Label htmlFor="edit_hazmat" className="cursor-pointer">
-                      Hazmat
-                    </Label>
+                    <Label htmlFor="edit_hazmat" className="cursor-pointer">Hazmat</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -3255,9 +3206,7 @@ const Drivers = () => {
                       checked={formData.tanker}
                       onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
                     />
-                    <Label htmlFor="edit_tanker" className="cursor-pointer">
-                      Tanker
-                    </Label>
+                    <Label htmlFor="edit_tanker" className="cursor-pointer">Tanker</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -3265,9 +3214,7 @@ const Drivers = () => {
                       checked={formData.twic}
                       onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
                     />
-                    <Label htmlFor="edit_twic" className="cursor-pointer">
-                      TWIC
-                    </Label>
+                    <Label htmlFor="edit_twic" className="cursor-pointer">TWIC</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -3275,9 +3222,7 @@ const Drivers = () => {
                       checked={formData.citizen}
                       onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
                     />
-                    <Label htmlFor="edit_citizen" className="cursor-pointer">
-                      Citizen
-                    </Label>
+                    <Label htmlFor="edit_citizen" className="cursor-pointer">Citizen</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -3285,35 +3230,31 @@ const Drivers = () => {
                       checked={formData.criminal}
                       onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                     />
-                    <Label htmlFor="edit_criminal" className="cursor-pointer">
-                      Criminal
-                    </Label>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_straps">Straps</Label>
-                    <Input
-                      id="edit_straps"
-                      type="number"
-                      min={0}
-                      value={formData.straps}
-                      onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_load_bars">Load Bars</Label>
-                    <Input
-                      id="edit_load_bars"
-                      type="number"
-                      min={0}
-                      value={formData.load_bars}
-                      onChange={(e) =>
-                        setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })
-                      }
-                    />
-                  </div>
-                </div>
+                     <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mt-2">
+                   <div className="space-y-2">
+                     <Label htmlFor="edit_straps">Straps</Label>
+                     <Input
+                       id="edit_straps"
+                       type="number"
+                       min={0}
+                       value={formData.straps}
+                       onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="edit_load_bars">Load Bars</Label>
+                     <Input
+                       id="edit_load_bars"
+                       type="number"
+                       min={0}
+                       value={formData.load_bars}
+                       onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                 </div>
               </form>
             </TabsContent>
 

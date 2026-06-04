@@ -110,17 +110,17 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
-
+  
   // Track original assignment for detecting changes - use ref for synchronous access
   const originalAssignmentRef = useRef<{ truckId: string | null; trailerId: string | null }>({
     truckId: null,
     trailerId: null,
   });
-
+  
   // Assignment reason dialog state
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [pendingReasonType, setPendingReasonType] = useState<"truck" | "trailer" | "both">("truck");
-
+  
   // Already assigned warning dialog state
   const [showAlreadyAssignedWarning, setShowAlreadyAssignedWarning] = useState(false);
   const [alreadyAssignedInfo, setAlreadyAssignedInfo] = useState<{
@@ -203,14 +203,12 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         .eq("driver_id", driverId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-
+      
       // Fetch creator names for notes with created_by
-      const allCreatorIds = [...new Set((data || []).map((n) => n.created_by).filter(Boolean))] as string[];
+      const allCreatorIds = [...new Set((data || []).map(n => n.created_by).filter(Boolean))] as string[];
       const creatorIds = allCreatorIds.filter(isValidUUID);
       if (creatorIds.length < allCreatorIds.length) {
-        console.warn(
-          `[EditDriverDialog] Filtered ${allCreatorIds.length - creatorIds.length} invalid UUIDs from created_by`,
-        );
+        console.warn(`[EditDriverDialog] Filtered ${allCreatorIds.length - creatorIds.length} invalid UUIDs from created_by`);
       }
       let creatorsMap: Record<string, string> = {};
       if (creatorIds.length > 0) {
@@ -218,16 +216,13 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", creatorIds);
-        creatorsMap = (profiles || []).reduce(
-          (acc, p) => {
-            if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
+        creatorsMap = (profiles || []).reduce((acc, p) => {
+          if (p.user_id && p.full_name) acc[p.user_id] = p.full_name;
+          return acc;
+        }, {} as Record<string, string>);
       }
-
-      const notesWithCreators = (data || []).map((note) => ({
+      
+      const notesWithCreators = (data || []).map(note => ({
         ...note,
         creator_name: note.created_by ? creatorsMap[note.created_by] || null : null,
       }));
@@ -333,31 +328,25 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   // Check if assignment change requires a reason
   const checkAssignmentChangeNeedsReason = (): "truck" | "trailer" | "both" | null => {
     const { truckId: origTruckId, trailerId: origTrailerId } = originalAssignmentRef.current;
-
+    
     // Normalize to null for empty strings
     const newTruckId = formData.truck_id && formData.truck_id.trim() !== "" ? formData.truck_id : null;
     const newTrailerId = formData.trailer_id && formData.trailer_id.trim() !== "" ? formData.trailer_id : null;
     const origTruck = origTruckId && origTruckId.trim() !== "" ? origTruckId : null;
     const origTrailer = origTrailerId && origTrailerId.trim() !== "" ? origTrailerId : null;
-
+    
     const truckChanged = newTruckId !== origTruck;
     const trailerChanged = newTrailerId !== origTrailer;
-
+    
     // Only require reason if there was a previous assignment (not null/empty)
     const hadTruck = origTruck !== null;
     const hadTrailer = origTrailer !== null;
-
-    console.log("Assignment check:", {
-      newTruckId,
-      origTruck,
-      truckChanged,
-      hadTruck,
-      newTrailerId,
-      origTrailer,
-      trailerChanged,
-      hadTrailer,
+    
+    console.log("Assignment check:", { 
+      newTruckId, origTruck, truckChanged, hadTruck,
+      newTrailerId, origTrailer, trailerChanged, hadTrailer 
     });
-
+    
     if (truckChanged && hadTruck && trailerChanged && hadTrailer) {
       return "both";
     } else if (truckChanged && hadTruck) {
@@ -386,7 +375,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
     // Check if the selected truck is assigned to another driver
     if (formData.truck_id && formData.truck_id !== origTruckId) {
-      const selectedTruck = allTrucks?.find((t) => t.id === formData.truck_id);
+      const selectedTruck = allTrucks?.find(t => t.id === formData.truck_id);
       if (selectedTruck?.driver1_id && selectedTruck.driver1_id !== editingDriver?.id) {
         // Get driver name
         const { data: driverData } = await supabase
@@ -439,7 +428,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     // First check for already assigned equipment
     const alreadyAssigned = await checkAlreadyAssigned();
     if (alreadyAssigned) {
@@ -447,7 +436,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       setShowAlreadyAssignedWarning(true);
       return;
     }
-
+    
     proceedWithSubmit();
   };
 
@@ -494,8 +483,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       const origLat = driver.home_latitude?.toString() || "";
       const origLng = driver.home_longitude?.toString() || "";
       const homeFieldsChanged =
-        formData.home_address !== origAddress || formData.home_city !== origCity || formData.home_state !== origState;
-      const latLngManuallyEdited = formData.home_latitude !== origLat || formData.home_longitude !== origLng;
+        formData.home_address !== origAddress ||
+        formData.home_city !== origCity ||
+        formData.home_state !== origState;
+      const latLngManuallyEdited =
+        formData.home_latitude !== origLat || formData.home_longitude !== origLng;
 
       let homeLat: number | null = formData.home_latitude ? parseFloat(formData.home_latitude) : null;
       let homeLng: number | null = formData.home_longitude ? parseFloat(formData.home_longitude) : null;
@@ -556,13 +548,12 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           hazmat: formData.hazmat,
           tanker: formData.tanker,
           twic: formData.twic,
-          citizen: formData.citizen,
-          criminal: formData.criminal,
-          straps: formData.straps,
-          load_bars: formData.load_bars,
-          cents_per_mile:
-            formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
-          note: formData.note || null,
+           citizen: formData.citizen,
+           criminal: formData.criminal,
+           straps: formData.straps,
+           load_bars: formData.load_bars,
+           cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
+           note: formData.note || null,
         })
         .eq("id", editingDriver.id);
 
@@ -577,7 +568,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
             fuel_card_number: formData.fuel_card_number || null,
             personal_id: formData.personal_id || null,
           },
-          { onConflict: "driver_id" },
+          { onConflict: "driver_id" }
         );
         if (piiError) throw piiError;
       }
@@ -651,7 +642,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       // Insert assignment history for any assignment change
       // HARDENED: Include old_ values for accurate "from → to" display
       const { data: userData } = await supabase.auth.getUser();
-
+      
       // Log truck change separately if truck changed
       if (truckChanged) {
         await supabase.from("assignment_history").insert({
@@ -669,7 +660,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           reason: reason,
         });
       }
-
+      
       // Log trailer change separately if trailer changed
       if (trailerChanged) {
         await supabase.from("assignment_history").insert({
@@ -808,11 +799,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         onOpenChange(false);
         onSuccess?.();
       } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to cancel 2-week block",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: error.message || "Failed to cancel 2-week block", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -933,9 +920,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Label>Emergency Contact Phone</Label>
                     <Input
                       value={formData.emergency_contact_phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, emergency_contact_phone: formatPhoneNumber(e.target.value) })
-                      }
+                      onChange={(e) => setFormData({ ...formData, emergency_contact_phone: formatPhoneNumber(e.target.value) })}
                       placeholder="(555) 987-6543"
                     />
                   </div>
@@ -1048,11 +1033,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
                 {canViewSensitiveData && (
                   <>
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-4">
-                        🔒 Sensitive Information (Managers/Admins Only)
-                      </p>
-                    </div>
+                    <div className="border-t pt-4" />
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -1064,7 +1045,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Fuel Card#(Last 4)</Label>
+                          <Label>Fuel Card #</Label>
                           <Input
                             value={formData.fuel_card_number}
                             onChange={(e) => setFormData({ ...formData, fuel_card_number: e.target.value })}
@@ -1072,29 +1053,21 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Company Name</Label>
+                          <Label>Driver's Company Name</Label>
                           <Input
                             value={formData.company_name}
                             onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                            placeholder="Company Name"
+                            placeholder="Bob's Company"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Company Address</Label>
+                          <Label>Driver's Company Address</Label>
                           <Input
                             value={formData.company_address}
                             onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
                             placeholder="Company Address"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>MC Number</Label>
-                          <Input
-                            value={formData.mc_number}
-                            onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                            placeholder="MC Number"
                           />
                         </div>
                       </div>
@@ -1276,9 +1249,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.hazmat}
                       onCheckedChange={(checked) => setFormData({ ...formData, hazmat: checked === true })}
                     />
-                    <Label htmlFor="edit_hazmat" className="cursor-pointer">
-                      Hazmat
-                    </Label>
+                    <Label htmlFor="edit_hazmat" className="cursor-pointer">Hazmat</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1286,9 +1257,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.tanker}
                       onCheckedChange={(checked) => setFormData({ ...formData, tanker: checked === true })}
                     />
-                    <Label htmlFor="edit_tanker" className="cursor-pointer">
-                      Tanker
-                    </Label>
+                    <Label htmlFor="edit_tanker" className="cursor-pointer">Tanker</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1296,9 +1265,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.twic}
                       onCheckedChange={(checked) => setFormData({ ...formData, twic: checked === true })}
                     />
-                    <Label htmlFor="edit_twic" className="cursor-pointer">
-                      TWIC
-                    </Label>
+                    <Label htmlFor="edit_twic" className="cursor-pointer">TWIC</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1306,9 +1273,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.citizen}
                       onCheckedChange={(checked) => setFormData({ ...formData, citizen: checked === true })}
                     />
-                    <Label htmlFor="edit_citizen" className="cursor-pointer">
-                      Citizen
-                    </Label>
+                    <Label htmlFor="edit_citizen" className="cursor-pointer">Citizen</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1316,35 +1281,31 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       checked={formData.criminal}
                       onCheckedChange={(checked) => setFormData({ ...formData, criminal: checked === true })}
                     />
-                    <Label htmlFor="edit_criminal" className="cursor-pointer">
-                      Criminal
-                    </Label>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="reports_edit_straps">Straps</Label>
-                    <Input
-                      id="reports_edit_straps"
-                      type="number"
-                      min={0}
-                      value={formData.straps}
-                      onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reports_edit_load_bars">Load Bars</Label>
-                    <Input
-                      id="reports_edit_load_bars"
-                      type="number"
-                      min={0}
-                      value={formData.load_bars}
-                      onChange={(e) =>
-                        setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })
-                      }
-                    />
-                  </div>
-                </div>
+                     <Label htmlFor="edit_criminal" className="cursor-pointer">Criminal</Label>
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mt-2">
+                   <div className="space-y-2">
+                     <Label htmlFor="reports_edit_straps">Straps</Label>
+                     <Input
+                       id="reports_edit_straps"
+                       type="number"
+                       min={0}
+                       value={formData.straps}
+                       onChange={(e) => setFormData({ ...formData, straps: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="reports_edit_load_bars">Load Bars</Label>
+                     <Input
+                       id="reports_edit_load_bars"
+                       type="number"
+                       min={0}
+                       value={formData.load_bars}
+                       onChange={(e) => setFormData({ ...formData, load_bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                     />
+                   </div>
+                 </div>
               </form>
             </TabsContent>
 
@@ -1415,7 +1376,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
-                        {note.creator_name && <p className="text-xs text-muted-foreground">By: {note.creator_name}</p>}
+                        {note.creator_name && (
+                          <p className="text-xs text-muted-foreground">
+                            By: {note.creator_name}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -1491,8 +1456,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
               <DatePicker date={twoWeekNoticeDate} onDateChange={setTwoWeekNoticeDate} placeholder="Select last date" />
               {twoWeekNoticeDate && (
                 <p className="text-xs text-muted-foreground">
-                  Start date was:{" "}
-                  {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                  Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -1524,14 +1488,14 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
               <div className="space-y-2">
                 {alreadyAssignedInfo?.truckDriverName && (
                   <p>
-                    Truck <span className="font-semibold">{alreadyAssignedInfo.truckNumber}</span> is currently assigned
-                    to <span className="font-semibold">{alreadyAssignedInfo.truckDriverName}</span>.
+                    Truck <span className="font-semibold">{alreadyAssignedInfo.truckNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.truckDriverName}</span>.
                   </p>
                 )}
                 {alreadyAssignedInfo?.trailerDriverName && (
                   <p>
-                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently
-                    assigned to <span className="font-semibold">{alreadyAssignedInfo.trailerDriverName}</span>.
+                    Trailer <span className="font-semibold">{alreadyAssignedInfo.trailerNumber}</span> is currently assigned to{" "}
+                    <span className="font-semibold">{alreadyAssignedInfo.trailerDriverName}</span>.
                   </p>
                 )}
                 <p className="mt-2">Are you sure you want to proceed with this assignment?</p>
