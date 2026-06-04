@@ -453,7 +453,7 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
+      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id, created_at");
 
       // Also fetch all unique booked_by values from orders to include deleted users
       const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
@@ -492,6 +492,7 @@ const Analytics = () => {
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
+                created_at: (p as any).created_at ?? null,
               };
             }
             if (p.user_id) {
@@ -500,6 +501,7 @@ const Analytics = () => {
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
+                created_at: (p as any).created_at ?? null,
               };
             }
             return acc;
@@ -511,6 +513,7 @@ const Analytics = () => {
               office: string | null;
               roles: string[];
               user_id: string;
+              created_at?: string | null;
             }
           >,
         );
