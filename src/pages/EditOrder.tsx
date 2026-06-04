@@ -846,6 +846,8 @@ const EditOrder = () => {
         );
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
+        setWeightRcLoaded((orderData as any).weight_rc ?? null);
+        setWeightBol((orderData as any).weight_bol ?? null);
         setReferenceNumber((orderData as any).reference_number || "");
         setPoNumber((orderData as any).po_number || "");
         setPuNumber((orderData as any).pu_number || "");
