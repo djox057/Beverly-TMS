@@ -451,7 +451,9 @@ export default function RecruiterStatementPreviewDialog({
     .map((adj, index) => ({ adj, index }))
     .filter((x) => x.adj.type === "penalty");
 
-  const showRightPanel = showAdjustmentsForm || adjustments.length > 0;
+  const hasLostDays = data.lostDayDates.length > 0;
+  const showRightPanel = showAdjustmentsForm || adjustments.length > 0 || hasLostDays;
+  const remainingPtoDays = Math.max(0, MAX_PTO_DAYS - yearlyPtoUsed);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -491,6 +493,65 @@ export default function RecruiterStatementPreviewDialog({
 
           {showRightPanel && (
             <div className="w-72 border rounded-lg p-4 space-y-4 overflow-y-auto max-h-[700px]">
+              {hasLostDays && (
+                <>
+                  <div>
+                    <h3 className="font-semibold text-sm">Mark as PTO</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PTO days don't reduce salary. {remainingPtoDays} of {MAX_PTO_DAYS} remaining this year.
+                    </p>
+                  </div>
+
+                  {remainingPtoDays <= 0 && ptoSelectedDates.length === 0 && (
+                    <div className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-md">
+                      <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                      <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                        No PTO days remaining for this year.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Days off:</p>
+                    {data.lostDayDates.map((date) => {
+                      const isPto = ptoSelectedDates.includes(date);
+                      return (
+                        <div key={date} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`recruiter-pto-${date}`}
+                            checked={isPto}
+                            onCheckedChange={(c) => handlePtoToggle(date, c as boolean)}
+                            disabled={!isPto && remainingPtoDays <= 0}
+                          />
+                          <Label
+                            htmlFor={`recruiter-pto-${date}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            {toMMDD(date)} {isPto && <span className="text-green-600">(PTO)</span>}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!showAdjustmentsForm && adjustments.length === 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowAdjustmentsForm(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Extra Pay / Charge / Penalty
+                    </Button>
+                  )}
+
+                  {(showAdjustmentsForm || adjustments.length > 0) && <div className="border-t" />}
+                </>
+              )}
+
+              {(showAdjustmentsForm || adjustments.length > 0) && (
+              <>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-sm">Extra Pay / Charges</h3>
