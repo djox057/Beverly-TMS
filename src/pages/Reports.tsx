@@ -1458,6 +1458,36 @@ const Reports = () => {
         description: `${uploadFiles.length} file${uploadFiles.length > 1 ? "s" : ""} uploaded successfully`,
       });
 
+      // BOL-specific: persist weight_bol and surface weight warnings
+      if (uploadDocType === "BOL" && pendingBolWeight != null) {
+        await supabase.from("orders").update({ weight_bol: pendingBolWeight }).eq("id", zoomedLoad.orderId);
+
+        // Update local zoomedLoad weightBol so the alert in the dialog reflects the new value
+        setZoomedLoad((prev) => (prev ? { ...prev, weightBol: pendingBolWeight } : prev));
+
+        const weightRc = zoomedLoad.weightRc ?? null;
+        const warning = getWeightDiscrepancyWarning(pendingBolWeight, weightRc);
+        if (warning) {
+          toast({
+            title: "Check RC weight",
+            description: warning,
+            variant: "destructive",
+          });
+        }
+        if (pendingBolWeight >= SCALE_TICKET_THRESHOLD_LBS) {
+          const hasAdditional = (zoomedLoad.orderFiles || []).some(
+            (f: any) => (f.file_category || "").toUpperCase() === "ADDITIONAL",
+          );
+          if (!hasAdditional) {
+            toast({
+              title: "Scale ticket required",
+              description: `BOL weight is ${pendingBolWeight.toLocaleString()} lbs (≥ ${SCALE_TICKET_THRESHOLD_LBS.toLocaleString()}). Please upload a scale ticket as an Additional file.`,
+              variant: "destructive",
+            });
+          }
+        }
+      }
+
       // Clear module-level cache for this order, then refetch adapter query
       invalidateOrderFilesCacheForOrder(zoomedLoad.orderId);
       queryClient.invalidateQueries({ queryKey: ["adapter-order-files"], refetchType: "active" });
