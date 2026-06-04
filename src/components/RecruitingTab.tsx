@@ -650,6 +650,19 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         onSent={() => {
           queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments", selectedMonth] });
         }}
+        onPtoChanged={(userId, _ptoMonthCount) => {
+          // Refetch PTO for current year so salary cells recompute live.
+          if (!selectedYear) return;
+          (async () => {
+            const { data } = await supabase
+              .from("dispatcher_sick_days" as any)
+              .select("sick_date")
+              .eq("user_id", userId)
+              .eq("year", selectedYear);
+            const list = (data ?? []).map((r: any) => r.sick_date as string);
+            setPtoByUser((prev) => ({ ...prev, [userId]: list }));
+          })();
+        }}
         data={{
           userId: previewRow.user_id,
           recruiterEmail: previewEmail,
