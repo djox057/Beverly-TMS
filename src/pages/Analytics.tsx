@@ -4463,7 +4463,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceForPreview = getFoodAllowance(stat.office, stat.userId);
 
                                                 // Check if this is a deleted user
                                                 const isDeletedUserFlag =
@@ -4613,7 +4613,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceForPreview = getFoodAllowance(stat.office, stat.userId);
 
                                                 // Check if this is a deleted user
                                                 const isDeletedUserFlag =
