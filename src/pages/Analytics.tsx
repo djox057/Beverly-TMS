@@ -456,6 +456,18 @@ const Analytics = () => {
 
       // Also fetch all unique booked_by values from orders to include deleted users
       const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
+      // Also fetch historical (dispatcher_name -> user_id) from salary payments so deleted users
+      // still resolve to a real UUID (used by extra-days / lost-days inserts and salary calcs).
+      const { data: salaryHistory } = await supabase
+        .from("dispatcher_salary_payments")
+        .select("dispatcher_name, user_id")
+        .not("user_id", "is", null);
+      const historicalNameToUserId: Record<string, string> = {};
+      (salaryHistory || []).forEach((r: any) => {
+        if (r.dispatcher_name && r.user_id && !historicalNameToUserId[r.dispatcher_name]) {
+          historicalNameToUserId[r.dispatcher_name] = r.user_id;
+        }
+      });
       if (profiles) {
         // Fetch user roles for all users
         const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
@@ -507,16 +519,30 @@ const Analytics = () => {
           const uniqueBookedBy = [...new Set(ordersData.map((o) => o.booked_by).filter(Boolean))];
           uniqueBookedBy.forEach((bookedBy) => {
             if (!profileMap[bookedBy as string]) {
+              const recoveredUserId =
+                historicalNameToUserId[bookedBy as string] || (bookedBy as string);
               // This is a deleted user - add them with minimal info
               profileMap[bookedBy as string] = {
                 email: `${bookedBy}@deleted.user`,
                 office: null,
                 roles: [],
-                user_id: bookedBy as string,
+                user_id: recoveredUserId,
               };
             }
           });
         }
+        // Also surface deleted dispatchers that may not appear in current orders (e.g. only
+        // historical salary rows) so their extra-days popover can resolve a real user_id.
+        Object.entries(historicalNameToUserId).forEach(([name, uid]) => {
+          if (!profileMap[name]) {
+            profileMap[name] = {
+              email: `${name}@deleted.user`,
+              office: null,
+              roles: [],
+              user_id: uid,
+            };
+          }
+        });
         setDispatcherProfiles(profileMap);
 
         // Fetch supervisor assignments
