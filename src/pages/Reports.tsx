@@ -66,6 +66,7 @@ import {
   Building2,
   HeartPulse,
   FileWarning,
+  AlertTriangle,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
