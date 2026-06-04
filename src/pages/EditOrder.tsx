@@ -359,6 +359,9 @@ const EditOrder = () => {
   const [bolFiles, setBolFiles] = useState<FileList | null>(null);
   const [podFiles, setPodFiles] = useState<FileList | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
+  const [weightBol, setWeightBol] = useState<number | null>(null);
+  const [weightRcLoaded, setWeightRcLoaded] = useState<number | null>(null);
+  const [weightBolDialogOpen, setWeightBolDialogOpen] = useState(false);
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
