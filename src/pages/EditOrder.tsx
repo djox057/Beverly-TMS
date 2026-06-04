@@ -2633,6 +2633,7 @@ const EditOrder = () => {
         mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) + (parseInt(additionalMiles) || 0) || null,
         commodity: commodity || null,
         weight: weight ? parseFloat(weight) : null,
+        weight_bol: weightBol,
         reference_number: referenceNumber || null,
         po_number: poNumber || null,
         pu_number: puNumber || null,
