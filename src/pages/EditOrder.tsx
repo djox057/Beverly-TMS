@@ -5241,6 +5241,7 @@ const EditOrder = () => {
       <WeightBolDialog
         open={weightBolDialogOpen}
         defaultValue={weightBol}
+        files={bolFiles}
         onCancel={() => {
           setWeightBolDialogOpen(false);
           // Clear BOL files if user cancels without entering weight
