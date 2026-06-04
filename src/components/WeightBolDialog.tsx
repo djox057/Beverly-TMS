@@ -14,7 +14,6 @@ interface WeightBolDialogProps {
 
 export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files }: WeightBolDialogProps) => {
   const [value, setValue] = useState<string>("");
-  const [panMode, setPanMode] = useState<boolean>(false);
 
   useEffect(() => {
     if (open) {
@@ -75,40 +74,6 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
     }
   };
 
-  // Drag-to-pan for PDF iframes (scrolls the iframe's own contentWindow)
-  const pdfDragRef = useRef<{ iframe: HTMLIFrameElement; startX: number; startY: number; scrollX: number; scrollY: number } | null>(null);
-
-  const handlePdfPanDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    const iframe = e.currentTarget.parentElement?.querySelector("iframe") as HTMLIFrameElement | null;
-    if (!iframe || !iframe.contentWindow) return;
-    pdfDragRef.current = {
-      iframe,
-      startX: e.clientX,
-      startY: e.clientY,
-      scrollX: iframe.contentWindow.scrollX,
-      scrollY: iframe.contentWindow.scrollY,
-    };
-    e.currentTarget.style.cursor = "grabbing";
-    e.preventDefault();
-  };
-
-  const handlePdfPanMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const s = pdfDragRef.current;
-    if (!s || !s.iframe.contentWindow) return;
-    s.iframe.contentWindow.scrollTo(
-      s.scrollX - (e.clientX - s.startX),
-      s.scrollY - (e.clientY - s.startY),
-    );
-  };
-
-  const handlePdfPanEnd = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (pdfDragRef.current) {
-      e.currentTarget.style.cursor = "grab";
-      pdfDragRef.current = null;
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); }}>
       <DialogContent className="max-w-2xl">
@@ -136,19 +101,8 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
         </div>
         {previews.length > 0 && (
           <div className="space-y-2 max-h-[60vh] overflow-auto rounded-md border p-2 bg-muted/30">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-medium text-muted-foreground">
-                Uploaded BOL{previews.length > 1 ? "s" : ""} ({previews.length})
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant={panMode ? "default" : "outline"}
-                onClick={() => setPanMode((v) => !v)}
-                className="h-7 text-xs"
-              >
-                {panMode ? "Pan mode: ON" : "Pan mode: OFF"}
-              </Button>
+            <div className="text-xs font-medium text-muted-foreground">
+              Uploaded BOL{previews.length > 1 ? "s" : ""} ({previews.length})
             </div>
             {previews.map(({ file, url }, i) => {
               const isImage = file.type.startsWith("image/");
@@ -179,16 +133,6 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
                         title={file.name}
                         className="w-full h-full bg-background"
                       />
-                      {panMode && (
-                        <div
-                          className="absolute inset-0 select-none"
-                          style={{ cursor: "grab" }}
-                          onMouseDown={handlePdfPanDown}
-                          onMouseMove={handlePdfPanMove}
-                          onMouseUp={handlePdfPanEnd}
-                          onMouseLeave={handlePdfPanEnd}
-                        />
-                      )}
                     </div>
                   ) : (
                     <a href={url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
