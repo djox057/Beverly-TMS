@@ -186,6 +186,7 @@ const Analytics = () => {
         office: string | null;
         roles: string[];
         user_id: string;
+        created_at?: string | null;
       }
     >
   >({});
