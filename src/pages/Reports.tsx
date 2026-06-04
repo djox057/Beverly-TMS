@@ -131,6 +131,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS, needsScaleTicket } from "@/components/WeightBolDialog";
 import {
   getCompanyBackgroundColor,
   getChicagoToday,
