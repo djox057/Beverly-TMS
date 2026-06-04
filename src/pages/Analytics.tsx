@@ -5219,7 +5219,7 @@ const Analytics = () => {
                             )}
                             {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                               <TableCell className="text-right font-bold">
-                                ${dispatcherStats.reduce((sum, s) => sum + (hasFoodOffice(s.office) ? 70 : 0), 0)}
+                                ${dispatcherStats.reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
                               </TableCell>
                             )}
                             {!isDispatchOnly && <TableCell className="text-right font-bold">—</TableCell>}
