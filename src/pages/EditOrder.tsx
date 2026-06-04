@@ -1697,7 +1697,7 @@ const EditOrder = () => {
   const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
       rc: setRcFiles,
-      bol: setBolFiles,
+      bol: handleSetBolFiles as any,
       pod: setPodFiles,
       additional: setAdditionalFiles,
       email: setEmailFiles,
