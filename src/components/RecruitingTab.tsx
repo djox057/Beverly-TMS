@@ -454,6 +454,13 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     const next = current[field].filter((d) => d !== date);
     const counterField = field === "extra_day_dates" ? "extra_days" : "lost_days";
     updateField(userId, { [field]: next, [counterField]: next.length } as any, 0);
+    // If the removed lost-day was marked as PTO, also remove the PTO entry.
+    if (field === "lost_day_dates") {
+      const ptoList = ptoByUser[userId] ?? [];
+      if (ptoList.includes(date)) {
+        togglePto(userId, date);
+      }
+    }
   };
 
   const monthDisabled = !selectedMonth || selectedMonth === "all";
@@ -565,6 +572,12 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                         dates={row.lost_day_dates}
                         onAdd={(d) => addDayDate(r.user_id, "lost_day_dates", d)}
                         onRemove={(d) => removeDayDate(r.user_id, "lost_day_dates", d)}
+                        pto={{
+                          selected: getMonthPto(r.user_id),
+                          onToggle: (d) => togglePto(r.user_id, d),
+                          yearUsed: getYearPtoCount(r.user_id),
+                          yearMax: MAX_PTO_DAYS_PER_YEAR,
+                        }}
                       />
                       {showCardColumns && (
                         <>
