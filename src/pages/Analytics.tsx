@@ -186,6 +186,7 @@ const Analytics = () => {
         office: string | null;
         roles: string[];
         user_id: string;
+        created_at?: string | null;
       }
     >
   >({});
@@ -288,6 +289,57 @@ const Analytics = () => {
     if (!office) return false;
     const upper = office.toUpperCase();
     return upper === "ČAČAK" || upper === "KRAGUJEVAC";
+  };
+  // Prorate the $70 food allowance based on the user's profile creation date
+  // within the selected month. If created before the month, full $70. If after, $0.
+  // Otherwise: $70 * (working days from creation to end of month / total working days in month).
+  const getFoodAllowance = (
+    office?: string | null,
+    userId?: string | null,
+  ): number => {
+    if (!hasFoodOffice(office)) return 0;
+    const base = 70;
+    if (!selectedMonth || selectedMonth === "all" || !selectedMonth.includes("-"))
+      return base;
+    const [yStr, mStr] = selectedMonth.split("-");
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+    if (isNaN(year) || isNaN(month)) return base;
+    const createdStr = userId ? dispatcherProfiles[userId]?.created_at : null;
+    if (!createdStr) return base;
+    const created = new Date(createdStr);
+    if (isNaN(created.getTime())) return base;
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    if (created <= monthStart) return base;
+    if (created > monthEnd) return 0;
+    const totalWorkDays = getWorkDaysInMonth(year, month - 1);
+    if (totalWorkDays <= 0) return base;
+    const startDay = created.getDate();
+    let userWorkDays = 0;
+    for (let day = startDay; day <= monthEnd.getDate(); day++) {
+      const d = new Date(year, month - 1, day);
+      if (isWeekday(d)) userWorkDays++;
+    }
+    const fixedHolidays = [
+      { m: 0, d: 1 },
+      { m: 5, d: 19 },
+      { m: 6, d: 4 },
+      { m: 10, d: 11 },
+      { m: 11, d: 25 },
+    ];
+    fixedHolidays.forEach((h) => {
+      if (h.m !== month - 1) return;
+      const actual = new Date(year, h.m, h.d);
+      let observed = actual;
+      if (actual.getDay() === 6) observed = new Date(year, h.m, h.d - 1);
+      if (actual.getDay() === 0) observed = new Date(year, h.m, h.d + 1);
+      if (observed.getMonth() !== h.m) return;
+      if (!isWeekday(observed)) return;
+      if (observed.getDate() >= startDay) userWorkDays--;
+    });
+    if (userWorkDays < 0) userWorkDays = 0;
+    return Math.round(((base * userWorkDays) / totalWorkDays) * 100) / 100;
   };
   const [prevMonthPayments, setPrevMonthPayments] = useState<
     Record<
@@ -452,7 +504,7 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
+      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id, created_at");
 
       // Also fetch all unique booked_by values from orders to include deleted users
       const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
@@ -491,6 +543,7 @@ const Analytics = () => {
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
+                created_at: (p as any).created_at ?? null,
               };
             }
             if (p.user_id) {
@@ -499,6 +552,7 @@ const Analytics = () => {
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
+                created_at: (p as any).created_at ?? null,
               };
             }
             return acc;
@@ -510,6 +564,7 @@ const Analytics = () => {
               office: string | null;
               roles: string[];
               user_id: string;
+              created_at?: string | null;
             }
           >,
         );
@@ -4220,7 +4275,7 @@ const Analytics = () => {
                             const ptoCount = stat.userId ? ptoDaysByUser[stat.userId] || 0 : 0;
                             const nonSickLostDays = Math.max(0, lostDays - ptoCount);
                             const daysOffDeduction = nonSickLostDays * perDayRate;
-                            const foodAllowance = hasFoodOffice(stat.office) ? 70 : 0;
+                            const foodAllowance = getFoodAllowance(stat.office, stat.userId);
 
                             // Store base rate for carry-over calculations (includes recovery bonus so
                             // bulk "Mark as paid" settles the full amount)
@@ -4339,7 +4394,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceAmount = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceAmount = getFoodAllowance(stat.office, stat.userId);
                                                 downloadPayrollDoc(
                                                   {
                                                     employeeName: stat.name,
@@ -4408,7 +4463,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceForPreview = getFoodAllowance(stat.office, stat.userId);
 
                                                 // Check if this is a deleted user
                                                 const isDeletedUserFlag =
@@ -4558,7 +4613,7 @@ const Analytics = () => {
 
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
-                                                const foodAllowanceForPreview = hasFoodAllowance ? 70 : 0;
+                                                const foodAllowanceForPreview = getFoodAllowance(stat.office, stat.userId);
 
                                                 // Check if this is a deleted user
                                                 const isDeletedUserFlag =
@@ -5003,7 +5058,7 @@ const Analytics = () => {
                                 )}
                                 {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                                   <TableCell className="text-right">
-                                    {hasFoodOffice(stat.office) ? "$70" : "$0"}
+                                    ${getFoodAllowance(stat.office, stat.userId).toFixed(2)}
                                   </TableCell>
                                 )}
                                 {!isDispatchOnly && (
@@ -5164,7 +5219,7 @@ const Analytics = () => {
                             )}
                             {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                               <TableCell className="text-right font-bold">
-                                ${dispatcherStats.reduce((sum, s) => sum + (hasFoodOffice(s.office) ? 70 : 0), 0)}
+                                ${dispatcherStats.reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
                               </TableCell>
                             )}
                             {!isDispatchOnly && <TableCell className="text-right font-bold">—</TableCell>}
@@ -5245,7 +5300,7 @@ const Analytics = () => {
                               const ptoCount = ptoDaysByUser[stat.userId] || 0;
                               const nonSickLostDays = Math.max(0, lostDays - ptoCount);
                               const daysOffDeduction = nonSickLostDays * perDayRate;
-                              const foodAllowance = (stat.office === "BG 1st floor" || stat.office === "BG 4th floor") ? 0 : 70;
+                              const foodAllowance = getFoodAllowance(stat.office, stat.userId);
                               const bonusAmt = dispatcherBonuses[stat.userId]?.amount ?? 0;
                               const payment = salaryPayments[stat.userId];
                               const adjRaw = payment?.additionals as any[] | null;
