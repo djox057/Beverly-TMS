@@ -2939,16 +2939,8 @@ const EditOrder = () => {
             variant: "destructive",
           });
         }
-        if (weightBol >= SCALE_TICKET_THRESHOLD_LBS) {
-          const hasAdditional = existingFiles.some((f: any) => (f.file_category || "").toUpperCase() === "ADDITIONAL");
-          if (!hasAdditional) {
-            toast({
-              title: "Scale ticket required",
-              description: `BOL weight is ${weightBol.toLocaleString()} lbs (≥ ${SCALE_TICKET_THRESHOLD_LBS.toLocaleString()}). Please upload a scale ticket as an Additional file.`,
-              variant: "destructive",
-            });
-          }
-        }
+        // Scale ticket reminder is surfaced via the Reports grid indicator (needsScaleTicket).
+        // Scale ticket can be uploaded later as an Additional file — do not block here.
       }
 
       // Update original delivery date if it was changed to prevent duplicate notes
