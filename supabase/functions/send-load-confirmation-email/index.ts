@@ -124,6 +124,25 @@ const handler = async (req: Request): Promise<Response> => {
     // Build email HTML with escaped bodyText
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <div style="border: 1px solid #1d4ed8; background-color: #eff6ff; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <p style="font-size: 15px; font-weight: bold; color: #1e3a8a; margin: 0 0 10px 0;">
+            Daily Limits at Gas Stations
+          </p>
+          <ul style="font-size: 14px; color: #1e3a8a; margin: 0 0 12px 0; padding-left: 20px;">
+            <li>Love&rsquo;s &ndash; 250 gallons</li>
+            <li>TA/Petro &ndash; 250 gallons</li>
+            <li>Road Ranger &ndash; 250 gallons</li>
+            <li>Pilot, Flying J, and other smaller truck stops &ndash; 50 gallons <em>(diesel only, DEFD is not available, and fuel discounts do not apply at these locations)</em></li>
+          </ul>
+          <div style="border-top: 1px solid #bfdbfe; margin-top: 12px; padding-top: 12px;">
+            <p style="font-size: 15px; font-weight: bold; color: #1e3a8a; margin: 0 0 8px 0;">
+              Scale Services
+            </p>
+            <p style="font-size: 14px; color: #1e3a8a; margin: 0;">
+              Scale services can be used at Love&rsquo;s, TA/Petro, and Road Ranger locations. At this time, scale tickets are available at the standard location rates, as we currently do not have a discount program for scale services.
+            </p>
+          </div>
+        </div>
         <p style="font-size: 16px; color: #333;">
           ${escapeHtml(bodyText)}
         </p>
