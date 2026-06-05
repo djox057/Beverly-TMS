@@ -229,13 +229,13 @@ Return ONLY valid JSON. No markdown, no explanations.`;
 
     let aiData;
     let candidate;
-    let modelUsed = "gemini-2.5-flash-lite";
+    let modelUsed = "gemini-flash-lite-latest";
 
     for (let attempt = 1; attempt <= 2; attempt++) {
       const modelEndpoint =
-        attempt === 1 ? "gemini-2.5-flash-lite:generateContent" : "gemini-2.5-flash:generateContent";
+        attempt === 1 ? "gemini-flash-lite-latest:generateContent" : "gemini-flash-latest:generateContent";
 
-      modelUsed = attempt === 1 ? "gemini-2.5-flash-lite" : "gemini-2.5-flash";
+      modelUsed = attempt === 1 ? "gemini-flash-lite-latest" : "gemini-flash-latest";
       console.log(`Attempt ${attempt}: Using ${modelUsed}`);
 
       const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}`, {
