@@ -854,6 +854,10 @@ const Reports = () => {
   const [proximitySearching, setProximitySearching] = useState(false);
   const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const groupedReportsRef = useRef(groupedReports);
+  useEffect(() => {
+    groupedReportsRef.current = groupedReports;
+  }, [groupedReports]);
 
   // Proximity search effect - debounced 500ms, triggers geocode + haversine filter
   useEffect(() => {
@@ -888,7 +892,7 @@ const Reports = () => {
         };
 
         const matched = new Map<string, number>();
-        const allGroups = groupedReports || [];
+        const allGroups = groupedReportsRef.current || [];
         for (const group of allGroups) {
           for (const truck of group.trucks) {
             const sortedOrders = (truck.allOrders || [])
@@ -923,7 +927,7 @@ const Reports = () => {
     return () => {
       if (proximityDebounceRef.current) clearTimeout(proximityDebounceRef.current);
     };
-  }, [proximityAddress, groupedReports]);
+  }, [proximityAddress]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
 
