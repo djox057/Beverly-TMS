@@ -38,7 +38,11 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
   }, [previews]);
 
   const handleConfirm = () => {
-    const num = parseFloat(value);
+    // Weights are whole pounds. Strip any thousands separators (commas, dots,
+    // spaces) so inputs like "44,009" or "44.009" parse as 44009 instead of 44.
+    const cleaned = value.replace(/[^\d]/g, "");
+    if (!cleaned) return;
+    const num = parseInt(cleaned, 10);
     if (isNaN(num) || num < 0) return;
     onConfirm(num);
   };
@@ -89,7 +93,7 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
             id="weight-bol-input"
             type="number"
             min={0}
-            step="any"
+            step="1"
             autoFocus
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -146,7 +150,7 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={!value || isNaN(parseFloat(value))}>
+          <Button onClick={handleConfirm} disabled={!value.replace(/[^\d]/g, "")}>
             Save
           </Button>
         </DialogFooter>
