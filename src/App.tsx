@@ -234,7 +234,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/transfer-list" element={
-          <ProtectedRoute>
+          <ProtectedRoute excludedRoles={['yard']}>
             <Layout><TransferList /></Layout>
           </ProtectedRoute>
         } />
