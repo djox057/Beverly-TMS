@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search, Languages } from "lucide-react";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +39,7 @@ interface YardAction {
   driver_id: string;
   action_type: "maintenance" | "return_truck" | "safety" | "recovery";
   comment: string;
+  comment_eng: string | null;
   created_at: string;
   arrival_datetime: string | null;
   created_by: string | null;
