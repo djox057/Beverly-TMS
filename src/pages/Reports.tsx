@@ -1510,6 +1510,51 @@ const Reports = () => {
         return { ...prev, orderFiles: updatedOrderFiles, documents: updatedDocuments };
       });
 
+      // Optimistically inject new order_files into the reports + orders caches so
+      // grid indicators (e.g. scale-ticket warning) update immediately without
+      // waiting for the next realtime/refetch cycle.
+      {
+        const targetOrderId = zoomedLoad.orderId;
+        const docType = uploadDocType;
+        const syntheticFiles = uploadFiles.map((file, i) => ({
+          id: `temp-upload-${Date.now()}-${i}`,
+          file_name: file.name,
+          file_path: `${targetOrderId}/${docType}/${file.name}`,
+          file_category: docType,
+        }));
+
+        // Reports cache (truck rows with allOrders)
+        const reportsCacheKeys = [["reports", "priority"], ["reports", "full"], ["reports"]];
+        for (const key of reportsCacheKeys) {
+          queryClient.setQueriesData({ queryKey: key }, (oldData: any) => {
+            if (!oldData || !Array.isArray(oldData)) return oldData;
+            return oldData.map((truck: any) => {
+              if (!truck?.allOrders) return truck;
+              return {
+                ...truck,
+                allOrders: truck.allOrders.map((o: any) => {
+                  if (o.id !== targetOrderId) return o;
+                  return { ...o, order_files: [...(o.order_files || []), ...syntheticFiles] };
+                }),
+              };
+            });
+          });
+        }
+
+        // Orders cache (flat list used by other views)
+        queryClient.setQueriesData({ queryKey: ["orders"] }, (oldData: any) => {
+          if (!oldData || !Array.isArray(oldData)) return oldData;
+          return oldData.map((o: any) => {
+            if (o.id !== targetOrderId) return o;
+            return { ...o, order_files: [...(o.order_files || []), ...syntheticFiles] };
+          });
+        });
+
+        // Invalidate so a fresh fetch replaces synthetic entries with real ones.
+        queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
+        queryClient.invalidateQueries({ queryKey: ["orders"], exact: false });
+      }
+
       // Close dialog and reset state
       setUploadDialogOpen(false);
       setUploadFiles([]);
