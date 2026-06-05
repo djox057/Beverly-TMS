@@ -376,13 +376,24 @@ export default function YardArrivals() {
     if (!actionToEdit) return;
 
     try {
+      const commentChanged = editForm.comment !== actionToEdit.comment;
       await supabase
         .from("driver_yard_actions")
         .update({
           arrival_datetime: editForm.arrival_datetime,
           comment: editForm.comment,
+          ...(commentChanged ? { comment_eng: null } : {}),
         })
         .eq("id", actionToEdit.id);
+
+      if (commentChanged && editForm.comment.trim()) {
+        supabase.functions
+          .invoke("translate-yard-note", {
+            body: { id: actionToEdit.id, text: editForm.comment.trim() },
+          })
+          .then(() => queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] }))
+          .catch((e) => console.error("translate-yard-note failed:", e));
+      }
 
       toast({
         title: "Yard arrival updated",
