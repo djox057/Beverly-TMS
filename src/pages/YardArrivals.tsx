@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search, Languages } from "lucide-react";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -34,11 +34,65 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 
+function TranslatableComment({ actionId, comment, commentEng }: { actionId: string; comment: string; commentEng: string | null }) {
+  const [showEng, setShowEng] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(commentEng);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Sync when commentEng prop changes (e.g. after background fetch refresh)
+  if (commentEng && commentEng !== translation && !loading) {
+    setTranslation(commentEng);
+  }
+
+  const handleToggle = async () => {
+    if (!showEng && !translation && comment.trim()) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("translate-yard-note", {
+          body: { id: actionId, text: comment.trim() },
+        });
+        if (error) throw error;
+        if (data?.translation) setTranslation(data.translation);
+        queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+      } catch (e) {
+        console.error("translate-yard-note failed:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setShowEng((v) => !v);
+  };
+
+  return (
+    <div className="border rounded-md p-2 bg-background/50 relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 absolute top-1 right-1"
+        onClick={handleToggle}
+        title={showEng ? "Show original" : "Show English translation"}
+      >
+        {loading ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Languages className={`h-3 w-3 ${showEng ? "text-primary" : "text-muted-foreground"}`} />
+        )}
+      </Button>
+      <p className="text-sm break-words whitespace-pre-wrap pr-6">
+        {showEng ? (translation || (loading ? "Translating..." : comment)) : comment}
+      </p>
+    </div>
+  );
+}
+
 interface YardAction {
   id: string;
   driver_id: string;
   action_type: "maintenance" | "return_truck" | "safety" | "recovery";
   comment: string;
+  comment_eng: string | null;
   created_at: string;
   arrival_datetime: string | null;
   created_by: string | null;
@@ -118,6 +172,7 @@ export default function YardArrivals() {
           driver_id,
           action_type,
           comment,
+          comment_eng,
           created_at,
           arrival_datetime,
           created_by,
@@ -374,13 +429,24 @@ export default function YardArrivals() {
     if (!actionToEdit) return;
 
     try {
+      const commentChanged = editForm.comment !== actionToEdit.comment;
       await supabase
         .from("driver_yard_actions")
         .update({
           arrival_datetime: editForm.arrival_datetime,
           comment: editForm.comment,
+          ...(commentChanged ? { comment_eng: null } : {}),
         })
         .eq("id", actionToEdit.id);
+
+      if (commentChanged && editForm.comment.trim()) {
+        supabase.functions
+          .invoke("translate-yard-note", {
+            body: { id: actionToEdit.id, text: editForm.comment.trim() },
+          })
+          .then(() => queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] }))
+          .catch((e) => console.error("translate-yard-note failed:", e));
+      }
 
       toast({
         title: "Yard arrival updated",
@@ -865,9 +931,7 @@ export default function YardArrivals() {
                             </div>
                             <div>
                               <p className="text-sm font-medium mb-1">Reason:</p>
-                              <div className="border rounded-md p-2 bg-background/50">
-                                <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                              </div>
+                              <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
                             </div>
                           </div>
                        ))}
@@ -972,9 +1036,7 @@ export default function YardArrivals() {
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
-                            <div className="border rounded-md p-2 bg-background/50">
-                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                            </div>
+                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
                           </div>
                         </div>
                        ))}
@@ -1089,9 +1151,7 @@ export default function YardArrivals() {
                               <XCircle className="h-3 w-3" />
                             </Button>
                           </div>
-                          <div className="border rounded-md p-2 bg-background/50">
-                            <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                          </div>
+                          <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
                         </div>
                        ))}
                      </div>
@@ -1194,9 +1254,7 @@ export default function YardArrivals() {
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
-                            <div className="border rounded-md p-2 bg-background/50">
-                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                            </div>
+                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
                           </div>
                         </div>
                        ))}

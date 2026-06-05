@@ -6497,15 +6497,19 @@ const Reports = () => {
                   const isTeam = !!yardActionDialog.driver2Id;
 
                   // Insert single yard action (for teams, only create one with is_team flag)
-                  const { error: insertError } = await supabase.from("driver_yard_actions").insert({
-                    driver_id: yardActionDialog.driverId,
-                    action_type: yardActionType,
-                    comment: yardActionComment.trim(),
-                    arrival_datetime: yardActionDatetime.toISOString(),
-                    created_by: profile?.user_id,
-                    is_team: isTeam,
-                    truck_number: yardActionDialog.truckNumber || null,
-                  });
+                  const { data: insertedAction, error: insertError } = await supabase
+                    .from("driver_yard_actions")
+                    .insert({
+                      driver_id: yardActionDialog.driverId,
+                      action_type: yardActionType,
+                      comment: yardActionComment.trim(),
+                      arrival_datetime: yardActionDatetime.toISOString(),
+                      created_by: profile?.user_id,
+                      is_team: isTeam,
+                      truck_number: yardActionDialog.truckNumber || null,
+                    })
+                    .select("id")
+                    .single();
 
                   if (insertError) {
                     toast({
@@ -6514,6 +6518,15 @@ const Reports = () => {
                       variant: "destructive",
                     });
                     return;
+                  }
+
+                  // Fire-and-forget translation of the comment (Serbian -> English)
+                  if (insertedAction?.id) {
+                    supabase.functions
+                      .invoke("translate-yard-note", {
+                        body: { id: insertedAction.id, text: yardActionComment.trim() },
+                      })
+                      .catch((e) => console.error("translate-yard-note failed:", e));
                   }
 
                   const { error: updateError } = await supabase

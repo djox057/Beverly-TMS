@@ -1,0 +1,1 @@
+ALTER TABLE public.driver_yard_actions ADD COLUMN IF NOT EXISTS comment_eng text;

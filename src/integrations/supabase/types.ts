@@ -1947,6 +1947,7 @@ export type Database = {
           action_type: string
           arrival_datetime: string | null
           comment: string
+          comment_eng: string | null
           created_at: string
           created_by: string | null
           driver_id: string
@@ -1960,6 +1961,7 @@ export type Database = {
           action_type: string
           arrival_datetime?: string | null
           comment: string
+          comment_eng?: string | null
           created_at?: string
           created_by?: string | null
           driver_id: string
@@ -1973,6 +1975,7 @@ export type Database = {
           action_type?: string
           arrival_datetime?: string | null
           comment?: string
+          comment_eng?: string | null
           created_at?: string
           created_by?: string | null
           driver_id?: string
