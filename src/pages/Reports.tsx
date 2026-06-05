@@ -7409,6 +7409,44 @@ const Reports = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
+            {/* Fuel & Scale Info */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <h3 className="text-lg font-semibold mb-3 text-primary">Daily Limits at Gas Stations</h3>
+              <ul className="space-y-1.5 text-sm">
+                <li className="flex justify-between gap-4 border-b border-border/50 pb-1.5">
+                  <span className="font-medium">Love's</span>
+                  <span className="text-muted-foreground">250 gallons</span>
+                </li>
+                <li className="flex justify-between gap-4 border-b border-border/50 pb-1.5">
+                  <span className="font-medium">TA / Petro</span>
+                  <span className="text-muted-foreground">250 gallons</span>
+                </li>
+                <li className="flex justify-between gap-4 border-b border-border/50 pb-1.5">
+                  <span className="font-medium">Road Ranger</span>
+                  <span className="text-muted-foreground">250 gallons</span>
+                </li>
+                <li className="flex flex-col gap-1 pt-1">
+                  <div className="flex justify-between gap-4">
+                    <span className="font-medium">Pilot, Flying J & other smaller truck stops</span>
+                    <span className="text-muted-foreground whitespace-nowrap">50 gallons</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground italic">
+                    Diesel only — DEF is not available, and fuel discounts do not apply at these locations.
+                  </span>
+                </li>
+              </ul>
+              <div className="mt-4 pt-3 border-t border-border">
+                <h4 className="text-sm font-semibold mb-1">Scale Services</h4>
+                <p className="text-sm text-muted-foreground">
+                  Available at <span className="font-medium text-foreground">Love's</span>,{" "}
+                  <span className="font-medium text-foreground">TA/Petro</span>, and{" "}
+                  <span className="font-medium text-foreground">Road Ranger</span> locations. Scale tickets
+                  are charged at standard location rates — there is currently no discount program for scale
+                  services.
+                </p>
+              </div>
+            </div>
+
             {/* Company Colors Section */}
             <div>
               <h3 className="text-lg font-semibold mb-3">Company Colors (Truck #)</h3>
