@@ -119,6 +119,7 @@ export default function YardArrivals() {
           driver_id,
           action_type,
           comment,
+          comment_eng,
           created_at,
           arrival_datetime,
           created_by,
