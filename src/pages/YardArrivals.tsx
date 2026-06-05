@@ -34,8 +34,8 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 
-function TranslatableComment({ actionId, comment, commentEng }: { actionId: string; comment: string; commentEng: string | null }) {
-  const [showEng, setShowEng] = useState(false);
+function TranslatableComment({ actionId, comment, commentEng, defaultEnglish = false, showTranslateButton = true }: { actionId: string; comment: string; commentEng: string | null; defaultEnglish?: boolean; showTranslateButton?: boolean }) {
+  const [showEng, setShowEng] = useState(defaultEnglish);
   const [translation, setTranslation] = useState<string | null>(commentEng);
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
@@ -66,21 +66,23 @@ function TranslatableComment({ actionId, comment, commentEng }: { actionId: stri
 
   return (
     <div className="border rounded-md p-2 bg-background/50 relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-5 w-5 absolute top-1 right-1"
-        onClick={handleToggle}
-        title={showEng ? "Show original" : "Show English translation"}
-      >
-        {loading ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <Languages className={`h-3 w-3 ${showEng ? "text-primary" : "text-muted-foreground"}`} />
-        )}
-      </Button>
-      <p className="text-sm break-words whitespace-pre-wrap pr-6">
+      {showTranslateButton && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 absolute top-1 right-1"
+          onClick={handleToggle}
+          title={showEng ? "Show original" : "Show English translation"}
+        >
+          {loading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Languages className={`h-3 w-3 ${showEng ? "text-primary" : "text-muted-foreground"}`} />
+          )}
+        </Button>
+      )}
+      <p className={`text-sm break-words whitespace-pre-wrap ${showTranslateButton ? "pr-6" : ""}`}>
         {showEng ? (translation || (loading ? "Translating..." : comment)) : comment}
       </p>
     </div>
