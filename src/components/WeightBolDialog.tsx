@@ -91,12 +91,12 @@ export const WeightBolDialog = ({ open, onCancel, onConfirm, defaultValue, files
           <Label htmlFor="weight-bol-input">Weight (lbs)</Label>
           <Input
             id="weight-bol-input"
-            type="number"
-            min={0}
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             autoFocus
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleConfirm();
             }}
