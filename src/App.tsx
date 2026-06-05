@@ -233,11 +233,11 @@ const AppContent = () => {
             <Billboard />
           </ProtectedRoute>
         } />
-        <Route path="/transfer-list" element={
+        {/* <Route path="/transfer-list" element={
           <ProtectedRoute excludedRoles={['yard']}>
             <Layout><TransferList /></Layout>
           </ProtectedRoute>
-        } />
+        } /> */}
         <Route path="/turnover-list" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><TurnoverList /></Layout>
