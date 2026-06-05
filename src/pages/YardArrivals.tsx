@@ -1039,7 +1039,7 @@ export default function YardArrivals() {
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
-                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
+                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={!isYardRole} />
                           </div>
                         </div>
                        ))}
@@ -1154,7 +1154,7 @@ export default function YardArrivals() {
                               <XCircle className="h-3 w-3" />
                             </Button>
                           </div>
-                          <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
+                          <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={!isYardRole} />
                         </div>
                        ))}
                      </div>
@@ -1257,7 +1257,7 @@ export default function YardArrivals() {
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
-                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
+                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={!isYardRole} />
                           </div>
                         </div>
                        ))}
