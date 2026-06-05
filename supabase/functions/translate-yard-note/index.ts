@@ -50,7 +50,7 @@ serve(async (req) => {
     const prompt = `Translate the following Serbian text to English. Return ONLY the translated English text with no quotes, no explanations, no prefixes. If the text is already in English, return it unchanged.\n\nText:\n${text}`;
 
     const aiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
       {
         method: "POST",
         headers: {

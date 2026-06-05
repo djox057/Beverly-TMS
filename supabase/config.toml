@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.send-final-update]
 verify_jwt = false
+
+[functions.translate-yard-note]
+verify_jwt = false
