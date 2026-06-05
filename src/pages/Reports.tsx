@@ -2654,8 +2654,10 @@ const Reports = () => {
                           );
                         const isFirstDeliveryOfOrder =
                           !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
+                        const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
                         const showScaleTicketWarning =
                           isFirstDeliveryOfOrder &&
+                          !hasPOD &&
                           needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                         return (
                           <div
@@ -2794,8 +2796,10 @@ const Reports = () => {
                               );
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
+                            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
                             const showScaleTicketWarning =
                               isFirstPickupOfOrder &&
+                              !hasPOD &&
                               needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
@@ -2866,8 +2870,10 @@ const Reports = () => {
                               );
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
+                            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
                             const showScaleTicketWarning =
                               isFirstPickupOfOrder &&
+                              !hasPOD &&
                               needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
