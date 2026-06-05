@@ -131,6 +131,7 @@ export default function YardArrivals() {
   const { hasRole } = useAuthContext();
   const canEditDriver = hasRole('admin') || hasRole('manager');
   const canRemoveYardArrival = hasRole('admin') || hasRole('manager');
+  const isYardRole = hasRole('yard');
   
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string; isTeam: boolean } | null>(null);
