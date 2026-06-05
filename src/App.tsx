@@ -42,7 +42,7 @@ import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
 import DailyReport from "./pages/DailyReport";
 import Billboard from "./pages/Billboard";
-import TransferList from "./pages/TransferList";
+// import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
 import TruckSales from "./pages/TruckSales";
