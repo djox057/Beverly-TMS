@@ -2600,7 +2600,7 @@ const Reports = () => {
                           >
                             {showScaleTicketWarning && (
                               <div
-                                className="absolute top-0 right-0 z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none"
+                                className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                 style={{ width: 12, height: 12 }}
                                 title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                               >
@@ -2668,7 +2668,7 @@ const Reports = () => {
                           >
                             {showScaleTicketWarning && (
                               <div
-                                className="absolute top-0 right-0 z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none"
+                                className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                 style={{ width: 12, height: 12 }}
                                 title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                               >
@@ -2810,7 +2810,7 @@ const Reports = () => {
                               >
                                 {showScaleTicketWarning && (
                                   <div
-                                    className="absolute top-0 right-0 z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none"
+                                    className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                     style={{ width: 12, height: 12 }}
                                     title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                                   >
