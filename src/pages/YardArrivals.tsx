@@ -34,6 +34,59 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 
+function TranslatableComment({ actionId, comment, commentEng }: { actionId: string; comment: string; commentEng: string | null }) {
+  const [showEng, setShowEng] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(commentEng);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Sync when commentEng prop changes (e.g. after background fetch refresh)
+  if (commentEng && commentEng !== translation && !loading) {
+    setTranslation(commentEng);
+  }
+
+  const handleToggle = async () => {
+    if (!showEng && !translation && comment.trim()) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("translate-yard-note", {
+          body: { id: actionId, text: comment.trim() },
+        });
+        if (error) throw error;
+        if (data?.translation) setTranslation(data.translation);
+        queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+      } catch (e) {
+        console.error("translate-yard-note failed:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setShowEng((v) => !v);
+  };
+
+  return (
+    <div className="border rounded-md p-2 bg-background/50 relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 absolute top-1 right-1"
+        onClick={handleToggle}
+        title={showEng ? "Show original" : "Show English translation"}
+      >
+        {loading ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Languages className={`h-3 w-3 ${showEng ? "text-primary" : "text-muted-foreground"}`} />
+        )}
+      </Button>
+      <p className="text-sm break-words whitespace-pre-wrap pr-6">
+        {showEng ? (translation || (loading ? "Translating..." : comment)) : comment}
+      </p>
+    </div>
+  );
+}
+
 interface YardAction {
   id: string;
   driver_id: string;
