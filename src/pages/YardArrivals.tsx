@@ -1254,9 +1254,7 @@ export default function YardArrivals() {
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
-                            <div className="border rounded-md p-2 bg-background/50">
-                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                            </div>
+                            <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} />
                           </div>
                         </div>
                        ))}
