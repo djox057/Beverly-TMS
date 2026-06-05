@@ -6782,7 +6782,7 @@ const Reports = () => {
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
 
-          {zoomedLoad && needsScaleTicket(zoomedLoad.weightBol, zoomedLoad.orderFiles) && (
+          {zoomedLoad && !zoomedLoad.documents.includes("POD") && needsScaleTicket(zoomedLoad.weightBol, zoomedLoad.orderFiles) && (
             <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-md border-2 border-yellow-500 bg-yellow-500/10">
               <div className="flex items-center gap-2 text-sm">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
