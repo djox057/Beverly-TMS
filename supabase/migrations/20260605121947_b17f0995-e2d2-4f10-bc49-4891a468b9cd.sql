@@ -1,0 +1,1 @@
+UPDATE public.orders SET weight_bol = 44009 WHERE load_number = '1156635' AND weight_bol = 44.009;
