@@ -78,7 +78,7 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
-  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours', 'yard'] },
+  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management', 'dispatch'] },
@@ -278,7 +278,7 @@ export const Sidebar = () => {
     
     // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
     if (hasRole('yard')) {
-      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/transfer-list', '/roadside-inspection'];
+      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/roadside-inspection'];
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
