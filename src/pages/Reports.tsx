@@ -132,7 +132,12 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
-import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS, needsScaleTicket } from "@/components/WeightBolDialog";
+import {
+  WeightBolDialog,
+  getWeightDiscrepancyWarning,
+  SCALE_TICKET_THRESHOLD_LBS,
+  needsScaleTicket,
+} from "@/components/WeightBolDialog";
 import { ScaleTicketDialog } from "@/components/ScaleTicketDialog";
 import {
   getCompanyBackgroundColor,
@@ -250,11 +255,7 @@ const EditableNoteField = ({
   const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
   // Gold during final-update window unless already sent today; otherwise purple if has content
   const showGold = !!isFinalUpdateWindow && !isFinalUpdateSent;
-  const bgClass = showGold
-    ? "bg-yellow-400/30"
-    : hasContent
-    ? "bg-purple-500/20"
-    : "bg-transparent";
+  const bgClass = showGold ? "bg-yellow-400/30" : hasContent ? "bg-purple-500/20" : "bg-transparent";
   const handleBlur = async () => {
     if (localValue !== value) {
       setIsSaving(true);
@@ -350,7 +351,9 @@ MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
   if (!searchTerm || !order) return false;
   const term = searchTerm.toLowerCase();
-  const brokerMatch = String(order.broker_load_number || "").toLowerCase().includes(term);
+  const brokerMatch = String(order.broker_load_number || "")
+    .toLowerCase()
+    .includes(term);
   if (brokerMatch) return true;
   const internalLoadNumber = order.internal_load_number;
   const companyName = order.company?.name || order.driver1?.company?.name;
@@ -481,8 +484,7 @@ const Reports = () => {
 
   // Map the virtual "BG" tab to the real underlying office values.
   const expandOffice = useCallback(
-    (tab: string): string[] =>
-      tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab],
+    (tab: string): string[] => (tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab]),
     [useCombinedBgTab],
   );
 
@@ -591,12 +593,14 @@ const Reports = () => {
   // clears it when the load filter is emptied.
   useEffect(() => {
     if (!spotlightDriverId || !groupedReports) return;
-    const present = groupedReports.some((g: any) =>
-      Array.isArray(g?.trucks) && g.trucks.some((t: any) => {
-        const d1 = t?.driver1?.id || t?.driver1Id || t?.driver_id;
-        const d2 = t?.driver2?.id || t?.driver2Id;
-        return d1 === spotlightDriverId || d2 === spotlightDriverId;
-      })
+    const present = groupedReports.some(
+      (g: any) =>
+        Array.isArray(g?.trucks) &&
+        g.trucks.some((t: any) => {
+          const d1 = t?.driver1?.id || t?.driver1Id || t?.driver_id;
+          const d2 = t?.driver2?.id || t?.driver2Id;
+          return d1 === spotlightDriverId || d2 === spotlightDriverId;
+        }),
     );
     if (present) setSpotlightDriverId(null);
   }, [spotlightDriverId, groupedReports]);
@@ -749,9 +753,7 @@ const Reports = () => {
 
   useEffect(() => {
     const computeWindow = () => {
-      const chicagoNow = new Date(
-        new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }),
-      );
+      const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
       const minutes = chicagoNow.getHours() * 60 + chicagoNow.getMinutes();
       const inWindow = minutes >= 15 * 60 + 45 && minutes < 16 * 60 + 30;
       setIsFinalUpdateWindow(inWindow);
@@ -777,10 +779,7 @@ const Reports = () => {
     if (!finalUpdateDate) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("final_update_sends")
-        .select("truck_id")
-        .eq("send_date", finalUpdateDate);
+      const { data } = await supabase.from("final_update_sends").select("truck_id").eq("send_date", finalUpdateDate);
       if (cancelled || !data) return;
       setFinalUpdateSentTruckIds(new Set(data.map((r: any) => r.truck_id)));
     })();
@@ -1133,95 +1132,98 @@ const Reports = () => {
   };
 
   // Helper to get all load details for zoom dialog - uses cached data, no DB call needed
-  const getLoadDetailsForZoom = useCallback((orderId: string, truck: any) => {
-    const order = truck.allOrders?.find((o: any) => o.id === orderId);
-    if (!order) return null;
+  const getLoadDetailsForZoom = useCallback(
+    (orderId: string, truck: any) => {
+      const order = truck.allOrders?.find((o: any) => o.id === orderId);
+      if (!order) return null;
 
-    // Build driver names from driver1Name and driver2Name
-    let driverNames = truck.driver1Name || "";
-    if (truck.driver2Name) {
-      driverNames = driverNames ? `${driverNames} / ${truck.driver2Name}` : truck.driver2Name;
-    }
+      // Build driver names from driver1Name and driver2Name
+      let driverNames = truck.driver1Name || "";
+      if (truck.driver2Name) {
+        driverNames = driverNames ? `${driverNames} / ${truck.driver2Name}` : truck.driver2Name;
+      }
 
-    // Helper to convert to number
-    const toNum = (val: any): number => {
-      if (val === null || val === undefined) return 0;
-      const num = Number(val);
-      return Number.isFinite(num) ? num : 0;
-    };
+      // Helper to convert to number
+      const toNum = (val: any): number => {
+        if (val === null || val === undefined) return 0;
+        const num = Number(val);
+        return Number.isFinite(num) ? num : 0;
+      };
 
-    // Calculate financial totals from cached order data
-    // Late fee, no tracking fee, wrong address fee, other charges SUBTRACT from freight
-    const freightAmount =
-      toNum(order.freight_amount) +
-      toNum(order.detention) +
-      toNum(order.layover) +
-      toNum(order.tonu) +
-      toNum(order.extra_stop) +
-      toNum(order.lumper) -
-      toNum(order.late_fee) -
-      toNum(order.no_tracking_fee) -
-      toNum(order.wrong_address_fee) +
-      toNum(order.escort_fee) -
-      toNum(order.other_charges);
+      // Calculate financial totals from cached order data
+      // Late fee, no tracking fee, wrong address fee, other charges SUBTRACT from freight
+      const freightAmount =
+        toNum(order.freight_amount) +
+        toNum(order.detention) +
+        toNum(order.layover) +
+        toNum(order.tonu) +
+        toNum(order.extra_stop) +
+        toNum(order.lumper) -
+        toNum(order.late_fee) -
+        toNum(order.no_tracking_fee) -
+        toNum(order.wrong_address_fee) +
+        toNum(order.escort_fee) -
+        toNum(order.other_charges);
 
-    const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
+      const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
 
-    // Late fee, no tracking fee, wrong address fee SUBTRACT from driver pay (penalties)
-    const driverPay =
-      toNum(order.driver_price) +
-      toNum(order.detention_driver) +
-      toNum(order.layover_driver) +
-      toNum(order.tonu_driver) +
-      toNum(order.extra_stop_driver) +
-      toNum(order.lumper_driver) -
-      toNum(order.late_fee_driver) -
-      toNum(order.no_tracking_fee_driver) -
-      toNum(order.wrong_address_fee_driver) -
-      toNum(order.other_charges_driver) +
-      toNum(order.other_additionals_driver);
+      // Late fee, no tracking fee, wrong address fee SUBTRACT from driver pay (penalties)
+      const driverPay =
+        toNum(order.driver_price) +
+        toNum(order.detention_driver) +
+        toNum(order.layover_driver) +
+        toNum(order.tonu_driver) +
+        toNum(order.extra_stop_driver) +
+        toNum(order.lumper_driver) -
+        toNum(order.late_fee_driver) -
+        toNum(order.no_tracking_fee_driver) -
+        toNum(order.wrong_address_fee_driver) -
+        toNum(order.other_charges_driver) +
+        toNum(order.other_additionals_driver);
 
-    return {
-      orderId: order.id,
-      loadNumber: order.loadDetails.loadNumber,
-      brokerLoadNumber: order.loadDetails.brokerLoadNumber,
-      allPickupStops: order.pickupStops || [],
-      allDeliveryStops: order.deliveryStops || [],
-      documents: (order.loadDetails.documents || []).map((d: any) => d.category),
-      orderFiles: (order.order_files || []).map((f: any) => ({
-        id: f.id,
-        file_name: f.file_name,
-        file_path: f.file_path,
-        file_category: f.file_category,
-      })),
-      notes: order.loadDetails.notes,
-      truckNumber: truck.truckNumber,
-      driverNames: driverNames || "Unassigned",
-      companyName: truck.companyName || "",
-      internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
-      freightAmount,
-      loadedMiles,
-      dhMiles: toNum(order.dh_miles),
-      driverPay,
-      canceled: order.canceled || false,
-      bookedBy: order.booked_by || "",
-      bookedByCompanyName:
-        order.bookedByCompanyName ||
-        order.booked_by_company?.name ||
-        companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
-        getCompanyNameFromSuffix(order.internal_load_number) ||
-        null,
-      brokerName:
-        order.brokerName ||
-        order.broker?.name ||
-        brokersList.find((b: any) => b.id === order.broker_id)?.name ||
-        null,
-      bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
-      podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
-      weightRc: order.weight_rc ?? order.weightRc ?? null,
-      weightBol: order.weight_bol ?? order.weightBol ?? null,
-    };
-  }, [companiesList, brokersList]);
+      return {
+        orderId: order.id,
+        loadNumber: order.loadDetails.loadNumber,
+        brokerLoadNumber: order.loadDetails.brokerLoadNumber,
+        allPickupStops: order.pickupStops || [],
+        allDeliveryStops: order.deliveryStops || [],
+        documents: (order.loadDetails.documents || []).map((d: any) => d.category),
+        orderFiles: (order.order_files || []).map((f: any) => ({
+          id: f.id,
+          file_name: f.file_name,
+          file_path: f.file_path,
+          file_category: f.file_category,
+        })),
+        notes: order.loadDetails.notes,
+        truckNumber: truck.truckNumber,
+        driverNames: driverNames || "Unassigned",
+        companyName: truck.companyName || "",
+        internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
+        freightAmount,
+        loadedMiles,
+        dhMiles: toNum(order.dh_miles),
+        driverPay,
+        canceled: order.canceled || false,
+        bookedBy: order.booked_by || "",
+        bookedByCompanyName:
+          order.bookedByCompanyName ||
+          order.booked_by_company?.name ||
+          companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
+          getCompanyNameFromSuffix(order.internal_load_number) ||
+          null,
+        brokerName:
+          order.brokerName ||
+          order.broker?.name ||
+          brokersList.find((b: any) => b.id === order.broker_id)?.name ||
+          null,
+        bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
+        podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
+        weightRc: order.weight_rc ?? order.weightRc ?? null,
+        weightBol: order.weight_bol ?? order.weightBol ?? null,
+      };
+    },
+    [companiesList, brokersList],
+  );
 
   // Force complete handler
   const handleForceComplete = async (type: "BOL" | "POD", orderId: string) => {
@@ -2582,7 +2584,8 @@ const Reports = () => {
                         const isFirstDeliveryOfOrder =
                           !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
                         const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
+                          isFirstDeliveryOfOrder &&
+                          needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                         return (
                           <div
                             key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2600,7 +2603,7 @@ const Reports = () => {
                           >
                             {showScaleTicketWarning && (
                               <div
-                                className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
+                                className={`absolute top-0 ${isToday ? "right-2" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                 style={{ width: 12, height: 12 }}
                                 title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                               >
@@ -2650,7 +2653,8 @@ const Reports = () => {
                         const isFirstDeliveryOfOrder =
                           !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
                         const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
+                          isFirstDeliveryOfOrder &&
+                          needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                         return (
                           <div
                             key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2668,7 +2672,7 @@ const Reports = () => {
                           >
                             {showScaleTicketWarning && (
                               <div
-                                className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
+                                className={`absolute top-0 ${isToday ? "right-2" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                 style={{ width: 12, height: 12 }}
                                 title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                               >
@@ -2756,10 +2760,7 @@ const Reports = () => {
                     }}
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
-                      <div
-                        className="flex-1 p-0 overflow-hidden flex flex-row"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <div className="flex-1 p-0 overflow-hidden flex flex-row" onClick={(e) => e.stopPropagation()}>
                         {sameDayOrders.flatMap((order) => {
                           const previousComplete = getPreviousLoadDeliveryStatus(order);
                           // Get all pickup stops for this day
@@ -2792,7 +2793,8 @@ const Reports = () => {
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
                             const showScaleTicketWarning =
-                              isFirstPickupOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
+                              isFirstPickupOfOrder &&
+                              needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2810,7 +2812,7 @@ const Reports = () => {
                               >
                                 {showScaleTicketWarning && (
                                   <div
-                                    className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
+                                    className={`absolute top-0 ${isToday ? "right-2" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                     style={{ width: 12, height: 12 }}
                                     title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                                   >
@@ -2863,7 +2865,8 @@ const Reports = () => {
                             const isFirstPickupOfOrder =
                               !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
                             const showScaleTicketWarning =
-                              isFirstPickupOfOrder && needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
+                              isFirstPickupOfOrder &&
+                              needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
                             return (
                               <div
                                 key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
@@ -2881,7 +2884,7 @@ const Reports = () => {
                               >
                                 {showScaleTicketWarning && (
                                   <div
-                                    className={`absolute top-0 ${isToday ? "right-3" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
+                                    className={`absolute top-0 ${isToday ? "right-2" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
                                     style={{ width: 12, height: 12 }}
                                     title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
                                   >
@@ -3627,9 +3630,7 @@ const Reports = () => {
             if (truck.driverId && hasDriverProblem(truck.driverId)) return true;
             const notes: any[] = (truck.lost_day_notes ?? (truck as any).lostDayNotes ?? []) as any[];
             return notes.some(
-              (note: any) =>
-                note?.note_type === "home_time" &&
-                String(note?.date || "").slice(0, 10) === todayStr,
+              (note: any) => note?.note_type === "home_time" && String(note?.date || "").slice(0, 10) === todayStr,
             );
           });
           return {
@@ -3873,8 +3874,7 @@ const Reports = () => {
             .find((t: any) => t.id === truckId);
           const truckNumber = truckInfo?.truckNumber || "";
           const driverName =
-            (truckInfo?.driver1Name || "") +
-            (truckInfo?.driver2Name ? ` / ${truckInfo.driver2Name}` : "");
+            (truckInfo?.driver1Name || "") + (truckInfo?.driver2Name ? ` / ${truckInfo.driver2Name}` : "");
           // Optimistically mark as sent so cell turns purple
           setFinalUpdateSentTruckIds((prev) => {
             const n = new Set(prev);
@@ -4410,7 +4410,8 @@ const Reports = () => {
                                               breakMinutes: truck.breakMinutes,
                                               cycleMinutes: truck.cycleMinutes,
                                               homeLatitude: truck.homeLatitude ?? truck.driver1?.home_latitude ?? null,
-                                              homeLongitude: truck.homeLongitude ?? truck.driver1?.home_longitude ?? null,
+                                              homeLongitude:
+                                                truck.homeLongitude ?? truck.driver1?.home_longitude ?? null,
                                               homeCity: truck.homeCity ?? truck.driver1?.home_city ?? null,
                                               homeState: truck.homeState ?? truck.driver1?.home_state ?? null,
                                               currentOrder: currentOrder
@@ -5190,7 +5191,8 @@ const Reports = () => {
                                                                           driverName: truck.driver1Name,
                                                                           truckNumber: truck.truckNumber,
                                                                           companyName: truck.companyName || "",
-                                                                          teamDriverName: truck.driver2Name || undefined,
+                                                                          teamDriverName:
+                                                                            truck.driver2Name || undefined,
                                                                         });
                                                                       }}
                                                                     >
@@ -5284,7 +5286,8 @@ const Reports = () => {
                                                                           driverName: truck.driver2Name!,
                                                                           truckNumber: truck.truckNumber,
                                                                           companyName: truck.companyName || "",
-                                                                          teamDriverName: truck.driver1Name || undefined,
+                                                                          teamDriverName:
+                                                                            truck.driver1Name || undefined,
                                                                         });
                                                                       }}
                                                                     >
@@ -5769,31 +5772,31 @@ const Reports = () => {
                                             </div>
                                             {/* Add Daily Report Row Icon - Bottom Right Corner */}
                                             {canEditDailyReport && (
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors text-muted-foreground hover:text-primary"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setAddDailyReportDialog({
-                                                      truckNumber: truck.truckNumber || "",
-                                                      driverName: truck.driver1Name || truck.driver || null,
-                                                      dispatcherName:
-                                                        (truck as any).currentDispatcherName ||
-                                                        (truck as any).originalDispatcherName ||
-                                                        truck.dispatcherName ||
-                                                        null,
-                                                      office: (group as any).office ?? null,
-                                                    });
-                                                  }}
-                                                >
-                                                  <ClipboardList className="h-4 w-4" />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                <p className="text-xs">Add Daily Report Row</p>
-                                              </TooltipContent>
-                                            </Tooltip>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <button
+                                                    className="absolute bottom-0.5 right-0.5 p-0.5 hover:bg-accent/50 rounded transition-colors text-muted-foreground hover:text-primary"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setAddDailyReportDialog({
+                                                        truckNumber: truck.truckNumber || "",
+                                                        driverName: truck.driver1Name || truck.driver || null,
+                                                        dispatcherName:
+                                                          (truck as any).currentDispatcherName ||
+                                                          (truck as any).originalDispatcherName ||
+                                                          truck.dispatcherName ||
+                                                          null,
+                                                        office: (group as any).office ?? null,
+                                                      });
+                                                    }}
+                                                  >
+                                                    <ClipboardList className="h-4 w-4" />
+                                                  </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="text-xs">Add Daily Report Row</p>
+                                                </TooltipContent>
+                                              </Tooltip>
                                             )}
                                           </td>
                                           <td
@@ -6214,8 +6217,12 @@ const Reports = () => {
                                                     (file: any) => file.file_category === "POD",
                                                   ).length || 0
                                                 }
-                                                homeLatitude={truck.homeLatitude ?? truck.driver1?.home_latitude ?? null}
-                                                homeLongitude={truck.homeLongitude ?? truck.driver1?.home_longitude ?? null}
+                                                homeLatitude={
+                                                  truck.homeLatitude ?? truck.driver1?.home_latitude ?? null
+                                                }
+                                                homeLongitude={
+                                                  truck.homeLongitude ?? truck.driver1?.home_longitude ?? null
+                                                }
                                                 homeCity={truck.homeCity ?? truck.driver1?.home_city ?? null}
                                                 homeState={truck.homeState ?? truck.driver1?.home_state ?? null}
                                                 pickupDate={truck.pickup?.date}
@@ -6731,9 +6738,7 @@ const Reports = () => {
                   </div>
                 )}
                 {zoomedLoad?.brokerName && (
-                  <div className="text-sm text-muted-foreground font-normal">
-                    Broker: {zoomedLoad.brokerName}
-                  </div>
+                  <div className="text-sm text-muted-foreground font-normal">Broker: {zoomedLoad.brokerName}</div>
                 )}
               </div>
               <Button
