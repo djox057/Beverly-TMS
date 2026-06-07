@@ -10,6 +10,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchAndCacheOrderFilesForOrders } from "@/utils/orderFilesCache";
 import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { format, addDays, subDays, startOfDay } from "date-fns";
@@ -211,8 +212,12 @@ const fetchOrdersForDateWindow = async (
 
   const [pickupDrops, transfers] = await Promise.all([
     fetchPickupDropsForOrders(orderIds),
-    fetchOrderTransfersForOrders(orderIds)
-  ]);
+    fetchOrderTransfersForOrders(orderIds),
+    // Prime the shared order_files cache in parallel so the adapter's
+    // ["adapter-order-files"] query resolves synchronously from cache when it
+    // runs — eliminates the visible "files load after orders" phase.
+    fetchAndCacheOrderFilesForOrders(orderIds),
+  ]) as [any[], any[], void];
 
   console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers`);
 
@@ -308,8 +313,10 @@ const fetchLockedOrdersForDateWindow = async (
 
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds)
-    ]);
+      fetchOrderTransfersForOrders(orderIds),
+      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
+      fetchAndCacheOrderFilesForOrders(orderIds),
+    ]) as [any[], any[], void];
 
     console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers for locked orders`);
 
@@ -397,8 +404,10 @@ const fetchGapFillOrders = async (
     const orderIds = newOrders.map((o: any) => o.id);
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds)
-    ]);
+      fetchOrderTransfersForOrders(orderIds),
+      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
+      fetchAndCacheOrderFilesForOrders(orderIds),
+    ]) as [any[], any[], void];
 
     // Build lookup maps
     const pickupDropsByOrderId = new Map<string, any[]>();
