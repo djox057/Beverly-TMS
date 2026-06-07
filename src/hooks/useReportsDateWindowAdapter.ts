@@ -16,6 +16,19 @@ import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  orderFilesCacheByOrderId,
+  orderFilesLoadedOrderIds,
+  clearOrderFilesCache,
+  fetchAndCacheOrderFilesForOrders,
+  getCachedOrderFilesFlat,
+  invalidateOrderFilesCacheForOrder as sharedInvalidateOrderFilesCacheForOrder,
+  type OrderFileLite,
+} from "@/utils/orderFilesCache";
+
+// Re-export so existing imports from this module continue to work unchanged
+// (e.g. src/utils/orderFileSignedUrl.ts, src/pages/Reports.tsx, src/pages/EditOrder.tsx).
+export const invalidateOrderFilesCacheForOrder = sharedInvalidateOrderFilesCacheForOrder;
 
 // Feature flag - set to true to use date-window based loading
 export const USE_DATE_WINDOW_LOADING = true;
@@ -35,26 +48,8 @@ interface UseReportsDateWindowAdapterOptions {
   spotlightDriverId?: string | null;
 }
 
-/**
- * Order files caching (module-scope)
- *
- * Problem: order_files were being refetched for *all* accumulated orders whenever
- * a new date window was loaded (queryKey depended on full order-id set).
- *
- * Fix: keep a persistent cache keyed by order_id and only fetch metadata for
- * order IDs we have not loaded yet.
- */
-type OrderFileLite = {
-  id: string;
-  order_id: string;
-  file_category: string | null;
-  file_name: string | null;
-  file_path: string | null;
-};
-
-const orderFilesCacheByOrderId = new Map<string, OrderFileLite[]>();
-const orderFilesLoadedOrderIds = new Set<string>();
-let orderFilesFetchInFlight: Promise<void> | null = null;
+// (order_files cache primitives moved to @/utils/orderFilesCache so the
+// order-loading layer can prime them in parallel with pickup_drops/transfers.)
 
 /**
  * Lost day notes accumulator (module-scope)
