@@ -545,6 +545,21 @@ export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
 };
 
 /**
+ * Remove orders from the global accumulated store (used by realtime DELETE events).
+ */
+export const removeOrdersFromGlobalStore = (ids: string[]): void => {
+  if (!ids || ids.length === 0) return;
+  let removed = 0;
+  for (const id of ids) {
+    if (globalAccumulatedOrders.delete(id)) removed++;
+  }
+  if (removed === 0) return;
+  globalOrdersVersion++;
+  console.log(`[useReportsDateWindow] Removed ${removed} orders, total accumulated: ${globalAccumulatedOrders.size}, version: ${globalOrdersVersion}`);
+  versionListeners.forEach(listener => listener());
+};
+
+/**
  * Patch (upsert) a single order in the global accumulated orders store.
  * Used by realtime subscriptions to update individual orders without a full refetch.
  */
