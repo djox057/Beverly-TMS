@@ -182,90 +182,11 @@ export const ensureLostDayNotesForDateRange = async (startDate: Date, endDate: D
   }
 };
 
-const clearOrderFilesCache = () => {
-  orderFilesCacheByOrderId.clear();
-  orderFilesLoadedOrderIds.clear();
-};
-
-export const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
-  if (!orderId) return;
-  orderFilesCacheByOrderId.delete(orderId);
-  orderFilesLoadedOrderIds.delete(orderId);
-};
-
-const getCachedOrderFilesFlat = (orderIds: string[]): OrderFileLite[] => {
-  const all: OrderFileLite[] = [];
-  for (const id of orderIds) {
-    const files = orderFilesCacheByOrderId.get(id);
-    if (files && files.length) all.push(...files);
-  }
-  return all;
-};
-
-const fetchAndCacheOrderFilesForOrders = async (orderIds: string[]) => {
-  const unique = Array.from(new Set(orderIds)).filter(Boolean);
-  const missing = unique.filter((id) => !orderFilesLoadedOrderIds.has(id));
-  if (missing.length === 0) return;
-
-  // Ensure only one fetch pipeline runs at a time to avoid duplicate storms
-  if (orderFilesFetchInFlight) {
-    await orderFilesFetchInFlight;
-    const stillMissing = missing.filter((id) => !orderFilesLoadedOrderIds.has(id));
-    if (stillMissing.length === 0) return;
-  }
-
-  const run = async () => {
-    const ORDER_ID_BATCH_SIZE = 300;
-    const RESULT_PAGE_SIZE = 1000;
-
-    for (let i = 0; i < missing.length; i += ORDER_ID_BATCH_SIZE) {
-      const batchOrderIds = missing.slice(i, i + ORDER_ID_BATCH_SIZE);
-      const batchFiles: OrderFileLite[] = [];
-
-      // Paginate result rows for this batch (PostgREST cap)
-      let offset = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from("order_files")
-          .select("id, order_id, file_category, file_name, file_path")
-          .in("order_id", batchOrderIds)
-          .order("id", { ascending: true })
-          .range(offset, offset + RESULT_PAGE_SIZE - 1);
-
-        if (error) {
-          console.error("[adapter] Error fetching order_files batch:", error);
-          break;
-        }
-
-        const rows = (data || []) as OrderFileLite[];
-        if (rows.length) batchFiles.push(...rows);
-
-        hasMore = rows.length === RESULT_PAGE_SIZE;
-        offset += RESULT_PAGE_SIZE;
-      }
-
-      // Group results by order_id and mark all requested order IDs as loaded (even if 0 files)
-      const byOrderId = new Map<string, OrderFileLite[]>();
-      for (const f of batchFiles) {
-        const arr = byOrderId.get(f.order_id) || [];
-        arr.push(f);
-        byOrderId.set(f.order_id, arr);
-      }
-
-      for (const oid of batchOrderIds) {
-        orderFilesCacheByOrderId.set(oid, byOrderId.get(oid) || []);
-        orderFilesLoadedOrderIds.add(oid);
-      }
-    }
-  };
-
-  orderFilesFetchInFlight = run().finally(() => {
-    orderFilesFetchInFlight = null;
-  });
-  await orderFilesFetchInFlight;
-};
+// Local clearOrderFilesCache / fetchAndCacheOrderFilesForOrders /
+// getCachedOrderFilesFlat / invalidateOrderFilesCacheForOrder are now imported
+// from @/utils/orderFilesCache above. The export for
+// invalidateOrderFilesCacheForOrder is re-bound near the top of this file so
+// external imports continue to work.
 
 /**
  * Helper to get transfer-aware stops for a driver
