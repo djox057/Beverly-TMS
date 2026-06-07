@@ -870,7 +870,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
 
       return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId && publishedDriverIds.length > 0,
+    enabled: !!dispatcherId && publishedDriverIds.length > 0 && !bootstrapLoading,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
@@ -891,6 +891,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
     const signature = `${scopedKey}|n=${driverIds.length}|first=${driverIds[0] || ''}`;
     if (
+      !bootstrapLoading &&
       driverIds.length > 0 &&
       !globalLoadedWindows.has(scopedKey) &&
       lastTriggeredSignatureRef.current !== signature
@@ -900,7 +901,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
     }
-  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId]);
+  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId, bootstrapLoading]);
   
   // Reset the trigger flag when window changes
   useEffect(() => {
