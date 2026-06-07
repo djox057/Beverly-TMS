@@ -54,6 +54,8 @@ export interface ReportsDateWindowOptions {
    * scope in a second pass (background fill).
    */
   spotlightDriverId?: string | null;
+  /** Blocks legacy per-slice loading while the single-call bootstrap is in flight. */
+  bootstrapLoading?: boolean;
 }
 
 // Helper to format date for Supabase queries
@@ -553,6 +555,18 @@ export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
   versionListeners.forEach(listener => listener());
 };
 
+export const seedReportsDateWindowStore = (
+  orders: any[],
+  scopedWindowKey: string,
+): void => {
+  for (const order of orders || []) {
+    if (order?.id) globalAccumulatedOrders.set(order.id, order);
+  }
+  if (scopedWindowKey) globalLoadedWindows.add(scopedWindowKey);
+  globalOrdersVersion++;
+  versionListeners.forEach(listener => listener());
+};
+
 /**
  * Patch (upsert) a single order in the global accumulated orders store.
  * Used by realtime subscriptions to update individual orders without a full refetch.
@@ -627,7 +641,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId, bootstrapLoading } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
