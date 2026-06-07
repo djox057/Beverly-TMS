@@ -16,19 +16,6 @@ import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import {
-  orderFilesCacheByOrderId,
-  orderFilesLoadedOrderIds,
-  clearOrderFilesCache,
-  fetchAndCacheOrderFilesForOrders,
-  getCachedOrderFilesFlat,
-  invalidateOrderFilesCacheForOrder as sharedInvalidateOrderFilesCacheForOrder,
-  type OrderFileLite,
-} from "@/utils/orderFilesCache";
-
-// Re-export so existing imports from this module continue to work unchanged
-// (e.g. src/utils/orderFileSignedUrl.ts, src/pages/Reports.tsx, src/pages/EditOrder.tsx).
-export const invalidateOrderFilesCacheForOrder = sharedInvalidateOrderFilesCacheForOrder;
 
 // Feature flag - set to true to use date-window based loading
 export const USE_DATE_WINDOW_LOADING = true;
@@ -48,8 +35,26 @@ interface UseReportsDateWindowAdapterOptions {
   spotlightDriverId?: string | null;
 }
 
-// (order_files cache primitives moved to @/utils/orderFilesCache so the
-// order-loading layer can prime them in parallel with pickup_drops/transfers.)
+/**
+ * Order files caching (module-scope)
+ *
+ * Problem: order_files were being refetched for *all* accumulated orders whenever
+ * a new date window was loaded (queryKey depended on full order-id set).
+ *
+ * Fix: keep a persistent cache keyed by order_id and only fetch metadata for
+ * order IDs we have not loaded yet.
+ */
+type OrderFileLite = {
+  id: string;
+  order_id: string;
+  file_category: string | null;
+  file_name: string | null;
+  file_path: string | null;
+};
+
+const orderFilesCacheByOrderId = new Map<string, OrderFileLite[]>();
+const orderFilesLoadedOrderIds = new Set<string>();
+let orderFilesFetchInFlight: Promise<void> | null = null;
 
 /**
  * Lost day notes accumulator (module-scope)
@@ -182,11 +187,90 @@ export const ensureLostDayNotesForDateRange = async (startDate: Date, endDate: D
   }
 };
 
-// Local clearOrderFilesCache / fetchAndCacheOrderFilesForOrders /
-// getCachedOrderFilesFlat / invalidateOrderFilesCacheForOrder are now imported
-// from @/utils/orderFilesCache above. The export for
-// invalidateOrderFilesCacheForOrder is re-bound near the top of this file so
-// external imports continue to work.
+const clearOrderFilesCache = () => {
+  orderFilesCacheByOrderId.clear();
+  orderFilesLoadedOrderIds.clear();
+};
+
+export const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
+  if (!orderId) return;
+  orderFilesCacheByOrderId.delete(orderId);
+  orderFilesLoadedOrderIds.delete(orderId);
+};
+
+const getCachedOrderFilesFlat = (orderIds: string[]): OrderFileLite[] => {
+  const all: OrderFileLite[] = [];
+  for (const id of orderIds) {
+    const files = orderFilesCacheByOrderId.get(id);
+    if (files && files.length) all.push(...files);
+  }
+  return all;
+};
+
+const fetchAndCacheOrderFilesForOrders = async (orderIds: string[]) => {
+  const unique = Array.from(new Set(orderIds)).filter(Boolean);
+  const missing = unique.filter((id) => !orderFilesLoadedOrderIds.has(id));
+  if (missing.length === 0) return;
+
+  // Ensure only one fetch pipeline runs at a time to avoid duplicate storms
+  if (orderFilesFetchInFlight) {
+    await orderFilesFetchInFlight;
+    const stillMissing = missing.filter((id) => !orderFilesLoadedOrderIds.has(id));
+    if (stillMissing.length === 0) return;
+  }
+
+  const run = async () => {
+    const ORDER_ID_BATCH_SIZE = 300;
+    const RESULT_PAGE_SIZE = 1000;
+
+    for (let i = 0; i < missing.length; i += ORDER_ID_BATCH_SIZE) {
+      const batchOrderIds = missing.slice(i, i + ORDER_ID_BATCH_SIZE);
+      const batchFiles: OrderFileLite[] = [];
+
+      // Paginate result rows for this batch (PostgREST cap)
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("order_files")
+          .select("id, order_id, file_category, file_name, file_path")
+          .in("order_id", batchOrderIds)
+          .order("id", { ascending: true })
+          .range(offset, offset + RESULT_PAGE_SIZE - 1);
+
+        if (error) {
+          console.error("[adapter] Error fetching order_files batch:", error);
+          break;
+        }
+
+        const rows = (data || []) as OrderFileLite[];
+        if (rows.length) batchFiles.push(...rows);
+
+        hasMore = rows.length === RESULT_PAGE_SIZE;
+        offset += RESULT_PAGE_SIZE;
+      }
+
+      // Group results by order_id and mark all requested order IDs as loaded (even if 0 files)
+      const byOrderId = new Map<string, OrderFileLite[]>();
+      for (const f of batchFiles) {
+        const arr = byOrderId.get(f.order_id) || [];
+        arr.push(f);
+        byOrderId.set(f.order_id, arr);
+      }
+
+      for (const oid of batchOrderIds) {
+        orderFilesCacheByOrderId.set(oid, byOrderId.get(oid) || []);
+        orderFilesLoadedOrderIds.add(oid);
+      }
+    }
+  };
+
+  orderFilesFetchInFlight = run().finally(() => {
+    orderFilesFetchInFlight = null;
+  });
+  await orderFilesFetchInFlight;
+};
 
 /**
  * Helper to get transfer-aware stops for a driver
@@ -1423,14 +1507,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Build order_files lookup map (include files from last loads)
   const orderFilesMap = useMemo(() => {
     const map = new Map<string, any[]>();
-    // Prefer reading directly from the shared cache. The cache is primed in
-    // parallel with pickup_drops/order_transfers inside fetchOrdersForDateWindow,
-    // so by the time `dateWindowHook.orders` resolves the files are already
-    // present here — no need to wait on the `adapter-order-files` useQuery.
-    const cachedFiles = windowOrderIds.length > 0 ? getCachedOrderFilesFlat(windowOrderIds) : [];
-    const sourceFiles = cachedFiles.length > 0 ? cachedFiles : (orderFiles || []);
-    if (sourceFiles) {
-      for (const file of sourceFiles) {
+    // Add regular order files
+    if (orderFiles) {
+      for (const file of orderFiles) {
         if (!file.order_id) continue;
         const existing = map.get(file.order_id) || [];
         existing.push(file);
@@ -1448,7 +1527,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       }
     }
     return map;
-  }, [orderFiles, lastLoadsData?.files, windowOrderIds]);
+  }, [orderFiles, lastLoadsData?.files]);
 
   // Track whether we have ever successfully transformed data for stability
   const lastValidDataRef = useRef<any[] | null>(null);
@@ -1487,9 +1566,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return lastValidDataRef.current;
     }
     
-    // Order files are primed into the shared cache during the orders fetch
-    // (see fetchOrdersForDateWindow), so we no longer block initial render
-    // on the `adapter-order-files` query — orderFilesMap reads from cache.
+    // Wait for order_files only on initial load - during navigation keep previous data
+    if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
 
     // Enrich orders with order_files before processing (inject synthetic files for force-complete)
     const orders = dateWindowHook.orders.map((order) => {

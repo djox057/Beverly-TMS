@@ -10,7 +10,6 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchAndCacheOrderFilesForOrders } from "@/utils/orderFilesCache";
 import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { format, addDays, subDays, startOfDay } from "date-fns";
@@ -54,8 +53,6 @@ export interface ReportsDateWindowOptions {
    * scope in a second pass (background fill).
    */
   spotlightDriverId?: string | null;
-  /** Blocks legacy per-slice loading while the single-call bootstrap is in flight. */
-  bootstrapLoading?: boolean;
 }
 
 // Helper to format date for Supabase queries
@@ -214,12 +211,8 @@ const fetchOrdersForDateWindow = async (
 
   const [pickupDrops, transfers] = await Promise.all([
     fetchPickupDropsForOrders(orderIds),
-    fetchOrderTransfersForOrders(orderIds),
-    // Prime the shared order_files cache in parallel so the adapter's
-    // ["adapter-order-files"] query resolves synchronously from cache when it
-    // runs — eliminates the visible "files load after orders" phase.
-    fetchAndCacheOrderFilesForOrders(orderIds),
-  ]) as [any[], any[], void];
+    fetchOrderTransfersForOrders(orderIds)
+  ]);
 
   console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers`);
 
@@ -315,10 +308,8 @@ const fetchLockedOrdersForDateWindow = async (
 
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds),
-      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
-      fetchAndCacheOrderFilesForOrders(orderIds),
-    ]) as [any[], any[], void];
+      fetchOrderTransfersForOrders(orderIds)
+    ]);
 
     console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers for locked orders`);
 
@@ -406,10 +397,8 @@ const fetchGapFillOrders = async (
     const orderIds = newOrders.map((o: any) => o.id);
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds),
-      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
-      fetchAndCacheOrderFilesForOrders(orderIds),
-    ]) as [any[], any[], void];
+      fetchOrderTransfersForOrders(orderIds)
+    ]);
 
     // Build lookup maps
     const pickupDropsByOrderId = new Map<string, any[]>();
@@ -555,18 +544,6 @@ export const injectOrdersIntoGlobalStore = (orders: any[]): void => {
   versionListeners.forEach(listener => listener());
 };
 
-export const seedReportsDateWindowStore = (
-  orders: any[],
-  scopedWindowKey: string,
-): void => {
-  for (const order of orders || []) {
-    if (order?.id) globalAccumulatedOrders.set(order.id, order);
-  }
-  if (scopedWindowKey) globalLoadedWindows.add(scopedWindowKey);
-  globalOrdersVersion++;
-  versionListeners.forEach(listener => listener());
-};
-
 /**
  * Patch (upsert) a single order in the global accumulated orders store.
  * Used by realtime subscriptions to update individual orders without a full refetch.
@@ -641,7 +618,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId, bootstrapLoading } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -870,7 +847,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
 
       return { orders: allOrders, windowKey };
     },
-    enabled: !!dispatcherId && publishedDriverIds.length > 0 && !bootstrapLoading,
+    enabled: !!dispatcherId && publishedDriverIds.length > 0,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
@@ -891,7 +868,6 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
     const signature = `${scopedKey}|n=${driverIds.length}|first=${driverIds[0] || ''}`;
     if (
-      !bootstrapLoading &&
       driverIds.length > 0 &&
       !globalLoadedWindows.has(scopedKey) &&
       lastTriggeredSignatureRef.current !== signature
@@ -901,7 +877,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       console.log(`[useReportsDateWindow] Driver IDs ready (${driverIds.length}), triggering orders fetch for window ${windowKey}`);
       refetch();
     }
-  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId, bootstrapLoading]);
+  }, [publishedDriverIds, windowKey, refetch, priorityOffice, individualMode, currentUserDispatcherId]);
   
   // Reset the trigger flag when window changes
   useEffect(() => {
