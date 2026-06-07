@@ -26,6 +26,30 @@ export const clearOrderFilesCache = () => {
   orderFilesLoadedOrderIds.clear();
 };
 
+export const seedOrderFilesCache = (
+  files: OrderFileLite[] | null | undefined,
+  orderIds: string[] = [],
+) => {
+  const byOrderId = new Map<string, OrderFileLite[]>();
+  for (const file of files || []) {
+    if (!file?.order_id) continue;
+    const arr = byOrderId.get(file.order_id) || [];
+    arr.push(file);
+    byOrderId.set(file.order_id, arr);
+  }
+
+  for (const orderId of orderIds) {
+    if (!orderId) continue;
+    orderFilesCacheByOrderId.set(orderId, byOrderId.get(orderId) || []);
+    orderFilesLoadedOrderIds.add(orderId);
+  }
+
+  for (const [orderId, rows] of byOrderId) {
+    orderFilesCacheByOrderId.set(orderId, rows);
+    orderFilesLoadedOrderIds.add(orderId);
+  }
+};
+
 export const invalidateOrderFilesCacheForOrder = (
   orderId: string | null | undefined,
 ) => {
