@@ -217,7 +217,7 @@ const fetchOrdersForDateWindow = async (
     // ["adapter-order-files"] query resolves synchronously from cache when it
     // runs — eliminates the visible "files load after orders" phase.
     fetchAndCacheOrderFilesForOrders(orderIds),
-  ]);
+  ]) as [any[], any[], void];
 
   console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers`);
 
