@@ -10,6 +10,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchAndCacheOrderFilesForOrders } from "@/utils/orderFilesCache";
 import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { format, addDays, subDays, startOfDay } from "date-fns";
@@ -211,7 +212,11 @@ const fetchOrdersForDateWindow = async (
 
   const [pickupDrops, transfers] = await Promise.all([
     fetchPickupDropsForOrders(orderIds),
-    fetchOrderTransfersForOrders(orderIds)
+    fetchOrderTransfersForOrders(orderIds),
+    // Prime the shared order_files cache in parallel so the adapter's
+    // ["adapter-order-files"] query resolves synchronously from cache when it
+    // runs — eliminates the visible "files load after orders" phase.
+    fetchAndCacheOrderFilesForOrders(orderIds),
   ]);
 
   console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers`);
