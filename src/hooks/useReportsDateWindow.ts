@@ -313,8 +313,10 @@ const fetchLockedOrdersForDateWindow = async (
 
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds)
-    ]);
+      fetchOrderTransfersForOrders(orderIds),
+      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
+      fetchAndCacheOrderFilesForOrders(orderIds),
+    ]) as [any[], any[], void];
 
     console.log(`[useReportsDateWindow] Fetched ${pickupDrops.length} pickup_drops and ${transfers.length} transfers for locked orders`);
 
@@ -402,8 +404,10 @@ const fetchGapFillOrders = async (
     const orderIds = newOrders.map((o: any) => o.id);
     const [pickupDrops, transfers] = await Promise.all([
       fetchPickupDropsForOrders(orderIds),
-      fetchOrderTransfersForOrders(orderIds)
-    ]);
+      fetchOrderTransfersForOrders(orderIds),
+      // Parallel-prime order_files cache (see fetchOrdersForDateWindow note).
+      fetchAndCacheOrderFilesForOrders(orderIds),
+    ]) as [any[], any[], void];
 
     // Build lookup maps
     const pickupDropsByOrderId = new Map<string, any[]>();
