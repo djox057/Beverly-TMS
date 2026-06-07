@@ -1423,9 +1423,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Build order_files lookup map (include files from last loads)
   const orderFilesMap = useMemo(() => {
     const map = new Map<string, any[]>();
-    // Add regular order files
-    if (orderFiles) {
-      for (const file of orderFiles) {
+    // Prefer reading directly from the shared cache. The cache is primed in
+    // parallel with pickup_drops/order_transfers inside fetchOrdersForDateWindow,
+    // so by the time `dateWindowHook.orders` resolves the files are already
+    // present here — no need to wait on the `adapter-order-files` useQuery.
+    const cachedFiles = windowOrderIds.length > 0 ? getCachedOrderFilesFlat(windowOrderIds) : [];
+    const sourceFiles = cachedFiles.length > 0 ? cachedFiles : (orderFiles || []);
+    if (sourceFiles) {
+      for (const file of sourceFiles) {
         if (!file.order_id) continue;
         const existing = map.get(file.order_id) || [];
         existing.push(file);
@@ -1443,7 +1448,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       }
     }
     return map;
-  }, [orderFiles, lastLoadsData?.files]);
+  }, [orderFiles, lastLoadsData?.files, windowOrderIds]);
 
   // Track whether we have ever successfully transformed data for stability
   const lastValidDataRef = useRef<any[] | null>(null);
@@ -1482,8 +1487,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return lastValidDataRef.current;
     }
     
-    // Wait for order_files only on initial load - during navigation keep previous data
-    if (windowOrderIds.length > 0 && isOrderFilesLoading && lastValidDataRef.current === null) { console.timeEnd('[perf] transformedData'); return null; }
+    // Order files are primed into the shared cache during the orders fetch
+    // (see fetchOrdersForDateWindow), so we no longer block initial render
+    // on the `adapter-order-files` query — orderFilesMap reads from cache.
 
     // Enrich orders with order_files before processing (inject synthetic files for force-complete)
     const orders = dateWindowHook.orders.map((order) => {
