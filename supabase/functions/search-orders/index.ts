@@ -299,10 +299,14 @@ Deno.serve(async (req) => {
       query = query.lte("pickup_datetime", filters.pickupDateTo);
     }
 
-    // Order and paginate
+    // Order and paginate.
+    // `locked asc` guarantees unlocked-first across the entire result set (not just
+    // within a single batch). `id asc` is a stable tiebreaker so successive
+    // offset/limit batches don't skip or duplicate rows when many rows share the
+    // same `locked` value.
     query = query
       .order("locked", { ascending: true })
-      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
       .range(offset, offset + limit - 1);
 
     const { data: orders, error: fetchError, count } = await query;

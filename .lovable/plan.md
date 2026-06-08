@@ -1,98 +1,54 @@
-
 # Goal
 
-Make `/orders` show **correct totals and unlocked counts** for any filter combination, no matter how many rows match. Stop relying on "load all orders into the browser" and stop relying on the `locked asc` trick that only works while unlocked < 500.
+When a filter is active on `/orders`, the list must show **every unlocked order first**, in stable order, then continue into locked orders — across pages 1..N. No toggle. The summary badges (already correct) stay as-is.
 
-# What changes
+# Root cause
 
-## 1. New edge function: `orders-summary`
+`search-orders` returns `.order("locked", asc).order("created_at", desc)`. That keeps unlocked-first within a single 500-row batch, but as soon as the UI auto-fetches batch 2 (offset 500–999) the boundary lands inside the locked section, so all "remaining" unlocked rows that the client expected on later UI pages don't exist — they were never in batch 2.
 
-A small companion to `search-orders` that returns **only aggregates** for the same filter object — no rows, no joins.
+For the Jan 1 – Jun 7 filter: 239 unlocked → fits in batch 1 → pages 1–4 (50/page) show unlocked, page 5 shows 39 unlocked + 11 locked. That matches what you're seeing ("page 3 ~20, page 4 = 0 unlocked"). It looks broken because the client page indices don't line up with the unlocked tail.
 
-Returns:
-```json
-{
-  "totalCount": 25273,
-  "unlockedCount": 239,
-  "lockedCount": 25034,
-  "invoicedCount": ...,
-  "notInvoicedCount": ...,
-  "freightSum": ...,
-  "driverPaySum": ...
-}
-```
+The reported "~120ish loads total" symptom comes from the UI calling `loadMore` only when the *next* client page is requested, so pages 3+ paint before batch 2 arrives — table looks empty.
 
-Implementation: a single SQL call against `orders` with the same WHERE clause builder shared with `search-orders` (extract filter→query into a helper inside the function file). Uses `count` + `sum() filter (where ...)` so it's one round trip.
+# Fix
 
-Auth: same JWT check as `search-orders`, plus a role check (admin/manager/accounting/safety/supervisor/dispatch) — see Security below.
+## 1. `search-orders/index.ts` — keep `locked asc` but make it deterministic and faster
 
-## 2. `search-orders` changes
+- Keep `.order("locked", { ascending: true })` (this is what guarantees unlocked-first globally).
+- Add `.order("id", { ascending: true })` as the tiebreaker so pagination is stable across batches (no row skipped/duplicated when two rows share `created_at`).
+- Drop the `created_at desc` secondary sort — it conflicts with stable keyset behavior and isn't what the user asked for.
+- Cap `limit` at 1000 (already done). No other behavior change.
 
-- Remove the `.order("locked", { ascending: true })` hack. Default ordering becomes `delivery_datetime desc` (matches user expectation when filtering by delivery date) with `created_at desc` as tiebreaker.
-- Add an explicit `lockedOnly` / `unlockedOnly` mode driven by the UI when the user wants to see just one bucket (already supported as `filters.locked`, just wire it from the page).
-- Keep server-side pagination (`offset` / `limit`, default 500). No behavioral change for page 1, but the page no longer pretends the first batch is the whole result set.
-- Add the same role check used by `orders-summary`.
+## 2. `useFilteredOrdersSearch.ts` — eagerly pre-fetch enough batches to cover all unlocked
 
-## 3. Frontend (`src/pages/Orders.tsx` + `useFilteredOrdersSearch`)
+After `search` finishes and the `orders-summary` response arrives:
 
-- When any structured filter is active, call **`orders-summary` in parallel with `search-orders`** and store the aggregates separately from the row array.
-- Render every summary number (unlocked count badge, totals, "X of Y") from the **summary response**, never from `orders.length`.
-- Add a "Show only unlocked" toggle next to the filter bar. When on, it sets `filters.locked = false` so the server returns only unlocked rows (page 1 then becomes "all 239 unlocked" without padding from locked rows).
-- Pagination UI: replace "Load more" with proper pager driven by `summary.totalCount` / `BATCH_SIZE`, so the user can jump pages instead of clicking 50 times.
-- Keep the existing `["orders","filtered", …]` cache; add `["orders","filtered","summary", …]` for aggregates.
+- Read `summary.unlockedCount`.
+- If `summary.unlockedCount > orders.length` (i.e. unlocked spill past batch 1), loop `loadMore()` in the background until `orders.length >= summary.unlockedCount`. Cap at 10 batches (5,000 rows) as a safety net so a pathological filter can't runaway.
+- Expose an `isPrefetchingUnlocked` flag the page can show as a small spinner next to the summary badges.
 
-## 4. Default (no-filter) path — minimal change
+This is the key change: it guarantees every unlocked row is in the client cache before the user clicks page 2/3/4.
 
-Leave `useOrders` + `get-all-unlocked-orders` / `get-all-locked-orders` as-is for now. The bug we're fixing is in the filtered path. (A larger refactor to collapse all three paths into one is out of scope for this change — call it out as follow-up.)
+## 3. `Orders.tsx` — remove the "Unlocked only" toggle and the page-driven autoload
 
-## 5. Security
+- Delete the toggle UI/state added in the previous step.
+- Delete the `useEffect` that calls `loadMoreFiltered()` when `currentPage * ORDERS_PER_PAGE > filteredServerOrders.length` — the hook now front-loads unlocked itself, so this is redundant. Keep ordinary "load next batch" only when the user pages past the loaded set into locked territory.
+- Keep summary badges as-is (totals come from `orders-summary` and are already correct).
+- Keep `ORDERS_PER_PAGE = 50`.
 
-`search-orders` today only checks `auth.getUser()` exists and then uses the service role — any signed-in user can pull every column of every order. Add a role gate:
+## 4. Verification
 
-```ts
-const allowed = ['admin','manager','accounting','safety','supervisor','dispatch'];
-const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', userData.user.id);
-if (!roles?.some(r => allowed.includes(r.role))) return 403;
-```
-
-Apply the same gate to the new `orders-summary` function.
-
-## 6. Verification
-
-Extend `supabase/functions/search-orders/index_test.ts` with a second test:
-1. Call `orders-summary` with the Jan 1 – Jun 7 / exclude-BG-Prime filter.
-2. Assert `unlockedCount === 239`, `totalCount === 25273` (±5 tolerance).
-3. Call `search-orders` page 1 with `filters.locked = false` and assert it returns 239 rows.
-4. Manual UI check: filter applied → unlocked badge reads 239, page count reads ~51 (25273/500), sort defaults to delivery date desc.
-
-# Technical details
-
-- One shared `applyFilters(query, filters)` helper inside `search-orders/index.ts` reused by `orders-summary` (copy into both files to avoid cross-function imports — Lovable edge functions can't share modules across folders).
-- `orders-summary` SQL shape:
-  ```sql
-  select
-    count(*) as total_count,
-    count(*) filter (where locked = false) as unlocked_count,
-    count(*) filter (where locked = true)  as locked_count,
-    count(*) filter (where invoiced = true) as invoiced_count,
-    coalesce(sum(freight_amount), 0) as freight_sum,
-    coalesce(sum(driver_price), 0)   as driver_pay_sum
-  from orders
-  where ...filters...
-  ```
-  Run via a SECURITY DEFINER RPC `get_orders_summary(filters jsonb)` — keeps the SQL parameterized and lets us re-use Postgres indices without round-tripping a huge `count: exact` joined query.
+- Manual: apply Jan 1 – Jun 7 / exclude BG Prime filter. Within ~1s after the spinner stops, paging through pages 1–5 should show 50/50/50/50/39 unlocked, then locked starts on page 5 row 40. Total unlocked across pages = 239. Page 6+ are pure locked.
+- Extend `search-orders/index_test.ts`: call `search-orders` with that filter, `offset=0 limit=500` → assert the first 239 rows have `locked=false`, the rest `locked=true`. Then call `offset=500 limit=500` → assert all rows `locked=true`.
 
 # Files touched
 
-- `supabase/functions/search-orders/index.ts` — remove locked-asc, add role gate, default order delivery_datetime desc.
-- `supabase/functions/orders-summary/index.ts` — new.
-- New migration: RPC `public.get_orders_summary(filters jsonb)` with appropriate GRANTs.
-- `src/hooks/useFilteredOrdersSearch.ts` — fetch & expose summary alongside rows.
-- `src/pages/Orders.tsx` — wire summary into badges/totals, add "Unlocked only" toggle, add page pager.
-- `supabase/functions/search-orders/index_test.ts` — extend.
+- `supabase/functions/search-orders/index.ts` — tiebreaker change only.
+- `src/hooks/useFilteredOrdersSearch.ts` — add eager unlocked-prefetch loop + `isPrefetchingUnlocked` flag.
+- `src/pages/Orders.tsx` — remove "Unlocked only" toggle and the page-driven autoload effect.
+- `supabase/functions/search-orders/index_test.ts` — assert global unlocked-first ordering across two batches.
 
-# Out of scope (call out, do later)
+# Out of scope
 
-- Collapsing `useOrders` / `useOrdersSearch` / `useFilteredOrdersSearch` into one path.
-- Replacing client-side ilike text search with a trgm-indexed server search (`broker_load_number`, `internal_load_number`).
-- Pushing realtime patches into the filtered/search cache keys.
+- Replacing `locked asc` with a keyset/cursor scheme (would let us skip prefetching entirely; bigger refactor).
+- Default-path (no-filter) changes.
