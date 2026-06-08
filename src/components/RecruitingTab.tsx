@@ -170,8 +170,38 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     enabled: !!selectedMonth && selectedMonth !== "all",
   });
 
+  // Fetch latest prior base_salary per visible user (most recent month < selectedMonth with > 0).
+  // Used to auto-inherit base salary into a month that doesn't yet have its own row.
+  const recruiterIdsKey = useMemo(
+    () => recruiters.map((r) => r.user_id).sort().join(","),
+    [recruiters],
+  );
+  const { data: priorBaseSalaries = {} as Record<string, number> } = useQuery({
+    queryKey: ["recruiter-prior-base-salaries", selectedMonth, recruiterIdsKey],
+    queryFn: async () => {
+      if (!selectedMonth || selectedMonth === "all" || recruiters.length === 0) return {};
+      const ids = recruiters.map((r) => r.user_id);
+      const { data, error } = await supabase
+        .from("recruiter_salary_payments" as any)
+        .select("user_id, month, base_salary")
+        .in("user_id", ids)
+        .lt("month", selectedMonth)
+        .gt("base_salary", 0)
+        .order("month", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((r: any) => {
+        if (map[r.user_id] === undefined) map[r.user_id] = Number(r.base_salary) || 0;
+      });
+      return map;
+    },
+    enabled: !!selectedMonth && selectedMonth !== "all" && recruiters.length > 0,
+  });
+
   const [rows, setRows] = useState<Record<string, PaymentRow>>({});
   const rowsRef = useRef<Record<string, PaymentRow>>({});
+  // Tracks whether the next save for a given user must also propagate base_salary forward.
+  const pendingBasePropagation = useRef<Record<string, boolean>>({});
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
