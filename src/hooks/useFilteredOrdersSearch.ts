@@ -73,6 +73,8 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   const activeQueryKeyRef = useRef<(string | boolean | undefined)[] | null>(null);
   const activeFiltersRef = useRef<SearchFilters | null>(null);
   const hasMoreRef = useRef(false);
+  const unlockedCountRef = useRef(0);
+  const lockedCountRef = useRef<number | null>(null);
 
   const search = useCallback(async (filters: SearchFilters) => {
     if (isLoadingRef.current) return;
@@ -89,39 +91,69 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     console.log("[FilteredSearch] Starting search with filters:", filters);
     
     try {
-      const { data: response, error } = await supabase.functions.invoke(
-        "search-orders",
-        {
-          body: {
-            filters,
-            offset: 0,
-            limit: BATCH_SIZE,
-          },
-        }
+      // Locked-only mode: filters explicitly imply locked rows.
+      const lockedOnlyMode = filters.lockedNotInvoiced === true || filters.invoiced === true;
+      // Unlocked-only mode: caller already requested only unlocked.
+      const unlockedOnlyMode = !lockedOnlyMode &&
+        // No explicit way to request unlocked-only from UI today, kept for symmetry
+        false;
+
+      const unlockedPromise = lockedOnlyMode
+        ? Promise.resolve({ data: { orders: [], totalCount: 0, hasMore: false }, error: null as any })
+        : supabase.functions.invoke("search-orders", {
+            body: {
+              filters: { ...filters, locked: false },
+              offset: 0,
+              limit: 1000,
+              fetchAllUnlocked: true,
+            },
+          });
+
+      const lockedPromise = unlockedOnlyMode
+        ? Promise.resolve({ data: { orders: [], totalCount: 0, hasMore: false }, error: null as any })
+        : supabase.functions.invoke("search-orders", {
+            body: {
+              filters: lockedOnlyMode ? filters : { ...filters, locked: true },
+              offset: 0,
+              limit: BATCH_SIZE,
+            },
+          });
+
+      const [unlockedRes, lockedRes] = await Promise.all([unlockedPromise, lockedPromise]);
+
+      if (unlockedRes.error) throw unlockedRes.error;
+      if (lockedRes.error) throw lockedRes.error;
+
+      const unlockedRaw = unlockedRes.data?.orders || [];
+      const lockedRaw = lockedRes.data?.orders || [];
+      const unlockedTransformed = transformOrders(unlockedRaw);
+      const lockedTransformed = transformOrders(lockedRaw);
+
+      const combined = [...unlockedTransformed, ...lockedTransformed];
+      queryClient.setQueryData(newQueryKey, combined);
+
+      const unlockedTotal = unlockedRes.data?.totalCount ?? unlockedTransformed.length;
+      const lockedTotal = lockedRes.data?.totalCount ?? null;
+      const grandTotal = (unlockedTotal || 0) + (lockedTotal || 0);
+
+      unlockedCountRef.current = unlockedTransformed.length;
+      lockedCountRef.current = lockedTotal;
+      hasMoreRef.current = !!lockedRes.data?.hasMore;
+      offsetRef.current = lockedTransformed.length; // locked-page offset
+
+      setTotalCount(grandTotal);
+
+      console.log(
+        `[FilteredSearch] unlocked=${unlockedTransformed.length} lockedPage=${lockedTransformed.length} ` +
+        `lockedTotal=${lockedTotal} grandTotal=${grandTotal}`
       );
-
-      if (error) {
-        console.error("[FilteredSearch] Search error:", error);
-        throw error;
-      }
-
-      if (response?.orders) {
-        const transformed = transformOrders(response.orders);
-        
-        // Store in React Query cache so real-time can patch it
-        queryClient.setQueryData(newQueryKey, transformed);
-        
-        setTotalCount(response.totalCount);
-        hasMoreRef.current = response.hasMore;
-        offsetRef.current = response.orders.length;
-        
-        console.log(`[FilteredSearch] Found ${transformed.length} orders (total: ${response.totalCount})`);
-      }
     } catch (error) {
       console.error("[FilteredSearch] Search failed:", error);
       queryClient.setQueryData(newQueryKey, []);
       setTotalCount(null);
       hasMoreRef.current = false;
+      unlockedCountRef.current = 0;
+      lockedCountRef.current = null;
     } finally {
       isLoadingRef.current = false;
     }
@@ -144,11 +176,12 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     const currentFilters = activeFiltersRef.current;
     
     try {
+      const lockedOnlyMode = currentFilters.lockedNotInvoiced === true || currentFilters.invoiced === true;
       const { data: response, error } = await supabase.functions.invoke(
         "search-orders",
         {
           body: {
-            filters: currentFilters,
+            filters: lockedOnlyMode ? currentFilters : { ...currentFilters, locked: true },
             offset: offsetRef.current,
             limit: BATCH_SIZE,
           },
@@ -190,6 +223,8 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     activeQueryKeyRef.current = null;
     activeFiltersRef.current = null;
     hasMoreRef.current = false;
+    unlockedCountRef.current = 0;
+    lockedCountRef.current = null;
     setTotalCount(null);
     setActiveFilterKey(null);
     offsetRef.current = 0;
