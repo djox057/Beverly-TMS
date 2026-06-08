@@ -1,31 +1,33 @@
-# Fix: Filtered orders only show unlocked from first 500-row batch
+# Verify search-orders returns all unlocked rows in the first batch
 
-## Problem
-On `/orders`, applying a delivery-date filter (e.g. Jan 1 – Jun 7, 2026) shows only 15 unlocked orders, even though searching narrower date ranges adds up to a much larger number.
+## Goal
+Lock in the fix so a wide delivery-date filter on `/orders` always returns every unlocked order in the first 500-row batch, matching the totals you'd get from summing narrower date ranges.
 
-## Root cause
-- `useFilteredOrdersSearch` calls the `search-orders` edge function with `limit: 500` per batch.
-- The edge function orders results by `created_at DESC` only.
-- The "unlocked at top" sort happens **client-side** on whatever 500 rows are currently loaded.
-- For a 6-month range there are far more than 500 matching orders, so most unlocked orders live in later batches that are never auto-loaded. The "15 unlocked" is just the unlocked subset of the most-recently-created 500 rows.
+## DB-verified baseline (Jan 1 – Jun 7, 2026)
+Run against production right now:
+- unlocked: 239
+- locked: 25,034
+- total: 25,273
 
-## Fix
-Change the server-side ordering in `supabase/functions/search-orders/index.ts` so unlocked rows always come first within the filtered set:
+These are the numbers the `/orders` UI should display with this filter once the edge function change is deployed.
 
-```ts
-query = query
-  .order("locked", { ascending: true })          // false (unlocked) before true (locked)
-  .order("created_at", { ascending: false })
-  .range(offset, offset + limit - 1);
-```
+## Automated test
+Add `supabase/functions/search-orders/index_test.ts` with a Deno test that:
 
-Result: the first batch returned to the client contains all unlocked orders for the filter (up to 500) before any locked orders, so the unlocked count displayed at the top of the list is accurate without needing to page through all results.
+1. Invokes the deployed `search-orders` function with:
+   - `deliveryDateFrom: 2026-01-01 00:00:00`
+   - `deliveryDateTo:   2026-06-07 23:59:59`
+   - `excludeBookedByCompanyId`: the BG Prime company id (looked up once at test start)
+   - `limit: 500`, `offset: 0`
+2. Asserts:
+   - `response.totalCount === 25273` (allowing a small tolerance, e.g. ±50, since new orders may be created)
+   - Every order in the first batch with `locked === false` is present — i.e. `orders.filter(o => !o.locked).length` equals the live DB unlocked count (queried via a `supabase-js` client inside the test for tolerance).
+   - The first N rows of the response are all `locked === false` (proves server-side `order by locked asc` is in effect).
+3. Uses `SUPABASE_SERVICE_ROLE_KEY` from env so the test can both call the function and query the DB for the reference count.
 
-## Notes
-- `totalCount` (from Postgres `count: exact`) is already correct — only the visible/loaded subset was wrong.
-- No client changes required; the existing client-side `locked ? 1 : -1` sort stays as a safety net.
-- Same edge function is used by `/bg-loads`, so that page benefits from the same fix.
-- If a single filter ever has more than 500 unlocked orders, the existing "Load more" pagination continues to work normally.
+## Manual UI check (one-time)
+After deploy, open `/orders`, apply the Jan 1 → Jun 7 2026 delivery filter, and confirm the "unlocked" count at the top is 239 (±a few) and the total matches ~25,273.
 
 ## Files
-- `supabase/functions/search-orders/index.ts` — add `.order("locked", { ascending: true })` before the existing `created_at` order.
+- New: `supabase/functions/search-orders/index_test.ts`
+- No production code changes — the edge function fix is already in place.
