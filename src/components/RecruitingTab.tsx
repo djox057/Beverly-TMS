@@ -85,6 +85,31 @@ const blankRow = (user_id: string, month: string, name: string, role: string): P
   is_checked: false,
 });
 
+// Current YYYY-MM in Chicago timezone
+const getChicagoYearMonth = (): string => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  return `${y}-${m}`;
+};
+
+// How many whole months `month` (YYYY-MM) is before the current Chicago month.
+// 0 = current, 1 = last month, negative = future.
+const monthsBeforeNow = (month: string): number => {
+  const cur = getChicagoYearMonth();
+  const [cy, cm] = cur.split("-").map(Number);
+  const [my, mm] = month.split("-").map(Number);
+  return (cy - my) * 12 + (cm - mm);
+};
+
+// Propagation is allowed only when editing current month, previous month,
+// or any future month. Anything 2+ months in the past stays isolated.
+const canPropagateBaseSalary = (month: string): boolean => monthsBeforeNow(month) <= 1;
+
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
   const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
@@ -145,8 +170,38 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     enabled: !!selectedMonth && selectedMonth !== "all",
   });
 
+  // Fetch latest prior base_salary per visible user (most recent month < selectedMonth with > 0).
+  // Used to auto-inherit base salary into a month that doesn't yet have its own row.
+  const recruiterIdsKey = useMemo(
+    () => recruiters.map((r) => r.user_id).sort().join(","),
+    [recruiters],
+  );
+  const { data: priorBaseSalaries = {} as Record<string, number> } = useQuery({
+    queryKey: ["recruiter-prior-base-salaries", selectedMonth, recruiterIdsKey],
+    queryFn: async () => {
+      if (!selectedMonth || selectedMonth === "all" || recruiters.length === 0) return {};
+      const ids = recruiters.map((r) => r.user_id);
+      const { data, error } = await supabase
+        .from("recruiter_salary_payments" as any)
+        .select("user_id, month, base_salary")
+        .in("user_id", ids)
+        .lt("month", selectedMonth)
+        .gt("base_salary", 0)
+        .order("month", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((r: any) => {
+        if (map[r.user_id] === undefined) map[r.user_id] = Number(r.base_salary) || 0;
+      });
+      return map;
+    },
+    enabled: !!selectedMonth && selectedMonth !== "all" && recruiters.length > 0,
+  });
+
   const [rows, setRows] = useState<Record<string, PaymentRow>>({});
   const rowsRef = useRef<Record<string, PaymentRow>>({});
+  // Tracks whether the next save for a given user must also propagate base_salary forward.
+  const pendingBasePropagation = useRef<Record<string, boolean>>({});
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
@@ -267,13 +322,16 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             is_checked: server.is_checked ?? false,
           };
         } else {
-          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
+          const blank = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
+          const inherited = priorBaseSalaries[r.user_id];
+          if (inherited && inherited > 0) blank.base_salary = inherited;
+          next[r.user_id] = blank;
         }
       });
       rowsRef.current = next;
       return next;
     });
-  }, [recruiters, paymentsData, selectedMonth]);
+  }, [recruiters, paymentsData, selectedMonth, priorBaseSalaries]);
 
   // Realtime: refresh server data when anyone updates recruiter salaries.
   useEffect(() => {
@@ -378,6 +436,22 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     if (error) {
       toast.error("Failed to save: " + error.message);
       return false;
+    }
+    // Propagate base_salary to all later months when allowed (current, last, or future month edits).
+    if (pendingBasePropagation.current[row.user_id]) {
+      delete pendingBasePropagation.current[row.user_id];
+      if (canPropagateBaseSalary(row.month)) {
+        const { error: propErr } = await supabase
+          .from("recruiter_salary_payments" as any)
+          .update({ base_salary: row.base_salary })
+          .eq("user_id", row.user_id)
+          .gt("month", row.month);
+        if (propErr) {
+          toast.error("Failed to propagate base salary: " + propErr.message);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-prior-base-salaries"] });
+        }
+      }
     }
     return true;
   };
@@ -566,6 +640,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                             }
                             setBaseSalaryEditing((prev) => ({ ...prev, [r.user_id]: raw }));
                             const num = raw === "" || raw === "." ? 0 : Number(raw) || 0;
+                            if (rowsRef.current[r.user_id]?.base_salary !== num) {
+                              pendingBasePropagation.current[r.user_id] = true;
+                            }
                             updateField(r.user_id, { base_salary: num });
                           }}
                           onBlur={() => {
