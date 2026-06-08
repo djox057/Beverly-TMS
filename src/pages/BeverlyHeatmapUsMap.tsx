@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
@@ -32,6 +33,17 @@ interface StateAgg {
   freight: number;
   loadedMiles: number;
   dhMiles: number;
+}
+
+interface StateMetrics {
+  count: number;
+  rpm: number;
+  dhPerLoad: number;
+  avgGross: number;
+  totalFreight: number;
+  totalLoadedMiles: number;
+  totalDhMiles: number;
+  rating: number;
 }
 
 // Compute Monday (Chicago time) of the week containing `d`.
@@ -124,7 +136,7 @@ function useStateRatings(direction: Direction) {
         agg.set(st, cur);
       }
 
-      if (agg.size === 0) return {} as Record<string, number>;
+      if (agg.size === 0) return { ratings: {}, metrics: {} } as { ratings: Record<string, number>; metrics: Record<string, StateMetrics> };
 
       // Compute metrics per state
       type Metrics = { st: string; count: number; rpm: number; dhPerLoad: number; avgGross: number };
@@ -172,7 +184,22 @@ function useStateRatings(direction: Direction) {
         const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
         ratings[s.st] = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
       }
-      return ratings;
+
+      const metricsMap: Record<string, StateMetrics> = {};
+      for (const m of metrics) {
+        const a = agg.get(m.st)!;
+        metricsMap[m.st] = {
+          count: m.count,
+          rpm: m.rpm,
+          dhPerLoad: m.dhPerLoad,
+          avgGross: m.avgGross,
+          totalFreight: a.freight,
+          totalLoadedMiles: a.loadedMiles,
+          totalDhMiles: a.dhMiles,
+          rating: ratings[m.st],
+        };
+      }
+      return { ratings, metrics: metricsMap };
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -180,13 +207,20 @@ function useStateRatings(direction: Direction) {
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
-  const { data: ratings = {} } = useStateRatings(direction);
+  const { data } = useStateRatings(direction);
+  const ratings = data?.ratings || {};
+  const metrics = data?.metrics || {};
+  const [selectedState, setSelectedState] = useState<string | null>(null);
 
   const fillForAbbr = (abbr: string): string => {
     const r = ratings[abbr];
     if (!r) return "hsl(var(--muted))";
     return interpolateColor(r);
   };
+
+  const selectedMetrics = selectedState ? metrics[selectedState] : null;
+  const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
 
   return (
     <Card>
@@ -232,12 +266,14 @@ export default function BeverlyHeatmapUsMap() {
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
+                          onClick={() => abbr && setSelectedState(abbr)}
                           style={{
                             default: {
                               fill: fillColor,
                               stroke: "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
+                              cursor: "pointer",
                             },
                             hover: {
                               fill: fillColor,
@@ -259,12 +295,14 @@ export default function BeverlyHeatmapUsMap() {
                             y={0}
                             transform={`translate(${centroid[0]}, ${centroid[1]})`}
                             textAnchor="middle"
+                            onClick={() => setSelectedState(abbr)}
                             style={{
                               fontFamily: "inherit",
                               fontSize: 10,
                               fontWeight: 600,
                               fill: labelFill,
-                              pointerEvents: "none",
+                              pointerEvents: "auto",
+                              cursor: "pointer",
                             }}
                           >
                             {hasRating ? `${abbr} ${rating}` : abbr}
@@ -278,6 +316,70 @@ export default function BeverlyHeatmapUsMap() {
           </ComposableMap>
         </div>
       </CardContent>
+
+      <Dialog open={!!selectedState} onOpenChange={(o) => !o && setSelectedState(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedState} — {direction === "inbound" ? "Inbound" : "Outbound"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedMetrics ? (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rating</span>
+                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedMetrics.rating) }}>
+                  {selectedMetrics.rating}/10
+                </span>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Based on (in order of importance):
+                </div>
+                <div className="flex justify-between">
+                  <span>1. Number of loads</span>
+                  <span className="font-medium">{fmtNum(selectedMetrics.count)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>2. RPM (loaded)</span>
+                  <span className="font-medium">${selectedMetrics.rpm.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>3. DH miles per load</span>
+                  <span className="font-medium">{fmtNum(selectedMetrics.dhPerLoad, 1)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>4. Avg gross per load</span>
+                  <span className="font-medium">{fmtMoney(selectedMetrics.avgGross)}</span>
+                </div>
+              </div>
+              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Total freight</span>
+                  <span>{fmtMoney(selectedMetrics.totalFreight)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total loaded miles</span>
+                  <span>{fmtNum(selectedMetrics.totalLoadedMiles)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total DH miles</span>
+                  <span>{fmtNum(selectedMetrics.totalDhMiles)}</span>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground pt-2 border-t">
+                {direction === "inbound"
+                  ? "Loads delivered to this state (pickup in last + current week)."
+                  : "Loads picked up in this state (last + current week)."}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground py-4">
+              No loads {direction === "inbound" ? "delivered to" : "picked up in"} {selectedState} in the last + current week.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
