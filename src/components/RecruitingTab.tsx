@@ -438,8 +438,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return false;
     }
     // Propagate base_salary to all later months when allowed (current, last, or future month edits).
-    if (pendingBasePropagation.current[row.user_id]) {
-      delete pendingBasePropagation.current[row.user_id];
+    const propKey = `${row.user_id}|${row.month}`;
+    if (pendingBasePropagation.current[propKey]) {
+      delete pendingBasePropagation.current[propKey];
       if (canPropagateBaseSalary(row.month)) {
         const { error: propErr } = await supabase
           .from("recruiter_salary_payments" as any)
@@ -449,6 +450,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         if (propErr) {
           toast.error("Failed to propagate base salary: " + propErr.message);
         } else {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments"] });
           queryClient.invalidateQueries({ queryKey: ["recruiter-prior-base-salaries"] });
         }
       }
@@ -487,15 +489,20 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   };
 
   const scheduleSave = (userId: string, delay = 200) => {
-    const existing = saveTimers.current[userId];
+    // Capture the row's month NOW so the save targets the edited month,
+    // even if the user switches to another month before the debounce fires.
+    const snapshot = rowsRef.current[userId];
+    const month = snapshot?.month;
+    if (!month) return;
+    const timerKey = `${userId}|${month}`;
+    const existing = saveTimers.current[timerKey];
     if (existing) clearTimeout(existing);
-    saveTimers.current[userId] = setTimeout(async () => {
-      delete saveTimers.current[userId];
+    saveTimers.current[timerKey] = setTimeout(async () => {
+      delete saveTimers.current[timerKey];
       const latest = rowsRef.current[userId];
-      if (latest) {
-        const ok = await saveRow(latest);
-        if (ok) lastSavedAt.current[userId] = Date.now();
-      }
+      const toSave = latest && latest.month === month ? latest : snapshot;
+      const ok = await saveRow(toSave);
+      if (ok) lastSavedAt.current[userId] = Date.now();
     }, delay);
   };
 
@@ -640,8 +647,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                             }
                             setBaseSalaryEditing((prev) => ({ ...prev, [r.user_id]: raw }));
                             const num = raw === "" || raw === "." ? 0 : Number(raw) || 0;
-                            if (rowsRef.current[r.user_id]?.base_salary !== num) {
-                              pendingBasePropagation.current[r.user_id] = true;
+                            const curRow = rowsRef.current[r.user_id];
+                            if (curRow && curRow.base_salary !== num) {
+                              pendingBasePropagation.current[`${r.user_id}|${curRow.month}`] = true;
                             }
                             updateField(r.user_id, { base_salary: num });
                           }}
