@@ -4825,6 +4825,7 @@ export type Database = {
           truck_number: string
         }[]
       }
+      get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
       has_any_role: {
         Args: { roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
