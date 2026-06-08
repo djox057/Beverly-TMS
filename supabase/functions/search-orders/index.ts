@@ -301,6 +301,7 @@ Deno.serve(async (req) => {
 
     // Order and paginate
     query = query
+      .order("locked", { ascending: true })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
